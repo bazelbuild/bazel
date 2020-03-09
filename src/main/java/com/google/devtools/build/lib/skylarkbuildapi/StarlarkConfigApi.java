@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * The "config" module of the Build API.
@@ -46,11 +46,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "    build_setting = config.int(flag = True),\n"
             + "    ...\n"
             + "  )</pre>")
-public interface StarlarkConfigApi extends SkylarkValue {
+public interface StarlarkConfigApi extends StarlarkValue {
 
-  static final String FLAG_ARG = "flag";
-  static final String FLAG_ARG_DOC =
-      "Whether or not this build setting is callable on the command line.";
+  String FLAG_ARG = "flag";
+  String FLAG_ARG_DOC = "Whether or not this build setting is callable on the command line.";
 
   @SkylarkCallable(
       name = "int",
@@ -116,5 +115,5 @@ public interface StarlarkConfigApi extends SkylarkValue {
           "The descriptor for a single piece of configuration information. If configuration is a "
               + "key-value map of settings like {'cpu': 'ppc', 'copt': '-DFoo'}, this describes a "
               + "single entry in that map.")
-  interface BuildSettingApi extends SkylarkValue {}
+  interface BuildSettingApi extends StarlarkValue {}
 }

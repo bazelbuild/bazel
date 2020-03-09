@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
@@ -33,6 +34,7 @@ import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +54,9 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -91,14 +95,11 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** A client for the remote execution service. */
 @ThreadSafe
 public class RemoteSpawnRunner implements SpawnRunner {
-
-  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
 
   private static final String VIOLATION_TYPE_MISSING = "MISSING";
 
@@ -136,7 +137,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final Path execRoot;
   private final RemoteOptions remoteOptions;
   private final ExecutionOptions executionOptions;
-  private final AtomicReference<SpawnRunner> fallbackRunner;
   private final boolean verboseFailures;
 
   @Nullable private final Reporter cmdlineReporter;
@@ -161,7 +161,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
       Path execRoot,
       RemoteOptions remoteOptions,
       ExecutionOptions executionOptions,
-      AtomicReference<SpawnRunner> fallbackRunner,
       boolean verboseFailures,
       @Nullable Reporter cmdlineReporter,
       String buildRequestId,
@@ -175,7 +174,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
-    this.fallbackRunner = fallbackRunner;
     this.remoteCache = Preconditions.checkNotNull(remoteCache, "remoteCache");
     this.remoteExecutor = Preconditions.checkNotNull(remoteExecutor, "remoteExecutor");
     this.verboseFailures = verboseFailures;
@@ -213,7 +211,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     Command command =
         buildCommand(
-            spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
+            spawn.getOutputFiles(),
+            spawn.getArguments(),
+            spawn.getEnvironment(),
+            platform,
+            /* workingDirectory= */ null);
     Digest commandHash = digestUtil.compute(command);
     Action action =
         buildAction(
@@ -284,7 +286,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
                 additionalInputs.put(actionKey.getDigest(), action);
                 additionalInputs.put(commandHash, command);
-                remoteCache.ensureInputsPresent(merkleTree, additionalInputs, execRoot);
+                remoteCache.ensureInputsPresent(merkleTree, additionalInputs);
               }
               ExecuteResponse reply;
               try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
@@ -370,7 +372,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
     }
-    for (ActionInput actionInput : spawn.getInputFiles()) {
+    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
       if (actionInput instanceof ParamFileActionInput) {
         ParamFileActionInput paramFileActionInput = (ParamFileActionInput) actionInput;
         Path outputPath = execRoot.getRelative(paramFileActionInput.getExecPath());
@@ -413,7 +415,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   private SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
-    return fallbackRunner.get().exec(spawn, context);
+    RemoteLocalFallbackRegistry localFallbackRegistry =
+        context.getContext(RemoteLocalFallbackRegistry.class);
+    checkNotNull(localFallbackRegistry, "Expected a RemoteLocalFallbackRegistry to be registered");
+    AbstractSpawnStrategy remoteLocalFallbackStrategy =
+        localFallbackRegistry.getRemoteLocalFallbackStrategy();
+    checkNotNull(
+        remoteLocalFallbackStrategy,
+        "A remote local fallback strategy must be set if using remote fallback.");
+    return remoteLocalFallbackStrategy.getSpawnRunner().exec(spawn, context);
   }
 
   private SpawnResult execLocallyAndUploadOrFail(
@@ -460,7 +470,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         return new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(Status.TIMEOUT)
-            .setExitCode(POSIX_TIMEOUT_EXIT_CODE)
+            .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
             .build();
       }
     } else if (exception.getCause() instanceof DownloadException) {
@@ -511,7 +521,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
-      @Nullable Platform platform) {
+      @Nullable Platform platform,
+      @Nullable String workingDirectory) {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
@@ -536,6 +547,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
     TreeSet<String> variables = new TreeSet<>(env.keySet());
     for (String var : variables) {
       command.addEnvironmentVariablesBuilder().setName(var).setValue(env.get(var));
+    }
+
+    if (!Strings.isNullOrEmpty(workingDirectory)) {
+      command.setWorkingDirectory(workingDirectory);
     }
     return command.build();
   }

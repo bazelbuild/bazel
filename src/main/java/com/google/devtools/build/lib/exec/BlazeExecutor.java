@@ -16,14 +16,13 @@ package com.google.devtools.build.lib.exec;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
-import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * The Executor class provides a dynamic abstraction of the various actual primitive system
@@ -42,8 +41,7 @@ public final class BlazeExecutor implements Executor {
   private final Path execRoot;
   private final Clock clock;
   private final OptionsProvider options;
-
-  private final Map<Class<? extends ActionContext>, ActionContext> contextMap;
+  private final ActionContext.ActionContextRegistry actionContextRegistry;
 
   /**
    * Constructs an Executor, bound to a specified output base path, and which will use the specified
@@ -62,9 +60,7 @@ public final class BlazeExecutor implements Executor {
       Reporter reporter,
       Clock clock,
       OptionsProvider options,
-      SpawnActionContextMaps spawnActionContextMaps,
-      Iterable<ActionContextProvider> contextProviders)
-      throws ExecutorInitException {
+      SpawnActionContextMaps spawnActionContextMaps) {
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
     this.verboseFailures = executionOptions.verboseFailures;
     this.showSubcommands = executionOptions.showSubcommands;
@@ -72,18 +68,13 @@ public final class BlazeExecutor implements Executor {
     this.execRoot = execRoot;
     this.clock = clock;
     this.options = options;
-    this.contextMap = spawnActionContextMaps.contextMap();
+    this.actionContextRegistry = spawnActionContextMaps;
 
     if (executionOptions.debugPrintActionContexts) {
       spawnActionContextMaps.debugPrintSpawnActionContextMaps(reporter);
     }
 
-    for (ActionContextProvider factory : contextProviders) {
-      factory.executorCreated(spawnActionContextMaps.allContexts());
-    }
-    for (ActionContext context : spawnActionContextMaps.allContexts()) {
-      context.executorCreated(spawnActionContextMaps.allContexts());
-    }
+    spawnActionContextMaps.notifyUsed();
   }
 
   @Override
@@ -107,8 +98,9 @@ public final class BlazeExecutor implements Executor {
   }
 
   @Override
-  public <T extends ActionContext> T getContext(Class<? extends T> type) {
-    return type.cast(contextMap.get(type));
+  @Nullable
+  public <T extends ActionContext> T getContext(Class<T> type) {
+    return actionContextRegistry.getContext(type);
   }
 
   /** Returns true iff the --verbose_failures option was enabled. */

@@ -420,7 +420,7 @@ EOF
   bazel query //badglob-bzl:BUILD >& "$TEST_log" && fail "Expected failure"
   local exit_code=$?
   assert_equals 7 "$exit_code"
-  expect_log "illegal argument in call to glob"
+  expect_log "recursive wildcard must be its own segment"
   expect_not_log "IllegalArgumentException"
 }
 

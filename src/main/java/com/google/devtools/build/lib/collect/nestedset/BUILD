@@ -4,17 +4,18 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    srcs = glob(["*"]),
 )
 
 # Library of collection utilities.
+
 java_library(
     name = "nestedset",
     srcs = [
         "NestedSet.java",
         "NestedSetBuilder.java",
         "NestedSetCodecWithStore.java",
+        "NestedSetExpander.java",
         "NestedSetStore.java",
         "NestedSetView.java",
         "NestedSetVisitor.java",
@@ -29,6 +30,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

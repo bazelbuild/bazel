@@ -37,7 +37,8 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
@@ -47,8 +48,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -60,6 +61,7 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
 @AutoCodec(checkClassExplicitlyAllowed = true)
+@Immutable // (and Starlark-hashable)
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /**
    * The name of the key for the 'actions' synthesized provider.
@@ -197,7 +199,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public String getErrorMessageForUnknownField(String name) {
-    return Printer.format(
+    return Starlark.format(
         "%r (rule '%s') doesn't have provider '%s'", this, getRuleClassString(), name);
   }
 
@@ -213,7 +215,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
     return providers.get(providerKey);
   }
 
@@ -231,12 +233,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<target " + getLabel() + ">");
   }
 
   @Override
-  public void debugPrint(SkylarkPrinter printer) {
+  public void debugPrint(Printer printer) {
     // Show the names of the provider keys that this target propagates.
     // Provider key names might potentially be *private* information, and thus a comprehensive
     // list of provider keys should not be exposed in any way other than for debug information.

@@ -19,11 +19,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
 
 /** Contextual information associated with each Starlark thread created by Bazel. */
-public class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRepoMapping {
+public final class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRepoMapping {
+
+  /** The phase to which this Starlark thread belongs. */
+  public enum Phase {
+    WORKSPACE,
+    LOADING,
+    ANALYSIS
+  }
 
   /** Return the Bazel information associated with the specified Starlark thread. */
   public static BazelStarlarkContext from(StarlarkThread thread) {
@@ -36,6 +44,7 @@ public class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRep
     thread.setThreadLocal(Label.HasRepoMapping.class, this);
   }
 
+  private final Phase phase;
   private final String toolsRepository;
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
   private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
@@ -43,6 +52,7 @@ public class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRep
   @Nullable private final Label analysisRuleLabel;
 
   /**
+   * @param phase the phase to which this Starlark thread belongs
    * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class
@@ -56,20 +66,28 @@ public class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRep
   // analysis, workspace, implicit outputs, computed defaults, etc), perhaps by splitting these into
   // separate structs, exactly one of which is populated (plus the common fields). And eliminate
   // SkylarkUtils.Phase.
+  // TODO(adonovan): move PackageFactory.PackageContext in here, for loading-phase threads.
   // TODO(adonovan): add a PackageIdentifier here, for use by the Starlark Label function.
   // TODO(adonovan): is there any reason not to put the entire RuleContext in this thread, for
   // analysis threads?
   public BazelStarlarkContext(
+      Phase phase,
       String toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping,
       SymbolGenerator<?> symbolGenerator,
       @Nullable Label analysisRuleLabel) {
+    this.phase = phase;
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
     this.repoMapping = repoMapping;
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
     this.analysisRuleLabel = analysisRuleLabel;
+  }
+
+  /** Returns the phase to which this Starlark thread belongs. */
+  public Phase getPhase() {
+    return phase;
   }
 
   /** Returns the name of the tools repository, such as "@bazel_tools". */
@@ -104,5 +122,29 @@ public class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRep
   @Nullable
   public Label getAnalysisRuleLabel() {
     return analysisRuleLabel;
+  }
+
+  /**
+   * Checks that the Starlark thread is in the loading or the workspace phase.
+   *
+   * @param function name of a function that requires this check
+   */
+  public void checkLoadingOrWorkspacePhase(String function) throws EvalException {
+    if (phase == Phase.ANALYSIS) {
+      throw new EvalException(
+          null, "'" + function + "' cannot be called during the analysis phase");
+    }
+  }
+
+  /**
+   * Checks that the current StarlarkThread is in the loading phase.
+   *
+   * @param function name of a function that requires this check
+   */
+  public void checkLoadingPhase(String function) throws EvalException {
+    if (phase != Phase.LOADING) {
+      throw new EvalException(
+          null, "'" + function + "' can only be called during the loading phase");
+    }
   }
 }

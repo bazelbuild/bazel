@@ -92,7 +92,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   public abstract FileContentsProxy getContentsProxy();
 
   @Nullable
-  @Override
   public BigInteger getValueFingerprint() {
     byte[] digest = getDigest();
     if (digest != null) {

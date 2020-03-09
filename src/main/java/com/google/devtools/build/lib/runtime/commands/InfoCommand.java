@@ -34,7 +34,6 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -107,9 +106,6 @@ public class InfoCommand implements BlazeCommand {
       return exitCode;
     }
   }
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) { }
 
   @Override
   public BlazeCommandResult exec(

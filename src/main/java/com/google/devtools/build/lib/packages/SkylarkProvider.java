@@ -14,16 +14,18 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.SkylarkInfo.Layout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -36,25 +38,26 @@ import javax.annotation.Nullable;
  *
  * <p>{@code SkylarkProvider}s may be either schemaless or schemaful. Instances of schemaless
  * providers can have any set of fields on them, whereas instances of schemaful providers may have
- * only the fields that are named in the schema. Schemaful provider instances are more space
- * efficient since they do not use maps; see {@link SkylarkInfo}.
+ * only the fields that are named in the schema.
  *
  * <p>Exporting a {@code SkylarkProvider} creates a key that is used to uniquely identify it.
  * Usually a provider is exported by calling {@link #export}, but a test may wish to just create a
  * pre-exported provider directly. Exported providers use only their key for {@link #equals} and
  * {@link #hashCode}.
  */
-public class SkylarkProvider extends ProviderFromFunction implements SkylarkExportable {
+public final class SkylarkProvider extends BaseFunction implements SkylarkExportable, Provider {
 
   /** Default value for {@link #errorMessageFormatForUnknownField}. */
   private static final String DEFAULT_ERROR_MESSAGE_FORMAT = "Object has no '%s' attribute.";
 
-  /**
-   * For schemaful providers, a layout describing the allowed fields and their order in an
-   * array-based representation. For schemaless providers, null.
-   */
-  @Nullable
-  private final Layout layout;
+  private final Location location;
+  private final FunctionSignature signature;
+
+  /** For schemaful providers, the sorted list of allowed field names. */
+  // (The requirement for sortedness comes from SkylarkInfo.fromSortedFieldList,
+  // as it permits it to use the same list of names both to interpret the
+  // call arguments and to populate the SkylarkInfo.table without temporaries.)
+  @Nullable private final ImmutableList<String> fields;
 
   /** Null iff this provider has not yet been exported. */
   @Nullable
@@ -80,15 +83,15 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
    *
    * <p>The resulting object needs to be exported later (via {@link #export}).
    *
-   * @param fields a list of allowed field names for instances of this provider, in some canonical
-   *     order
+   * @param fields the allowed field names for instances of this provider
    * @param location the location of the Skylark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
+  // TODO(adonovan): in what sense is this "schemaful" if fields is null?
   public static SkylarkProvider createUnexportedSchemaful(
-      Iterable<String> fields, Location location) {
+      @Nullable Collection<String> fields, Location location) {
     return new SkylarkProvider(
-        /*key=*/ null, fields == null ? null : ImmutableList.copyOf(fields), location);
+        /*key=*/ null, fields == null ? null : ImmutableList.sortedCopyOf(fields), location);
   }
 
   /**
@@ -106,14 +109,15 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
    * Creates an exported {@link SkylarkProvider} with no schema.
    *
    * @param key the key that identifies this provider
-   * @param fields a list of allowed field names for instances of this provider, in some canonical
-   *     order
+   * @param fields the allowed field names for instances of this provider
    * @param location the location of the Skylark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
+  // TODO(adonovan): in what sense is this "schemaful" if fields is null?
   public static SkylarkProvider createExportedSchemaful(
-      SkylarkKey key, Iterable<String> fields, Location location) {
-    return new SkylarkProvider(key, fields == null ? null : ImmutableList.copyOf(fields), location);
+      SkylarkKey key, @Nullable Collection<String> fields, Location location) {
+    return new SkylarkProvider(
+        key, fields == null ? null : ImmutableList.sortedCopyOf(fields), location);
   }
 
   /**
@@ -124,33 +128,50 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
    */
   private SkylarkProvider(
       @Nullable SkylarkKey key, @Nullable ImmutableList<String> fields, Location location) {
-    // We override getName() in order to use the name that is assigned when export() is called.
-    // Hence BaseFunction's constructor gets a null name.
-    super(/*name=*/ null, buildSignature(fields), location);
-    this.layout = fields == null ? null : new Layout(fields);
+    this.signature = buildSignature(fields);
+    this.location = location;
+    this.fields = fields;
     this.key = key;  // possibly null
     this.errorMessageFormatForUnknownField =
         key == null ? DEFAULT_ERROR_MESSAGE_FORMAT
             : makeErrorMessageFormatForUnknownField(key.getExportedName());
   }
 
-  private static FunctionSignature buildSignature(@Nullable Iterable<String> fields) {
+  @Override
+  public FunctionSignature getSignature() {
+    return signature;
+  }
+
+  private static FunctionSignature buildSignature(@Nullable ImmutableList<String> fields) {
     return fields == null
         ? FunctionSignature.KWARGS // schemaless
-        : FunctionSignature.namedOnly(0, ImmutableList.copyOf(fields).toArray(new String[0]));
+        : FunctionSignature.namedOnly(0, fields.toArray(new String[0]));
   }
 
   @Override
-  protected SkylarkInfo createInstanceFromSkylark(
-      Object[] args, StarlarkThread thread, Location loc) {
-    if (layout == null) {
+  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+      throws EvalException, InterruptedException {
+    // TODO(adonovan): we can likely come up with a more efficient implementation
+    // ...then make matchSignature private again?
+    Object[] arguments =
+        Starlark.matchSignature(
+            signature, this, /*defaults=*/ null, thread.mutability(), positional, named);
+    Location loc = thread.getCallerLocation();
+    if (fields == null) {
+      // provider(**kwargs)
       @SuppressWarnings("unchecked")
-      Map<String, Object> kwargs = (Map<String, Object>) args[0];
-      return SkylarkInfo.createSchemaless(this, kwargs, loc);
+      Map<String, Object> kwargs = (Map<String, Object>) arguments[0];
+      return SkylarkInfo.create(this, kwargs, loc);
     } else {
-      // Note: This depends on the layout map using the same ordering as args.
-      return SkylarkInfo.createSchemaful(this, layout, args, loc);
+      // provider(a=..., b=..., ...)
+      // The order of args is determined by the signature: that is, fields, which is sorted.
+      return SkylarkInfo.fromSortedFieldList(this, fields, arguments, loc);
     }
+  }
+
+  @Override
+  public Location getLocation() {
+    return location;
   }
 
   @Override
@@ -174,25 +195,10 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
     return getName();
   }
 
-  /**
-   * Returns the list of fields used to define this provider, or null if the provider is schemaless.
-   *
-   * <p>Note: In the future, this method may be replaced by one that returns more detailed schema
-   * information (if/when the allowed schemas for structs become more complex).
-   */
+  /** Returns the list of fields allowed by this provider, or null if the provider is schemaless. */
   @Nullable
   public ImmutableList<String> getFields() {
-    if (layout == null) {
-      return null;
-    }
-    return ImmutableList.copyOf(layout.getFields());
-  }
-
-  /** Returns the layout, or null if the provider is schemaless. */
-  @VisibleForTesting
-  @Nullable
-  Layout getLayout() {
-    return layout;
+    return fields;
   }
 
   @Override
@@ -208,7 +214,7 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
   }
 
   private static String makeErrorMessageFormatForUnknownField(String exportedName) {
-    return String.format("'%s' object has no attribute '%%s'", exportedName);
+    return String.format("'%s' value has no field or method '%%s'", exportedName);
   }
 
   @Override
@@ -240,7 +246,7 @@ public class SkylarkProvider extends ProviderFromFunction implements SkylarkExpo
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<provider>");
   }
 

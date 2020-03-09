@@ -15,14 +15,13 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -33,11 +32,11 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -82,14 +81,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * <p>If the "tools" set does not contain exactly the right set of artifacts, the following can
    * happen: If an artifact that should be included is missing, the tool might not be restarted when
    * it should, and builds can become incorrect (example: The compiler binary is not part of this
-   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version).
-   * If an artifact that should *not* be included is accidentally part of this set, the worker
-   * process will be restarted more often that is necessary - e.g. if a file that is unique to each
-   * unit of work, e.g. the source code that a compiler should compile for a compile action, is
-   * part of this set, then the worker will never be reused and will be restarted for each unit of
-   * work.
+   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version). If
+   * an artifact that should *not* be included is accidentally part of this set, the worker process
+   * will be restarted more often that is necessary - e.g. if a file that is unique to each unit of
+   * work, e.g. the source code that a compiler should compile for a compile action, is part of this
+   * set, then the worker will never be reused and will be restarted for each unit of work.
    */
-  private final Iterable<Artifact> tools;
+  private final NestedSet<Artifact> tools;
 
   @GuardedBy("this")
   private boolean inputsDiscovered = false;  // Only used when discoversInputs() returns true
@@ -97,22 +95,18 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   @GuardedBy("this")
   @VisibleForSerialization
-  protected Iterable<Artifact> inputs;
+  protected NestedSet<Artifact> inputs;
 
   protected final ActionEnvironment env;
   private final RunfilesSupplier runfilesSupplier;
   @VisibleForSerialization protected final ImmutableSet<Artifact> outputs;
 
-  /**
-   * Construct an abstract action with the specified inputs and outputs;
-   */
+  /** Construct an abstract action with the specified inputs and outputs; */
   protected AbstractAction(
-      ActionOwner owner,
-      Iterable<Artifact> inputs,
-      Iterable<Artifact> outputs) {
+      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
     this(
         owner,
-        /*tools = */ImmutableList.of(),
+        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -121,12 +115,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   protected AbstractAction(
       ActionOwner owner,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
       ActionEnvironment env) {
     this(
         owner,
-        /*tools = */ImmutableList.of(),
+        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -135,15 +129,15 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   protected AbstractAction(
       ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Iterable<? extends Artifact> outputs,
       ActionEnvironment env) {
     Preconditions.checkNotNull(owner);
     this.owner = owner;
-    this.tools = CollectionUtils.makeImmutable(tools);
-    this.inputs = CollectionUtils.makeImmutable(inputs);
+    this.tools = tools;
+    this.inputs = inputs;
     this.env = Preconditions.checkNotNull(env);
     this.outputs = ImmutableSet.copyOf(outputs);
     this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier);
@@ -176,25 +170,25 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   /**
    * Run input discovery on the action.
    *
-   * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of
-   * input artifacts that were not known at analysis time. May also call
-   * {@link #updateInputs(Iterable<Artifact>)}; if it doesn't, the action itself must arrange for
-   * the newly discovered artifacts to be available during action execution, probably by keeping
-   * state in the action instance and using a custom action execution context and for
-   * {@code #updateInputs()} to be called during the execution of the action.
+   * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of input
+   * artifacts that were not known at analysis time. May also call {@link
+   * #updateInputs(NestedSet<Artifact>)}; if it doesn't, the action itself must arrange for the
+   * newly discovered artifacts to be available during action execution, probably by keeping state
+   * in the action instance and using a custom action execution context and for {@code
+   * #updateInputs()} to be called during the execution of the action.
    *
    * <p>Since keeping state within an action bad, don't do that unless there is a very good reason
    * to do so.
    */
   @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
         + " since it does not discover inputs");
   }
 
   @Override
-  public Iterable<Artifact> getAllowedDerivedInputs() {
+  public NestedSet<Artifact> getAllowedDerivedInputs() {
     throw new IllegalStateException(
         "Method must be overridden for actions that may have unknown inputs.");
   }
@@ -210,23 +204,21 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * itself when an action is loaded from the on-disk action cache.
    */
   @Override
-  public synchronized void updateInputs(Iterable<Artifact> inputs) {
+  public synchronized void updateInputs(NestedSet<Artifact> inputs) {
     Preconditions.checkState(
         discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
-    this.inputs = CollectionUtils.makeImmutable(inputs);
+    this.inputs = inputs;
     inputsDiscovered = true;
   }
 
   @Override
-  public Iterable<Artifact> getTools() {
+  public NestedSet<Artifact> getTools() {
     return tools;
   }
 
-  /**
-   * Should not be overridden (it's non-final only for tests)
-   */
+  /** Should not be overridden (it's non-final only for tests) */
   @Override
-  public synchronized Iterable<Artifact> getInputs() {
+  public synchronized NestedSet<Artifact> getInputs() {
     return inputs;
   }
 
@@ -253,7 +245,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   public Artifact getPrimaryInput() {
     // The default behavior is to return the first input artifact.
     // Call through the method, not the field, because it may be overridden.
-    return Iterables.getFirst(getInputs(), null);
+    return Iterables.getFirst(getInputs().toList(), null);
   }
 
   @Override
@@ -264,15 +256,21 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     return getInputs();
   }
 
   @Override
   public String toString() {
-    return prettyPrint() + " (" + getMnemonic() + "[" + ImmutableList.copyOf(getInputs())
+    return prettyPrint()
+        + " ("
+        + getMnemonic()
+        + "["
+        + getInputs().toList()
         + (inputsDiscovered() ? " -> " : ", unknown inputs -> ")
-        + getOutputs() + "]" + ")";
+        + getOutputs()
+        + "]"
+        + ")";
   }
 
   @Override
@@ -336,7 +334,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append(prettyPrint()); // TODO(bazel-team): implement a readable representation
   }
 
@@ -397,7 +395,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       EventHandler eventHandler, MetadataProvider metadataProvider) throws IOException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
-    for (Artifact input : getMandatoryInputs()) {
+    for (Artifact input : getMandatoryInputs().toList()) {
       // Assume that if the file did not exist, we would not have gotten here.
       if (input.isSourceArtifact() && metadataProvider.getMetadata(input).getType().isDirectory()) {
         // TODO(ulfjack): What about dependency checking of special files?
@@ -503,41 +501,38 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * Returns input files that need to be present to allow extra_action rules to shadow this action
    * correctly when run remotely. This is at least the normal inputs of the action, but may include
    * other files as well. For example C(++) compilation may perform include file header scanning.
-   * This needs to be mirrored by the extra_action rule. Called by
-   * {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions
-   * that return true for {link #discoversInputs()}.
+   * This needs to be mirrored by the extra_action rule. Called by {@link
+   * com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions that
+   * return true for {link #discoversInputs()}.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
-   * @throws ActionExecutionException only when code called from this method
-   *     throws that exception.
+   * @throws ActionExecutionException only when code called from this method throws that exception.
    * @throws InterruptedException if interrupted
    */
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
+  public NestedSet<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    return ImmutableList.of();
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkInputs() {
-    return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, getInputs()));
+  public Depset getSkylarkInputs() {
+    return Depset.of(Artifact.TYPE, getInputs());
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkOutputs() {
-    return SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, getOutputs()));
+  public Depset getSkylarkOutputs() {
+    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
   }
 
   @Override
-  public SkylarkList<String> getSkylarkArgv() throws EvalException {
+  public Sequence<String> getSkylarkArgv() throws EvalException {
     return null;
   }
 
   @Override
-  public SkylarkList<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
     // Not all action types support returning Args.
     return null;
   }
@@ -548,13 +543,22 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public SkylarkDict<String, String> getSkylarkSubstitutions() {
+  public Dict<String, String> getSkylarkSubstitutions() {
     return null;
   }
 
   @Override
-  public SkylarkDict<String, String> getEnv() {
-    return SkylarkDict.copyOf(null, env.getFixedEnv().toMap());
+  public Dict<String, String> getExecutionInfoDict() {
+    Map<String, String> executionInfo = getExecutionInfo();
+    if (executionInfo == null) {
+      return null;
+    }
+    return Dict.copyOf(null, executionInfo);
+  }
+
+  @Override
+  public Dict<String, String> getEnv() {
+    return Dict.copyOf(null, env.getFixedEnv().toMap());
   }
 
   @Override

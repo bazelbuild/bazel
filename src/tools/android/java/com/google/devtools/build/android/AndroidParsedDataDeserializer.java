@@ -19,6 +19,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileSystem;
@@ -136,7 +137,10 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
         @SuppressWarnings("unchecked")
         KeyValueConsumer<DataKey, DataValue> value =
             (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
-        value.accept(entry.getKey(), DataValueFile.of(source));
+        value.accept(
+            entry.getKey(),
+            DataValueFile.of(
+                Visibility.UNKNOWN, source, /*fingerprint=*/ null, /*rootXmlNode=*/ null));
       }
     }
   }

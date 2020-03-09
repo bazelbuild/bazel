@@ -92,9 +92,9 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
           StarlarkThread.builder(mut)
               .useDefaultSemantics()
               .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
-              .build()
-              .update("foo", "bar")
-              .update("wiz", 3);
+              .build();
+      thread.getGlobals().put("foo", "bar");
+      thread.getGlobals().put("wiz", 3);
     }
 
     assertThat(thread.getVariableNames())
@@ -125,7 +125,6 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
                 "range",
                 "repr",
                 "reversed",
-                "select",
                 "sorted",
                 "str",
                 "tuple",
@@ -137,57 +136,58 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
   public void testBindToNullThrowsException() throws Exception {
     NullPointerException e =
         assertThrows(NullPointerException.class, () -> update("some_name", null));
-    assertThat(e).hasMessageThat().isEqualTo("trying to assign null to 'some_name'");
+    assertThat(e).hasMessageThat().isEqualTo("Module.put(some_name, null)");
   }
 
   @Test
   public void testFrozen() throws Exception {
-    StarlarkThread thread;
+    Module module;
     try (Mutability mutability = Mutability.create("testFrozen")) {
-      thread =
+      // TODO(adonovan): make it simpler to construct a module without a thread,
+      // and move this test to ModuleTest.
+      StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .useDefaultSemantics()
               .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
               .build();
-      thread.update("x", 1);
-      assertThat(thread.moduleLookup("x")).isEqualTo(1);
-      thread.update("y", 2);
-      assertThat(thread.moduleLookup("y")).isEqualTo(2);
-      assertThat(thread.moduleLookup("x")).isEqualTo(1);
-      thread.update("x", 3);
-      assertThat(thread.moduleLookup("x")).isEqualTo(3);
+      module = thread.getGlobals();
+      module.put("x", 1);
+      assertThat(module.lookup("x")).isEqualTo(1);
+      module.put("y", 2);
+      assertThat(module.lookup("y")).isEqualTo(2);
+      assertThat(module.lookup("x")).isEqualTo(1);
+      module.put("x", 3);
+      assertThat(module.lookup("x")).isEqualTo(3);
     }
-    try {
-      // This update to an existing variable should fail because the environment was frozen.
-      thread.update("x", 4);
-      throw new Exception("failed to fail"); // not an AssertionError like fail()
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().isEqualTo("Can't update x to 4 in frozen environment");
-    }
-    try {
-      // This update to a new variable should also fail because the environment was frozen.
-      thread.update("newvar", 5);
-      throw new Exception("failed to fail"); // not an AssertionError like fail()
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().isEqualTo("Can't update newvar to 5 in frozen environment");
-    }
+
+    // This update to an existing variable should fail because the environment was frozen.
+    Mutability.MutabilityException ex =
+        assertThrows(Mutability.MutabilityException.class, () -> module.put("x", 4));
+    assertThat(ex).hasMessageThat().isEqualTo("trying to mutate a frozen module");
+
+    // This update to a new variable should also fail because the environment was frozen.
+    ex = assertThrows(Mutability.MutabilityException.class, () -> module.put("newvar", 5));
+    assertThat(ex).hasMessageThat().isEqualTo("trying to mutate a frozen module");
   }
 
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
-    StarlarkThread thread = newStarlarkThreadWithSkylarkOptions();
-    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread);
-    assertThat(thread.moduleLookup("True")).isEqualTo(123);
+    StarlarkThread thread = newStarlarkThread();
+    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread.getGlobals(), thread);
+    assertThat(thread.getGlobals().lookup("True")).isEqualTo(123);
   }
 
   @Test
   public void testVariableIsReferencedBeforeAssignment() throws Exception {
-    StarlarkThread thread = newStarlarkThread().update("global_var", 666);
+    StarlarkThread thread = newStarlarkThread();
+    Module module = thread.getGlobals();
+    module.put("global_var", 666);
     try {
       EvalUtils.exec(
           ParserInput.fromLines(
               "def foo(x): x += global_var; global_var = 36; return x", //
               "foo(1)"),
+          module,
           thread);
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {
@@ -195,31 +195,6 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
           .hasMessageThat()
           .contains("local variable 'global_var' is referenced before assignment.");
     }
-  }
-
-  @Test
-  public void testVarOrderDeterminism() throws Exception {
-    Mutability parentMutability = Mutability.create("parent env");
-    StarlarkThread parentThread =
-        StarlarkThread.builder(parentMutability).useDefaultSemantics().build();
-    parentThread.update("a", 1);
-    parentThread.update("c", 2);
-    parentThread.update("b", 3);
-    Module parentFrame = parentThread.getGlobals();
-    parentMutability.freeze();
-    Mutability mutability = Mutability.create("testing");
-    StarlarkThread thread =
-        StarlarkThread.builder(mutability).useDefaultSemantics().setGlobals(parentFrame).build();
-    thread.update("x", 4);
-    thread.update("z", 5);
-    thread.update("y", 6);
-    // The order just has to be deterministic, but for definiteness this test spells out the exact
-    // order returned by the implementation: parent frame before current environment, and bindings
-    // within a frame ordered by when they were added.
-    assertThat(thread.getVariableNames()).containsExactly("a", "c", "b", "x", "z", "y").inOrder();
-    assertThat(thread.getGlobals().getTransitiveBindings())
-        .containsExactly("a", 1, "c", 2, "b", 3, "x", 4, "z", 5, "y", 6)
-        .inOrder();
   }
 
   @Test

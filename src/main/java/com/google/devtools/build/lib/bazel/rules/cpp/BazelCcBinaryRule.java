@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /** Rule definition for cc_binary rules. */
 public final class BazelCcBinaryRule implements RuleDefinition {
+
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder

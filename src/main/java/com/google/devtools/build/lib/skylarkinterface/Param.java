@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkinterface;
 
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -50,8 +48,8 @@ public @interface Param {
   String defaultValue() default "";
 
   /**
-   * Type of the parameter, e.g. {@link String}.class or
-   * {@link com.google.devtools.build.lib.syntax.SkylarkList}.class.
+   * Type of the parameter, e.g. {@link String}.class or {@link
+   * com.google.devtools.build.lib.syntax.Sequence}.class.
    */
   Class<?> type() default Object.class;
 
@@ -63,10 +61,10 @@ public @interface Param {
   ParamType[] allowedTypes() default {};
 
   /**
-   * When {@link #type()} is a generic type (e.g.,
-   * {@link com.google.devtools.build.lib.syntax.SkylarkList}), specify the type parameter (e.g.
-   * {@link String}.class} along with {@link com.google.devtools.build.lib.syntax.SkylarkList} for
-   * {@link #type()} to specify a list of strings).
+   * When {@link #type()} is a generic type (e.g., {@link
+   * com.google.devtools.build.lib.syntax.Sequence}), specify the type parameter (e.g. {@link
+   * String}.class} along with {@link com.google.devtools.build.lib.syntax.Sequence} for {@link
+   * #type()} to specify a list of strings).
    *
    * <p>This is only used for documentation generation. The actual generic type is not checked at
    * runtime, so the Java method signature should use a generic type of Object and cast
@@ -132,24 +130,24 @@ public @interface Param {
   boolean positional() default true;
 
   /**
-   * If not NONE, the annotated parameter will only be present if the given semantic flag is true.
+   * If non-empty, the annotated parameter will only be present if the given semantic flag is true.
    * (If the parameter is disabled, it may not be specified by a user, and the Java method will
    * always be invoked with the parameter set to its default value.)
    *
    * <p>Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
-   * non-NONE.
+   * non-empty.
    */
-  StarlarkSemantics.FlagIdentifier enableOnlyWithFlag() default FlagIdentifier.NONE;
+  String enableOnlyWithFlag() default "";
 
   /**
-   * If not NONE, the annotated parameter will only be present if the given semantic flag is false.
+   * If non-empty, the annotated parameter will only be present if the given semantic flag is false.
    * (If the parameter is disabled, it may not be specified by a user, and the Java method will
    * always be invoked with the parameter set to its default value.)
    *
    * <p>Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
-   * non-NONE.
+   * non-empty.
    */
-  StarlarkSemantics.FlagIdentifier disableWithFlag() default FlagIdentifier.NONE;
+  String disableWithFlag() default "";
 
   /**
    * Value for the parameter when the parameter is "disabled" based on semantic flags. (When the

@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyStarlarkTransitionsApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Exposes a native transition to Starlark for changing the Python version.
@@ -44,12 +44,12 @@ public final class PyStarlarkTransitions implements PyStarlarkTransitionsApi {
   public static final PyStarlarkTransitions INSTANCE = new PyStarlarkTransitions();
 
   @Override
-  public SkylarkValue getTransition() {
+  public StarlarkValue getTransition() {
     return StarlarkVersionTransition.INSTANCE;
   }
 
   private static class StarlarkVersionTransition
-      implements TransitionFactory<AttributeTransitionData>, SkylarkValue {
+      implements TransitionFactory<AttributeTransitionData>, StarlarkValue {
 
     private static final StarlarkVersionTransition INSTANCE = new StarlarkVersionTransition();
 
@@ -69,7 +69,7 @@ public final class PyStarlarkTransitions implements PyStarlarkTransitionsApi {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append("<py_transitions.cfg>");
     }
   }

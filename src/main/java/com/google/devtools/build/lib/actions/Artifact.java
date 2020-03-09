@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -40,7 +41,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
@@ -268,10 +269,6 @@ public abstract class Artifact
 
   private Artifact(ArtifactRoot root, PathFragment execPath, boolean contentBasedPath) {
     Preconditions.checkNotNull(root);
-    if (execPath.isEmpty()) {
-      throw new IllegalArgumentException(
-          "it is illegal to create an artifact with an empty execPath");
-    }
     // The ArtifactOwner is not part of this computation because it is very rare that two Artifacts
     // have the same execPath and different owners, so a collision is fine there. If this is
     // changed, OwnerlessArtifactWrapper must also be changed.
@@ -605,6 +602,11 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
+      // flag-less way of checking of the root is <execroot>/.., or sibling of __main__.
+      if (getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
+        return LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(getExecPath().subFragment(1));
+      }
+
       return getExecPath();
     }
 
@@ -963,6 +965,14 @@ public abstract class Artifact
    * Lazily converts artifacts into root-relative path strings. Middleman artifacts are ignored by
    * this method.
    */
+  public static Iterable<String> toRootRelativePaths(NestedSet<Artifact> artifacts) {
+    return toRootRelativePaths(artifacts.toList());
+  }
+
+  /**
+   * Lazily converts artifacts into root-relative path strings. Middleman artifacts are ignored by
+   * this method.
+   */
   public static Iterable<String> toRootRelativePaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
         Iterables.filter(artifacts, MIDDLEMAN_FILTER),
@@ -975,6 +985,17 @@ public abstract class Artifact
    */
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
     return ActionInputHelper.toExecPaths(Iterables.filter(artifacts, MIDDLEMAN_FILTER));
+  }
+
+  /**
+   * Converts a collection of artifacts into execution-time path strings, and returns those as an
+   * immutable list. Middleman artifacts are ignored by this method.
+   *
+   * <p>Avoid this method in production code - it flattens the given nested set unconditionally.
+   */
+  @VisibleForTesting
+  public static List<String> asExecPaths(NestedSet<Artifact> artifacts) {
+    return asExecPaths(artifacts.toList());
   }
 
   /**
@@ -1079,7 +1100,7 @@ public abstract class Artifact
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     if (isSourceArtifact()) {
       printer.append("<source file " + getRootRelativePathString() + ">");
     } else {

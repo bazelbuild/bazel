@@ -50,7 +50,7 @@ public class RunfilesSupplierImplTest {
     RunfilesSupplierImpl underTest =
         new RunfilesSupplierImpl(PathFragment.create("notimportant"), mkRunfiles(artifacts));
 
-    assertThat(underTest.getArtifacts()).containsExactlyElementsIn(artifacts);
+    assertThat(underTest.getArtifacts().toList()).containsExactlyElementsIn(artifacts);
   }
 
   @Test

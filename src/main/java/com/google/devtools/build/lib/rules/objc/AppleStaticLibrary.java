@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -99,7 +100,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             .add(ruleIntermediateArtifacts.combinedArchitectureArchive());
 
     ObjcProvider.Builder objcProviderBuilder =
-        new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
+        new ObjcProvider.NativeBuilder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
 
     ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersByConfig =
         ruleContext.getPrerequisitesByConfiguration(
@@ -116,7 +117,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
       Optional<ObjcProvider> protosObjcProvider;
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
-        Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childCpu);
+        Collection<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childCpu);
         ProtobufSupport protoSupport =
             new ProtobufSupport(
                     ruleContext,
@@ -145,7 +146,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               protosObjcProvider);
       ObjcProvider objcProvider =
           common
-              .getObjcProvider()
+              .getObjcProviderBuilder()
+              .build()
               .subtractSubtrees(
                   cpuToObjcAvoidDepsMap.get(childCpu),
                   cpuToCcAvoidDepsMap.get(childCpu).stream()
@@ -164,12 +166,9 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
       compilationSupport
           .registerCompileAndArchiveActions(
-              common.getCompilationArtifacts().get(), objcProvider, childToolchain)
+              common.getCompilationArtifacts().get(), ObjcCompilationContext.EMPTY)
           .registerFullyLinkAction(
-              objcProvider,
-              intermediateArtifacts.strippedSingleArchitectureLibrary(),
-              childToolchain,
-              childToolchain.getFdoContext())
+              objcProvider, intermediateArtifacts.strippedSingleArchitectureLibrary())
           .validateAttributes();
       ruleContext.assertNoErrors();
 
@@ -222,7 +221,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder().build();
 
-    return new ObjcCommon.Builder(ruleContext, buildConfiguration)
+    return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext, buildConfiguration)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setCompilationArtifacts(compilationArtifacts)

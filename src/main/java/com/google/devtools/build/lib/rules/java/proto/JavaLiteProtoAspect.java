@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.HOST_JAVA_RUNTIME_ATTRIBUTE_NAME;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -194,12 +192,10 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             aspectCommon.createJavaCompileAction(
                 "java_lite_proto_library", sourceJar, outputJar, dependencyCompilationArgs);
 
-        NestedSet<Artifact> javaSourceJars =
-            NestedSetBuilder.<Artifact>stableOrder().add(sourceJar).build();
         transitiveOutputJars.add(outputJar);
 
         Artifact compileTimeJar =
-            getOnlyElement(generatedCompilationArgsProvider.getDirectCompileTimeJars());
+            generatedCompilationArgsProvider.getDirectCompileTimeJars().getSingleton();
         // TODO(carmi): Expose to native rules
         JavaRuleOutputJarsProvider ruleOutputJarsProvider =
             JavaRuleOutputJarsProvider.builder()
@@ -211,7 +207,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                 .build();
         JavaSourceJarsProvider sourceJarsProvider =
             JavaSourceJarsProvider.create(
-                NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), javaSourceJars);
+                NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+                ImmutableList.of(sourceJar));
 
         aspect.addProvider(ruleOutputJarsProvider).addProvider(sourceJarsProvider);
         javaInfo.addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider);
@@ -246,7 +243,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                       aspectCommon.getProtoRuntimeDeps())));
     }
 
-    private void createProtoCompileAction(Artifact sourceJar) {
+    private void createProtoCompileAction(Artifact sourceJar) throws InterruptedException {
       ProtoCompileActionBuilder.registerActions(
           ruleContext,
           ImmutableList.of(

@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
@@ -36,17 +35,15 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     documented = false)
 public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructApi {
 
-  /**
-   * Name of this info object.
-   */
-  public static String NAME = "AndroidNativeLibsInfo";
+  /** Name of this info object. */
+  String NAME = "AndroidNativeLibsInfo";
 
   @SkylarkCallable(
       name = "native_libs",
       doc = "Returns the native libraries produced by the rule.",
       documented = false,
       structField = true)
-  NestedSet<FileT> getNativeLibs();
+  Depset /*<FileT>*/ getNativeLibsForStarlark();
 
   /** Provider for {@link AndroidNativeLibsInfoApi}. */
   @SkylarkModule(
@@ -55,7 +52,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface AndroidNativeLibsInfoApiProvider extends ProviderApi {
+  interface AndroidNativeLibsInfoApiProvider extends ProviderApi {
 
     @SkylarkCallable(
         name = "AndroidNativeLibsInfo",
@@ -64,13 +61,13 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
         parameters = {
           @Param(
               name = "native_libs",
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class,
               named = true,
               doc = "The native libraries produced by the rule."),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidNativeLibsInfoApi.class)
-    public AndroidNativeLibsInfoApi<?> createInfo(SkylarkNestedSet nativeLibs) throws EvalException;
+    AndroidNativeLibsInfoApi<?> createInfo(Depset nativeLibs) throws EvalException;
   }
 }

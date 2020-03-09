@@ -194,9 +194,6 @@ public class DumpCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(OptionsParser optionsParser) {}
-
-  @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     BlazeRuntime runtime = env.getRuntime();
     DumpOptions dumpOptions = options.getOptions(DumpOptions.class);
@@ -228,7 +225,7 @@ public class DumpCommand implements BlazeCommand {
     PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream());
     try {
       out.println("Warning: this information is intended for consumption by developers");
-      out.println("only, and may change at any time.  Script against it at your own risk!");
+      out.println("only, and may change at any time. Script against it at your own risk!");
       out.println();
       boolean success = true;
 

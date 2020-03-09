@@ -51,11 +51,13 @@ public final class GoogleAuthUtils {
    * @throws IOException in case the channel can't be constructed.
    */
   public static ManagedChannel newChannel(
-      String target, String proxy, AuthAndTLSOptions options, ClientInterceptor... interceptors)
+      String target,
+      String proxy,
+      AuthAndTLSOptions options,
+      @Nullable List<ClientInterceptor> interceptors)
       throws IOException {
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(options);
-    Preconditions.checkNotNull(interceptors);
 
     final SslContext sslContext =
         isTlsEnabled(target) ? createSSlContext(options.tlsCertificate) : null;
@@ -66,8 +68,10 @@ public final class GoogleAuthUtils {
       NettyChannelBuilder builder =
           newNettyChannelBuilder(targetUrl, proxy)
               .negotiationType(
-                  isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
-              .intercept(interceptors);
+                  isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
+      if (interceptors != null) {
+        builder.intercept(interceptors);
+      }
       if (sslContext != null) {
         builder.sslContext(sslContext);
         if (options.tlsAuthorityOverride != null) {

@@ -92,7 +92,8 @@ public final class NativeLibraryNestedSetBuilder {
   private void addTarget(TransitiveInfoCollection dep) {
     for (Artifact artifact :
         FileType.filterList(
-            dep.getProvider(FileProvider.class).getFilesToBuild(), CppFileTypes.SHARED_LIBRARY)) {
+            dep.getProvider(FileProvider.class).getFilesToBuild().toList(),
+            CppFileTypes.SHARED_LIBRARY)) {
       builder.add(
           LibraryToLink.builder()
               .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(artifact))

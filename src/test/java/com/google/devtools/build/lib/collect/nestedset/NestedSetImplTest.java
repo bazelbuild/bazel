@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -245,5 +246,33 @@ public class NestedSetImplTest {
       builder.addTransitive(new NestedSetBuilder<Integer>(transitiveOrder).add(transitive).build());
     }
     return builder.build();
+  }
+
+  @Test
+  public void hoistingKeepsSetSmall() {
+    NestedSet<String> first = NestedSetBuilder.<String>stableOrder().add("a").build();
+    NestedSet<String> second = NestedSetBuilder.<String>stableOrder().add("a").build();
+    NestedSet<String> singleton =
+        NestedSetBuilder.<String>stableOrder().addTransitive(first).addTransitive(second).build();
+    assertThat(singleton.toList()).containsExactly("a");
+    assertThat(singleton.isSingleton()).isTrue();
+  }
+
+  @Test
+  public void buildInterruptibly_propagatesInterrupt() {
+    NestedSet<String> deserialzingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    NestedSetBuilder<String> builder =
+        NestedSetBuilder.<String>stableOrder().addTransitive(deserialzingNestedSet).add("a");
+    Thread.currentThread().interrupt();
+    assertThrows(InterruptedException.class, builder::buildInterruptibly);
+  }
+
+  @Test
+  public void getChildrenInterruptibly_propagatesInterrupt() {
+    NestedSet<String> deserialzingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    Thread.currentThread().interrupt();
+    assertThrows(InterruptedException.class, deserialzingNestedSet::getChildrenInterruptibly);
   }
 }

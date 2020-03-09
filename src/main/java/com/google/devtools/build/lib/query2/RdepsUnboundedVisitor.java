@@ -104,8 +104,7 @@ class RdepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdep> {
     // need to filter out disallowed edges, but cannot do so before targetification occurs. This
     // means we may be wastefully visiting nodes via disallowed edges.
     ImmutableList.Builder<DepAndRdep> depAndRdepsToVisitBuilder = ImmutableList.builder();
-    env.graph
-        .getReverseDeps(uniqueValidRdeps)
+    env.getReverseDepLabelsOfLabels(uniqueValidRdeps)
         .entrySet()
         .forEach(
             reverseDepsEntry ->
@@ -113,7 +112,7 @@ class RdepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdep> {
                     Iterables.transform(
                         Iterables.filter(
                             reverseDepsEntry.getValue(),
-                            Predicates.and(SkyQueryEnvironment.IS_TTV, unfilteredUniverse)),
+                            Predicates.and(SkyQueryEnvironment.IS_LABEL, unfilteredUniverse)),
                         rdep -> new DepAndRdep(reverseDepsEntry.getKey(), rdep))));
 
     return new Visit(

@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import java.io.IOException;
 
-final class UnrecoverableHttpException extends IOException {
+/** Indicates an HTTP error that cannot be recovered from. */
+public final class UnrecoverableHttpException extends IOException {
   UnrecoverableHttpException(String message) {
     super(message);
   }

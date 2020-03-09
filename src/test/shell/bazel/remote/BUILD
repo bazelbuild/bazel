@@ -26,6 +26,9 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
         "//src/tools/remote:worker",
     ],
+    tags = [
+        "requires-network",
+    ],
 )
 
 sh_test(

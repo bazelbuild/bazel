@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Object with information about C++ rules. Every C++-related target should provide this. */
 @SkylarkModule(
@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
         "Provides access to information about C++ rules.  Every C++-related target provides this"
             + " struct, accessible as a <code>cc</code> field on <a"
             + " href=\"Target.html\">target</a>.")
-public interface CcSkylarkApiProviderApi<FileT extends FileApi> extends SkylarkValue {
+public interface CcSkylarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
       name = "transitive_headers",
@@ -39,7 +39,7 @@ public interface CcSkylarkApiProviderApi<FileT extends FileApi> extends SkylarkV
           "Returns a <a href=\"depset.html\">depset</a> of headers that have been declared in the "
               + " <code>src</code> or <code>headers</code> attribute"
               + "(possibly empty but never <code>None</code>).")
-  public NestedSet<FileT> getTransitiveHeaders();
+  public Depset /*<FileT>*/ getTransitiveHeadersForStarlark();
 
   @SkylarkCallable(
       name = "libs",
@@ -49,7 +49,7 @@ public interface CcSkylarkApiProviderApi<FileT extends FileApi> extends SkylarkV
               + "<code>FULLY STATIC</code> mode (<code>linkopts=[\"-static\"]</code>) or "
               + "<code>MOSTLY STATIC</code> mode (<code>linkstatic=1</code>) "
               + "(possibly empty but never <code>None</code>)")
-  public NestedSet<FileT> getLibraries();
+  public Depset /*<FileT>*/ getLibrariesForStarlark();
 
   @SkylarkCallable(
       name = "link_flags",

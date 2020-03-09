@@ -24,14 +24,13 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Bre
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Error;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseReason;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
+import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -235,9 +234,10 @@ final class ThreadHandler {
         throw new DebugRequestException(
             String.format("Thread %s is not paused or does not exist.", threadId));
       }
-      return thread.thread.listFrames(thread.location).stream()
+      return Debug.getCallStack(thread.thread).stream()
           .map(frame -> DebugEventHelper.getFrameProto(thread.objectMap, frame))
-          .collect(toImmutableList());
+          .collect(toImmutableList())
+          .reverse();
     }
   }
 
@@ -297,9 +297,9 @@ final class ThreadHandler {
     try {
       servicingEvalRequest.set(true);
 
-      ParserInput input = ParserInput.create(content, PathFragment.create("<debug eval>"));
-      Object x = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
-      return x != null ? x : Runtime.NONE;
+      ParserInput input = ParserInput.create(content, "<debug eval>");
+      Object x = EvalUtils.execAndEvalOptionalFinalExpression(input, thread.getGlobals(), thread);
+      return x != null ? x : Starlark.NONE;
     } finally {
       servicingEvalRequest.set(false);
     }

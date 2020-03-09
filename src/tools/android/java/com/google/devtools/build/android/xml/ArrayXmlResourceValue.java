@@ -16,6 +16,7 @@ package com.google.devtools.build.android.xml;
 import com.android.aapt.Resources.Array;
 import com.android.aapt.Resources.Array.Element;
 import com.android.aapt.Resources.Item;
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -30,11 +31,13 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 import javax.xml.namespace.QName;
@@ -89,15 +92,24 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
     }
   }
 
+  private final Visibility visibility;
+  private final Array array;
+  // TODO(b/112848607): remove the weakly-typed "values" member in favor of "array" above.
   private final ImmutableList<String> values;
   private final ArrayType arrayType;
   private final ImmutableMap<String, String> attributes;
 
   private ArrayXmlResourceValue(
-      ArrayType arrayType, ImmutableList<String> values, ImmutableMap<String, String> attributes) {
+      Visibility visibility,
+      Array array,
+      ArrayType arrayType,
+      List<String> values,
+      Map<String, String> attributes) {
+    this.visibility = visibility;
+    this.array = array;
     this.arrayType = arrayType;
-    this.values = values;
-    this.attributes = attributes;
+    this.values = ImmutableList.copyOf(values);
+    this.attributes = ImmutableMap.copyOf(attributes);
   }
 
   @VisibleForTesting
@@ -111,7 +123,8 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
 
   public static XmlResourceValue of(
       ArrayType arrayType, List<String> values, ImmutableMap<String, String> attributes) {
-    return new ArrayXmlResourceValue(arrayType, ImmutableList.copyOf(values), attributes);
+    return new ArrayXmlResourceValue(
+        Visibility.UNKNOWN, Array.getDefaultInstance(), arrayType, values, attributes);
   }
 
   @SuppressWarnings("deprecation")
@@ -122,7 +135,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
         ImmutableMap.copyOf(proto.getAttribute()));
   }
 
-  public static XmlResourceValue from(Value proto) {
+  public static XmlResourceValue from(Value proto, Visibility visibility) {
     Array array = proto.getCompoundValue().getArray();
     List<String> items = new ArrayList<>();
 
@@ -130,8 +143,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
       Item item = entry.getItem();
 
       if (item.hasPrim()) {
-        String stringValue = "#" + Integer.toHexString(item.getPrim().getData());
-        items.add(stringValue);
+        items.add(SimpleXmlResourceValue.convertPrimitiveToString(item.getPrim()));
       } else if (item.hasRef()) {
         items.add("@" + item.getRef().getName());
       } else if (item.hasStr()) {
@@ -139,10 +151,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
       }
     }
 
-    return of(
-        ArrayType.ARRAY,
-        items,
-        ImmutableMap.of());
+    return new ArrayXmlResourceValue(visibility, array, ArrayType.ARRAY, items, ImmutableMap.of());
   }
 
   @Override
@@ -182,7 +191,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
 
   @Override
   public int hashCode() {
-    return Objects.hash(arrayType, values, attributes);
+    return Objects.hash(visibility, arrayType, values, attributes);
   }
 
   @Override
@@ -191,7 +200,9 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
       return false;
     }
     ArrayXmlResourceValue other = (ArrayXmlResourceValue) obj;
-    return Objects.equals(arrayType, other.arrayType)
+    return Objects.equals(visibility, other.visibility)
+        // TODO(b/112848607): include the "array" proto in comparison; right now it's redundant.
+        && Objects.equals(arrayType, other.arrayType)
         && Objects.equals(values, other.values)
         && Objects.equals(attributes, other.attributes);
   }
@@ -218,7 +229,7 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   @Override
   public void writeResourceToClass(
       DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptSimpleResource(dependencyInfo, key.type(), key.name());
+    sink.acceptSimpleResource(dependencyInfo, visibility, key.type(), key.name());
   }
 
   public static XmlResourceValue parseArray(
@@ -252,5 +263,18 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return visibility;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return array.getElementList().stream()
+        .filter(element -> element.getItem().hasRef())
+        .map(element -> element.getItem().getRef())
+        .collect(ImmutableList.toImmutableList());
   }
 }

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Configuration fragment for Android rules. */
 @SkylarkModule(
@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "A configuration fragment for Android.",
     documented = false,
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
-public interface AndroidConfigurationApi extends SkylarkValue {
+public interface AndroidConfigurationApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "android_cpu",
@@ -69,7 +69,7 @@ public interface AndroidConfigurationApi extends SkylarkValue {
   boolean apkSigningMethodV1();
 
   @SkylarkCallable(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
-  boolean apkSigningMethodV2();;
+  boolean apkSigningMethodV2();
 
   @SkylarkCallable(
       name = "assume_min_sdk_version",

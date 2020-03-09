@@ -42,20 +42,20 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Location;
@@ -63,7 +63,8 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -80,8 +81,7 @@ import javax.annotation.Nullable;
 /** Action that represents a Java compilation. */
 @ThreadCompatible
 @Immutable
-public class JavaCompileAction extends AbstractAction
-    implements ExecutionInfoSpecifier, CommandAction {
+public class JavaCompileAction extends AbstractAction implements CommandAction {
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpuUsage= */ 1);
   private static final UUID GUID = UUID.fromString("e423747c-2827-49e6-b961-f6c08c10bb51");
@@ -131,7 +131,7 @@ public class JavaCompileAction extends AbstractAction
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> directJars,
-      NestedSet<Artifact> outputs,
+      ImmutableSet<Artifact> outputs,
       ImmutableMap<String, String> executionInfo,
       ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
@@ -143,7 +143,10 @@ public class JavaCompileAction extends AbstractAction
     super(
         owner,
         tools,
-        IterablesChain.concat(mandatoryInputs, transitiveInputs),
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(mandatoryInputs)
+            .addTransitive(transitiveInputs)
+            .build(),
         runfilesSupplier,
         outputs,
         env);
@@ -204,10 +207,10 @@ public class JavaCompileAction extends AbstractAction
       ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
       throws IOException {
     HashSet<String> direct = new HashSet<>();
-    for (Artifact directJar : directJars) {
+    for (Artifact directJar : directJars.toList()) {
       direct.add(directJar.getExecPathString());
     }
-    for (Artifact depArtifact : dependencyArtifacts) {
+    for (Artifact depArtifact : dependencyArtifacts.toList()) {
       for (Deps.Dependency dep :
           context.getDependencies(depArtifact, actionExecutionContext).getDependencyList()) {
         direct.add(dep.getPath());
@@ -232,11 +235,13 @@ public class JavaCompileAction extends AbstractAction
   }
 
   static class ReducedClasspath {
-    final ImmutableList<Artifact> reducedJars;
+    final NestedSet<Artifact> reducedJars;
+    final int reducedLength;
     final int fullLength;
 
     ReducedClasspath(ImmutableList<Artifact> reducedJars, int fullLength) {
-      this.reducedJars = reducedJars;
+      this.reducedJars = NestedSetBuilder.wrap(Order.STABLE_ORDER, reducedJars);
+      this.reducedLength = reducedJars.size();
       this.fullLength = fullLength;
     }
   }
@@ -259,7 +264,7 @@ public class JavaCompileAction extends AbstractAction
     classpathLine.add("--reduce_classpath_mode", fallback ? "BAZEL_FALLBACK" : "BAZEL_REDUCED");
     classpathLine.add("--full_classpath_length", Integer.toString(reducedClasspath.fullLength));
     classpathLine.add(
-        "--reduced_classpath_length", Integer.toString(reducedClasspath.reducedJars.size()));
+        "--reduced_classpath_length", Integer.toString(reducedClasspath.reducedLength));
 
     CommandLines reducedCommandLine =
         CommandLines.builder()
@@ -272,12 +277,16 @@ public class JavaCompileAction extends AbstractAction
             actionExecutionContext.getArtifactExpander(),
             getPrimaryOutput().getExecPath(),
             configuration.getCommandLineLimits());
+    NestedSet<Artifact> inputs =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(mandatoryInputs)
+            .addTransitive(fallback ? transitiveInputs : reducedClasspath.reducedJars)
+            .build();
     return new JavaSpawn(
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext),
         executionInfo,
-        Iterables.concat(
-            mandatoryInputs, fallback ? transitiveInputs : reducedClasspath.reducedJars));
+        inputs);
   }
 
   private JavaSpawn getFullSpawn(ActionExecutionContext actionExecutionContext)
@@ -292,7 +301,10 @@ public class JavaCompileAction extends AbstractAction
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext),
         executionInfo,
-        Iterables.concat(mandatoryInputs, transitiveInputs));
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(mandatoryInputs)
+            .addTransitive(transitiveInputs)
+            .build());
   }
 
   private ImmutableMap<String, String> getEffectiveEnvironment(
@@ -314,13 +326,10 @@ public class JavaCompileAction extends AbstractAction
             actionExecutionContext.getContext(JavaCompileActionContext.class);
         try {
           reducedClasspath = getReducedClasspath(actionExecutionContext, context);
-          spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
         } catch (IOException e) {
-          // There was an error reading some of the dependent .jdeps files. Fall back to a
-          // compilation with the full classpath.
-          reducedClasspath = null;
-          spawn = getFullSpawn(actionExecutionContext);
+          throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
         }
+        spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
       } else {
         reducedClasspath = null;
         spawn = getFullSpawn(actionExecutionContext);
@@ -330,7 +339,7 @@ public class JavaCompileAction extends AbstractAction
     }
     SpawnContinuation spawnContinuation =
         actionExecutionContext
-            .getContext(SpawnActionContext.class)
+            .getContext(SpawnStrategy.class)
             .beginExecution(spawn, actionExecutionContext);
     return new JavaActionContinuation(actionExecutionContext, reducedClasspath, spawnContinuation);
   }
@@ -382,7 +391,7 @@ public class JavaCompileAction extends AbstractAction
         return;
       }
       List<String> shortNames = new ArrayList<>();
-      for (String name : processorClasses) {
+      for (String name : processorClasses.toList()) {
         // Annotation processor names are qualified class names. Omit the package part for the
         // progress message, e.g. `com.google.Foo` -> `Foo`.
         int idx = name.lastIndexOf('.');
@@ -430,13 +439,13 @@ public class JavaCompileAction extends AbstractAction
   }
 
   private final class JavaSpawn extends BaseSpawn {
-    final Iterable<ActionInput> inputs;
+    final NestedSet<ActionInput> inputs;
 
     public JavaSpawn(
         CommandLines.ExpandedCommandLines expandedCommandLines,
         Map<String, String> environment,
         Map<String, String> executionInfo,
-        Iterable<Artifact> inputs) {
+        NestedSet<Artifact> inputs) {
       super(
           ImmutableList.copyOf(expandedCommandLines.arguments()),
           environment,
@@ -444,12 +453,14 @@ public class JavaCompileAction extends AbstractAction
           EmptyRunfilesSupplier.INSTANCE,
           JavaCompileAction.this,
           LOCAL_RESOURCES);
-      this.inputs = Iterables.concat(inputs, expandedCommandLines.getParamFiles());
+      this.inputs =
+          NestedSetBuilder.<ActionInput>fromNestedSet(inputs)
+              .addAll(expandedCommandLines.getParamFiles())
+              .build();
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public Iterable<? extends ActionInput> getInputFiles() {
+    public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
     }
   }
@@ -476,9 +487,9 @@ public class JavaCompileAction extends AbstractAction
   }
 
   @Override
-  public SkylarkList<String> getSkylarkArgv() throws EvalException {
+  public Sequence<String> getSkylarkArgv() throws EvalException {
     try {
-      return SkylarkList.createImmutable(getArguments());
+      return StarlarkList.immutableCopyOf(getArguments());
     } catch (CommandLineExpansionException exception) {
       throw new EvalException(Location.BUILTIN, exception);
     }
@@ -506,7 +517,7 @@ public class JavaCompileAction extends AbstractAction
   }
 
   @Override
-  public Iterable<Artifact> getPossibleInputsForTesting() {
+  public NestedSet<Artifact> getPossibleInputsForTesting() {
     return null;
   }
 
@@ -593,7 +604,7 @@ public class JavaCompileAction extends AbstractAction
         }
         SpawnContinuation fallbackContinuation =
             actionExecutionContext
-                .getContext(SpawnActionContext.class)
+                .getContext(SpawnStrategy.class)
                 .beginExecution(spawn, actionExecutionContext);
         return new JavaFallbackActionContinuation(
             actionExecutionContext, results, fallbackContinuation);

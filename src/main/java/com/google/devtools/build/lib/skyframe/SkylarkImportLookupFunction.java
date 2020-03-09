@@ -348,7 +348,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     }
     Map<SkyKey, SkyValue> skylarkImportMap =
         (visitedNested == null)
-            ? computeSkylarkImportMapNoInlining(env, importLookupKeys, file.getLocation())
+            ? computeSkylarkImportMapNoInlining(env, importLookupKeys, file.getStartLocation())
             : computeSkylarkImportMapWithInlining(
                 env,
                 importLookupKeys,
@@ -471,7 +471,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           loadMap.put(module, label);
         } catch (LabelSyntaxException ex) {
           handler.handle(
-              Event.error(load.getImport().getLocation(), "in load statement: " + ex.getMessage()));
+              Event.error(
+                  load.getImport().getStartLocation(), "in load statement: " + ex.getMessage()));
           ok = false;
         }
       }
@@ -506,7 +507,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         skylarkImportMap.put(key, values.get(key).get());
       } catch (SkylarkImportFailedException exn) {
         throw new SkylarkImportFailedException(
-            "in " + locationForErrors.getPath() + ": " + exn.getMessage());
+            "in " + locationForErrors.file() + ": " + exn.getMessage());
       }
     }
     return env.valuesMissing() ? null : skylarkImportMap;
@@ -593,7 +594,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               extensionLabel,
               mutability,
               starlarkSemantics,
-              eventHandler,
+              StarlarkThread.makeDebugPrintHandler(eventHandler),
               file.getContentHashCode(),
               importMap,
               packageFactory.getNativeModule(inWorkspace),
@@ -634,7 +635,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         });
 
     try {
-      EvalUtils.exec(file, thread);
+      EvalUtils.exec(file, thread.getGlobals(), thread);
     } catch (EvalException ex) {
       handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
     }

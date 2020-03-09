@@ -43,9 +43,6 @@ file_test(
         "//conditions:default": "not supported",
     }),
     file = ":run_app",
-    # TODO(pcloudy): Re-enable this test after Bazel 0.29.0 is released.
-    # https://github.com/bazelbuild/bazel/issues/9104#issuecomment-521231693
-    tags = ["no_windows"],
 )
 
 test_suite(name = "all_tests")

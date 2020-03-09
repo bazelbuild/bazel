@@ -82,7 +82,7 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
   }
 }
 
-string GetSelfPath() {
+string GetSelfPath(const char* argv0) {
   // The file to which this symlink points could change contents or go missing
   // concurrent with execution of the Bazel client, so we don't eagerly resolve
   // it.
@@ -116,42 +116,20 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   }
 }
 
-blaze_util::Path GetProcessCWD(int pid) {
+std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
   char server_cwd[PATH_MAX] = {};
   if (readlink(
           ("/proc/" + ToString(pid) + "/cwd").c_str(),
           server_cwd, sizeof(server_cwd)) < 0) {
-    return blaze_util::Path();
+    return nullptr;
   }
 
-  return blaze_util::Path(string(server_cwd));
+  return std::unique_ptr<blaze_util::Path>(
+      new blaze_util::Path(string(server_cwd)));
 }
 
 bool IsSharedLibrary(const string &filename) {
   return blaze_util::ends_with(filename, ".so");
-}
-
-static string Which(const string &executable) {
-  string path(GetPathEnv("PATH"));
-  if (path.empty()) {
-    return "";
-  }
-
-  vector<string> pieces = blaze_util::Split(path, ':');
-  for (auto piece : pieces) {
-    if (piece.empty()) {
-      piece = ".";
-    }
-
-    struct stat file_stat;
-    string candidate = blaze_util::JoinPath(piece, executable);
-    if (access(candidate.c_str(), X_OK) == 0 &&
-        stat(candidate.c_str(), &file_stat) == 0 &&
-        S_ISREG(file_stat.st_mode)) {
-      return candidate;
-    }
-  }
-  return "";
 }
 
 string GetSystemJavabase() {

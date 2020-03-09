@@ -21,8 +21,7 @@ public interface DefaultInterfaceWithLambda {
   String ZERO = String.valueOf(0);
 
   public default List<String> defaultWithLambda() {
-    return ImmutableList.of(0, 1)
-        .stream()
+    return ImmutableList.of(0, 1).stream()
         .map(i -> i == 0 ? ZERO : String.valueOf(i))
         .collect(Collectors.toList());
   }

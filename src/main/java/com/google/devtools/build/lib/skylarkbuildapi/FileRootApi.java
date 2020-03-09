@@ -17,21 +17,22 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * A root for a file. The roots are the directories containing files, and they are mapped
- * together into a single directory tree to form the execution environment.
+ * A root for a file. The roots are the directories containing files, and they are mapped together
+ * into a single directory tree to form the execution environment.
  */
 @SkylarkModule(
-  name = "root",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "A root for files. The roots are the directories containing files, and they are mapped "
-          + "together into a single directory tree to form the execution environment."
-)
-public interface FileRootApi extends SkylarkValue {
-  @SkylarkCallable(name = "path", structField = true,
+    name = "root",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "A root for files. The roots are the directories containing files, and they are mapped "
+            + "together into a single directory tree to form the execution environment.")
+public interface FileRootApi extends StarlarkValue {
+  @SkylarkCallable(
+      name = "path",
+      structField = true,
       doc = "Returns the relative path from the exec root to the actual root.")
-  public String getExecPathString();
+  String getExecPathString();
 }

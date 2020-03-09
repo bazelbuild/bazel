@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -35,17 +33,14 @@ public class LexerTest {
 
   private final List<Event> errors = new ArrayList<>();
   private String lastError;
-  private Location lastErrorLocation;
 
   /**
    * Create a lexer which takes input from the specified string. Resets the
    * error handler beforehand.
    */
   private Lexer createLexer(String input) {
-    PathFragment somePath = PathFragment.create("/some/path.txt");
-    ParserInput inputSource = ParserInput.create(input, somePath);
+    ParserInput inputSource = ParserInput.create(input, "/some/path.txt");
     errors.clear();
-    lastErrorLocation = null;
     lastError = null;
     return new Lexer(inputSource, errors);
   }
@@ -59,13 +54,8 @@ public class LexerTest {
     } while (tok.kind != TokenKind.EOF);
 
     for (Event error : errors) {
-      lastErrorLocation = error.getLocation();
       lastError =
-          error.getLocation().getPath()
-              + ":"
-              + error.getLocation().getStartLineAndColumn().getLine()
-              + ": "
-              + error.getMessage();
+          error.getLocation().file() + ":" + error.getLocation().line() + ": " + error.getMessage();
     }
 
     return result;
@@ -87,8 +77,7 @@ public class LexerTest {
       if (buf.length() > 0) {
         buf.append(' ');
       }
-      int line =
-        lexer.createLocation(tok.left, tok.left).getStartLineAndColumn().getLine();
+      int line = lexer.createLocation(tok.left, tok.left).line();
       buf.append(line);
     }
     return buf.toString();
@@ -505,8 +494,6 @@ public class LexerTest {
     lexerFail = createLexer(s);
     allTokens(lexerFail);
     assertThat(errors).isNotEmpty();
-    assertThat(lastErrorLocation.getStartOffset()).isEqualTo(0);
-    assertThat(lastErrorLocation.getEndOffset()).isEqualTo(s.length());
     assertThat(values(tokens(s))).isEqualTo("STRING(unterminated) NEWLINE EOF");
   }
 
@@ -519,8 +506,6 @@ public class LexerTest {
   @Test
   public void testFirstCharIsTab() {
     assertThat(names(tokens("\t"))).isEqualTo("NEWLINE EOF");
-    assertThat(lastErrorLocation.getStartOffset()).isEqualTo(0);
-    assertThat(lastErrorLocation.getEndOffset()).isEqualTo(0);
     assertThat(lastError)
         .isEqualTo(
             "/some/path.txt:1: Tab characters are not allowed for indentation. Use spaces"

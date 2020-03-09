@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** Static helper class for creating and accessing instances of the legacy "py" struct provider. */
@@ -76,7 +76,7 @@ public class PyStructUtils {
     builder.put(USES_SHARED_LIBRARIES, false);
     builder.put(
         IMPORTS,
-        SkylarkNestedSet.of(String.class, NestedSetBuilder.<String>emptySet(Order.COMPILE_ORDER)));
+        Depset.of(SkylarkType.STRING, NestedSetBuilder.<String>emptySet(Order.COMPILE_ORDER)));
     builder.put(HAS_PY2_ONLY_SOURCES, false);
     builder.put(HAS_PY3_ONLY_SOURCES, false);
     DEFAULTS = builder.build();
@@ -101,10 +101,10 @@ public class PyStructUtils {
    */
   public static NestedSet<Artifact> getTransitiveSources(StructImpl info) throws EvalException {
     Object fieldValue = getValue(info, TRANSITIVE_SOURCES);
-    SkylarkNestedSet castValue =
+    Depset castValue =
         SkylarkType.cast(
             fieldValue,
-            SkylarkNestedSet.class,
+            Depset.class,
             Artifact.class,
             null,
             "'%s' provider's '%s' field should be a depset of Files (got a '%s')",
@@ -122,7 +122,7 @@ public class PyStructUtils {
                 unwrappedValue.getOrder().getSkylarkName()));
       }
       return unwrappedValue;
-    } catch (SkylarkNestedSet.TypeException exception) {
+    } catch (Depset.TypeException exception) {
       throw new EvalException(
           null,
           String.format(
@@ -156,10 +156,10 @@ public class PyStructUtils {
    */
   public static NestedSet<String> getImports(StructImpl info) throws EvalException {
     Object fieldValue = getValue(info, IMPORTS);
-    SkylarkNestedSet castValue =
+    Depset castValue =
         SkylarkType.cast(
             fieldValue,
-            SkylarkNestedSet.class,
+            Depset.class,
             String.class,
             null,
             "'%s' provider's '%s' field should be a depset of strings (got a '%s')",
@@ -168,7 +168,7 @@ public class PyStructUtils {
             EvalUtils.getDataTypeNameFromClass(fieldValue.getClass()));
     try {
       return castValue.getSet(String.class);
-    } catch (SkylarkNestedSet.TypeException exception) {
+    } catch (Depset.TypeException exception) {
       throw new EvalException(
           null,
           String.format(
@@ -218,9 +218,9 @@ public class PyStructUtils {
 
   /** Builder for a legacy py provider struct. */
   public static class Builder {
-    SkylarkNestedSet transitiveSources = null;
+    Depset transitiveSources = null;
     Boolean usesSharedLibraries = null;
-    SkylarkNestedSet imports = null;
+    Depset imports = null;
     Boolean hasPy2OnlySources = null;
     Boolean hasPy3OnlySources = null;
 
@@ -228,7 +228,7 @@ public class PyStructUtils {
     private Builder() {}
 
     public Builder setTransitiveSources(NestedSet<Artifact> transitiveSources) {
-      this.transitiveSources = SkylarkNestedSet.of(Artifact.class, transitiveSources);
+      this.transitiveSources = Depset.of(Artifact.TYPE, transitiveSources);
       return this;
     }
 
@@ -238,7 +238,7 @@ public class PyStructUtils {
     }
 
     public Builder setImports(NestedSet<String> imports) {
-      this.imports = SkylarkNestedSet.of(String.class, imports);
+      this.imports = Depset.of(SkylarkType.STRING, imports);
       return this;
     }
 

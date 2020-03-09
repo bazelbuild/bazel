@@ -13,21 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableList;
-import java.util.Collection;
+import com.google.common.collect.ImmutableSet;
 
 /**
- * Association between {@link ActionInput}s and the {@link Artifact}s, directly depended on by an
- * action, that are responsible for that action's inclusion of those inputs.
+ * Association between {@link ActionInput}s and the {@link Artifact}s, directly or indirectly
+ * depended on by an action, that are responsible for that action's inclusion of those inputs.
+ *
+ * <p>The association is not necessarily comprehensive. Inputs may have other owners not specified
+ * here, or the owners specified here may not be direct dependencies of the action.
  */
 public interface ActionInputDepOwners {
 
-  /** An {@link ActionInputDepOwners} without any ownership associations. */
-  ActionInputDepOwners EMPTY_INSTANCE = input -> ImmutableList.of();
-
   /**
-   * Returns the collection of {@link Artifact}s associated with {@code input}. The collection is
-   * empty if no such association exists.
+   * Returns the set of {@link Artifact}s associated with {@code input}. The collection is empty if
+   * no such association exists.
    */
-  Collection<Artifact> getDepOwners(ActionInput input);
+  ImmutableSet<Artifact> getDepOwners(ActionInput input);
 }

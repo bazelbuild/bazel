@@ -15,18 +15,18 @@ package com.google.devtools.build.lib.syntax;
 
 import javax.annotation.Nullable;
 
-/** Syntax node for a slice expression, e.g. obj[:len(obj):2]. */
+/** Syntax node for a slice expression, {@code object[start:stop:step]}. */
 public final class SliceExpression extends Expression {
 
   private final Expression object;
   @Nullable private final Expression start;
-  @Nullable private final Expression end;
+  @Nullable private final Expression stop;
   @Nullable private final Expression step;
 
-  SliceExpression(Expression object, Expression start, Expression end, Expression step) {
+  SliceExpression(Expression object, Expression start, Expression stop, Expression step) {
     this.object = object;
     this.start = start;
-    this.end = end;
+    this.stop = stop;
     this.step = step;
   }
 
@@ -34,15 +34,18 @@ public final class SliceExpression extends Expression {
     return object;
   }
 
-  public @Nullable Expression getStart() {
+  @Nullable
+  public Expression getStart() {
     return start;
   }
 
-  public @Nullable Expression getEnd() {
-    return end;
+  @Nullable
+  public Expression getStop() {
+    return stop;
   }
 
-  public @Nullable Expression getStep() {
+  @Nullable
+  public Expression getStep() {
     return step;
   }
 

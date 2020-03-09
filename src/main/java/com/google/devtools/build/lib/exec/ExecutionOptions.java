@@ -127,12 +127,22 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Writes intermediate parameter files to output tree even when using "
               + "remote action execution. Useful when debugging actions. "
-              + "This is implied by --subcommands.")
+              + "This is implied by --subcommands and --verbose_failures.")
   public boolean materializeParamFiles;
 
+  @Option(
+      name = "experimental_materialize_param_files_directly",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If materializing param files, do so with direct writes to disk.")
+  public boolean materializeParamFilesDirectly;
+
   public boolean shouldMaterializeParamFiles() {
-    // Implied by --subcommands
-    return materializeParamFiles || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE;
+    // Implied by --subcommands and --verbose_failures
+    return materializeParamFiles
+        || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE
+        || verboseFailures;
   }
 
   @Option(
@@ -267,21 +277,26 @@ public class ExecutionOptions extends OptionsBase {
   public boolean useResourceAutoSense;
 
   @Option(
+      name = "incompatible_remove_ram_utilization_factor",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, fully deprecates --ram_utilization_factor.")
+  public boolean removeRamUtilizationFactor;
+
+  @Option(
       name = "ram_utilization_factor",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specify what percentage of the system's RAM Bazel should try to use for its "
-              + "subprocesses. This option affects how many processes Bazel will try to run in "
-              + "parallel. If you run several Bazel builds in parallel, using a lower value for "
-              + "this option may avoid thrashing and thus improve overall throughput. "
-              + "Using a value higher than 67 is NOT recommended. "
-              + "Note that Blaze's estimates are very coarse, so the actual RAM usage may be much "
-              + "higher or much lower than specified. "
-              + "Note also that this option does not affect the amount of memory that the Bazel "
-              + "server itself will use. "
-              + "Setting this value overrides --local_ram_resources")
+      deprecationWarning =
+          "--ram_utilization_factor will be deprecated. Please use"
+              + " --local_ram_resources=HOST_RAM*<float> instead.",
+      help = "This flag will be deprecated. Please use --local_ram_resources.")
   public int ramUtilizationPercentage;
 
   @Option(
@@ -290,19 +305,17 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Explicitly set amount of local resources available to Blaze. By default, Bazel will "
-              + "query system configuration to estimate amount of RAM (in MB) "
-              + "and number of CPU cores available for the locally executed build actions. It "
-              + "would also assume default I/O capabilities of the local workstation (1.0). This "
-              + "options allows to explicitly set all 3 values. Note, that if this option is used, "
-              + "Bazel will ignore --ram_utilization_factor, --local_cpu_resources, and "
-              + "--local_ram_resources.",
+          "Deprecated by '--incompatible_remove_local_resources'. Please use "
+              + "'--local_ram_resources' and '--local_cpu_resources'",
+      deprecationWarning =
+          "--local_resources will be deprecated. Please use"
+              + " --local_ram_resources and --local_cpu_resources instead.",
       converter = ResourceSet.ResourceSetConverter.class)
   public ResourceSet availableResources;
 
   @Option(
       name = "incompatible_remove_local_resources",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {

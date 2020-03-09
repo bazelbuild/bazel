@@ -307,7 +307,26 @@ def Main():
   program = python_program = FindPythonBinary(module_space)
   if python_program is None:
     raise AssertionError('Could not find python binary: ' + PYTHON_BINARY)
-  args = [python_program, main_filename] + args
+
+  cov_tool = os.environ.get('PYTHON_COVERAGE')
+  if cov_tool:
+    # Inhibit infinite recursion:
+    del os.environ['PYTHON_COVERAGE']
+    if not os.path.exists(cov_tool):
+      raise EnvironmentError('Python coverage tool %s not found.' % cov_tool)
+    args = [python_program, cov_tool, 'run', '-a', '--branch', main_filename] + args
+    # coverage library expects sys.path[0] to contain the library, and replaces
+    # it with the directory of the program it starts. Our actual sys.path[0] is
+    # the runfiles directory, which must not be replaced.
+    # CoverageScript.do_execute() undoes this sys.path[0] setting.
+    #
+    # Update sys.path such that python finds the coverage package. The coverage
+    # entry point is coverage.coverage_main, so we need to do twice the dirname.
+    new_env['PYTHONPATH'] = \
+        new_env['PYTHONPATH'] + ':' + os.path.dirname(os.path.dirname(cov_tool))
+    new_env['PYTHON_LCOV_FILE'] = os.environ.get('COVERAGE_DIR') + '/pylcov.dat'
+  else:
+    args = [python_program, main_filename] + args
 
   os.environ.update(new_env)
 

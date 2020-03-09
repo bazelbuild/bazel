@@ -78,7 +78,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
 
-    JavaTargetAttributes attributes = helper.getAttributes();
+    JavaTargetAttributes attributes = attributesBuilder.build();
     if (attributes.hasMessages()) {
       helper.setTranslations(
           semantics.translate(ruleContext, javaConfig, attributes.getMessages()));
@@ -188,6 +188,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
             // TODO(bazel-team): this should only happen for java_plugin
             .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
+            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
             .setRuntimeJars(javaArtifacts.getRuntimeJars())
             .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
             .setNeverlink(neverLink)

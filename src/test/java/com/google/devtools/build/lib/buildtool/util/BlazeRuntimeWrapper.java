@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -68,7 +70,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Consumer;
 
 /**
  * A wrapper for {@link BlazeRuntime} for testing purposes that makes it possible to exercise
@@ -89,7 +90,7 @@ public class BlazeRuntimeWrapper {
   private OptionsParser optionsParser;
   private ImmutableList.Builder<String> optionsToParse = new ImmutableList.Builder<>();
 
-  private Consumer<EventBus> eventBusReceiver;
+  private final List<Object> eventBusSubscribers = new ArrayList<>();
 
   public BlazeRuntimeWrapper(
       EventCollectionApparatus events, ServerDirectories serverDirectories,
@@ -176,12 +177,9 @@ public class BlazeRuntimeWrapper {
     return runtime;
   }
 
-  /**
-   * If called with a non-null argument, all new EventBuses are posted on creation to the given
-   * receiver.
-   */
-  public void setEventBusReceiver(Consumer<EventBus> receiver) {
-    eventBusReceiver = receiver;
+  /** Registers the given {@code subscriber} with the {@link EventBus} before each command. */
+  public void registerSubscriber(Object subscriber) {
+    eventBusSubscribers.add(subscriber);
   }
 
   public final CommandEnvironment newCommand() throws Exception {
@@ -275,6 +273,20 @@ public class BlazeRuntimeWrapper {
     PrintStream origSystemOut = System.out;
     PrintStream origSystemErr = System.err;
     try {
+      Profiler.instance()
+          .start(
+              ImmutableSet.of(),
+              /* stream= */ null,
+              /* format= */ null,
+              /* outputBase= */ null,
+              /* buildID= */ null,
+              /* recordAllDurations= */ false,
+              new JavaClock(),
+              /* execStartTimeNanos= */ 42,
+              /* enabledCpuUsageProfiling= */ false,
+              /* slimProfile= */ false,
+              /* enableActionCountProfile= */ false,
+              /* includePrimaryOutput= */ false);
       OutErr outErr = env.getReporter().getOutErr();
       System.setOut(new PrintStream(outErr.getOutputStream(), /*autoflush=*/ true));
       System.setErr(new PrintStream(outErr.getErrorStream(), /*autoflush=*/ true));
@@ -285,8 +297,9 @@ public class BlazeRuntimeWrapper {
       for (BlazeModule module : getRuntime().getBlazeModules()) {
         module.beforeCommand(env);
       }
-      if (eventBusReceiver != null) {
-        eventBusReceiver.accept(env.getEventBus());
+      EventBus eventBus = env.getEventBus();
+      for (Object subscriber : eventBusSubscribers) {
+        eventBus.register(subscriber);
       }
       env.getEventBus()
           .post(
@@ -358,13 +371,16 @@ public class BlazeRuntimeWrapper {
         buildTool.stopRequest(
             lastResult,
             null,
-            success ? ExitCode.SUCCESS : ExitCode.BUILD_FAILURE,
+            success
+                ? DetailedExitCode.justExitCode(ExitCode.SUCCESS)
+                : DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE),
             /*startSuspendCount=*/ 0);
         getSkyframeExecutor().notifyCommandComplete(env.getReporter());
       }
     } finally {
       System.setOut(origSystemOut);
       System.setErr(origSystemErr);
+      Profiler.instance().stop();
     }
   }
 

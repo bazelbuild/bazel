@@ -58,7 +58,7 @@ public final class LicensesProviderImpl implements LicensesProvider {
     TargetLicense outputLicenses =
         toolOutputLicense == null ? null : new TargetLicense(rule.getLabel(), toolOutputLicense);
 
-    if (configuration.isHostConfiguration() && toolOutputLicense != null) {
+    if (configuration.isToolConfiguration() && toolOutputLicense != null) {
       if (toolOutputLicense != License.NO_LICENSE) {
         builder.add(outputLicenses);
       }
@@ -91,7 +91,7 @@ public final class LicensesProviderImpl implements LicensesProvider {
   }
 
   private static boolean useOutputLicenses(Attribute attribute, BuildConfiguration configuration) {
-    return configuration.isHostConfiguration() || attribute.useOutputLicenses();
+    return configuration.isToolConfiguration() || attribute.useOutputLicenses();
   }
 
   @Override

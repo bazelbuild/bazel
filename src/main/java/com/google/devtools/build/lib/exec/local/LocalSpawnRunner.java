@@ -20,6 +20,8 @@ import static java.util.logging.Level.WARNING;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -72,7 +74,6 @@ public class LocalSpawnRunner implements SpawnRunner {
   private static final Joiner SPACE_JOINER = Joiner.on(' ');
   private static final String UNHANDLED_EXCEPTION_MSG = "Unhandled exception running a local spawn";
   private static final int LOCAL_EXEC_ERROR = -1;
-  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
 
   private static final Logger logger = Logger.getLogger(LocalSpawnRunner.class.getName());
 
@@ -316,7 +317,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         context.prefetchInputs();
       }
 
-      for (ActionInput input : spawn.getInputFiles()) {
+      for (ActionInput input : spawn.getInputFiles().toList()) {
         if (input instanceof ParamFileActionInput) {
           VirtualActionInput virtualActionInput = (VirtualActionInput) input;
           Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
@@ -338,7 +339,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       try {
         Path commandTmpDir = tmpDir.getRelative("work");
         commandTmpDir.createDirectory();
-        Map<String, String> environment =
+        ImmutableMap<String, String> environment =
             localEnvProvider.rewriteLocalEnv(
                 spawn.getEnvironment(), binTools, commandTmpDir.getPathString());
 
@@ -347,7 +348,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
         subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
         subprocessBuilder.setEnv(environment);
-        List<String> args;
+        ImmutableList<String> args;
         if (useProcessWrapper) {
           // If the process wrapper is enabled, we use its timeout feature, which first interrupts
           // the subprocess and only kills it after a grace period so that the subprocess can output
@@ -361,7 +362,7 @@ public class LocalSpawnRunner implements SpawnRunner {
             statisticsPath = tmpDir.getRelative("stats.out");
             commandLineBuilder.setStatisticsPath(statisticsPath);
           }
-          args = commandLineBuilder.build();
+          args = ImmutableList.copyOf(commandLineBuilder.build());
         } else {
           subprocessBuilder.setTimeoutMillis(context.getTimeout().toMillis());
           args = spawn.getArguments();
@@ -370,8 +371,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         // Command does. We sometimes get relative paths here, so we need to handle it.
         File argv0 = new File(args.get(0));
         if (!argv0.isAbsolute() && argv0.getParent() != null) {
-          args = new ArrayList<>(args);
-          args.set(0, new File(execRoot.getPathFile(), args.get(0)).getAbsolutePath());
+          List<String> newArgs = new ArrayList<>(args);
+          newArgs.set(0, new File(execRoot.getPathFile(), newArgs.get(0)).getAbsolutePath());
+          args = ImmutableList.copyOf(newArgs);
         }
         subprocessBuilder.setArgv(args);
 
@@ -412,7 +414,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         boolean wasTimeout =
             terminationStatus.timedOut()
                 || (useProcessWrapper && wasTimeout(context.getTimeout(), wallTime));
-        int exitCode = wasTimeout ? POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
+        int exitCode =
+            wasTimeout ? SpawnResult.POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
         Status status =
             wasTimeout ? Status.TIMEOUT : (exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT);
         SpawnResult.Builder spawnResultBuilder =

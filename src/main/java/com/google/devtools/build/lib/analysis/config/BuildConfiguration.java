@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -48,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -110,8 +109,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * <p>All implementations must be immutable and communicate this as clearly as possible (e.g.
    * declare {@link ImmutableList} signatures on their interfaces vs. {@link List}). This is because
    * fragment instances may be shared across configurations.
+   *
+   * <p>Fragments are Starlark values, as returned by {@code ctx.fragments.android}, for example.
    */
-  public abstract static class Fragment {
+  public abstract static class Fragment implements StarlarkValue {
     /**
      * Validates the options for this Fragment. Issues warnings for the use of deprecated options,
      * and warnings or errors for any option settings that conflict.
@@ -203,23 +204,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   private int computeHashCode() {
     return Objects.hash(fragments, buildOptions.getNativeOptions());
-  }
-
-  public void describe(StringBuilder sb) {
-    sb.append("BuildConfiguration ").append(checksum()).append(":\n");
-    // Fragments.
-    sb.append("  fragments: ")
-        .append(
-            getFragmentsMap().keySet().stream()
-                .sorted(comparing(Class::getName))
-                .map(Class::getName)
-                .collect(joining(",")))
-        .append("\n");
-    // Options.
-    getOptions().getFragmentClasses().stream()
-        .sorted(comparing(Class::getName))
-        .map(optionsClass -> getOptions().get(optionsClass))
-        .forEach(options -> options.describe(sb));
   }
 
   @Override
@@ -855,6 +839,18 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean runfilesEnabled() {
     return runfilesEnabled(this.options);
+  }
+
+  public boolean inprocessSymlinkCreation() {
+    return options.inprocessSymlinkCreation;
+  }
+
+  public boolean skipRunfilesManifests() {
+    return options.skipRunfilesManifests;
+  }
+
+  public boolean remotableSourceManifestActions() {
+    return options.remotableSourceManifestActions;
   }
 
   /**

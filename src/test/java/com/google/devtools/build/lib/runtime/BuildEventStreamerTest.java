@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -151,7 +152,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
           /* stdout= */ null,
           /* stderr= */ null,
           /* actionMetadataLogs= */ ImmutableList.of(),
-          ErrorTiming.NO_ERROR);
+          ErrorTiming.NO_ERROR,
+          /* isInMemoryFs= */ false);
 
   private static class RecordingBuildEventTransport implements BuildEventTransport {
     private final List<BuildEvent> events = new ArrayList<>();
@@ -1151,7 +1153,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
             /* stdout= */ null,
             /* stderr= */ null,
             /* actionMetadataLogs= */ ImmutableList.of(),
-            ErrorTiming.BEFORE_EXECUTION);
+            ErrorTiming.BEFORE_EXECUTION,
+            /* isInMemoryFs= */ false);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1186,7 +1189,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
             /* stdout= */ null,
             /* stderr= */ null,
             /* actionMetadataLogs= */ ImmutableList.of(),
-            ErrorTiming.BEFORE_EXECUTION);
+            ErrorTiming.BEFORE_EXECUTION,
+            /* isInMemoryFs= */ false);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1323,7 +1327,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   private BuildCompleteEvent buildCompleteEvent(
       ExitCode exitCode, boolean stopOnFailure, Throwable crash, boolean catastrophe) {
     BuildResult result = new BuildResult(0);
-    result.setExitCondition(exitCode);
+    result.setDetailedExitCode(DetailedExitCode.justExitCode(exitCode));
     result.setStopOnFirstFailure(stopOnFailure);
     if (catastrophe) {
       result.setCatastrophe();
@@ -1344,7 +1348,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         /* stdout= */ null,
         /* stderr= */ null,
         metadataLogs,
-        ErrorTiming.NO_ERROR);
+        ErrorTiming.NO_ERROR,
+        /* isInMemoryFs= */ false);
   }
 
   @Test

@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeClasspathProviderApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * Provider for the runtime classpath contributions of a Java binary.
@@ -40,8 +40,8 @@ public final class JavaRuntimeClasspathProvider
 
   /** Returns the artifacts included on the runtime classpath of this binary. */
   @Override
-  public SkylarkNestedSet /*<Artifact>*/ getRuntimeClasspath() {
-    return SkylarkNestedSet.of(Artifact.TYPE, runtimeClasspath);
+  public Depset /*<Artifact>*/ getRuntimeClasspath() {
+    return Depset.of(Artifact.TYPE, runtimeClasspath);
   }
 
   public NestedSet<Artifact> getRuntimeClasspathNestedSet() {

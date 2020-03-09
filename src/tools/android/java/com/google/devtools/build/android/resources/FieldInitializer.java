@@ -28,8 +28,7 @@ public interface FieldInitializer {
    *
    * @return true if the initializer is deferred to clinit code.
    */
-  boolean writeFieldDefinition(
-      ClassWriter cw, int accessLevel, boolean isFinal, boolean annotateTransitiveFields);
+  boolean writeFieldDefinition(ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields);
 
   /**
    * Write the bytecode for the clinit portion of initializer.

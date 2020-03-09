@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A provider that gives general information about a target's direct and transitive files. */
 @SkylarkModule(
@@ -43,14 +45,14 @@ public interface DefaultInfoApi extends StructApi {
 
   @SkylarkCallable(
       name = "files",
-      doc =  "A <a href='depset.html'><code>depset</code></a> of "
-          + "<a href='File.html'><code>File</code></a> objects representing the default "
-          + "outputs to build when this target is specified on the blaze command line. By "
-          + "default it is all predeclared outputs.",
+      doc =
+          "A <a href='depset.html'><code>depset</code></a> of "
+              + "<a href='File.html'><code>File</code></a> objects representing the default "
+              + "outputs to build when this target is specified on the blaze command line. By "
+              + "default it is all predeclared outputs.",
       structField = true,
-      allowReturnNones = true
-  )
-  SkylarkNestedSet getFiles();
+      allowReturnNones = true)
+  Depset getFiles();
 
   @SkylarkCallable(
       name = "files_to_run",
@@ -80,85 +82,84 @@ public interface DefaultInfoApi extends StructApi {
   )
   RunfilesApi getDefaultRunfiles();
 
-  /**
-   * Provider for {@link DefaultInfoApi}.
-   */
+  /** Provider for {@link DefaultInfoApi}. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public static interface DefaultInfoApiProvider<RunfilesT extends RunfilesApi,
-      FileT extends FileApi> extends ProviderApi {
+  interface DefaultInfoApiProvider<RunfilesT extends RunfilesApi, FileT extends FileApi>
+      extends ProviderApi {
 
     @SkylarkCallable(
-      name = "DefaultInfo",
-      doc = "<p>The <code>DefaultInfo</code> constructor.",
-      parameters = {
-        @Param(
-          name = "files",
-          type = SkylarkNestedSet.class,
-          named = true,
-          positional = false,
-          defaultValue = "None",
-          noneable = true,
-          doc = "A <a href='depset.html'><code>depset</code></a> of "
-              + "<a href='File.html'><code>File</code></a> objects representing the default "
-              + "outputs to build when this target is specified on the blaze command line. By "
-              + "default it is all predeclared outputs."
-        ),
-        @Param(
-            name = "runfiles",
-            type = RunfilesApi.class,
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            noneable = true,
-            doc = "set of files acting as both the "
-                + "<code>data_runfiles</code> and <code>default_runfiles</code>."
-        ),
-        @Param(
-            name = "data_runfiles",
-            type = RunfilesApi.class,
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            noneable = true,
-            doc = "the files that are added to the runfiles of a "
-                + "target that depend on the rule via the <code>data</code> attribute."
-        ),
-        @Param(
-            name = "default_runfiles",
-            type = RunfilesApi.class,
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            noneable = true,
-            doc = "the files that are added to the runfiles of "
-                + "a target that depend on the rule via anything but the <code>data</code> "
-                + "attribute."
-        ),
-        @Param(
-          name = "executable",
-          type = FileApi.class,
-          named = true,
-          positional = false,
-          defaultValue = "None",
-          noneable = true,
-          doc = "If this rule is marked "
-              + "<a href='globals.html#rule.executable'><code>executable</code></a> or "
-              + "<a href='globals.html#rule.test'><code>test</code></a>, this is a "
-              + "<a href='File.html'><code>File</code></a> object representing the file that "
-              + "should be executed to run the target. By default it is the predeclared output "
-              + "<code>ctx.outputs.executable</code>."
-        )},
-      useLocation = true,
-      selfCall = true)
-    @SkylarkConstructor(objectType = DefaultInfoApi.class,
-        receiverNameForDoc = "DefaultInfo")
-    public DefaultInfoApi constructor(
+        name = "DefaultInfo",
+        doc = "<p>The <code>DefaultInfo</code> constructor.",
+        parameters = {
+          @Param(
+              name = "files",
+              type = Depset.class,
+              named = true,
+              positional = false,
+              defaultValue = "None",
+              noneable = true,
+              doc =
+                  "A <a href='depset.html'><code>depset</code></a> of <a"
+                      + " href='File.html'><code>File</code></a> objects representing the default"
+                      + " outputs to build when this target is specified on the blaze command"
+                      + " line. By default it is all predeclared outputs."),
+          @Param(
+              name = "runfiles",
+              type = RunfilesApi.class,
+              named = true,
+              positional = false,
+              defaultValue = "None",
+              noneable = true,
+              doc =
+                  "set of files acting as both the "
+                      + "<code>data_runfiles</code> and <code>default_runfiles</code>."),
+          @Param(
+              name = "data_runfiles",
+              type = RunfilesApi.class,
+              named = true,
+              positional = false,
+              defaultValue = "None",
+              noneable = true,
+              doc =
+                  "the files that are added to the runfiles of a "
+                      + "target that depend on the rule via the <code>data</code> attribute."),
+          @Param(
+              name = "default_runfiles",
+              type = RunfilesApi.class,
+              named = true,
+              positional = false,
+              defaultValue = "None",
+              noneable = true,
+              doc =
+                  "the files that are added to the runfiles of "
+                      + "a target that depend on the rule via anything but the <code>data</code> "
+                      + "attribute."),
+          @Param(
+              name = "executable",
+              type = FileApi.class,
+              named = true,
+              positional = false,
+              defaultValue = "None",
+              noneable = true,
+              doc =
+                  "If this rule is marked <a"
+                      + " href='globals.html#rule.executable'><code>executable</code></a> or <a"
+                      + " href='globals.html#rule.test'><code>test</code></a>, this is a <a"
+                      + " href='File.html'><code>File</code></a> object representing the file that"
+                      + " should be executed to run the target. By default it is the predeclared"
+                      + " output <code>ctx.outputs.executable</code>.")
+        },
+        selfCall = true,
+        useStarlarkThread = true)
+    @SkylarkConstructor(objectType = DefaultInfoApi.class, receiverNameForDoc = "DefaultInfo")
+    DefaultInfoApi constructor(
         // TODO(cparsons): Use stricter types when Runfiles.NONE is passed as null.
         Object files,
         Object runfiles,
         Object dataRunfiles,
         Object defaultRunfiles,
         Object executable,
-        Location loc) throws EvalException;
+        StarlarkThread thread)
+        throws EvalException;
   }
 }

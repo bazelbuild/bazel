@@ -42,6 +42,7 @@ java_test(
     deps = [
         ":testutils",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:classpath-util",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
@@ -49,6 +50,7 @@ java_test(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jimfs",

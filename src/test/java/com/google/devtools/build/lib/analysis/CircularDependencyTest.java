@@ -22,7 +22,7 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -97,11 +96,8 @@ public class CircularDependencyTest extends BuildViewTestCase {
         break;
       }
     }
-
     assertThat(foundEvent).isNotNull();
-    Location location = foundEvent.getLocation();
-    assertThat(location.getStartLineAndColumn().getLine()).isEqualTo(3);
-    assertThat(location.getPath().toString()).isEqualTo("/workspace/cycle/BUILD");
+    assertThat(foundEvent.getLocation().toString()).isEqualTo("/workspace/cycle/BUILD:3:1");
   }
 
   /**
@@ -277,7 +273,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
                                 optionsFragment.commandLineBuildVariables.stream()
                                     .filter((pair) -> !pair.getKey().equals(define))
                                     .collect(toImmutableList());
-                            return ImmutableList.of(newOptions);
+                            return ImmutableMap.of("define_cleaner", newOptions);
                           };
                         }
 

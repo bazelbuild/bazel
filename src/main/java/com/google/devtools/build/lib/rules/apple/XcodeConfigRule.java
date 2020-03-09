@@ -31,6 +31,8 @@ public class XcodeConfigRule implements RuleDefinition {
   public static final String XCODE_CONFIG_ATTR_NAME = ":xcode_config";
   static final String DEFAULT_ATTR_NAME = "default";
   static final String VERSIONS_ATTR_NAME = "versions";
+  static final String REMOTE_VERSIONS_ATTR_NAME = "remote_versions";
+  static final String LOCAL_VERSIONS_ATTR_NAME = "local_versions";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -42,22 +44,46 @@ public class XcodeConfigRule implements RuleDefinition {
         The default official version of xcode to use.
         The version specified by the provided <code>xcode_version</code> target is to be used if
         no <code>xcode_version</code> build flag is specified. This is required if any
-        <code>versions</code> are set.
+        <code>versions</code> are set. This may not be set if <code>remote_versions</code> or
+        <code>local_versions</code> is set.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(DEFAULT_ATTR_NAME, LABEL)
-            .allowedRuleClasses("xcode_version")
-            .allowedFileTypes()
-            .nonconfigurable("this rule determines configuration"))
+        .add(
+            attr(DEFAULT_ATTR_NAME, LABEL)
+                .allowedRuleClasses("xcode_version")
+                .allowedFileTypes()
+                .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(version) -->
         Accepted <code>xcode_version<code> targets that may be used.
         If the value of the <code>xcode_version</code> build flag matches one of the aliases
         or version number of any of the given <code>xcode_version</code> targets, the matching
-        target will be used.
+        target will be used. This may not be set if <code>remote_versions</code> or
+        <code>local_versions</code> is set.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(VERSIONS_ATTR_NAME, LABEL_LIST)
-            .allowedRuleClasses("xcode_version")
-            .allowedFileTypes()
-            .nonconfigurable("this rule determines configuration"))
+        .add(
+            attr(VERSIONS_ATTR_NAME, LABEL_LIST)
+                .allowedRuleClasses("xcode_version")
+                .allowedFileTypes()
+                .nonconfigurable("this rule determines configuration"))
+        /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(remote_versions) -->
+        The <code>xcode_version<code> targets that are available remotely.
+        These are used along with <code>remote_versions</code> to select a mutually available
+        version. This may not be set if <code>versions</code> is set.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(REMOTE_VERSIONS_ATTR_NAME, LABEL)
+                .allowedRuleClasses("available_xcodes")
+                .allowedFileTypes()
+                .nonconfigurable("this rule determines configuration"))
+        /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(local_versions) -->
+        The <code>xcode_version<code> targets that are available locally.
+        These are used along with <code>local_versions</code> to select a mutually available
+        version. This may not be set if <code>versions</code> is set.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(LOCAL_VERSIONS_ATTR_NAME, LABEL)
+                .allowedRuleClasses("available_xcodes")
+                .allowedFileTypes()
+                .nonconfigurable("this rule determines configuration"))
         .build();
   }
 
@@ -75,6 +101,6 @@ public class XcodeConfigRule implements RuleDefinition {
 
 <p>A single target of this rule can be referenced by the <code>--xcode_version_config</code> build
 flag to translate the <code>--xcode_version</code> flag into an accepted official xcode version.
-This allows selection of a an official xcode version from a number of registered aliases.</p>
+This allows selection of an official xcode version from a number of registered aliases.</p>
 
 <!-- #END_BLAZE_RULE -->*/

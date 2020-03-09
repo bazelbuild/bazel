@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -90,7 +89,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
       return false;
     }
     ErrorInfo errorInfo = entry.getErrorInfo();
-    return errorInfo != null && !Iterables.isEmpty(errorInfo.getCycleInfo());
+    return errorInfo != null && !errorInfo.getCycleInfo().isEmpty();
   }
 
   @Nullable
@@ -125,7 +124,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   }
 
   @Override
-  public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys)
+  public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> entries = getBatch(null, Reason.WALKABLE_GRAPH_RDEPS, keys);
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());

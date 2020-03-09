@@ -118,9 +118,7 @@ public class ConcurrentWeakIdentityHashMapTest {
         createExceptionWithSuppressed(numMainExceptions, numSuppressedPerMain, latch);
     assertThat(exceptionWithSuppressed).hasSize(numMainExceptions);
     List<Pair> allPairs =
-        exceptionWithSuppressed
-            .entrySet()
-            .stream()
+        exceptionWithSuppressed.entrySet().stream()
             .flatMap(
                 entry -> entry.getValue().stream().map(value -> new Pair(entry.getKey(), value)))
             .collect(Collectors.toList());

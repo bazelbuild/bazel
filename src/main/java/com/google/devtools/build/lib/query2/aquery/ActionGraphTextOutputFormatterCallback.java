@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -25,9 +26,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -183,33 +182,33 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
 
     if (options.includeArtifacts) {
-    stringBuilder
-        .append("  Inputs: [")
-        .append(
-            Streams.stream(action.getInputs())
-                .map(input -> input.getExecPathString())
-                .sorted()
-                .collect(Collectors.joining(", ")))
-        .append("]\n")
-        .append("  Outputs: [")
-        .append(
-            Streams.stream(action.getOutputs())
-                .map(
-                    output ->
-                        output.isTreeArtifact()
-                            ? output.getExecPathString() + " (TreeArtifact)"
-                            : output.getExecPathString())
-                .sorted()
-                .collect(Collectors.joining(", ")))
-        .append("]\n");
+      stringBuilder
+          .append("  Inputs: [")
+          .append(
+              action.getInputs().toList().stream()
+                  .map(input -> input.getExecPathString())
+                  .sorted()
+                  .collect(Collectors.joining(", ")))
+          .append("]\n")
+          .append("  Outputs: [")
+          .append(
+              Streams.stream(action.getOutputs())
+                  .map(
+                      output ->
+                          output.isTreeArtifact()
+                              ? output.getExecPathString() + " (TreeArtifact)"
+                              : output.getExecPathString())
+                  .sorted()
+                  .collect(Collectors.joining(", ")))
+          .append("]\n");
     }
 
-    if (action instanceof SpawnAction) {
-      SpawnAction spawnAction = (SpawnAction) action;
+    if (action instanceof AbstractAction) {
+      AbstractAction abstractAction = (AbstractAction) action;
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
       Iterable<Map.Entry<String, String>> fixedEnvironment =
-          spawnAction.getEnvironment().getFixedEnv().toMap().entrySet();
+          abstractAction.getEnvironment().getFixedEnv().toMap().entrySet();
       if (!Iterables.isEmpty(fixedEnvironment)) {
         stringBuilder
             .append("  Environment: [")
@@ -221,6 +220,25 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                     .sorted()
                     .collect(Collectors.joining(", ")))
             .append("]\n");
+      }
+      if (abstractAction.getExecutionInfo() != null) {
+        Set<Entry<String, String>> executionInfoSpecifiers =
+            abstractAction.getExecutionInfo().entrySet();
+        if (!executionInfoSpecifiers.isEmpty()) {
+          stringBuilder
+              .append("  ExecutionInfo: {")
+              .append(
+                  executionInfoSpecifiers.stream()
+                      .sorted(Map.Entry.comparingByKey())
+                      .map(
+                          e ->
+                              String.format(
+                                  "%s: %s",
+                                  ShellEscaper.escapeString(e.getKey()),
+                                  ShellEscaper.escapeString(e.getValue())))
+                      .collect(Collectors.joining(", ")))
+              .append("}\n");
+        }
       }
     }
     if (options.includeCommandline && action instanceof CommandAction) {
@@ -239,7 +257,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     if (options.includeParamFiles) {
       // Assumption: if an Action takes a param file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : action.getInputs()) {
+      for (Artifact input : action.getInputs().toList()) {
         String inputFileName = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileName)) {
           stringBuilder
@@ -251,25 +269,21 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
         }
       }
     }
-
-    if (action instanceof ExecutionInfoSpecifier) {
-      Set<Entry<String, String>> executionInfoSpecifiers =
-          ((ExecutionInfoSpecifier) action).getExecutionInfo().entrySet();
-      if (!executionInfoSpecifiers.isEmpty()) {
-        stringBuilder
-            .append("  ExecutionInfo: {")
-            .append(
-                executionInfoSpecifiers.stream()
-                    .sorted(Map.Entry.comparingByKey())
-                    .map(
-                        e ->
-                            String.format(
-                                "%s: %s",
-                                ShellEscaper.escapeString(e.getKey()),
-                                ShellEscaper.escapeString(e.getValue())))
-                    .collect(Collectors.joining(", ")))
-            .append("}\n");
-      }
+    Map<String, String> executionInfo = action.getExecutionInfo();
+    if (executionInfo != null && !executionInfo.isEmpty()) {
+      stringBuilder
+          .append("  ExecutionInfo: {")
+          .append(
+              executionInfo.entrySet().stream()
+                  .sorted(Map.Entry.comparingByKey())
+                  .map(
+                      e ->
+                          String.format(
+                              "%s: %s",
+                              ShellEscaper.escapeString(e.getKey()),
+                              ShellEscaper.escapeString(e.getValue())))
+                  .collect(Collectors.joining(", ")))
+          .append("}\n");
     }
 
     stringBuilder.append('\n');

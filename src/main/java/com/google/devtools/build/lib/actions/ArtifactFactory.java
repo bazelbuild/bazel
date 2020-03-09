@@ -44,6 +44,7 @@ public class ArtifactFactory implements ArtifactResolver {
   private final Path execRootParent;
   private final PathFragment derivedPathPrefix;
   private ImmutableMap<Root, ArtifactRoot> sourceArtifactRoots;
+  private boolean siblingRepositoryLayout = false;
 
   /**
    * Cache of source artifacts.
@@ -150,6 +151,10 @@ public class ArtifactFactory implements ArtifactResolver {
   public synchronized void setSourceArtifactRoots(
       ImmutableMap<Root, ArtifactRoot> sourceArtifactRoots) {
     this.sourceArtifactRoots = sourceArtifactRoots;
+  }
+
+  public void setSiblingRepositoryLayout(boolean siblingRepositoryLayout) {
+    this.siblingRepositoryLayout = siblingRepositoryLayout;
   }
 
   /**
@@ -397,10 +402,18 @@ public class ArtifactFactory implements ArtifactResolver {
         !relativePath.isEmpty(), "%s %s %s", relativePath, baseExecPath, baseRoot);
     PathFragment execPath =
         baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
-    if (execPath.containsUplevelReferences()) {
-      // Source exec paths cannot escape the source root.
+
+    // Source exec paths cannot escape the source root.
+    if (siblingRepositoryLayout) {
+      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
+      // the subfragment from index 1 onwards.
+      if (execPath.subFragment(1).containsUplevelReferences()) {
+        return null;
+      }
+    } else if (execPath.containsUplevelReferences()) {
       return null;
     }
+
     // Don't create an artifact if it's derived.
     if (isDerivedArtifact(execPath)) {
       return null;
@@ -430,7 +443,8 @@ public class ArtifactFactory implements ArtifactResolver {
       return null;
     }
 
-    Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(dir);
+    Pair<RepositoryName, PathFragment> repo =
+        RepositoryName.fromPathFragment(dir, siblingRepositoryLayout);
     if (repo != null) {
       repositoryName = repo.getFirst();
       dir = repo.getSecond();

@@ -1,15 +1,15 @@
 ---
 layout: documentation
-title: "Command-Line Completion"
+title: Command-line completion
 ---
 
-# Command-Line Completion
+# Command-line completion
 
 You can enable command-line completion (also known as tab-completion) in Bash
 and Zsh. This lets you tab-complete command names, flags names and flag values,
 and target names.
 
-<h2 id="bash">Bash completion</h2>
+<h2 id="bash">Bash</h2>
 
 Bazel comes with a Bash completion script.
 
@@ -65,7 +65,7 @@ If you installed Bazel:
             source /path/to/bazel-complete.bash
             ```
 
-<h2 name="zsh">Zsh completion</h2>
+<h2 id="zsh">Zsh</h2>
 
 Bazel also comes with a Zsh completion script. To install it:
 

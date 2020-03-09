@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -40,7 +41,7 @@ import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -171,13 +172,203 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testLocalXcodeSetsLocalOnlyRequirementLipo() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "    name = 'version10_1_0',",
+        "    version = '10.1.0',",
+        "    aliases = ['10.1' ,'10.1.0'],",
+        "    default_ios_sdk_version = '12.1',",
+        "    default_tvos_sdk_version = '12.1',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.1',",
+        ")",
+        "xcode_version(",
+        "    name = 'version10_2_1',",
+        "    version = '10.2.1',",
+        "    aliases = ['10.2.1' ,'10.2'],",
+        "    default_ios_sdk_version = '12.2',",
+        "    default_tvos_sdk_version = '12.2',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.2',",
+        ")",
+        "available_xcodes(",
+        "    name= 'local',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "    name= 'remote',",
+        "    versions = [':version10_2_1'],",
+        "    default = ':version10_2_1',",
+        ")",
+        "xcode_config(",
+        "    name = 'my_config',",
+        "    local_versions = ':local',",
+        "    remote_versions = ':remote',",
+        ")");
+    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--watchos_cpus=i386,armv7k",
+        "--watchos_sdk_version=2.1");
+    CommandAction action = (CommandAction) lipoBinAction("//x:x");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertHasRequirement(action, ExecutionRequirements.NO_REMOTE);
+  }
+
+  @Test
+  public void testRemoteXcodeSetsLocalOnlyRequirementLipo() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "    name = 'version10_1_0',",
+        "    version = '10.1.0',",
+        "    aliases = ['10.1' ,'10.1.0'],",
+        "    default_ios_sdk_version = '12.1',",
+        "    default_tvos_sdk_version = '12.1',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.1',",
+        ")",
+        "xcode_version(",
+        "    name = 'version10_2_1',",
+        "    version = '10.2.1',",
+        "    aliases = ['10.2.1' ,'10.2'],",
+        "    default_ios_sdk_version = '12.2',",
+        "    default_tvos_sdk_version = '12.2',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.2',",
+        ")",
+        "available_xcodes(",
+        "    name= 'local',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "    name= 'remote',",
+        "    versions = [':version10_2_1'],",
+        "    default = ':version10_2_1',",
+        ")",
+        "xcode_config(",
+        "    name = 'my_config',",
+        "    local_versions = ':local',",
+        "    remote_versions = ':remote',",
+        ")");
+    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.2.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--watchos_cpus=i386,armv7k",
+        "--watchos_sdk_version=2.1");
+    CommandAction action = (CommandAction) lipoBinAction("//x:x");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertHasRequirement(action, ExecutionRequirements.NO_LOCAL);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_REMOTE);
+  }
+
+  @Test
+  public void testLocalXcodeSetsRemoteOnlyRequirementLipo() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "    name = 'version10_1_0',",
+        "    version = '10.1.0',",
+        "    aliases = ['10.1' ,'10.1.0'],",
+        "    default_ios_sdk_version = '12.1',",
+        "    default_tvos_sdk_version = '12.1',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.1',",
+        ")",
+        "xcode_version(",
+        "    name = 'version10_2_1',",
+        "    version = '10.2.1',",
+        "    aliases = ['10.2.1' ,'10.2'],",
+        "    default_ios_sdk_version = '12.2',",
+        "    default_tvos_sdk_version = '12.2',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.2',",
+        ")",
+        "available_xcodes(",
+        "    name= 'local',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "    name= 'remote',",
+        "    versions = [':version10_2_1'],",
+        "    default = ':version10_2_1',",
+        ")",
+        "xcode_config(",
+        "    name = 'my_config',",
+        "    local_versions = ':local',",
+        "    remote_versions = ':remote',",
+        ")");
+    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.2.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--watchos_cpus=i386,armv7k",
+        "--watchos_sdk_version=2.1");
+    CommandAction action = (CommandAction) lipoBinAction("//x:x");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertHasRequirement(action, ExecutionRequirements.NO_LOCAL);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_REMOTE);
+  }
+
+  @Test
+  public void testMutualXcodeNoLocalityRequirementsLipo() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "    name = 'version10_1_0',",
+        "    version = '10.1.0',",
+        "    aliases = ['10.1' ,'10.1.0'],",
+        "    default_ios_sdk_version = '12.1',",
+        "    default_tvos_sdk_version = '12.1',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.1',",
+        ")",
+        "available_xcodes(",
+        "    name= 'local',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "    name= 'remote',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "xcode_config(",
+        "    name = 'my_config',",
+        "    local_versions = ':local',",
+        "    remote_versions = ':remote',",
+        ")");
+    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--watchos_cpus=i386,armv7k",
+        "--watchos_sdk_version=2.1");
+    CommandAction action = (CommandAction) lipoBinAction("//x:x");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_LOCAL);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_REMOTE);
+  }
+
+  @Test
   public void testSymlinkInsteadOfLipoSingleArch() throws Exception {
     getRuleType().scratchTarget(scratch);
 
     SymlinkAction action = (SymlinkAction) lipoBinAction("//x:x");
     CommandAction linkAction = linkAction("//x:x");
 
-    assertThat(action.getInputs())
+    assertThat(action.getInputs().toList())
         .containsExactly(Iterables.getOnlyElement(linkAction.getOutputs()));
   }
 
@@ -1083,7 +1274,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     Action lipoAction = actionProducingArtifact("//examples:bin", "_lipobin");
     ArrayList<String> genfileRoots = new ArrayList<>();
 
-    for (Artifact archBinary : lipoAction.getInputs()) {
+    for (Artifact archBinary : lipoAction.getInputs().toList()) {
       if (archBinary.getExecPathString().endsWith("bin_bin")) {
         Artifact protoLib =
             getFirstArtifactEndingWith(
@@ -1200,8 +1391,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(getSingleArchBinary(lipoAction, "armv7k")).isNotNull();
   }
 
-  private SkylarkDict<String, SkylarkDict<String, Artifact>>
-      generateAppleDebugOutputsSkylarkProviderMap() throws Exception {
+  private Dict<String, Dict<String, Artifact>> generateAppleDebugOutputsSkylarkProviderMap()
+      throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1240,16 +1431,16 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    // This cast is safe: struct providers are represented as SkylarkDict.
+    // This cast is safe: struct providers are represented as Dict.
     @SuppressWarnings("unchecked")
-    SkylarkDict<String, SkylarkDict<String, Artifact>> outputMap =
-        (SkylarkDict<String, SkylarkDict<String, Artifact>>)
+    Dict<String, Dict<String, Artifact>> outputMap =
+        (Dict<String, Dict<String, Artifact>>)
             getMyInfoFromTarget(skylarkTarget).getValue("outputs_map");
     return outputMap;
   }
 
   private void checkAppleDebugSymbolProvider_DsymEntries(
-      SkylarkDict<String, SkylarkDict<String, Artifact>> outputMap, CompilationMode compilationMode)
+      Map<String, Dict<String, Artifact>> outputMap, CompilationMode compilationMode)
       throws Exception {
     assertThat(outputMap).containsKey("arm64");
     assertThat(outputMap).containsKey("armv7");
@@ -1272,7 +1463,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   private void checkAppleDebugSymbolProvider_LinkMapEntries(
-      SkylarkDict<String, SkylarkDict<String, Artifact>> outputMap) throws Exception {
+      Map<String, Dict<String, Artifact>> outputMap) throws Exception {
     assertThat(outputMap).containsKey("arm64");
     assertThat(outputMap).containsKey("armv7");
 
@@ -1323,8 +1514,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "--apple_generate_dsym",
         "--ios_multi_cpus=armv7,arm64,x86_64");
 
-    SkylarkDict<String, SkylarkDict<String, Artifact>> outputMap =
-        generateAppleDebugOutputsSkylarkProviderMap();
+    Dict<String, Dict<String, Artifact>> outputMap = generateAppleDebugOutputsSkylarkProviderMap();
     checkAppleDebugSymbolProvider_DsymEntries(outputMap, CompilationMode.FASTBUILD);
     checkAppleDebugSymbolProvider_LinkMapEntries(outputMap);
   }
@@ -1468,7 +1658,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(executableBinaryProvider).isNotNull();
 
     CommandAction testLinkAction = linkAction("//test:test");
-    assertThat(testLinkAction.getInputs())
+    assertThat(testLinkAction.getInputs().toList())
         .contains(executableBinaryProvider.getAppleExecutableBinary());
   }
 
@@ -1526,7 +1716,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMapNotPropagatedByTargetUnderTest(getRuleType());
+    checkCustomModuleMap(getRuleType());
   }
 
   @Test

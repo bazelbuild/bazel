@@ -49,8 +49,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
@@ -75,11 +75,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:classpath-util",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
@@ -95,8 +94,8 @@ java_library(
     srcs = glob(["testutil/*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 

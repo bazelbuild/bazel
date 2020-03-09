@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Test case for a SkylarkCallable method which has a positional-only parameter specified after a
  * named positional parameter.
  */
-public class PositionalOnlyParamAfterNamed implements SkylarkValue {
+public class PositionalOnlyParamAfterNamed implements StarlarkValue {
 
   @SkylarkCallable(
       name = "positional_only_after_named",

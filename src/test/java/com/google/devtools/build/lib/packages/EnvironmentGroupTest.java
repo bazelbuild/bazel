@@ -94,13 +94,22 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
   @Test
   public void fulfillers() throws Exception {
     EnvironmentLabels unpackedGroup = group.getEnvironmentLabels();
-    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:baz", ImmutableMap.of())))
+    assertThat(
+            unpackedGroup
+                .getFulfillers(Label.parseAbsolute("//pkg:baz", ImmutableMap.of()))
+                .toList())
         .containsExactly(
             Label.parseAbsolute("//pkg:foo", ImmutableMap.of()),
             Label.parseAbsolute("//pkg:bar", ImmutableMap.of()));
-    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:bar", ImmutableMap.of())))
+    assertThat(
+            unpackedGroup
+                .getFulfillers(Label.parseAbsolute("//pkg:bar", ImmutableMap.of()))
+                .toList())
         .containsExactly(Label.parseAbsolute("//pkg:foo", ImmutableMap.of()));
-    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:foo", ImmutableMap.of())))
+    assertThat(
+            unpackedGroup
+                .getFulfillers(Label.parseAbsolute("//pkg:foo", ImmutableMap.of()))
+                .toList())
         .isEmpty();
   }
 

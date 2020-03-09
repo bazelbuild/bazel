@@ -99,7 +99,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
   }
 
   @Override
-  public List<ConfiguredTarget> getLabelListAttr(
+  public List<ConfiguredTarget> getPrerequisites(
       QueryExpression caller,
       ConfiguredTarget configuredTarget,
       String attrName,

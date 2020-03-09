@@ -17,22 +17,25 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkModules; // a bad dependency
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
-import com.google.devtools.build.lib.testutil.TestMode;
+import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -44,70 +47,53 @@ import org.junit.Before;
 public class EvaluationTestCase {
   private EventCollectionApparatus eventCollectionApparatus =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
-  private TestMode testMode = TestMode.SKYLARK;
-  protected StarlarkThread thread;
-  protected Mutability mutability = Mutability.create("test");
+
+  private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+  private final Map<String, Object> extraPredeclared = new HashMap<>();
+  private StarlarkThread thread;
 
   @Before
-  public final void initialize() throws Exception {
+  public final void initialize() {
+    // TODO(adonovan): clean up the lazy initialization of thread when we disentangle
+    // Module from it. Only the module need exist early; the thread can be created
+    // immediately before execution
     thread = newStarlarkThread();
   }
 
-  /**
-   * Creates a new StarlarkThread suitable for the test case. Subclasses may override it to fit
-   * their purpose and e.g. call newBuildStarlarkThread or newStarlarkThread; or they may play with
-   * the testMode to run tests in either or both kinds of StarlarkThread. Note that all
-   * StarlarkThread-s may share the same Mutability, so don't close it.
-   *
-   * @return a fresh StarlarkThread.
-   */
-  public StarlarkThread newStarlarkThread() throws Exception {
-    return newStarlarkThreadWithSkylarkOptions();
-  }
-
-  protected StarlarkThread newStarlarkThreadWithSkylarkOptions(String... skylarkOptions)
-      throws Exception {
-    return newStarlarkThreadWithBuiltinsAndSkylarkOptions(ImmutableMap.of(), skylarkOptions);
-  }
-
-  protected StarlarkThread newStarlarkThreadWithBuiltinsAndSkylarkOptions(
-      Map<String, Object> builtins, String... skylarkOptions) throws Exception {
-    if (testMode == null) {
-      throw new IllegalArgumentException(
-          "TestMode is null. Please set a Testmode via setMode() or set the "
-              + "StarlarkThread manually by overriding newStarlarkThread()");
-    }
-    return testMode.createStarlarkThread(getEventHandler(), builtins, skylarkOptions);
+  // Adds a binding to the predeclared environment.
+  protected final void predeclare(String name, Object value) {
+    extraPredeclared.put(name, value);
   }
 
   /**
-   * Sets the specified {@code TestMode} and tries to create the appropriate {@code StarlarkThread}
-   *
-   * @param testMode
-   * @throws Exception
+   * Returns a new thread using the semantics set by setSemantics(), the predeclared environment of
+   * SkylarkModules and prior calls to predeclared(), and a new mutability. Overridden by
+   * subclasses.
    */
-  protected void setMode(TestMode testMode, String... skylarkOptions) throws Exception {
-    this.testMode = testMode;
-    thread = newStarlarkThreadWithSkylarkOptions(skylarkOptions);
+  public StarlarkThread newStarlarkThread() {
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder); // TODO(adonovan): break bad dependency
+    envBuilder.putAll(extraPredeclared);
+
+    StarlarkThread thread =
+        StarlarkThread.builder(Mutability.create("test"))
+            .setGlobals(Module.createForBuiltins(envBuilder.build()))
+            .setSemantics(semantics)
+            .build();
+    thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
+    return thread;
   }
 
-  protected void setMode(TestMode testMode, Map<String, Object> builtins,
-      String... skylarkOptions) throws Exception {
-    this.testMode = testMode;
-    thread = newStarlarkThreadWithBuiltinsAndSkylarkOptions(builtins, skylarkOptions);
-  }
+  /**
+   * Parses the semantics flags and updates the semantics used for subsequent evaluations. Also
+   * reinitializes the thread.
+   */
+  protected final void setSemantics(String... options) throws OptionsParsingException {
+    this.semantics =
+        Options.parse(StarlarkSemanticsOptions.class, options).getOptions().toSkylarkSemantics();
 
-  protected void enableSkylarkMode(Map<String, Object> builtins,
-      String... skylarkOptions) throws Exception {
-    setMode(TestMode.SKYLARK, builtins, skylarkOptions);
-  }
-
-  protected void enableSkylarkMode(String... skylarkOptions) throws Exception {
-    setMode(TestMode.SKYLARK, skylarkOptions);
-  }
-
-  protected void enableBuildMode(String... skylarkOptions) throws Exception {
-    setMode(TestMode.BUILD, skylarkOptions);
+    // Re-initialize the thread with the new semantics. See note at initialize.
+    thread = newStarlarkThread();
   }
 
   public ExtendedEventHandler getEventHandler() {
@@ -117,6 +103,7 @@ public class EvaluationTestCase {
   public StarlarkThread getStarlarkThread() {
     return thread;
   }
+
   // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
   // Separate all the tests clearly into tests of the scanner, parser, resolver,
   // and evaluation.
@@ -126,44 +113,27 @@ public class EvaluationTestCase {
     return Expression.parse(ParserInput.fromLines(lines));
   }
 
+  /** Updates a binding in the module associated with the thread. */
   public EvaluationTestCase update(String varname, Object value) throws Exception {
-    thread.update(varname, value);
+    thread.getGlobals().put(varname, value);
     return this;
   }
 
+  /** Returns the value of a binding in the module associated with the thread. */
   public Object lookup(String varname) throws Exception {
-    return thread.moduleLookup(varname);
+    return thread.getGlobals().lookup(varname);
   }
 
   /** Joins the lines, parses them as an expression, and evaluates it. */
   public final Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return EvalUtils.eval(input, thread);
+    return EvalUtils.eval(input, thread.getGlobals(), thread);
   }
 
   /** Joins the lines, parses them as a file, and executes it. */
-  // TODO(adonovan): this function does too much:
-  // - two modes, BUILD vs Skylark.
-  // - parse + validate + BUILD dialect checks + execute.
-  // Break the tests down into tests of just the scanner, parser, validator, build dialect checks,
-  // or execution, and assert that all passes except the one of interest succeed.
-  // All BUILD-dialect stuff belongs in bazel proper (lib.packages), not here.
-  public final void exec(String... lines) throws Exception {
+  public final void exec(String... lines) throws SyntaxError, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(
-        file, thread.getGlobals(), thread.getSemantics(), testMode == TestMode.BUILD);
-    if (testMode == TestMode.SKYLARK) { // .bzl and other dialects
-      if (!file.ok()) {
-        throw new SyntaxError(file.errors());
-      }
-    } else {
-      // For BUILD mode, validation events are reported but don't (yet)
-      // prevent execution. We also apply BUILD dialect syntax checks.
-      Event.replayEventsOn(getEventHandler(), file.errors());
-      PackageFactory.checkBuildSyntax(file, getEventHandler());
-    }
-    EvalUtils.exec(file, thread);
+    EvalUtils.exec(input, thread.getGlobals(), thread);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
@@ -224,36 +194,42 @@ public class EvaluationTestCase {
     return this;
   }
 
-  /**
-   * Encapsulates a separate test which can be executed by a {@code TestMode}
-   */
+  /** Encapsulates a separate test which can be executed by a Scenario. */
   protected interface Testable {
-    public void run() throws Exception;
+    void run() throws Exception;
   }
 
   /**
-   * Base class for test cases that run in specific modes (e.g. Build and/or Skylark)
+   * A test scenario (a script of steps). Beware: Scenario is an inner class that mutates its
+   * enclosing EvaluationTestCase as it executes the script.
    */
-  protected abstract class ModalTestCase {
-    private final SetupActions setup;
+  public final class Scenario {
+    private final SetupActions setup = new SetupActions();
+    private final String[] skylarkOptions;
 
-    protected ModalTestCase() {
-      setup = new SetupActions();
+    public Scenario(String... skylarkOptions) {
+      this.skylarkOptions = skylarkOptions;
+    }
+
+    private void run(Testable testable) throws Exception {
+      setSemantics(skylarkOptions);
+      testable.run();
     }
 
     /** Allows the execution of several statements before each following test. */
-    public ModalTestCase setUp(String... lines) {
+    public Scenario setUp(String... lines) {
       setup.registerExec(lines);
       return this;
     }
 
     /**
      * Allows the update of the specified variable before each following test
+     *
      * @param name The name of the variable that should be updated
      * @param value The new value of the variable
-     * @return This {@code ModalTestCase}
+     * @return This {@code Scenario}
      */
-    public ModalTestCase update(String name, Object value) {
+    public Scenario update(String name, Object value) {
       setup.registerUpdate(name, value);
       return this;
     }
@@ -263,41 +239,40 @@ public class EvaluationTestCase {
      *
      * @param src The source expression to be evaluated
      * @param expectedEvalString The expression of the expected result
-     * @return This {@code ModalTestCase}
+     * @return This {@code Scenario}
      * @throws Exception
      */
-    public ModalTestCase testEval(String src, String expectedEvalString) throws Exception {
+    public Scenario testEval(String src, String expectedEvalString) throws Exception {
       runTest(createComparisonTestable(src, expectedEvalString, true));
       return this;
     }
 
     /** Evaluates an expression and compares its result to the expected object. */
-    public ModalTestCase testExpression(String src, Object expected) throws Exception {
+    public Scenario testExpression(String src, Object expected) throws Exception {
       runTest(createComparisonTestable(src, expected, false));
       return this;
     }
 
     /** Evaluates an expression and compares its result to the ordered list of expected objects. */
-    public ModalTestCase testExactOrder(String src, Object... items) throws Exception {
+    public Scenario testExactOrder(String src, Object... items) throws Exception {
       runTest(collectionTestable(src, items));
       return this;
     }
 
     /** Evaluates an expression and checks whether it fails with the expected error. */
-    public ModalTestCase testIfExactError(String expectedError, String... lines) throws Exception {
+    public Scenario testIfExactError(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(true, expectedError, lines));
       return this;
     }
 
     /** Evaluates the expresson and checks whether it fails with the expected error. */
-    public ModalTestCase testIfErrorContains(String expectedError, String... lines)
-        throws Exception {
+    public Scenario testIfErrorContains(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(false, expectedError, lines));
       return this;
     }
 
     /** Looks up the value of the specified variable and compares it to the expected value. */
-    public ModalTestCase testLookup(String name, Object expected) throws Exception {
+    public Scenario testLookup(String name, Object expected) throws Exception {
       runTest(createLookUpTestable(name, expected));
       return this;
     }
@@ -387,8 +362,6 @@ public class EvaluationTestCase {
     protected void runTest(Testable testable) throws Exception {
       run(new TestableDecorator(setup, testable));
     }
-
-    protected abstract void run(Testable testable) throws Exception;
   }
 
   /**
@@ -424,7 +397,7 @@ public class EvaluationTestCase {
     }
 
     /**
-     * Registers a variable that has to be updated before a test
+     * Registers an update to a module variable to be bound before a test
      *
      * @param name
      * @param value
@@ -458,77 +431,6 @@ public class EvaluationTestCase {
       for (Testable testable : setup) {
         testable.run();
       }
-    }
-  }
-
-  /**
-   * A class that executes each separate test in both modes (Build and Skylark)
-   */
-  protected class BothModesTest extends ModalTestCase {
-    private final String[] skylarkOptions;
-
-    public BothModesTest(String... skylarkOptions) {
-      this.skylarkOptions = skylarkOptions;
-    }
-
-    /**
-     * Executes the given Testable in both Build and Skylark mode
-     */
-    @Override
-    protected void run(Testable testable) throws Exception {
-      enableSkylarkMode(skylarkOptions);
-      try {
-        testable.run();
-      } catch (Exception e) {
-        throw new Exception("While in Skylark mode", e);
-      }
-
-      enableBuildMode(skylarkOptions);
-      try {
-        testable.run();
-      } catch (Exception e) {
-        throw new Exception("While in Build mode", e);
-      }
-    }
-  }
-
-  /**
-   * A class that runs all tests in Build mode
-   */
-  protected class BuildTest extends ModalTestCase {
-    private final String[] skylarkOptions;
-
-    public BuildTest(String... skylarkOptions) {
-      this.skylarkOptions = skylarkOptions;
-    }
-
-    @Override
-    protected void run(Testable testable) throws Exception {
-      enableBuildMode(skylarkOptions);
-      testable.run();
-    }
-  }
-
-  /**
-   * A class that runs all tests in Skylark mode
-   */
-  protected class SkylarkTest extends ModalTestCase {
-    private final String[] skylarkOptions;
-    private final Map<String, Object> builtins;
-
-    public SkylarkTest(String... skylarkOptions) {
-      this(ImmutableMap.of(), skylarkOptions);
-    }
-
-    public SkylarkTest(Map<String, Object> builtins, String... skylarkOptions) {
-      this.builtins = builtins;
-      this.skylarkOptions = skylarkOptions;
-    }
-
-    @Override
-    protected void run(Testable testable) throws Exception {
-      enableSkylarkMode(builtins, skylarkOptions);
-      testable.run();
     }
   }
 }

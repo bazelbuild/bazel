@@ -15,14 +15,14 @@
 package com.google.devtools.build.skydoc.fakebuildapi.python;
 
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyStarlarkTransitionsApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigurationTransition;
 
 /** Fake implementation of {@link PyStarlarkTransitionsApi}. */
 public final class FakePyStarlarkTransitions implements PyStarlarkTransitionsApi {
 
   @Override
-  public SkylarkValue getTransition() {
+  public StarlarkValue getTransition() {
     return new FakeConfigurationTransition();
   }
 }

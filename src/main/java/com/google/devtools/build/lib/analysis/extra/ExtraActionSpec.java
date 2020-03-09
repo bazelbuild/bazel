@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -45,7 +46,7 @@ import java.util.Map;
 @Immutable
 public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final PathFragment shExecutable;
-  private final ImmutableList<Artifact> resolvedTools;
+  private final NestedSet<Artifact> resolvedTools;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableList<Artifact> resolvedData;
   private final ImmutableList<String> outputTemplates;
@@ -56,16 +57,16 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
 
   public ExtraActionSpec(
       PathFragment shExecutable,
-      Iterable<Artifact> resolvedTools,
+      NestedSet<Artifact> resolvedTools,
       RunfilesSupplier runfilesSupplier,
-      Iterable<Artifact> resolvedData,
-      Iterable<String> outputTemplates,
+      List<Artifact> resolvedData,
+      List<String> outputTemplates,
       String command,
       Label label,
       Map<String, String> executionInfo,
       boolean requiresActionOutput) {
     this.shExecutable = shExecutable;
-    this.resolvedTools = ImmutableList.copyOf(resolvedTools);
+    this.resolvedTools = resolvedTools;
     this.runfilesSupplier = runfilesSupplier;
     this.resolvedData = ImmutableList.copyOf(resolvedData);
     this.outputTemplates = ImmutableList.copyOf(outputTemplates);
@@ -91,7 +92,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
       extraActionInputs.addAll(actionToShadow.getOutputs());
     }
 
-    extraActionInputs.addAll(resolvedTools);
+    extraActionInputs.addTransitive(resolvedTools);
     extraActionInputs.addAll(resolvedData);
 
     boolean createDummyOutput = false;
@@ -138,7 +139,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(
         new ExtraAction(
-            ImmutableSet.copyOf(extraActionInputs.build()),
+            extraActionInputs.build(),
             runfilesSupplier,
             extraActionOutputs,
             actionToShadow,

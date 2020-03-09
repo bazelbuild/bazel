@@ -43,16 +43,26 @@ class LambdaClassMaker {
     this.rootDirectory = rootDirectory;
   }
 
-  public void generateLambdaClass(String invokerInternalName, LambdaInfo lambdaInfo,
-      MethodHandle bootstrapMethod, ArrayList<Object> bsmArgs) throws IOException {
+  public void generateLambdaClass(
+      String invokerInternalName,
+      LambdaInfo lambdaInfo,
+      MethodHandle bootstrapMethod,
+      ArrayList<Object> bsmArgs)
+      throws IOException {
     // Invoking the bootstrap method will dump the generated class.  Ignore any pre-existing
     // matching files, which can come from desugar's implementation using classes being desugared.
     existingPaths.addAll(findUnprocessed(invokerInternalName + "$$Lambda$"));
     try {
       bootstrapMethod.invokeWithArguments(bsmArgs);
     } catch (Throwable e) {
-      throw new IllegalStateException("Failed to generate lambda class for class "
-          + invokerInternalName + " using " + bootstrapMethod + " with arguments " + bsmArgs, e);
+      throw new IllegalStateException(
+          "Failed to generate lambda class for class "
+              + invokerInternalName
+              + " using "
+              + bootstrapMethod
+              + " with arguments "
+              + bsmArgs,
+          e);
     }
 
     Path generatedClassFile = getOnlyElement(findUnprocessed(invokerInternalName + "$$Lambda$"));

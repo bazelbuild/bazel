@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import java.util.Collection;
 import java.util.HashMap;
 
 /**
@@ -35,22 +34,20 @@ public final class BuildConfigurationCollection {
   private final BuildConfiguration hostConfiguration;
 
   public BuildConfigurationCollection(
-      Collection<BuildConfiguration> targetConfigurations,
-      BuildConfiguration hostConfiguration)
-          throws InvalidConfigurationException {
-    this.targetConfigurations = ImmutableList.copyOf(targetConfigurations);
+      ImmutableList<BuildConfiguration> targetConfigurations, BuildConfiguration hostConfiguration)
+      throws InvalidConfigurationException {
+    this.targetConfigurations = targetConfigurations;
     this.hostConfiguration = hostConfiguration;
 
     // Except for the host configuration (which may be identical across target configs), the other
     // configurations must all have different cache keys or we will end up with problems.
     HashMap<String, BuildConfiguration> cacheKeyConflictDetector = new HashMap<>();
     for (BuildConfiguration config : targetConfigurations) {
-      String cacheKey = config.checksum();
-      if (cacheKeyConflictDetector.containsKey(cacheKey)) {
-        throw new InvalidConfigurationException("Conflicting configurations: " + config + " & "
-            + cacheKeyConflictDetector.get(cacheKey));
+      BuildConfiguration old = cacheKeyConflictDetector.put(config.checksum(), config);
+      if (old != null) {
+        throw new InvalidConfigurationException(
+            "Conflicting configurations: " + config + " & " + old);
       }
-      cacheKeyConflictDetector.put(cacheKey, config);
     }
   }
 

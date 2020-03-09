@@ -39,10 +39,13 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.includescanning.IncludeParser.GrepIncludesFileType;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -180,12 +183,12 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public Iterable<Artifact> getTools() {
+    public NestedSet<Artifact> getTools() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Iterable<Artifact> getInputs() {
+    public NestedSet<Artifact> getInputs() {
       throw new UnsupportedOperationException();
     }
 
@@ -233,7 +236,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public Iterable<Artifact> getMandatoryInputs() {
+    public NestedSet<Artifact> getMandatoryInputs() {
       throw new UnsupportedOperationException();
     }
 
@@ -254,7 +257,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public Iterable<Artifact> getInputFilesForExtraAction(
+    public NestedSet<Artifact> getInputFilesForExtraAction(
         ActionExecutionContext actionExecutionContext) {
       throw new UnsupportedOperationException();
     }
@@ -309,8 +312,9 @@ public class SpawnIncludeScanner {
             actionExecutionContext,
             grepIncludes,
             fileType);
-    return IncludeParser.processIncludes(
-        output, dotIncludeStream == null ? output.getInputStream() : dotIncludeStream);
+    return dotIncludeStream == null
+        ? IncludeParser.processIncludes(output)
+        : IncludeParser.processIncludes(output, dotIncludeStream);
   }
 
   /**
@@ -339,8 +343,9 @@ public class SpawnIncludeScanner {
       GrepIncludesFileType fileType)
       throws ExecException, InterruptedException {
     ActionInput output = ActionInputHelper.fromPath(outputExecPath);
-    ImmutableList<? extends ActionInput> inputs = ImmutableList.of(grepIncludes, input);
-    ImmutableList<ActionInput> outputs = ImmutableList.of(output);
+    NestedSet<? extends ActionInput> inputs =
+        NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input);
+    ImmutableSet<ActionInput> outputs = ImmutableSet.of(output);
     ImmutableList<String> command =
         ImmutableList.of(
             grepIncludes.getExecPathString(),
@@ -370,11 +375,11 @@ public class SpawnIncludeScanner {
     // Don't share the originalOutErr across spawnGrep calls. Doing so would not be thread-safe.
     FileOutErr originalOutErr = actionExecutionContext.getFileOutErr();
     FileOutErr grepOutErr = originalOutErr.childOutErr();
-    SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
+    SpawnStrategy strategy = actionExecutionContext.getContext(SpawnStrategy.class);
     ActionExecutionContext spawnContext = actionExecutionContext.withFileOutErr(grepOutErr);
     List<SpawnResult> results;
     try {
-      results = context.exec(spawn, spawnContext);
+      results = strategy.exec(spawn, spawnContext);
       dump(spawnContext, actionExecutionContext);
     } catch (ExecException e) {
       dump(spawnContext, actionExecutionContext);
@@ -458,8 +463,9 @@ public class SpawnIncludeScanner {
       Artifact grepIncludes,
       GrepIncludesFileType fileType) {
     ActionInput output = ActionInputHelper.fromPath(outputExecPath);
-    ImmutableList<? extends ActionInput> inputs = ImmutableList.of(grepIncludes, input);
-    ImmutableList<ActionInput> outputs = ImmutableList.of(output);
+    NestedSet<? extends ActionInput> inputs =
+        NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input);
+    ImmutableSet<ActionInput> outputs = ImmutableSet.of(output);
     ImmutableList<String> command =
         ImmutableList.of(
             grepIncludes.getExecPathString(),
@@ -495,7 +501,7 @@ public class SpawnIncludeScanner {
     SpawnContinuation spawnContinuation;
     try {
       spawnContinuation =
-          grepContext.getContext(SpawnActionContext.class).beginExecution(spawn, grepContext);
+          grepContext.getContext(SpawnStrategy.class).beginExecution(spawn, grepContext);
     } catch (InterruptedException e) {
       dump(grepContext, actionExecutionContext);
       return Futures.immediateCancelledFuture();

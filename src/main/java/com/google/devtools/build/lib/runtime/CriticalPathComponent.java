@@ -57,10 +57,10 @@ public class CriticalPathComponent {
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
   private long finishNanos = 0;
-  private volatile boolean isRunning = true;
+  private volatile boolean isRunning = false;
 
-  /** We keep here the critical path time for the most expensive child. */
-  private long childAggregatedElapsedTime = 0;
+  /** The longest aggregate runtime of this component and its critical path. */
+  private long aggregatedElapsedTime = 0;
 
   private final Action action;
   private final Artifact primaryOutput;
@@ -85,7 +85,6 @@ public class CriticalPathComponent {
     this.action = Preconditions.checkNotNull(action);
     this.primaryOutput = action.getPrimaryOutput();
     this.startNanos = startNanos;
-    this.phaseChange = false;
   }
 
   /**
@@ -114,6 +113,10 @@ public class CriticalPathComponent {
     if (isRunning || finishNanos - startNanos > getElapsedTimeNanos()) {
       this.startNanos = startNanos;
       this.finishNanos = finishNanos;
+      // In case aggregatedElapsedTime was never set (such as a leaf node with no depedencies) with
+      // #addDepInfo, we want to set it here in which case the elapsed time is just the run time of
+      // this component.
+      aggregatedElapsedTime = Math.max(aggregatedElapsedTime, this.finishNanos - this.startNanos);
       isRunning = false;
     }
 
@@ -136,6 +139,20 @@ public class CriticalPathComponent {
   /** The action for which we are storing the stat. */
   public final Action getAction() {
     return action;
+  }
+
+  /**
+   * This is called by {@link CriticalPathComputer#actionStarted} to start running the action. The
+   * three scenarios where this would occur is:
+   *
+   * <ol>
+   *   <li>A new CriticalPathComponent is created and should start running.
+   *   <li>A CriticalPathComponent has been created with discover inputs and beginning to execute.
+   *   <li>An action was rewound and starts again.
+   * </ol>
+   */
+  void startRunning() {
+    isRunning = true;
   }
 
   public boolean isRunning() {
@@ -165,26 +182,26 @@ public class CriticalPathComponent {
   }
 
   /**
-   * An action can run multiple spawns. Those calls can be sequential or parallel. If it is a
-   * sequence of calls we should aggregate the metrics by collecting all the SpawnResults, if they
-   * are run in parallel we should keep the maximum runtime spawn. We will also set the
-   * longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases.
+   * An action can run multiple spawns. Those calls can be sequential or parallel. If action is a
+   * sequence of calls we aggregate the SpawnMetrics of all the SpawnResults. If there are multiples
+   * of the same action run in parallel, we keep the maximum runtime SpawnMetrics. We will also set
+   * the longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases if
+   * it exists.
    */
-  void addSpawnResult(SpawnResult spawnResult) {
+  void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName) {
     if (this.phaseChange) {
       this.totalSpawnMetrics =
           SpawnMetrics.aggregateMetrics(
               ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
-      this.phaseMaxMetrics = spawnResult.getMetrics();
+      this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
-    } else if (spawnResult.getMetrics().totalTime().compareTo(this.phaseMaxMetrics.totalTime())
-        > 0) {
-      this.phaseMaxMetrics = spawnResult.getMetrics();
+    } else if (metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
+      this.phaseMaxMetrics = metrics;
     }
 
-    if (spawnResult.getMetrics().totalTime().compareTo(this.longestRunningTotalDuration) > 0) {
-      this.longestPhaseSpawnRunnerName = spawnResult.getRunnerName();
-      this.longestRunningTotalDuration = spawnResult.getMetrics().totalTime();
+    if (runnerName != null && metrics.totalTime().compareTo(this.longestRunningTotalDuration) > 0) {
+      this.longestPhaseSpawnRunnerName = runnerName;
+      this.longestRunningTotalDuration = metrics.totalTime();
     }
   }
 
@@ -212,13 +229,19 @@ public class CriticalPathComponent {
   }
 
   /**
-   * Add statistics for one dependency of this action. Caller should ensure {@code dep} not running.
+   * Updates the child component if the union of the new dependency component runtime and the
+   * current component runtime is greater than the union of the current child runtime and current
+   * component runtime. The caller should ensure the dependency component is not running.
    */
-  synchronized void addDepInfo(CriticalPathComponent dep) {
-    long childAggregatedWallTime = dep.getAggregatedElapsedTimeNanos();
-    // Replace the child if its critical path had the maximum elapsed time.
-    if (child == null || childAggregatedWallTime > this.childAggregatedElapsedTime) {
-      this.childAggregatedElapsedTime = childAggregatedWallTime;
+  synchronized void addDepInfo(CriticalPathComponent dep, long componentFinishNanos) {
+    long currentElapsedTime = componentFinishNanos - startNanos;
+    long aggregatedElapsedTime = dep.getAggregatedElapsedTimeNanos() + currentElapsedTime;
+    // This corrects the overlapping run time.
+    if (dep.finishNanos > startNanos) {
+      aggregatedElapsedTime -= dep.finishNanos - startNanos;
+    }
+    if (child == null || aggregatedElapsedTime > this.aggregatedElapsedTime) {
+      this.aggregatedElapsedTime = aggregatedElapsedTime;
       child = dep;
     }
   }
@@ -270,7 +293,7 @@ public class CriticalPathComponent {
 
   private long getAggregatedElapsedTimeNanos() {
     Preconditions.checkState(!isRunning, "Still running %s", this);
-    return getElapsedTimeNanos() + childAggregatedElapsedTime;
+    return aggregatedElapsedTime;
   }
 
   /**

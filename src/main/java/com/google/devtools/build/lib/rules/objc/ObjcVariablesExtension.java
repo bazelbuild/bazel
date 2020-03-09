@@ -129,7 +129,6 @@ class ObjcVariablesExtension implements VariablesExtension {
   @Override
   public void addVariables(CcToolchainVariables.Builder builder) {
     addPchVariables(builder);
-    addFrameworkVariables(builder);
     addModuleMapVariables(builder);
     if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
       addArchiveVariables(builder);
@@ -165,10 +164,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
   }
 
-  private void addFrameworkVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringSequenceVariable(FRAMEWORKS_PATH_NAME, frameworkSearchPaths);
-  }
-
   private void addModuleMapVariables(CcToolchainVariables.Builder builder) {
     builder.addStringVariable(
         MODULES_MAPS_DIR_NAME,
@@ -202,10 +197,11 @@ class ObjcVariablesExtension implements VariablesExtension {
         Artifact.toExecPaths(objcProvider.getCcLibraries()));
     builder.addStringSequenceVariable(
         IMPORTED_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
-        Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)));
+        Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY).toList()));
   }
 
   private void addExecutableLinkVariables(CcToolchainVariables.Builder builder) {
+    builder.addStringSequenceVariable(FRAMEWORKS_PATH_NAME, frameworkSearchPaths);
     builder.addStringSequenceVariable(
         FRAMEWORK_NAMES_VARIABLE_NAME, frameworkNames);
     builder.addStringSequenceVariable(
@@ -367,17 +363,18 @@ class ObjcVariablesExtension implements VariablesExtension {
           activeVariableCategoriesBuilder.build();
 
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
-      Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
       Preconditions.checkNotNull(buildConfiguration, "missing BuildConfiguration");
       Preconditions.checkNotNull(intermediateArtifacts, "missing IntermediateArtifacts");
-      Preconditions.checkNotNull(frameworkSearchPaths, "missing FrameworkSearchPaths");
       if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
         Preconditions.checkNotNull(compilationArtifacts, "missing CompilationArtifacts");
       }
       if (activeVariableCategories.contains(VariableCategory.FULLY_LINK_VARIABLES)) {
+        Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
         Preconditions.checkNotNull(fullyLinkArchive, "missing fully-link archive");
       }
       if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
+        Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
+        Preconditions.checkNotNull(frameworkSearchPaths, "missing FrameworkSearchPaths");
         Preconditions.checkNotNull(frameworkNames, "missing framework names");
         Preconditions.checkNotNull(libraryNames, "missing library names");
         Preconditions.checkNotNull(forceLoadArtifacts, "missing force-load artifacts");

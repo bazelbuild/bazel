@@ -24,7 +24,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options/testing",
-        "//src/main/protobuf:option_filters_java_proto",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:guava-testlib",

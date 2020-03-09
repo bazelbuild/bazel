@@ -19,14 +19,14 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.MethodDescriptor;
-import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.Set;
@@ -51,11 +51,11 @@ final class DebuggerSerialization {
     if (value instanceof String) {
       return (String) value;
     }
-    return Printer.repr(value);
+    return Starlark.repr(value);
   }
 
   private static boolean hasChildren(Object value) {
-    if (value instanceof SkylarkNestedSet) {
+    if (value instanceof Depset) {
       return true;
     }
     if (value instanceof NestedSetView) {
@@ -73,9 +73,9 @@ final class DebuggerSerialization {
     if (value.getClass().isArray()) {
       return Array.getLength(value) > 0;
     }
-    if (value instanceof ClassObject || value instanceof SkylarkValue) {
+    if (value instanceof ClassObject || value instanceof StarlarkValue) {
       // assuming ClassObject's have at least one child as a temporary optimization
-      // TODO(bazel-team): remove once child-listing logic is moved to SkylarkValue
+      // TODO(bazel-team): remove once child-listing logic is moved to StarlarkValue
       return true;
     }
     // fallback to assuming there are no children
@@ -83,8 +83,8 @@ final class DebuggerSerialization {
   }
 
   static ImmutableList<Value> getChildren(ThreadObjectMap objectMap, Object value) {
-    if (value instanceof SkylarkNestedSet) {
-      return getChildren(objectMap, (SkylarkNestedSet) value);
+    if (value instanceof Depset) {
+      return getChildren(objectMap, (Depset) value);
     }
     if (value instanceof NestedSetView) {
       return getChildren(objectMap, (NestedSetView) value);
@@ -101,12 +101,12 @@ final class DebuggerSerialization {
     if (value.getClass().isArray()) {
       return getArrayChildren(objectMap, value);
     }
-    // TODO(bazel-team): move child-listing logic to SkylarkValue where practical
+    // TODO(bazel-team): move child-listing logic to StarlarkValue where practical
     if (value instanceof ClassObject) {
       return getChildren(objectMap, (ClassObject) value);
     }
-    if (value instanceof SkylarkValue) {
-      return getChildren(objectMap, (SkylarkValue) value);
+    if (value instanceof StarlarkValue) {
+      return getChildren(objectMap, (StarlarkValue) value);
     }
     // fallback to assuming there are no children
     return ImmutableList.of();
@@ -115,17 +115,9 @@ final class DebuggerSerialization {
   private static ImmutableList<Value> getChildren(
       ThreadObjectMap objectMap, ClassObject classObject) {
     ImmutableList.Builder<Value> builder = ImmutableList.builder();
-    ImmutableList<String> keys;
-    try {
-      keys = Ordering.natural().immutableSortedCopy(classObject.getFieldNames());
-    } catch (EvalException | IllegalArgumentException e) {
-      // silently return no children
-      return ImmutableList.of();
-    }
-    for (String key : keys) {
-      Object value;
+    for (String key : Ordering.natural().immutableSortedCopy(classObject.getFieldNames())) {
       try {
-        value = classObject.getValue(key);
+        Object value = classObject.getValue(key);
         if (value != null) {
           builder.add(getValueProto(objectMap, key, value));
         }
@@ -137,23 +129,22 @@ final class DebuggerSerialization {
   }
 
   private static ImmutableList<Value> getChildren(
-      ThreadObjectMap objectMap, SkylarkValue skylarkValue) {
+      ThreadObjectMap objectMap, StarlarkValue skylarkValue) {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.DEFAULT_SEMANTICS; // TODO(adonovan): obtain from thread.
     Set<String> fieldNames;
     try {
-      fieldNames = CallUtils.getStructFieldNames(skylarkValue.getClass());
+      fieldNames = CallUtils.getFieldNames(semantics, skylarkValue);
     } catch (IllegalArgumentException e) {
       // silently return no children
       return ImmutableList.of();
     }
     ImmutableList.Builder<Value> children = ImmutableList.builder();
     for (String fieldName : fieldNames) {
-      MethodDescriptor method = CallUtils.getStructField(skylarkValue.getClass(), fieldName);
       try {
         children.add(
             getValueProto(
-                objectMap,
-                fieldName,
-                CallUtils.invokeStructField(method, fieldName, skylarkValue)));
+                objectMap, fieldName, CallUtils.getField(semantics, skylarkValue, fieldName)));
       } catch (EvalException | InterruptedException | IllegalArgumentException e) {
         // silently ignore errors
       }
@@ -161,8 +152,7 @@ final class DebuggerSerialization {
     return children.build();
   }
 
-  private static ImmutableList<Value> getChildren(
-      ThreadObjectMap objectMap, SkylarkNestedSet nestedSet) {
+  private static ImmutableList<Value> getChildren(ThreadObjectMap objectMap, Depset nestedSet) {
     return ImmutableList.<Value>builder()
         .add(
             Value.newBuilder()

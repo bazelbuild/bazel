@@ -7,10 +7,6 @@ java_import(
 
 java_binary(
     name = "ResourceProcessorBusyBox",
-    data = select({
-        "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
-        "//conditions:default": [],
-    }),
     jvm_flags = [
         # quiet warnings from com.google.protobuf.UnsafeUtil,
         # see: https://github.com/google/protobuf/issues/3781

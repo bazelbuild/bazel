@@ -21,7 +21,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -35,25 +34,33 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -68,8 +75,7 @@ import javax.annotation.Nullable;
 /** Action that represents a linking step. */
 @ThreadCompatible
 @AutoCodec
-public final class CppLinkAction extends AbstractAction
-    implements ExecutionInfoSpecifier, CommandAction {
+public final class CppLinkAction extends AbstractAction implements CommandAction {
 
   /**
    * An abstraction for creating intermediate and output artifacts for C++ linking.
@@ -128,8 +134,6 @@ public final class CppLinkAction extends AbstractAction
   private final String hostSystemName;
   private final String targetCpu;
 
-  private final Iterable<Artifact> mandatoryInputs;
-
   // Linking uses a lot of memory; estimate 1 MB per input file, min 1.5 Gib. It is vital to not
   // underestimate too much here, because running too many concurrent links can thrash the machine
   // to the point where it stops responding to keystrokes or mouse clicks. This is primarily a
@@ -155,7 +159,7 @@ public final class CppLinkAction extends AbstractAction
   CppLinkAction(
       ActionOwner owner,
       String mnemonic,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       ImmutableSet<Artifact> outputs,
       LibraryToLink outputLibrary,
       Artifact linkOutput,
@@ -173,7 +177,6 @@ public final class CppLinkAction extends AbstractAction
       String targetCpu) {
     super(owner, inputs, outputs, env);
     this.mnemonic = getMnemonic(mnemonic, isLtoIndexing);
-    this.mandatoryInputs = inputs;
     this.outputLibrary = outputLibrary;
     this.linkOutput = linkOutput;
     this.interfaceOutputLibrary = interfaceOutputLibrary;
@@ -200,7 +203,7 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   @VisibleForTesting
-  public Iterable<Artifact> getPossibleInputsForTesting() {
+  public NestedSet<Artifact> getPossibleInputsForTesting() {
     return getInputs();
   }
 
@@ -258,6 +261,23 @@ public final class CppLinkAction extends AbstractAction
   }
 
   @Override
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
+    ImmutableSet<Artifact> directoryInputs =
+        getInputs().toList().stream()
+            .filter(artifact -> artifact.isDirectory())
+            .collect(ImmutableSet.toImmutableSet());
+
+    CommandLine commandLine = linkCommandLine.getCommandLineForStarlark();
+
+    CommandLineAndParamFileInfo commandLineAndParamFileInfo =
+        new CommandLineAndParamFileInfo(commandLine, /* paramFileInfo= */ null);
+
+    Args args = Args.forRegisteredAction(commandLineAndParamFileInfo, directoryInputs);
+
+    return StarlarkList.immutableCopyOf(ImmutableList.of(args));
+  }
+
+  @Override
   public List<String> getArguments() throws CommandLineExpansionException {
     return linkCommandLine.arguments();
   }
@@ -295,7 +315,7 @@ public final class CppLinkAction extends AbstractAction
     Spawn spawn = createSpawn(actionExecutionContext);
     SpawnContinuation spawnContinuation =
         actionExecutionContext
-            .getContext(SpawnActionContext.class)
+            .getContext(SpawnStrategy.class)
             .beginExecution(spawn, actionExecutionContext);
     return new CppLinkActionContinuation(actionExecutionContext, spawnContinuation);
   }
@@ -308,8 +328,8 @@ public final class CppLinkAction extends AbstractAction
           ImmutableList.copyOf(getCommandLine(actionExecutionContext.getArtifactExpander())),
           getEnvironment(actionExecutionContext.getClientEnv()),
           getExecutionInfo(),
-          ImmutableList.copyOf(getMandatoryInputs()),
-          getOutputs().asList(),
+          getInputs(),
+          getOutputs(),
           estimateResourceConsumptionLocal());
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(
@@ -411,7 +431,8 @@ public final class CppLinkAction extends AbstractAction
     // The uses of getLinkConfiguration in this method may not be consistent with the computed key.
     // I.e., this may be incrementally incorrect.
     CppLinkInfo.Builder info = CppLinkInfo.newBuilder();
-    info.addAllInputFile(Artifact.toExecPaths(getLinkCommandLine().getLinkerInputArtifacts()));
+    info.addAllInputFile(
+        Artifact.toExecPaths(getLinkCommandLine().getLinkerInputArtifacts().toList()));
     info.setOutputFile(getPrimaryOutput().getExecPathString());
     if (interfaceOutputLibrary != null) {
       info.setInterfaceOutputFile(interfaceOutputLibrary.getArtifact().getExecPathString());
@@ -513,18 +534,12 @@ public final class CppLinkAction extends AbstractAction
             ? MIN_DYNAMIC_LINK_RESOURCES
             : MIN_STATIC_LINK_RESOURCES;
 
-    final int inputSize = Iterables.size(getLinkCommandLine().getLinkerInputArtifacts());
-
+    int inputSize = getLinkCommandLine().getLinkerInputArtifacts().memoizedFlattenAndGetSize();
     return ResourceSet.createWithRamCpu(
         Math.max(
             inputSize * LINK_RESOURCES_PER_INPUT.getMemoryMb(), minLinkResources.getMemoryMb()),
         Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getCpuUsage(), minLinkResources.getCpuUsage())
     );
-  }
-
-  @Override
-  public Iterable<Artifact> getMandatoryInputs() {
-    return mandatoryInputs;
   }
 
   private final class CppLinkActionContinuation extends ActionContinuationOrResult {
@@ -557,6 +572,15 @@ public final class CppLinkAction extends AbstractAction
             actionExecutionContext.getVerboseFailures(),
             CppLinkAction.this);
       }
+    }
+  }
+
+  @Override
+  public Sequence<String> getSkylarkArgv() throws EvalException {
+    try {
+      return StarlarkList.immutableCopyOf(getArguments());
+    } catch (CommandLineExpansionException exception) {
+      throw new EvalException(Location.BUILTIN, exception);
     }
   }
 }

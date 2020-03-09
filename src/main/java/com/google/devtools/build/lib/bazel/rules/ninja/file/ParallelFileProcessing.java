@@ -25,21 +25,21 @@ import java.util.stream.Collectors;
 
 /**
  * Parallel file processing implementation. See comment to {@link #processFile(ReadableByteChannel,
- * BlockParameters, Supplier, ListeningExecutorService, SeparatorPredicate)}.
+ * BlockParameters, Supplier, ListeningExecutorService, SeparatorFinder)}.
  */
 public class ParallelFileProcessing {
   private final ReadableByteChannel channel;
   private final BlockParameters parameters;
   private final Supplier<DeclarationConsumer> tokenConsumerFactory;
   private final ListeningExecutorService executorService;
-  private final SeparatorPredicate predicate;
+  private final SeparatorFinder predicate;
 
   private ParallelFileProcessing(
       ReadableByteChannel channel,
       BlockParameters parameters,
       Supplier<DeclarationConsumer> tokenConsumerFactory,
       ListeningExecutorService executorService,
-      SeparatorPredicate predicate) {
+      SeparatorFinder predicate) {
     this.channel = channel;
     this.parameters = parameters;
     this.tokenConsumerFactory = tokenConsumerFactory;
@@ -90,7 +90,7 @@ public class ParallelFileProcessing {
       BlockParameters parameters,
       Supplier<DeclarationConsumer> tokenConsumerFactory,
       ListeningExecutorService executorService,
-      SeparatorPredicate predicate)
+      SeparatorFinder predicate)
       throws GenericParsingException, IOException, InterruptedException {
     new ParallelFileProcessing(
             channel, parameters, tokenConsumerFactory, executorService, predicate)
@@ -98,6 +98,10 @@ public class ParallelFileProcessing {
   }
 
   private void processFileImpl() throws InterruptedException, IOException, GenericParsingException {
+    if (parameters.readBlockSize == 0) {
+      // Return immediately, if the file is empty.
+      return;
+    }
     DeclarationAssembler assembler =
         new DeclarationAssembler(tokenConsumerFactory.get(), predicate);
 
@@ -141,19 +145,25 @@ public class ParallelFileProcessing {
     int blockSize = parameters.getTokenizeBlockSize();
     while (from < bb.limit()) {
       int to = Math.min(bb.limit(), from + blockSize);
+      if (bb.limit() - to < BlockParameters.MIN_TOKENIZE_BLOCK_SIZE) {
+        // Do not create the last block too small, rather join it with the previous block.
+        to = bb.limit();
+      }
       DeclarationConsumer consumer = tokenConsumerFactory.get();
       ByteBufferFragment fragment = new ByteBufferFragment(bb, from, to);
       BufferSplitter tokenizer = new BufferSplitter(fragment, consumer, predicate, offset);
       future.add(executorService.submit(tokenizer));
-      from += blockSize;
+      from = to;
     }
   }
 
   /** Sizes of blocks for reading from file and parsing for {@link ParallelFileProcessing}. */
   public static class BlockParameters {
+
     private static final int READ_BLOCK_SIZE = 25 * 1024 * 1024;
     private static final int MIN_READ_BLOCK_SIZE = 10 * 1024 * 1024;
     private static final int TOKENIZE_BLOCK_SIZE = 1024 * 1024;
+    private static final int MIN_TOKENIZE_BLOCK_SIZE = 100;
 
     /** Size of the reading buffer. */
     private int readBlockSize;
@@ -173,7 +183,8 @@ public class ParallelFileProcessing {
     public BlockParameters(long fileSize) {
       readBlockSize = (int) Math.min(READ_BLOCK_SIZE, fileSize);
       minReadBlockSize = Math.min(MIN_READ_BLOCK_SIZE, (int) Math.ceil((double) fileSize / 2));
-      tokenizeBlockSize = Math.min(TOKENIZE_BLOCK_SIZE, minReadBlockSize / 4);
+      tokenizeBlockSize =
+          Math.max(MIN_TOKENIZE_BLOCK_SIZE, Math.min(TOKENIZE_BLOCK_SIZE, minReadBlockSize / 4));
     }
 
     public int getReadBlockSize() {
@@ -188,21 +199,14 @@ public class ParallelFileProcessing {
       if (readBlockSize > 0) {
         this.readBlockSize = readBlockSize;
         minReadBlockSize = Math.min(minReadBlockSize, (int) Math.ceil((double) readBlockSize / 2));
-        tokenizeBlockSize = Math.min(tokenizeBlockSize, minReadBlockSize / 4);
+        tokenizeBlockSize =
+            Math.max(MIN_TOKENIZE_BLOCK_SIZE, Math.min(tokenizeBlockSize, minReadBlockSize / 4));
       }
       return this;
     }
 
     public int getTokenizeBlockSize() {
       return tokenizeBlockSize;
-    }
-
-    /** Sets tokenizeBlockSize, if it is less than readBlockSize. */
-    public BlockParameters setTokenizeBlockSize(int tokenizeBlockSize) {
-      if (tokenizeBlockSize > 0 && tokenizeBlockSize <= readBlockSize) {
-        this.tokenizeBlockSize = tokenizeBlockSize;
-      }
-      return this;
     }
 
     public int getMinReadBlockSize() {

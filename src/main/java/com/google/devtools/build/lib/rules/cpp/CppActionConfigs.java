@@ -1573,7 +1573,7 @@ public class CppActionConfigs {
   }
 
   private static String ifLinux(CppPlatform platform, String... lines) {
-    // Platform `LINUX` also includes FreeBSD.
+    // Platform `LINUX` also includes FreeBSD and OpenBSD.
     return ifTrue(platform == CppPlatform.LINUX, lines);
   }
 

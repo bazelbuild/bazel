@@ -17,6 +17,7 @@
 
 #include <cinttypes>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -106,9 +107,13 @@ void SigPrintf(const char *format, ...);
 
 std::string GetProcessIdAsString();
 
-// Get an absolute path to the binary being executed that is guaranteed to be
+// Locates a file named `executable` in the PATH. Returns a path to the first
+// matching file, or an empty string if `executable` is not found on the PATH.
+std::string Which(const std::string& executable);
+
+// Gets an absolute path to the binary being executed that is guaranteed to be
 // readable.
-std::string GetSelfPath();
+std::string GetSelfPath(const char* argv0);
 
 // Returns the directory Bazel can use to store output.
 std::string GetOutputRoot();
@@ -129,8 +134,9 @@ uint64_t GetMillisecondsMonotonic();
 // on Linux, so it should only be called when necessary.
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level);
 
-// Returns the cwd for a process.
-blaze_util::Path GetProcessCWD(int pid);
+// Returns the current working directory of the specified process, or nullptr
+// if the directory is unknown.
+std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid);
 
 bool IsSharedLibrary(const std::string& filename);
 

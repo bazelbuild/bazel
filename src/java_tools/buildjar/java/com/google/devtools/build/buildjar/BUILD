@@ -156,9 +156,9 @@ bootstrap_java_library(
     srcs = ["//:bootstrap-derived-java-srcs"],
     jars = [
         "//third_party:auto_value-jars",
+        "//:bootstrap-derived-java-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
-        "//third_party/protobuf:protobuf-jars",
         "//third_party/java/jacoco:core-jars",
         "//third_party/grpc:bootstrap-grpc-jars",
         "//third_party:tomcat_annotations_api-jars",

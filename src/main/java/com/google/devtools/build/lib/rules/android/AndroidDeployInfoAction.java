@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ByteStringDeterministicWriter;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
@@ -40,12 +42,11 @@ import java.io.InputStream;
 @Immutable
 public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
 
-  private static Iterable<Artifact> makeInputs(
+  private static NestedSet<Artifact> makeInputs(
       Artifact mergedManifest,
       Iterable<Artifact> additionalMergedManifests,
       Iterable<Artifact> apksToDeploy) {
-
-    return ImmutableList.<Artifact>builder()
+    return NestedSetBuilder.<Artifact>stableOrder()
         .add(mergedManifest)
         .addAll(additionalMergedManifests)
         .addAll(apksToDeploy)

@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
@@ -30,9 +28,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -89,37 +90,59 @@ public class MacOSXFsEventsDiffAwarenessTest {
     scratchFile(path, "");
   }
 
-  private void assertDiff(View view1, View view2, Object... paths)
-      throws IncompatibleViewException, BrokenDiffAwarenessException {
-    ImmutableSet<PathFragment> modifiedSourceFiles =
-        underTest.getDiff(view1, view2).modifiedSourceFiles();
-    ImmutableSet<String> toStringSourceFiles = toString(modifiedSourceFiles);
-    assertThat(toStringSourceFiles).containsExactly(paths);
-  }
-
-  private static ImmutableSet<String> toString(ImmutableSet<PathFragment> modifiedSourceFiles) {
-    ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-    for (PathFragment path : modifiedSourceFiles) {
-      if (!path.toString().isEmpty()) {
-        builder.add(path.toString());
-      }
+  /**
+   * Checks that the union of the diffs between the current view and each member of some consecutive
+   * sequence of views is the specific set of given files.
+   *
+   * @param view1 the view to compare to
+   * @param rawPaths the files to expect in the view
+   * @return the new view
+   */
+  private View assertDiff(View view1, String... rawPaths)
+      throws IncompatibleViewException, BrokenDiffAwarenessException, InterruptedException {
+    Set<PathFragment> pathsYetToBeSeen = new HashSet<>();
+    for (String path : rawPaths) {
+      pathsYetToBeSeen.add(PathFragment.create(path));
     }
-    return builder.build();
+
+    // fsevents may be delayed (especially under machine load), which means that we may not notice
+    // all file system changes in one go. Try enough times (multiple seconds) for the events to be
+    // delivered. Given that each time we call getCurrentView we may get a subset of the total
+    // events we expect, track the events we have already seen by subtracting them from the
+    // pathsYetToBeSeen set.
+    int attempts = 0;
+    for (; ; ) {
+      View view2 = underTest.getCurrentView(watchFsEnabledProvider);
+
+      ImmutableSet<PathFragment> modifiedSourceFiles =
+          underTest.getDiff(view1, view2).modifiedSourceFiles();
+      pathsYetToBeSeen.removeAll(modifiedSourceFiles);
+      if (pathsYetToBeSeen.isEmpty()) {
+        // Found all paths that we wanted to see as modified.
+        return view2;
+      }
+
+      if (attempts == 600) {
+        throw new AssertionError("Paths " + pathsYetToBeSeen + " not found as modified");
+      }
+      Thread.sleep(100);
+      attempts++;
+      view1 = view2; // getDiff requires views to be sequential if we want to get meaningful data.
+    }
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testSimple() throws Exception {
     View view1 = underTest.getCurrentView(watchFsEnabledProvider);
+
     scratchFile("a/b/c");
     scratchFile("b/c/d");
-    Thread.sleep(200); // Wait until the events propagate
-    View view2 = underTest.getCurrentView(watchFsEnabledProvider);
-    assertDiff(view1, view2, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
+    View view2 = assertDiff(view1, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
+
     rmdirs(watchedPath.resolve("a"));
     rmdirs(watchedPath.resolve("b"));
-    Thread.sleep(200); // Wait until the events propagate
-    View view3 = underTest.getCurrentView(watchFsEnabledProvider);
-    assertDiff(view2, view3, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
+    assertDiff(view2, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
   }
 
   /**

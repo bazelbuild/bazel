@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.IOException;
@@ -42,9 +44,9 @@ public class GenRuleAction extends SpawnAction {
 
   public GenRuleAction(
       ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
-      Iterable<Artifact> outputs,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
+      ImmutableSet<Artifact> outputs,
       CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,

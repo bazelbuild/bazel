@@ -29,18 +29,20 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintCollectionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -166,13 +168,11 @@ public abstract class ConstraintCollection
     return mismatchSettings.build();
   }
 
-  private ConstraintSettingInfo convertKey(Object key, Location loc) throws EvalException {
+  private static ConstraintSettingInfo convertKey(Object key) throws EvalException {
     if (!(key instanceof ConstraintSettingInfo)) {
-      throw new EvalException(
-          loc,
-          String.format(
-              "Constraint names must be platform_common.ConstraintSettingInfo, got %s instead",
-              EvalUtils.getDataTypeName(key)));
+      throw Starlark.errorf(
+          "Constraint names must be platform_common.ConstraintSettingInfo, got %s instead",
+          EvalUtils.getDataTypeName(key));
     }
 
     return (ConstraintSettingInfo) key;
@@ -207,6 +207,12 @@ public abstract class ConstraintCollection
     return false;
   }
 
+  @Override
+  public boolean hasConstraintValue(ConstraintValueInfo constraintValue) {
+    ConstraintValueInfo discoveredConstraintValue = this.get(constraintValue.constraint());
+    return Objects.equals(constraintValue, discoveredConstraintValue);
+  }
+
   /**
    * Returns the {@link ConstraintValueInfo} for the given {@link ConstraintSettingInfo}, or {@code
    * null} if none exists.
@@ -229,30 +235,28 @@ public abstract class ConstraintCollection
   }
 
   @Override
-  public SkylarkList<ConstraintSettingInfo> constraintSettings() {
-    return SkylarkList.createImmutable(constraints().keySet());
+  public Sequence<ConstraintSettingInfo> constraintSettings() {
+    return StarlarkList.immutableCopyOf(constraints().keySet());
   }
 
   @Override
-  public Object getIndex(Object key, Location loc) throws EvalException {
-    ConstraintSettingInfo constraint = convertKey(key, loc);
-    return get(constraint);
+  public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+    return get(convertKey(key));
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
-    ConstraintSettingInfo constraint = convertKey(key, loc);
-    return has(constraint);
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
+    return has(convertKey(key));
   }
 
   // It's easier to use the Starlark repr as a string form, not what AutoValue produces.
   @Override
   public final String toString() {
-    return Printer.str(this);
+    return Starlark.str(this);
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<");
     if (parent() != null) {
       printer.append("parent: ");

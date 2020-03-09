@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.Collection;
 
 /**
@@ -53,7 +53,7 @@ public final class UsesDataBindingProvider extends NativeInfo
     }
 
     @Override
-    public UsesDataBindingProvider createInfo(SkylarkList<?> metadataOutputs) // <Artifact>
+    public UsesDataBindingProvider createInfo(Sequence<?> metadataOutputs) // <Artifact>
         throws EvalException {
       return new UsesDataBindingProvider(
           metadataOutputs.getContents(Artifact.class, "metadata_outputs"));

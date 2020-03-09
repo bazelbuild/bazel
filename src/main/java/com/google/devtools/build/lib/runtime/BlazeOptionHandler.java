@@ -246,8 +246,7 @@ public final class BlazeOptionHandler {
       return ExitCode.SUCCESS;
     }
     try {
-      StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser)
-          .parse(commandAnnotation, eventHandler);
+      StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser).parse(eventHandler);
     } catch (OptionsParsingException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.PARSING_FAILURE;
@@ -327,6 +326,8 @@ public final class BlazeOptionHandler {
         return "windows";
       case FREEBSD:
         return "freebsd";
+      case OPENBSD:
+        return "openbsd";
       default:
         return OS.getCurrent().getCanonicalName();
     }

@@ -258,6 +258,31 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         .doesNotContain(evalToListOfStrings(implicits));
   }
 
+  // Regression test for b/148550864
+  @Test
+  public void testNoImplicitDeps_platformDeps() throws Exception {
+    MockRule simpleRule = () -> MockRule.define("simple_rule");
+    helper.useRuleClassProvider(setRuleClassProviders(simpleRule).build());
+
+    writeFile(
+        "test/BUILD",
+        "simple_rule(name = 'my_rule')",
+        "platform(name = 'host_platform')",
+        "platform(name = 'execution_platform')");
+
+    ((PostAnalysisQueryHelper<T>) helper)
+        .useConfiguration(
+            "--host_platform=//test:host_platform",
+            "--extra_execution_platforms=//test:execution_platform");
+
+    // Check for platform dependencies
+    assertThat(evalToListOfStrings("deps(//test:my_rule)"))
+        .containsAtLeastElementsIn(
+            evalToListOfStrings("//test:execution_platform + //test:host_platform"));
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    assertThat(evalToListOfStrings("deps(//test:my_rule)")).containsExactly("//test:my_rule");
+  }
+
   @Test
   public void testNoImplicitDeps_computedDefault() throws Exception {
     MockRule computedDefaultRule =

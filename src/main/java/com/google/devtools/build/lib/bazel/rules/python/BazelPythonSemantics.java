@@ -167,7 +167,7 @@ public class BazelPythonSemantics implements PythonSemantics {
                 Substitution.of(
                     "%main%", common.determineMainExecutableSource(/*withWorkspaceName=*/ true)),
                 Substitution.of("%python_binary%", pythonBinary),
-                Substitution.of("%imports%", Joiner.on(":").join(common.getImports())),
+                Substitution.of("%imports%", Joiner.on(":").join(common.getImports().toList())),
                 Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                 Substitution.of("%is_zipfile%", boolToLiteral(isForZipFile)),
                 Substitution.of(
@@ -235,13 +235,18 @@ public class BazelPythonSemantics implements PythonSemantics {
 
       if (OS.getCurrent() != OS.WINDOWS) {
         PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+        // TODO(#8685): Remove this special-case handling as part of making the proper shebang a
+        // property of the Python toolchain configuration.
+        String pythonExecutableName = OS.getCurrent() == OS.OPENBSD ? "python3" : "python";
         ruleContext.registerAction(
             new SpawnAction.Builder()
                 .addInput(zipFile)
                 .addOutput(executable)
                 .setShellCommand(
                     shExecutable,
-                    "echo '#!/usr/bin/env python' | cat - "
+                    "echo '#!/usr/bin/env "
+                        + pythonExecutableName
+                        + "' | cat - "
                         + zipFile.getExecPathString()
                         + " > "
                         + executable.getExecPathString())
@@ -349,13 +354,13 @@ public class BazelPythonSemantics implements PythonSemantics {
     // Creating __init__.py files under each directory
     argv.add("__init__.py=");
     argv.addDynamicString(getZipRunfilesPath("__init__.py", workspaceName) + "=");
-    for (String path : runfilesSupport.getRunfiles().getEmptyFilenames()) {
+    for (String path : runfilesSupport.getRunfiles().getEmptyFilenames().toList()) {
       argv.addDynamicString(getZipRunfilesPath(path, workspaceName) + "=");
     }
 
     // Read each runfile from execute path, add them into zip file at the right runfiles path.
     // Filter the executable file, cause we are building it.
-    for (Artifact artifact : runfilesSupport.getRunfilesArtifacts()) {
+    for (Artifact artifact : runfilesSupport.getRunfilesArtifacts().toList()) {
       if (!artifact.equals(executable) && !artifact.equals(zipFile)) {
         argv.addDynamicString(
             getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName)

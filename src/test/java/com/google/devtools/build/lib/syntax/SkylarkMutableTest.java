@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +32,7 @@ public final class SkylarkMutableTest {
   @Test
   public void testListViewsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
-    MutableList<Object> list = MutableList.copyOf(mutability, ImmutableList.of(1, 2, 3));
+    StarlarkList<Object> list = StarlarkList.copyOf(mutability, ImmutableList.of(1, 2, 3));
     mutability.freeze();
 
     {
@@ -68,7 +67,7 @@ public final class SkylarkMutableTest {
   @Test
   public void testDictViewsCheckMutability() throws Exception {
     Mutability mutability = Mutability.create("test");
-    SkylarkDict<Object, Object> dict = SkylarkDict.copyOf(mutability, ImmutableMap.of(1, 2, 3, 4));
+    Dict<Object, Object> dict = Dict.copyOf(mutability, ImmutableMap.of(1, 2, 3, 4));
     mutability.freeze();
 
     {

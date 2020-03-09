@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi.Descriptor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
@@ -45,7 +45,7 @@ public class FakeDescriptor implements Descriptor {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   public AttributeInfo asAttributeInfo(String attributeName) {
     AttributeInfo.Builder attrInfo =

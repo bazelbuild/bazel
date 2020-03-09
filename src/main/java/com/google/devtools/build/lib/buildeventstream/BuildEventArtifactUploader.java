@@ -14,11 +14,20 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.Maps;
+import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** Uploads artifacts referenced by the Build Event Protocol (BEP). */
 public interface BuildEventArtifactUploader {
@@ -32,6 +41,42 @@ public interface BuildEventArtifactUploader {
    * as it should appear in the BEP.
    */
   ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files);
+
+  /** The context associated with an in-flight remote upload. */
+  interface UploadContext {
+
+    /** The {@link OutputStream} to stream the file contents to. */
+    @Nullable
+    OutputStream getOutputStream();
+
+    /** The future URI of the completed upload. */
+    ListenableFuture<String> uriFuture();
+  }
+
+  /**
+   * Initiate a streaming upload to the remote storage.
+   *
+   * <p>If inputSupplier is null, the caller is expected to write to the {@link
+   * UploadContext#getOutputStream()}. If inputSupplier is non-null, {@link
+   * UploadContext#getOutputStream()} is null.
+   */
+  default UploadContext startUpload(
+      LocalFileType type, @Nullable Supplier<InputStream> inputSupplier) {
+    return EMPTY_UPLOAD;
+  }
+
+  UploadContext EMPTY_UPLOAD =
+      new UploadContext() {
+        @Override
+        public OutputStream getOutputStream() {
+          return ByteStreams.nullOutputStream();
+        }
+
+        @Override
+        public ListenableFuture<String> uriFuture() {
+          return Futures.immediateFailedFuture(new IOException("No available uploader"));
+        }
+      };
 
   /**
    * Shutdown any resources associated with the uploader.
@@ -57,5 +102,15 @@ public interface BuildEventArtifactUploader {
       localFileMap.putIfAbsent(localFile.path, localFile);
     }
     return upload(localFileMap);
+  }
+
+  /**
+   * Blocks on the completion of pending remote uploads, enforcing the relevant timeout if
+   * applicable.
+   */
+  default ListenableFuture<?> waitForRemoteUploads(
+      Collection<ListenableFuture<String>> remoteUploads,
+      ScheduledExecutorService timeoutExecutor) {
+    return Futures.allAsList(remoteUploads);
   }
 }

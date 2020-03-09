@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
+import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer.TextKind;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -55,7 +56,7 @@ public class NinjaLexerTest {
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "b");
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "not-newline");
-    assertTokenBytes(lexer, NinjaToken.TEXT, "$");
+    assertTokenBytes(lexer, NinjaToken.ESCAPED_TEXT, "$$");
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "newline");
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
@@ -67,14 +68,21 @@ public class NinjaLexerTest {
   }
 
   @Test
-  public void testDisallowedSymbols() {
+  public void testTabsAreAllowed() {
     String text = "abc\n\tcde";
     NinjaLexer lexer = createLexer(text);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "abc");
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
-    assertError(lexer, "Tabs are not allowed, use spaces.", "\t");
+    assertTokenBytes(lexer, NinjaToken.INDENT, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "cde");
+  }
 
-    assertError(createLexer("^"), "Symbol is not allowed in the identifier.", "^");
+  @Test
+  public void testDisallowedSymbols() {
+    assertError(
+        createLexer("^"),
+        "Symbol '^' is not allowed in the identifier, the text fragment with the symbol:\n^\n",
+        "^");
   }
 
   @Test
@@ -98,7 +106,7 @@ public class NinjaLexerTest {
     assertError(lexer, "Bad $-escape (literal $ must be written as $$)", "$");
 
     NinjaLexer lexer2 = createLexer("$$$");
-    assertTokenBytes(lexer2, NinjaToken.TEXT, "$");
+    assertTokenBytes(lexer2, NinjaToken.ESCAPED_TEXT, "$$");
     assertError(lexer2, "Bad $-escape (literal $ must be written as $$)", "$");
   }
 
@@ -140,18 +148,16 @@ public class NinjaLexerTest {
 
   @Test
   public void testReadTextFragment() {
-    NinjaLexer lexer = createLexer("my.var=Any text ^&%$@&!*: $:symbols$\n aa\nmy.var2");
+    NinjaLexer lexer = createLexer("my.var=Any text ^&%=@&!*: $:symbols$\n aa\nmy.var2");
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "my.var");
     assertTokenBytes(lexer, NinjaToken.EQUALS, null);
 
-    lexer.expectTextUntilEol();
+    lexer.setExpectedTextKind(TextKind.TEXT);
     assertTokenBytes(lexer, NinjaToken.TEXT, "Any");
     assertTokenBytes(lexer, NinjaToken.TEXT, "text");
-    assertTokenBytes(lexer, NinjaToken.TEXT, "^&%");
-    assertTokenBytes(lexer, NinjaToken.TEXT, "$");
-    assertTokenBytes(lexer, NinjaToken.TEXT, "@&!*");
+    assertTokenBytes(lexer, NinjaToken.TEXT, "^&%=@&!*");
     assertTokenBytes(lexer, NinjaToken.COLON, null);
-    assertTokenBytes(lexer, NinjaToken.TEXT, ":");
+    assertTokenBytes(lexer, NinjaToken.ESCAPED_TEXT, "$:");
     assertTokenBytes(lexer, NinjaToken.TEXT, "symbols");
     assertTokenBytes(lexer, NinjaToken.TEXT, "aa");
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);

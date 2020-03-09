@@ -14,19 +14,15 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import javax.annotation.Nullable;
+import com.google.devtools.build.lib.syntax.Tuple;
 
-/**
- * Fake implementation of {@link ProviderApi}. This fake is a subclass of {@link BaseFunction},
- * as providers are themselves callable.
- */
+/** Fake callable implementation of {@link ProviderApi}. */
 public class FakeProviderApi extends BaseFunction implements ProviderApi {
 
   /**
@@ -34,16 +30,23 @@ public class FakeProviderApi extends BaseFunction implements ProviderApi {
    */
   private static int idCounter = 0;
 
-  public FakeProviderApi() {
-    super("ProviderIdentifier" + idCounter++, FunctionSignature.KWARGS);
-  }
+  private final String name = "ProviderIdentifier" + idCounter++;
 
   @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+  public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs) {
     return new FakeStructApi();
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public String getName() {
+    return name;
+  }
+
+  @Override
+  public FunctionSignature getSignature() {
+    return FunctionSignature.KWARGS;
+  }
+
+  @Override
+  public void repr(Printer printer) {}
 }

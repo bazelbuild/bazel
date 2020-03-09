@@ -100,6 +100,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         loadingMock
             .getPackageFactoryBuilderForTesting(directories)
             .setEnvironmentExtensions(getEnvironmentExtensions())
+            .setReporter(reporter)
             .build(ruleClassProvider, fileSystem);
     skyframeExecutor = createSkyframeExecutor();
     setUpSkyframe();

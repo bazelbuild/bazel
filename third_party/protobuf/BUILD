@@ -1,33 +1,57 @@
-package(default_visibility = ["//visibility:public"])
-
 licenses(["notice"])
 
-load(":proto_alias.bzl", "proto_alias")
-
-PROTOBUF_VERSION = "3.6.1"
+exports_files(["3.11.3.patch"])
 
 filegroup(
     name = "srcs",
-    srcs = [
-        "//third_party/protobuf/" + PROTOBUF_VERSION + ":srcs",
-    ] + glob(["**"]),  # glob everything to satisfy the compile.sh srcs test
+    srcs = glob(["**"]),  # glob everything to satisfy the compile.sh srcs test
     visibility = ["//third_party:__pkg__"],
 )
 
-proto_alias("protoc", PROTOBUF_VERSION)
+alias(
+    name = "protoc",
+    actual = "@com_google_protobuf//:protoc",
+    visibility = ["//visibility:public"],
+)
 
-proto_alias("protobuf_java", PROTOBUF_VERSION)
+alias(
+    name = "protobuf_java",
+    actual = "@com_google_protobuf//:protobuf_java",
+    visibility = ["//visibility:public"],
+)
 
-proto_alias("protobuf-jars", PROTOBUF_VERSION)
+alias(
+    name = "protobuf_java_util",
+    actual = "@com_google_protobuf//:protobuf_java_util",
+    visibility = ["//visibility:public"],
+)
 
-proto_alias("protobuf_java_util", PROTOBUF_VERSION)
+alias(
+    name = "protobuf_python",
+    actual = "@com_google_protobuf//:protobuf_python",
+    visibility = ["//visibility:public"],
+)
 
-proto_alias("protobuf_python", PROTOBUF_VERSION)
+alias(
+    name = "protobuf",
+    actual = "@com_google_protobuf//:protobuf",
+    visibility = ["//visibility:public"],
+)
 
-proto_alias("protobuf", PROTOBUF_VERSION)
+alias(
+    name = "protobuf_headers",
+    actual = "@com_google_protobuf//:protobuf_headers",
+    visibility = ["//visibility:public"],
+)
 
-proto_alias("protobuf_headers", PROTOBUF_VERSION)
+alias(
+    name = "protoc_lib",
+    actual = "@com_google_protobuf//:protoc_lib",
+    visibility = ["//visibility:public"],
+)
 
-proto_alias("protoc_lib", PROTOBUF_VERSION)
-
-proto_alias("java_toolchain", PROTOBUF_VERSION)
+alias(
+    name = "java_toolchain",
+    actual = "@com_google_protobuf//:java_toolchain",
+    visibility = ["//visibility:public"],
+)

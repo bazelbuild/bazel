@@ -15,14 +15,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global skylark build API functions that apply to WORKSPACE files. */
@@ -65,7 +65,7 @@ public interface WorkspaceGlobalsApi {
             positional = false),
         @Param(
             name = "managed_directories",
-            type = SkylarkDict.class,
+            type = Dict.class,
             generic1 = String.class,
             named = true,
             positional = false,
@@ -77,13 +77,41 @@ public interface WorkspaceGlobalsApi {
                     + "\nManaged directories must be excluded from the source tree by listing"
                     + " them (or their parent directories) in the .bazelignore file."),
       },
-      useLocation = true,
       useStarlarkThread = true)
   NoneType workspace(
       String name,
-      SkylarkDict<?, ?> managedDirectories, // <String, SkylarkList<String>>
-      Location loc,
+      Dict<?, ?> managedDirectories, // <String, Sequence<String>>
       StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "dont_symlink_directories_in_execroot",
+      doc =
+          "Exclude directories under workspace from symlinking into execroot.\n"
+              + "<p>Normally, source directories are symlinked to the execroot, so that the"
+              + " actions can access the input (source) files.<p/><p>In the case of Ninja"
+              + " execution (enabled with --experimental_ninja_actions flag), it is typical that"
+              + " the directory with build-related files contains source files for the build, and"
+              + " Ninja prescribes creation of the outputs in that same directory.</p><p>Since"
+              + " commands in the Ninja file use relative paths to address source files and"
+              + " directories, we must still allow the execution in the same-named directory under"
+              + " the execroot. But we must avoid populating the underlying source directory with"
+              + " output files.</p><p>This method can be used to specify that Ninja build"
+              + " configuration directories should not be symlinked to the execroot. It is not"
+              + " expected that there could be other use cases for using this method.</p>",
+      allowReturnNones = true,
+      parameters = {
+        @Param(
+            name = "paths",
+            type = Sequence.class,
+            generic1 = String.class,
+            doc = "",
+            named = true,
+            positional = false)
+      },
+      useStarlarkThread = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS)
+  NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -93,13 +121,11 @@ public interface WorkspaceGlobalsApi {
       extraPositionals =
           @Param(
               name = "platform_labels",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the platforms to register."),
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType registerExecutionPlatforms(
-      SkylarkList<?> platformLabels, Location location, StarlarkThread thread)
+  NoneType registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -111,13 +137,11 @@ public interface WorkspaceGlobalsApi {
       extraPositionals =
           @Param(
               name = "toolchain_labels",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the toolchains to register."),
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType registerToolchains(
-      SkylarkList<?> toolchainLabels, Location location, StarlarkThread thread)
+  NoneType registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -144,8 +168,7 @@ public interface WorkspaceGlobalsApi {
             defaultValue = "None",
             doc = "The real label to be aliased")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType bind(String name, Object actual, Location loc, StarlarkThread thread)
+  NoneType bind(String name, Object actual, StarlarkThread thread)
       throws EvalException, InterruptedException;
 }

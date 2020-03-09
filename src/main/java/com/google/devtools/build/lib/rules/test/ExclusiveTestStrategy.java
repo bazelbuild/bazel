@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
@@ -27,12 +26,12 @@ import java.io.IOException;
 
 /**
  * Test strategy wrapper called 'exclusive'. It should delegate to a test strategy for local
- * execution. The name 'exclusive' triggers behavior it triggers behavior in
- * SkyframeExecutor to schedule test execution sequentially after non-test actions. This
- * ensures streamed test output is not polluted by other action output.
+ * execution.
+ *
+ * <p>This strategy should be registered with a command line identifier of 'exclusive' which will
+ * trigger behavior in SkyframeExecutor to schedule test execution sequentially after non-test
+ * actions. This ensures streamed test output is not polluted by other action output.
  */
-@ExecutionStrategy(contextType = TestActionContext.class,
-          name = { "exclusive" })
 public class ExclusiveTestStrategy implements TestActionContext {
   private TestActionContext parent;
 

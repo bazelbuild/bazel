@@ -153,6 +153,20 @@ function test_nonwritable_output_base() {
   expect_log "FATAL.* Output base directory '/' must be readable and writable."
 }
 
+function test_install_base_races_dont_leave_temp_files() {
+  declare -a client_pids
+  for i in {1..3}; do
+    bazel --install_base="$TEST_TMPDIR/race/install" \
+        --output_base="$TEST_TMPDIR/out$i" info install_base &
+    client_pids+=($!)
+  done
+  for pid in "${client_pids[@]}"; do
+    wait $pid
+  done
+  # Expect "install" to be the only thing in the "race" directory.
+  assert_equals "install" "$(ls "$TEST_TMPDIR/race/")"
+}
+
 function test_no_arguments() {
   bazel >&$TEST_log || fail "Expected zero exit"
   expect_log "Usage: b\\(laze\\|azel\\)"
@@ -198,7 +212,6 @@ function test_nobatch() {
   local pid2=$(bazel --batch --nobatch info server_pid 2> $TEST_log)
   assert_equals "$pid1" "$pid2"
   expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_not_log "WARNING.* --batch mode is deprecated."
 }
 
 # Regression test for #1875189, "bazel client should pass through '--help' like
@@ -229,7 +242,6 @@ function test_batch() {
   local pid2=$(bazel --batch info server_pid 2> $TEST_log)
   assert_not_equals "$pid1" "$pid2"
   expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_log "WARNING.* --batch mode is deprecated."
 }
 
 function test_cmdline_not_written_in_batch_mode() {

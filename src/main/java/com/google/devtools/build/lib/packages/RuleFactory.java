@@ -23,11 +23,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.util.Pair;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -109,8 +106,11 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
+    // TODO(adonovan): record thread.getCallStack() in the rule,
+    // and make 'bazel query --output=build' display it (b/36593041).
+
     AttributesAndLocation generator =
-        generatorAttributesForMacros(attributeValues, thread, location, label);
+        generatorAttributesForMacros(pkgBuilder, attributeValues, thread, location, label);
     try {
       // Examines --incompatible_disable_third_party_license_checking to see if we should check
       // third party targets for license existence.
@@ -304,6 +304,7 @@ public class RuleFactory {
    * <p>Otherwise, it returns the given attributes without any changes.
    */
   private static AttributesAndLocation generatorAttributesForMacros(
+      Package.Builder pkgBuilder,
       BuildLangTypedAttributeValuesMap args,
       @Nullable StarlarkThread thread,
       Location location,
@@ -319,26 +320,31 @@ public class RuleFactory {
     if (hasName || hasFunc) {
       return new AttributesAndLocation(args, location);
     }
-    Pair<FuncallExpression, BaseFunction> topCall = thread.getTopCall();
-    if (topCall == null || !(topCall.second instanceof StarlarkFunction)) {
-      return new AttributesAndLocation(args, location);
+
+    // The "generator" of a rule is the function (sometimes called "macro")
+    // outermost in the call stack.
+    // The stack must contain at least two entries:
+    // 0: the outermost function (e.g. a BUILD file),
+    // 1: the function called by it (e.g. a "macro" in a .bzl file).
+    List<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
+    if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
+      return new AttributesAndLocation(args, location); // macro is not a Starlark function
     }
-
-    FuncallExpression generator = topCall.first;
-    BaseFunction function = topCall.second;
-    String name = generator.getNameArg();
-
+    // TODO(adonovan): is it correct that we clobber the location used by
+    // BuildLangTypedAttributeValuesMap?
+    location = stack.get(0).location;
+    String generatorFunction = stack.get(1).name;
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (Map.Entry<String, Object> attributeAccessor : args.getAttributeAccessors()) {
       String attributeName = args.getName(attributeAccessor);
       builder.put(attributeName, args.getValue(attributeAccessor));
     }
-    builder.put("generator_name", (name == null) ? args.getAttributeValue("name") : name);
-    builder.put("generator_function", function.getName());
-
-    if (generator.getLocation() != null) {
-      location = generator.getLocation();
+    String generatorName = pkgBuilder.getGeneratorNameByLocation().get(location);
+    if (generatorName == null) {
+      generatorName = (String) args.getAttributeValue("name");
     }
+    builder.put("generator_name", generatorName);
+    builder.put("generator_function", generatorFunction);
     String relativePath = maybeGetRelativeLocation(location, label);
     if (relativePath != null) {
       builder.put("generator_location", relativePath);
@@ -373,7 +379,7 @@ public class RuleFactory {
     // rules created from function calls in a subincluded file, even if both files share a path
     // prefix (for example, when //a/package:BUILD subincludes //a/package/with/a/subpackage:BUILD).
     // We can revert to that approach once subincludes aren't supported anymore.
-    String absolutePath = Location.printLocation(location);
+    String absolutePath = location.toString();
     int pos = absolutePath.indexOf(label.getPackageName());
     return (pos < 0) ? null : absolutePath.substring(pos);
   }

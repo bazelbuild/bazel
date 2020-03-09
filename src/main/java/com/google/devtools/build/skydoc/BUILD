@@ -58,9 +58,9 @@ java_library(
     visibility = ["//src/test:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics_options",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",

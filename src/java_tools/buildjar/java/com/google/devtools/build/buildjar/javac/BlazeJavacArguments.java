@@ -43,6 +43,9 @@ public abstract class BlazeJavacArguments {
   /** The compilation bootclasspath. */
   public abstract ImmutableList<Path> bootClassPath();
 
+  @Nullable
+  public abstract Path system();
+
   /** The compilation source path. */
   public abstract ImmutableList<Path> sourcePath();
 
@@ -72,6 +75,9 @@ public abstract class BlazeJavacArguments {
   @Nullable
   public abstract Path sourceOutput();
 
+  /** Stop compiling after the first diagnostic that could cause transitive classpath fallback. */
+  public abstract boolean failFast();
+
   public static Builder builder() {
     return new AutoValue_BlazeJavacArguments.Builder()
         .classPath(ImmutableList.of())
@@ -83,7 +89,8 @@ public abstract class BlazeJavacArguments {
         .sourceOutput(null)
         .builtinProcessors(ImmutableSet.of())
         .processorPath(ImmutableList.of())
-        .plugins(ImmutableList.of());
+        .plugins(ImmutableList.of())
+        .failFast(false);
   }
 
   /** {@link BlazeJavacArguments}Builder. */
@@ -96,6 +103,8 @@ public abstract class BlazeJavacArguments {
     Builder nativeHeaderOutput(Path nativeHeaderOutput);
 
     Builder bootClassPath(ImmutableList<Path> bootClassPath);
+
+    Builder system(Path system);
 
     Builder javacOptions(ImmutableList<String> javacOptions);
 
@@ -112,6 +121,8 @@ public abstract class BlazeJavacArguments {
     Builder processorPath(ImmutableList<Path> processorPath);
 
     Builder plugins(ImmutableList<BlazeJavaCompilerPlugin> plugins);
+
+    Builder failFast(boolean failFast);
 
     BlazeJavacArguments build();
   }

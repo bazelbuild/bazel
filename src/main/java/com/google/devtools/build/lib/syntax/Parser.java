@@ -48,7 +48,7 @@ final class Parser {
     final List<Comment> comments;
 
     /** Represents every statement in the file. */
-    final Location location;
+    final Lexer.LexerLocation location;
 
     // Errors encountered during scanning or parsing.
     // These lists are ultimately owned by StarlarkFile.
@@ -58,7 +58,7 @@ final class Parser {
     ParseResult(
         List<Statement> statements,
         List<Comment> comments,
-        Location location,
+        Lexer.LexerLocation location,
         List<Event> errors,
         List<Event> stringEscapeEvents) {
       // No need to copy here; when the object is created, the parser instance is just about to go
@@ -169,14 +169,15 @@ final class Parser {
     return prev != null ? prev : s;
   }
 
-  private static Location locationFromStatements(Lexer lexer, List<Statement> statements) {
+  private static Lexer.LexerLocation locationFromStatements(
+      Lexer lexer, List<Statement> statements) {
+    int start = 0;
+    int end = 0;
     if (!statements.isEmpty()) {
-      return lexer.createLocation(
-          statements.get(0).getLocation().getStartOffset(),
-          Iterables.getLast(statements).getLocation().getEndOffset());
-    } else {
-      return Location.fromPathFragment(lexer.getFilename());
+      start = statements.get(0).getStartOffset();
+      end = Iterables.getLast(statements).getEndOffset();
     }
+    return lexer.createLocation(start, end);
   }
 
   // Main entry point for parsing a file.
@@ -186,8 +187,7 @@ final class Parser {
     Parser parser = new Parser(lexer, errors);
     List<Statement> statements;
     try (SilentCloseable c =
-        Profiler.instance()
-            .profile(ProfilerTask.STARLARK_PARSER, input.getPath().getPathString())) {
+        Profiler.instance().profile(ProfilerTask.STARLARK_PARSER, input.getFile())) {
       statements = parser.parseFileInput();
     }
     return new ParseResult(
@@ -202,7 +202,6 @@ final class Parser {
   //        | def_stmt
   //        | for_stmt
   //        | if_stmt
-  //        | load_stmt
   private void parseStatement(List<Statement> list) {
     if (token.kind == TokenKind.DEF) {
       list.add(parseDefStatement());
@@ -210,8 +209,6 @@ final class Parser {
       list.add(parseIfStatement());
     } else if (token.kind == TokenKind.FOR) {
       list.add(parseForStatement());
-    } else if (token.kind == TokenKind.LOAD) {
-      parseLoadStatement(list); // may add nothing
     } else {
       parseSimpleStatement(list);
     }
@@ -390,9 +387,10 @@ final class Parser {
     }
   }
 
-  // create an error expression
   private Identifier makeErrorExpression(int start, int end) {
-    // TODO(adonovan): replace this with a dedicated BadExpression node.
+    // It's tempting to define a dedicated BadExpression type,
+    // but it is convenient for parseIdent to return an Identifier
+    // even when it fails.
     return setLocation(Identifier.of("$error$"), start, end);
   }
 
@@ -404,8 +402,7 @@ final class Parser {
   // Convenience method that uses end offset from the last node.
   private <NodeT extends Node> NodeT setLocation(NodeT node, int startOffset, Node lastNode) {
     Preconditions.checkNotNull(lastNode, "can't extract end offset from a null node");
-    Preconditions.checkNotNull(lastNode.getLocation(), "lastNode doesn't have a location");
-    return setLocation(node, startOffset, lastNode.getLocation().getEndOffset());
+    return setLocation(node, startOffset, lastNode.getEndOffset());
   }
 
   // arg ::= IDENTIFIER '=' nontupleexpr
@@ -471,8 +468,8 @@ final class Parser {
     }
   }
 
-  // funcall_suffix ::= '(' arg_list? ')'
-  private Expression parseFuncallSuffix(int start, Expression function) {
+  // call_suffix ::= '(' arg_list? ')'
+  private Expression parseCallSuffix(int start, Expression function) {
     ImmutableList<Argument> args = ImmutableList.of();
     expect(TokenKind.LPAREN);
     int end;
@@ -484,7 +481,7 @@ final class Parser {
       end = token.right;
       expect(TokenKind.RPAREN);
     }
-    return setLocation(new FuncallExpression(function, args), start, end);
+    return setLocation(new CallExpression(function, args), start, end);
   }
 
   // Parse a list of call arguments.
@@ -549,7 +546,7 @@ final class Parser {
     }
 
     Argument arg = arguments.get(i);
-    Location loc = arg.getLocation();
+    Location loc = arg.getStartLocation();
     if (arg instanceof Argument.Positional) {
       reportError(loc, "positional argument is misplaced (positional arguments come first)");
       return;
@@ -725,7 +722,7 @@ final class Parser {
     }
   }
 
-  // primary_with_suffix ::= primary (selector_suffix | substring_suffix | funcall_suffix)*
+  // primary_with_suffix ::= primary (selector_suffix | substring_suffix | call_suffix)*
   private Expression parsePrimaryWithSuffix() {
     int start = token.left;
     Expression receiver = parsePrimary();
@@ -735,7 +732,7 @@ final class Parser {
       } else if (token.kind == TokenKind.LBRACKET) {
         receiver = parseSubstringSuffix(start, receiver);
       } else if (token.kind == TokenKind.LPAREN) {
-        receiver = parseFuncallSuffix(start, receiver);
+        receiver = parseCallSuffix(start, receiver);
       } else {
         break;
       }
@@ -1066,19 +1063,20 @@ final class Parser {
   }
 
   // load '(' STRING (COMMA [IDENTIFIER EQUALS] STRING)+ COMMA? ')'
-  private void parseLoadStatement(List<Statement> list) {
+  private Statement parseLoadStatement() {
     int start = token.left;
     expect(TokenKind.LOAD);
     expect(TokenKind.LPAREN);
     if (token.kind != TokenKind.STRING) {
+      StringLiteral module = setLocation(new StringLiteral(""), token.left, token.right);
       expect(TokenKind.STRING);
-      return;
+      return setLocation(new LoadStatement(module, ImmutableList.of()), start, token.right);
     }
 
     StringLiteral importString = parseStringLiteral();
     if (token.kind == TokenKind.RPAREN) {
       syntaxError("expected at least one symbol to load");
-      return;
+      return setLocation(new LoadStatement(importString, ImmutableList.of()), start, token.right);
     }
     expect(TokenKind.COMMA);
 
@@ -1094,10 +1092,10 @@ final class Parser {
       parseLoadSymbol(bindings);
     }
 
-    LoadStatement stmt = new LoadStatement(importString, bindings.build());
-    list.add(setLocation(stmt, start, token.right));
+    LoadStatement stmt =
+        setLocation(new LoadStatement(importString, bindings.build()), start, token.right);
     expect(TokenKind.RPAREN);
-    expectAndRecover(TokenKind.NEWLINE);
+    return stmt;
   }
 
   /**
@@ -1150,6 +1148,7 @@ final class Parser {
 
   //     small_stmt ::= assign_stmt
   //                  | expr
+  //                  | load_stmt
   //                  | return_stmt
   //                  | BREAK | CONTINUE | PASS
   //     assign_stmt ::= expr ('=' | augassign) expr
@@ -1165,7 +1164,10 @@ final class Parser {
       int end = token.right;
       expect(kind);
       return setLocation(new FlowStatement(kind), start, end);
+    } else if (token.kind == TokenKind.LOAD) {
+      return parseLoadStatement();
     }
+
     Expression lhs = parseExpression();
 
     // lhs = rhs  or  lhs += rhs
@@ -1212,10 +1214,7 @@ final class Parser {
     // wait till the end of the chain, after all setElseBlock calls,
     // before setting the end location of each IfStatement.
     // Body may be empty after a parse error.
-    int end =
-        (body.isEmpty() ? tail.getCondition() : Iterables.getLast(body))
-            .getLocation()
-            .getEndOffset();
+    int end = (body.isEmpty() ? tail.getCondition() : Iterables.getLast(body)).getEndOffset();
     IfStatement s = ifStmt;
     setLocation(s, startOffsets.get(0), end);
     for (int i = 1; i < startOffsets.size(); i++) {
@@ -1236,7 +1235,7 @@ final class Parser {
     expect(TokenKind.COLON);
     List<Statement> block = parseSuite();
     ForStatement stmt = new ForStatement(lhs, collection, block);
-    int end = block.isEmpty() ? token.left : Iterables.getLast(block).getLocation().getEndOffset();
+    int end = block.isEmpty() ? token.left : Iterables.getLast(block).getEndOffset();
     return setLocation(stmt, start, end);
   }
 
@@ -1246,22 +1245,22 @@ final class Parser {
     expect(TokenKind.DEF);
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
-    List<Parameter> params = parseParameters();
+    ImmutableList<Parameter> params = parseParameters();
 
     FunctionSignature signature;
     try {
       signature = FunctionSignature.fromParameters(params);
     } catch (FunctionSignature.SignatureException e) {
-      reportError(e.getParameter().getLocation(), e.getMessage());
+      reportError(e.getParameter().getStartLocation(), e.getMessage());
       // bogus empty signature
       signature = FunctionSignature.of();
     }
 
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
-    List<Statement> block = parseSuite();
+    ImmutableList<Statement> block = ImmutableList.copyOf(parseSuite());
     DefStatement stmt = new DefStatement(ident, params, signature, block);
-    int end = block.isEmpty() ? token.left : Iterables.getLast(block).getLocation().getEndOffset();
+    int end = block.isEmpty() ? token.left : Iterables.getLast(block).getEndOffset();
     return setLocation(stmt, start, end);
   }
 
@@ -1331,7 +1330,7 @@ final class Parser {
     Expression expression = null;
     if (!STATEMENT_TERMINATOR_SET.contains(token.kind)) {
       expression = parseExpression();
-      end = expression.getLocation().getEndOffset();
+      end = expression.getEndOffset();
     }
     return setLocation(new ReturnStatement(expression), start, end);
   }

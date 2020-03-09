@@ -313,8 +313,8 @@ public interface SkyFunction {
     boolean valuesMissing();
 
     /**
-     * Returns the {@link EventHandler} that a SkyFunction should use to print any errors, warnings,
-     * or progress messages during execution of {@link SkyFunction#compute}.
+     * Returns the {@link ExtendedEventHandler} that a SkyFunction should use to print any errors,
+     * warnings, or progress messages during execution of {@link SkyFunction#compute}.
      */
     ExtendedEventHandler getListener();
 

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
@@ -101,6 +102,24 @@ public final class CompileCommandLine {
       commandLine.addAll(getCompilerOptions(overwrittenVariables));
     }
     return commandLine;
+  }
+
+  /**
+   * Returns {@link CommandLine} instance that contains the exactly same command line as the {@link
+   * CppCompileAction}.
+   *
+   * @param cppCompileAction - {@link CppCompileAction} owning this {@link CompileCommandLine}.
+   */
+  public CommandLine getFilteredFeatureConfigurationCommandLine(CppCompileAction cppCompileAction) {
+    return new CommandLine() {
+
+      @Override
+      public Iterable<String> arguments() throws CommandLineExpansionException {
+        CcToolchainVariables overwrittenVariables = cppCompileAction.getOverwrittenVariables();
+        List<String> compilerOptions = getCompilerOptions(overwrittenVariables);
+        return ImmutableList.<String>builder().add(getToolPath()).addAll(compilerOptions).build();
+      }
+    };
   }
 
   public List<String> getCompilerOptions(@Nullable CcToolchainVariables overwrittenVariables)

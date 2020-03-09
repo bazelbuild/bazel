@@ -19,24 +19,29 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigFeatureFlagProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
-import java.util.Map;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
+// TODO(adonovan): rename this to *Info and its constructor to *Provider.
 @Immutable
 public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatureFlagProviderApi {
 
   /** Name used in Skylark for accessing ConfigFeatureFlagProvider. */
   static final String SKYLARK_NAME = "FeatureFlagInfo";
 
-  /** Skylark constructor and identifier for ConfigFeatureFlagProvider. */
+  /**
+   * Constructor and identifier for ConfigFeatureFlagProvider. This is the value of {@code
+   * config_common.FeatureFlagInfo}.
+   */
   static final NativeProvider<ConfigFeatureFlagProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   static final RequiredProviders REQUIRE_CONFIG_FEATURE_FLAG_PROVIDER =
@@ -57,26 +62,33 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
     return new ConfigFeatureFlagProvider(value, isValidValue);
   }
 
-  /** A constructor callable from Skylark for OutputGroupInfo. */
-  private static class Constructor extends NativeProvider<ConfigFeatureFlagProvider> {
+  /**
+   * A constructor callable from Skylark for OutputGroupInfo: {@code
+   * config_common.FeatureFlagInfo(value="...")}
+   */
+  @SkylarkModule(name = "FeatureFlagInfo", documented = false)
+  @Immutable
+  private static final class Constructor extends NativeProvider<ConfigFeatureFlagProvider>
+      implements StarlarkValue {
 
-    private Constructor() {
+    Constructor() {
       super(ConfigFeatureFlagProvider.class, SKYLARK_NAME);
     }
 
-    @Override
-    protected ConfigFeatureFlagProvider createInstanceFromSkylark(
-        Object[] args, StarlarkThread thread, Location loc) throws EvalException {
-
-      @SuppressWarnings("unchecked")
-      Map<String, Object> kwargs = (Map<String, Object>) args[0];
-
-      if (!kwargs.containsKey("value") || !(kwargs.get("value") instanceof String)) {
-        throw new EvalException(loc, "FeatureFlagInfo requires 'value' to be set to a string");
-      }
-      return create((String) kwargs.get("value"), Predicates.alwaysTrue());
+    @SkylarkCallable(
+        name = "FeatureFlagInfo",
+        documented = false,
+        parameters = {@Param(name = "value", named = true, type = String.class)},
+        selfCall = true)
+    public ConfigFeatureFlagProvider selfcall(String value) {
+      return create(value, Predicates.alwaysTrue());
     }
-}
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append("<function FeatureFlagInfo>");
+    }
+  }
 
   public static SkylarkProviderIdentifier id() {
     return SKYLARK_CONSTRUCTOR.id();
@@ -100,7 +112,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
   }
 
   // ConfigFeatureFlagProvider instances should all be unique, so we override the default
-  // equals and hashCode from InfoInterface to ensure that. SCO's toString is fine, however.
+  // equals and hashCode from Info to ensure that. SCO's toString is fine, however.
   @Override
   public boolean equals(Object other) {
     return other == this;

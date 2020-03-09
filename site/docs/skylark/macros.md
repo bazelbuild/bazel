@@ -60,7 +60,7 @@ If you want to throw an error, use the [fail](lib/globals.html#fail) function.
 Explain clearly to the user what went wrong and how to fix their BUILD file. It
 is not possible to catch an error.
 
-```
+```python
 def my_macro(name, deps, visibility=None):
   if len(deps) < 2:
     fail("Expected at least two values in deps")
@@ -98,7 +98,7 @@ def my_macro(name, deps, visibility=None):
 
 The typical use-case for a macro is when you want to reuse a genrule, e.g.
 
-```
+```python
 genrule(
     name = "file",
     outs = ["file.txt"],
@@ -112,7 +112,7 @@ extract this code to a function.
 
 The BUILD file will become simply:
 
-```
+```python
 load("//path:generator.bzl", "file_generator")
 
 file_generator(
@@ -125,7 +125,7 @@ In order to keep BUILD files clean and declarative, you must put the function in
 a separate `.bzl` file. For example, write the definition of the macro in
 `path/generator.bzl`:
 
-```
+```python
 def file_generator(name, arg, visibility=None):
   native.genrule(
     name = name,

@@ -20,6 +20,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -132,11 +135,11 @@ public enum CompileBuildVariables {
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      Iterable<PathFragment> includeDirs,
-      Iterable<PathFragment> quoteIncludeDirs,
-      Iterable<PathFragment> systemIncludeDirs,
-      Iterable<PathFragment> frameworkIncludeDirs,
-      Iterable<String> defines,
+      NestedSet<PathFragment> includeDirs,
+      NestedSet<PathFragment> quoteIncludeDirs,
+      NestedSet<PathFragment> systemIncludeDirs,
+      NestedSet<PathFragment> frameworkIncludeDirs,
+      NestedSet<String> defines,
       Iterable<String> localDefines) {
     try {
       if (usePic
@@ -196,11 +199,11 @@ public enum CompileBuildVariables {
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      Iterable<String> includeDirs,
-      Iterable<String> quoteIncludeDirs,
-      Iterable<String> systemIncludeDirs,
-      Iterable<String> frameworkIncludeDirs,
-      Iterable<String> defines,
+      NestedSet<String> includeDirs,
+      NestedSet<String> quoteIncludeDirs,
+      NestedSet<String> systemIncludeDirs,
+      NestedSet<String> frameworkIncludeDirs,
+      NestedSet<String> defines,
       Iterable<String> localDefines)
       throws EvalException {
     if (usePic
@@ -254,11 +257,11 @@ public enum CompileBuildVariables {
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      Iterable<String> includeDirs,
-      Iterable<String> quoteIncludeDirs,
-      Iterable<String> systemIncludeDirs,
-      Iterable<String> frameworkIncludeDirs,
-      Iterable<String> defines,
+      NestedSet<String> includeDirs,
+      NestedSet<String> quoteIncludeDirs,
+      NestedSet<String> systemIncludeDirs,
+      NestedSet<String> frameworkIncludeDirs,
+      NestedSet<String> defines,
       Iterable<String> localDefines) {
     CcToolchainVariables.Builder buildVariables = CcToolchainVariables.builder(parent);
     setupCommonVariablesInternal(
@@ -357,11 +360,11 @@ public enum CompileBuildVariables {
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      Iterable<PathFragment> includeDirs,
-      Iterable<PathFragment> quoteIncludeDirs,
-      Iterable<PathFragment> systemIncludeDirs,
-      Iterable<PathFragment> frameworkIncludeDirs,
-      Iterable<String> defines,
+      List<PathFragment> includeDirs,
+      List<PathFragment> quoteIncludeDirs,
+      List<PathFragment> systemIncludeDirs,
+      List<PathFragment> frameworkIncludeDirs,
+      NestedSet<String> defines,
       Iterable<String> localDefines) {
     setupCommonVariablesInternal(
         buildVariables,
@@ -389,11 +392,11 @@ public enum CompileBuildVariables {
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      Iterable<String> includeDirs,
-      Iterable<String> quoteIncludeDirs,
-      Iterable<String> systemIncludeDirs,
-      Iterable<String> frameworkIncludeDirs,
-      Iterable<String> defines,
+      NestedSet<String> includeDirs,
+      NestedSet<String> quoteIncludeDirs,
+      NestedSet<String> systemIncludeDirs,
+      NestedSet<String> frameworkIncludeDirs,
+      NestedSet<String> defines,
       Iterable<String> localDefines) {
     Preconditions.checkNotNull(directModuleMaps);
     Preconditions.checkNotNull(includeDirs);
@@ -432,19 +435,22 @@ public enum CompileBuildVariables {
     buildVariables.addStringSequenceVariable(
         FRAMEWORK_PATHS.getVariableName(), frameworkIncludeDirs);
 
-    Iterable<String> allDefines;
+    NestedSet<String> allDefines;
     if (fdoStamp != null) {
       // Stamp FDO builds with FDO subtype string
       allDefines =
-          ImmutableList.<String>builder()
-              .addAll(defines)
-              .addAll(localDefines)
+          NestedSetBuilder.<String>linkOrder()
+              .addTransitive(defines)
+              .addTransitive(NestedSetBuilder.wrap(Order.STABLE_ORDER, localDefines))
               .add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoStamp + "\"")
               .build();
     } else {
-      allDefines = Iterables.concat(defines, localDefines);
+      allDefines =
+          NestedSetBuilder.<String>linkOrder()
+              .addTransitive(defines)
+              .addTransitive(NestedSetBuilder.wrap(Order.STABLE_ORDER, localDefines))
+              .build();
     }
-
 
     buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);
 
@@ -455,13 +461,16 @@ public enum CompileBuildVariables {
   }
 
   /** Get the safe path strings for a list of paths to use in the build variables. */
-  private static ImmutableList<String> getSafePathStrings(Iterable<PathFragment> paths) {
-    // Using ImmutableSet first to remove duplicates, then ImmutableList for smaller memory
-    // footprint.
-    return ImmutableSet.copyOf(paths)
-        .stream()
-        .map(PathFragment::getSafePathString)
-        .collect(ImmutableList.toImmutableList());
+  private static NestedSet<String> getSafePathStrings(NestedSet<PathFragment> paths) {
+    return getSafePathStrings(paths.toList());
+  }
+
+  /** Get the safe path strings for a list of paths to use in the build variables. */
+  private static NestedSet<String> getSafePathStrings(List<PathFragment> paths) {
+    // Using ImmutableSet first to remove duplicates, then NestedSet for smaller memory footprint.
+    return NestedSetBuilder.wrap(
+        Order.STABLE_ORDER,
+        Iterables.transform(ImmutableSet.copyOf(paths), PathFragment::getSafePathString));
   }
 
   private static String toPathString(PathFragment a) {

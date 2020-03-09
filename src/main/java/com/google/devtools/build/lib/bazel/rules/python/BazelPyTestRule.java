@@ -57,6 +57,7 @@ public final class BazelPyTestRule implements RuleDefinition {
             attr("$launcher", LABEL)
                 .cfg(HostTransition.createFactory())
                 .value(env.getToolsLabel("//tools/launcher:launcher")))
+        .add(attr(":lcov_merger", LABEL).value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .build();
   }
 

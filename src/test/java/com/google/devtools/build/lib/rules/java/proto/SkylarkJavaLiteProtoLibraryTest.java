@@ -20,11 +20,11 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
@@ -46,7 +46,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -312,20 +311,13 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     useConfiguration("--experimental_action_listener=//xa:al");
     ConfiguredTarget ct = getConfiguredTarget("//x:lite_pb2");
-    Iterable<Artifact.DerivedArtifact> artifacts =
+    NestedSet<DerivedArtifact> artifacts =
         ct.getProvider(ExtraActionArtifactsProvider.class).getTransitiveExtraActionArtifacts();
 
     Iterable<String> extraActionOwnerLabels =
         transform(
-            artifacts,
-            /** A long way to say (Artifact s) -> s.getOwnerLabel().toString() */
-            new Function<Artifact, String>() {
-              @Nullable
-              @Override
-              public String apply(@Nullable Artifact artifact) {
-                return artifact == null ? null : artifact.getOwnerLabel().toString();
-              }
-            });
+            artifacts.toList(),
+            (artifact) -> artifact == null ? null : artifact.getOwnerLabel().toString());
 
     assertThat(extraActionOwnerLabels).contains("//x:foo");
   }

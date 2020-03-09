@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.junit.Test;
@@ -37,18 +36,18 @@ public class ParserInputTest {
     String content = joinLines("Line 1", "Line 2", "Line 3", "");
     Path file = scratch.file("/tmp/my/file.txt", content.getBytes(StandardCharsets.UTF_8));
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    ParserInput input = ParserInput.create(bytes, file.asFragment());
+    ParserInput input = ParserInput.create(bytes, file.toString());
     assertThat(new String(input.getContent())).isEqualTo(content);
-    assertThat(input.getPath().toString()).isEqualTo("/tmp/my/file.txt");
+    assertThat(input.getFile()).isEqualTo("/tmp/my/file.txt");
   }
 
   @Test
   public void testCreateFromString() {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
-    ParserInput input = ParserInput.create(content, PathFragment.create(pathName));
+    ParserInput input = ParserInput.create(content, pathName);
     assertThat(new String(input.getContent())).isEqualTo(content);
-    assertThat(input.getPath().toString()).isEqualTo(pathName);
+    assertThat(input.getFile()).isEqualTo(pathName);
   }
 
   @Test
@@ -56,19 +55,19 @@ public class ParserInputTest {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
     char[] contentChars = content.toCharArray();
-    ParserInput input = ParserInput.create(contentChars, PathFragment.create(pathName));
+    ParserInput input = ParserInput.create(contentChars, pathName);
     assertThat(new String(input.getContent())).isEqualTo(content);
-    assertThat(input.getPath().toString()).isEqualTo(pathName);
+    assertThat(input.getFile()).isEqualTo(pathName);
   }
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsString() {
-    ParserInput.create("Content provided as string.", PathFragment.create("/will/not/try/to/read"));
+    ParserInput.create("Content provided as string.", "/will/not/try/to/read");
   }
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsChars() {
     char[] content = "Content provided as char array.".toCharArray();
-    ParserInput.create(content, PathFragment.create("/will/not/try/to/read"));
+    ParserInput.create(content, "/will/not/try/to/read");
   }
 }

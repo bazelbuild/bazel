@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * A pair of a string to be substituted and a string to substitute it with. For simplicity, these
@@ -100,6 +99,24 @@ public abstract class Substitution {
    */
   public static Substitution ofSpaceSeparatedList(final String key, final ImmutableList<?> value) {
     return new ListSubstitution(key, value);
+  }
+
+  /**
+   * Returns an immutable Substitution instance for the key and list of values. The values will be
+   * joined by the given string before substitution.
+   */
+  public static Substitution ofJoinedShortPaths(
+      String key, ImmutableList<Artifact> artifacts, String joinStr) {
+    return new JoinedArtifactListShortPathSubstitution(key, artifacts, joinStr);
+  }
+
+  /**
+   * Returns an immutable Substitution instance for the key and list of values. The values will be
+   * joined by the given string before substitution.
+   */
+  public static Substitution ofJoinedShortPaths(
+      String key, NestedSet<Artifact> artifacts, String joinStr) {
+    return new JoinedArtifactNestedSetShortPathSubstitution(key, artifacts, joinStr);
   }
 
   @Override
@@ -195,23 +212,13 @@ public abstract class Substitution {
    * <p>This is much more memory efficient than eagerly joining them into a string.
    */
   @AutoCodec
-  public static final class JoinedArtifactShortPathSubstitution extends ComputedSubstitution {
-    private final Iterable<Artifact> artifacts;
+  public static final class JoinedArtifactListShortPathSubstitution extends ComputedSubstitution {
+    private final ImmutableList<Artifact> artifacts;
     private final String joinStr;
 
-    public JoinedArtifactShortPathSubstitution(
-        String key, ImmutableList<Artifact> artifacts, String joinStr) {
-      this(key, (Iterable<Artifact>) artifacts, joinStr);
-    }
-
-    public JoinedArtifactShortPathSubstitution(
-        String key, NestedSet<Artifact> artifacts, String joinStr) {
-      this(key, (Iterable<Artifact>) artifacts, joinStr);
-    }
-
-    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    JoinedArtifactShortPathSubstitution(String key, Iterable<Artifact> artifacts, String joinStr) {
+    public JoinedArtifactListShortPathSubstitution(
+        String key, ImmutableList<Artifact> artifacts, String joinStr) {
       super(key);
       this.artifacts = artifacts;
       this.joinStr = joinStr;
@@ -219,7 +226,34 @@ public abstract class Substitution {
 
     @Override
     public String getValue() {
-      return StreamSupport.stream(artifacts.spliterator(), false)
+      return artifacts.stream()
+          .map(artifact -> artifact.getRootRelativePath().getPathString())
+          .collect(Collectors.joining(joinStr));
+    }
+  }
+
+  /**
+   * Expands a collection of artifacts to their short (root relative paths).
+   *
+   * <p>This is much more memory efficient than eagerly joining them into a string.
+   */
+  @AutoCodec
+  public static final class JoinedArtifactNestedSetShortPathSubstitution
+      extends ComputedSubstitution {
+    private final NestedSet<Artifact> artifacts;
+    private final String joinStr;
+
+    @AutoCodec.Instantiator
+    public JoinedArtifactNestedSetShortPathSubstitution(
+        String key, NestedSet<Artifact> artifacts, String joinStr) {
+      super(key);
+      this.artifacts = artifacts;
+      this.joinStr = joinStr;
+    }
+
+    @Override
+    public String getValue() {
+      return artifacts.toList().stream()
           .map(artifact -> artifact.getRootRelativePath().getPathString())
           .collect(Collectors.joining(joinStr));
     }

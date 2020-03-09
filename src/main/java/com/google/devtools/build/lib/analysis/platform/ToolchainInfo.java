@@ -14,19 +14,29 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
 /**
  * A provider that supplies information about a specific language toolchain, including what platform
  * constraints are required for execution and for the target platform.
+ *
+ * <p>Unusually, ToolchainInfo exposes both its StarlarkCallable-annotated fields and a Map of
+ * additional fields to Starlark code. Also, these are not disjoint.
  */
 @Immutable
 public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
@@ -45,24 +55,50 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
     }
 
     @Override
-    public ToolchainInfo toolchainInfo(SkylarkDict<?, ?> kwargs, Location loc)
-        throws EvalException {
-      Map<String, Object> data =
-          SkylarkDict.castSkylarkDictOrNoneToDict(kwargs, String.class, Object.class, "data");
-      return ToolchainInfo.create(data, loc);
+    public ToolchainInfo toolchainInfo(Dict<String, Object> kwargs, StarlarkThread thread) {
+      return new ToolchainInfo(kwargs, thread.getCallerLocation());
     }
   }
 
-  public ToolchainInfo(Map<String, Object> values, Location location) {
-    super(PROVIDER, ImmutableMap.copyOf(values), location);
+  @AutoCodec.VisibleForSerialization final ImmutableSortedMap<String, Object> values;
+  private ImmutableSet<String> fieldNames; // initialized lazily (with monitor synchronization)
+
+  /** Constructs a ToolchainInfo. The {@code values} map itself is not retained. */
+  protected ToolchainInfo(Map<String, Object> values, Location location) {
+    super(PROVIDER, location);
+    this.values = copyValues(values);
   }
 
-  public static ToolchainInfo create(Map<String, Object> toolchainData) {
-    return create(toolchainData, Location.BUILTIN);
+  /**
+   * Preprocesses a map of field values to convert the field names and field values to
+   * Skylark-acceptable names and types.
+   *
+   * <p>Entries are ordered by key.
+   */
+  private static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
+    ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
+    for (Map.Entry<String, Object> e : values.entrySet()) {
+      builder.put(Attribute.getSkylarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
+    }
+    return builder.build();
   }
 
-  public static ToolchainInfo create(Map<String, Object> toolchainData, Location loc) {
-    return new ToolchainInfo(toolchainData, loc);
+  @Override
+  public Object getValue(String name) throws EvalException {
+    Object x = values.get(name);
+    return x != null ? x : super.getValue(name);
+  }
+
+  @Override
+  public synchronized ImmutableCollection<String> getFieldNames() {
+    if (fieldNames == null) {
+      fieldNames =
+          ImmutableSet.<String>builder()
+              .addAll(values.keySet())
+              .addAll(super.getFieldNames())
+              .build();
+    }
+    return fieldNames;
   }
 
   /** Add make variables to be exported to dependers. */

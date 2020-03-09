@@ -16,9 +16,8 @@ package com.google.devtools.build.android;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.resources.ResourceType;
-import com.google.common.base.Optional;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.BufferedWriter;
-import java.io.Flushable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,7 +33,7 @@ import java.util.TreeSet;
  * <p>The real IDs will be collected by the R.txt file from aapt2 and joined via {@code
  * com.google.devtools.build.android.resources.FieldInitializers}.
  */
-final class PlaceholderRTxtWriter implements Flushable, AndroidResourceSymbolSink {
+final class PlaceholderRTxtWriter extends AndroidResourceSymbolSink {
 
   private final Path rTxtOut;
 
@@ -50,15 +49,17 @@ final class PlaceholderRTxtWriter implements Flushable, AndroidResourceSymbolSin
   }
 
   @Override
-  public void acceptSimpleResource(DependencyInfo unused, ResourceType type, String name) {
+  protected void acceptSimpleResourceImpl(
+      DependencyInfo dependencyInfo, Visibility visibility, ResourceType type, String name) {
     innerClasses
         .computeIfAbsent(type, t -> new TreeSet<>())
         .add(PlaceholderIdFieldInitializerBuilder.normalizeName(name));
   }
 
   @Override
-  public void acceptStyleableResource(
+  protected void acceptStyleableResourceImpl(
       DependencyInfo dependencyInfo,
+      Visibility visibility,
       FullyQualifiedName key,
       Map<FullyQualifiedName, Boolean> attrs) {
     Set<String> attrSet =
@@ -69,9 +70,6 @@ final class PlaceholderRTxtWriter implements Flushable, AndroidResourceSymbolSin
       attrSet.add(PlaceholderIdFieldInitializerBuilder.normalizeAttrName(attr));
     }
   }
-
-  @Override
-  public void acceptPublicResource(ResourceType type, String name, Optional<Integer> value) {}
 
   @Override
   public void flush() throws IOException {

@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
@@ -48,7 +50,7 @@ public final class BinaryFileWriteAction extends AbstractFileWriteAction {
    */
   public BinaryFileWriteAction(
       ActionOwner owner, Artifact output, ByteSource source, boolean makeExecutable) {
-    super(owner, /*inputs=*/Artifact.NO_ARTIFACTS, output, makeExecutable);
+    super(owner, /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, makeExecutable);
     this.source = Preconditions.checkNotNull(source);
   }
 

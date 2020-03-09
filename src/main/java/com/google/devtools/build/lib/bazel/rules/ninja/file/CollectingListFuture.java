@@ -48,12 +48,12 @@ public class CollectingListFuture<T, E extends Exception> {
   public List<T> getResult() throws E, InterruptedException {
     try {
       return Futures.allAsList(futures).get();
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (ExecutionException e) {
       Throwable causeOrSelf = e.getCause();
       if (causeOrSelf == null) {
         causeOrSelf = e;
       }
-      Throwables.propagateIfPossible(causeOrSelf, exceptionClazz, InterruptedException.class);
+      Throwables.propagateIfPossible(causeOrSelf, exceptionClazz);
       throw new IllegalStateException(e);
     }
   }

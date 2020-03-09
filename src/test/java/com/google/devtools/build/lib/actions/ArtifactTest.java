@@ -16,17 +16,18 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
@@ -156,9 +157,29 @@ public class ArtifactTest {
     ArtifactRoot middleRoot =
         ArtifactRoot.middlemanRoot(scratch.dir("/foo"), scratch.dir("/foo/out"));
     Artifact middleman = ActionsTestUtil.createArtifact(middleRoot, "middleman");
-    actionGraph.registerAction(new MiddlemanAction(ActionsTestUtil.NULL_ACTION_OWNER,
-        ImmutableList.of(aHeader1, aHeader2, aHeader3), middleman, "desc",
-        MiddlemanType.AGGREGATING_MIDDLEMAN));
+    MiddlemanAction.create(
+        new ActionRegistry() {
+          @Override
+          public void registerAction(ActionAnalysisMetadata... actions) {
+            for (ActionAnalysisMetadata action : actions) {
+              try {
+                actionGraph.registerAction(action);
+              } catch (ActionConflictException e) {
+                throw new IllegalStateException(e);
+              }
+            }
+          }
+
+          @Override
+          public ActionLookupValue.ActionLookupKey getOwner() {
+            throw new UnsupportedOperationException();
+          }
+        },
+        ActionsTestUtil.NULL_ACTION_OWNER,
+        NestedSetBuilder.create(Order.STABLE_ORDER, aHeader1, aHeader2, aHeader3),
+        middleman,
+        "desc",
+        MiddlemanType.AGGREGATING_MIDDLEMAN);
     return collapsedList ? Lists.newArrayList(aHeader1, middleman) :
         Lists.newArrayList(aHeader1, aHeader2, middleman);
   }
@@ -183,7 +204,7 @@ public class ArtifactTest {
     for (Artifact artifact : original) {
       ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
       if (artifact.isMiddlemanArtifact()) {
-        Iterables.addAll(manuallyExpanded, action.getInputs());
+        manuallyExpanded.addAll(action.getInputs().toList());
       } else {
         manuallyExpanded.add(artifact);
       }

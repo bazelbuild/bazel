@@ -20,17 +20,16 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
@@ -86,21 +85,25 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public ProviderApi provider(String doc, Object fields, Location location) throws EvalException {
+  public ProviderApi provider(String doc, Object fields, StarlarkThread thread)
+      throws EvalException {
     FakeProviderApi fakeProvider = new FakeProviderApi();
     // Field documentation will be output preserving the order in which the fields are listed.
     ImmutableList.Builder<ProviderFieldInfo> providerFieldInfos = ImmutableList.builder();
-    if (fields instanceof SkylarkList) {
+    if (fields instanceof Sequence) {
       @SuppressWarnings("unchecked")
-      SkylarkList<String> fieldNames = (SkylarkList<String>)
-          SkylarkType.cast(
-              fields,
-              SkylarkList.class, String.class, location,
-              "Expected list of strings or dictionary of string -> string for 'fields'");
+      Sequence<String> fieldNames =
+          (Sequence<String>)
+              SkylarkType.cast(
+                  fields,
+                  Sequence.class,
+                  String.class,
+                  null,
+                  "Expected list of strings or dictionary of string -> string for 'fields'");
       for (String fieldName : fieldNames) {
         providerFieldInfos.add(asProviderFieldInfo(fieldName, "(Undocumented)"));
       }
-    } else if (fields instanceof SkylarkDict) {
+    } else if (fields instanceof Dict) {
       Map<String, String> dict = SkylarkType.castMap(
           fields,
           String.class, String.class,
@@ -134,22 +137,21 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<?> toolchains,
+      Sequence<?> toolchains,
       String doc,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> execCompatibleWith,
+      Sequence<?> providesArg,
+      Sequence<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
       Object cfg,
-      FuncallExpression ast,
-      StarlarkThread funcallThread)
+      StarlarkThread thread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
-    if (attrs != null && attrs != Runtime.NONE) {
-      SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
+    if (attrs != null && attrs != Starlark.NONE) {
+      Dict<?, ?> attrsDict = (Dict<?, ?>) attrs;
       attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
     }
 
@@ -166,14 +168,14 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
     RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
 
-    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, ast.getLocation(), ruleInfo));
+    Location loc = thread.getCallerLocation();
+    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
 
     return functionIdentifier;
   }
 
   @Override
-  public Label label(
-      String labelString, Boolean relativeToCallerRepository, Location loc, StarlarkThread thread)
+  public Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
       throws EvalException {
     try {
       return Label.parseAbsolute(
@@ -181,29 +183,28 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
           /* defaultToMain= */ false,
           /* repositoryMapping= */ ImmutableMap.of());
     } catch (LabelSyntaxException e) {
-      throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
+      throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);
     }
   }
 
   @Override
   public SkylarkAspectApi aspect(
       StarlarkFunction implementation,
-      SkylarkList<?> attributeAspects,
+      Sequence<?> attributeAspects,
       Object attrs,
-      SkylarkList<?> requiredAspectProvidersArg,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
-      SkylarkList<?> toolchains,
+      Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> providesArg,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
+      Sequence<?> toolchains,
       String doc,
       Boolean applyToFiles,
-      FuncallExpression ast,
-      StarlarkThread funcallThread)
+      StarlarkThread thread)
       throws EvalException {
     FakeSkylarkAspect fakeAspect = new FakeSkylarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
-    if (attrs != null && attrs != Runtime.NONE) {
-      SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
+    if (attrs != null && attrs != Starlark.NONE) {
+      Dict<?, ?> attrsDict = (Dict<?, ?>) attrs;
       attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
     }
 
@@ -230,7 +231,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
             .addAllAttribute(attrInfos)
             .addAllAspectAttribute(aspectAttrs);
 
-    aspectInfoList.add(new AspectInfoWrapper(fakeAspect, ast.getLocation(), aspectInfo));
+    aspectInfoList.add(new AspectInfoWrapper(fakeAspect, thread.getCallerLocation(), aspectInfo));
 
     return fakeAspect;
   }
@@ -245,9 +246,16 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   private static class RuleDefinitionIdentifier extends BaseFunction {
 
     private static int idCounter = 0;
+    private final String name = "RuleDefinitionIdentifier" + idCounter++;
 
-    public RuleDefinitionIdentifier() {
-      super("RuleDefinitionIdentifier" + idCounter++, FunctionSignature.KWARGS);
+    @Override
+    public FunctionSignature getSignature() {
+      return FunctionSignature.KWARGS;
+    }
+
+    @Override
+    public String getName() {
+      return name;
     }
   }
 

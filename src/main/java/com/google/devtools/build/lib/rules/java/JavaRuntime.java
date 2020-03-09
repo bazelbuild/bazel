@@ -47,7 +47,12 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     filesBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET));
-    PathFragment javaHome = defaultJavaHome(ruleContext.getLabel());
+    boolean siblingRepositoryLayout =
+        ruleContext
+            .getAnalysisEnvironment()
+            .getSkylarkSemantics()
+            .experimentalSiblingRepositoryLayout();
+    PathFragment javaHome = defaultJavaHome(ruleContext.getLabel(), siblingRepositoryLayout);
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {
       PathFragment javaHomeAttribute =
           PathFragment.create(ruleContext.getExpander().expand("java_home"));
@@ -124,11 +129,11 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         || path.endsWith(PathFragment.create("bin/java.exe"));
   }
 
-  static PathFragment defaultJavaHome(Label javabase) {
+  static PathFragment defaultJavaHome(Label javabase, boolean siblingRepositoryLayout) {
     if (javabase.getPackageIdentifier().getRepository().isDefault()) {
       return javabase.getPackageFragment();
     }
-    return javabase.getPackageIdentifier().getSourceRoot();
+    return javabase.getPackageIdentifier().getExecPath(siblingRepositoryLayout);
   }
 
   private static PathFragment getRunfilesJavaExecutable(PathFragment javaHome, Label javabase) {

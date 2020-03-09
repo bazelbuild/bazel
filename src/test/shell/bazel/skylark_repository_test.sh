@@ -809,6 +809,45 @@ function test_skylark_repository_file_invalidation_batch() {
   file_invalidation_test_template --batch
 }
 
+# Test invalidation based on changes of the Starlark semantics
+function starlark_invalidation_test_template() {
+  local startup_flag="${1-}"
+  local execution_file="$(setup_invalidation_test)"
+  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local bazel_build="bazel ${startup_flag} build ${flags}"
+
+  ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  expect_log "<1> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 1 $(cat "${execution_file}")
+
+  echo; cat ${TEST_log}; echo
+
+  ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  assert_equals 1 $(cat "${execution_file}")
+
+  echo; cat ${TEST_log}; echo
+
+  # Changing the starlark semantics should invalidate once
+  ${bazel_build} --incompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  expect_log "<2> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 2 $(cat "${execution_file}")
+  ${bazel_build} --incompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
+function test_starlark_invalidation() {
+    starlark_invalidation_test_template
+}
+
+function test_starlark_invalidation_batch() {
+    starlark_invalidation_test_template --batch
+}
+
+
 function test_repo_env() {
   setup_skylark_repository
 
@@ -1035,14 +1074,14 @@ function test_skylark_repository_context_downloads_return_struct() {
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
   no_sha_return = repository_ctx.download(
-    url = "http://localhost:${fileserver_port}/download_no_sha256.txt",
+    url = "file://${server_dir}/download_no_sha256.txt",
     output = "download_no_sha256.txt")
   with_sha_return = repository_ctx.download(
     url = "http://localhost:${fileserver_port}/download_with_sha256.txt",
     output = "download_with_sha256.txt",
     sha256 = "${provided_sha256}")
   compressed_no_sha_return = repository_ctx.download_and_extract(
-    url = "http://localhost:${fileserver_port}/compressed_no_sha256.txt.zip",
+    url = "file://${server_dir}/compressed_no_sha256.txt.zip",
     output = "compressed_no_sha256.txt.zip")
   compressed_with_sha_return = repository_ctx.download_and_extract(
       url = "http://localhost:${fileserver_port}/compressed_with_sha256.txt.zip",
@@ -1062,7 +1101,7 @@ EOF
   # none was provided by the call to download_and_extract. So we do have to
   # allow a download without provided checksum, even though it is plain http;
   # nevertheless, localhost is pretty safe against man-in-the-middle attacs.
-  bazel build --noincompatible_disallow_unverified_http_downloads @foo//:all \
+  bazel build @foo//:all \
         >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
   output_base="$(bazel info output_base)"
@@ -1374,6 +1413,55 @@ EOF
       || fail "expected success after successful sync"
 }
 
+function test_sync_only() {
+  # Set up two repositories that count how often they are fetched
+  cat >environ.bzl <<'EOF'
+def environ(r_ctx, var):
+  return r_ctx.os.environ[var] if var in r_ctx.os.environ else "undefined"
+EOF
+  cat <<'EOF' >bar.tpl
+FOO=%{FOO} BAR=%{BAR} BAZ=%{BAZ}
+EOF
+  write_environ_skylark "${TEST_TMPDIR}/executionFOO" ""
+  mv test.bzl testfoo.bzl
+  write_environ_skylark "${TEST_TMPDIR}/executionBAR" ""
+  mv test.bzl testbar.bzl
+  cat > WORKSPACE <<'EOF'
+load("//:testfoo.bzl", foorepo="repo")
+load("//:testbar.bzl", barrepo="repo")
+foorepo(name="foo")
+barrepo(name="bar")
+EOF
+  touch BUILD
+  bazel clean --expunge
+  echo 0 > "${TEST_TMPDIR}/executionFOO"
+  echo 0 > "${TEST_TMPDIR}/executionBAR"
+
+  # Normal sync should hit both repositories
+  echo; echo bazel sync; echo
+  bazel sync
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only foo
+  echo; echo bazel sync --only foo; echo
+  bazel sync --only foo
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only bar
+  echo; echo bazel sync --only bar; echo
+  bazel sync --only bar
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only bar
+  echo; echo bazel sync --only bar; echo
+  bazel sync --only bar
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 3 $(cat "${TEST_TMPDIR}/executionBAR")
+}
+
 function test_download_failure_message() {
   # Regression test for #7850
   # Verify that the for a failed downlaod, it is clearly indicated
@@ -1604,6 +1692,7 @@ cd pub
 mget *
 quit
 
+# this is a comment
 machine example.com login
 myusername password mysecret default
 login anonymous password myusername@example.com
@@ -1690,6 +1779,9 @@ password foopass
 machine bar.example.org
 login barusername
 password passbar
+
+machine oauthlife.com
+password TOKEN
 EOF
   # Read a given .netrc file and combine it with a list of URL,
   # and write the obtained authentication dicionary to disk; this
@@ -1698,7 +1790,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
 def _impl(ctx):
   rc = read_netrc(ctx, ctx.attr.path)
-  auth = use_netrc(rc, ctx.attr.urls)
+  auth = use_netrc(rc, ctx.attr.urls, {"oauthlife.com": "Bearer <password>",})
   ctx.file("data.bzl", "auth = %s" % (auth,))
   ctx.file("BUILD", "")
   ctx.file("WORKSPACE", "")
@@ -1722,6 +1814,7 @@ authrepo(
     "https://foo.example.org:8080/file2.tar",
     "https://bar.example.org/file3.tar",
     "https://evil.com/bar.example.org/file4.tar",
+    "https://oauthlife.com/fizz/buzz/file5.tar",
   ],
 )
 EOF
@@ -1743,6 +1836,11 @@ expected = {
       "type" : "basic",
       "login": "barusername",
       "password" : "passbar",
+    },
+    "https://oauthlife.com/fizz/buzz/file5.tar": {
+      "type" : "pattern",
+      "pattern" : "Bearer <password>",
+      "password" : "TOKEN",
     },
 }
 EOF
@@ -1793,8 +1891,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --incompatible_disallow_unverified_http_downloads //:it \
-        > "${TEST_log}" 2>&1 && fail "Expeceted failure" || :
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "Expeceted failure" || :
   expect_log 'plain http.*missing checksum'
 
   # After adding a good checksum, we expect success
@@ -1806,8 +1903,7 @@ sha256 = "$sha256",
 w
 q
 EOF
-  bazel build --incompatible_disallow_unverified_http_downloads //:it \
-        || fail "Expected success one the checksum is given"
+  bazel build //:it || fail "Expected success one the checksum is given"
 
 }
 
@@ -1850,6 +1946,41 @@ genrule(
 EOF
   bazel build //:it \
       || fail "Expected success despite needing a file behind basic auth"
+}
+
+function test_http_archive_auth_patterns() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
+  serve_file_auth x.tar
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  netrc = "$(pwd)/.netrc",
+  sha256="$sha256",
+  auth_patterns = {
+    "127.0.0.1": "Bearer <password>"
+  }
+)
+EOF
+  cat > .netrc <<'EOF'
+machine 127.0.0.1
+password TOKEN
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it \
+      || fail "Expected success despite needing a file behind bearer auth"
 }
 
 function test_implicit_netrc() {

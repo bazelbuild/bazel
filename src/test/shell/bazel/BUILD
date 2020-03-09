@@ -30,7 +30,6 @@ filegroup(
     ],
     visibility = [
         "//src/test/shell:__subpackages__",
-        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:__pkg__",
     ],
 )
 
@@ -145,6 +144,19 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_wrapper_test",
+    srcs = ["bazel_wrapper_test.sh"],
+    data = [
+        ":test-deps",
+        "//scripts/packages:wrapper",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",  # wrapper is not used on Windows
+    ],
+)
+
+sh_test(
     name = "bazel_java_test_no_windows",
     size = "large",
     timeout = "eternal",
@@ -207,35 +219,7 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-sh_test(
-    name = "bazel_java_test_jdk9_toolchain_released",
-    size = "large",
-    timeout = "eternal",
-    srcs = ["bazel_java_test.sh"],
-    args = select({
-        "//src/conditions:darwin": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
-        "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
-        "//src/conditions:windows": ["@remote_java_tools_javac9_test_windows//:toolchain"],
-        "//src/conditions:linux_x86_64": ["@remote_java_tools_javac9_test_linux//:toolchain"],
-    }) + [
-        # java_tools zip to test
-        "released",
-        # --javabase value
-    ] + select({
-        "//src/conditions:darwin": ["@openjdk9_darwin_archive//:runtime"],
-        "//src/conditions:darwin_x86_64": ["@openjdk9_darwin_archive//:runtime"],
-        "//src/conditions:windows": ["@openjdk9_windows_archive//:runtime"],
-        "//src/conditions:linux_x86_64": ["@openjdk9_linux_archive//:runtime"],
-    }),
-    data = [
-        ":test-deps",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    exec_compatible_with = ["//:highcpu_machine"],
-)
-
-JAVA_VERSIONS = ("9", "10", "11", "12")
+JAVA_VERSIONS = ("11", "12")
 
 [
     sh_test(
@@ -339,7 +323,7 @@ sh_test(
 [
     sh_test(
         name = "bazel_java_tools_javac" + java_version + "_test",
-        size = "small",
+        size = "medium",
         srcs = ["bazel_java_tools_test.sh"],
         args = ["java" + java_version],
         data = [
@@ -583,22 +567,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_toolchain_test",
-    size = "medium",
-    srcs = ["bazel_toolchain_test.sh"],
-    data = [":test-deps"] + select({
-        "//src/conditions:darwin": [],
-        "//src/conditions:darwin_x86_64": [],
-        "//src/conditions:windows": [],
-        "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
-    }),
-    tags = [
-        "no_windows",
-        "requires-network",
-    ],
-)
-
-sh_test(
     name = "whitelist_test",
     size = "medium",
     srcs = ["whitelist_test.sh"],
@@ -656,7 +624,10 @@ sh_test(
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
     shard_count = 15,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -757,7 +728,10 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 6,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -810,14 +784,6 @@ sh_test(
 sh_test(
     name = "location_test",
     srcs = ["location_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "maven_test",
-    size = "large",
-    srcs = ["maven_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )
@@ -904,6 +870,7 @@ sh_test(
     ],
     tags = [
         "local",
+        "manual",  # TODO(philwo) re-enable once Bazel CI supports Docker again
         "no_windows",
     ],
 )
@@ -919,6 +886,7 @@ sh_test(
     tags = [
         "no-sandbox",
         "no_windows",
+        "requires-network",
     ],
 )
 
@@ -966,7 +934,10 @@ sh_test(
     srcs = ["bazel_repository_cache_test.sh"],
     data = [":test-deps"],
     shard_count = 6,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -1127,12 +1098,15 @@ sh_test(
         ":test-deps",
         "//src/tools/workspacelog:parser",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
     name = "jdeps_test",
-    size = "medium",
+    size = "large",
     srcs = ["jdeps_test.sh"],
     data = [
         ":jdeps_class_blacklist.txt",
@@ -1147,7 +1121,7 @@ sh_test(
 
 sh_test(
     name = "cc_flags_supplier_test",
-    size = "small",
+    size = "medium",
     srcs = ["cc_flags_supplier_test.sh"],
     data = [
         ":test-deps",
@@ -1192,6 +1166,9 @@ sh_test(
     name = "archive_contents_test",
     srcs = ["archive_contents_test.sh"],
     data = [":test-deps"],
+    tags = [
+        "requires-network",
+    ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
@@ -1222,6 +1199,13 @@ sh_test(
 sh_test(
     name = "unicode_filenames_test",
     srcs = ["unicode_filenames_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "run_test",
+    srcs = ["run_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

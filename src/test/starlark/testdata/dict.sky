@@ -91,17 +91,20 @@ assert_eq(() in {}, False)
 assert_eq("a" in dict(a=1), True)
 ---
 
-# should fail after --incompatible_disallow_dict_lookup_unhashable_keys is flipped to true
+# What's going on here? Functions _are_ hashable.
+# 'len in {}' and '{}.get(len, False)' should both successfully evaluate to False.
+# TODO(adonovan): clarify spec and fix this test (https://github.com/bazelbuild/starlark/issues/65)
+
 # unhashable types
 
-{} in {} ## unhashable type: 'dict'
+{} in {} ### unhashable type: 'dict'
 ---
-[] in {} ## unhashable type: 'list'
+[] in {} ### unhashable type: 'list'
 ---
-len in {} ## unhashable type: 'function'
+len in {} ### unhashable type: 'function'
 ---
-{}.get([]) ## unhashable type: 'list'
+{}.get([]) ### unhashable type: 'list'
 ---
-dict().get({}) ## unhashable type: 'dict'
+dict().get({}) ### unhashable type: 'dict'
 ---
-{1: 2}.get(len) ## unhashable type: 'function'
+{1: 2}.get(len) ### unhashable type: 'function'

@@ -145,6 +145,17 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       return option.build();
     }
 
+    Option createStarlarkOption(String starlarkFlag, @Nullable Object value) {
+      String combinedForm = String.format("--%s=%s", starlarkFlag, value);
+      Option.Builder option = Option.newBuilder();
+      option.setCombinedForm(combinedForm);
+      option.setOptionName(starlarkFlag);
+      if (value != null) {
+        option.setOptionValue(String.valueOf(value));
+      }
+      return option.build();
+    }
+
     /**
      * Returns the startup option section of the command line for the startup options as the server
      * received them at its startup. Since not all client options get passed to the server as
@@ -251,11 +262,16 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
                       parsedOptionDescription.getPriority().getPriorityCategory()
                           == OptionPriority.PriorityCategory.COMMAND_LINE)
               .collect(Collectors.toList());
+      List<Option> starlarkOptions =
+          commandOptions.getStarlarkOptions().entrySet().stream()
+              .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
+              .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")
           .setOptionList(
               OptionList.newBuilder()
-                  .addAllOption(getOptionListFromParsedOptionDescriptions(explicitOptions)))
+                  .addAllOption(getOptionListFromParsedOptionDescriptions(explicitOptions))
+                  .addAllOption(starlarkOptions))
           .build();
     }
 
@@ -353,13 +369,18 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
     /** Returns the canonical command options, overridden and default values are not listed. */
     private CommandLineSection getCanonicalCommandOptions() {
+      List<Option> starlarkOptions =
+          commandOptions.getStarlarkOptions().entrySet().stream()
+              .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
+              .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")
           .setOptionList(
               OptionList.newBuilder()
                   .addAllOption(
                       getOptionListFromParsedOptionDescriptions(
-                          commandOptions.asListOfCanonicalOptions())))
+                          commandOptions.asListOfCanonicalOptions()))
+                  .addAllOption(starlarkOptions))
           .build();
     }
 

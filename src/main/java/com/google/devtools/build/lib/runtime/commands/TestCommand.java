@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSumm
 import com.google.devtools.build.lib.runtime.TestResultNotifier;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.runtime.UiOptions;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -115,7 +116,13 @@ public class TestCommand implements BlazeCommand {
       AnsiTerminalPrinter printer) {
     BlazeRuntime runtime = env.getRuntime();
     // Run simultaneous build and test.
-    List<String> targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
+    List<String> targets;
+    try {
+      targets = TargetPatternsHelper.readFrom(env, options);
+    } catch (TargetPatternsHelper.TargetPatternsHelperException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+    }
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets,
@@ -136,13 +143,17 @@ public class TestCommand implements BlazeCommand {
       // (original exitcode=BUILD_FAILURE) or if there weren't but --noanalyze was given
       // (original exitcode=SUCCESS).
       env.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
-      ExitCode exitCode =
-          buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
+      DetailedExitCode detailedExitCode =
+          buildResult.getSuccess()
+              ? DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE)
+              : buildResult.getDetailedExitCode();
       env.getEventBus()
           .post(
               new TestingCompleteEvent(
-                  exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
-      return BlazeCommandResult.exitCode(exitCode);
+                  detailedExitCode.getExitCode(),
+                  buildResult.getStopTime(),
+                  buildResult.getWasSuspended()));
+      return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
     // more tests
@@ -150,12 +161,17 @@ public class TestCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(
           null, "No test targets were found, yet testing was requested"));
 
-      ExitCode exitCode =
-          buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
+      DetailedExitCode detailedExitCode =
+          buildResult.getSuccess()
+              ? DetailedExitCode.justExitCode(ExitCode.NO_TESTS_FOUND)
+              : buildResult.getDetailedExitCode();
       env.getEventBus()
           .post(
-              new NoTestsFound(exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
-      return BlazeCommandResult.exitCode(exitCode);
+              new NoTestsFound(
+                  detailedExitCode.getExitCode(),
+                  buildResult.getStopTime(),
+                  buildResult.getWasSuspended()));
+      return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
 
     boolean buildSuccess = buildResult.getSuccess();
@@ -171,14 +187,19 @@ public class TestCommand implements BlazeCommand {
           + AnsiTerminalPrinter.Mode.DEFAULT);
     }
 
-    ExitCode exitCode = buildSuccess
-        ? (testSuccess ? ExitCode.SUCCESS : ExitCode.TESTS_FAILED)
-        : buildResult.getExitCondition();
+    DetailedExitCode detailedExitCode =
+        buildSuccess
+            ? (testSuccess
+                ? DetailedExitCode.justExitCode(ExitCode.SUCCESS)
+                : DetailedExitCode.justExitCode(ExitCode.TESTS_FAILED))
+            : buildResult.getDetailedExitCode();
     env.getEventBus()
         .post(
             new TestingCompleteEvent(
-                exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
-    return BlazeCommandResult.exitCode(exitCode);
+                detailedExitCode.getExitCode(),
+                buildResult.getStopTime(),
+                buildResult.getWasSuspended()));
+    return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }
 
   /**
@@ -202,16 +223,18 @@ public class TestCommand implements BlazeCommand {
   private static TestLogPathFormatter makeTestLogPathFormatter(
       OptionsParsingResult options,
       CommandEnvironment env) {
+    BlazeRuntime runtime = env.getRuntime();
     TestSummaryOptions summaryOptions = options.getOptions(TestSummaryOptions.class);
     if (!summaryOptions.printRelativeTestLogPaths) {
       return Path::getPathString;
     }
-    String productName = env.getRuntime().getProductName();
+    String productName = runtime.getProductName();
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     // requestOptions.printWorkspaceInOutputPathsIfNeeded is antithetical with
     // summaryOptions.printRelativeTestLogPaths, so we completely ignore it.
     PathPrettyPrinter pathPrettyPrinter =
         OutputDirectoryLinksUtils.getPathPrettyPrinter(
+            runtime.getRuleClassProvider().getSymlinkDefinitions(),
             requestOptions.getSymlinkPrefix(productName),
             productName,
             env.getWorkspace(),

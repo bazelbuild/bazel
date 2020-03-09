@@ -70,6 +70,9 @@ py_test(
     size = "medium",
     srcs = ["bazel_external_repository_test.py"],
     data = glob(["testdata/bazel_external_repository_test/**"]),
+    tags = [
+        "requires-network",
+    ],
     deps = [":test_base"],
 )
 
@@ -210,6 +213,13 @@ py_test(
     name = "query_test",
     size = "medium",
     srcs = ["query_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "action_replay_test",
+    size = "medium",
+    srcs = ["action_replay_test.py"],
     deps = [":test_base"],
 )
 

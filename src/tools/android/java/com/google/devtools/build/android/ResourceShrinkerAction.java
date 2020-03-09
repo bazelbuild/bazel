@@ -68,6 +68,7 @@ import org.xml.sax.SAXException;
  *       --shrunkResources path to write shrunk resources zip
  * </pre>
  */
+@Deprecated
 public class ResourceShrinkerAction {
   private static final StdLogger stdLogger = new StdLogger(StdLogger.Level.WARNING);
   private static final Logger logger = Logger.getLogger(ResourceShrinkerAction.class.getName());

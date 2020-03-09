@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Starlark namespace for creating build settings. */
 // TODO(juliexxia): Consider adding more types of build settings, specifically other label types.
@@ -48,7 +48,7 @@ public class StarlarkConfig implements StarlarkConfigApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<config>");
   }
 }

@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -28,28 +29,29 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
 
   @Test
   public void testSplitEscaped() throws Exception {
+    Mutability mu = null;
     newTest()
-        .testExpression("split_escaped('a:b:c', ':')", MutableList.of(thread, "a", "b", "c"))
-        .testExpression("split_escaped('a%:b', ':')", MutableList.of(thread, "a:b"))
-        .testExpression("split_escaped('a%%b', ':')", MutableList.of(thread, "a%b"))
-        .testExpression("split_escaped('a:::b', ':')", MutableList.of(thread, "a", "", "", "b"))
-        .testExpression("split_escaped('a:b%:c', ':')", MutableList.of(thread, "a", "b:c"))
-        .testExpression("split_escaped('a%%:b:c', ':')", MutableList.of(thread, "a%", "b", "c"))
-        .testExpression("split_escaped(':a', ':')", MutableList.of(thread, "", "a"))
-        .testExpression("split_escaped('a:', ':')", MutableList.of(thread, "a", ""))
-        .testExpression("split_escaped('::a::', ':')", MutableList.of(thread, "", "", "a", "", ""))
-        .testExpression("split_escaped('%%%:a%%%%:b', ':')", MutableList.of(thread, "%:a%%", "b"))
-        .testExpression("split_escaped('', ':')", MutableList.of(thread))
-        .testExpression("split_escaped('%', ':')", MutableList.of(thread, "%"))
-        .testExpression("split_escaped('%%', ':')", MutableList.of(thread, "%"))
-        .testExpression("split_escaped('%:', ':')", MutableList.of(thread, ":"))
-        .testExpression("split_escaped(':', ':')", MutableList.of(thread, "", ""))
-        .testExpression("split_escaped('a%%b', ':')", MutableList.of(thread, "a%b"))
-        .testExpression("split_escaped('a%:', ':')", MutableList.of(thread, "a:"));
+        .testExpression("split_escaped('a:b:c', ':')", StarlarkList.of(mu, "a", "b", "c"))
+        .testExpression("split_escaped('a%:b', ':')", StarlarkList.of(mu, "a:b"))
+        .testExpression("split_escaped('a%%b', ':')", StarlarkList.of(mu, "a%b"))
+        .testExpression("split_escaped('a:::b', ':')", StarlarkList.of(mu, "a", "", "", "b"))
+        .testExpression("split_escaped('a:b%:c', ':')", StarlarkList.of(mu, "a", "b:c"))
+        .testExpression("split_escaped('a%%:b:c', ':')", StarlarkList.of(mu, "a%", "b", "c"))
+        .testExpression("split_escaped(':a', ':')", StarlarkList.of(mu, "", "a"))
+        .testExpression("split_escaped('a:', ':')", StarlarkList.of(mu, "a", ""))
+        .testExpression("split_escaped('::a::', ':')", StarlarkList.of(mu, "", "", "a", "", ""))
+        .testExpression("split_escaped('%%%:a%%%%:b', ':')", StarlarkList.of(mu, "%:a%%", "b"))
+        .testExpression("split_escaped('', ':')", StarlarkList.of(mu))
+        .testExpression("split_escaped('%', ':')", StarlarkList.of(mu, "%"))
+        .testExpression("split_escaped('%%', ':')", StarlarkList.of(mu, "%"))
+        .testExpression("split_escaped('%:', ':')", StarlarkList.of(mu, ":"))
+        .testExpression("split_escaped(':', ':')", StarlarkList.of(mu, "", ""))
+        .testExpression("split_escaped('a%%b', ':')", StarlarkList.of(mu, "a%b"))
+        .testExpression("split_escaped('a%:', ':')", StarlarkList.of(mu, "a:"));
   }
 
-  private ModalTestCase newTest(String... skylarkOptions) throws IOException {
-    return new SkylarkTest(skylarkOptions)
+  private Scenario newTest(String... skylarkOptions) throws IOException {
+    return new Scenario(skylarkOptions)
         // A mock implementation of Label to be able to parse lib_cc_configure under default
         // Skylark environment (lib_cc_configure is meant to be used from the repository
         // environment).

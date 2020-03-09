@@ -77,7 +77,12 @@ EOF
   cat > java/bazel/AndroidManifest.xml <<EOF
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="bazel.android">
+
+    <!-- tools:replace is a deprecated attribute, and will cause the manifest merger action to log a warning -->
+    <uses-feature android:name="android.hardware.location" android:required="false" tools:replace="android:required" />
+
     <application
         android:label="Bazel App"
         android:theme="@style/AppTheme" >
@@ -96,15 +101,6 @@ function test_font_support() {
   setup_font_resources
 
   assert_build //java/bazel:bin
-}
-
-function test_persistent_resource_processor_aapt() {
-  create_new_workspace
-  setup_android_sdk_support
-  create_android_binary
-  setup_font_resources
-
-  assert_build //java/bazel:bin --persistent_android_resource_processor --android_aapt=aapt
 }
 
 function test_persistent_resource_processor_aapt2() {

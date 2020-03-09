@@ -106,7 +106,7 @@ class RdepsBoundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdepAtDep
     // Retrieve the reverse deps as SkyKeys and defer the targetification and filtering to next
     // recursive visitation.
     Map<SkyKey, Iterable<SkyKey>> unfilteredRdepsOfRdeps =
-        env.graph.getReverseDeps(uniqueValidRdepsBelowDepthBound);
+        env.getReverseDepLabelsOfLabels(uniqueValidRdepsBelowDepthBound);
 
     ImmutableList.Builder<DepAndRdepAtDepth> depAndRdepAtDepthsToVisitBuilder =
         ImmutableList.builder();
@@ -117,7 +117,7 @@ class RdepsBoundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdepAtDep
               SkyKey rdep = entry.getKey();
               int depthOfRdepOfRdep = shallowestRdepDepthMap.get(rdep) + 1;
               Streams.stream(entry.getValue())
-                  .filter(Predicates.and(SkyQueryEnvironment.IS_TTV, universe))
+                  .filter(Predicates.and(SkyQueryEnvironment.IS_LABEL, universe))
                   .forEachOrdered(
                       rdepOfRdep -> {
                         depAndRdepAtDepthsToVisitBuilder.add(

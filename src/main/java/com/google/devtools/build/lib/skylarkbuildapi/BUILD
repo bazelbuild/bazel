@@ -5,12 +5,14 @@
 #   Thus, this package should not depend on Bazel-specific packages (only
 #   those which contain pure-Skylark concepts, such as the interpreter or
 #   annotation interfaces).
+#
+# This package contains specific files for Bazel concepts, such as
+# SkylarkRuleClassApi and FileApi. Only add it as a dependency if you require
+# those APIs.
 
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
-
-licenses(["notice"])  # Apache 2.0
 
 filegroup(
     name = "srcs",
@@ -18,6 +20,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/javascript:srcs",
@@ -35,12 +38,13 @@ java_library(
     name = "skylarkbuildapi",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//third_party:guava",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
+        # TODO(cparsons): Remove dependency on Label implementation.
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//third_party:jsr305",
     ],
 )

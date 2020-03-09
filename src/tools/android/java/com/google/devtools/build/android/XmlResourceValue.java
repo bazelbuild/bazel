@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.aapt.Resources.Reference;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.Namespaces;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -59,4 +62,10 @@ public interface XmlResourceValue {
 
   /** Returns a representation of the xml value as a string suitable for conflict messages. */
   String asConflictStringWith(DataSource source);
+
+  /** Visibility of this resource as denoted by a {@code <public>} tag, or lack thereof. */
+  Visibility getVisibility();
+
+  /** Resources referenced via XML attributes or proxying resource definitions. */
+  ImmutableList<Reference> getReferencedResources();
 }

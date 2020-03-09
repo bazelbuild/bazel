@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.DefaultInfoApi.DefaultInfoApiProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi.OutputGroupInfoApiProvider;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.Starlark;
 
 /**

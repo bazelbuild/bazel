@@ -25,6 +25,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -61,12 +62,12 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
-import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
@@ -82,7 +83,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -126,23 +126,6 @@ public class RunCommand implements BlazeCommand  {
               + "and the executable is connected to the terminal's stdin."
     )
     public PathFragment scriptPath;
-
-    @Option(
-        name = "incompatible_windows_bashless_run_command",
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = {
-          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
-        },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        },
-        defaultValue = "true",
-        help =
-            "On Windows: if true, the \"run\" command runs the binary directly instead of running "
-                + "through Bash; when false, then the binary is ran through Bash. On other "
-                + "platforms: no-op.")
-    public boolean bashlessRun;
   }
 
   // Thrown when a method needs Bash but ShToolchain.getPath yields none.
@@ -214,7 +197,8 @@ public class RunCommand implements BlazeCommand  {
       ConfiguredTarget runUnderTarget,
       List<String> args)
       throws NoShellFoundException {
-    String productName = env.getRuntime().getProductName();
+    BlazeRuntime runtime = env.getRuntime();
+    String productName = runtime.getProductName();
     Artifact executable = targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
 
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
@@ -222,6 +206,7 @@ public class RunCommand implements BlazeCommand  {
     PathFragment executablePath = executable.getPath().asFragment();
     PathPrettyPrinter prettyPrinter =
         OutputDirectoryLinksUtils.getPathPrettyPrinter(
+            runtime.getRuleClassProvider().getSymlinkDefinitions(),
             requestOptions.getSymlinkPrefix(productName),
             productName,
             env.getWorkspace(),
@@ -304,7 +289,7 @@ public class RunCommand implements BlazeCommand  {
 
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running target"));
-      return BlazeCommandResult.exitCode(result.getExitCondition());
+      return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
     }
 
     // Make sure that we have exactly 1 built target (excluding --run_under),
@@ -389,7 +374,7 @@ public class RunCommand implements BlazeCommand  {
         runfilesDir = ensureRunfilesBuilt(env, runfilesSupport,
             env.getSkyframeExecutor().getConfiguration(env.getReporter(),
                 targetToRun.getConfigurationKey()));
-      } catch (CommandException e) {
+      } catch (EnvironmentalExecException e) {
         env.getReporter().handle(Event.error("Error creating runfiles: " + e.getMessage()));
         return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
       }
@@ -514,7 +499,7 @@ public class RunCommand implements BlazeCommand  {
         .setWorkingDirectory(
             ByteString.copyFrom(workingDir.getPathString(), StandardCharsets.ISO_8859_1));
 
-    if (OS.getCurrent() == OS.WINDOWS && runOptions.bashlessRun) {
+    if (OS.getCurrent() == OS.WINDOWS) {
       for (String arg : cmdLine) {
         execDescription.addArgv(
             ByteString.copyFrom(ShellUtils.windowsEscapeArg(arg), StandardCharsets.ISO_8859_1));
@@ -567,11 +552,12 @@ public class RunCommand implements BlazeCommand  {
   }
 
   /**
-   * Ensures that runfiles are built for the specified target. If they already
-   * are, does nothing, otherwise builds them.
+   * Ensures that runfiles are built for the specified target. If they already are, does nothing,
+   * otherwise builds them.
    */
-  private Path ensureRunfilesBuilt(CommandEnvironment env, RunfilesSupport runfilesSupport,
-      BuildConfiguration configuration) throws CommandException {
+  private static Path ensureRunfilesBuilt(
+      CommandEnvironment env, RunfilesSupport runfilesSupport, BuildConfiguration configuration)
+      throws EnvironmentalExecException {
     Artifact manifest = Preconditions.checkNotNull(runfilesSupport.getRunfilesManifest());
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
@@ -581,11 +567,23 @@ public class RunCommand implements BlazeCommand  {
       workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getSuffix());
     }
 
+    // Always create runfiles directory and the workspace-named directory underneath, even if we
+    // run with --enable_runfiles=no (which is the default on Windows as of 2020-01-24).
+    // If the binary we run is in fact a test, it will expect to be able to chdir into the runfiles
+    // directory. See https://github.com/bazelbuild/bazel/issues/10621
+    try {
+      runfilesSupport
+          .getRunfilesDirectory()
+          .getRelative(runfilesSupport.getWorkspaceName())
+          .createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e);
+    }
+
     // When runfiles are not generated, getManifest() returns the
     // .runfiles_manifest file, otherwise it returns the MANIFEST file. This is
     // a handy way to check whether runfiles were built or not.
     if (!RUNFILES_MANIFEST.matches(manifest.getFilename())) {
-      // Runfiles already built, nothing to do.
       return workingDir;
     }
 
@@ -716,9 +714,12 @@ public class RunCommand implements BlazeCommand  {
     Target target;
     try {
       target = env.getPackageManager().getTarget(env.getReporter(), configuredTarget.getLabel());
-    } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {
+    } catch (InterruptedException e) {
+      env.getReporter().handle(Event.error("interrupted"));
+      return ExitCode.INTERRUPTED;
+    } catch (NoSuchTargetException | NoSuchPackageException e) {
       env.getReporter().handle(Event.error("Failed to find a target to validate. " + e));
-      throw new IllegalStateException("Failed to find a target to validate");
+      throw new IllegalStateException("Failed to find a target to validate", e);
     }
 
     String targetError = validateTarget(target);
@@ -754,12 +755,17 @@ public class RunCommand implements BlazeCommand  {
   }
 
   /**
-   * Return true iff {@code target} is a rule that has an executable file. This includes
-   * *_test rules, *_binary rules, generated outputs, and inputs.
+   * Return true iff it is possible that {@code target} is a rule that has an executable file. This
+   * *_test rules, *_binary rules, aliases, generated outputs, and inputs.
+   *
+   * <p>Determining definitively whether a rule produces an executable can only be done after
+   * analysis; this is only an early sanity check to quickly catch most mistakes.
    */
   private static boolean isExecutable(Target target) {
-    return isPlainFile(target) || isExecutableNonTestRule(target) || TargetUtils.isTestRule(target)
-        || isAliasRule(target);
+    return isPlainFile(target)
+        || isExecutableNonTestRule(target)
+        || TargetUtils.isTestRule(target)
+        || TargetUtils.isAlias(target);
   }
 
   /**
@@ -779,15 +785,6 @@ public class RunCommand implements BlazeCommand  {
 
   private static boolean isPlainFile(Target target) {
     return (target instanceof OutputFile) || (target instanceof InputFile);
-  }
-
-  private static boolean isAliasRule(Target target) {
-    if (!(target instanceof Rule)) {
-      return false;
-    }
-
-    Rule rule = (Rule) target;
-    return rule.getRuleClass().equals("alias") || rule.getRuleClass().equals("bind");
   }
 
   private String makeErrorMessageForNotHavingASingleTarget(

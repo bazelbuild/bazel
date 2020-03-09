@@ -31,22 +31,7 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
   public ObjcConfiguration create(BuildOptions buildOptions) throws InvalidConfigurationException {
     CoreOptions options = buildOptions.get(CoreOptions.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
-    validate(objcOptions);
     return new ObjcConfiguration(objcOptions, options);
-  }
-
-  private static void validate(ObjcCommandLineOptions objcOptions)
-      throws InvalidConfigurationException {
-    if (objcOptions.experimentalObjcHeaderThinning && !objcOptions.useDotdPruning) {
-      throw new InvalidConfigurationException(
-          "Experimental Objective-C header thinning (--experimental_objc_header_thinning) requires "
-              + "Objective-C dotd pruning (--objc_use_dotd_pruning).");
-    }
-    if (objcOptions.experimentalObjcHeaderThinning && objcOptions.scanIncludes) {
-      throw new InvalidConfigurationException(
-          "Only one of header thinning (--experimental_objc_header_thinning) and include scanning "
-              + "(--objc_include_scanning) can be enabled.");
-    }
   }
 
   @Override

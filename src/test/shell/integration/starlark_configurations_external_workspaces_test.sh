@@ -133,7 +133,7 @@ function test_set_flag_with_workspace_name() {
 
   write_build_setting_bzl "@${WORKSPACE_NAME}"
 
-  bazel build //$pkg:my_drink --@"${WORKSPACE_NAME}"//$pkg:type="coffee" \
+  bazel build //$pkg:my_drink --@//$pkg:type="coffee" \
     --experimental_build_setting_api > output 2>"$TEST_log" \
     || fail "Expected success"
 

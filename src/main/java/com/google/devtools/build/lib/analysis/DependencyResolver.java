@@ -213,7 +213,7 @@ public abstract class DependencyResolver {
             rootCauses,
             trimmingTransitionFactory);
     if (!rootCauses.isEmpty()) {
-      throw new IllegalStateException(rootCauses.build().iterator().next().toString());
+      throw new IllegalStateException(rootCauses.build().toList().iterator().next().toString());
     }
     return outgoingEdges;
   }
@@ -262,7 +262,11 @@ public abstract class DependencyResolver {
     BuildConfiguration config = node.getConfiguration();
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
 
-    // TODO(bazel-team): Figure out a way to implement the below using LabelVisitationUtils.
+    // TODO(bazel-team): Figure out a way to implement the below (and partiallyResolveDependencies)
+    // using
+    // LabelVisitationUtils.
+    Rule fromRule = null;
+    ConfiguredAttributeMapper attributeMap = null;
     if (target instanceof OutputFile) {
       Preconditions.checkNotNull(config);
       visitTargetVisibility(node, outgoingLabels);
@@ -273,16 +277,14 @@ public abstract class DependencyResolver {
     } else if (target instanceof EnvironmentGroup) {
       visitTargetVisibility(node, outgoingLabels);
     } else if (target instanceof Rule) {
-      visitRule(node, hostConfig, aspects, configConditions, toolchainContext, outgoingLabels);
+      fromRule = (Rule) target;
+      attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions);
+      visitRule(node, hostConfig, aspects, attributeMap, toolchainContext, outgoingLabels);
     } else if (target instanceof PackageGroup) {
       outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
     } else {
       throw new IllegalStateException(target.getLabel().toString());
     }
-
-    Rule fromRule = target instanceof Rule ? (Rule) target : null;
-    ConfiguredAttributeMapper attributeMap =
-        fromRule == null ? null : ConfiguredAttributeMapper.of(fromRule, configConditions);
 
     Map<Label, Target> targetMap = getTargets(outgoingLabels, target, rootCauses);
     if (targetMap == null) {
@@ -312,7 +314,7 @@ public abstract class DependencyResolver {
   private OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
       partiallyResolveDependencies(
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
-          Rule fromRule,
+          @Nullable Rule fromRule,
           ConfiguredAttributeMapper attributeMap,
           @Nullable ToolchainContext toolchainContext,
           Iterable<Aspect> aspects) {
@@ -423,7 +425,7 @@ public abstract class DependencyResolver {
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfiguredAttributeMapper attributeMap,
       @Nullable ToolchainContext toolchainContext,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels)
       throws EvalException {
@@ -431,7 +433,6 @@ public abstract class DependencyResolver {
     BuildConfiguration ruleConfig = Preconditions.checkNotNull(node.getConfiguration(), node);
     Rule rule = (Rule) node.getTarget();
 
-    ConfiguredAttributeMapper attributeMap = ConfiguredAttributeMapper.of(rule, configConditions);
     attributeMap.validateAttributes();
 
     visitTargetVisibility(node, outgoingLabels);
@@ -480,6 +481,14 @@ public abstract class DependencyResolver {
 
     if (toolchainContext != null) {
       outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainContext.resolvedToolchainLabels());
+    }
+
+    if (!rule.isAttributeValueExplicitlySpecified(RuleClass.APPLICABLE_LICENSES_ATTR)) {
+      addExplicitDeps(
+          outgoingLabels,
+          rule,
+          RuleClass.APPLICABLE_LICENSES_ATTR,
+          rule.getPackage().getDefaultApplicableLicenses());
     }
   }
 

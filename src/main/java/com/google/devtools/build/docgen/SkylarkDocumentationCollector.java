@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.CallUtils;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.TreeMap;
@@ -39,7 +39,7 @@ final class SkylarkDocumentationCollector {
       title = "Globals",
       category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
       doc = "Objects, functions and modules registered in the global environment.")
-  private static final class TopLevelModule implements SkylarkValue {}
+  private static final class TopLevelModule implements StarlarkValue {}
 
   private SkylarkDocumentationCollector() {}
 

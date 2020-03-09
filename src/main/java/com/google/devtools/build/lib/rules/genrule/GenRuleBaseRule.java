@@ -104,7 +104,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("exec_tools", LABEL_LIST)
-                .cfg(new ExecutionTransitionFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .dontCheckConstraints())
 

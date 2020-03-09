@@ -20,8 +20,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdlProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /**
  * Configured targets implementing this provider can contribute Android IDL information to the
@@ -51,22 +52,38 @@ public final class AndroidIdlProvider extends NativeInfo
   }
 
   @Override
-  public NestedSet<String> getTransitiveIdlImportRoots() {
+  public Depset /*<String>*/ getTransitiveIdlImportRootsForStarlark() {
+    return Depset.of(SkylarkType.STRING, transitiveIdlImportRoots);
+  }
+
+  NestedSet<String> getTransitiveIdlImportRoots() {
     return transitiveIdlImportRoots;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveIdlImports() {
+  public Depset /*<Artifact>*/ getTransitiveIdlImportsForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveIdlImports);
+  }
+
+  NestedSet<Artifact> getTransitiveIdlImports() {
     return transitiveIdlImports;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveIdlJars() {
+  public Depset /*<Artifact>*/ getTransitiveIdlJarsForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveIdlJars);
+  }
+
+  NestedSet<Artifact> getTransitiveIdlJars() {
     return transitiveIdlJars;
   }
 
   @Override
-  public NestedSet<Artifact> getTransitiveIdlPreprocessed() {
+  public Depset /*<Artifact>*/ getTransitiveIdlPreprocessedForStarlark() {
+    return Depset.of(Artifact.TYPE, transitiveIdlPreprocessed);
+  }
+
+  NestedSet<Artifact> getTransitiveIdlPreprocessed() {
     return transitiveIdlPreprocessed;
   }
 
@@ -80,10 +97,10 @@ public final class AndroidIdlProvider extends NativeInfo
 
     @Override
     public AndroidIdlProvider createInfo(
-        SkylarkNestedSet transitiveIdlImportRoots,
-        SkylarkNestedSet transitiveIdlImports,
-        SkylarkNestedSet transitiveIdlJars,
-        SkylarkNestedSet transitiveIdlPreprocessed)
+        Depset transitiveIdlImportRoots,
+        Depset transitiveIdlImports,
+        Depset transitiveIdlJars,
+        Depset transitiveIdlPreprocessed)
         throws EvalException {
       return new AndroidIdlProvider(
           NestedSetBuilder.<String>stableOrder()

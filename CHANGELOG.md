@@ -1,3 +1,309 @@
+## Release 2.2.0 (2020-03-03)
+
+```
+Baseline: 78055efad0917b848078bf8d97b3adfddf91128d
+```
+
+Incompatible changes:
+
+  - The --[no]incompatible_windows_bashless_run_command flag is no
+    longer supported. It was flipped in Bazel 1.0
+  - The --[no]incompatible_windows_native_test_wrapper flag is no
+    longer supported. It was flipped in Bazel 1.0
+
+Important changes:
+
+  - Consistent target naming style in example target names.
+  - cquery's config() now supports arbitrary configurations.
+  - The flag --incompatible_disallow_dict_lookup_unhashable_keys is
+    removed.
+  - Include target label in Python version error message.
+  - The flag --incompatible_remap_main_repo is removed.
+  - Windows: we now discourage running Bazel from MSYS2 because of a
+    newly found bug (#10573)
+  - Reduced the packaging time (`package-bazel.sh`) for the
+    `//src:bazel-dev` Bazel development build target from 14s to 6s.
+    Use `//src:bazel-dev` if you're iterating rapidly on a local
+    Bazel changes, and use `//src:bazel --compilation_mode=opt` for
+    release builds.
+  - cquery: "//foo:bar" now means "all configured targets with label
+    //foo:bar" instead of "choose an arbitrary configured target with
+    label //foo:bar". See cquery docs for details.
+  - WORKSPACE and BUILD.bazel files of http_archive repositories can
+    now be patched using the "patch_cmds" and "patches" attributes.
+  - Actions with "parse" on the critical path should no longer finish
+    in the future.
+  - Flags that affect external repositories like
+    "--override_repository" can now be addressed in bazelrc files
+    using the "common" command, without causing commands like "bazel
+    shutdown" to fail.
+  - The flag --incompatible_disallow_unverified_http_downloads is
+    removed.
+  - Create the incompatibleApplicableLicenses flag.
+    We plan to flip this from false to true in Bazel 4.x.
+    Implementation to follow.
+  - Treat .cu and .cl files as C++ source. CUDA or OpenCL are not
+    natively supported and will require custom flags to compile with
+    e.g. clang.
+  - Treat .cu and .cl files as C++ source. CUDA or OpenCL are not
+    natively supported and will require custom flags to compile with
+    e.g. clang.
+  - The --starlark_cpu_profile=<file> flag writes a profile in
+    pprof format containing a statistical summary of CPU usage
+    by all Starlark execution during the bazel command. Use it
+    to identify slow Starlark functions in loading and analysis.
+  - --ram_utilization_factor will be deprecated. Please use
+    --local_ram_resources=HOST_RAM*<float>
+  - Docs: glob() documentation is rewritten, and now it points out a
+    pitfall of rules shadowing glob-matched files.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alex Kirchhoff, aman, Artur Dryomov, Benjamin Peterson, Benjamin Peterson, David Ostrovsky, Elliotte Rusty Harold, Eric Klein, George Chiramel, George Gensure, Guillaume Bouchard, Hui-Zhi, John Millikin, Jonathan Springer, Laurent Le Brun, Michael McLoughlin, nikola-sh, Nikolaus Wittenstein, Nikolay Shelukhin, Yannic Bonenberger, Yannic.
+
+## Release 2.1.0 (2020-02-07)
+
+```
+Baseline: 41ec5a28fb30a8d6c5c60194c4bb29528352cf78
+
+Cherry picks:
+
+   + 733ac0ff7ad1e13ab68ceb2fde694d7ab71b2366:
+     Adds an alias for d8_jar_import in android.WORKSPACE.
+   + c94b1474b368dedf9f68f34fad90cc8664f2b0e0:
+     Automatic code cleanup.
+   + 2a8cc7075f741721563efd9dc050ca3458cde30b:
+     Do not fail or print errors when Shellzelisk cannot find a
+     requested ?
+   + bdf34d7fd9539411e93348ba25307f34362d9a42:
+     Fix race when extracting the install base when Bazel runs in a
+     PID namespace.
+   + d381c25bb7dd205c283f7ad91cac13190d2dfede:
+     Fix wrong mode of install base directory.
+   + eab39cc7b5a612f891fd1e5af5b45bdc1b66e6e1:
+     Disable broken test_max_open_file_descriptors.
+```
+
+Incompatible changes:
+
+  - The following attributes of CcToolchainProvider, which formerly
+    were
+    accessible both as fields (x.f) and as methods (x.f()), are now
+    only fields:
+
+New features:
+
+  - Similar to the
+    [.bazelignore](https://docs.bazel.build/versions/master/guide.html
+    #.bazelignore) in the main repository, a `.bazelignore` file in
+    external repository will cause the specified directories to be
+    ignored by Bazel. Bazel won't try to identify any packages under
+    the directories, but the files can still be referenced in other
+    BUILD files.
+  - bazelignore files now support line comments, e.g. "# this is a
+    comment"
+
+Important changes:
+
+  - Experimental support for d8 merger is now available for use using
+    --define=android_dexmerger_tool=d8_dexmerger.
+  - Critical path run time should not have a longer run time than
+    total execution run time.
+  - Remove "please do not import" warning for cc rules.
+  - x.f() is now equivalent to y=x.f; y(). That is, x.f should return
+    the same
+    attribute value regardless of whether it is accessed as a field
+    or called
+    like a method. Any arguments to the call are evaluated after the
+    x.f operation.
+  - Add desugaring support for RoleManager#addRoleHolderAsUser
+  - Adds ctx.target_platform_has_constraint to allow rules to check
+    the target platform's constraints.
+  - Critical path run time should not have a longer run time than
+    total execution run time.
+  - Post new ConvenienceSymlinksIdentifiedEvent to the
+    BuildEventProtocol when
+    --experimental_convenience_symlinks_bep_event is enabled.
+  - Keyword-only arguments are now allowed:
+        def foo(a, *, k): pass
+        def foo(a, *b, k): pass
+      where k can be specified only by keyword:
+        foo(5, k=6)
+  - Generated Go protobufs now depend on //net/proto2/go:protodeps in
+    addition to //net/proto2/go:proto
+  - cquery 'somepath' returns more reliable results when the
+    dep has a different configuration than the parent. To get a
+    result for
+    `somepath(//foo, //bar`) where //bar isn't in the top-level
+    configuration,
+    run your query with `--universe_scope=//foo`. See cquery docs for
+    details.
+
+This release contains contributions from many people at Google, as well as Adam Liddell, Alessandro Patti, Andreas Herrmann, Bor Kae Hwang, Brian Silverman, Emran BatmanGhelich, George Gensure, Greg Estren, Jeff Palm, Jonathan Beverly, Mark Nevill, Patrick Niklaus, Peter, Philipp Wollermann, Ryan Beasley, Shin Yamamoto, Yen-Chi Chen.
+
+## Release 2.0.0 (2019-12-19)
+
+```
+Baseline: 807ed23e4f53a5e008ec823e9c23e2c9baa36d0d
+
+Cherry picks:
+
+   + db0e32ca6296e56e5314993fe9939bc7331768ec:
+     build.sh: Fix bug in build script for RC release
+   + 85e84f7812f04bc0dbc36376f31b6dd2d229b905:
+     Set --incompatible_prohibit_aapt1 default to true.
+   + 84eae2ff550c433a3d0409cf2b5525059939439d:
+     Let shellzelisk fallback to bazel-real if it's the requested
+     version.
+   + d5ae460f1581ddf27514b4be18255481b47b4075:
+     Fix a typo in bazel.sh
+```
+
+Incompatible changes:
+
+  - --incompatible_remap_main_repo is enabled by default. Therefore,
+    both ways of addressing the main repository, by its name and by
+    '@' are now considered referring to the same repository.
+    see https://github.com/bazelbuild/bazel/issues/7130
+  - --incompatible_disallow_dict_lookup_unhashable_keys is enabled by
+    default https://github.com/bazelbuild/bazel/issues/9184
+  - --incompatible_remove_native_maven_jar is now enabled by default
+    and the flag removed. See https://github.com/bazelbuild/bazel/issues/6799
+  - --incompatible_prohibit_aapt1 is enabled by default.
+    See https://github.com/bazelbuild/bazel/issues/10000
+
+Important changes:
+
+  - --incompatible_proto_output_v2: proto v2 for aquery proto output
+    formats, which reduces the output size compared to v1. Note that
+    the messages' ids in v2 are in uint64 instead of string like in
+    v1.
+  - Adds --incompatible_remove_enabled_toolchain_types.
+  - Package loading now consistently fails if package loading had a
+    glob evaluation that encountered a symlink cycle or symlink
+    infinite expansion. Previously, such package loading with such
+    glob evaluations would fail only in some cases.
+  - The --disk_cache flag can now also be used together
+    with the gRPC remote cache.
+  - An action's discover inputs runtime metrics is now categorized as
+    parse time on the CriticalPathComponent.
+  - Make the formatting example more like to the written text by
+    adding an initial description.
+  - An action's discover inputs runtime metrics is now categorized as
+    parse time on the CriticalPathComponent.
+  - Bazel's Debian package and the binary installer now include an
+    improved wrapper that understands `<WORKSPACE>/.bazelversion`
+    files and the `$USE_BAZEL_VERSION` environment variable. This is
+    similar to what Bazelisk offers
+    (https://github.com/bazelbuild/bazelisk#how-does-bazelisk-know-whi
+    ch-bazel-version-to-run-and-where-to-get-it-from), except that it
+    works offline and integrates with apt-get.
+  - We are planning to deprecate the runfiles manifest files, which
+    aren't safe in the presence of whitespace, and also unnecessarily
+    require local CPU when remote execution is used. This release
+    adds --experimental_skip_runfiles_manifests to disable the
+    generation of the input manifests (rule.manifest files) in most
+    cases. Note that this flag has no effect on Windows by default or
+    if --experimental_enable_runfiles is explicitly set to false.
+
+This release contains contributions from many people at Google, as well as aldersondrive, Benjamin Peterson, Bor Kae Hwang, David Ostrovsky, Jakob Buchgraber, Jin, John Millikin, Keith Smiley, Lauri Peltonen, nikola-sh, Peter Mounce, Tony Hsu.
+
+## Release 1.2.1 (2019-11-26)
+
+```
+Baseline: 11deef7582dfeec7a04ee3f7236393d9b8027367
+
+Cherry picks:
+
+   + c76c3e539c73ecf6e96e3e098be7be59e17bf276:
+     Replace macOS CC path with relative path
+   + 63332eb556fadfe9edd0806add79942482adddef:
+     Hardcode path to dirname on macOS
+   + ceadf0a063cb97c32aced143d2447781d1dafc38:
+     Add tool executables (from FilesToRunProvider) to action inputs.
+   + dbe63b00954a25fa4405f7cbf273df78c16498dd:
+     Fix some of the bazel Windows tools code to work with GCC.
+```
+
+This release fixes a single regression:
+- #10297: Bazel 1.2.0 does no longer run on macOS High Sierra.
+
+It is the same code as Bazel 1.2.0, except that we rebuild the macOS release
+binaries with Xcode 10.2.1 to make them backwards compatible with older macOS
+versions again.
+
+## Release 1.2.0 (2019-11-20)
+
+```
+Baseline: 11deef7582dfeec7a04ee3f7236393d9b8027367
+
+Cherry picks:
+
+   + c76c3e539c73ecf6e96e3e098be7be59e17bf276:
+     Replace macOS CC path with relative path
+   + 63332eb556fadfe9edd0806add79942482adddef:
+     Hardcode path to dirname on macOS
+   + ceadf0a063cb97c32aced143d2447781d1dafc38:
+     Add tool executables (from FilesToRunProvider) to action inputs.
+   + dbe63b00954a25fa4405f7cbf273df78c16498dd:
+     Fix some of the bazel Windows tools code to work with GCC.
+```
+
+Incompatible changes:
+
+  - Tree artifacts and regular artifact paths can no longer overlap.
+
+New features:
+
+  - Added a special "_validation" output group to enable moving
+    "validation actions" off the critical path of builds.
+
+Important changes:
+
+  - The query flag "--host_deps" (commonly used as "--nohost_deps")
+    has been renamed to "--tool_deps", and now also removes
+    dependencies in any execution configuration from being reported
+    in the query output. The previous flag name is deprecated and
+    will be removed in a future release.
+  - The `cc_common.{compile,link}` APIs can now be used without
+    passing the `--experimental_cc_skylark_api_enabled_packages` flag.
+  - A list of log paths will be provided in build output.
+  - Improve runfiles documentation.
+  - Improve documentation on rule outputs.
+  - BUILD/.bzl execution errors cause execution to stop, even at
+    top-level
+  - Multiple Starlark validation errors are reported in a single pass.
+  - Introduce --experimental_nested_set_as_skykey_threshold
+  - Blaze will prevent idle sleep during test and build actions. Note
+    that this does not affect screen savers and will not keep a
+    laptop awake if the user forces sleep or closes the lid. This is
+    purely to avoid idle sleeping when the user is not interacting
+    with the device.
+  - Improve testing docs.
+  - Incompatible flag
+    `--incompatible_validate_top_level_header_inclusions` has been
+    added. See https://github.com/bazelbuild/bazel/issues/10047 for
+    details.
+  - Fix an aquery bug with handling malformed queries that crashes
+    bazel.
+  - List fields on CcLinkingOutputs.
+  - [Python] Added flag --incomaptible_default_to_explicit_init_py to
+    switch the default value of legacy_create_init to True. With this
+    flag enabled, your py_binary and py_test targets will no longer
+    behave as if empty __init__.py files were implicitly littered in
+    your runfiles tree. See
+    [#10076](https://github.com/bazelbuild/bazel/issues/10076).
+  - Fix documentation on allowed target names.
+  - --target_platform_fallback now also applies to exec/host
+    configurations
+  - android_binary and android_libary can now depend on targets
+    providing
+    CcInfos.
+  - Add support for tracking suspensions (sleeps or SIGSTOP) on macOS.
+  - d8 dexers (both standalone and incremental) are now available for
+    use.
+  - Add Desugar support for FreezePeriod#<init>
+
+This release contains contributions from many people at Google, as well as Alex Kirchhoff, Andrew Suffield, Asaf Flescher, Austin Schuh, Benjamin Peterson, Bor Kae Hwang, Brian Richardson, Christy Norman, Clint Harrison, Dan Halperin, Daniel Martn, Dave Lee, David Neil, David Ostrovsky, George Gensure, Greg Estren, Greg, Ira Shikhman, Jacob Parker, Jakub Bujny, John Millikin, John Millikin, Keith Smiley, Laurent Le Brun, marcohu, Marwan Tammam, Mostyn Bramley-Moore, Peter Mounce, Ruben Das, Stepan Koltsov, Thi Don, Thi, Tomasz Strejczek, Walt Panfil, Yannic Bonenberger, Zackary Lowery.
+
 ## Release 1.0.1 (2019-10-21)
 
 ```

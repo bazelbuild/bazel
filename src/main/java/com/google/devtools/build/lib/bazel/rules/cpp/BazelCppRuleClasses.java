@@ -39,6 +39,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRAR
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
+import com.google.devtools.build.lib.rules.cpp.GraphNodeAspect;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -476,6 +478,12 @@ public class BazelCppRuleClasses {
 
   /** Helper rule class. */
   public static final class CcBinaryBaseRule implements RuleDefinition {
+    private final GraphNodeAspect graphNodeAspect;
+
+    public CcBinaryBaseRule(GraphNodeAspect graphNodeAspect) {
+      this.graphNodeAspect = graphNodeAspect;
+    }
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -491,6 +499,24 @@ public class BazelCppRuleClasses {
                   .orderIndependent()
                   .direct_compile_time_input()
                   .allowedFileTypes(FileTypeSet.ANY_FILE))
+          .override(
+              attr("deps", LABEL_LIST)
+                  .allowedRuleClasses(DEPS_ALLOWED_RULES)
+                  .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
+                  .skipAnalysisTimeFileTypeCheck()
+                  .mandatoryProviders(SkylarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()))
+                  .aspect(graphNodeAspect, GraphNodeAspect.ASPECT_PARAMETERS))
+          .add(
+              attr("dynamic_deps", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .mandatoryProvidersList(
+                      ImmutableList.of(
+                          ImmutableList.of(
+                              SkylarkProviderIdentifier.forKey(
+                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER)),
+                          ImmutableList.of(
+                              SkylarkProviderIdentifier.forKey(
+                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER_RULES_CC)))))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(malloc) -->
           Override the default dependency on malloc.
           <p>
@@ -505,7 +531,8 @@ public class BazelCppRuleClasses {
               attr("malloc", LABEL)
                   .value(env.getToolsLabel("//tools/cpp:malloc"))
                   .allowedFileTypes()
-                  .allowedRuleClasses("cc_library"))
+                  .allowedRuleClasses("cc_library")
+                  .aspect(graphNodeAspect, GraphNodeAspect.ASPECT_PARAMETERS))
           .add(attr(":default_malloc", LABEL).value(CppRuleClasses.DEFAULT_MALLOC))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(stamp) -->
           Enable link stamping.

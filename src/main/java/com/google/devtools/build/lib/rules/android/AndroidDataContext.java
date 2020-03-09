@@ -62,9 +62,9 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
   private final boolean persistentBusyboxToolsEnabled;
-  private final boolean compatibleForResourcePathShortening;
-  private final boolean compatibleForResourceNameObfuscation;
-  private final boolean compatibleForResourceShrinking;
+  private final boolean optOutOfResourcePathShortening;
+  private final boolean optOutOfResourceNameObfuscation;
+  private final boolean throwOnShrinkResources;
   private final boolean throwOnProguardApplyDictionary;
   private final boolean throwOnProguardApplyMapping;
   private final boolean throwOnResourceConflict;
@@ -83,19 +83,19 @@ public class AndroidDataContext implements AndroidDataContextApi {
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST),
         androidConfig.persistentBusyboxTools(),
         AndroidSdkProvider.fromRuleContext(ruleContext),
-        lacksAllowlistExemptions(ruleContext, "allow_raw_access_to_resource_paths", true),
-        lacksAllowlistExemptions(ruleContext, "allow_resource_name_obfuscation_opt_out", true),
-        lacksAllowlistExemptions(ruleContext, "allow_resource_shrinking_opt_out", true),
-        lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_dictionary", false),
-        lacksAllowlistExemptions(ruleContext, "allow_proguard_apply_mapping", false),
-        lacksAllowlistExemptions(ruleContext, "allow_resource_conflicts", false),
+        hasExemption(ruleContext, "allow_raw_access_to_resource_paths", false),
+        hasExemption(ruleContext, "allow_resource_name_obfuscation_opt_out", false),
+        !hasExemption(ruleContext, "allow_shrink_resources_attribute", true),
+        !hasExemption(ruleContext, "allow_proguard_apply_dictionary", true),
+        !hasExemption(ruleContext, "allow_proguard_apply_mapping", true),
+        !hasExemption(ruleContext, "allow_resource_conflicts", true),
         androidConfig.useDataBindingV2());
   }
 
-  private static boolean lacksAllowlistExemptions(
-      RuleContext ruleContext, String whitelistName, boolean valueIfNoWhitelist) {
-    return Whitelist.hasWhitelist(ruleContext, whitelistName)
-        ? !Whitelist.isAvailable(ruleContext, whitelistName)
+  private static boolean hasExemption(
+      RuleContext ruleContext, String exemptionName, boolean valueIfNoWhitelist) {
+    return Whitelist.hasWhitelist(ruleContext, exemptionName)
+        ? Whitelist.isAvailable(ruleContext, exemptionName)
         : valueIfNoWhitelist;
   }
 
@@ -104,9 +104,9 @@ public class AndroidDataContext implements AndroidDataContextApi {
       FilesToRunProvider busybox,
       boolean persistentBusyboxToolsEnabled,
       AndroidSdkProvider sdk,
-      boolean compatibleForResourcePathShortening,
-      boolean compatibleForResourceNameObfuscation,
-      boolean compatibleForResourceShrinking,
+      boolean optOutOfResourcePathShortening,
+      boolean optOutOfResourceNameObfuscation,
+      boolean throwOnShrinkResources,
       boolean throwOnProguardApplyDictionary,
       boolean throwOnProguardApplyMapping,
       boolean throwOnResourceConflict,
@@ -115,9 +115,9 @@ public class AndroidDataContext implements AndroidDataContextApi {
     this.ruleContext = ruleContext;
     this.busybox = busybox;
     this.sdk = sdk;
-    this.compatibleForResourcePathShortening = compatibleForResourcePathShortening;
-    this.compatibleForResourceNameObfuscation = compatibleForResourceNameObfuscation;
-    this.compatibleForResourceShrinking = compatibleForResourceShrinking;
+    this.optOutOfResourcePathShortening = optOutOfResourcePathShortening;
+    this.optOutOfResourceNameObfuscation = optOutOfResourceNameObfuscation;
+    this.throwOnShrinkResources = throwOnShrinkResources;
     this.throwOnProguardApplyDictionary = throwOnProguardApplyDictionary;
     this.throwOnProguardApplyMapping = throwOnProguardApplyMapping;
     this.throwOnResourceConflict = throwOnResourceConflict;
@@ -196,16 +196,16 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return persistentBusyboxToolsEnabled;
   }
 
-  public boolean compatibleForResourcePathShortening() {
-    return compatibleForResourcePathShortening;
+  public boolean optOutOfResourcePathShortening() {
+    return optOutOfResourcePathShortening;
   }
 
-  public boolean compatibleForResourceNameObfuscation() {
-    return compatibleForResourceNameObfuscation;
+  public boolean optOutOfResourceNameObfuscation() {
+    return optOutOfResourceNameObfuscation;
   }
 
-  public boolean compatibleForResourceShrinking() {
-    return compatibleForResourceShrinking;
+  public boolean throwOnShrinkResources() {
+    return throwOnShrinkResources;
   }
 
   public boolean throwOnProguardApplyDictionary() {
@@ -252,27 +252,27 @@ public class AndroidDataContext implements AndroidDataContextApi {
       state = getAndroidConfig().useAndroidResourceShrinking() ? TriState.YES : TriState.NO;
     }
 
-    return state == TriState.YES && compatibleForResourceShrinking;
+    return state == TriState.YES;
   }
 
   boolean useResourcePathShortening() {
     // Use resource path shortening iff:
     //   1) --experimental_android_resource_path_shortening
     //   2) -c opt
-    //   3) Not on allowlist exempting from compatibleForResourcePathShortening
+    //   3) Not opting out by being on allowlist named allow_raw_access_to_resource_paths
     return getAndroidConfig().useAndroidResourcePathShortening()
         && getActionConstructionContext().getConfiguration().getCompilationMode() == OPT
-        && compatibleForResourcePathShortening;
+        && !optOutOfResourcePathShortening;
   }
 
   boolean useResourceNameObfuscation(boolean hasProguardSpecs) {
     // Use resource name obfuscation iff:
     //   1) --experimental_android_resource_name_obfuscation or feature enabled for rule's package
     //   2) resource shrinking is on (implying proguard specs are present)
-    //   3) Not on allowlist exempting from compatibleForResourceNameObfuscation
+    //   3) Not opting out by being on allowlist named allow_resource_name_obfuscation_opt_out
     return (getAndroidConfig().useAndroidResourceNameObfuscation()
             || ruleContext.getFeatures().contains(FEATURE_RESOURCE_NAME_OBFUSCATION))
         && useResourceShrinking(hasProguardSpecs)
-        && compatibleForResourceNameObfuscation;
+        && !optOutOfResourceNameObfuscation;
   }
 }

@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.UnixJniLoader;
+import com.google.devtools.build.lib.unix.jni.UnixJniLoader;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.File;
 import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * A {@link DiffAwareness} that use fsevents to watch the filesystem to use in lieu of
@@ -61,18 +62,30 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
   private native void create(String[] paths, double latency);
 
   /**
-   * Run the main loop
+   * Runs the main loop to listen for fsevents.
+   *
+   * @param listening latch that is decremented when the fsevents queue has been set up. The caller
+   *     must wait until this happens before polling for events to ensure no events are lost between
+   *     when this function returns and when the queue is listening.
    */
-  private native void run();
+  private native void run(CountDownLatch listening);
 
   private void init() {
     // The code below is based on the assumption that init() can never fail, which is currently the
     // case; if you change init(), then you also need to update {@link #getCurrentView}.
+    // TODO(jmmv): This can break if the user interrupts as anywhere in this function.
     Preconditions.checkState(!opened);
     opened = true;
     create(new String[] {watchRootPath.toAbsolutePath().toString()}, latency);
+
     // Start a thread that just contains the OS X run loop.
-    new Thread(() -> MacOSXFsEventsDiffAwareness.this.run(), "osx-fs-events").start();
+    CountDownLatch listening = new CountDownLatch(1);
+    new Thread(() -> MacOSXFsEventsDiffAwareness.this.run(listening), "osx-fs-events").start();
+    try {
+      listening.await();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   /**

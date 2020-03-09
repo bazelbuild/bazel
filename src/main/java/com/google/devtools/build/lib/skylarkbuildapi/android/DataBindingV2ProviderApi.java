@@ -14,17 +14,18 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /**
@@ -50,7 +51,9 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public class LabelJavaPackagePair implements SkylarkValue {
+  final class LabelJavaPackagePair implements StarlarkValue {
+
+    public static final SkylarkType TYPE = SkylarkType.of(LabelJavaPackagePair.class);
 
     private final String label;
     private final String javaPackage;
@@ -72,7 +75,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
   }
 
   /** Name of this info object. */
-  public static final String NAME = "DataBindingV2Info";
+  String NAME = "DataBindingV2Info";
 
   /**
    * Returns the setter store files from this rule. This is a list to support multiple
@@ -92,18 +95,18 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
 
   /** Returns the BR files from this rule and its dependencies. */
   @SkylarkCallable(name = "transitive_br_files", structField = true, doc = "", documented = false)
-  NestedSet<T> getTransitiveBRFiles();
+  Depset /*<T>*/ getTransitiveBRFilesForStarlark();
 
   /**
    * Returns a NestedSet containing the label and java package for this rule and its transitive
    * dependencies.
-   * */
+   */
   @SkylarkCallable(
       name = "transitive_label_and_java_packages",
       structField = true,
       doc = "",
       documented = false)
-  NestedSet<LabelJavaPackagePair> getTransitiveLabelAndJavaPackages();
+  Depset /*<LabelJavaPackagePair>*/ getTransitiveLabelAndJavaPackagesForStarlark();
 
   /**
    * Returns the label and java package for this rule and any rules that this rule exports.
@@ -123,7 +126,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<FileT extends FileApi> extends ProviderApi {
+  interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -176,7 +179,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
               positional = false,
               named = true,
               defaultValue = "[]",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = DataBindingV2ProviderApi.class),
           @Param(
               name = "databinding_v2_providers_in_exports",
@@ -184,7 +187,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
               positional = false,
               named = true,
               defaultValue = "[]",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = DataBindingV2ProviderApi.class),
         },
         selfCall = true)
@@ -195,8 +198,8 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
         Object brFile,
         Object label,
         Object javaPackage,
-        SkylarkList<?> databindingV2ProvidersInDeps, // <DataBindingV2ProviderApi<FileT>>
-        SkylarkList<?> databindingV2ProvidersInExports /* <DataBindingV2ProviderApi<FileT>> */)
+        Sequence<?> databindingV2ProvidersInDeps, // <DataBindingV2ProviderApi<FileT>>
+        Sequence<?> databindingV2ProvidersInExports /* <DataBindingV2ProviderApi<FileT>> */)
         throws EvalException;
   }
 }

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -29,18 +28,19 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.rules.cpp.SwigIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -84,9 +84,14 @@ public class IncludeScanningModule extends BlazeModule {
   @Override
   @ThreadHostile
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContextProvider(
-        new IncludeScanningActionContextProvider(env, request, spawnIncludeScannerSupplier));
+    IncludeScannerLifecycleManager lifecycleManager =
+        new IncludeScannerLifecycleManager(env, request, spawnIncludeScannerSupplier);
     builder
+        .addExecutorLifecycleListener(lifecycleManager)
+        .addActionContext(
+            CppIncludeExtractionContext.class, new CppIncludeExtractionContextImpl(env))
+        .addActionContext(SwigIncludeScanningContext.class, lifecycleManager.getSwigActionContext())
+        .addActionContext(CppIncludeScanningContext.class, lifecycleManager.getCppActionContext())
         .addStrategyByContext(CppIncludeExtractionContext.class, "")
         .addStrategyByContext(SwigIncludeScanningContext.class, "")
         .addStrategyByContext(CppIncludeScanningContext.class, "");
@@ -127,7 +132,6 @@ public class IncludeScanningModule extends BlazeModule {
   /**
    * Implementation of {@link CppIncludeExtractionContext}.
    */
-  @ExecutionStrategy(contextType = CppIncludeExtractionContext.class)
   public static final class CppIncludeExtractionContextImpl implements CppIncludeExtractionContext {
     private final CommandEnvironment env;
 
@@ -144,7 +148,6 @@ public class IncludeScanningModule extends BlazeModule {
   /**
    * SwigIncludeScanningContextImpl implements SwigIncludeScanningContext.
    */
-  @ExecutionStrategy(contextType = SwigIncludeScanningContext.class)
   public static final class SwigIncludeScanningContextImpl implements SwigIncludeScanningContext {
     private final CommandEnvironment env;
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
@@ -217,18 +220,21 @@ public class IncludeScanningModule extends BlazeModule {
   }
 
   /**
-   * Factory for execution strategies related to include scanning.
+   * Lifecycle manager for the include scanner. Maintains a {@linkplain
+   * IncludeScanner.IncludeScannerSupplier supplier} which can be used to access the (potentially
+   * shared) scanners and exposes {@linkplain #getSwigActionContext() action} {@linkplain
+   * #getCppActionContext() contexts} based on them.
    */
-  public static class IncludeScanningActionContextProvider extends ActionContextProvider {
+  private static class IncludeScannerLifecycleManager implements ExecutorLifecycleListener {
     private final CommandEnvironment env;
-    private final ImmutableList<ActionContext> strategies;
     private final BuildRequest buildRequest;
 
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
+    private final boolean useAsyncIncludeScanner;
     private IncludeScannerSupplierImpl includeScannerSupplier;
     private ExecutorService includePool;
 
-    public IncludeScanningActionContextProvider(
+    public IncludeScannerLifecycleManager(
         CommandEnvironment env,
         BuildRequest buildRequest,
         MutableSupplier<SpawnIncludeScanner> spawnScannerSupplier) {
@@ -241,19 +247,17 @@ public class IncludeScanningModule extends BlazeModule {
               env.getExecRoot(),
               options.experimentalRemoteExtractionThreshold));
       this.spawnScannerSupplier = spawnScannerSupplier;
-      this.strategies =
-          ImmutableList.of(
-              new CppIncludeExtractionContextImpl(env),
-              new SwigIncludeScanningContextImpl(
-                  env, spawnScannerSupplier, () -> includePool, options.useAsyncIncludeScanner),
-              new CppIncludeScanningContextImpl(() -> includeScannerSupplier));
-
+      useAsyncIncludeScanner = options.useAsyncIncludeScanner;
       env.getEventBus().register(this);
     }
 
-    @Override
-    public Iterable<ActionContext> getActionContexts() {
-      return strategies;
+    private CppIncludeScanningContextImpl getCppActionContext() {
+      return new CppIncludeScanningContextImpl(() -> includeScannerSupplier);
+    }
+
+    private SwigIncludeScanningContextImpl getSwigActionContext() {
+      return new SwigIncludeScanningContextImpl(
+          env, spawnScannerSupplier, () -> includePool, useAsyncIncludeScanner);
     }
 
     @Override
@@ -276,13 +280,20 @@ public class IncludeScanningModule extends BlazeModule {
     }
 
     @Override
-    public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {
+    public void executionPhaseEnding() {}
+
+    @Override
+    public void executorCreated() {
       IncludeScanningOptions options = buildRequest.getOptions(IncludeScanningOptions.class);
       int threads = options.includeScanningParallelism;
       if (threads > 0) {
         log.info(
             String.format("Include scanning configured to use a pool with %d threads", threads));
-        includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
+        if (options.useAsyncIncludeScanner) {
+          includePool = NamedForkJoinPool.newNamedPool("Include scanner", threads);
+        } else {
+          includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
+        }
       } else {
         log.info("Include scanning configured to use a direct executor");
         includePool = MoreExecutors.newDirectExecutorService();

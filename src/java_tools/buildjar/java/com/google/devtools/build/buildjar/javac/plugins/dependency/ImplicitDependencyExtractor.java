@@ -34,8 +34,6 @@ import javax.tools.JavaFileObject;
  */
 public class ImplicitDependencyExtractor {
 
-  /** Set collecting dependencies names, used for the text output (soon to be removed) */
-  private final Set<Path> depsSet;
   /** Map collecting dependency information, used for the proto output */
   private final Map<Path, Deps.Dependency> depsMap;
 
@@ -47,9 +45,7 @@ public class ImplicitDependencyExtractor {
    * Clients should preserve the original classpath ordering if trying to minimize their classpaths
    * using this information.
    */
-  public ImplicitDependencyExtractor(
-      Set<Path> depsSet, Map<Path, Deps.Dependency> depsMap, Set<Path> platformJars) {
-    this.depsSet = depsSet;
+  public ImplicitDependencyExtractor(Map<Path, Deps.Dependency> depsMap, Set<Path> platformJars) {
     this.depsMap = depsMap;
     this.platformJars = platformJars;
   }
@@ -106,7 +102,6 @@ public class ImplicitDependencyExtractor {
       return;
     }
 
-    depsSet.add(path);
     Deps.Dependency currentDep = depsMap.get(path);
 
     // If the dep hasn't been recorded we add it to the map

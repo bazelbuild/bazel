@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
 
@@ -36,7 +36,7 @@ import com.google.devtools.common.options.TriState;
     name = "py",
     doc = "A configuration fragment for Python.",
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
-public class PythonConfiguration extends BuildConfiguration.Fragment implements SkylarkValue {
+public class PythonConfiguration extends BuildConfiguration.Fragment implements StarlarkValue {
 
   private final PythonVersion version;
   private final PythonVersion defaultVersion;

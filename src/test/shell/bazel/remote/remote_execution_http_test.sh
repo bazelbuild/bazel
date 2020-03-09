@@ -364,6 +364,10 @@ EOF
 function test_genrule_combined_disk_http_cache() {
   # Test for the combined disk and http cache.
   # Built items should be pushed to both the disk and http cache.
+  # If --noremote_upload_local_results flag is set,
+  # built items should only be pushed to the disk cache.
+  # If --noremote_accept_cached flag is set,
+  # built items should only be checked from the disk cache.
   # If an item is missing on disk cache, but present on http cache,
   # then bazel should copy it from http cache to disk cache on fetch.
 
@@ -383,10 +387,66 @@ EOF
   rm -rf $cache
   mkdir $cache
 
-  # Build and push to disk and http cache
-  bazel build $disk_flags $http_flags //a:test \
+  # Build and push to disk cache but not http cache
+  bazel build $disk_flags $http_flags --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results //a:test \
     || fail "Failed to build //a:test with combined disk http cache"
   cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  # No cache result from http cache, rebuild target
+  bazel clean
+  bazel build $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # No cache result from http cache, rebuild target, and upload result to http cache
+  bazel clean
+  bazel build $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+
+  # No cache result from http cache, rebuild target, and upload result to disk cache
+  bazel clean
+  bazel build $disk_flags $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # Build and push to disk cache and http cache
+  bazel clean
+  bazel build $disk_flags $http_flags //a:test \
+    || fail "Failed to build //a:test with combined disk http cache"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Built target generated different result"
 
   # Fetch from disk cache
   bazel clean

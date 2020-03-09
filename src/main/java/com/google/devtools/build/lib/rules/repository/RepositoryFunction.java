@@ -203,7 +203,13 @@ public abstract class RepositoryFunction {
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
       throws InterruptedException, RepositoryFunctionException {
     return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
-        && verifyMarkerDataForFiles(rule, markerData, env);
+        && verifyMarkerDataForFiles(rule, markerData, env)
+        && verifySemanticsMarkerData(markerData, env);
+  }
+
+  protected boolean verifySemanticsMarkerData(Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    return true;
   }
 
   private static boolean verifyLabelMarkerData(Rule rule, String key, String value, Environment env)
@@ -387,18 +393,6 @@ public abstract class RepositoryFunction {
     return false;
   }
 
-  /**
-   * Returns a block of data that must be equal for two Rules for them to be considered the same.
-   *
-   * <p>This is used for the up-to-dateness check of fetched directory trees. The only reason for
-   * this to exist is the {@code maven_server} rule (which should go away, but until then, we need
-   * to keep it working somehow)
-   */
-  protected byte[] getRuleSpecificMarkerData(Rule rule, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    return new byte[] {};
-  }
-
   protected Path prepareLocalRepositorySymlinkTree(Rule rule, Path repositoryDirectory)
       throws RepositoryFunctionException {
     try {
@@ -539,7 +533,7 @@ public abstract class RepositoryFunction {
   }
 
   protected static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
-    return directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME);
+    return directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
   }
 
   /**

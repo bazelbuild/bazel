@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerStub;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted.InterruptedCode;
 import com.google.devtools.build.lib.server.GrpcServerImpl.BlockingStreamObserver;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -155,6 +156,7 @@ public class GrpcServerTest {
     assertThat(responses.get(0).getCookie()).isNotEmpty();
     assertThat(responses.get(1).getFinished()).isTrue();
     assertThat(responses.get(1).getExitCode()).isEqualTo(0);
+    assertThat(responses.get(1).hasFailureDetail()).isFalse();
   }
 
   @Test
@@ -261,6 +263,7 @@ public class GrpcServerTest {
     }
     assertThat(responses.get(11).getFinished()).isTrue();
     assertThat(responses.get(11).getExitCode()).isEqualTo(0);
+    assertThat(responses.get(11).hasFailureDetail()).isFalse();
   }
 
   @Test
@@ -321,7 +324,6 @@ public class GrpcServerTest {
 
   @Test
   public void testCancel() throws Exception {
-    CountDownLatch done = new CountDownLatch(1);
     CommandDispatcher dispatcher =
         new CommandDispatcher() {
           @Override
@@ -332,30 +334,34 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+              throws InterruptedException {
             synchronized (this) {
-              try {
-                this.wait();
-              } catch (InterruptedException expected) {
-                // Expected
-              }
+              this.wait();
             }
-            done.countDown();
-            return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+            // Interruption expected before this is reached.
+            throw new IllegalStateException();
           }
         };
     createServer(dispatcher);
 
     AtomicReference<String> commandId = new AtomicReference<>();
-    CountDownLatch inResponse = new CountDownLatch(1);
+    CountDownLatch gotCommandId = new CountDownLatch(1);
+    AtomicReference<RunResponse> secondResponse = new AtomicReference<>();
+    CountDownLatch gotSecondResponse = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     stub.run(
         createRequest("Foo"),
         new StreamObserver<RunResponse>() {
           @Override
           public void onNext(RunResponse value) {
-            commandId.set(value.getCommandId());
-            inResponse.countDown();
+            String previousCommandId = commandId.getAndSet(value.getCommandId());
+            if (previousCommandId == null) {
+              gotCommandId.countDown();
+            } else {
+              secondResponse.set(value);
+              gotSecondResponse.countDown();
+            }
           }
 
           @Override
@@ -365,7 +371,7 @@ public class GrpcServerTest {
           public void onCompleted() {}
         });
     // Wait until we've got the command id.
-    inResponse.await();
+    gotCommandId.await();
 
     CountDownLatch cancelRequestComplete = new CountDownLatch(1);
     CancelRequest cancelRequest =
@@ -385,9 +391,16 @@ public class GrpcServerTest {
           }
         });
     cancelRequestComplete.await();
-    done.await();
+    gotSecondResponse.await();
     server.shutdown();
     server.awaitTermination();
+
+    assertThat(secondResponse.get().getFinished()).isTrue();
+    assertThat(secondResponse.get().getExitCode()).isEqualTo(8);
+    assertThat(secondResponse.get().hasFailureDetail()).isTrue();
+    assertThat(secondResponse.get().getFailureDetail().hasInterrupted()).isTrue();
+    assertThat(secondResponse.get().getFailureDetail().getInterrupted().getCode())
+        .isEqualTo(InterruptedCode.INTERRUPTED_UNSPECIFIED);
   }
 
   @Test

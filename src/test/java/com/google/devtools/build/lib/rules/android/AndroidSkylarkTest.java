@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.List;
 import java.util.Map;
 import org.junit.Before;
@@ -185,9 +185,9 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
             getMyInfoFromTarget(target).getValue("split_attr_deps");
 
     // Split transition isn't in effect, so the deps are compiled normally (i.e. using --cpu).
-    assertThat(splitDeps.get(Runtime.NONE)).hasSize(2);
-    assertThat(getConfiguration(splitDeps.get(Runtime.NONE).get(0)).getCpu()).isEqualTo("k8");
-    assertThat(getConfiguration(splitDeps.get(Runtime.NONE).get(1)).getCpu()).isEqualTo("k8");
+    assertThat(splitDeps.get(Starlark.NONE)).hasSize(2);
+    assertThat(getConfiguration(splitDeps.get(Starlark.NONE).get(0)).getCpu()).isEqualTo("k8");
+    assertThat(getConfiguration(splitDeps.get(Starlark.NONE).get(1)).getCpu()).isEqualTo("k8");
   }
 
   @Test

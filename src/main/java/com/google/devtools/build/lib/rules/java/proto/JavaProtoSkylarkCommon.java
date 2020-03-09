@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -33,7 +34,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A class that exposes Java common methods for proto compilation. */
 public class JavaProtoSkylarkCommon
-    implements JavaProtoCommonApi<Artifact, SkylarkRuleContext, ConfiguredTarget> {
+    implements JavaProtoCommonApi<
+        Artifact, ConstraintValueInfo, SkylarkRuleContext, ConfiguredTarget> {
   @Override
   public void createProtoCompileAction(
       SkylarkRuleContext skylarkRuleContext,
@@ -41,7 +43,7 @@ public class JavaProtoSkylarkCommon
       Artifact sourceJar,
       String protoToolchainAttr,
       String flavour)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     ProtoInfo protoInfo = target.get(ProtoInfo.PROVIDER);
     ProtoCompileActionBuilder.registerActions(
         skylarkRuleContext.getRuleContext(),

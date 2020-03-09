@@ -20,12 +20,17 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.Dupl
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.util.HashMap;
@@ -49,9 +54,49 @@ public class PlatformInfo extends NativeInfo
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "PlatformInfo";
 
-  /** Skylark constructor and identifier for this provider. */
-  public static final NativeProvider<PlatformInfo> PROVIDER =
-      new NativeProvider<PlatformInfo>(PlatformInfo.class, SKYLARK_NAME) {};
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<PlatformInfo> PROVIDER = new Provider();
+
+  /** Provider for {@link ToolchainInfo} objects. */
+  private static class Provider extends BuiltinProvider<PlatformInfo>
+      implements PlatformInfoApi.Provider<
+          ConstraintSettingInfo, ConstraintValueInfo, PlatformInfo> {
+    private Provider() {
+      super(SKYLARK_NAME, PlatformInfo.class);
+    }
+
+    @Override
+    public PlatformInfo platformInfo(
+        Label label,
+        Object parentUnchecked,
+        Sequence<?> constraintValuesUnchecked,
+        Object execPropertiesUnchecked,
+        StarlarkThread thread)
+        throws EvalException {
+      PlatformInfo.Builder builder = PlatformInfo.builder();
+      builder.setLabel(label);
+      if (parentUnchecked != Starlark.NONE) {
+        builder.setParent((PlatformInfo) parentUnchecked);
+      }
+      if (!constraintValuesUnchecked.isEmpty()) {
+        builder.addConstraints(
+            constraintValuesUnchecked.getContents(ConstraintValueInfo.class, "constraint_values"));
+      }
+      if (execPropertiesUnchecked != null) {
+        Map<String, String> execProperties =
+            Dict.castSkylarkDictOrNoneToDict(
+                execPropertiesUnchecked, String.class, String.class, "exec_properties");
+        builder.setExecProperties(ImmutableMap.copyOf(execProperties));
+      }
+      builder.setLocation(thread.getCallerLocation());
+
+      try {
+        return builder.build();
+      } catch (DuplicateConstraintException | ExecPropertiesException e) {
+        throw new EvalException(null, e);
+      }
+    }
+  }
 
   private final Label label;
   private final ConstraintCollection constraints;
@@ -96,7 +141,7 @@ public class PlatformInfo extends NativeInfo
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.format("PlatformInfo(%s, constraints=%s)", label.toString(), constraints.toString());
   }
 

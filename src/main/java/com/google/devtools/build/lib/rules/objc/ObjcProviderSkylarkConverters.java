@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -58,16 +58,13 @@ public class ObjcProviderSkylarkConverters {
     return CONVERTERS.get(javaKey.getType()).valueForJava(javaKey, skylarkValue);
   }
 
-  /**
-   * Converts {@link PathFragment}s into a skylark-compatible nested set of path strings.
-   */
-  public static SkylarkNestedSet convertPathFragmentsToSkylark(
-      Iterable<PathFragment> pathFragments) {
+  /** Converts {@link PathFragment}s into a skylark-compatible nested set of path strings. */
+  public static Depset convertPathFragmentsToSkylark(NestedSet<PathFragment> pathFragments) {
     NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
-    for (PathFragment path : pathFragments) {
+    for (PathFragment path : pathFragments.toList()) {
       result.add(path.getSafePathString());
     }
-    return SkylarkNestedSet.of(String.class, result.build());
+    return Depset.of(SkylarkType.STRING, result.build());
   }
 
   /** A converter for ObjcProvider values. */
@@ -87,7 +84,7 @@ public class ObjcProviderSkylarkConverters {
     @Override
     public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
       SkylarkType type = SkylarkType.of(javaKey.getType());
-      return SkylarkNestedSet.of(type, javaValue);
+      return Depset.of(type, javaValue);
     }
 
     @Override
@@ -107,7 +104,6 @@ public class ObjcProviderSkylarkConverters {
       return convertPathFragmentsToSkylark((NestedSet<PathFragment>) javaValue);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
       NestedSet<String> nestedSet =
@@ -129,13 +125,12 @@ public class ObjcProviderSkylarkConverters {
     @Override
     public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
       NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
-      for (SdkFramework framework : (Iterable<SdkFramework>) javaValue) {
+      for (SdkFramework framework : ((NestedSet<SdkFramework>) javaValue).toList()) {
         result.add(framework.getName());
       }
-      return SkylarkNestedSet.of(String.class, result.build());
+      return Depset.of(SkylarkType.STRING, result.build());
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
       NestedSet<String> nestedSet =
@@ -151,19 +146,18 @@ public class ObjcProviderSkylarkConverters {
   /** Throws an error if the given object is not a nested set of the given type. */
   private static <T> NestedSet<T> nestedSetWithType(
       Object toCheck, Class<T> expectedSetType, String keyName) throws EvalException {
-    if (toCheck instanceof SkylarkNestedSet) {
-      SkylarkNestedSet sns = (SkylarkNestedSet) toCheck;
+    if (toCheck instanceof Depset) {
+      Depset sns = (Depset) toCheck;
       try {
         return sns.getSet(expectedSetType);
-      } catch (SkylarkNestedSet.TypeException exception) {
+      } catch (Depset.TypeException exception) {
         throw new EvalException(
             null,
             String.format(
                 BAD_SET_TYPE_ERROR,
                 keyName,
                 EvalUtils.getDataTypeNameFromClass(expectedSetType),
-                EvalUtils.getDataTypeNameFromClass(
-                    ((SkylarkNestedSet) toCheck).getContentType().getType())),
+                EvalUtils.getDataTypeName(toCheck, /*fullDetails=*/ true)),
             exception);
       }
     } else {

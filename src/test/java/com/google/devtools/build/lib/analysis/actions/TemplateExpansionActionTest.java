@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
@@ -100,7 +102,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testInputsIsEmpty() {
-    assertThat(create().getInputs()).isEmpty();
+    assertThat(create().getInputs().toList()).isEmpty();
   }
 
   @Test
@@ -190,17 +192,19 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   private ActionExecutionContext createContext(Executor executor) {
     return new ActionExecutionContext(
         executor,
-        null,
+        /*actionInputFileCache=*/ null,
         ActionInputPrefetcher.NONE,
         actionKeyContext,
-        null,
+        /*metadataHandler=*/ null,
+        LostInputsCheck.NONE,
         new FileOutErr(),
         new StoredEventHandler(),
-        ImmutableMap.of(),
-        ImmutableMap.of(),
-        null,
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
+        /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.NO_CALLBACKS);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {
@@ -217,7 +221,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testArtifactTemplateHasInput() {
-    assertThat(createWithArtifact().getInputs()).containsExactly(inputArtifact);
+    assertThat(createWithArtifact().getInputs().toList()).containsExactly(inputArtifact);
   }
 
   @Test

@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Build Event Protocol
+title: Build event protocol
 ---
 
-# Build Event Protocol
+# Build event protocol
 
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
@@ -18,19 +18,7 @@ results, build progress, the build configuration and much more. The Build Event
 Protocol is intended to be consumed programmatically and makes parsing Bazel’s
 command line output a thing of the past.
 
-## Contents
-
-*  [Build Event Protocol Overview](#build-event-protocol-overview)
-   *  [Build Event Graph](#build-event-graph)
-   *  [The Build Event Protocol by Example](#the-build-event-protocol-by-example)
-*  [Consuming the Build Event Protocol](#consuming-the-build-event-protocol)
-   *  [Consume in a Binary Format](#consume-in-a-binary-format)
-   *  [Consume in Text Formats](#consume-in-text-formats)
-*  [The Build Event Service](#the-build-event-service)
-   *  [Build Event Service Flags](#build-event-service-flags)
-   *  [Authentication and Security](#authentication-and-security)
-
-## Build Event Protocol Overview
+## Overview
 
 The Build Event Protocol represents information about a build as events. A
 build event is a protocol buffer message consisting of a build event identifier,
@@ -56,7 +44,7 @@ encoded as a protocol buffer message specific to that event. Note, that the
 payload might not be the expected type, but could be an `Aborted` message e.g.
 if the build aborted prematurely.
 
-### Build Event Graph
+### Build event graph
 
 All build events form a directed acyclic graph through their parent and child
 relationship. Every build event except for the initial build event has one or
@@ -65,7 +53,7 @@ necessarily be posted before it. When a build is complete (succeeded or failed)
 all announced events will have been posted. In case of a Bazel crash or a failed
 network transport, some announced build events may never be posted.
 
-## The Build Event Protocol by Example
+## The Build Event Protocol by example
 
 The full specification of the Build Event Protocol can be found in its protocol
 buffer definition and describing it here is beyond the scope of this document.
@@ -161,7 +149,7 @@ built.
 
 ## Consuming the Build Event Protocol
 
-### Consume in a Binary Format
+### Consume in a binary format
 
 To consume the Build Event Protocol in a binary format:
 
@@ -176,7 +164,7 @@ method.
 2. Then, write a program that extracts the relevant information from the
 serialized protocol buffer message.
 
-### Consume in Text Formats
+### Consume in text formats
 
 The following Bazel command line flags will output the Build Event Protocol in a
 human-readable formats:
@@ -202,7 +190,7 @@ There is currently an experimental open source implementation of the [Build
 Event Service](https://github.com/buildbarn/bb-event-service/) in Go as part of
 the Buildbarn suite of Remote Execution tools and services.
 
-### Build Event Service Flags
+### Build Event Service flags
 
 Bazel has several flags related to the Build Event Service protocol, including:
 
@@ -216,7 +204,7 @@ Bazel has several flags related to the Build Event Service protocol, including:
 For a description of each of these flags, see the
 [Command-Line Reference](command-line-reference.html).
 
-### Authentication and Security
+### Authentication and security
 
 Bazel’s Build Event Service implementation also supports authentication and TLS.
 These settings can be controlled using the below flags. Please note that these
@@ -233,7 +221,7 @@ authentication and TLS infrastructure.
 For a description of each of these flags, see the
 [Command-Line Reference](command-line-reference.html).
 
-### Build Event Service and Remote Caching
+### Build Event Service and remote caching
 
 The BEP typically contains many references to log files (test.log, test.xml,
 etc. ) stored on the machine where Bazel is running. A remote BES server

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Dict;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -121,14 +121,14 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
     throw new ExpansionException(String.format("$(%s) not defined", name));
   }
 
-  public SkylarkDict<String, String> collectMakeVariables() throws ExpansionException {
+  public Dict<String, String> collectMakeVariables() throws ExpansionException {
     Map<String, String> map = new LinkedHashMap<>();
     // Collect variables in the reverse order as in lookupMakeVariable
     // because each update is overwriting.
     for (MakeVariableSupplier supplier : allMakeVariableSuppliers.reverse()) {
       map.putAll(supplier.getAllMakeVariables());
     }
-    return SkylarkDict.<String, String>copyOf(null, map);
+    return Dict.<String, String>copyOf(null, map);
   }
 
   @Override

@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,7 +38,7 @@ public class StarlarkFileTest {
    */
   private static StarlarkFile parseFile(String... lines) {
     String src = Joiner.on("\n").join(lines);
-    ParserInput input = ParserInput.create(src, PathFragment.create("foo.star"));
+    ParserInput input = ParserInput.create(src, "foo.star");
     return StarlarkFile.parse(input);
   }
 
@@ -51,14 +50,15 @@ public class StarlarkFileTest {
             "",
             "x = [1,2,'foo',4] + [1,2, \"%s%d\" % ('foo', 1)]");
     StarlarkThread thread = newThread();
-    EvalUtils.exec(file, thread);
+    Module module = thread.getGlobals();
+    EvalUtils.exec(file, module, thread);
 
     // Test final environment is correctly modified:
     //
     // input1.BUILD contains:
     // x = [1,2,'foo',4] + [1,2, "%s%d" % ('foo', 1)]
-    assertThat(thread.moduleLookup("x"))
-        .isEqualTo(SkylarkList.createImmutable(Tuple.of(1, 2, "foo", 4, 1, 2, "foo1")));
+    assertThat(thread.getGlobals().lookup("x"))
+        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));
   }
 
   @Test
@@ -66,12 +66,13 @@ public class StarlarkFileTest {
     StarlarkFile file = parseFile("x = 1", "y = [2,3]", "", "z = x + y");
 
     StarlarkThread thread = newThread();
+    Module module = thread.getGlobals();
     try {
-      EvalUtils.exec(file, thread);
+      EvalUtils.exec(file, module, thread);
       throw new AssertionError("execution succeeded unexpectedly");
     } catch (EvalException ex) {
-      assertThat(ex.getMessage()).contains("unsupported operand type(s) for +: 'int' and 'list'");
-      assertThat(ex.getLocation().getStartLineAndColumn().getLine()).isEqualTo(4);
+      assertThat(ex.getMessage()).contains("unsupported binary operation: int + list");
+      assertThat(ex.getLocation().line()).isEqualTo(4);
     }
   }
 

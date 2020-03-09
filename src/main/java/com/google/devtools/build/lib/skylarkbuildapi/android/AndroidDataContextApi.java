@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Wraps common tools and settings used for working with Android assets, resources, and manifests.
@@ -27,4 +27,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "Wraps common tools and settings used for working with Android assets, resources, and"
             + " manifests",
     documented = false)
-public interface AndroidDataContextApi extends SkylarkValue {}
+public interface AndroidDataContextApi extends StarlarkValue {}

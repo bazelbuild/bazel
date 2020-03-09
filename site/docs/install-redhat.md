@@ -12,7 +12,7 @@ unofficial packages on
 
 The commands below must be run either via `sudo` or while logged in as `root`.
 
-## Installing Bazel on Fedora 25+
+## Installing on Fedora 25+
 
 1. The [DNF](https://fedoraproject.org/wiki/DNF) package manager can install
     Bazel from the [COPR](https://copr.fedorainfracloud.org/) repository. Install
@@ -30,7 +30,7 @@ The commands below must be run either via `sudo` or while logged in as `root`.
     dnf install bazel
     ```
 
-## Installing Bazel on CentOS 7
+## Installing on CentOS 7
 
 1. Download the corresponding `.repo` file from
     [Fedora COPR](https://copr.fedorainfracloud.org/coprs/vbatts/bazel/repo/epel-7/vbatts-bazel-epel-7.repo)

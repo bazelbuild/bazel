@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkbuildapi.FilesetEntryApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Collections;
@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @ThreadSafe
-public final class FilesetEntry implements SkylarkValue, FilesetEntryApi {
+public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
 
   public static final SymlinkBehavior DEFAULT_SYMLINK_BEHAVIOR = SymlinkBehavior.COPY;
   public static final String DEFAULT_STRIP_PREFIX = ".";
@@ -69,7 +69,7 @@ public final class FilesetEntry implements SkylarkValue, FilesetEntryApi {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("FilesetEntry(srcdir = ");
     printer.repr(getSrcLabel().toString());
     printer.append(", files = ");

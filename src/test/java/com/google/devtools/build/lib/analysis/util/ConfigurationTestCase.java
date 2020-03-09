@@ -111,15 +111,15 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             analysisMock.getProductName());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
-    mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
-    mockToolsConfig.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
+    mockToolsConfig.create("bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    mockToolsConfig.create("bazel_tools_workspace/tools/build_defs/repo/BUILD");
     mockToolsConfig.create(
-        "/bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
+        "bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
         "def maybe(repo_rule, name, **kwargs):",
         "  if name not in native.existing_rules():",
         "    repo_rule(name = name, **kwargs)");
     mockToolsConfig.create(
-        "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
+        "bazel_tools_workspace/tools/build_defs/repo/http.bzl",
         "def http_archive(**kwargs):",
         "  pass",
         "",
@@ -193,7 +193,24 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     assertContainsEvent(expectedMessage);
   }
 
+  /**
+   * Returns a {@link BuildConfigurationCollection} with the given non-default options.
+   *
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
   protected BuildConfigurationCollection createCollection(String... args) throws Exception {
+    return createCollection(ImmutableMap.of(), args);
+  }
+
+  /**
+   * Variation of {@link #createCollection(String...)} that also supports Starlark-defined options.
+   *
+   * @param starlarkOptions map of skylark-defined options where the keys are option names (in the
+   *     form of label-like strings) and the values are option values
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
+  protected BuildConfigurationCollection createCollection(
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsClasses(
@@ -202,6 +219,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                     .add(TestOptions.class)
                     .build())
             .build();
+    parser.setStarlarkOptions(starlarkOptions);
     parser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     parser.parse(args);
 
@@ -214,10 +232,34 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     return collection;
   }
 
+  /**
+   * Returns a target {@link BuildConfiguration} with the given non-default options.
+   *
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
   protected BuildConfiguration create(String... args) throws Exception {
     return Iterables.getOnlyElement(createCollection(args).getTargetConfigurations());
   }
 
+  /**
+   * Variation of {@link #create(String...)} that also supports Starlark-defined options.
+   *
+   * @param starlarkOptions map of skylark-defined options where the keys are option names (in the
+   *     form of label-like strings) and the values are option values
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
+  protected BuildConfiguration create(ImmutableMap<String, Object> starlarkOptions, String... args)
+      throws Exception {
+    return Iterables.getOnlyElement(
+        createCollection(starlarkOptions, args).getTargetConfigurations());
+  }
+
+  /**
+   * Returns a host {@link BuildConfiguration} derived from a target configuration with the given
+   * non-default options.
+   *
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
   protected BuildConfiguration createHost(String... args) throws Exception {
     return createCollection(args).getHostConfiguration();
   }

@@ -31,9 +31,11 @@ import com.google.devtools.build.lib.packages.GlobCache;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -61,7 +63,10 @@ public abstract class PackageFactoryTestBase {
 
   protected Scratch scratch;
   protected EventCollectionApparatus events = new EventCollectionApparatus();
-  protected PackageFactoryApparatus packages = createPackageFactoryApparatus();
+  protected DummyPackageValidator dummyPackageValidator = new DummyPackageValidator();
+  protected PackageFactoryApparatus packages =
+      new PackageFactoryApparatus(
+          events.reporter(), getEnvironmentExtensions(), dummyPackageValidator);
   protected Root root;
 
   protected com.google.devtools.build.lib.packages.Package expectEvalSuccess(String... content)
@@ -82,7 +87,7 @@ public abstract class PackageFactoryTestBase {
     events.assertContainsError(expectedError);
   }
 
-  protected abstract PackageFactoryApparatus createPackageFactoryApparatus();
+  protected abstract List<EnvironmentExtension> getEnvironmentExtensions();
 
   protected Path throwOnReaddir = null;
 
@@ -206,7 +211,7 @@ public abstract class PackageFactoryTestBase {
             includes,
             excludes,
             excludeDirs,
-            Printer.format("(result == sorted(%r)) or fail('incorrect glob result')", result));
+            Starlark.format("(result == sorted(%r)) or fail('incorrect glob result')", result));
 
     Package pkg = evaluated.first;
     GlobCache globCache = evaluated.second;
@@ -238,13 +243,13 @@ public abstract class PackageFactoryTestBase {
     Path file =
         scratch.file(
             "/globs/BUILD",
-            Printer.format(
+            Starlark.format(
                 "result = glob(%r, exclude=%r, exclude_directories=%r)",
                 includes, excludes, excludeDirs ? 1 : 0),
             resultAssertion);
 
     return packages.evalAndReturnGlobCache(
-        "globs", RootedPath.toRootedPath(root, file), packages.ast(file));
+        "globs", RootedPath.toRootedPath(root, file), packages.parse(file));
   }
 
   protected void assertGlobProducesError(String pattern, boolean errorExpected) throws Exception {
@@ -357,15 +362,28 @@ public abstract class PackageFactoryTestBase {
       try {
         parsingStarted.acquire();
         eventHandler.handle(
-            Event.error(Location.fromFile(scratch.file("dummy")), "Error from other " + "thread"));
+            Event.error(Location.fromFile("dummy"), "Error from other " + "thread"));
         errorReported.release();
       } catch (InterruptedException e) {
         e.printStackTrace();
         fail("ErrorReporter thread interrupted");
-      } catch (IOException e) {
-        e.printStackTrace();
-        fail("ErrorReporter thread failed with IOException");
       }
+    }
+  }
+
+  /** {@PackageValidator} whose functionality can be swapped out on demand via {@link #setImpl}. */
+  protected static class DummyPackageValidator implements PackageValidator {
+    private PackageValidator underlying = PackageValidator.NOOP_VALIDATOR;
+
+    /** Sets {@link PackageValidator} implementation to use. */
+    public void setImpl(PackageValidator impl) {
+      this.underlying = impl;
+    }
+
+    @Override
+    public void validate(Package pkg, ExtendedEventHandler eventHandler)
+        throws InvalidPackageException {
+      underlying.validate(pkg, eventHandler);
     }
   }
 }

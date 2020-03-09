@@ -95,7 +95,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path inaccessibleHelperDir;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
-  private final @Nullable SandboxfsProcess sandboxfsProcess;
+  @Nullable private final SandboxfsProcess sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
 
@@ -149,11 +149,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
     // the normal execroot does.
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    String workspaceName = execRoot.getBaseName();
+    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
     sandboxExecRoot.getParentDirectory().createDirectory();
     sandboxExecRoot.createDirectory();
 
-    Map<String, String> environment =
+    ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
@@ -193,6 +194,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return new SandboxfsSandboxedSpawn(
           sandboxfsProcess,
           sandboxPath,
+          workspaceName,
           commandLineBuilder.build(),
           environment,
           SandboxHelpers.processInputFiles(

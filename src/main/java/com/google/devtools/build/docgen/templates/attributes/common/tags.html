@@ -96,7 +96,9 @@
     wildcards (<code>...</code>, <code>:*</code>, <code>:all</code>, etc); the test target will be
     neither built nor run. It will also be ignored by the <code>test_suite</code> rules that do not
     mention this test explicitly. The only way to build or run such a test is to specify it via an
-    explicit target pattern on the command line.
+    explicit target pattern on the command line. Bazel query does not honour
+    the <code>manual</code> tag.
+
   </li>
 
   <li><code>external</code> keyword will force test to be unconditionally
@@ -104,3 +106,6 @@
     value).
   </li>
 </ul>
+
+See <a href="../test-encyclopedia.html#tag-conventions">Tag Conventions</a> in the
+Test Encyclopedia for more conventions on tags attached to test rules.

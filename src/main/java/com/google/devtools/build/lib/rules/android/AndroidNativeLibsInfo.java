@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidNativeLibsInfoApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
@@ -43,7 +43,11 @@ public final class AndroidNativeLibsInfo extends NativeInfo
   }
 
   @Override
-  public NestedSet<Artifact> getNativeLibs() {
+  public Depset /*<Artifact>*/ getNativeLibsForStarlark() {
+    return Depset.of(Artifact.TYPE, nativeLibs);
+  }
+
+  NestedSet<Artifact> getNativeLibs() {
     return nativeLibs;
   }
 
@@ -56,8 +60,7 @@ public final class AndroidNativeLibsInfo extends NativeInfo
     }
 
     @Override
-    public AndroidNativeLibsInfo createInfo(SkylarkNestedSet nativeLibs)
-        throws EvalException {
+    public AndroidNativeLibsInfo createInfo(Depset nativeLibs) throws EvalException {
       return new AndroidNativeLibsInfo(nativeLibs.getSetFromParam(Artifact.class, "native_libs"));
     }
   }

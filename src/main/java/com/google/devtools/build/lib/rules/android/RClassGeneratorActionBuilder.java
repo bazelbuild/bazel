@@ -24,12 +24,6 @@ import java.util.function.Function;
 public class RClassGeneratorActionBuilder {
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidResources> AAPT_CONVERTER =
-      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
-          .with(chooseDepsToArg(AndroidAaptVersion.AAPT))
-          .build();
-
-  @AutoCodec @VisibleForSerialization
   static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_CONVERTER =
       AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
           .with(chooseDepsToArg(AndroidAaptVersion.AAPT2))
@@ -39,17 +33,10 @@ public class RClassGeneratorActionBuilder {
 
   private Artifact classJarOut;
 
-  private AndroidAaptVersion version;
-
   private boolean finalFields = true;
 
   public RClassGeneratorActionBuilder withDependencies(ResourceDependencies resourceDeps) {
     this.dependencies = resourceDeps;
-    return this;
-  }
-
-  public RClassGeneratorActionBuilder targetAaptVersion(AndroidAaptVersion version) {
-    this.version = version;
     return this;
   }
 
@@ -81,18 +68,10 @@ public class RClassGeneratorActionBuilder {
     if (dependencies != null && !dependencies.getResourceContainers().isEmpty()) {
       builder
           .addTransitiveFlagForEach(
-              "--library",
-              dependencies.getResourceContainers(),
-              version == AndroidAaptVersion.AAPT2 ? AAPT2_CONVERTER : AAPT_CONVERTER)
-          .addTransitiveInputValues(
-              version == AndroidAaptVersion.AAPT2
-                  ? dependencies.getTransitiveAapt2RTxt()
-                  : dependencies.getTransitiveRTxt())
-          .addTransitiveInputValues(dependencies.getTransitiveManifests());
-
-      if (version == AndroidAaptVersion.AAPT2) {
-        builder.addTransitiveInputValues(dependencies.getTransitiveAapt2ValidationArtifacts());
-      }
+              "--library", dependencies.getResourceContainers(), AAPT2_CONVERTER)
+          .addTransitiveInputValues(dependencies.getTransitiveAapt2RTxt())
+          .addTransitiveInputValues(dependencies.getTransitiveManifests())
+          .addTransitiveInputValues(dependencies.getTransitiveAapt2ValidationArtifacts());
     }
 
     builder

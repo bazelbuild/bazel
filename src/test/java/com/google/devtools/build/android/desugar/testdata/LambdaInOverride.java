@@ -26,9 +26,7 @@ public class LambdaInOverride extends OuterReferenceLambda {
   }
 
   public List<String> filter(List<String> names) {
-    return super
-        .filter(names)
-        .stream()
+    return super.filter(names).stream()
         .filter(n -> !reference.contains(n))
         .collect(Collectors.toList());
   }

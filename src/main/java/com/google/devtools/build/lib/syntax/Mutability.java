@@ -86,13 +86,10 @@ import java.util.List;
  *       StarlarkThread} except the one currently being evaluated.
  *   <li>If a value has the special {@link #IMMUTABLE} {@code Mutability}, all of its contents are
  *       themselves deeply immutable too (i.e. have frozen {@code Mutability}s).
- *   <li>If a value has the special {@link #SHALLOW_IMMUTABLE} {@code Mutability}, its contents may
- *       or may not be mutable.
  * </ol>
  *
  * It follows that, if these invariants hold, an unfrozen value cannot appear as the child of a
- * value whose {@code Mutability} is already frozen, unless this {@code Mutability} is the special
- * {@code #SHALLOW_IMMUTABLE} instance. This knowledge is used by {@link
+ * value whose {@code Mutability} is already frozen. This knowledge is used by {@link
  * StarlarkMutable#isImmutable} to prune traversals of a compound value.
  *
  * <p>There is a special API for freezing individual values rather than whole {@code
@@ -242,7 +239,7 @@ public final class Mutability implements AutoCloseable {
     List<Location> locList = lockedItems.get(object);
     if (!locList.remove(loc)) {
       throw new IllegalArgumentException(
-          Printer.format(
+          Starlark.format(
               "trying to unlock an object for a location at which it was not locked (%r)", loc));
     }
     if (locList.isEmpty()) {
@@ -310,9 +307,8 @@ public final class Mutability implements AutoCloseable {
      *
      * <p>It is up to the caller to ensure that any contents of this {@code Freezable} are also
      * frozen in order to preserve/restore the invariant that an immutable value cannot contain a
-     * mutable one unless the immutable value's {@code Mutability} is {@link #SHALLOW_IMMUTABLE}.
-     * Note that {@link StarlarkMutable#isImmutable} correctness and thread-safety are not
-     * guaranteed otherwise.
+     * mutable one. Note that {@link StarlarkMutable#isImmutable} correctness and thread-safety are
+     * not guaranteed otherwise.
      */
     default void unsafeShallowFreeze() {
       throw new UnsupportedOperationException();
@@ -335,6 +331,23 @@ public final class Mutability implements AutoCloseable {
         throw new IllegalArgumentException(
             "cannot call unsafeShallowFreeze() on a mutable object whose Mutability's "
                 + "allowsUnsafeShallowFreeze() == false");
+      }
+    }
+
+    /**
+     * Throws an exception if this object is not mutable.
+     *
+     * <p>This method is essentially a mix-in. Subclasses should not override it.
+     *
+     * @throws EvalException if the object is not mutable. This may be because the {@code
+     *     this.mutability()} is frozen, or because it is temporarily locked by an active loop
+     *     iteration.
+     */
+    default void checkMutable() throws EvalException {
+      try {
+        Mutability.checkMutable(this, mutability());
+      } catch (MutabilityException ex) {
+        throw new EvalException(null, ex);
       }
     }
   }
@@ -368,7 +381,7 @@ public final class Mutability implements AutoCloseable {
 
     if (mutability.isLocked(object)) {
       Iterable<String> locs =
-          Iterables.transform(mutability.getLockLocations(object), Location::print);
+          Iterables.transform(mutability.getLockLocations(object), Location::toString);
       throw new MutabilityException(
           "trying to mutate a locked object (is it currently being iterated over by a for loop "
           + "or comprehension?)\n"
@@ -383,21 +396,4 @@ public final class Mutability implements AutoCloseable {
    * <p>It is not associated with any particular {@link StarlarkThread}.
    */
   public static final Mutability IMMUTABLE = create("IMMUTABLE").freeze();
-
-  /**
-   * A {@code Mutability} indicating that a value is shallowly immutable.
-   *
-   * <p>Under the invariants for this class, this is the only frozen {@code Mutability} whose values
-   * are permitted to directly or indirectly contain mutable values.
-   *
-   * <p>In practice, this instance is used as the {@code Mutability} for tuples.
-   */
-  // TODO(bazel-team): We might be able to remove this instance, and instead have tuples and other
-  // immutable types store the same Mutability as other values in that environment. Then we can
-  // simplify the Mutability invariant, and implement deep-immutability checking in constant time
-  // for values whose StarlarkThreads have been frozen.
-  //
-  // This would also affect structs (SkylarkInfo). Maybe they would implement an interface similar
-  // to StarlarkMutable, or the relevant methods could be worked into SkylarkValue.
-  public static final Mutability SHALLOW_IMMUTABLE = create("SHALLOW_IMMUTABLE").freeze();
 }

@@ -115,8 +115,10 @@ static void CloseFds() {
   }
 }
 
-static void OnTimeout(int sig) {
-  global_signal = sig;
+static void OnTimeoutOrTerm(int sig) {
+  if (global_signal == 0) {
+    global_signal = sig;
+  }
   kill(global_child_pid, global_next_timeout_signal);
   if (global_next_timeout_signal == SIGTERM && opt.kill_delay_secs > 0) {
     global_next_timeout_signal = SIGKILL;
@@ -206,6 +208,51 @@ static int WaitForPid1() {
   }
 }
 
+static void ForwardSignal(int signum) {
+  PRINT_DEBUG("ForwardSignal(%d)", signum);
+  kill(global_child_pid, signum);
+}
+
+static void SetupSignalHandlers() {
+  ClearSignalMask();
+
+  for (int signum = 1; signum < NSIG; signum++) {
+    switch (signum) {
+      // Some signals should indeed kill us and not be forwarded to the child,
+      // thus we can use the default handler.
+      case SIGABRT:
+      case SIGBUS:
+      case SIGFPE:
+      case SIGILL:
+      case SIGSEGV:
+      case SIGSYS:
+      case SIGTRAP:
+        break;
+      // It's fine to use the default handler for SIGCHLD, because we use
+      // waitpid() in the main loop to wait for children to die anyway.
+      case SIGCHLD:
+        break;
+      // One does not simply install a signal handler for these two signals
+      case SIGKILL:
+      case SIGSTOP:
+        break;
+      // Ignore SIGTTIN and SIGTTOU, as we hand off the terminal to the child in
+      // SpawnChild().
+      case SIGTTIN:
+      case SIGTTOU:
+        IgnoreSignal(signum);
+        break;
+      case SIGTERM:
+        InstallSignalHandler(signum, OnTimeoutOrTerm);
+        break;
+      // All other signals should be forwarded to the child.
+      default:
+        InstallSignalHandler(signum, ForwardSignal);
+        break;
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
   // Ask the kernel to kill us with SIGKILL if our parent dies.
   if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
@@ -223,11 +270,14 @@ int main(int argc, char *argv[]) {
 
   CloseFds();
 
+  SpawnPid1();
+
+  SetupSignalHandlers();
+
   if (opt.timeout_secs > 0) {
-    InstallSignalHandler(SIGALRM, OnTimeout);
+    InstallSignalHandler(SIGALRM, OnTimeoutOrTerm);
     SetTimeout(opt.timeout_secs);
   }
 
-  SpawnPid1();
   return WaitForPid1();
 }

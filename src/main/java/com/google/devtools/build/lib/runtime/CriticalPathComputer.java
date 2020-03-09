@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -132,6 +133,7 @@ public class CriticalPathComputer {
     return outputArtifactToComponent;
   }
 
+  /** Changes the phase of the action */
   @Subscribe
   @AllowConcurrentEvents
   public void nextCriticalPathPhase(SpawnExecutedEvent.ChangePhase phase) {
@@ -158,7 +160,7 @@ public class CriticalPathComputer {
         Preconditions.checkNotNull(outputArtifactToComponent.get(primaryOutput));
 
     SpawnResult spawnResult = event.getSpawnResult();
-    stats.addSpawnResult(spawnResult);
+    stats.addSpawnResult(spawnResult.getMetrics(), spawnResult.getRunnerName());
   }
 
   /** Returns the list of components using the most memory. */
@@ -194,8 +196,19 @@ public class CriticalPathComputer {
         .map((e) -> e.getValue());
   }
 
+  /** Creates a CriticalPathComponent and adds the duration of input discovery and changes phase. */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void discoverInputs(DiscoveredInputsEvent event) {
+    CriticalPathComponent stats =
+        tryAddComponent(createComponent(event.getAction(), event.getStartTimeNanos()));
+    stats.addSpawnResult(event.getMetrics(), null);
+    stats.changePhase();
+  }
+
   /**
-   * Record an action that has started to run.
+   * Record an action that has started to run. If the CriticalPathComponent has not been created,
+   * initialize it and then start running.
    *
    * @param event information about the started action
    */
@@ -203,7 +216,7 @@ public class CriticalPathComputer {
   @AllowConcurrentEvents
   public void actionStarted(ActionStartedEvent event) {
     Action action = event.getAction();
-    tryAddComponent(createComponent(action, event.getNanoTimeStart()));
+    tryAddComponent(createComponent(action, event.getNanoTimeStart())).startRunning();
   }
 
   /**
@@ -277,8 +290,8 @@ public class CriticalPathComputer {
   @AllowConcurrentEvents
   public void actionCached(CachedActionEvent event) {
     Action action = event.getAction();
-    CriticalPathComponent component
-        = tryAddComponent(createComponent(action, event.getNanoTimeStart()));
+    CriticalPathComponent component =
+        tryAddComponent(createComponent(action, event.getNanoTimeStart()));
     finalizeActionStat(event.getNanoTimeStart(), action, component);
   }
 
@@ -316,18 +329,17 @@ public class CriticalPathComputer {
 
   private void finalizeActionStat(
       long startTimeNanos, Action action, CriticalPathComponent component) {
-    for (Artifact input : action.getInputs()) {
-      addArtifactDependency(component, input);
+    long finishTimeNanos = clock.nanoTime();
+    for (Artifact input : action.getInputs().toList()) {
+      addArtifactDependency(component, input, finishTimeNanos);
     }
-
-    component.finishActionExecution(startTimeNanos, clock.nanoTime());
+    component.finishActionExecution(startTimeNanos, finishTimeNanos);
     maxCriticalPath.accumulateAndGet(component, SELECT_LONGER_COMPONENT);
   }
 
-  /**
-   * If "input" is a generated artifact, link its critical path to the one we're building.
-   */
-  private void addArtifactDependency(CriticalPathComponent actionStats, Artifact input) {
+  /** If "input" is a generated artifact, link its critical path to the one we're building. */
+  private void addArtifactDependency(
+      CriticalPathComponent actionStats, Artifact input, long componentFinishNanos) {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
     if (depComponent != null) {
       if (depComponent.isRunning()) {
@@ -335,28 +347,29 @@ public class CriticalPathComputer {
             (Artifact.DerivedArtifact) input, depComponent.getAction(), actionStats);
         return;
       }
-      actionStats.addDepInfo(depComponent);
+      actionStats.addDepInfo(depComponent, componentFinishNanos);
     }
   }
 
-  protected void checkCriticalPathInconsistency(
-      Artifact.DerivedArtifact input, Action action, CriticalPathComponent actionStats) {
+  private void checkCriticalPathInconsistency(
+      Artifact.DerivedArtifact input, Action dependencyAction, CriticalPathComponent actionStats) {
     if (!checkCriticalPathInconsistencies) {
       return;
     }
     // Rare case that an action depending on a previously-cached shared action sees a different
     // shared action that is in the midst of being an action cache hit.
-    for (Artifact actionOutput : action.getOutputs()) {
+    for (Artifact actionOutput : dependencyAction.getOutputs()) {
       if (input.equals(actionOutput)
           && input
               .getGeneratingActionKey()
               .equals(((Artifact.DerivedArtifact) actionOutput).getGeneratingActionKey())) {
-        // As far as we can tell, this (currently running) action is the same action that
-        // produced input, not another shared action. This should be impossible.
+        // This (currently running) dependency action is the same action that produced the input for
+        // the finished actionStats CriticalPathComponent. This should be impossible.
         throw new IllegalStateException(
             String.format(
-                "Cannot add critical path stats when the action is not finished. %s. %s. %s",
-                input, actionStats.prettyPrintAction(), action));
+                "Cannot add critical path stats when the dependency action is not finished. "
+                    + "%s. %s. %s.",
+                input, actionStats.prettyPrintAction(), dependencyAction));
       }
     }
   }

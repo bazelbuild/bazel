@@ -1375,6 +1375,36 @@ EOF
   expect_log "Misconfigured toolchains: //:upper_toolchain is declared as a toolchain but has inappropriate dependencies"
 }
 
+
+# Catch the error when a target platform requires a configuration which contains the same target platform.
+# This can only happen when the target platform is not actually a platform.
+function test_target_platform_cycle() {
+  cat >> hello.sh <<EOF
+  #!/bin/sh
+  echo "Hello world"
+EOF
+  cat >> target.sh <<EOF
+  #!/bin/sh
+  echo "Hello target"
+EOF
+  chmod +x hello.sh
+  chmod +x target.sh
+  cat >> BUILD <<EOF
+sh_binary(
+  name = "hello",
+  srcs = ["hello.sh"],
+)
+sh_binary(
+  name = "target",
+  srcs = ["target.sh"],
+)
+EOF
+
+  bazel build --platforms=//:hello //:target &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "While resolving toolchains for target //:target: Target //:hello was referenced as a platform, but does not provide PlatformInfo"
+}
+
+
 function test_platform_duplicate_constraint_error() {
   # Write a platform with duplicate constraint values for the same setting.
   mkdir -p platform

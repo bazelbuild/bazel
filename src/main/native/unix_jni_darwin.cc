@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <os/log.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -129,11 +130,35 @@ int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
   return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
 }
 
+// Queue used for all of our anomaly tracking.
+static dispatch_queue_t JniDispatchQueue() {
+  static dispatch_once_t once_token;
+  static dispatch_queue_t queue;
+  dispatch_once(&once_token, ^{
+    queue = dispatch_queue_create("build.bazel.jni", DISPATCH_QUEUE_SERIAL);
+    CHECK(queue);
+  });
+  return queue;
+}
+
+// Log used for all of our anomaly logging.
+// Logging can be traced using:
+// `log stream -level debug --predicate '(subsystem == "build.bazel")'`
+static os_log_t JniOSLog() {
+  static dispatch_once_t once_token;
+  static os_log_t log;
+  dispatch_once(&once_token, ^{
+    log = os_log_create("build.bazel", "jni");
+    CHECK(log);
+  });
+  return log;
+}
+
 // Protects all of the g_sleep_state_* statics.
 // value is "leaked" intentionally because std::mutex is not trivially
 // destructible at this time, g_sleep_state_mutex is a singleton, and
 // leaking it has no consequences.
-std::mutex *g_sleep_state_mutex = new std::mutex;
+static std::mutex *g_sleep_state_mutex = new std::mutex;
 
 // Keep track of our pushes and pops of sleep state.
 static int g_sleep_state_stack = 0;
@@ -152,6 +177,7 @@ int portable_push_disable_sleep() {
         kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn, reasonForActivity,
         &g_sleep_state_assertion);
     assert(success == kIOReturnSuccess);
+    os_log_debug(JniOSLog(), "sleep assertion created");
   }
   g_sleep_state_stack += 1;
   return 0;
@@ -166,6 +192,7 @@ int portable_pop_disable_sleep() {
     IOReturn success = IOPMAssertionRelease(g_sleep_state_assertion);
     assert(success == kIOReturnSuccess);
     g_sleep_state_assertion = kIOPMNullAssertionID;
+    os_log_debug(JniOSLog(), "sleep assertion released");
   }
   return 0;
 }
@@ -189,12 +216,17 @@ static void SleepCallBack(void *refcon, io_service_t service,
       break;
 
     case kIOMessageSystemWillSleep:
+      os_log_debug(JniOSLog(),
+                   "suspend anomaly due to kIOMessageSystemWillSleep");
       ++state->suspend_count;
       // This needs to be acknowledged to allow sleep.
       IOAllowPowerChange(state->connect_port, (intptr_t)message_argument);
       break;
 
     case kIOMessageSystemWillNotSleep:
+      os_log_debug(
+          JniOSLog(),
+          "suspend anomaly cancelled due to kIOMessageSystemWillNotSleep");
       --state->suspend_count;
       break;
 
@@ -225,15 +257,18 @@ int portable_suspend_count() {
   static dispatch_once_t once_token;
   static SuspendState suspend_state;
   dispatch_once(&once_token, ^{
+    dispatch_queue_t queue = JniDispatchQueue();
     IONotificationPortRef notifyPortRef;
     io_object_t notifierObject;
 
     // Register to receive system sleep notifications.
+    // Testing needs to be done manually. Use the logging to verify
+    // that sleeps are being caught here.
+    // `log stream -level debug --predicate '(subsystem == "build.bazel")'`
     suspend_state.connect_port = IORegisterForSystemPower(
         &suspend_state, &notifyPortRef, SleepCallBack, &notifierObject);
     CHECK(suspend_state.connect_port != MACH_PORT_NULL);
-    IONotificationPortSetDispatchQueue(notifyPortRef,
-                                       DISPATCH_TARGET_QUEUE_DEFAULT);
+    IONotificationPortSetDispatchQueue(notifyPortRef, queue);
 
     // Register to deal with SIGCONT.
     // We register for SIGCONT because we can't catch SIGSTOP and we can't
@@ -245,15 +280,64 @@ int portable_suspend_count() {
     // counts.
     sig_t signal_val = signal(SIGCONT, SIG_IGN);
     CHECK(signal_val != SIG_ERR);
-    dispatch_source_t signal_source = dispatch_source_create(
-        DISPATCH_SOURCE_TYPE_SIGNAL, SIGCONT, 0, DISPATCH_TARGET_QUEUE_DEFAULT);
+    dispatch_source_t signal_source =
+        dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGCONT, 0, queue);
     CHECK(signal_source != NULL);
     dispatch_source_set_event_handler(signal_source, ^{
+      os_log_debug(JniOSLog(), "suspend anomaly due to SIGCONT");
       ++suspend_state.suspend_count;
     });
     dispatch_resume(signal_source);
   });
   return suspend_state.suspend_count;
+}
+
+int portable_memory_pressure_warning_count() {
+  // To test use:
+  // log stream -level debug --predicate '(subsystem == "build.bazel")'
+  // sudo memory_pressure -S -l warn
+  static dispatch_once_t once_token;
+  static std::atomic_int warning_count;
+  dispatch_once(&once_token, ^{
+    dispatch_source_t source = dispatch_source_create(
+        DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0, DISPATCH_MEMORYPRESSURE_WARN,
+        JniDispatchQueue());
+    CHECK(source != NULL);
+    dispatch_source_set_event_handler(source, ^{
+      dispatch_source_memorypressure_flags_t pressureLevel =
+          dispatch_source_get_data(source);
+      if (pressureLevel == DISPATCH_MEMORYPRESSURE_WARN) {
+        os_log_debug(JniOSLog(), "memory pressure warning anomaly");
+        ++warning_count;
+      }
+    });
+    dispatch_resume(source);
+  });
+  return warning_count;
+}
+
+int portable_memory_pressure_critical_count() {
+  // To test use:
+  // log stream -level debug --predicate '(subsystem == "build.bazel")'
+  // sudo memory_pressure -S -l critical
+  static dispatch_once_t once_token;
+  static std::atomic_int critical_count;
+  dispatch_once(&once_token, ^{
+    dispatch_source_t source = dispatch_source_create(
+        DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0,
+        DISPATCH_MEMORYPRESSURE_CRITICAL, JniDispatchQueue());
+    CHECK(source != NULL);
+    dispatch_source_set_event_handler(source, ^{
+      dispatch_source_memorypressure_flags_t pressureLevel =
+          dispatch_source_get_data(source);
+      if (pressureLevel == DISPATCH_MEMORYPRESSURE_CRITICAL) {
+        os_log_debug(JniOSLog(), "memory pressure critical anomaly");
+        ++critical_count;
+      }
+    });
+    dispatch_resume(source);
+  });
+  return critical_count;
 }
 
 }  // namespace blaze_jni

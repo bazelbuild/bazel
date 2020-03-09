@@ -29,6 +29,7 @@ import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.Platform.Property;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Throwables;
@@ -76,6 +77,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /** A basic implementation of an {@link ExecutionImplBase} service. */
 final class ExecutionServer extends ExecutionImplBase {
@@ -360,15 +362,15 @@ final class ExecutionServer extends ExecutionImplBase {
   }
 
   // Returns true if the OS being run on is Windows (or some close approximation thereof).
-  private boolean isWindows() {
+  private static boolean isWindows() {
     return System.getProperty("os.name").startsWith("Windows");
   }
 
-  private boolean wasTimeout(long timeoutMillis, long wallTimeMillis) {
+  private static boolean wasTimeout(long timeoutMillis, long wallTimeMillis) {
     return timeoutMillis > 0 && wallTimeMillis > timeoutMillis;
   }
 
-  private Map<String, String> getEnvironmentVariables(Command command) {
+  private static Map<String, String> getEnvironmentVariables(Command command) {
     HashMap<String, String> result = new HashMap<>();
     for (EnvironmentVariable v : command.getEnvironmentVariablesList()) {
       result.put(v.getName(), v.getValue());
@@ -382,7 +384,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // This is used to set "-u UID" flag for commands running inside Docker containers. There are
   // only a small handful of cases where uid is vital (e.g., if strict permissions are set on the
   // output files), so most use cases would work without setting uid.
-  private long getUid() {
+  private static long getUid() {
     com.google.devtools.build.lib.shell.Command cmd =
         new com.google.devtools.build.lib.shell.Command(
             new String[] {"id", "-u"},
@@ -403,7 +405,7 @@ final class ExecutionServer extends ExecutionImplBase {
 
   // Checks Action for docker container definition. If no docker container specified, returns
   // null. Otherwise returns docker container name from the parameters.
-  private String dockerContainer(Command cmd) throws StatusException {
+  private static String dockerContainer(Command cmd) throws StatusException {
     String result = null;
     for (Platform.Property property : cmd.getPlatform().getPropertiesList()) {
       if (property.getName().equals(CONTAINER_IMAGE_ENTRY_NAME)) {
@@ -429,6 +431,20 @@ final class ExecutionServer extends ExecutionImplBase {
     return result;
   }
 
+  private static String platformAsString(@Nullable Platform platform) {
+    if (platform == null) {
+      return "";
+    }
+
+    String separator = "";
+    StringBuilder value = new StringBuilder();
+    for (Property property : platform.getPropertiesList()) {
+      value.append(separator).append(property.getName()).append("=").append(property.getValue());
+      separator = ",";
+    }
+    return value.toString();
+  }
+
   // Converts the Command proto into the shell Command object.
   // If no docker container is specified, creates a Command straight from the
   // arguments. Otherwise, returns a Command that would run the specified command inside the
@@ -436,6 +452,8 @@ final class ExecutionServer extends ExecutionImplBase {
   private com.google.devtools.build.lib.shell.Command getCommand(Command cmd, String pathString)
       throws StatusException {
     Map<String, String> environmentVariables = getEnvironmentVariables(cmd);
+    // This allows Bazel's integration tests to test for the remote platform.
+    environmentVariables.put("BAZEL_REMOTE_PLATFORM", platformAsString(cmd.getPlatform()));
     String container = dockerContainer(cmd);
     if (container != null) {
       // Run command inside a docker container.

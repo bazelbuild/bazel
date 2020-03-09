@@ -18,6 +18,9 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Range;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -28,18 +31,18 @@ import java.util.List;
  */
 public class DeclarationAssembler {
   private final DeclarationConsumer declarationConsumer;
-  private final SeparatorPredicate separatorPredicate;
+  private final SeparatorFinder separatorFinder;
 
   /**
    * @param declarationConsumer delegate declaration consumer for actual processing / parsing
-   * @param separatorPredicate predicate used to determine if two fragments should be separate
+   * @param separatorFinder callback used to determine if two fragments should be separate
    *     declarations (in the Ninja case, if the new line starts with a space, it should be treated
    *     as a part of the previous declaration, i.e. the separator is longer then one symbol).
    */
   public DeclarationAssembler(
-      DeclarationConsumer declarationConsumer, SeparatorPredicate separatorPredicate) {
+      DeclarationConsumer declarationConsumer, SeparatorFinder separatorFinder) {
     this.declarationConsumer = declarationConsumer;
-    this.separatorPredicate = separatorPredicate;
+    this.separatorFinder = separatorFinder;
   }
 
   /**
@@ -48,13 +51,14 @@ public class DeclarationAssembler {
    * @param fragments list of {@link ByteFragmentAtOffset} - pieces on the bounds of sub-fragments.
    * @throws GenericParsingException thrown by delegate {@link #declarationConsumer}
    */
-  public void wrapUp(List<ByteFragmentAtOffset> fragments) throws GenericParsingException {
-    fragments.sort(Comparator.comparingInt(ByteFragmentAtOffset::getRealStartOffset));
+  public void wrapUp(List<ByteFragmentAtOffset> fragments)
+      throws GenericParsingException, IOException {
+    fragments.sort(Comparator.comparingInt(ByteFragmentAtOffset::getFragmentOffset));
 
     List<ByteFragmentAtOffset> list = Lists.newArrayList();
     int previous = -1;
     for (ByteFragmentAtOffset edge : fragments) {
-      int start = edge.getRealStartOffset();
+      int start = edge.getFragmentOffset();
       ByteBufferFragment fragment = edge.getFragment();
       if (previous >= 0 && previous != start) {
         sendMerged(list);
@@ -68,57 +72,76 @@ public class DeclarationAssembler {
     }
   }
 
-  private void sendMerged(List<ByteFragmentAtOffset> list) throws GenericParsingException {
-    int offset = -1;
-    List<ByteBufferFragment> leftPart = Lists.newArrayList();
+  private void sendMerged(List<ByteFragmentAtOffset> list)
+      throws GenericParsingException, IOException {
+    Preconditions.checkArgument(!list.isEmpty());
+    ByteFragmentAtOffset first = list.get(0);
+    if (list.size() == 1) {
+      declarationConsumer.declaration(first);
+      return;
+    }
 
-    for (ByteFragmentAtOffset edge : list) {
-      ByteBufferFragment sequence = edge.getFragment();
-      // If the new sequence is separate from already collected parts,
-      // merge them and feed to consumer.
-      if (!leftPart.isEmpty()) {
-        ByteBufferFragment lastPart = Iterables.getLast(leftPart);
-        // The order of symbols: previousInOld, lastInOld, currentInNew, nextInNew.
-        byte previousInOld = lastPart.length() == 1 ? 0 : lastPart.byteAt(lastPart.length() - 2);
-        byte lastInOld = lastPart.byteAt(lastPart.length() - 1);
-        byte currentInNew = sequence.byteAt(0);
-        byte nextInNew = sequence.length() == 1 ? 0 : sequence.byteAt(1);
-
-        // <symbol> | \n<non-space>
-        if (separatorPredicate.test(lastInOld, currentInNew, nextInNew)) {
-          // Add separator to the end of the accumulated sequence
-          leftPart.add(sequence.subFragment(0, 1));
-          ByteFragmentAtOffset byteFragmentAtOffset =
-              new ByteFragmentAtOffset(edge.getOffset(), ByteBufferFragment.merge(leftPart));
-          declarationConsumer.declaration(byteFragmentAtOffset);
-          leftPart.clear();
-          // Cutting out the separator in the beginning
-          if (sequence.length() > 1) {
-            leftPart.add(sequence.subFragment(1, sequence.length()));
-            offset = edge.getOffset();
-          }
-          continue;
-        }
-
-        // <symbol>\n | <non-space>
-        if (separatorPredicate.test(previousInOld, lastInOld, currentInNew)) {
-          ByteFragmentAtOffset byteFragmentAtOffset =
-              new ByteFragmentAtOffset(edge.getOffset(), ByteBufferFragment.merge(leftPart));
-          declarationConsumer.declaration(byteFragmentAtOffset);
-          leftPart.clear();
-        }
+    // 1. We merge all the passed fragments into one fragment.
+    // 2. We check 6 bytes at the connection of two fragments, 3 bytes in each part:
+    // separator can consist of 4 bytes (<escape>/r/n<indent>),
+    // so in case only a part of the separator is in one of the fragments,
+    // we get 3 bytes in one part and one byte in the other.
+    // 3. We record the ranges of at most 6 bytes at the connections of the fragments into
+    // interestingRanges.
+    // 4. Later we will check only interestingRanges for separators, and create corresponding
+    // fragments; the underlying common ByteBuffer will be reused, so we are not performing
+    // extensive copying.
+    int firstOffset = first.getBufferOffset();
+    List<ByteBufferFragment> fragments = new ArrayList<>();
+    List<Range<Integer>> interestingRanges = Lists.newArrayList();
+    int fragmentShift = 0;
+    for (ByteFragmentAtOffset byteFragmentAtOffset : list) {
+      ByteBufferFragment fragment = byteFragmentAtOffset.getFragment();
+      fragments.add(fragment);
+      if (fragmentShift > 0) {
+        // We are only looking for the separators between fragments.
+        int start = Math.max(0, fragmentShift - 3);
+        int end = fragmentShift + Math.min(4, fragment.length());
+        // Assert that the ranges are not intersecting, otherwise the code that iterates ranges
+        // will work incorrectly.
+        Preconditions.checkState(
+            interestingRanges.isEmpty()
+                || Iterables.getLast(interestingRanges).upperEndpoint() < start);
+        interestingRanges.add(Range.openClosed(start, end));
       }
+      fragmentShift += fragment.length();
+    }
 
-      leftPart.add(sequence);
-      if (offset == -1) {
-        offset = edge.getOffset();
+    ByteBufferFragment merged = ByteBufferFragment.merge(fragments);
+
+    int newOffset;
+    if (Iterables.getLast(list).getBufferOffset() == firstOffset) {
+      // If all fragment offsets were the same (which is the case if all their originating buffers
+      // were the same), then the merged fragment has the start index of the first originating
+      // fragment, and the end index of the last originating fragment.
+      // The old offset can be used without issue.
+      newOffset = firstOffset;
+    } else {
+      // If fragment offsets differed, then the new merged fragment has a different offset.
+      // In this case, the merged fragment has relative indices [0, len), which means that its
+      // offset should reflect the absolute "real" start offset.
+      newOffset = first.getFragmentOffset();
+    }
+
+    int previousEnd = 0;
+    for (Range<Integer> range : interestingRanges) {
+      int idx =
+          separatorFinder.findNextSeparator(merged, range.lowerEndpoint(), range.upperEndpoint());
+      if (idx >= 0) {
+        // There should always be a previous fragment, as we are checking non-intersecting ranges,
+        // starting from the connection point between first and second fragments.
+        Preconditions.checkState(idx > previousEnd);
+        declarationConsumer.declaration(
+            new ByteFragmentAtOffset(newOffset, merged.subFragment(previousEnd, idx + 1)));
+        previousEnd = idx + 1;
       }
     }
-    if (!leftPart.isEmpty()) {
-      Preconditions.checkState(offset >= 0);
-      ByteFragmentAtOffset byteFragmentAtOffset =
-          new ByteFragmentAtOffset(offset, ByteBufferFragment.merge(leftPart));
-      declarationConsumer.declaration(byteFragmentAtOffset);
-    }
+    declarationConsumer.declaration(
+        new ByteFragmentAtOffset(newOffset, merged.subFragment(previousEnd, merged.length())));
   }
 }

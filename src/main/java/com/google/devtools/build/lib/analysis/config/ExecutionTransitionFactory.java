@@ -30,6 +30,13 @@ import javax.annotation.Nullable;
  */
 public class ExecutionTransitionFactory implements TransitionFactory<AttributeTransitionData> {
 
+  private ExecutionTransitionFactory() {}
+
+  /** Returns a new {@link ExecutionTransitionFactory}. */
+  public static ExecutionTransitionFactory create() {
+    return new ExecutionTransitionFactory();
+  }
+
   /**
    * Returns either a new {@link ExecutionTransitionFactory} or a factory for the {@link
    * HostTransition}, depending on the value of {@code enableExecutionTransition}.
@@ -37,7 +44,7 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
   public static TransitionFactory<AttributeTransitionData> create(
       boolean enableExecutionTransition) {
     if (enableExecutionTransition) {
-      return new ExecutionTransitionFactory();
+      return create();
     } else {
       return HostTransition.createFactory();
     }
@@ -75,32 +82,42 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
       return false;
     }
 
+    // We added this cache after observing an O(100,000)-node build graph that applied multiple exec
+    // transitions on every node via an aspect. Before this cache, this produced O(500,000)
+    // BuildOptions instances that consumed over 3 gigabytes of memory.
+    private static final BuildOptionsCache<Label> cache = new BuildOptionsCache<>();
+
     @Override
     public BuildOptions patch(BuildOptions options) {
       if (executionPlatform == null) {
         // No execution platform is known, so don't change anything.
         return options;
       }
+      return cache.applyTransition(
+          options,
+          // The execution platform impacts the output's --platform_suffix and --platforms flags.
+          executionPlatform,
+          () -> {
+            // Start by converting to host options.
+            BuildOptions execConfiguration = options.createHostOptions();
 
-      // Start by converting to host options.
-      BuildOptions execConfiguration = options.createHostOptions();
+            // Then unset isHost, if CoreOptions is available.
+            CoreOptions coreOptions =
+                Preconditions.checkNotNull(execConfiguration.get(CoreOptions.class));
+            coreOptions.isHost = false;
+            coreOptions.isExec = true;
+            coreOptions.outputDirectoryName = null;
+            coreOptions.platformSuffix =
+                String.format("-exec-%X", executionPlatform.getCanonicalForm().hashCode());
 
-      // Then unset isHost, if CoreOptions is available.
-      CoreOptions coreOptions =
-          Preconditions.checkNotNull(execConfiguration.get(CoreOptions.class));
-      coreOptions.isHost = false;
-      coreOptions.isExec = true;
-      coreOptions.outputDirectoryName = null;
-      coreOptions.platformSuffix =
-          String.format("-exec-%X", executionPlatform.getCanonicalForm().hashCode());
+            // Then set the target to the saved execution platform if there is one.
+            if (execConfiguration.get(PlatformOptions.class) != null) {
+              execConfiguration.get(PlatformOptions.class).platforms =
+                  ImmutableList.of(executionPlatform);
+            }
 
-      // Then set the target to the saved execution platform if there is one.
-      if (execConfiguration.get(PlatformOptions.class) != null) {
-        execConfiguration.get(PlatformOptions.class).platforms =
-            ImmutableList.of(executionPlatform);
-      }
-
-      return execConfiguration;
+            return execConfiguration;
+          });
     }
   }
 }

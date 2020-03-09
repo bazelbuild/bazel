@@ -36,8 +36,8 @@ class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
   }
 
   /**
-   * Returns whether the visited class is declared in the scope of a lambda.  In that case
-   * {@link LambdaDesugaring} will want to rewrite the EnclosingMethod attribute of the class.
+   * Returns whether the visited class is declared in the scope of a lambda. In that case {@link
+   * LambdaDesugaring} will want to rewrite the EnclosingMethod attribute of the class.
    */
   public boolean needOuterClassRewrite() {
     return needOuterClassRewrite;

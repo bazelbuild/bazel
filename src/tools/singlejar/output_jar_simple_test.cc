@@ -277,6 +277,36 @@ TEST_F(OutputJarSimpleTest, JavaLauncher) {
   input_jar.Close();
 }
 
+// --cds_archive option
+TEST_F(OutputJarSimpleTest, CDSArchive) {
+  string out_path = OutputFilePath("out.jar");
+  string launcher_path = CreateTextFile("launcher", "Dummy");
+  string cds_archive_path = CreateTextFile("classes.jsa", "Dummy");
+  CreateOutput(out_path, {"--java_launcher", launcher_path,
+                          "--cds_archive", cds_archive_path});
+
+  // check META-INF/MANIFEST.MF attribute
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  size_t pagesize;
+#ifndef _WIN32
+  pagesize = sysconf(_SC_PAGESIZE);
+#else
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  pagesize = si.dwPageSize;
+#endif
+  char attr[128];
+  snprintf(attr, sizeof(attr), "Jsa-Offset: %ld", pagesize);
+  EXPECT_PRED2(HasSubstr, manifest, attr);
+
+  // check build-data.properties entry
+  string build_properties = GetEntryContents(out_path, "build-data.properties");
+  char prop[4096];
+  snprintf(prop, sizeof(prop), "\ncds.archive=%s\n",
+           cds_archive_path.c_str());
+  EXPECT_PRED2(HasSubstr, build_properties, prop);
+}
+
 // --main_class option.
 TEST_F(OutputJarSimpleTest, MainClass) {
   string out_path = OutputFilePath("out.jar");

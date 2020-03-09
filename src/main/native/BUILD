@@ -6,6 +6,7 @@ genrule(
         "//src/conditions:darwin": ["//tools/jdk:jni_md_header-darwin"],
         "//src/conditions:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
         "//src/conditions:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
+        "//src/conditions:openbsd": ["//tools/jdk:jni_md_header-openbsd"],
         "//src/conditions:windows": ["//tools/jdk:jni_md_header-windows"],
         "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
     }),
@@ -33,7 +34,8 @@ filegroup(
             "unix_jni_darwin.cc",
             "fsevents.cc",
         ],
-        "//src/conditions:freebsd": ["unix_jni_freebsd.cc"],
+        "//src/conditions:freebsd": ["unix_jni_bsd.cc"],
+        "//src/conditions:openbsd": ["unix_jni_bsd.cc"],
         "//conditions:default": ["unix_jni_linux.cc"],
     }),
 )
@@ -71,7 +73,8 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkshared = 1,
-    visibility = ["//src:__subpackages__"],
+    # :target-os-unix-native-lib should be used outside of this package
+    visibility = ["//visibility:private"],
     deps = [
         ":latin1_jni_path",
         "//src/main/cpp/util",
@@ -87,7 +90,24 @@ genrule(
     outs = ["libunix.dylib"],
     cmd = "cp $< $@",
     output_to_bindir = 1,
-    visibility = ["//src:__subpackages__"],
+    # :target-os-unix-native-lib should be used outside of this package
+    visibility = ["//visibility:private"],
+)
+
+# Platform-independent holder for native JNI libraries (empty for non-UNIX systems).
+# Targets should depend on this filegroup rather then on Platform-dependent libraries directly!
+filegroup(
+    name = "target-os-unix-native-lib",
+    srcs = select({
+        "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
+        "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
+        "//src/conditions:windows": [],
+        "//conditions:default": ["//src/main/native:libunix.so"],
+    }),
+    visibility = [
+        "//src:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/unix/jni:__pkg__",
+    ],
 )
 
 filegroup(

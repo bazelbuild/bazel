@@ -1,0 +1,30 @@
+package(
+    default_testonly = 1,
+    default_visibility = ["//src/tools/remote:__pkg__"],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = ["//src/tools/remote:__pkg__"],
+)
+
+java_test(
+    name = "worker",
+    srcs = glob(["*.java"]),
+    test_class = "com.google.devtools.build.remote.worker.CasServerTest",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/grpc:grpc-jar",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)

@@ -19,9 +19,11 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -62,14 +64,16 @@ public class ExecutableSymlinkActionTest {
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
-        null,
+        /*metadataHandler=*/ null,
+        LostInputsCheck.NONE,
         outErr,
         /*eventHandler=*/ null,
-        ImmutableMap.<String, String>of(),
-        ImmutableMap.of(),
-        null,
-        null,
-        null);
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
+        /*artifactExpander=*/ null,
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.NO_CALLBACKS);
   }
 
   @Test

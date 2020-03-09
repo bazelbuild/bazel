@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.config;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Represents a configuration transition across a dependency edge. */
 @SkylarkModule(
@@ -29,4 +29,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + " <code>//package:bar</code>'s transition will be determined by that of"
             + " <code>//package:foo</code>, as subject to the function defined by a transition"
             + " object.")
-public interface ConfigurationTransitionApi extends SkylarkValue {}
+public interface ConfigurationTransitionApi extends StarlarkValue {}

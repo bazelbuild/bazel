@@ -42,6 +42,16 @@ public class BuildEventProtocolOptions extends OptionsBase {
   public String buildEventUploadStrategy;
 
   @Option(
+      name = "experimental_stream_log_file_uploads",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Stream log file uploads directly to the remote storage rather than writing them to"
+              + " disk.")
+  public boolean streamingLogFileUploads;
+
+  @Option(
       name = "experimental_build_event_expand_filesets",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -127,6 +128,19 @@ public class ProtoCommon {
     return result.build();
   }
 
+  private static NestedSet<Artifact> computeTransitiveOriginalProtoSources(
+      RuleContext ruleContext, ImmutableList<Artifact> originalProtoSources) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.naiveLinkOrder();
+
+    result.addAll(originalProtoSources);
+
+    for (ProtoInfo dep : ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER)) {
+      result.addTransitive(dep.getOriginalTransitiveProtoSources());
+    }
+
+    return result.build();
+  }
+
   static NestedSet<Artifact> computeDependenciesDescriptorSets(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
 
@@ -201,13 +215,17 @@ public class ProtoCommon {
   // ProtoInfo so it's not an easy change :(
   @Nullable
   private static Library createLibraryWithoutVirtualSourceRoot(
-      RuleContext ruleContext, ImmutableList<Artifact> directSources) {
+      RuleContext ruleContext, ImmutableList<Artifact> directSources) throws InterruptedException {
     String protoSourceRoot =
         ruleContext
             .getLabel()
             .getPackageIdentifier()
             .getRepository()
-            .getPathUnderExecRoot()
+            .getExecPath(
+                ruleContext
+                    .getAnalysisEnvironment()
+                    .getSkylarkSemantics()
+                    .experimentalSiblingRepositoryLayout())
             .getPathString();
 
     ImmutableList.Builder<Pair<Artifact, String>> builder = ImmutableList.builder();
@@ -245,7 +263,8 @@ public class ProtoCommon {
   private static Library createLibraryWithVirtualSourceRootMaybe(
       RuleContext ruleContext,
       ImmutableList<Artifact> protoSources,
-      boolean generatedProtosInVirtualImports) {
+      boolean generatedProtosInVirtualImports)
+      throws InterruptedException {
     PathFragment importPrefixAttribute = getPathFragmentAttribute(ruleContext, "import_prefix");
     PathFragment stripImportPrefixAttribute =
         getPathFragmentAttribute(ruleContext, "strip_import_prefix");
@@ -270,20 +289,28 @@ public class ProtoCommon {
     PathFragment stripImportPrefix;
     PathFragment importPrefix;
 
+    StarlarkSemantics starlarkSemantics =
+        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
+    boolean siblingRepositoryLayout = starlarkSemantics.experimentalSiblingRepositoryLayout();
     if (stripImportPrefixAttribute != null || importPrefixAttribute != null) {
       if (stripImportPrefixAttribute == null) {
-        stripImportPrefix = PathFragment.create(ruleContext.getLabel().getWorkspaceRoot());
+        stripImportPrefix =
+            PathFragment.create(ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics));
       } else if (stripImportPrefixAttribute.isAbsolute()) {
         stripImportPrefix =
             ruleContext
                 .getLabel()
                 .getPackageIdentifier()
                 .getRepository()
-                .getSourceRoot()
+                .getExecPath(siblingRepositoryLayout)
                 .getRelative(stripImportPrefixAttribute.toRelative());
       } else {
         stripImportPrefix =
-            ruleContext.getPackageDirectory().getRelative(stripImportPrefixAttribute);
+            ruleContext
+                .getLabel()
+                .getPackageIdentifier()
+                .getExecPath(siblingRepositoryLayout)
+                .getRelative(stripImportPrefixAttribute);
       }
 
       if (importPrefixAttribute != null) {
@@ -299,7 +326,11 @@ public class ProtoCommon {
     } else {
       // Has generated sources, but neither strip_import_prefix nor import_prefix
       stripImportPrefix =
-          ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot();
+          ruleContext
+              .getLabel()
+              .getPackageIdentifier()
+              .getRepository()
+              .getDerivedArtifactSourceRoot();
 
       importPrefix = PathFragment.EMPTY_FRAGMENT;
     }
@@ -310,7 +341,9 @@ public class ProtoCommon {
     PathFragment sourceRootPath = ruleContext.getUniqueDirectory("_virtual_imports");
 
     for (Artifact realProtoSource : protoSources) {
-      if (!realProtoSource.getRootRelativePath().startsWith(stripImportPrefix)) {
+      if (siblingRepositoryLayout && realProtoSource.isSourceArtifact()
+          ? !realProtoSource.getExecPath().startsWith(stripImportPrefix)
+          : !realProtoSource.getRootRelativePath().startsWith(stripImportPrefix)) {
         ruleContext.ruleError(
             String.format(
                 ".proto file '%s' is not under the specified strip prefix '%s'",
@@ -319,7 +352,12 @@ public class ProtoCommon {
       }
       Pair<PathFragment, Artifact> importsPair =
           computeImports(
-              ruleContext, realProtoSource, sourceRootPath, importPrefix, stripImportPrefix);
+              ruleContext,
+              realProtoSource,
+              sourceRootPath,
+              importPrefix,
+              stripImportPrefix,
+              starlarkSemantics.experimentalSiblingRepositoryLayout());
       protoSourceImportPair.add(new Pair<>(realProtoSource, importsPair.first.toString()));
       symlinks.add(importsPair.second);
     }
@@ -338,14 +376,22 @@ public class ProtoCommon {
       Artifact realProtoSource,
       PathFragment sourceRootPath,
       PathFragment importPrefix,
-      PathFragment stripImportPrefix) {
-    PathFragment importPath =
-        importPrefix.getRelative(
-            realProtoSource.getRootRelativePath().relativeTo(stripImportPrefix));
+      PathFragment stripImportPrefix,
+      boolean siblingRepositoryLayout) {
+    PathFragment importPath;
 
-      Artifact virtualProtoSource =
-          ruleContext.getDerivedArtifact(
-              sourceRootPath.getRelative(importPath), ruleContext.getBinOrGenfilesDirectory());
+    if (siblingRepositoryLayout && realProtoSource.isSourceArtifact()) {
+      importPath =
+          importPrefix.getRelative(realProtoSource.getExecPath().relativeTo(stripImportPrefix));
+    } else {
+      importPath =
+          importPrefix.getRelative(
+              realProtoSource.getRootRelativePath().relativeTo(stripImportPrefix));
+    }
+
+    Artifact virtualProtoSource =
+        ruleContext.getDerivedArtifact(
+            sourceRootPath.getRelative(importPath), ruleContext.getBinOrGenfilesDirectory());
 
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
@@ -445,7 +491,8 @@ public class ProtoCommon {
    * ruleContext}.
    */
   public static ProtoInfo createProtoInfo(
-      RuleContext ruleContext, boolean generatedProtosInVirtualImports) {
+      RuleContext ruleContext, boolean generatedProtosInVirtualImports)
+      throws InterruptedException {
     checkSourceFilesAreInSamePackage(ruleContext);
     ImmutableList<Artifact> directProtoSources =
         ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
@@ -462,6 +509,8 @@ public class ProtoCommon {
 
     NestedSet<Artifact> transitiveProtoSources =
         computeTransitiveProtoSources(ruleContext, library.getSources());
+    NestedSet<Artifact> transitiveOriginalProtoSources =
+        computeTransitiveOriginalProtoSources(ruleContext, directProtoSources);
     NestedSet<String> transitiveProtoSourceRoots =
         computeTransitiveProtoSourceRoots(ruleContext, library.getSourceRoot());
 
@@ -494,6 +543,7 @@ public class ProtoCommon {
             directProtoSources,
             library.getSourceRoot(),
             transitiveProtoSources,
+            transitiveOriginalProtoSources,
             transitiveProtoSourceRoots,
             strictImportableProtosForDependents,
             strictImportableProtos,

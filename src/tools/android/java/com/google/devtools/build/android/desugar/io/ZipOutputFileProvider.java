@@ -64,8 +64,10 @@ class ZipOutputFileProvider implements OutputFileProvider {
 
   @Override
   public void write(String filename, byte[] content) throws IOException {
-    checkArgument(filename.equals(DESUGAR_DEPS_FILENAME) || filename.endsWith(".class"),
-        "Expect file to be copied: %s", filename);
+    checkArgument(
+        filename.equals(DESUGAR_DEPS_FILENAME) || filename.endsWith(".class"),
+        "Expect file to be copied: %s",
+        filename);
     writeStoredEntry(out, filename, content);
   }
 

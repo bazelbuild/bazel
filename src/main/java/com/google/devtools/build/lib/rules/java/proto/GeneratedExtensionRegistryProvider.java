@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * A {@link TransitiveInfoProvider} for {@link Artifact}s created and used to generate the proto
@@ -71,6 +71,10 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
 
   /** @return the proto jars used to generate the registry. */
   @Override
+  public Depset /*<Artifact>*/ getInputsForStarlark() {
+    return Depset.of(Artifact.TYPE, inputs);
+  }
+
   public NestedSet<Artifact> getInputs() {
     return inputs;
   }
@@ -155,7 +159,7 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
         boolean isLite,
         Artifact classJar,
         Artifact srcJar,
-        SkylarkNestedSet inputs)
+        Depset inputs)
         throws EvalException {
       return new GeneratedExtensionRegistryProvider(
           generatingRuleLabel,

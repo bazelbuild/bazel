@@ -25,8 +25,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
-import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -57,22 +56,22 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     EvaluationTestCase ev =
         new EvaluationTestCase() {
           @Override
-          public StarlarkThread newStarlarkThread() throws Exception {
+          public StarlarkThread newStarlarkThread() {
+            Mutability mu = Mutability.create("test");
             StarlarkThread thread =
-                StarlarkThread.builder(mutability)
+                StarlarkThread.builder(mu)
                     .setSemantics(getSkylarkSemantics())
-                    .setEventHandler(getEventHandler())
                     .setGlobals(
                         globals.withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                     .build();
-
-            SkylarkUtils.setPhase(thread, Phase.LOADING);
+            thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
 
             // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
             // Rule creation is tested by SkylarkIntegrationTest.
 
             new BazelStarlarkContext(
+                    BazelStarlarkContext.Phase.LOADING,
                     TestConstants.TOOLS_REPOSITORY,
                     /*fragmentNameToClass=*/ null,
                     /*repoMapping=*/ ImmutableMap.of(),

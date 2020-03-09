@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Formattable;
@@ -28,8 +26,73 @@ import java.util.MissingFormatWidthException;
 import java.util.UnknownFormatConversionException;
 import javax.annotation.Nullable;
 
-/** (Pretty) Printing of Skylark values */
-public class Printer {
+/** A printer of Starlark values. */
+// TODO(adonovan): merge BasePrinter into Printer and simplify.
+public abstract class Printer {
+
+  /** Append a char to the printer's buffer */
+  public abstract Printer append(char c);
+
+  /** Append a char sequence to the printer's buffer */
+  public abstract Printer append(CharSequence s);
+
+  /**
+   * Prints a list to the printer's buffer. All list items are rendered with {@code repr}.
+   *
+   * @param list the list
+   * @param isTuple if true, uses parentheses, otherwise, uses square brackets. Also one-element
+   *     tuples are rendered with a comma after the element.
+   * @return Printer
+   */
+  public abstract Printer printList(Iterable<?> list, boolean isTuple);
+
+  /**
+   * Prints a list to the printer's buffer. All list items are rendered with {@code repr}.
+   *
+   * @param list the list of objects to repr (each as with repr)
+   * @param before a string to print before the list items, e.g. an opening bracket
+   * @param separator a separator to print between items
+   * @param after a string to print after the list items, e.g. a closing bracket
+   * @param singletonTerminator null or a string to print after the list if it is a singleton. The
+   *     singleton case is notably relied upon in python syntax to distinguish a tuple of size one
+   *     such as ("foo",) from a merely parenthesized object such as ("foo")
+   * @return Printer
+   */
+  public abstract Printer printList(
+      Iterable<?> list,
+      String before,
+      String separator,
+      String after,
+      @Nullable String singletonTerminator);
+
+  /** Renders an object with {@code repr} and append to the printer's buffer. */
+  public abstract Printer repr(Object o);
+
+  /** Renders an object with {@code str} and append to the printer's buffer. */
+  public abstract Printer str(Object o);
+
+  /** Renders an object in the style of {@code print} and append to the printer's buffer. */
+  public abstract Printer debugPrint(Object o);
+
+  /**
+   * Performs Python-style string formatting, as per {@code pattern % tuple}. Limitations: only
+   * {@code %d %s %r %%} are supported.
+   *
+   * @param pattern a format string
+   * @param arguments an array containing positional arguments
+   * @return Printer
+   */
+  public abstract Printer format(String pattern, Object... arguments);
+
+  /**
+   * Performs Python-style string formatting, as per {@code pattern % tuple}. Limitations: only
+   * {@code %d %s %r %%} are supported.
+   *
+   * @param pattern a format string
+   * @param arguments a list containing positional arguments
+   * @return Printer
+   */
+  public abstract Printer formatWithList(String pattern, List<?> arguments);
 
   /**
    * Creates an instance of {@link BasePrinter} that wraps an existing buffer.
@@ -69,54 +132,6 @@ public class Printer {
 
   private Printer() {}
 
-  // These static methods proxy to the similar methods of BasePrinter
-
-  /**
-   * Format an object with Skylark's {@code debugPrint}.
-   */
-  public static String debugPrint(Object x) {
-    return getPrinter().debugPrint(x).toString();
-  }
-
-  /**
-   * Format an object with Skylark's {@code str}.
-   */
-  public static String str(Object x) {
-    return getPrinter().str(x).toString();
-  }
-
-  /**
-   * Format an object with Skylark's {@code repr}.
-   */
-  public static String repr(Object x) {
-    return getPrinter().repr(x).toString();
-  }
-
-
-  /**
-   * Perform Python-style string formatting, as per pattern % tuple Limitations: only %d %s %r %%
-   * are supported.
-   *
-   * @param pattern a format string.
-   * @param arguments an array containing positional arguments.
-   * @return the formatted string.
-   */
-  public static String format(String pattern, Object... arguments) {
-    return getPrinter().format(pattern, arguments).toString();
-  }
-
-  /**
-   * Perform Python-style string formatting, as per pattern % tuple Limitations: only %d %s %r %%
-   * are supported.
-   *
-   * @param pattern a format string.
-   * @param arguments a tuple containing positional arguments.
-   * @return the formatted string.
-   */
-  public static String formatWithList(String pattern, List<?> arguments) {
-    return getPrinter().formatWithList(pattern, arguments).toString();
-  }
-
   /**
    * Perform Python-style string formatting, lazily.
    *
@@ -129,7 +144,7 @@ public class Printer {
     return new Formattable() {
       @Override
       public String toString() {
-        return formatWithList(pattern, args);
+        return Starlark.formatWithList(pattern, args);
       }
 
       @Override
@@ -181,7 +196,7 @@ public class Printer {
   }
 
   /** Actual class that implements Printer API */
-  public static class BasePrinter implements SkylarkPrinter {
+  public static class BasePrinter extends Printer {
     // Methods of this class should not recurse through static methods of Printer
 
     protected final Appendable buffer;
@@ -230,8 +245,8 @@ public class Printer {
      * @return the buffer, in fluent style
      */
     public BasePrinter debugPrint(Object o) {
-      if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).debugPrint(this);
+      if (o instanceof StarlarkValue) {
+        ((StarlarkValue) o).debugPrint(this);
         return this;
       }
 
@@ -243,11 +258,11 @@ public class Printer {
      * quote strings at top level, though strings and other values appearing as elements of other
      * structures are quoted as if by {@code repr}.
      *
-     * <p>Implementations of SkylarkValue may define their own behavior of {@code str}.
+     * <p>Implementations of StarlarkValue may define their own behavior of {@code str}.
      */
     public BasePrinter str(Object o) {
-      if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).str(this);
+      if (o instanceof StarlarkValue) {
+        ((StarlarkValue) o).str(this);
         return this;
       }
 
@@ -261,7 +276,7 @@ public class Printer {
      * Prints the quoted representation of Starlark value {@code o}. The quoted form is often a
      * Starlark expression that evaluates to {@code o}.
      *
-     * <p>Implementations of SkylarkValue may define their own behavior of {@code repr}.
+     * <p>Implementations of StarlarkValue may define their own behavior of {@code repr}.
      *
      * <p>In addition to Starlark values, {@code repr} also prints instances of classes Map, List,
      * Map.Entry, Class, Node, or Location. To avoid nondeterminism, all other values are printed
@@ -274,8 +289,8 @@ public class Printer {
         // values such as Locations or ASTs.
         this.append("null");
 
-      } else if (o instanceof SkylarkValue) {
-        ((SkylarkValue) o).repr(this);
+      } else if (o instanceof StarlarkValue) {
+        ((StarlarkValue) o).repr(this);
 
       } else if (o instanceof String) {
         writeString((String) o);
@@ -319,7 +334,7 @@ public class Printer {
         // but Starlark code cannot access values of o that would reach here,
         // and native code is already trusted to be deterministic.
         // TODO(adonovan): replace this with a default behavior of this.append(o),
-        // once we require that all @Skylark-annotated classes implement SkylarkValue.
+        // once we require that all @Skylark-annotated classes implement StarlarkValue.
         // (After all, Java code can call String.format, which also calls toString.)
         this.append("<unknown object " + o.getClass().getName() + ">");
       }
@@ -505,9 +520,9 @@ public class Printer {
             if (a >= argLength) {
               throw new MissingFormatWidthException(
                   "not enough arguments for format pattern "
-                      + Printer.repr(pattern)
+                      + Starlark.repr(pattern)
                       + ": "
-                      + Printer.repr(Tuple.copyOf(arguments)));
+                      + Starlark.repr(Tuple.copyOf(arguments)));
             }
             Object argument = arguments.get(a++);
             switch (directive) {
@@ -517,7 +532,7 @@ public class Printer {
                   continue;
                 } else {
                   throw new MissingFormatWidthException(
-                      "invalid argument " + Printer.repr(argument) + " for format pattern %d");
+                      "invalid argument " + Starlark.repr(argument) + " for format pattern %d");
                 }
               case 'r':
                 this.repr(argument);
@@ -529,10 +544,11 @@ public class Printer {
             // fall through
           default:
             throw new MissingFormatWidthException(
-                // The call to Printer.repr doesn't cause an infinite recursion because it's
+                // The call to Starlark.repr doesn't cause an infinite recursion because it's
                 // only used to format a string properly
-                String.format("unsupported format character \"%s\" at index %s in %s",
-                    String.valueOf(directive), p + 1, Printer.repr(pattern)));
+                String.format(
+                    "unsupported format character \"%s\" at index %s in %s",
+                    String.valueOf(directive), p + 1, Starlark.repr(pattern)));
         }
       }
       if (a < argLength) {

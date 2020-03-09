@@ -45,10 +45,11 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
 
   protected static int getFrequencyOfErrorsWithLocation(
       PathFragment path, EventCollector eventCollector) {
+    String filename = path.getPathString();
     int frequency = 0;
     for (Event event : eventCollector) {
       if (event.getLocation() != null) {
-        if (path.equals(event.getLocation().getPath())) {
+        if (filename.equals(event.getLocation().file())) {
           frequency++;
         }
       }

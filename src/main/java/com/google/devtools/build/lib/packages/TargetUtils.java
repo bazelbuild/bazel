@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -80,6 +80,16 @@ public final class TargetUtils {
    */
   public static boolean isTestSuiteRule(Target target) {
     return target instanceof Rule && isTestSuiteRuleName(((Rule) target).getRuleClass());
+  }
+
+  /** Returns true iff {@code target} is an {@code alias} rule. */
+  public static boolean isAlias(Target target) {
+    if (!(target instanceof Rule)) {
+      return false;
+    }
+
+    Rule rule = (Rule) target;
+    return !rule.getRuleClassObject().isSkylark() && rule.getRuleClass().equals("alias");
   }
 
   /**
@@ -257,7 +267,7 @@ public final class TargetUtils {
    * #legalExecInfoKeys}.
    *
    * @param executionRequirementsUnchecked execution_requirements of a rule, expected to be of a
-   *     {@code SkylarkDict<String, String>} type, null or {@link
+   *     {@code Dict<String, String>} type, null or {@link
    *     com.google.devtools.build.lib.syntax.Runtime#NONE}
    * @param rule a rule instance to get tags from
    * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
@@ -269,7 +279,7 @@ public final class TargetUtils {
       throws EvalException {
     Map<String, String> checkedExecutionRequirements =
         TargetUtils.filter(
-            SkylarkDict.castSkylarkDictOrNoneToDict(
+            Dict.castSkylarkDictOrNoneToDict(
                 executionRequirementsUnchecked,
                 String.class,
                 String.class,

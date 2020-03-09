@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: External Dependencies
+title: External dependencies
 ---
 
 # Working with external dependencies
@@ -229,7 +229,7 @@ be joined in myproject/WORKSPACE.
 
 
 <a name="using-proxies"></a>
-## Using Proxies
+## Using proxies
 
 Bazel will pick up proxy addresses from the `HTTPS_PROXY` and `HTTP_PROXY`
 environment variables and use these to download HTTP/HTTPS files (if specified).
@@ -238,10 +238,10 @@ environment variables and use these to download HTTP/HTTPS files (if specified).
 ## Transitive dependencies
 
 Bazel only reads dependencies listed in your `WORKSPACE` file. If your project
-(`A`) depends on another project (`B`) which list a dependency on a third
+(`A`) depends on another project (`B`) which lists a dependency on a third
 project (`C`) in its `WORKSPACE` file, you'll have to add both `B`
 and `C` to your project's `WORKSPACE` file. This requirement can balloon the
-`WORKSPACE` file size, but hopefully limits the chances of having one library
+`WORKSPACE` file size, but limits the chances of having one library
 include `C` at version 1.0 and another include `C` at 2.0.
 
 <a name="caching"></a>
@@ -296,7 +296,7 @@ dependencies](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff602
 in an internal
 [`distdir_tar`](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/distdir.bzl#L44).
 
-However, bazel allows the exeuction of arbitrary commands in repository rules,
+However, bazel allows the execution of arbitrary commands in repository rules,
 without knowing if they call out to the network. Therefore, bazel has no option
 to enforce builds being fully offline. So testing if a build works correctly
 offline requires external blocking of the network, as bazel does in its

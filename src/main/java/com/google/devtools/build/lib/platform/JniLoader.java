@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.platform;
 
-import com.google.devtools.build.lib.UnixJniLoader;
+import com.google.devtools.build.lib.unix.jni.UnixJniLoader;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.jni.WindowsJniLoader;
 
@@ -28,6 +28,7 @@ class JniLoader {
       switch (OS.getCurrent()) {
         case LINUX:
         case FREEBSD:
+        case OPENBSD:
         case UNKNOWN:
         case DARWIN:
           UnixJniLoader.loadJni();

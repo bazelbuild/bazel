@@ -180,7 +180,6 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     throw new IllegalStateException();
   }
 
-  @Override
   public abstract BigInteger getValueFingerprint();
 
   @Override

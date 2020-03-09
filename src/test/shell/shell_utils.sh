@@ -110,7 +110,7 @@ function get_real_path() {
 function md5_file() {
   if [ $# -gt 0 ]; then
     local result=""
-    if [[ ${PLATFORM} == "darwin" ]] || [[ ${PLATFORM} == "freebsd" ]]; then
+    if [[ ${PLATFORM} == "darwin" ]] || [[ ${PLATFORM} == "freebsd" ]] || [[ ${PLATFORM} == "openbsd" ]]; then
       result=$(md5 -q $@ || echo)
     else
       result=$(md5sum $@ | awk '{print $1}' || echo)

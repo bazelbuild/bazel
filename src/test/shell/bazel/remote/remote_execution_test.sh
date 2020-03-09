@@ -97,7 +97,7 @@ EOF
 
 function test_remote_grpc_via_unix_socket() {
   case "$PLATFORM" in
-  darwin|freebsd|linux)
+  darwin|freebsd|linux|openbsd)
     ;;
   *)
     return 0
@@ -164,6 +164,36 @@ EOF
   expect_log "2 processes: 2 remote"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
+}
+
+function test_cc_tree() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+load(":tree.bzl", "mytree")
+mytree(name = "tree")
+cc_library(name = "tree_cc", srcs = [":tree"])
+EOF
+  cat > a/tree.bzl <<EOF
+def _tree_impl(ctx):
+    tree = ctx.actions.declare_directory("file.cc")
+    ctx.actions.run_shell(outputs = [tree],
+                          command = "mkdir -p %s && touch %s/one.cc" % (tree.path, tree.path))
+    return [DefaultInfo(files = depset([tree]))]
+
+mytree = rule(implementation = _tree_impl)
+EOF
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:tree_cc >& "$TEST_log" \
+      || fail "Failed to build //a:tree_cc with minimal downloads"
 }
 
 function test_cc_test() {
@@ -1324,6 +1354,46 @@ EOF
     //a:foo || "Failed to build //a:foo"
 }
 
+function test_testxml_download_toplevel() {
+  # Test that a test action generating its own test.xml file works with
+  # --remote_download_toplevel.
+  mkdir -p a
+
+  cat > a/test.sh <<'EOF'
+#!/bin/sh
+
+cat > "$XML_OUTPUT_FILE" <<EOF2
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="test" tests="1" failures="0" errors="0">
+    <testcase name="test_case" status="run">
+      <system-out>test_case succeeded.</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>
+EOF2
+EOF
+
+  chmod +x a/test.sh
+
+  cat > a/BUILD <<EOF
+sh_test(
+  name = 'test',
+  srcs = [ 'test.sh' ],
+)
+EOF
+
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_toplevel \
+      //a:test \
+      || fail "Failed to run //a:test with remote execution"
+
+  TESTXML="bazel-testlogs/a/test/test.xml"
+  assert_contains "test_case succeeded" "$TESTXML"
+}
+
+
 function test_tag_no_remote_cache() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
@@ -1469,6 +1539,246 @@ EOF
   # --remote_default_platform_properties and --remote_default_exec_properties
   # are provided via command line
   expect_log "Setting both --remote_default_platform_properties and --remote_default_exec_properties is not allowed"
+}
+
+function test_genrule_combined_disk_grpc_cache() {
+  # Test for the combined disk and grpc cache.
+  # Built items should be pushed to both the disk and grpc cache.
+  # If --noremote_upload_local_results flag is set,
+  # built items should only be pushed to the disk cache.
+  # If --noremote_accept_cached flag is set,
+  # built items should only be checked from the disk cache.
+  # If an item is missing on disk cache, but present on grpc cache,
+  # then bazel should copy it from grpc cache to disk cache on fetch.
+
+  local cache="${TEST_TMPDIR}/cache"
+  local disk_flags="--disk_cache=$cache"
+  local grpc_flags="--remote_cache=grpc://localhost:${worker_port}"
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+genrule(
+name = 'test',
+cmd = 'echo "Hello world" > \$@',
+outs = [ 'test.txt' ],
+)
+EOF
+  rm -rf $cache
+  mkdir $cache
+
+  # Build and push to disk cache but not grpc cache
+  bazel build $disk_flags $grpc_flags --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results //a:test \
+    || fail "Failed to build //a:test with combined disk grpc cache"
+  cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  # No cache result from grpc cache, rebuild target
+  bazel clean
+  bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # No cache result from grpc cache, rebuild target, and upload result to grpc cache
+  bazel clean
+  bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+
+  # No cache result from grpc cache, rebuild target, and upload result to disk cache
+  bazel clean
+  bazel build $disk_flags $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # Build and push to disk cache and grpc cache
+  bazel clean
+  bazel build $disk_flags $grpc_flags //a:test \
+    || fail "Failed to build //a:test with combined disk grpc cache"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Built target generated different result"
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  # Fetch from grpc cache
+  bazel clean
+  bazel build $grpc_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from grpc cache"
+  expect_log "1 remote cache hit" "Fetch from grpc cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "HTTP cache generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # Copy from grpc cache to disk cache
+  bazel clean
+  bazel build $disk_flags $grpc_flags //a:test &> $TEST_log \
+    || fail "Failed to copy //a:test from grpc cache to disk cache"
+  expect_log "1 remote cache hit" "Copy from grpc cache to disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "HTTP cache generated different result"
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit" "Fetch from disk cache after copy from grpc cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  rm -rf $cache
+}
+
+function test_repo_remote_exec() {
+  # Test that repository_ctx.execute can execute a command remotely.
+
+  touch BUILD
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  res = ctx.execute(["/bin/bash", "-c", "echo -n $BAZEL_REMOTE_PLATFORM"])
+  if res.return_code != 0:
+    fail("Return code 0 expected, but was " + res.exit_code)
+
+  entries = res.stdout.split(",")
+  if len(entries) != 2:
+    fail("Two platform kv pairs expected. Got:" + str(entries))
+  if entries[0] != "ISA=x86-64":
+    fail("'ISA' expected in remote platform'")
+  if entries[1] != "OSFamily=Linux":
+    fail("'OSFamily' expected in remote platform'")
+
+  ctx.file("BUILD")
+
+foo_configure = repository_rule(
+  implementation = _impl,
+  remotable = True,
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:test.bzl", "foo_configure")
+
+foo_configure(
+  name = "default_foo",
+  exec_properties = {
+    "OSFamily" : "Linux",
+    "ISA" : "x86-64",
+  }
+)
+EOF
+
+  bazel fetch \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_repo_remote_exec \
+    @default_foo//:all
+}
+
+function test_repo_remote_exec_path_argument() {
+  # Test that repository_ctx.execute fails with a descriptive error message
+  # if a path argument is provided. The upload of files as part of command
+  # execution is not yet supported.
+
+  touch BUILD
+
+  echo "hello world" > input.txt
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  ctx.execute(["cat", ctx.path("input.txt")])
+  ctx.file("BUILD")
+
+foo_configure = repository_rule(
+  implementation = _impl,
+  remotable = True,
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:test.bzl", "foo_configure")
+
+foo_configure(
+  name = "default_foo",
+)
+EOF
+
+  bazel fetch \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_repo_remote_exec \
+    @default_foo//:all  >& $TEST_log && fail "Should fail" || true
+
+  expect_log "/input.txt"
+  expect_log "Paths are not supported for repository rules marked as remotable."
+}
+
+function test_repo_remote_exec_timeout() {
+  # Test that a remote job is killed if it exceeds the timeout.
+
+  touch BUILD
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  ctx.execute(["/bin/bash","-c",
+    "for i in {1..3}; do echo \"Sleeping $i...\" && sleep 1; done"], timeout=1)
+  ctx.file("BUILD")
+
+foo_configure = repository_rule(
+  implementation = _impl,
+  remotable = True,
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:test.bzl", "foo_configure")
+
+foo_configure(
+  name = "default_foo",
+)
+EOF
+
+  bazel fetch \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_repo_remote_exec \
+    @default_foo//:all >& $TEST_log && fail "Should fail" || true
+
+  expect_log "exceeded deadline"
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker

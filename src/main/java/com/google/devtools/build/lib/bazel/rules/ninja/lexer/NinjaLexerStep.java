@@ -46,7 +46,9 @@ import java.util.function.Predicate;
 public class NinjaLexerStep {
   private static final ImmutableSortedSet<Byte> IDENTIFIER_SYMBOLS =
       createByteSet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-");
-  private static final ImmutableSortedSet<Byte> TEXT_STOPPERS = createByteSet("\n\r \t#$=:|\u0000");
+  private static final ImmutableSortedSet<Byte> TEXT_STOPPERS = createByteSet("\n\r \t$:\u0000");
+  // We allow # symbol in the path, so the comment on the line with path can only start with space.
+  private static final ImmutableSortedSet<Byte> PATH_STOPPERS = createByteSet("\n\r \t$:|\u0000");
 
   private static ImmutableSortedSet<Byte> createByteSet(String variants) {
     ImmutableSortedSet.Builder<Byte> builder = ImmutableSortedSet.naturalOrder();
@@ -62,8 +64,6 @@ public class NinjaLexerStep {
 
   private boolean seenZero;
   private String error;
-  // Used to cut the starting escape symbol from the resulting text fragment.
-  private int skipStart = 0;
   private int end;
 
   /**
@@ -102,7 +102,7 @@ public class NinjaLexerStep {
 
   /** Return step bytes, taking into account possible escaped symbol offset. */
   public byte[] getBytes() {
-    return fragment.getBytes(position + skipStart, end);
+    return fragment.getBytes(position, end);
   }
 
   public int getPosition() {
@@ -118,7 +118,7 @@ public class NinjaLexerStep {
   }
 
   public int getStart() {
-    return position + skipStart;
+    return position;
   }
 
   public int getEnd() {
@@ -142,7 +142,7 @@ public class NinjaLexerStep {
   }
 
   public void skipSpaces() {
-    end = eatSequence(position, aByte -> ' ' != aByte);
+    end = eatSequence(position, aByte -> ' ' != aByte && '\t' != aByte);
   }
 
   public void skipComment() {
@@ -213,7 +213,6 @@ public class NinjaLexerStep {
   public boolean tryReadEscapedLiteral() {
     if (checkForward(1, '$', ':', ' ')) {
       // Escaped literal.
-      skipStart = 1;
       end = position + 2;
       return true;
     }
@@ -223,7 +222,11 @@ public class NinjaLexerStep {
   public void tryReadIdentifier() {
     end = readIdentifier(position, true);
     if (position >= end) {
-      error = "Symbol is not allowed in the identifier.";
+      error =
+          String.format(
+              "Symbol '%s' is not allowed in the identifier,"
+                  + " the text fragment with the symbol:\n%s\n",
+              fragment.subFragment(position, position + 1), fragment.getFragmentAround(position));
       end = position + 1;
     }
   }
@@ -239,6 +242,10 @@ public class NinjaLexerStep {
 
   public void readText() {
     end = eatSequence(position, TEXT_STOPPERS::contains);
+  }
+
+  public void readPath() {
+    end = eatSequence(position, PATH_STOPPERS::contains);
   }
 
   private int readIdentifier(int startFrom, boolean withDot) {

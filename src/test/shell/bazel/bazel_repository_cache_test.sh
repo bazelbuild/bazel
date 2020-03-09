@@ -74,41 +74,6 @@ EOF
   touch BUILD
 }
 
-function setup_maven_repository() {
-  mkdir -p zoo
-  cat > zoo/BUILD <<EOF
-java_binary(
-    name = "ball-pit",
-    srcs = ["BallPit.java"],
-    main_class = "BallPit",
-    deps = ["//external:mongoose"],
-)
-EOF
-
-  cat > zoo/BallPit.java <<EOF
-import carnivore.Mongoose;
-
-public class BallPit {
-    public static void main(String args[]) {
-        Mongoose.frolic();
-    }
-}
-EOF
-
-  serve_artifact com.example.carnivore carnivore 1.23
-
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-maven_jar(
-    name = 'endangered',
-    artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://localhost:$fileserver_port/',
-    sha1 = '$sha1',
-    sha1_src = '$sha1_src',
-)
-bind(name = 'mongoose', actual = '@endangered//jar')
-EOF
-}
-
 # Test downloading a file from a repository.
 # This creates a simple repository containing:
 #
@@ -293,9 +258,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
-    url = 'http://localhost:$nc_port/bleh',
+    url = 'file://$repo2_zip',
     type = 'zip',
-)
+    )
 EOF
 
   # Fetch; as we did not specify a hash, we expect bazel to tell us the hash
@@ -306,7 +271,6 @@ EOF
   # to do without checksum. But we can safely do so, as the loopback device
   # is reasonably safe against man-in-the-middle attacks.
   bazel fetch --repository_cache="$repo_cache_dir" \
-        --noincompatible_disallow_unverified_http_downloads \
         //zoo:breeding-program >& $TEST_log \
     || fail "expected fetch to succeed"
 
@@ -315,6 +279,7 @@ EOF
   # Shutdown the server; so fetching again won't work
   shutdown_server
   bazel clean --expunge
+  rm -f $repo2_zip
 
   # As we don't have a predicted cache, we expect fetching to fail now.
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
@@ -498,58 +463,6 @@ EOF
     && echo "Expected fetch to fail"
 
   expect_log "Error downloading"
-}
-
-function test_maven_jar_exists_in_cache() {
-  setup_maven_repository
-
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  if [ ! -f $repo_cache_dir/content_addressable/sha1/$sha1/file ]; then
-    fail "the jar file was not cached successfully"
-  fi
-
-  if [ ! -f $repo_cache_dir/content_addressable/sha1/$sha1_src/file ]; then
-    fail "the sources file was not cached successfully"
-  fi
-}
-
-function test_load_cached_value_maven_jar() {
-  setup_maven_repository
-
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  # Kill the server
-  shutdown_server
-  bazel clean --expunge
-
-  # Fetch again
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  expect_log "All external dependencies fetched successfully"
-}
-
-function test_maven_jar_fail_without_cache() {
-  setup_maven_repository
-
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  # Kill the server
-  shutdown_server
-  bazel clean --expunge
-
-  # Clean the repository cache
-  rm -rf "$repo_cache_dir"
-
-  # Fetch again
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:ball-pit >& $TEST_log \
-    && echo "Expected fetch to fail"
-
-  expect_log "Failed to fetch Maven dependency"
 }
 
 run_suite "repository cache tests"

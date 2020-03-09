@@ -888,4 +888,42 @@ public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
             .patch(topLevelOptions);
     assertThat(depOptions).isSameInstanceAs(topLevelOptions);
   }
+
+  @Test
+  public void featureFlagSetAndInTransitiveConfigs_GetsSetValueWhenTrimTest() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':read_flags.bzl', 'read_flags')",
+        "feature_flag_setter(",
+        "    name = 'target',",
+        "    deps = [':reader'],",
+        "    flag_values = {",
+        "        ':trimmed_flag': 'left',",
+        "        ':used_flag': 'configured',",
+        "    },",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "read_flags(",
+        "    name = 'reader',",
+        "    flags = [':used_flag'],",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'trimmed_flag',",
+        "    allowed_values = ['default', 'left', 'right'],",
+        "    default_value = 'default',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'used_flag',",
+        "    allowed_values = ['default', 'configured', 'other'],",
+        "    default_value = 'default',",
+        ")");
+    enableManualTrimmingAnd("--trim_test_configuration");
+
+    Artifact targetFlags =
+        Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
+
+    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
+  }
 }

@@ -58,14 +58,12 @@ import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -113,16 +111,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       Object mandatoryKey,
       Object optionalKey,
       StarlarkThread thread) {
-    return EvalUtils.optionMap(
-        thread,
-        "mandatory",
-        mandatory,
-        "optional",
-        optional,
-        "mandatory_key",
-        mandatoryKey,
-        "optional_key",
-        optionalKey);
+    Map<String, Object> m = new HashMap<>();
+    m.put("mandatory", mandatory);
+    m.put("optional", optional);
+    m.put("mandatory_key", mandatoryKey);
+    m.put("optional_key", optionalKey);
+    return m;
   }
 
   @Before
@@ -228,20 +222,20 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testSkylarkFunctionTooFewArguments() throws Exception {
     checkSkylarkFunctionError(
-        "parameter 'mandatory' has no default value", "mock(mandatory_key='y')");
+        "missing 1 required positional argument: mandatory", "mock(mandatory_key='y')");
   }
 
   @Test
   public void testSkylarkFunctionTooManyArguments() throws Exception {
     checkSkylarkFunctionError(
-        "expected no more than 2 positional arguments, but got 3",
+        "mock() accepts no more than 2 positional arguments but got 3",
         "mock('a', 'b', 'c', mandatory_key='y')");
   }
 
   @Test
   public void testSkylarkFunctionAmbiguousArguments() throws Exception {
     checkSkylarkFunctionError(
-        "got multiple values for keyword argument 'mandatory'",
+        "mock() got multiple values for argument 'mandatory'",
         "mock('by position', mandatory='by_key', mandatory_key='c')");
   }
 
@@ -279,7 +273,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertArtifactFilenames(action.getInputs(), "a.txt", "b.img");
+    assertArtifactFilenames(action.getInputs().toList(), "a.txt", "b.img");
     assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
     MoreAsserts.assertContainsSublist(
         action.getArguments(), "-c", "dummy_command", "", "--a", "--b");
@@ -302,7 +296,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertArtifactFilenames(action.getInputs(), "a.txt", "b.img", "t.exe");
+    assertArtifactFilenames(action.getInputs().toList(), "a.txt", "b.img", "t.exe");
     assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
     MoreAsserts.assertContainsSublist(action.getArguments(), "foo/t.exe", "--a", "--b");
   }
@@ -322,7 +316,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertArtifactFilenames(action.getInputs(), "a.txt", "b.img", "t.exe");
+    assertArtifactFilenames(action.getInputs().toList(), "a.txt", "b.img", "t.exe");
     assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
     MoreAsserts.assertContainsSublist(action.getArguments(), "foo/t.exe", "--a", "--b");
   }
@@ -331,8 +325,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected value of type 'File or string or FilesToRunProvider' for parameter 'executable', "
-            + "for call to method run(",
+        "got value of type 'int', want 'File or string or FilesToRunProvider'",
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -386,7 +379,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionUnknownParam() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "unexpected keyword 'bad_param', for call to method run(",
+        "run() got unexpected keyword argument 'bad_param'",
         "f = ruleContext.actions.declare_file('foo.sh')",
         "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
   }
@@ -465,7 +458,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         ")");
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
-    assertThat(action.getTools()).isNotEmpty();
+    assertThat(action.getTools().toList()).isNotEmpty();
   }
 
   @Test
@@ -481,7 +474,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         ")");
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
-    assertThat(action.getTools()).isNotEmpty();
+    assertThat(action.getTools().toList()).isNotEmpty();
   }
 
   @Test
@@ -497,7 +490,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         ")");
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
-    assertThat(action.getTools()).isNotEmpty();
+    assertThat(action.getTools().toList()).isNotEmpty();
   }
 
   @Test
@@ -547,14 +540,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     checkEmptyAction("mnemonic = 'test', inputs = depset(ruleContext.files.srcs)");
 
     checkEvalErrorContains(
-        "parameter 'mnemonic' has no default value, for call to method "
-            + "do_nothing(mnemonic, inputs = []) of 'actions'",
+        "do_nothing() missing 1 required named argument: mnemonic",
         "ruleContext.actions.do_nothing(inputs = ruleContext.files.srcs)");
   }
 
   private void checkEmptyAction(String namedArgs) throws Exception {
     assertThat(eval(String.format("ruleContext.actions.do_nothing(%s)", namedArgs)))
-        .isEqualTo(Runtime.NONE);
+        .isEqualTo(Starlark.NONE);
   }
 
   @Test
@@ -646,7 +638,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   private void assertMatches(String description, String expectedPattern, String computedValue)
       throws Exception {
     assertWithMessage(
-            Printer.format(
+            Starlark.format(
                 "%s %r did not match pattern '%s'", description, computedValue, expectedPattern))
         .that(Pattern.matches(expectedPattern, computedValue))
         .isTrue();
@@ -660,7 +652,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  command='I got the $(HELLO) on a $(DAVE)', ",
         "  make_variables={'HELLO': 'World', 'DAVE': type('')})");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
     assertThat(argv).hasSize(3);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
@@ -674,7 +666,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "inputs, argv, input_manifests = ruleContext.resolve_command(",
         "   tools=ruleContext.attr.tools)");
     @SuppressWarnings("unchecked")
-    List<Artifact> inputs = (List<Artifact>) (List<?>) (MutableList) lookup("inputs");
+    List<Artifact> inputs = (List<Artifact>) (List<?>) (StarlarkList) lookup("inputs");
     assertArtifactFilenames(
         inputs,
         "mytool.sh",
@@ -702,7 +694,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    attribute='cmd', expand_locations=True, label_dict=label_dict)",
         "inputs, argv, manifests = foo()");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
     assertThat(argv).hasSize(3);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
@@ -717,7 +709,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "inputs, argv, manifests = ruleContext.resolve_command(",
         "  execution_requirements={'requires-darwin': ''})");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
     assertMatches("argv[0]", "^/bin/bash$", argv.get(0));
   }
 
@@ -732,7 +724,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    command=s)",
         "argv = foo()[1]");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
     assertThat(argv).hasSize(2);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertMatches("argv[1]", "^.*/resolve_me[.][a-z0-9]+[.]script[.]sh$", argv.get(1));
@@ -751,7 +743,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    executable = 'dummy',",
         ")");
     assertArtifactFilenames(
-        ((SkylarkNestedSet) lookup("inputs")).getSet(Artifact.class),
+        ((Depset) lookup("inputs")).getSet(Artifact.class).toList(),
         "mytool.sh",
         "mytool",
         "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
@@ -777,7 +769,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testBadParamTypeErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected value of type 'string or Args' for parameter 'content'",
+        "got value of type 'int', want 'string or Args'",
         "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 1,",
@@ -797,8 +789,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
         ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(Iterables.getOnlyElement(action.getInputs()).getExecPathString())
-        .isEqualTo("foo/a.txt");
+    assertThat(action.getInputs().getSingleton().getExecPathString()).isEqualTo("foo/a.txt");
     assertThat(Iterables.getOnlyElement(action.getOutputs()).getExecPathString())
         .isEqualTo("foo/b.img");
     assertThat(Iterables.getOnlyElement(action.getSubstitutions()).getKey()).isEqualTo("a");
@@ -858,8 +849,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadSetGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected value of type 'depset of Files or NoneType' for parameter 'transitive_files', "
-            + "for call to method runfiles(",
+        "got value of type 'depset', want 'depset of Files or NoneType'",
         "ruleContext.runfiles(transitive_files=depset([1, 2, 3]))");
   }
 
@@ -949,14 +939,14 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   private static Iterable<Artifact> getRunfileArtifacts(Object runfiles) {
-    return ((Runfiles) runfiles).getAllArtifacts();
+    return ((Runfiles) runfiles).getAllArtifacts().toList();
   }
 
   @Test
   public void testRunfilesBadKeywordArguments() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "unexpected keyword 'bad_keyword', for call to method runfiles(",
+        "runfiles() got unexpected keyword argument 'bad_keyword'",
         "ruleContext.runfiles(bad_keyword = '')");
   }
 
@@ -964,7 +954,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testNsetContainsList() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "depsets cannot contain items of type 'list'", "depset([[ruleContext.files.srcs]])");
+        "depset elements must not be mutable values", "depset([[ruleContext.files.srcs]])");
   }
 
   @Test
@@ -978,7 +968,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testStructPlusArtifactErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "unsupported operand type(s) for +: 'File' and 'struct'",
+        "unsupported binary operation: File + struct",
         "ruleContext.files.tools[0] + struct(a = 1)");
   }
 
@@ -994,7 +984,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testFilesForRuleConfiguredTarget() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result = eval("ruleContext.attr.srcs[0].files");
-    assertThat(ActionsTestUtil.baseNamesOf(((SkylarkNestedSet) result).getSet(Artifact.class)))
+    assertThat(ActionsTestUtil.baseNamesOf(((Depset) result).getSet(Artifact.class)))
         .isEqualTo("a.txt");
   }
 
@@ -1061,7 +1051,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("rule_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("rule_data_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("rule_data_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
@@ -1069,14 +1059,14 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("rule_default_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("rule_default_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("rule_default_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
 
-    assertThat(myInfo.getValue("rule_files")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(myInfo.getValue("rule_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
-    assertThat(myInfo.getValue("rule_file_executable")).isEqualTo(Runtime.NONE);
+    assertThat(myInfo.getValue("rule_file_executable")).isEqualTo(Starlark.NONE);
   }
 
   @Test
@@ -1141,7 +1131,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("rule_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("rule_data_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("rule_data_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
@@ -1149,12 +1139,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("rule_default_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("rule_default_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("rule_default_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
 
-    assertThat(myInfo.getValue("rule_files")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(myInfo.getValue("rule_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
   }
 
@@ -1234,18 +1224,18 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("file_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("file_data_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("file_data_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .isEmpty();
 
     assertThat(myInfo.getValue("file_default_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("file_default_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("file_default_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .isEmpty();
 
-    assertThat(myInfo.getValue("file_files")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(myInfo.getValue("file_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("file_files_to_run")).isInstanceOf(FilesToRunProvider.class);
   }
 
@@ -1313,7 +1303,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("unexpected keyword 'foo', for call to function DefaultInfo(");
+        .contains("DefaultInfo() got unexpected keyword argument 'foo'");
   }
 
   @Test
@@ -1798,7 +1788,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testFilesForFileConfiguredTarget() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
     Object result = eval("ruleContext.attr.srcs[0].files");
-    assertThat(ActionsTestUtil.baseNamesOf(((SkylarkNestedSet) result).getSet(Artifact.class)))
+    assertThat(ActionsTestUtil.baseNamesOf(((Depset) result).getSet(Artifact.class)))
         .isEqualTo("libjl.jar");
   }
 
@@ -1824,7 +1814,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testEmptyLabelListTypeAttrInCtx() throws Exception {
     setRuleContext(createRuleContext("//foo:baz"));
     Object result = eval("ruleContext.attr.srcs");
-    assertThat(result).isEqualTo(MutableList.empty());
+    assertThat(result).isEqualTo(StarlarkList.empty());
   }
 
   @Test
@@ -1937,7 +1927,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  srcs = ['foo.bar', 'other_foo.bar'])");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("native.glob() can only be called during the loading phase");
+    assertContainsEvent("The native module can be accessed only from a BUILD thread.");
   }
 
   @Test
@@ -2005,9 +1995,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
+    // This confusing message shows why we should distinguish
+    // built-ins and Starlark functions in their repr strings.
     thrown.expectMessage(
-        "expected value of type 'function' for parameter 'implementation', "
-            + "for call to function rule");
+        "in call to rule(), parameter 'implementation' got value of type 'function', want"
+            + " 'function'");
     getConfiguredTarget("//test:silly");
   }
 
@@ -2371,7 +2363,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "args = ruleContext.actions.args()",
         "args.add_all(1)");
     checkEvalErrorContains(
-        "expected value of type 'sequence or depset' for parameter 'values'",
+        "in call to add_all(), parameter 'values' got value of type 'int', want 'sequence or"
+            + " depset'",
         "args = ruleContext.actions.args()",
         "args.add_all('--foo', 1)");
   }
@@ -2428,7 +2421,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     CommandLineExpansionException e =
         assertThrows(CommandLineExpansionException.class, () -> action.getArguments());
-    assertThat(e.getMessage()).contains("type 'string' has no method nosuchmethod()");
+    assertThat(e).hasMessageThat().contains("'string' value has no field or method 'nosuchmethod'");
   }
 
   @Test
@@ -2528,7 +2521,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  return [MyInfo(dep_arg = args)]",
         "dep_rule = rule(implementation = _dep_impl)");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
-    assertThat(e).hasMessageThat().contains("cannot modify frozen value");
+    assertThat(e).hasMessageThat().contains("trying to mutate a frozen object");
   }
 
   @Test
@@ -2734,8 +2727,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
-        getGeneratingAction(
-            Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
+        getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
         .containsAtLeast("tool", "tool.sh", "data");
   }
@@ -2762,8 +2754,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
-        getGeneratingAction(
-            Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
+        getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
         .containsAtLeast("tool", "tool.sh", "data");
   }
@@ -2793,8 +2784,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(expected)
         .hasMessageThat()
         .contains(
-            "expected value of type 'int or function' for parameter 'default', "
-                + "for call to method int(");
+            "in call to int(), parameter 'default' got value of type 'LateBoundDefault', want"
+                + " 'int'");
   }
 
   @Test
@@ -2902,7 +2893,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     setRuleContext(createRuleContext("//foo:foo"));
     exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
     Args args = (Args) eval("args");
-    assertThat(Printer.debugPrint(args)).isEqualTo("--foo --bar");
+    assertThat(Printer.getPrinter().debugPrint(args).toString()).isEqualTo("--foo --bar");
   }
 
   @Test
@@ -2913,7 +2904,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "directory = ruleContext.actions.declare_directory('dir')",
         "def _short_path(f): return f.short_path", // For easier assertions
         "args.add_all([directory], map_each=_short_path)");
-    SkylarkList<?> result = (SkylarkList<?>) eval("args, directory");
+    Sequence<?> result = (Sequence<?>) eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build();
@@ -2940,7 +2931,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "def _short_path(f): return f.short_path", // For easier assertions
         "args.add_all([directory], map_each=_short_path, expand_directories=True)",
         "args.add_all([directory], map_each=_short_path, expand_directories=False)");
-    SkylarkList<?> result = (SkylarkList<?>) eval("args, directory");
+    Sequence<?> result = (Sequence<?>) eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build();
@@ -2975,11 +2966,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "args.add_all([directory])",
         "params = ruleContext.actions.declare_file('params')",
         "ruleContext.actions.write(params, args)");
-    SkylarkList<?> result = (SkylarkList<?>) eval("params, directory");
+    Sequence<?> result = (Sequence<?>) eval("params, directory");
     Artifact params = (Artifact) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     ActionAnalysisMetadata action =
         ctx.getRuleContext().getAnalysisEnvironment().getLocalGeneratingAction(params);
-    assertThat(action.getInputs()).contains(directory);
+    assertThat(action.getInputs().toList()).contains(directory);
   }
 }

@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.python;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /** Provider instance for {@code py_runtime}. */
@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
             + "wrapper script that is capable of running a Python script passed on the command "
             + "line, following the same conventions as the standard CPython interpreter.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface PyRuntimeInfoApi<FileT extends FileApi> extends SkylarkValue {
+public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
       name = "interpreter_path",
@@ -76,7 +76,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends SkylarkValue {
               + "of <code>interpreter</code> need not be included in this "
               + "field. If this is a platform runtime then this field is <code>None</code>.")
   @Nullable
-  SkylarkNestedSet getFilesForStarlark();
+  Depset getFilesForStarlark();
 
   @SkylarkCallable(
       name = "python_version",
@@ -116,7 +116,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends SkylarkValue {
                       + "a value for this argument if you pass in <code>interpreter_path</code>."),
           @Param(
               name = "files",
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class,
               noneable = true,
               positional = false,
@@ -134,15 +134,15 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends SkylarkValue {
               named = true,
               doc = "The value for the new object's <code>python_version</code> field."),
         },
-        selfCall = true,
-        useLocation = true)
+        useStarlarkThread = true,
+        selfCall = true)
     @SkylarkConstructor(objectType = PyRuntimeInfoApi.class, receiverNameForDoc = "PyRuntimeInfo")
     PyRuntimeInfoApi<?> constructor(
         Object interpreterPathUncast,
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException;
   }
 }

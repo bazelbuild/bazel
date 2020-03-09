@@ -117,7 +117,6 @@ public class HeaderClassLoader extends ClassLoader {
     }
   }
 
-
   /**
    * Class visitor that stubs in missing code attributes, and erases the body of the static
    * initializer of functional interfaces if the interfaces have default methods. The erasion of the

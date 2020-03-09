@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -237,7 +238,8 @@ public final class ConfiguredTargetFactory {
               visibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
-              inputFile.getExecPath(),
+              inputFile.getExecPath(
+                  analysisEnvironment.getSkylarkSemantics().experimentalSiblingRepositoryLayout()),
               inputFile.getPackage().getSourceRoot(),
               ConfiguredTargetKey.of(target.getLabel(), config));
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
@@ -288,7 +290,8 @@ public final class ConfiguredTargetFactory {
    * @param configuration the configuration for this rule
    * @param universallyRequiredFragments fragments that are always required even if not explicitly
    *     specified for this rule
-   * @param directlyRequiredFragments fragments directly required by this rule's definition
+   * @param configurationFragmentPolicy source of truth for the fragments required by this rule's
+   *     rule class
    * @param configConditions {@link FragmentOptions} required by {@code select}s on this rule. This
    *     is a different type than the others: options and fragments are different concepts. There's
    *     some subtlety to their relationship (e.g. a {@link FragmentOptions} can be associated with
@@ -303,7 +306,7 @@ public final class ConfiguredTargetFactory {
       Rule rule,
       BuildConfiguration configuration,
       Collection<Class<? extends BuildConfiguration.Fragment>> universallyRequiredFragments,
-      Collection<Class<?>> directlyRequiredFragments,
+      ConfigurationFragmentPolicy configurationFragmentPolicy,
       Collection<ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
     TreeSet<String> requiredFragments = new TreeSet<>();
@@ -316,17 +319,57 @@ public final class ConfiguredTargetFactory {
 
     // Add directly required fragments:
 
-    // Fragments explicitly required by this rule:
-    directlyRequiredFragments.forEach(fragment -> requiredFragments.add(fragment.getSimpleName()));
+    // Fragments explicitly required by this rule via the native rule definition API:
+    configurationFragmentPolicy
+        .getRequiredConfigurationFragments()
+        .forEach(fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
+    // Fragments explicitly required by this rule via the Starlark rule definition API:
+    configurationFragmentPolicy
+        .getRequiredStarlarkFragments()
+        .forEach(
+            starlarkName -> {
+              requiredFragments.add(
+                  ClassName.getSimpleNameWithOuter(
+                      configuration.getSkylarkFragmentByName(starlarkName)));
+            });
     // Fragments universally required by all rules:
     universallyRequiredFragments.forEach(
-        fragment -> requiredFragments.add(fragment.getSimpleName()));
+        fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
     // Fragments required by config_conditions this rule select()s on:
     configConditions.forEach(
         configCondition -> requiredFragments.addAll(configCondition.getRequiredFragmentOptions()));
     // We consider build settings (which are both rules and configuration) to require themselves:
     if (rule.isBuildSetting()) {
       requiredFragments.add(rule.getLabel().toString());
+    }
+
+    // Optionally add transitively required fragments:
+    requiredFragments.addAll(getRequiredConfigFragmentsFromDeps(configuration, prerequisites));
+    return ImmutableSet.copyOf(requiredFragments);
+  }
+
+  /**
+   * Subset of {@link #getRequiredConfigFragments} that only returns fragments required by deps.
+   * This includes:
+   *
+   * <ul>
+   *   <li>Requirements transitively required by deps iff {@link
+   *       CoreOptions#includeRequiredConfigFragmentsProvider} is {@link
+   *       CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE},
+   *   <li>Dependencies on Starlark build settings iff {@link
+   *       CoreOptions#includeRequiredConfigFragmentsProvider} is not {@link
+   *       CoreOptions.IncludeConfigFragmentsEnum#OFF}. These are considered direct requirements on
+   *       the rule.
+   * </ul>
+   */
+  private static ImmutableSet<String> getRequiredConfigFragmentsFromDeps(
+      BuildConfiguration configuration, Iterable<ConfiguredTargetAndData> prerequisites) {
+
+    TreeSet<String> requiredFragments = new TreeSet<>();
+    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+    if (coreOptions.includeRequiredConfigFragmentsProvider
+        == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
+      return ImmutableSet.of();
     }
 
     for (ConfiguredTargetAndData prereq : prerequisites) {
@@ -390,7 +433,7 @@ public final class ConfiguredTargetFactory {
                     rule,
                     configuration,
                     ruleClassProvider.getUniversalFragments(),
-                    configurationFragmentPolicy.getRequiredConfigurationFragments(),
+                    configurationFragmentPolicy,
                     configConditions.values(),
                     prerequisiteMap.values()))
             .build();
@@ -586,6 +629,10 @@ public final class ConfiguredTargetFactory {
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContext(toolchainContext)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
+            .setRequiredConfigFragments(
+                // Aspects have no direct fragment requirements: all requirements come from implicit
+                // label dependencies.
+                getRequiredConfigFragmentsFromDeps(aspectConfiguration, prerequisiteMap.values()))
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors

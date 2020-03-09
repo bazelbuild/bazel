@@ -19,16 +19,13 @@ import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * A test class for functions and scoping.
- */
+/** A test class for functions and scoping. */
 @RunWith(JUnit4.class)
-public class FunctionTest extends EvaluationTestCase {
+public final class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDef() throws Exception {
@@ -40,7 +37,6 @@ public class FunctionTest extends EvaluationTestCase {
     assertThat(stmt).isNotNull();
     assertThat(stmt.getName()).isEqualTo("func");
     assertThat(stmt.getSignature().numMandatoryPositionals()).isEqualTo(3);
-    assertThat(stmt.getStatements()).hasSize(2);
   }
 
   @Test
@@ -68,17 +64,19 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   private void createOuterFunction(final List<Object> params) throws Exception {
-    BaseFunction outerFunc =
-        new BaseFunction("outer_func", FunctionSignature.ANY) {
+    StarlarkCallable outerFunc =
+        new StarlarkCallable() {
           @Override
-          public Object call(
-              List<Object> args,
-              Map<String, Object> kwargs,
-              FuncallExpression ast,
-              StarlarkThread thread)
-              throws EvalException, InterruptedException {
+          public String getName() {
+            return "outer_func";
+          }
+
+          @Override
+          public NoneType call(
+              StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
+              throws EvalException {
             params.addAll(args);
-            return Runtime.NONE;
+            return Starlark.NONE;
           }
         };
     update("outer_func", outerFunc);
@@ -341,19 +339,63 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testKeywordOnlyIsForbidden() throws Exception {
-    checkEvalErrorContains("forbidden", "def foo(a, b, *, c): return a + b + c");
+  public void testKeywordOnly() throws Exception {
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *, b)",
+        "def func(a, *, b): pass",
+        "func(5)");
+
+    checkEvalError(
+        "too many (2) positional arguments in call to func(a, *, b)",
+        "def func(a, *, b): pass",
+        "func(5, 6)");
+
+    exec("def func(a, *, b, c = 'c'): return a + b + c");
+    assertThat(eval("func('a', b = 'b')")).isEqualTo("abc");
+    assertThat(eval("func('a', b = 'b', c = 'd')")).isEqualTo("abd");
   }
 
   @Test
-  public void testParamAfterStarArgs() throws Exception {
-    checkEvalErrorContains("forbidden", "def foo(a, *b, c): return a");
+  public void testStarArgsAndKeywordOnly() throws Exception {
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *args, b)",
+        "def func(a, *args, b): pass",
+        "func(5)");
+
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *args, b)",
+        "def func(a, *args, b): pass",
+        "func(5, 6)");
+
+    exec("def func(a, *args, b, c = 'c'): return a + str(args) + b + c");
+    assertThat(eval("func('a', b = 'b')")).isEqualTo("a()bc");
+    assertThat(eval("func('a', b = 'b', c = 'd')")).isEqualTo("a()bd");
+    assertThat(eval("func('a', 1, 2, b = 'b')")).isEqualTo("a(1, 2)bc");
+    assertThat(eval("func('a', 1, 2, b = 'b', c = 'd')")).isEqualTo("a(1, 2)bd");
+  }
+
+  @Test
+  public void testKeywordOnlyAfterStarArg() throws Exception {
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *b, c)",
+        "def func(a, *b, c): pass",
+        "func(5)");
+
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *b, c)",
+        "def func(a, *b, c): pass",
+        "func(5, 6, 7)");
+
+    exec("def func(a, *b, c): return a + str(b) + c");
+    assertThat(eval("func('a', c = 'c')")).isEqualTo("a()c");
+    assertThat(eval("func('a', 1, c = 'c')")).isEqualTo("a(1,)c");
+    assertThat(eval("func('a', 1, 2, c = 'c')")).isEqualTo("a(1, 2)c");
   }
 
   @Test
   public void testKwargsBadKey() throws Exception {
     checkEvalError(
-        "keywords must be strings, not 'int'",
+        "keywords must be strings, not int", //
         "def func(a, b): return a + b",
         "func('a', **{3: 1})");
   }
@@ -361,21 +403,23 @@ public class FunctionTest extends EvaluationTestCase {
   @Test
   public void testKwargsIsNotDict() throws Exception {
     checkEvalError(
-        "argument after ** must be a dictionary, not 'int'",
+        "argument after ** must be a dict, not int",
         "def func(a, b): return a + b",
         "func('a', **42)");
   }
 
   @Test
   public void testKwargsCollision() throws Exception {
-    checkEvalError("argument 'b' passed both by position and by name in call to func(a, b)",
+    checkEvalError(
+        "func(a, b) got multiple values for parameter 'b'",
         "def func(a, b): return a + b",
         "func('a', 'b', **{'b': 'foo'})");
   }
 
   @Test
   public void testKwargsCollisionWithNamed() throws Exception {
-    checkEvalError("duplicate keyword 'b' in call to func",
+    checkEvalError(
+        "func(a, b) got multiple values for parameter 'b'",
         "def func(a, b): return a + b",
         "func('a', b = 'b', **{'b': 'foo'})");
   }

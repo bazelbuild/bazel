@@ -14,19 +14,17 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Module providing functions to create actions. */
 @SkylarkModule(
@@ -35,7 +33,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     doc =
         "Module providing functions to create actions. "
             + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>.")
-public interface SkylarkActionFactoryApi extends SkylarkValue {
+public interface SkylarkActionFactoryApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "declare_file",
@@ -73,9 +71,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             positional = false,
             named = true,
             defaultValue = "None")
-      },
-      useLocation = true)
-  public FileApi declareFile(String filename, Object sibling, Location loc) throws EvalException;
+      })
+  FileApi declareFile(String filename, Object sibling) throws EvalException;
 
   @SkylarkCallable(
       name = "declare_directory",
@@ -102,7 +99,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             named = true,
             defaultValue = "None")
       })
-  public FileApi declareDirectory(String filename, Object sibling) throws EvalException;
+  FileApi declareDirectory(String filename, Object sibling) throws EvalException;
 
   @SkylarkCallable(
       name = "declare_symlink",
@@ -130,10 +127,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             positional = false,
             named = true,
             defaultValue = "None")
-      },
-      useLocation = true)
-  public FileApi declareSymlink(String filename, Object sibling, Location location)
-      throws EvalException;
+      })
+  FileApi declareSymlink(String filename, Object sibling) throws EvalException;
 
   @SkylarkCallable(
       name = "do_nothing",
@@ -150,17 +145,16 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
         @Param(
             name = "inputs",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             named = true,
             positional = false,
             defaultValue = "[]",
             doc = "List of the input files of the action."),
-      },
-      useLocation = true)
-  public void doNothing(String mnemonic, Object inputs, Location location) throws EvalException;
+      })
+  void doNothing(String mnemonic, Object inputs) throws EvalException;
 
   @SkylarkCallable(
       name = "symlink",
@@ -174,9 +168,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
       parameters = {
         @Param(name = "output", type = FileApi.class, doc = "The output path.", named = true),
         @Param(name = "target", type = String.class, doc = "The target.", named = true),
-      },
-      useLocation = true)
-  public void symlink(FileApi output, String targetPath, Location location) throws EvalException;
+      })
+  void symlink(FileApi output, String targetPath) throws EvalException;
 
   @SkylarkCallable(
       name = "write",
@@ -205,10 +198,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             defaultValue = "False",
             doc = "Whether the output file should be executable.",
             named = true)
-      },
-      useLocation = true)
-  public void write(FileApi output, Object content, Boolean isExecutable, Location location)
-      throws EvalException;
+      })
+  void write(FileApi output, Object content, Boolean isExecutable) throws EvalException;
 
   @SkylarkCallable(
       name = "run",
@@ -219,7 +210,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
       parameters = {
         @Param(
             name = "outputs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             named = true,
             positional = false,
@@ -227,8 +218,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
         @Param(
             name = "inputs",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "[]",
@@ -266,8 +257,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
         @Param(
             name = "tools",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
             },
             defaultValue = "unbound",
             named = true,
@@ -280,7 +271,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             name = "arguments",
             type = Object.class,
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
+              @ParamType(type = Sequence.class),
             },
             defaultValue = "[]",
             named = true,
@@ -316,7 +307,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             doc = "Whether the action should use the built in shell environment or not."),
         @Param(
             name = "env",
-            type = SkylarkDict.class,
+            type = Dict.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -324,7 +315,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             doc = "Sets the dictionary of environment variables."),
         @Param(
             name = "execution_requirements",
-            type = SkylarkDict.class,
+            type = Dict.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -338,7 +329,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             // This is technically experimental, so folks shouldn't be too attached,
             // but consider renaming to be more accurate/opaque.
             name = "input_manifests",
-            type = SkylarkList.class,
+            type = Sequence.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -346,10 +337,9 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             doc =
                 "(Experimental) sets the input runfiles metadata; "
                     + "they are typically generated by resolve_command.")
-      },
-      useLocation = true)
-  public void run(
-      SkylarkList<?> outputs,
+      })
+  void run(
+      Sequence<?> outputs,
       Object inputs,
       Object unusedInputsList,
       Object executableUnchecked,
@@ -360,8 +350,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object executionRequirementsUnchecked,
-      Object inputManifestsUnchecked,
-      Location location)
+      Object inputManifestsUnchecked)
       throws EvalException;
 
   @SkylarkCallable(
@@ -373,7 +362,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
       parameters = {
         @Param(
             name = "outputs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             named = true,
             positional = false,
@@ -381,8 +370,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
         @Param(
             name = "inputs",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "[]",
@@ -392,8 +381,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
         @Param(
             name = "tools",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "unbound",
@@ -406,7 +395,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
         @Param(
             name = "arguments",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
+              @ParamType(type = Sequence.class),
             },
             defaultValue = "[]",
             named = true,
@@ -438,7 +427,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             type = Object.class,
             allowedTypes = {
               @ParamType(type = String.class),
-              @ParamType(type = SkylarkList.class, generic1 = String.class),
+              @ParamType(type = Sequence.class, generic1 = String.class),
             },
             named = true,
             positional = false,
@@ -486,7 +475,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             doc = "Whether the action should use the built in shell environment or not."),
         @Param(
             name = "env",
-            type = SkylarkDict.class,
+            type = Dict.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -494,7 +483,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             doc = "Sets the dictionary of environment variables."),
         @Param(
             name = "execution_requirements",
-            type = SkylarkDict.class,
+            type = Dict.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -508,7 +497,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             // This is technically experimental, so folks shouldn't be too attached,
             // but consider renaming to be more accurate/opaque.
             name = "input_manifests",
-            type = SkylarkList.class,
+            type = Sequence.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -517,10 +506,9 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
                 "(Experimental) sets the input runfiles metadata; "
                     + "they are typically generated by resolve_command.")
       },
-      useStarlarkSemantics = true,
-      useLocation = true)
-  public void runShell(
-      SkylarkList<?> outputs,
+      useStarlarkThread = true)
+  void runShell(
+      Sequence<?> outputs,
       Object inputs,
       Object toolsUnchecked,
       Object arguments,
@@ -531,8 +519,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
-      Location location,
-      StarlarkSemantics semantics)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -563,7 +550,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             doc = "The output file, which is a UTF-8 encoded text file."),
         @Param(
             name = "substitutions",
-            type = SkylarkDict.class,
+            type = Dict.class,
             named = true,
             positional = false,
             doc = "Substitutions to make when expanding the template."),
@@ -574,19 +561,14 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             named = true,
             positional = false,
             doc = "Whether the output file should be executable.")
-      },
-      useLocation = true)
-  public void expandTemplate(
-      FileApi template,
-      FileApi output,
-      SkylarkDict<?, ?> substitutionsUnchecked,
-      Boolean executable,
-      Location location)
+      })
+  void expandTemplate(
+      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
       throws EvalException;
 
   @SkylarkCallable(
       name = "args",
       doc = "Returns an Args object that can be used to build memory-efficient command lines.",
       useStarlarkThread = true)
-  public CommandLineArgsApi args(StarlarkThread thread);
+  CommandLineArgsApi args(StarlarkThread thread);
 }

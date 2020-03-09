@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkCommandLineApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * Fake implementation of {@link SkylarkCommandLineApi}.
@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public class FakeSkylarkCommandLineApi implements SkylarkCommandLineApi {
 
   @Override
-  public String joinPaths(String separator, SkylarkNestedSet files) {
+  public String joinPaths(String separator, Depset files) {
     return "";
   }
 }

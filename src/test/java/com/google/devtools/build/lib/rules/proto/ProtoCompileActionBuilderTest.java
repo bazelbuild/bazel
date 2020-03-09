@@ -66,7 +66,8 @@ public class ProtoCompileActionBuilderTest {
     return new ProtoInfo(
         directProtos,
         directProtos,
-        "",
+        /* directProtoSourceRoot= */ "",
+        transitiveProtos,
         transitiveProtos,
         transitiveProtoSourceRoots,
         /* strictImportableProtosForDependents */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -125,7 +126,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.NON_STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
@@ -157,7 +159,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.NON_STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(cmdLine.arguments()).containsExactly("out/source_file.proto");
   }
@@ -192,7 +195,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
@@ -236,7 +240,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.NON_STRICT,
             Exports.USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
@@ -266,7 +271,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.STRICT,
             Exports.DO_NOT_USE,
             Services.DISALLOW,
-            /* protocOpts= */ ImmutableList.of("--foo", "--bar"));
+            /* protocOpts= */ ImmutableList.of("--foo", "--bar"),
+            false);
 
     assertThat(cmdLine.arguments()).containsAtLeast("--disallow_services", "--foo", "--bar");
   }
@@ -307,7 +313,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(hasBeenCalled[0]).isFalse();
     cmdLine.arguments();
@@ -355,7 +362,8 @@ public class ProtoCompileActionBuilderTest {
                     Deps.STRICT,
                     Exports.DO_NOT_USE,
                     Services.ALLOW,
-                    /* protocOpts= */ ImmutableList.of()));
+                    /* protocOpts= */ ImmutableList.of(),
+                    false));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -459,7 +467,8 @@ public class ProtoCompileActionBuilderTest {
         commandLine,
         protosInDirectDependenciesBuilder,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, protoSourceRoots),
-        transitiveImportsNestedSet);
+        transitiveImportsNestedSet,
+        false);
     return commandLine.build().arguments();
   }
 }

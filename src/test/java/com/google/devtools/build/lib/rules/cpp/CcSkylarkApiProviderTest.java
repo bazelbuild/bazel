@@ -70,9 +70,9 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
       return;
     }
 
-    mockToolsConfig.create("/protobuf/WORKSPACE");
+    mockToolsConfig.create("protobuf_workspace/WORKSPACE");
     mockToolsConfig.overwrite(
-        "/protobuf/BUILD",
+        "protobuf_workspace/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['protoc'])",
@@ -86,7 +86,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
         new String(FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
     mockToolsConfig.overwrite(
         "WORKSPACE",
-        "local_repository(name = 'com_google_protobuf', path = '/protobuf/')",
+        "local_repository(name = 'com_google_protobuf', path = 'protobuf_workspace/')",
         existingWorkspace);
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
 

@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -109,22 +109,22 @@ public class WorkspaceFactoryHelper {
    * should also evaluate to the same thing.
    */
   public static void addMainRepoEntry(
-      Package.Builder builder, String externalRepoName, StarlarkSemantics semantics) {
-    if (semantics.incompatibleRemapMainRepo()) {
-      if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
-        builder.addRepositoryMappingEntry(
-            RepositoryName.createFromValidStrippedName(externalRepoName),
-            RepositoryName.createFromValidStrippedName(builder.getPackageWorkspaceName()),
-            RepositoryName.MAIN);
-      }
+      Package.Builder builder, String externalRepoName, StarlarkSemantics semantics)
+      throws LabelSyntaxException {
+    if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
+      // Create repository names with validation, LabelSyntaxException is thrown is the name
+      // is not valid.
+      builder.addRepositoryMappingEntry(
+          RepositoryName.create("@" + externalRepoName),
+          RepositoryName.create("@" + builder.getPackageWorkspaceName()),
+          RepositoryName.MAIN);
     }
   }
 
   /**
    * Processes {@code repo_mapping} attribute and populates the package builder with the mappings.
    *
-   * @throws EvalException if {@code repo_mapping} is present in kwargs but is not a {@link
-   *     SkylarkDict}
+   * @throws EvalException if {@code repo_mapping} is present in kwargs but is not a {@link Dict}
    */
   public static void addRepoMappings(
       Package.Builder builder,
@@ -134,7 +134,7 @@ public class WorkspaceFactoryHelper {
       throws EvalException, LabelSyntaxException {
 
     if (kwargs.containsKey("repo_mapping")) {
-      if (!(kwargs.get("repo_mapping") instanceof SkylarkDict)) {
+      if (!(kwargs.get("repo_mapping") instanceof Dict)) {
         throw new EvalException(
             location,
             "Invalid value for 'repo_mapping': '"
@@ -144,8 +144,10 @@ public class WorkspaceFactoryHelper {
       @SuppressWarnings("unchecked")
       Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
       for (Map.Entry<String, String> e : map.entrySet()) {
+        // Create repository names with validation, LabelSyntaxException is thrown is the name
+        // is not valid.
         builder.addRepositoryMappingEntry(
-            RepositoryName.createFromValidStrippedName(externalRepoName),
+            RepositoryName.create("@" + externalRepoName),
             RepositoryName.create(e.getKey()),
             RepositoryName.create(e.getValue()));
       }

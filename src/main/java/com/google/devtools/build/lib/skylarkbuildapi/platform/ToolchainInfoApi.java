@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Info object representing data about a specific toolchain. */
 @SkylarkModule(
@@ -44,7 +44,8 @@ public interface ToolchainInfoApi extends StructApi {
         documented = false,
         extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
         selfCall = true,
-        useLocation = true)
-    ToolchainInfoApi toolchainInfo(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException;
+        useStarlarkThread = true)
+    ToolchainInfoApi toolchainInfo(Dict<String, Object> kwargs, StarlarkThread thread)
+        throws EvalException;
   }
 }

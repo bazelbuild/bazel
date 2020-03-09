@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -41,7 +43,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Common code for proguarding. */
@@ -221,7 +222,7 @@ public final class ProguardHelper {
             .addAll(localProguardSpecs)
             .addAll(specsToInclude);
     for (ProguardSpecProvider dep : proguardDeps) {
-      builder.addAll(dep.getTransitiveProguardSpecs());
+      builder.addAll(dep.getTransitiveProguardSpecs().toList());
     }
 
     return builder.build().asList();
@@ -301,7 +302,7 @@ public final class ProguardHelper {
       @Nullable Artifact proguardUsage,
       @Nullable Artifact proguardMapping,
       @Nullable Artifact proguardDictionary,
-      Iterable<Artifact> libraryJars,
+      NestedSet<Artifact> libraryJars,
       Artifact proguardOutputJar,
       JavaSemantics semantics,
       @Nullable Integer optimizationPasses,
@@ -318,7 +319,7 @@ public final class ProguardHelper {
             semantics,
             proguardOutputMap);
 
-    if (Iterables.size(libraryJars) > 1) {
+    if (!libraryJars.isEmpty() && !libraryJars.isSingleton()) {
       JavaTargetAttributes attributes = new JavaTargetAttributes.Builder(semantics).build();
       Artifact combinedLibraryJar =
           getProguardTempArtifact(ruleContext, "combined_library_jars.jar");
@@ -327,14 +328,15 @@ public final class ProguardHelper {
           .setAttributes(attributes)
           .addRuntimeJars(libraryJars)
           .build();
-      libraryJars = ImmutableList.of(combinedLibraryJar);
+      libraryJars = NestedSetBuilder.create(Order.STABLE_ORDER, combinedLibraryJar);
     }
 
     boolean filterLibraryJarWithProgramJar =
         ruleContext.getFragment(AndroidConfiguration.class).filterLibraryJarWithProgramJar();
 
     if (filterLibraryJarWithProgramJar) {
-      Artifact libraryJar = Iterables.getOnlyElement(libraryJars);
+      Preconditions.checkState(libraryJars.isSingleton());
+      Artifact libraryJar = libraryJars.getSingleton();
 
       Artifact filteredLibraryJar =
           getProguardTempArtifact(ruleContext, "combined_library_jars_filtered.jar");
@@ -346,7 +348,7 @@ public final class ProguardHelper {
           .setCheckHashMismatchMode(ZipFilterBuilder.CheckHashMismatchMode.NONE)
           .build();
 
-      libraryJars = ImmutableList.of(filteredLibraryJar);
+      libraryJars = NestedSetBuilder.create(Order.STABLE_ORDER, filteredLibraryJar);
     }
 
     if (optimizationPasses == null) {
@@ -368,13 +370,30 @@ public final class ProguardHelper {
           output.getSeeds(),
           output.getUsage(),
           output.getConstantStringObfuscatedMapping(),
-          output.getConfig());
+          output.getConfig(),
+          "Proguard");
       proguardAction
-          .setProgressMessage("Trimming binary with Proguard")
+          .setProgressMessage("Trimming binary with Proguard: %s", ruleContext.getLabel())
           .addOutput(proguardOutputJar);
       proguardAction.addCommandLine(commandLine.build());
       ruleContext.registerAction(proguardAction.build(ruleContext));
     } else {
+      JavaConfiguration.NamedLabel optimizer = getBytecodeOptimizer(ruleContext);
+      String mnemonic = optimizer.name();
+      Optional<Label> optimizerTarget = optimizer.label();
+      FilesToRunProvider executable = null;
+      if (optimizerTarget.isPresent()) {
+        TransitiveInfoCollection optimizerDep =
+            ruleContext.getPrerequisite(":bytecode_optimizer", Mode.HOST);
+        if (optimizerDep.getLabel().equals(optimizerTarget.get())) {
+          executable = optimizerDep.getProvider(FilesToRunProvider.class);
+        }
+      } else {
+        checkState("Proguard".equals(mnemonic), "Need label to run %s", mnemonic);
+        executable = proguard;
+      }
+      checkNotNull(executable, "couldn't find optimizer %s", optimizer);
+
       // Optimization passes have been specified, so run proguard in multiple phases.
       Artifact lastStageOutput =
           getProguardTempArtifact(ruleContext, "proguard_preoptimization.jar");
@@ -395,68 +414,49 @@ public final class ProguardHelper {
           output.getSeeds(), // ProGuard only prints seeds during INITIAL and NORMAL runtypes.
           /* proguardUsage */ null,
           /* constantStringObfuscatedMapping */ null,
-          /* proguardConfigOutput */ null);
+          /* proguardConfigOutput */ null,
+          mnemonic);
       initialAction
-          .setProgressMessage("Trimming binary with Proguard: Verification/Shrinking Pass")
-          .addOutput(lastStageOutput);
+          .setProgressMessage("Trimming binary with %s: Verification/Shrinking Pass", mnemonic)
+          .addOutput(lastStageOutput)
+          .setMnemonic(mnemonic);
       initialCommandLine.add("-runtype INITIAL").addExecPath("-nextstageoutput", lastStageOutput);
       initialAction.addCommandLine(initialCommandLine.build());
       ruleContext.registerAction(initialAction.build(ruleContext));
-
       for (int i = 1; i <= optimizationPasses; i++) {
-        // Run configured optimizers in order in each pass
-        for (Map.Entry<String, Optional<Label>> optimizer :
-            getBytecodeOptimizers(ruleContext).entrySet()) {
-          String mnemonic = optimizer.getKey();
-          Optional<Label> target = optimizer.getValue();
-          FilesToRunProvider executable = null;
-          if (target.isPresent()) {
-            for (TransitiveInfoCollection optimizerDep :
-                ruleContext.getPrerequisites(":bytecode_optimizers", Mode.HOST)) {
-              if (optimizerDep.getLabel().equals(target.get())) {
-                executable = optimizerDep.getProvider(FilesToRunProvider.class);
-                break;
-              }
-            }
-          } else {
-            checkState("Proguard".equals(mnemonic), "Need label to run %s", mnemonic);
-            executable = proguard;
-          }
-          Artifact optimizationOutput =
-              getProguardTempArtifact(
-                  ruleContext,
-                  mnemonic + "_optimization_" + i + ".jar");
-          SpawnAction.Builder optimizationAction = new SpawnAction.Builder();
-          CustomCommandLine.Builder optimizationCommandLine = CustomCommandLine.builder();
-          defaultAction(
-              optimizationAction,
-              optimizationCommandLine,
-              checkNotNull(executable, "couldn't find optimizer %s", optimizer),
-              programJar,
-              proguardSpecs,
-              proguardMapping,
-              proguardDictionary,
-              libraryJars,
-              output.getOutputJar(),
-              /* proguardOutputMap */ null,
-              /* proguardOutputProtoMap */ null,
-              /* proguardSeeds */ null,
-              /* proguardUsage */ null,
-              /* constantStringObfuscatedMapping */ null,
-              /* proguardConfigOutput */ null);
-          optimizationAction
-              .setProgressMessage("Trimming binary with %s: Optimization Pass %d", mnemonic, +i)
-              .setMnemonic(mnemonic)
-              .addInput(lastStageOutput)
-              .addOutput(optimizationOutput);
-          optimizationCommandLine
-              .add("-runtype OPTIMIZATION")
-              .addExecPath("-laststageoutput", lastStageOutput)
-              .addExecPath("-nextstageoutput", optimizationOutput);
-          optimizationAction.addCommandLine(optimizationCommandLine.build());
-          ruleContext.registerAction(optimizationAction.build(ruleContext));
-          lastStageOutput = optimizationOutput;
-        }
+        Artifact optimizationOutput =
+            getProguardTempArtifact(ruleContext, mnemonic + "_optimization_" + i + ".jar");
+        SpawnAction.Builder optimizationAction = new SpawnAction.Builder();
+        CustomCommandLine.Builder optimizationCommandLine = CustomCommandLine.builder();
+        defaultAction(
+            optimizationAction,
+            optimizationCommandLine,
+            executable,
+            programJar,
+            proguardSpecs,
+            proguardMapping,
+            proguardDictionary,
+            libraryJars,
+            output.getOutputJar(),
+            /* proguardOutputMap */ null,
+            /* proguardOutputProtoMap */ null,
+            /* proguardSeeds */ null,
+            /* proguardUsage */ null,
+            /* constantStringObfuscatedMapping */ null,
+            /* proguardConfigOutput */ null,
+            mnemonic);
+        optimizationAction
+            .setProgressMessage("Trimming binary with %s: Optimization Pass %d", mnemonic, +i)
+            .setMnemonic(mnemonic)
+            .addInput(lastStageOutput)
+            .addOutput(optimizationOutput);
+        optimizationCommandLine
+            .add("-runtype OPTIMIZATION")
+            .addExecPath("-laststageoutput", lastStageOutput)
+            .addExecPath("-nextstageoutput", optimizationOutput);
+        optimizationAction.addCommandLine(optimizationCommandLine.build());
+        ruleContext.registerAction(optimizationAction.build(ruleContext));
+        lastStageOutput = optimizationOutput;
       }
 
       SpawnAction.Builder finalAction = new SpawnAction.Builder();
@@ -476,9 +476,11 @@ public final class ProguardHelper {
           /* proguardSeeds */ null, // runtype FINAL does not produce seeds.
           output.getUsage(),
           output.getConstantStringObfuscatedMapping(),
-          output.getConfig());
+          output.getConfig(),
+          mnemonic);
       finalAction
-          .setProgressMessage("Trimming binary with Proguard: Obfuscation and Final Output Pass")
+          .setProgressMessage(
+              "Trimming binary with %s: Obfuscation and Final Output Pass", mnemonic)
           .addInput(lastStageOutput)
           .addOutput(proguardOutputJar);
       finalCommandLine.add("-runtype FINAL").addExecPath("-laststageoutput", lastStageOutput);
@@ -497,20 +499,21 @@ public final class ProguardHelper {
       ImmutableList<Artifact> proguardSpecs,
       @Nullable Artifact proguardMapping,
       @Nullable Artifact proguardDictionary,
-      Iterable<Artifact> libraryJars,
+      NestedSet<Artifact> libraryJars,
       Artifact proguardOutputJar,
       @Nullable Artifact proguardOutputMap,
       @Nullable Artifact proguardOutputProtoMap,
       @Nullable Artifact proguardSeeds,
       @Nullable Artifact proguardUsage,
       @Nullable Artifact constantStringObfuscatedMapping,
-      @Nullable Artifact proguardConfigOutput) {
+      @Nullable Artifact proguardConfigOutput,
+      String mnemonic) {
 
     builder
-        .addInputs(libraryJars)
+        .addTransitiveInputs(libraryJars)
         .addInputs(proguardSpecs)
         .setExecutable(executable)
-        .setMnemonic("Proguard")
+        .setMnemonic(mnemonic)
         .addInput(programJar);
 
     commandLine
@@ -524,7 +527,7 @@ public final class ProguardHelper {
         // the final proguard action will declare the output jar as an output.
         .addExecPath(proguardOutputJar);
 
-    for (Artifact libraryJar : libraryJars) {
+    for (Artifact libraryJar : libraryJars.toList()) {
       commandLine.addExecPath("-libraryjars", libraryJar);
     }
 
@@ -599,10 +602,11 @@ public final class ProguardHelper {
       Label label, ActionConstructionContext context, String prefix) {
     return getProguardTempArtifact(label, context, prefix, "proguard.cfg");
   }
-  private static Map<String, Optional<Label>> getBytecodeOptimizers(RuleContext ruleContext) {
+
+  private static JavaConfiguration.NamedLabel getBytecodeOptimizer(RuleContext ruleContext) {
     return ruleContext
         .getConfiguration()
         .getFragment(JavaConfiguration.class)
-        .getBytecodeOptimizers();
+        .getBytecodeOptimizer();
   }
 }

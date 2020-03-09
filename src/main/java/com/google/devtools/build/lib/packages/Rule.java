@@ -203,6 +203,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return containsErrors;
   }
 
+  public boolean hasAspects() {
+    return ruleClass.hasAspects();
+  }
+
   /**
    * Returns an (unmodifiable, unordered) collection containing all the
    * Attribute definitions for this kind of rule.  (Note, this doesn't include
@@ -683,6 +687,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * can require from its direct dependencies.
    */
   public Collection<? extends Label> getAspectLabelsSuperset(DependencyFilter predicate) {
+    if (!hasAspects()) {
+      return ImmutableList.of();
+    }
     SetMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (Aspect candidateClass : attribute.getAspects(this)) {

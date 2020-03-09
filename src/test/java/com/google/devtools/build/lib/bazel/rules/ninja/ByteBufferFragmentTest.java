@@ -50,4 +50,13 @@ public class ByteBufferFragmentTest {
     assertThat(merged.length()).isEqualTo(11);
     assertThat(merged.toString()).isEqualTo("12345678bcd");
   }
+
+  @Test
+  public void testEscapeCharacters() {
+    final byte[] bytes = "\0\n\t\r".getBytes(StandardCharsets.ISO_8859_1);
+    ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(bytes), 0, 3);
+    assertThat(fragment.length()).isEqualTo(3);
+    assertThat(fragment.toString()).isEqualTo("\0\n\t");
+    assertThat(fragment.subFragment(1, 3).toString()).isEqualTo("\n\t");
+  }
 }

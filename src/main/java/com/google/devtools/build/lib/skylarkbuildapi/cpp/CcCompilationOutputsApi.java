@@ -14,16 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a structured representation of the compilation outputs of a C++ rule. */
 @SkylarkModule(
@@ -31,24 +30,22 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
     category = SkylarkModuleCategory.BUILTIN,
     documented = true,
     doc = "Helper class containing CC compilation outputs.")
-public interface CcCompilationOutputsApi<FileT extends FileApi> extends SkylarkValue {
+public interface CcCompilationOutputsApi<FileT extends FileApi> extends StarlarkValue {
 
   /** @deprecated use {@link #getSkylarkObjects} or {@link #getSkylarkPicObjects}. */
   @SkylarkCallable(
       name = "object_files",
       doc = "Do not use. Use eiher 'objects' or 'pic_objects'.",
       useStarlarkThread = true,
-      useLocation = true,
       parameters = {
         @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
       })
   @Deprecated
-  SkylarkList<FileT> getSkylarkObjectFiles(boolean usePic, Location location, StarlarkThread thread)
-      throws EvalException;
+  Sequence<FileT> getSkylarkObjectFiles(boolean usePic, StarlarkThread thread) throws EvalException;
 
-  @SkylarkCallable(name = "objects", documented = false, useLocation = true, structField = true)
-  SkylarkList<FileT> getSkylarkObjects(Location location) throws EvalException;
+  @SkylarkCallable(name = "objects", documented = false, structField = true)
+  Sequence<FileT> getSkylarkObjects() throws EvalException;
 
-  @SkylarkCallable(name = "pic_objects", documented = false, useLocation = true, structField = true)
-  SkylarkList<FileT> getSkylarkPicObjects(Location location) throws EvalException;
+  @SkylarkCallable(name = "pic_objects", documented = false, structField = true)
+  Sequence<FileT> getSkylarkPicObjects() throws EvalException;
 }

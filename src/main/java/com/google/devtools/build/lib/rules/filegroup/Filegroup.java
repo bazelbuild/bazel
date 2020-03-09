@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -73,12 +72,10 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
 
     InstrumentedFilesInfo instrumentedFilesProvider =
-        InstrumentedFilesCollector.collect(
+        InstrumentedFilesCollector.collectTransitive(
             ruleContext,
             // what do *we* know about whether this is a source file or not
             new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
-            InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-            filesToBuild,
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
@@ -108,14 +105,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
    * Returns the single Artifact from filesToBuild or {@code null} if there are multiple elements.
    */
   private Artifact getExecutable(NestedSet<Artifact> filesToBuild) {
-    Iterator<Artifact> it = filesToBuild.iterator();
-    if (it.hasNext()) {
-      Artifact out = it.next();
-      if (!it.hasNext()) {
-        return out;
-      }
-    }
-    return null;
+    return filesToBuild.isSingleton() ? filesToBuild.getSingleton() : null;
   }
 
   private PathFragment getFilegroupPath(RuleContext ruleContext) {

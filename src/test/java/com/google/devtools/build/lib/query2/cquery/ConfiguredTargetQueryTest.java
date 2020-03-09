@@ -18,15 +18,19 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -34,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryTest;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -41,8 +46,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -266,12 +272,12 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     }
 
     @Override
-    public List<BuildOptions> split(BuildOptions options) {
+    public Map<String, BuildOptions> split(BuildOptions options) {
       BuildOptions result1 = options.clone();
       BuildOptions result2 = options.clone();
       result1.get(TestOptions.class).testArguments = Collections.singletonList(toOption1);
       result2.get(TestOptions.class).testArguments = Collections.singletonList(toOption2);
-      return ImmutableList.of(result1, result2);
+      return ImmutableMap.of("result1", result1, "result2", result2);
     }
   }
 
@@ -286,7 +292,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
                     .cfg(HostTransition.createFactory()),
                 attr("exec", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(new ExecutionTransitionFactory()),
+                    .cfg(ExecutionTransitionFactory.create()),
                 attr("deps", BuildType.LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE));
     MockRule simpleRule =
         () ->
@@ -307,6 +313,45 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
         "simple_rule(name = 'host_dep', dep=':dep')",
         "simple_rule(name = 'exec_dep', dep=':dep')",
         "simple_rule(name = 'dep')");
+  }
+
+  private void createConfigTransitioningRuleClass() throws Exception {
+    writeFile(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
+    writeFile(
+        "test/rules.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "string_flag = rule(",
+        "    implementation = _rule_impl,",
+        "    build_setting = config.string()",
+        ")",
+        "def _transition_impl(settings, attr):",
+        "    return {'//test:my_flag': 'custom string'}",
+        "my_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//test:my_flag'],",
+        ")",
+        "rule_with_deps_transition = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(cfg = my_transition),",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        ),",
+        "    }",
+        ")",
+        "simple_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {}",
+        ")");
   }
 
   @Test
@@ -362,11 +407,55 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
   }
 
   @Test
+  public void testConfig_configHash() throws Exception {
+    createConfigTransitioningRuleClass();
+    writeFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
+        "string_flag(",
+        "    name = 'my_flag',",
+        "    build_setting_default = '')",
+        "rule_with_deps_transition(",
+        "    name = 'buildme',",
+        "    deps = [':mydep'])",
+        "simple_rule(name = 'mydep')");
+
+    // If we don't set --universe_scope=//test:buildme, cquery builds both //test:buildme and
+    // //test:mydep as top-level targets. That means //test:mydep will have two configured targets:
+    // one under the transitioned configuration and one under the top-level configuration. By
+    // setting --universe_scope we ensure only the transitioned version exists.
+    helper.setUniverseScope("//test:buildme");
+    helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
+    Set<ConfiguredTarget> result = eval("deps(//test:buildme, 1)");
+    assertThat(result).hasSize(2);
+
+    ImmutableList<ConfiguredTarget> stableOrderList = ImmutableList.copyOf(result);
+    int myDepIndex = stableOrderList.get(0).getLabel().toString().equals("//test:mydep") ? 0 : 1;
+    BuildConfiguration myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
+    BuildConfiguration stringFlagConfig = getConfiguration(stableOrderList.get(1 - myDepIndex));
+
+    // Note: eval() resets the universe scope after each call. We have to xplicitly set it again.
+    helper.setUniverseScope("//test:buildme");
+    assertThat(eval("config(//test:mydep, " + myDepConfig.checksum() + ")")).hasSize(1);
+
+    helper.setUniverseScope("//test:buildme");
+    QueryException e =
+        assertThrows(
+            QueryException.class,
+            () -> eval("config(//test:mydep, " + stringFlagConfig.checksum() + ")"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("No target (in) //test:mydep could be found in the configuration with checksum");
+  }
+
+  @Test
   public void testConfig_badConfig() throws Exception {
     createConfigRulesAndBuild();
     assertThat(evalThrows("config(//test:my_rule,foo)", true))
         .isEqualTo(
-            "the second argument of the config function must be 'target', 'host', or 'null'");
+            "Unknown value 'foo'. The second argument of config() must be 'target', 'host', "
+                + "'null', or a valid configuration hash (i.e. one of the outputs of "
+                + "'blaze config')");
   }
 
   @Test
@@ -418,5 +507,118 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
       assertThat(getConfiguration(first)).isNotNull();
       assertThat(getConfiguration(resultIterator.next())).isNull();
     }
+  }
+
+  @Test
+  public void testSomePath_DepInCustomConfiguration() throws Exception {
+    createConfigTransitioningRuleClass();
+    writeFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
+        "string_flag(",
+        "    name = 'my_flag',",
+        "    build_setting_default = '')",
+        "rule_with_deps_transition(",
+        "    name = 'buildme',",
+        "    deps = [':mydep'])",
+        "simple_rule(name = 'mydep')");
+
+    // If we don't set --universe_scope=//test:buildme, then cquery builds both //test:buildme and
+    // //test:mydep as top-level targets. That means //test:mydep will have two configured targets:
+    // one under the transitioned configuration and one under the top-level configuration. In these
+    // cases cquery prefers the top-level configured one, which won't produce a match since that's
+    // not the one down this dependency path.
+    helper.setUniverseScope("//test:buildme");
+    Set<ConfiguredTarget> result = eval("somepath(//test:buildme, //test:mydep)");
+    assertThat(result.stream().map(ct -> ct.getLabel().toString()).collect(Collectors.toList()))
+        .contains("//test:mydep");
+  }
+
+  /** Return an empty BuildOptions for testing fragment dropping. * */
+  public static class RemoveTestOptionsTransition implements PatchTransition {
+    @Override
+    public BuildOptions patch(BuildOptions options) {
+      BuildOptions.Builder builder = BuildOptions.builder();
+      for (FragmentOptions option : options.getNativeOptions()) {
+        if (!(option instanceof TestOptions)) {
+          builder.addFragmentOptions(option);
+        }
+      }
+      // This does not copy over Starlark options!!
+      return builder.build();
+    }
+  }
+
+  @Test
+  public void testQueryHandlesDroppingFragments() throws Exception {
+    MockRule ruleDropOptions =
+        () ->
+            MockRule.define(
+                "rule_drop_options",
+                attr("dep", LABEL)
+                    .allowedFileTypes(FileTypeSet.ANY_FILE)
+                    .cfg(TransitionFactories.of(new RemoveTestOptionsTransition())));
+    MockRule simpleRule =
+        () ->
+            MockRule.define(
+                "simple_rule", attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE));
+
+    helper.useRuleClassProvider(setRuleClassProviders(ruleDropOptions, simpleRule).build());
+    writeFile(
+        "test/BUILD",
+        "rule_drop_options(name = 'top', dep = ':foo')",
+        "simple_rule(name='foo', deps = [':bar'])",
+        "simple_rule(name='bar')");
+
+    Set<ConfiguredTarget> result =
+        eval("somepath(//test:top, filter(//test:bar, deps(//test:top)))");
+    assertThat(result).isNotEmpty();
+  }
+
+  @Override
+  public void testMultipleTopLevelConfigurations_multipleConfigsPrefersTopLevel() {
+    // When the same target exists in multiple configurations, cquery doesn't guarantee which
+    // instance is evaluated first. So disable this test.
+  }
+
+  @Test
+  public void testLabelExpressionsMatchesAllConfiguredTargetsWithLabel() throws Exception {
+    createConfigTransitioningRuleClass();
+    writeFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
+        "string_flag(",
+        "    name = 'my_flag',",
+        "    build_setting_default = '')",
+        "rule_with_deps_transition(",
+        "    name = 'transitioner',",
+        "    deps = [':simple'])",
+        "simple_rule(name = 'simple')");
+
+    helper.setUniverseScope("//test:transitioner,//test:simple");
+    Set<ConfiguredTarget> result = eval("//test:simple");
+    assertThat(result.size()).isEqualTo(2);
+  }
+
+  @Test
+  public void testConfigFunctionRefinesMultipleMatches() throws Exception {
+    // Peer to testLabelExpressionsMatchesAllConfiguredTargetsWithLabel. The point of that test is
+    // to show "cquery //foo:bar" might return multiple configured targets. The point of this test
+    // is to show that config() can refine the same query to a specific one.
+    createConfigTransitioningRuleClass();
+    writeFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
+        "string_flag(",
+        "    name = 'my_flag',",
+        "    build_setting_default = '')",
+        "rule_with_deps_transition(",
+        "    name = 'transitioner',",
+        "    deps = [':simple'])",
+        "simple_rule(name = 'simple')");
+
+    helper.setUniverseScope("//test:transitioner,//test:simple");
+    Set<ConfiguredTarget> result = eval("config(//test:simple, target)");
+    assertThat(result.size()).isEqualTo(1);
   }
 }

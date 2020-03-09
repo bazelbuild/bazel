@@ -18,9 +18,11 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
 /** Mock python support in Bazel. */
-public class BazelMockPythonSupport extends MockPythonSupport {
+public final class BazelMockPythonSupport extends MockPythonSupport {
 
   public static final BazelMockPythonSupport INSTANCE = new BazelMockPythonSupport();
+
+  private BazelMockPythonSupport() {}
 
   private static void addTool(MockToolsConfig config, String toolRelativePath) throws IOException {
     config.create(

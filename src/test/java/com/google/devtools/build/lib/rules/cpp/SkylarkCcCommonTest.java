@@ -50,13 +50,12 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
@@ -69,6 +68,7 @@ import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -117,7 +117,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    SkylarkNestedSet allFiles = (SkylarkNestedSet) getMyInfoFromTarget(r).getValue("all_files");
+    Depset allFiles = (Depset) getMyInfoFromTarget(r).getValue("all_files");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
@@ -161,8 +161,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         new SkylarkProvider.SkylarkKey(
             Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl"), "CruleInfo");
     SkylarkInfo cruleInfo = (SkylarkInfo) r.get(key);
-    SkylarkNestedSet staticRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("static");
-    SkylarkNestedSet dynamicRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("dynamic");
+    Depset staticRuntimeLib = (Depset) cruleInfo.getValue("static");
+    Depset dynamicRuntimeLib = (Depset) cruleInfo.getValue("dynamic");
 
     assertThat(staticRuntimeLib.getSet(Artifact.class).toList()).isEmpty();
     assertThat(dynamicRuntimeLib.getSet(Artifact.class).toList()).isEmpty();
@@ -176,8 +176,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     invalidatePackages();
     r = getConfiguredTarget("//a:r");
     cruleInfo = (SkylarkInfo) r.get(key);
-    staticRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("static");
-    dynamicRuntimeLib = (SkylarkNestedSet) cruleInfo.getValue("dynamic");
+    staticRuntimeLib = (Depset) cruleInfo.getValue("static");
+    dynamicRuntimeLib = (Depset) cruleInfo.getValue("dynamic");
 
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
@@ -271,8 +271,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked")
-    SkylarkList<String> requirements =
-        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("requirements");
+    Sequence<String> requirements =
+        (Sequence<String>) getMyInfoFromTarget(r).getValue("requirements");
     assertThat(requirements).containsExactly("requires-yolo");
   }
 
@@ -386,8 +386,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked")
-    SkylarkList<String> commandLine =
-        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("command_line");
+    Sequence<String> commandLine =
+        (Sequence<String>) getMyInfoFromTarget(r).getValue("command_line");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
@@ -435,8 +435,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked")
-    SkylarkDict<String, String> environmentVariables =
-        (SkylarkDict<String, String>) getMyInfoFromTarget(r).getValue("environment_variables");
+    Map<String, String> environmentVariables =
+        (Map<String, String>) getMyInfoFromTarget(r).getValue("environment_variables");
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
@@ -987,7 +987,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .doesNotContain("-i_dont_want_to_see_this_on_archiver_command_line");
   }
 
-  private SkylarkList<String> commandLineForVariables(String actionName, String... variables)
+  private Sequence<String> commandLineForVariables(String actionName, String... variables)
       throws Exception {
     return commandLineForVariables(actionName, 0, variables);
   }
@@ -995,7 +995,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   // This method is only there to change the package to fix multiple runs of this method in a single
   // test.
   // TODO(b/109917616): Remove pkgSuffix argument when bzl files are not cached within single test
-  private SkylarkList<String> commandLineForVariables(
+  private Sequence<String> commandLineForVariables(
       String actionName, int pkgSuffix, String... variables) throws Exception {
     scratch.file(
         "a" + pkgSuffix + "/BUILD",
@@ -1033,8 +1033,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       return null;
     }
     @SuppressWarnings("unchecked")
-    SkylarkList<String> result =
-        (SkylarkList<String>) getMyInfoFromTarget(r).getValue("command_line");
+    Sequence<String> result = (Sequence<String>) getMyInfoFromTarget(r).getValue("command_line");
     return result;
   }
 
@@ -1120,7 +1119,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     StructImpl myInfo = getMyInfoFromTarget(getConfiguredTarget("//a:r"));
 
     List<Artifact> mergedHeaders =
-        ((SkylarkNestedSet) myInfo.getValue("merged_headers")).getSet(Artifact.class).toList();
+        ((Depset) myInfo.getValue("merged_headers")).getSet(Artifact.class).toList();
     assertThat(
             mergedHeaders.stream()
                 .map(Artifact::getFilename)
@@ -1128,28 +1127,24 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .containsAtLeast("header.h", "dep1.h", "dep2.h");
 
     List<String> mergedDefines =
-        ((SkylarkNestedSet) myInfo.getValue("merged_defines")).getSet(String.class).toList();
+        ((Depset) myInfo.getValue("merged_defines")).getSet(String.class).toList();
     assertThat(mergedDefines).containsAtLeast("MYDEFINE", "DEP1", "DEP2");
     assertThat(mergedDefines).doesNotContain("LOCALDEP1");
 
     List<String> mergedSystemIncludes =
-        ((SkylarkNestedSet) myInfo.getValue("merged_system_includes"))
-            .getSet(String.class)
-            .toList();
+        ((Depset) myInfo.getValue("merged_system_includes")).getSet(String.class).toList();
     assertThat(mergedSystemIncludes).containsAtLeast("foo/bar", "a/dep1/baz", "a/dep2/qux");
 
     List<String> mergedIncludes =
-        ((SkylarkNestedSet) myInfo.getValue("merged_includes")).getSet(String.class).toList();
+        ((Depset) myInfo.getValue("merged_includes")).getSet(String.class).toList();
     assertThat(mergedIncludes).contains("baz/qux");
 
     List<String> mergedQuoteIncludes =
-        ((SkylarkNestedSet) myInfo.getValue("merged_quote_includes")).getSet(String.class).toList();
+        ((Depset) myInfo.getValue("merged_quote_includes")).getSet(String.class).toList();
     assertThat(mergedQuoteIncludes).contains("quux/abc");
 
     List<String> mergedFrameworkIncludes =
-        ((SkylarkNestedSet) myInfo.getValue("merged_framework_includes"))
-            .getSet(String.class)
-            .toList();
+        ((Depset) myInfo.getValue("merged_framework_includes")).getSet(String.class).toList();
     assertThat(mergedFrameworkIncludes).contains("fuux/fgh");
   }
 
@@ -1298,7 +1293,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
 
-    SkylarkNestedSet librariesToLink = info.getValue("libraries_to_link", SkylarkNestedSet.class);
+    Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(
             librariesToLink.toCollection(LibraryToLink.class).stream()
                 .filter(x -> x.getStaticLibrary() != null)
@@ -1319,6 +1314,90 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
   }
 
+  private static String getSolibRelativePath(Artifact library, CcToolchainProvider toolchain) {
+    return library.getRootRelativePath().relativeTo(toolchain.getSolibDirectory()).toString();
+  }
+
+  @Test
+  public void testSolibLinkDefault() throws Exception {
+    setUpCcLinkingContextTest();
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "cc_binary(name='bin',",
+        "   deps = [':a'],",
+        ")",
+        "crule(name='a',",
+        "   dynamic_library = 'a.so',",
+        "   interface_library = 'a.ifso',",
+        ")");
+    ConfiguredTarget a = getConfiguredTarget("//foo:a");
+    RuleContext ruleContext = getRuleContext(a);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchain(
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+    StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
+    Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getDynamicLibrary() != null)
+                .map(x -> getSolibRelativePath(x.getDynamicLibrary(), toolchain))
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("_U_S_Sfoo_Ca___Ufoo/a.so");
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getInterfaceLibrary() != null)
+                .map(x -> getSolibRelativePath(x.getInterfaceLibrary(), toolchain))
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("_U_S_Sfoo_Ca___Ufoo/a.ifso");
+  }
+
+  @Test
+  public void testSolibLinkCustom() throws Exception {
+    setUpCcLinkingContextTest();
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "cc_binary(name='bin',",
+        "   deps = [':a'],",
+        ")",
+        "crule(name='a',",
+        "   dynamic_library = 'a.so',",
+        "   interface_library = 'a.ifso',",
+        "   dynamic_library_symlink_path = 'custom/libcustom.so',",
+        "   interface_library_symlink_path = 'libcustom.ifso',",
+        ")");
+    ConfiguredTarget a = getConfiguredTarget("//foo:a");
+    RuleContext ruleContext = getRuleContext(a);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchain(
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+    StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
+    Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getDynamicLibrary() != null)
+                .map(
+                    x ->
+                        x.getDynamicLibrary()
+                            .getRootRelativePath()
+                            .relativeTo(toolchain.getSolibDirectory())
+                            .toString())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("custom/libcustom.so");
+    assertThat(
+            librariesToLink.toCollection(LibraryToLink.class).stream()
+                .filter(x -> x.getInterfaceLibrary() != null)
+                .map(
+                    x ->
+                        x.getInterfaceLibrary()
+                            .getRootRelativePath()
+                            .relativeTo(toolchain.getSolibDirectory())
+                            .toString())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("libcustom.ifso");
+  }
+
   private void doTestCcLinkingContext(
       boolean experimentalCcSharedLibrary,
       List<String> staticLibraryList,
@@ -1336,19 +1415,18 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     @SuppressWarnings("unchecked")
-    SkylarkList<String> userLinkFlags =
-        (SkylarkList<String>) info.getValue("user_link_flags", SkylarkList.class);
+    Sequence<String> userLinkFlags =
+        (Sequence<String>) info.getValue("user_link_flags", Sequence.class);
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
-    SkylarkNestedSet additionalInputs = info.getValue("additional_inputs", SkylarkNestedSet.class);
+    Depset additionalInputs = info.getValue("additional_inputs", Depset.class);
     assertThat(
             additionalInputs.toCollection(Artifact.class).stream()
                 .map(x -> x.getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("b.lds", "d.lds");
     Collection<LibraryToLink> librariesToLink =
-        info.getValue("libraries_to_link", SkylarkNestedSet.class)
-            .toCollection(LibraryToLink.class);
+        info.getValue("libraries_to_link", Depset.class).toCollection(LibraryToLink.class);
     assertThat(
             librariesToLink.stream()
                 .filter(x -> x.getStaticLibrary() != null)
@@ -1448,13 +1526,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "top_linking_context_smoke = cc_common.create_linking_context(libraries_to_link=[],",
         "   user_link_flags=['-first_flag', '-second_flag'])",
-        "def _create(ctx, feature_configuration, static_library, pic_static_library,",
-        "  dynamic_library, interface_library, alwayslink):",
+        "def _create(ctx, feature_configuration, static_library, pic_static_library,"
+            + " dynamic_library,",
+        "  interface_library, dynamic_library_symlink_path, interface_library_symlink_path,"
+            + " alwayslink):",
         "  return cc_common.create_library_to_link(",
         "    actions=ctx.actions, feature_configuration=feature_configuration, ",
         "    cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo], ",
         "    static_library=static_library, pic_static_library=pic_static_library,",
         "    dynamic_library=dynamic_library, interface_library=interface_library,",
+        "    dynamic_library_symlink_path=dynamic_library_symlink_path,",
+        "    interface_library_symlink_path=interface_library_symlink_path,",
         "    alwayslink=alwayslink)",
         "def _impl(ctx):",
         "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
@@ -1464,6 +1546,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "  )",
         "  library_to_link = _create(ctx, feature_configuration, ctx.file.static_library, ",
         "     ctx.file.pic_static_library, ctx.file.dynamic_library, ctx.file.interface_library,",
+        "     ctx.attr.dynamic_library_symlink_path,",
+        "     ctx.attr.interface_library_symlink_path,",
         "     ctx.attr.alwayslink)",
         "  linking_context = cc_common.create_linking_context(",
         "     libraries_to_link=[library_to_link],",
@@ -1495,7 +1579,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    'static_library': attr.label(allow_single_file=True),",
         "    'pic_static_library': attr.label(allow_single_file=True),",
         "    'dynamic_library': attr.label(allow_single_file=True),",
+        "    'dynamic_library_symlink_path': attr.string(),",
         "    'interface_library': attr.label(allow_single_file=True),",
+        "    'interface_library_symlink_path': attr.string(),",
         "    'alwayslink': attr.bool(),",
         "    '_cc_toolchain': attr.label(default=Label('//a:alias')),",
         "    'deps': attr.label_list(),",
@@ -4502,56 +4588,58 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e)
         .hasMessageThat()
-        .contains("parameter 'toolchain_identifier' has no default value");
+        .contains("missing 1 required named argument: toolchain_identifier");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredHostSystemName() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("host_system_name");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'host_system_name' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: host_system_name");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredTargetSystemName() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("target_system_name");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'target_system_name' has no default value");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("missing 1 required named argument: target_system_name");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredTargetCpu() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("target_cpu");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'target_cpu' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: target_cpu");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredTargetLibc() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("target_libc");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'target_libc' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: target_libc");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredCompiler() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("compiler");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'compiler' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: compiler");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredAbiVersion() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("abi_version");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'abi_version' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_version");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredAbiLibcVersion() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("abi_libc_version");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'abi_libc_version' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_libc_version");
   }
 
   @Test
@@ -5178,6 +5266,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "   pic_static_library = 'a.pic.o',",
         "   dynamic_library = 'a.ifso',",
         "   interface_library = 'a.so',",
+        "   dynamic_library_symlink_path = 'a.lib',",
+        "   interface_library_symlink_path = 'a.dll',",
         ")");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
     assertThat(e)
@@ -5192,6 +5282,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("'a.so' does not have any of the allowed extensions .ifso, .tbd or .lib");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.lib' does not have any of the allowed extensions .so, .dylib or .dll");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.dll' does not have any of the allowed extensions .ifso, .tbd or .lib");
   }
 
   @Test
@@ -5440,8 +5536,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLink> libraries =
-        (SkylarkList<LibraryToLink>) getMyInfoFromTarget(target).getValue("libraries");
+    Sequence<LibraryToLink> libraries =
+        (Sequence<LibraryToLink>) getMyInfoFromTarget(target).getValue("libraries");
     assertThat(
             libraries.stream()
                 .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
@@ -5499,7 +5595,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_inputs");
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
-    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getNonCodeInputs()).hasSize(1);
+    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getNonCodeInputs().toList())
+        .hasSize(1);
   }
 
   @Test
@@ -5710,8 +5807,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
 
     Object picObjects = fooInfoForPic.getValue("pic_objects");
-    assertThat(picObjects).isNotEqualTo(Runtime.NONE);
-    assertThat((MutableList) picObjects).isEmpty();
+    assertThat(picObjects).isNotEqualTo(Starlark.NONE);
+    assertThat((StarlarkList) picObjects).isEmpty();
 
     // With PIC and the default compilation_mode which is fastbuild C++ rules only produce PIC
     // objects.
@@ -5726,8 +5823,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
 
     Object objects = fooInfoForNoPic.getValue("objects");
-    assertThat(objects).isNotEqualTo(Runtime.NONE);
-    assertThat((MutableList) objects).isEmpty();
+    assertThat(objects).isNotEqualTo(Starlark.NONE);
+    assertThat((StarlarkList) objects).isEmpty();
+  }
+
+  @Test
+  public void testIncompatibleRequireLinkerInputCcApi() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_require_linker_input_cc_api");
+    setUpCcLinkingContextTest();
+    checkError("//a:a", "It may be temporarily re-enabled by setting");
   }
 
   private void scratchObjectsProvidingRule() throws IOException {

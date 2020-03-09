@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -32,16 +32,17 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 )
 public interface AppleExecutableBinaryApi extends StructApi {
 
-  @SkylarkCallable(name = "binary",
+  @SkylarkCallable(
+      name = "binary",
       structField = true,
-      doc = "The executable binary file output by apple_binary."
-  )
-  public FileApi getAppleExecutableBinary();
+      doc = "The executable binary file output by apple_binary.")
+  FileApi getAppleExecutableBinary();
 
-  @SkylarkCallable(name = "objc",
+  @SkylarkCallable(
+      name = "objc",
       structField = true,
-      doc = "A provider which contains information about the transitive dependencies linked into "
-          + "the binary."
-  )
-  public ObjcProviderApi<?> getDepsObjcProvider();
+      doc =
+          "A provider which contains information about the transitive dependencies linked into "
+              + "the binary.")
+  ObjcProviderApi<?> getDepsObjcProvider();
 }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
@@ -77,11 +78,12 @@ public class WorkerMultiplexer extends Thread {
   public synchronized void createProcess(WorkerKey workerKey, Path workDir, Path logFile)
       throws IOException {
     if (this.process == null) {
-      List<String> args = workerKey.getArgs();
+      ImmutableList<String> args = workerKey.getArgs();
       File executable = new File(args.get(0));
       if (!executable.isAbsolute() && executable.getParent() != null) {
-        args = new ArrayList<>(args);
-        args.set(0, new File(workDir.getPathFile(), args.get(0)).getAbsolutePath());
+        List<String> newArgs = new ArrayList<>(args);
+        newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
+        args = ImmutableList.copyOf(newArgs);
       }
       SubprocessBuilder processBuilder = new SubprocessBuilder();
       processBuilder.setArgv(args);

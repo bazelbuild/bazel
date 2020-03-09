@@ -114,13 +114,13 @@ public class NinjaLexerStepTest {
 
   @Test
   public void testTryReadEscapedLiteral() {
-    doTest("$:", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), ":", false);
-    doTest("$$", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$", false);
-    doTest("$ ", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), " ", false);
+    doTest("$:", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$:", false);
+    doTest("$$", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$$", false);
+    doTest("$ ", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$ ", false);
 
-    doTest("$:a", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), ":", true);
-    doTest("$$$", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$", true);
-    doTest("$  ", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), " ", true);
+    doTest("$:a", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$:", true);
+    doTest("$$$", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$$", true);
+    doTest("$  ", step -> assertThat(step.tryReadEscapedLiteral()).isTrue(), "$ ", true);
 
     doTest("$a", step -> assertThat(step.tryReadEscapedLiteral()).isFalse(), "", true);
   }
@@ -130,12 +130,29 @@ public class NinjaLexerStepTest {
     doTest("abc_d-18", NinjaLexerStep::tryReadIdentifier);
     doTest("abc_d-18.ccc", NinjaLexerStep::tryReadIdentifier);
     doTest("abc_d-18.ccc=", NinjaLexerStep::tryReadIdentifier, "abc_d-18.ccc", true);
+    // Have a longer text to demonstrate the error output.
     doTestError(
-        "^abc",
+        "^abc Bazel only rebuilds what is necessary. "
+            + "With advanced local and distributed caching, optimized dependency analysis "
+            + "and parallel execution, you get fast and incremental builds.",
         NinjaLexerStep::tryReadIdentifier,
         "^",
         true,
-        "Symbol is not allowed in the identifier.");
+        "Symbol '^' is not allowed in the identifier, the text fragment with the symbol:\n"
+            + "^abc Bazel only rebuilds what is necessary. With advanced local and distributed"
+            + " caching, optimized dependency analysis and parallel execution,"
+            + " you get fast and incremental builds.\n");
+  }
+
+  @Test
+  public void testReadPath() {
+    doTest(
+        "this/is/the/relative/path.txt",
+        NinjaLexerStep::readPath,
+        "this/is/the/relative/path.txt",
+        false);
+    doTest(
+        "relative/text#.properties", NinjaLexerStep::readPath, "relative/text#.properties", false);
   }
 
   @Test

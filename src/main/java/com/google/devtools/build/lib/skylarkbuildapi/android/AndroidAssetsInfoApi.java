@@ -15,17 +15,16 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /** Provides information about transitive Android assets. */
@@ -62,7 +61,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
   FileApi getValidationResult();
 
   @SkylarkCallable(name = "direct_parsed_assets", structField = true, doc = "", documented = false)
-  NestedSet<AssetsT> getDirectParsedAssets();
+  Depset /*<AssetsT>*/ getDirectParsedAssetsForStarlark();
 
   /** Returns the local assets for the target. */
   @SkylarkCallable(
@@ -87,16 +86,16 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
       structField = true,
       doc = "",
       documented = false)
-  NestedSet<AssetsT> getTransitiveParsedAssets();
+  Depset /*<AssetsT>*/ getTransitiveParsedAssetsForStarlark();
 
   @SkylarkCallable(name = "assets", structField = true, doc = "", documented = false)
-  NestedSet<FileT> getAssets();
+  Depset /*<FileT>*/ getAssetsForStarlark();
 
   @SkylarkCallable(name = "symbols", structField = true, doc = "", documented = false)
-  NestedSet<FileT> getSymbols();
+  Depset /*<FileT>*/ getSymbolsForStarlark();
 
   @SkylarkCallable(name = "compiled_symbols", structField = true, doc = "", documented = false)
-  NestedSet<FileT> getCompiledSymbols();
+  Depset /*<FileT>*/ getCompiledSymbolsForStarlark();
 
   /** The provider implementing this can construct the AndroidAssetsInfo provider. */
   @SkylarkModule(
@@ -105,7 +104,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<FileT extends FileApi, AssetsT extends ParsedAndroidAssetsApi>
+  interface Provider<FileT extends FileApi, AssetsT extends ParsedAndroidAssetsApi>
       extends ProviderApi {
 
     @SkylarkCallable(
@@ -131,47 +130,47 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
               doc = "A depset of all the parsed assets in the target.",
               positional = true,
               named = true,
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = ParsedAndroidAssetsApi.class),
           @Param(
               name = "transitive_parsed_assets",
               doc = "A depset of all the parsed assets in the transitive closure.",
               positional = true,
               named = true,
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = ParsedAndroidAssetsApi.class),
           @Param(
               name = "transitive_assets",
               doc = "A depset of all the assets in the transitive closure.",
               positional = true,
               named = true,
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class),
           @Param(
               name = "transitive_symbols",
               doc = "A depset of all the symbols in the transitive closure.",
               positional = true,
               named = true,
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class),
           @Param(
               name = "transitive_compiled_symbols",
               doc = "A depset of all the compiled symbols in the transitive closure.",
               positional = true,
               named = true,
-              type = SkylarkNestedSet.class,
+              type = Depset.class,
               generic1 = FileApi.class),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidAssetsInfoApi.class, receiverNameForDoc = NAME)
-    public AndroidAssetsInfoApi<FileT, AssetsT> createInfo(
+    AndroidAssetsInfoApi<FileT, AssetsT> createInfo(
         Label label,
         Object validationResult,
-        SkylarkNestedSet directParsedAssets,
-        SkylarkNestedSet transitiveParsedAssets,
-        SkylarkNestedSet transitiveAssets,
-        SkylarkNestedSet transitiveSymbols,
-        SkylarkNestedSet transitiveCompiledSymbols)
+        Depset directParsedAssets,
+        Depset transitiveParsedAssets,
+        Depset transitiveAssets,
+        Depset transitiveSymbols,
+        Depset transitiveCompiledSymbols)
         throws EvalException;
   }
 }

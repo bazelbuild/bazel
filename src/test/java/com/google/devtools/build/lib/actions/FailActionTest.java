@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.util.Collection;
-import java.util.Collections;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,7 +61,7 @@ public class FailActionTest {
 
   @Test
   public void testInputsAreEmptySet() {
-    assertThat(failAction.getInputs()).containsExactlyElementsIn(Collections.emptySet());
+    assertThat(failAction.getInputs().toList()).isEmpty();
   }
 
   @Test

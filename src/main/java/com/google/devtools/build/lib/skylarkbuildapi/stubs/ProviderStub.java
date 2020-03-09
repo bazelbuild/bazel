@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.stubs;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /**
  * Stub implementation of {@link ProviderApi}. Should only be used for experimental, unimplemented
@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 public final class ProviderStub implements ProviderApi {
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<unimplemented provider>");
   }
 }

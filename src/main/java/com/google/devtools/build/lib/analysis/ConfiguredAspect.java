@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -34,7 +36,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -122,7 +124,7 @@ public final class ConfiguredAspect {
     }
   }
 
-  public InfoInterface get(Provider.Key key) {
+  public Info get(Provider.Key key) {
     return providers.get(key);
   }
 
@@ -233,8 +235,7 @@ public final class ConfiguredAspect {
       return this;
     }
 
-    public Builder addSkylarkDeclaredProvider(InfoInterface declaredProvider)
-        throws EvalException {
+    public Builder addSkylarkDeclaredProvider(Info declaredProvider) throws EvalException {
       Provider constructor = declaredProvider.getProvider();
       if (!constructor.isExported()) {
         throw new EvalException(
@@ -244,11 +245,11 @@ public final class ConfiguredAspect {
       return this;
     }
 
-    private void addDeclaredProvider(InfoInterface declaredProvider) {
+    private void addDeclaredProvider(Info declaredProvider) {
       providers.put(declaredProvider);
     }
 
-    public Builder addNativeDeclaredProvider(InfoInterface declaredProvider) {
+    public Builder addNativeDeclaredProvider(Info declaredProvider) {
       Provider constructor = declaredProvider.getProvider();
       Preconditions.checkState(constructor.isExported());
       addDeclaredProvider(declaredProvider);
@@ -281,6 +282,18 @@ public final class ConfiguredAspect {
               analysisEnvironment.getRegisteredActions(),
               ruleContext.getOwner(),
               /*outputFiles=*/ null);
+
+      if (ruleContext
+              .getConfiguration()
+              .getOptions()
+              .get(CoreOptions.class)
+              .includeRequiredConfigFragmentsProvider
+          != IncludeConfigFragmentsEnum.OFF) {
+        // This guarantees aspects pass through the requirements of their dependencies. But native
+        // aspects can also declare direct requirements.
+        // TODO(gregce): support native aspect direct requirements.
+        addProvider(new RequiredConfigFragmentsProvider(ruleContext.getRequiredConfigFragments()));
+      }
 
       return new ConfiguredAspect(
           descriptor,

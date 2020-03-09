@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.devtools.build.lib.remote.disk.CombinedDiskHttpCacheClient;
+import com.google.devtools.build.lib.remote.disk.DiskAndRemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -62,7 +62,7 @@ public class RemoteCacheClientFactoryTest {
         RemoteCacheClientFactory.create(
             remoteOptions, /* creds= */ null, workingDirectory, digestUtil);
 
-    assertThat(blobStore).isInstanceOf(CombinedDiskHttpCacheClient.class);
+    assertThat(blobStore).isInstanceOf(DiskAndRemoteCacheClient.class);
   }
 
   @Test
@@ -75,7 +75,7 @@ public class RemoteCacheClientFactoryTest {
         RemoteCacheClientFactory.create(
             remoteOptions, /* creds= */ null, workingDirectory, digestUtil);
 
-    assertThat(blobStore).isInstanceOf(CombinedDiskHttpCacheClient.class);
+    assertThat(blobStore).isInstanceOf(DiskAndRemoteCacheClient.class);
     assertThat(workingDirectory.exists()).isTrue();
   }
 

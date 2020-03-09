@@ -14,17 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a SkylarkCallable method which specifies skylark-info parameters (for example
- * StarlarkThread) before other parameters.
+ * Test case for a SkylarkCallable method which specifies StarlarkThread before other parameters.
  */
-public class SkylarkInfoBeforeParams implements SkylarkValue {
+public class SkylarkInfoBeforeParams implements StarlarkValue {
 
   @SkylarkCallable(
       name = "skylark_info_wrong_order",
@@ -34,10 +32,8 @@ public class SkylarkInfoBeforeParams implements SkylarkValue {
         @Param(name = "two", type = Integer.class, named = true),
         @Param(name = "three", type = String.class, named = true)
       },
-      useLocation = true,
       useStarlarkThread = true)
-  public String threeArgMethod(
-      Location location, StarlarkThread thread, String one, Integer two, String three) {
+  public String threeArgMethod(StarlarkThread thread, String one, Integer two, String three) {
     return "bar";
   }
 }

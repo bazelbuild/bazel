@@ -13,7 +13,6 @@
 // limitations under the License
 package com.google.devtools.build.lib.analysis.skylark;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -30,15 +29,13 @@ import com.google.devtools.build.lib.syntax.EvalException;
  */
 public class SkylarkErrorReporter implements AutoCloseable, RuleErrorConsumer {
   private final RuleErrorConsumer ruleErrorConsumer;
-  private final Location location;
 
-  public static SkylarkErrorReporter from(RuleErrorConsumer ruleErrorConsumer, Location location) {
-    return new SkylarkErrorReporter(ruleErrorConsumer, location);
+  public static SkylarkErrorReporter from(RuleErrorConsumer ruleErrorConsumer) {
+    return new SkylarkErrorReporter(ruleErrorConsumer);
   }
 
-  private SkylarkErrorReporter(RuleErrorConsumer ruleErrorConsumer, Location location) {
+  private SkylarkErrorReporter(RuleErrorConsumer ruleErrorConsumer) {
     this.ruleErrorConsumer = ruleErrorConsumer;
-    this.location = location;
   }
 
   @Override
@@ -46,7 +43,7 @@ public class SkylarkErrorReporter implements AutoCloseable, RuleErrorConsumer {
     try {
       assertNoErrors();
     } catch (RuleErrorException e) {
-      throw new EvalException(location, "error occurred while evaluating builtin function", e);
+      throw new EvalException(null, "error occurred while evaluating builtin function", e);
     }
   }
 

@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 
 /**
  * Utility functions for use during analysis.
@@ -52,12 +53,12 @@ public final class AnalysisUtils {
   /**
    * Returns whether link stamping is enabled for a rule.
    *
-   * <p>This returns false for unstampable rule classes and for rules in the
-   * host configuration. Otherwise it returns the value of the stamp attribute,
-   * or of the stamp option if the attribute value is -1.
+   * <p>This returns false for unstampable rule classes and for rules used to build tools. Otherwise
+   * it returns the value of the stamp attribute, or of the stamp option if the attribute value is
+   * -1.
    */
   public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfiguration config) {
-    if (config.isHostConfiguration()
+    if (config.isToolConfiguration()
         || !ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
       return false;
     }
@@ -73,10 +74,9 @@ public final class AnalysisUtils {
   // be called with Iterable<ConfiguredTarget>. Once the configured target lockdown is complete, we
   // can eliminate the "extends" clauses.
   /**
-   * Returns the list of providers of the specified type from a set of transitive info
-   * collections.
+   * Returns the list of providers of the specified type from a set of transitive info collections.
    */
-  public static <C extends TransitiveInfoProvider> Iterable<C> getProviders(
+  public static <C extends TransitiveInfoProvider> List<C> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites, Class<C> provider) {
     ImmutableList.Builder<C> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
@@ -92,7 +92,7 @@ public final class AnalysisUtils {
    * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
    * set of transitive info collections.
    */
-  public static <T extends InfoInterface> Iterable<T> getProviders(
+  public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
       final NativeProvider<T> skylarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
@@ -109,7 +109,7 @@ public final class AnalysisUtils {
    * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
    * set of transitive info collections.
    */
-  public static <T extends InfoInterface> Iterable<T> getProviders(
+  public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
       final BuiltinProvider<T> skylarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
@@ -131,14 +131,14 @@ public final class AnalysisUtils {
   }
 
   /** Returns the iterable of collections that have the specified provider. */
-  public static <S extends TransitiveInfoCollection, C extends InfoInterface> Iterable<S>
-      filterByProvider(Iterable<S> prerequisites, final NativeProvider<C> provider) {
+  public static <S extends TransitiveInfoCollection, C extends Info> Iterable<S> filterByProvider(
+      Iterable<S> prerequisites, final NativeProvider<C> provider) {
     return Iterables.filter(prerequisites, target -> target.get(provider) != null);
   }
 
   /** Returns the iterable of collections that have the specified provider. */
-  public static <S extends TransitiveInfoCollection, C extends InfoInterface>
-      Iterable<S> filterByProvider(Iterable<S> prerequisites, final BuiltinProvider<C> provider) {
+  public static <S extends TransitiveInfoCollection, C extends Info> Iterable<S> filterByProvider(
+      Iterable<S> prerequisites, final BuiltinProvider<C> provider) {
     return Iterables.filter(prerequisites, target -> target.get(provider) != null);
   }
 
@@ -203,8 +203,7 @@ public final class AnalysisUtils {
     // We'll get the configs from SkyframeExecutor#getConfigurations, which gets configurations
     // for deps including transitions. So to satisfy its API we resolve transitions and repackage
     // each target as a Dependency (with a NONE transition if necessary).
-    Multimap<BuildConfiguration, Dependency> asDeps =
-        AnalysisUtils.targetsToDeps(nodes, ruleClassProvider);
+    Multimap<BuildConfiguration, Dependency> asDeps = targetsToDeps(nodes, ruleClassProvider);
 
     return ConfigurationResolver.getConfigurationsFromExecutor(
         nodes, asDeps, eventHandler, skyframeExecutor);

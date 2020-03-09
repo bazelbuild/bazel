@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
@@ -114,7 +113,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             StampedAndroidManifest.getManifestValues(ruleContext),
-            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext),
             ruleContext.getExpander().withDataExecLocations().tokenized("nocompress_extensions"));
 
     attributesBuilder.addRuntimeClassPathEntry(resourceApk.getResourceJavaClassJar());
@@ -162,8 +160,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     attributesBuilder.addResource(
         PathFragment.create("com/android/tools/test_config.properties"), propertiesFile);
 
-    String testClass =
-        getAndCheckTestClass(ruleContext, ImmutableList.copyOf(attributesBuilder.getSourceFiles()));
+    String testClass = getAndCheckTestClass(ruleContext, javaCommon.getSrcsArtifacts());
     getAndCheckTestSupport(ruleContext);
     if (Whitelist.hasWhitelist(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")
         && !Whitelist.isAvailable(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")) {
@@ -234,16 +231,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             javaRuleOutputJarsProviderBuilder,
             javaSourceJarsProviderBuilder);
 
-    // JavaCompilationHelper.getAttributes() builds the JavaTargetAttributes, after which the
-    // JavaTargetAttributes becomes immutable. This is an extra safety check to avoid inconsistent
-    // states (i.e. building the JavaTargetAttributes then modifying it again).
-    addJavaClassJarToArtifactsBuilder(javaArtifactsBuilder, helper.getAttributes(), classJar);
+    JavaTargetAttributes attributes = attributesBuilder.build();
+    addJavaClassJarToArtifactsBuilder(javaArtifactsBuilder, attributes, classJar);
 
     javaRuleOutputJarsProviderBuilder.setJdeps(outputs.depsProto());
     helper.createCompileAction(outputs);
     helper.createSourceJarAction(srcJar, outputs.genSource());
 
-    setUpJavaCommon(javaCommon, helper, javaArtifactsBuilder.build());
+    setUpJavaCommon(javaCommon, helper, javaArtifactsBuilder.build(), attributes);
 
     Artifact launcher = JavaHelper.launcherArtifactForTarget(javaSemantics, ruleContext);
 
@@ -281,7 +276,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
                   ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
               .useToolchain(javaToolchain)
               .checkJars(
-                  NestedSetBuilder.fromNestedSet(helper.getAttributes().getRuntimeClassPath())
+                  NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())
                       .add(classJar)
                       .build())
               .build(ruleContext);
@@ -312,7 +307,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         .setOutputJar(deployJar)
         .setJavaStartClass(mainClass)
         .setDeployManifestLines(ImmutableList.<String>of())
-        .setAttributes(helper.getAttributes())
+        .setAttributes(attributes)
         .addRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
         .setIncludeBuildData(true)
         .setRunfilesMiddleman(runfilesSupport.getRunfilesMiddleman())
@@ -354,9 +349,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addProvider(JavaSourceInfoProvider.class,
-                    JavaSourceInfoProvider.fromJavaTargetAttributes(
-                            helper.getAttributes(), javaSemantics))
+            .addProvider(
+                JavaSourceInfoProvider.class,
+                JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, javaSemantics))
             .build();
 
     return builder
@@ -384,12 +379,13 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   private static void setUpJavaCommon(
       JavaCommon common,
       JavaCompilationHelper helper,
-      JavaCompilationArtifacts javaCompilationArtifacts) {
+      JavaCompilationArtifacts javaCompilationArtifacts,
+      JavaTargetAttributes attributes) {
     common.setJavaCompilationArtifacts(javaCompilationArtifacts);
     common.setClassPathFragment(
         new ClasspathConfiguredFragment(
             common.getJavaCompilationArtifacts(),
-            helper.getAttributes(),
+            attributes,
             false,
             helper.getBootclasspathOrDefault()));
   }
@@ -494,7 +490,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
       Map<String, String> manifestValues,
-      AndroidAaptVersion aaptVersion,
       List<String> noCompressExtensions)
       throws InterruptedException {
 
@@ -512,13 +507,12 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             dataBindingContext,
             stamped,
             manifestValues,
-            aaptVersion,
             resources,
             assets,
             resourceDeps,
             assetDeps,
             noCompressExtensions)
-        .generateRClass(dataContext, aaptVersion);
+        .generateRClass(dataContext);
   }
 
   private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {

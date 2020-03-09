@@ -1,6 +1,6 @@
-package(default_visibility = ["//visibility:private"])
-
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+package(default_visibility = ["//visibility:private"])
 
 filegroup(
     name = "srcs",
@@ -191,7 +191,7 @@ sh_test(
     srcs = ["run_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
-    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(
@@ -334,7 +334,6 @@ sh_test(
     srcs = ["modify_execution_info_test.sh"],
     data = [
         ":test-deps",
-        "//third_party/protobuf/3.6.1:srcs",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
@@ -682,6 +681,15 @@ sh_test(
     data = [":test-deps"],
     tags = ["no_windows"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "target_pattern_file_test",
+    srcs = ["target_pattern_file_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 ########################################################################

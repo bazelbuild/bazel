@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a structured representation of the linking outputs of a C++ rule. */
 @SkylarkModule(
@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
     category = SkylarkModuleCategory.BUILTIN,
     documented = true,
     doc = "Helper class containing CC compilation outputs.")
-public interface CcLinkingOutputsApi<FileT extends FileApi> extends SkylarkValue {
+public interface CcLinkingOutputsApi<FileT extends FileApi> extends StarlarkValue {
   @SkylarkCallable(
       name = "library_to_link",
       structField = true,

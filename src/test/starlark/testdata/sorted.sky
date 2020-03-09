@@ -28,7 +28,7 @@ assert_eq(sorted([[2, 6, 1], [5, 2, 1], [1, 4, 2]], key=sorted),
          [[1, 4, 2], [5, 2, 1], [2, 6, 1]])
 
 ---
-sorted(1) ### type 'int' is not a collection
+sorted(1) ### type 'int' is not iterable
 ---
 sorted([1, 2, None, 3]) ### Cannot compare NoneType with int
 ---

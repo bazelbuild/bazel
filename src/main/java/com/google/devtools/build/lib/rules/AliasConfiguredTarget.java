@@ -24,16 +24,16 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import javax.annotation.Nullable;
 
 /**
@@ -104,18 +104,18 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
 
   @Nullable
   @Override
-  public InfoInterface get(Provider.Key providerKey) {
+  public Info get(Provider.Key providerKey) {
     return actual.get(providerKey);
   }
 
   @Override
-  public Object getIndex(Object key, Location loc) throws EvalException {
-    return actual.getIndex(key, loc);
+  public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+    return actual.getIndex(semantics, key);
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
-    return actual.containsKey(key, loc);
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
+    return actual.containsKey(semantics, key);
   }
 
   @Override
@@ -136,7 +136,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
       // A shortcut for files to build in Skylark. FileConfiguredTarget and RuleConfiguredTarget
       // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
       // accessible in Skylark.
-      return SkylarkNestedSet.of(Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
+      return Depset.of(Artifact.TYPE, getProvider(FileProvider.class).getFilesToBuild());
     }
     return actual.getValue(name);
   }
@@ -164,7 +164,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<alias target " + label + " of " + actual.getLabel() + ">");
   }
 }

@@ -1,10 +1,10 @@
 ---
 layout: documentation
-title: User Manual
+title: User manual
 ---
-<h1>Commands and Options</h1>
+<h1>Commands and options</h1>
 
-<h2 id='target-patterns'>Target Syntax</h2>
+<h2 id='target-patterns'>Target syntax</h2>
 
 Some commands, like <code>build</code> or <code>test</code>, can operate
 on a list of targets. They use a syntax more flexible than labels, which is
@@ -26,7 +26,7 @@ targets to build</a>" section of the User's Guide.
   identified in the on-line help with the text 'may be used multiple times'.
 </p>
 
-<h3>Options that affect how packages are located</h3>
+<h3>Package location</h3>
 
 <h4 id='flag--package_path'><code class='flag'>--package_path</code></h4>
 <p>
@@ -92,7 +92,7 @@ Package path elements may be specified in three formats:
   % touch WORKSPACE
   % bazel build --package_path /some/other/path //foo
 </pre>
-<h3 id='checking-options'>Error checking options</h3>
+<h3 id='checking-options'>Error checking</h3>
 <p>
   These options control Bazel's error-checking and/or warnings.
 </p>
@@ -157,7 +157,7 @@ Package path elements may be specified in three formats:
   </tr>
 </table>
 
-<h3 id='flags-options'>Flags options</h3>
+<h3 id='flags-options'>Tool flags</h3>
 <p>
   These options control which options Bazel will pass to other tools.
 </p>
@@ -447,7 +447,7 @@ Package path elements may be specified in three formats:
   </li>
 </ul>
 
-<h3 id='semantics-options'>Semantics options</h3>
+<h3 id='semantics-options'>Build semantics</h3>
 <p>
   These options affect the build commands and/or the output file contents.
 </p>
@@ -791,7 +791,7 @@ The default is <code>armeabi-v7a</code>.
   option.
 </p>
 
-<h3 id='strategy-options'>Build strategy options</h3>
+<h3 id='strategy-options'>Execution strategy</h3>
 <p>
   These options affect how Bazel will execute the build.
   They should not have any significant effect on the output files
@@ -1034,7 +1034,7 @@ memory-saving mode</a>.
   unnecessarily.
 </p>
 
-<h3 id='output-selection-options'>Output selection options</h3>
+<h3 id='output-selection-options'>Output selection</h3>
 <p>
   These options determine what to build or test.
 </p>
@@ -1241,7 +1241,7 @@ memory-saving mode</a>.
   but not all frameworks support it.
 </p>
 
-<h3 id='verbosity'>Verbosity options: options that control what Bazel prints</h3>
+<h3 id='verbosity'>Verbosity</h3>
 
 These options control the verbosity of Bazel's output,
 either to the terminal, or to additional log files.
@@ -1396,8 +1396,7 @@ either to the terminal, or to additional log files.
   for copying and pasting to a shell prompt.
 </p>
 
-<h3 id='workspace_status'>Options that control how Bazel embeds workspace status information
-into binaries ("stamping")</h3>
+<h3 id='workspace_status'>Workspace status</h3>
 
 <p>
   Use these options to "stamp" Bazel-built binaries: to embed additional information into the
@@ -1524,7 +1523,7 @@ echo "STABLE_USER_NAME $USER"
   built for the host configuration, regardless of the stamp attribute.
 </p>
 
-<h3 id='platform_build_options'>Platform options</h3>
+<h3 id='platform_build_options'>Platform</h3>
 
 <p>
   Use these options to control the host and target platforms that configure how builds work, and to
@@ -1579,7 +1578,7 @@ echo "STABLE_USER_NAME $USER"
   implementations that toolchain resolution should be used.
 </p>
 
-<h3 id='misc_build_options'>Miscellaneous options</h3>
+<h3 id='misc_build_options'>Miscellaneous</h3>
 
 <h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
 <p>
@@ -1642,6 +1641,38 @@ echo "STABLE_USER_NAME $USER"
     incremental builds slower.
 </p>
 
+<h4 id='flag--starlark_cpu_profile'><code class='flag'>--starlark_cpu_profile=<i>file</i></code></h4>
+<p>
+  This flag, whose value is the name of a file, causes Bazel to gather
+  statistics about CPU usage by all Starlark threads,
+  and write the profile, in <a href='https://github.com/google/pprof'>pprof</a> format,
+  to the named file.
+
+  Use this option to help identify Starlark functions that
+  make loading and analysis slow due to excessive computation. For example:
+</p>
+<pre>
+$ bazel build --nobuild --starlark_cpu_profile=/tmp/pprof.gz my/project/...
+$ pprof /tmp/pprof.gz
+(pprof) top
+Type: CPU
+Time: Feb 6, 2020 at 12:06pm (PST)
+Duration: 5.26s, Total samples = 3.34s (63.55%)
+Showing nodes accounting for 3.34s, 100% of 3.34s total
+      flat  flat%   sum%        cum   cum%
+     1.86s 55.69% 55.69%      1.86s 55.69%  sort_source_files
+     1.02s 30.54% 86.23%      1.02s 30.54%  expand_all_combinations
+     0.44s 13.17% 99.40%      0.44s 13.17%  range
+     0.02s   0.6%   100%      3.34s   100%  sorted
+         0     0%   100%      1.38s 41.32%  my/project/main/BUILD
+         0     0%   100%      1.96s 58.68%  my/project/library.bzl
+         0     0%   100%      3.34s   100%  main
+</pre>
+<p>
+  For different views of the same data, try the <code>pprof</code> commands <code>svg</code>,
+  <code>web</code>, and <code>list</code>.
+</p>
+
 <h2 id='bazel-releng'>Using Bazel for releases</h2>
 <p>
   Bazel is used both by software engineers during the development
@@ -1665,7 +1696,7 @@ echo "STABLE_USER_NAME $USER"
 </ul>
 
 <p>
-  These options (q.v.) are also important:
+  These options are also important:
 </p>
 
 <ul>
@@ -1679,7 +1710,7 @@ echo "STABLE_USER_NAME $USER"
   </li>
 </ul>
 
-<h2 id='test'>Running tests with Bazel</h2>
+<h2 id='test'>Running tests</h2>
 <p>
   To build and run tests with bazel, type <code>bazel test</code> followed by
   the name of the test targets.
@@ -2015,7 +2046,7 @@ Examples:
 </p>
 
 
-<h3 id='clean'>Deleting the outputs of a build</h3>
+<h3 id='clean'>Cleaning build outputs</h3>
 
 <h4>The <code>clean</code> command</h4>
 
@@ -2070,7 +2101,7 @@ Examples:
 </p>
 
 
-<h2 id='run'>Running executables with Bazel</h2>
+<h2 id='run'>Running executables</h2>
 <p>
   The <code>bazel run</code> command is similar to <code>bazel build</code>, except
   it is used to build <em>and run</em> a single target.  Here is a typical session:
@@ -2147,11 +2178,11 @@ a user-friendly way.
   <code>bazel run</code> can also execute test binaries, which has the effect of
   running the test in a close approximation of the environment described at
   <a href='test-encyclopedia.html'>Writing Tests</a>. Note that none of the
-  <code>--test_*</code>code> arguments have an effect when running a test in this manner except
+  <code>--test_*</code> arguments have an effect when running a test in this manner except
   <code>--test_arg</code> .
 </p>
 
-<h2 id='query'>Querying the dependency graph with Bazel</h2>
+<h2 id='query'>Querying the dependency graph</h2>
 
 <p>
   Bazel includes a query language for asking questions about the
@@ -2197,7 +2228,7 @@ a user-friendly way.
   bazel query --output location 'kind(genrule, deps(kind(".*_test rule", foo/bar/pebl/...)))'
 </pre>
 
-<h2 id='aquery'>Querying the action graph with Bazel</h2>
+<h2 id='aquery'>Querying the action graph</h2>
 
 <b>Caution</b>: The aquery command is still experimental and its API will change.
 
@@ -2226,9 +2257,9 @@ a user-friendly way.
   More details on aquery can be found <a href="aquery.html">here</a>.
 </p>
 
-<h2 id='misc'>Miscellaneous Bazel commands and options</h2>
+<h2 id='misc'>Miscellaneous commands and options</h2>
 
-<h3 id='help'>The <code>help</code> command</h3>
+<h3 id='help'><code>help</code></h3>
 
 <p>
   The <code>help</code> command provides on-line help.  By default, it
@@ -2248,7 +2279,7 @@ a user-friendly way.
   and full description of each option is also printed.
 </p>
 
-<h3 id='shutdown'>The <code>shutdown</code> command</h3>
+<h3 id='shutdown'><code>shutdown</code></h3>
 
 <p>
   Bazel server processes (see <a href='guide.html#client/server'>Client/server
@@ -2271,7 +2302,7 @@ a user-friendly way.
   occasion; performing a conditional restart preempts this condition.
 </p>
 
-<h3 id='info'>The <code>info</code> command</h3>
+<h3 id='info'><code>info</code></h3>
 
 <p>
   The <code>info</code> command prints various values associated with
@@ -2408,7 +2439,7 @@ a user-friendly way.
   (e.g. you are building from a read-only directory).
 </p>
 
-<h3 id='version'>The <code>version</code> command</h3>
+<h3 id='version'><code>version</code> and <code>--version</code></h3>
 
 <p>
   The version command prints version details about the built Bazel
@@ -2427,17 +2458,14 @@ a user-friendly way.
   </li>
 </ul>
 
-<h3 id='--version'><code>bazel --version</code></h3>
 <p>
   <code>bazel --version</code>, with no other args, will emit the same output as
   <code>bazel version --gnu_format</code>, except without the side-effect of potentially starting
-  a Bazel server or unpacking the server archive.
-</p>
-<p>
-  <code>bazel --version</code> can be run from anywhere - it does not require a workspace directory.
+  a Bazel server or unpacking the server archive. <code>bazel --version</code> can be run from
+  anywhere - it does not require a workspace directory.
 </p>
 
-<h3 id='mobile-install'>The <code>mobile-install</code> command</h3>
+<h3 id='mobile-install'><code>mobile-install</code></h3>
 <p>
   The <code>mobile-install</code> command installs apps to mobile devices.
   Currently only Android devices running ART are supported.
@@ -2525,7 +2553,7 @@ adb -s deadbeef install ...
 </p>
 
 
-<h3 id='dump'>The <code>dump</code> command</h3>
+<h3 id='dump'><code>dump</code></h3>
 
 <p>
   The <code>dump</code> command prints to stdout a dump of the
@@ -2600,7 +2628,7 @@ adb -s deadbeef install ...
     dump --skylark_memory=$HOME/prof.gz
     % pprof -flame $HOME/prof.gz
   </pre>
-<h3 id='analyze-profile'>The <code>analyze-profile</code> command</h3>
+<h3 id='analyze-profile'><code>analyze-profile</code></h3>
 
 <p>
   The <code>analyze-profile</code> command analyzes data previously gathered
@@ -2647,7 +2675,7 @@ adb -s deadbeef install ...
 
 </p>
 
-<h3 id='canonicalize'>The <code>canonicalize-flags</code> command</h3>
+<h3 id='canonicalize'><code>canonicalize-flags</code></h3>
 
 <p>
   The <code>canonicalize-flags</code> command, which takes a list of options for
@@ -2665,7 +2693,7 @@ adb -s deadbeef install ...
   ensure that the effect is identical.
 </p>
 
-<h3 id='startup_options'>Bazel startup options</h3>
+<h3 id='startup_options'>Startup options</h3>
 
 <p>
   The options described in this section affect the startup of the Java
@@ -2815,13 +2843,6 @@ adb -s deadbeef install ...
 <h4 id='flag--batch'><code class='flag'>--batch</code></h4>
 
 <p>
-  WARNING: <code class='flag'>--batch</code> is deprecated. For build isolation, we recommend
-  using the command option  <code class='flag'>--nokeep_state_after_build</code>, which guarantees
-  that no incremental in-memory state is kept between builds. In order to restart the
-  Bazel server and JVM after a build, please explicitly do so using the "shutdown" command.
-</p>
-
-<p>
   Batch mode causes Bazel to not use the standard client/server mode described
   <a href='guide.html#client/server'>above</a>, instead running a bazel java process for a
   single command, which has been used for more predictable semantics with respect
@@ -2843,6 +2864,17 @@ adb -s deadbeef install ...
   Therefore, using batch mode often makes more sense in cases where performance
   is less critical, such as continuous builds.
 </p>
+
+<p>
+  <i>WARNING:</i> <code class='flag'>--batch</code> is sufficiently slower than standard
+  client/server mode. Additionally it might not support all of the features and optimizations which
+  are made possible by a persistent Bazel server. If you're using <code class='flag'>--batch</code>
+  for the purpose of build isolation, we recommend using the command option
+  <code class='flag'>--nokeep_state_after_build</code>, which guarantees that no incremental
+  in-memory state is kept between builds. In order to restart the Bazel server and JVM after a
+  build, please explicitly do so using the "shutdown" command.
+</p>
+
 
 <h4 id='flag--max_idle_secs'><code class='flag'>--max_idle_secs <var>n</var></code></h4>
 <p>

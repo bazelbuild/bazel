@@ -68,26 +68,27 @@ public class ResolvedFileFunction implements SkyFunction {
             FileSystemUtils.readWithKnownFileSize(
                 key.getPath().asPath(), key.getPath().asPath().getFileSize());
         StarlarkFile file =
-            StarlarkFile.parse(ParserInput.create(bytes, key.getPath().asPath().asFragment()));
+            StarlarkFile.parse(ParserInput.create(bytes, key.getPath().asPath().toString()));
         if (!file.ok()) {
           Event.replayEventsOn(env.getListener(), file.errors());
           throw resolvedValueError("Failed to parse file resolved file " + key.getPath());
         }
-        StarlarkThread resolvedThread;
+        Module resolvedModule;
         try (Mutability mutability = Mutability.create("resolved file", key.getPath())) {
-          resolvedThread =
+          StarlarkThread thread =
               StarlarkThread.builder(mutability)
                   .setSemantics(starlarkSemantics)
                   .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
                   .build();
+          resolvedModule = thread.getGlobals();
           try {
-            EvalUtils.exec(file, resolvedThread);
+            EvalUtils.exec(file, resolvedModule, thread);
           } catch (EvalException ex) {
             env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
             throw resolvedValueError("Failed to evaluate resolved file " + key.getPath());
           }
         }
-        Object resolved = resolvedThread.moduleLookup("resolved");
+        Object resolved = resolvedModule.lookup("resolved");
         if (resolved == null) {
           throw resolvedValueError(
               "Symbol 'resolved' not exported in resolved file " + key.getPath());

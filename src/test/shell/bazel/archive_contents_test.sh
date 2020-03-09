@@ -65,7 +65,10 @@ test_tar_utf8() {
     echo 'Hello World' > ext/data.txt
     touch ext/$'unrelated\xF0\x9F\x8D\x83.txt'
     touch ext/$'cyrillic\xD0\x90\xD0\x91\xD0\x92\xD0\x93\xD0\x94...'
-    touch ext/$'umlauts\xC3\x84\xC3\x96\xC3\x9C\xC3\xA4\xC3\xB6\xC3\xBC'
+    touch ext/$'umlauts\x41\xCC\x88\x4F\xCC\x88\x55\xCC\x88\x61\xCC\x88\x6F\xCC\x88\x75\xCC\x88'
+    # TODO(philwo) - figure out why we get an "invalid characters" error on
+    # macOS Catalina when using this form (NFC normalized).
+    #touch ext/$'umlauts\xC3\x84\xC3\x96\xC3\x9C\xC3\xA4\xC3\xB6\xC3\xBC'
 
     tar cf ext.tar ext
     rm -rf ext

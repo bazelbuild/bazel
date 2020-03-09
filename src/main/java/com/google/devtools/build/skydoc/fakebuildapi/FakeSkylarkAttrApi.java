@@ -15,13 +15,13 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Module;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import java.util.ArrayList;
@@ -39,8 +39,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Integer defaultInt,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
-      FuncallExpression ast,
+      Sequence<?> values,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(AttributeType.INT, doc, mandatory, ImmutableList.of(), defaultInt);
@@ -51,8 +50,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String defaultString,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
-      FuncallExpression ast,
+      Sequence<?> values,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -71,12 +69,11 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
-      SkylarkList<?> providers,
+      Sequence<?> providers,
       Object allowRules,
       Boolean singleFile,
       Object cfg,
-      SkylarkList<?> aspects,
-      FuncallExpression ast,
+      Sequence<?> aspects,
       StarlarkThread thread)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
@@ -91,9 +88,8 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultList,
       String doc,
-      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -105,9 +101,8 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultList,
       String doc,
-      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -121,13 +116,12 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
-      FuncallExpression ast,
+      Sequence<?> aspects,
       StarlarkThread thread)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
@@ -144,13 +138,12 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
-      FuncallExpression ast,
+      Sequence<?> aspects,
       StarlarkThread thread)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
@@ -163,8 +156,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
 
   @Override
   public Descriptor boolAttribute(
-      Boolean defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
-      throws EvalException {
+      Boolean defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
     return new FakeDescriptor(
         AttributeType.BOOLEAN,
         doc,
@@ -175,8 +167,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
 
   @Override
   public Descriptor outputAttribute(
-      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
-      throws EvalException {
+      Object defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
     return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory, ImmutableList.of(), defaultO);
   }
 
@@ -187,7 +178,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
-      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -197,11 +187,10 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
   @Override
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
-      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -211,11 +200,10 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
   @Override
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
-      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -224,14 +212,13 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
 
   @Override
   public Descriptor licenseAttribute(
-      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, StarlarkThread thread)
-      throws EvalException {
+      Object defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
     return new FakeDescriptor(
         AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultO);
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 
   /**
    * Returns a list of provider name groups, given the value of a Starlark attribute's "providers"
@@ -243,13 +230,13 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
    * each of the inner lists is a separate group.
    */
   private static List<List<String>> allProviderNameGroups(
-      SkylarkList<?> providers, StarlarkThread thread) {
+      Sequence<?> providers, StarlarkThread thread) {
 
     List<List<String>> allNameGroups = new ArrayList<>();
     for (Object object : providers) {
       List<String> providerNameGroup;
-      if (object instanceof SkylarkList) {
-        SkylarkList<?> group = (SkylarkList<?>) object;
+      if (object instanceof Sequence) {
+        Sequence<?> group = (Sequence<?>) object;
         providerNameGroup = parseProviderGroup(group, thread);
         allNameGroups.add(providerNameGroup);
       } else {
@@ -267,7 +254,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
    * <p>Each item in the group may be either a {@link ProviderApi} or a {@code String} (representing
    * a legacy provider).
    */
-  private static List<String> parseProviderGroup(SkylarkList<?> group, StarlarkThread thread) {
+  private static List<String> parseProviderGroup(Sequence<?> group, StarlarkThread thread) {
     List<String> providerNameGroup = new ArrayList<>();
     for (Object object : group) {
       if (object instanceof ProviderApi) {
@@ -292,12 +279,11 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
    * name will be set to "Unknown Provider".
    */
   private static String providerName(ProviderApi provider, StarlarkThread thread) {
-    Map<String, Object> bindings = thread.getGlobals().getTransitiveBindings();
-    if (bindings.containsValue(provider)) {
-      for (Entry<String, Object> envEntry : bindings.entrySet()) {
-        if (provider.equals(envEntry.getValue())) {
-          return envEntry.getKey();
-        }
+    Map<String, Object> bindings =
+        Module.ofInnermostEnclosingStarlarkFunction(thread).getTransitiveBindings();
+    for (Entry<String, Object> envEntry : bindings.entrySet()) {
+      if (provider.equals(envEntry.getValue())) {
+        return envEntry.getKey();
       }
     }
     return "Unknown Provider";

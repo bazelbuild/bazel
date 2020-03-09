@@ -18,7 +18,9 @@ import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /**
@@ -49,6 +51,7 @@ public final class MockToolsConfig {
     if (!realFileSystem) {
       this.runfilesDirectory = null;
     } else if (runfilesDirectoryOpt == null) {
+      // Turning the absolute path string from runfilesDir into a Path object.
       this.runfilesDirectory = rootDirectory.getRelative(BlazeTestUtils.runfilesDir());
     } else {
       this.runfilesDirectory = runfilesDirectoryOpt;
@@ -60,11 +63,12 @@ public final class MockToolsConfig {
   }
 
   public Path getPath(String relativePath) {
+    Preconditions.checkState(!relativePath.startsWith("/"), relativePath);
     return rootDirectory.getRelative(relativePath);
   }
 
   public Path create(String relativePath, String... lines) throws IOException {
-    Path path = rootDirectory.getRelative(relativePath);
+    Path path = getPath(relativePath);
     if (!path.exists()) {
       FileSystemUtils.writeIsoLatin1(path, lines);
     } else if (lines.length > 0) {
@@ -91,7 +95,7 @@ public final class MockToolsConfig {
   }
 
   public Path overwrite(String relativePath, String... lines) throws IOException {
-    Path path = rootDirectory.getRelative(relativePath);
+    Path path = getPath(relativePath);
     if (path.exists()) {
       path.deleteTree();
     }
@@ -99,7 +103,7 @@ public final class MockToolsConfig {
   }
 
   public Path append(String relativePath, String... lines) throws IOException {
-    Path path = rootDirectory.getRelative(relativePath);
+    Path path = getPath(relativePath);
     if (!path.exists()) {
       return create(relativePath, lines);
     }
@@ -122,6 +126,12 @@ public final class MockToolsConfig {
     linkTool(relativePath, relativePath);
   }
 
+  public void copyTool(String relativePath) throws IOException {
+    Path runfiles = FileSystems.getNativeFileSystem().getPath(BlazeTestUtils.runfilesDir());
+    Path source = runfiles.getRelative(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
+    create(relativePath, FileSystemUtils.readContent(source, StandardCharsets.ISO_8859_1));
+  }
+
   /**
    * Links a tool into the workspace by creating a symbolic link to a real file.
    *
@@ -136,15 +146,14 @@ public final class MockToolsConfig {
       // In some cases we run tests in a special client with a ../READONLY/ path where we may also
       // find the runfiles. Try that, too.
       Path readOnlyClientPath =
-          rootDirectory.getRelative(
-              "../READONLY/" + TestConstants.WORKSPACE_NAME + "/" + relativePath);
+          getPath("../READONLY/" + TestConstants.WORKSPACE_NAME + "/" + relativePath);
       if (!readOnlyClientPath.exists()) {
         throw new IOException("target does not exist " + target);
       } else {
         target = readOnlyClientPath;
       }
     }
-    Path path = rootDirectory.getRelative(dest);
+    Path path = getPath(dest);
     FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
     path.delete();
     path.createSymbolicLink(target);

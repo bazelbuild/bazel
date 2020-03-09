@@ -19,11 +19,13 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -122,13 +124,15 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
         /*actionInputPrefetcher=*/ null,
         /*actionKeyContext=*/ null,
         /*metadataHandler=*/ null,
+        LostInputsCheck.NONE,
         /*fileOutErr=*/ null,
         new StoredEventHandler(),
         /*clientEnv=*/ ImmutableMap.of(),
         /*topLevelFilesets=*/ ImmutableMap.of(),
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.NO_CALLBACKS);
   }
 
   @Test

@@ -33,7 +33,8 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Sta
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadContinuedEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadPausedEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.DebugFrame;
+import com.google.devtools.build.lib.syntax.Debug;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -126,34 +127,33 @@ final class DebugEventHelper {
     if (location == null) {
       return null;
     }
-    Location.LineAndColumn lineAndColumn = location.getStartLineAndColumn();
-    if (lineAndColumn == null) {
-      return null;
-    }
     return SkylarkDebuggingProtos.Location.newBuilder()
-        .setLineNumber(lineAndColumn.getLine())
-        .setColumnNumber(lineAndColumn.getColumn())
-        .setPath(location.getPath().getPathString())
+        .setLineNumber(location.line())
+        .setColumnNumber(location.column())
+        .setPath(location.file())
         .build();
   }
 
-  static SkylarkDebuggingProtos.Frame getFrameProto(ThreadObjectMap objectMap, DebugFrame frame) {
-    SkylarkDebuggingProtos.Frame.Builder builder =
-        SkylarkDebuggingProtos.Frame.newBuilder()
-            .setFunctionName(frame.functionName())
-            .addAllScope(getScopes(objectMap, frame));
-    if (frame.location() != null) {
-      builder.setLocation(getLocationProto(frame.location()));
-    }
-    return builder.build();
+  static SkylarkDebuggingProtos.Frame getFrameProto(ThreadObjectMap objectMap, Debug.Frame frame) {
+    return SkylarkDebuggingProtos.Frame.newBuilder()
+        .setFunctionName(frame.getFunction().getName())
+        .addAllScope(getScopes(objectMap, frame))
+        .setLocation(getLocationProto(frame.getLocation()))
+        .build();
   }
 
-  private static ImmutableList<Scope> getScopes(ThreadObjectMap objectMap, DebugFrame frame) {
-    ImmutableMap<String, Object> localVars = frame.lexicalFrameBindings();
+  private static ImmutableList<Scope> getScopes(ThreadObjectMap objectMap, Debug.Frame frame) {
+    Map<String, Object> moduleVars =
+        frame.getFunction() instanceof StarlarkFunction
+            ? ((StarlarkFunction) frame.getFunction()).getModule().getTransitiveBindings()
+            : ImmutableMap.of();
+
+    ImmutableMap<String, Object> localVars = frame.getLocals();
     if (localVars.isEmpty()) {
-      return ImmutableList.of(getScope(objectMap, "global", frame.globalBindings()));
+      return ImmutableList.of(getScope(objectMap, "global", moduleVars));
     }
-    Map<String, Object> globalVars = new LinkedHashMap<>(frame.globalBindings());
+
+    Map<String, Object> globalVars = new LinkedHashMap<>(moduleVars);
     // remove shadowed bindings
     localVars.keySet().forEach(globalVars::remove);
 

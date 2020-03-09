@@ -43,13 +43,6 @@ needed.
 Rules also produce and pass along information that may be useful to other rules
 in the form of [providers](#providers).
 
-## Contents
-{:.no_toc}
-
-* ToC
-{:toc}
-
-
 ## Rule creation
 
 In a `.bzl` file, use the [rule](lib/globals.html#rule)
@@ -133,7 +126,7 @@ following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
 
 <a name="private-attributes"></a>
 
-### Private Attributes and Implicit Dependencies
+### Private attributes and implicit dependencies
 
 A dependency attribute with a default value is called an *implicit dependency*.
 The name comes from the fact that it is a part of the target graph that the user
@@ -398,7 +391,7 @@ which means `cfg` is optional, only set this when it truly helps readability.
 
 <a name="fragments"></a>
 
-## Configuration Fragments
+## Configuration fragments
 
 Rules may access [configuration fragments](lib/skylark-configuration-fragment.html)
 such as `cpp`, `java` and `jvm`. However, all required fragments must be
@@ -479,7 +472,7 @@ Providers are only available during the analysis phase. Examples of usage:
 * [providers with depsets](https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl)
     This examples shows how a library and a binary rule can pass information.
 
-### Migrating from Legacy Providers
+### Migrating from legacy providers
 
 Historically, Bazel providers were simple fields on the `Target` object. They
 were accessed using the dot operator, and they were created by putting the field
@@ -689,7 +682,7 @@ Example code:
 ```python
 def _mytool_impl(ctx):
   ...
-  my_runfiles = ctx.runfles(files = mytool_files)
+  my_runfiles = ctx.runfiles(files = mytool_files)
   for subtool in ctx.attr.subtools:
     subtool_runfiles = subtool[DefaultInfo].default_runfiles
     my_runfiles = my_runfiles.merge(subtool_runfiles)

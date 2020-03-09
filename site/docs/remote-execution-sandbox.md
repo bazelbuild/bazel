@@ -1,24 +1,10 @@
 ---
 layout: documentation
-title: Troubleshooting Bazel Remote Execution with Docker Sandbox
+title: Troubleshooting Bazel remote execution with Docker sandbox
 
 ---
 
-# Troubleshooting Bazel Remote Execution with Docker Sandbox
-
-## Contents
-
-*  [Overview](#overview)
-*  [Prerequisites](#prerequisites)
-*  [Troubleshooting on the local machine](#troubleshooting-on-the-local-machine)
-   *  [Step 1: Run the build](#step-1-run-the-build)
-   *  [Step 2: Resolve detected issues](#step-2-resolve-detected-issues)
-*  [Troubleshooting in a Docker container](#troubleshooting-in-a-docker-container)
-   *  [Step 1: Build the container](#step-1-build-the-container)
-   *  [Step 2: Start the container](#step-2-start-the-container)
-   *  [Step 3: Test the container](#step-3-test-the-container)
-   *  [Step 4: Run the build](#step-4-run-the-build)
-   *  [Step 5: Resolve detected issues](#step-5-resolve-detected-issues)
+# Troubleshooting Bazel remote execution with Docker sandbox
 
 ## Overview
 

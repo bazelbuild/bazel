@@ -14,16 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
@@ -80,7 +78,7 @@ public interface ConfigGlobalLibraryApi {
                     + "split transition."),
         @Param(
             name = "inputs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             positional = false,
             named = true,
@@ -90,7 +88,7 @@ public interface ConfigGlobalLibraryApi {
                     + "parameter."),
         @Param(
             name = "outputs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             positional = false,
             named = true,
@@ -98,14 +96,12 @@ public interface ConfigGlobalLibraryApi {
                 "List of build settings that can be written by this transition. This must be "
                     + "a superset of the key set of the dictionary returned by this transition."),
       },
-      useLocation = true,
       useStarlarkThread = true)
   @SkylarkConstructor(objectType = ConfigurationTransitionApi.class)
   ConfigurationTransitionApi transition(
       BaseFunction implementation,
-      SkylarkList<?> inputs, // <String> expected
-      SkylarkList<?> outputs, // <String> expected
-      Location location,
+      Sequence<?> inputs, // <String> expected
+      Sequence<?> outputs, // <String> expected
       StarlarkThread thread)
       throws EvalException;
 
@@ -122,7 +118,7 @@ public interface ConfigGlobalLibraryApi {
       parameters = {
         @Param(
             name = "settings",
-            type = SkylarkDict.class,
+            type = Dict.class,
             positional = false,
             named = true,
             doc =
@@ -132,11 +128,9 @@ public interface ConfigGlobalLibraryApi {
                     + "are unchanged. Use this to declare specific configuration settings that "
                     + "an analysis test requires to be set in order to pass."),
       },
-      useLocation = true,
-      useStarlarkSemantics = true)
-  public ConfigurationTransitionApi analysisTestTransition(
-      SkylarkDict<?, ?> changedSettings, // <String, String> expected
-      Location location,
-      StarlarkSemantics semantics)
+      useStarlarkThread = true)
+  ConfigurationTransitionApi analysisTestTransition(
+      Dict<?, ?> changedSettings, // <String, String> expected
+      StarlarkThread thread)
       throws EvalException;
 }

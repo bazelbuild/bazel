@@ -25,9 +25,11 @@ public final class ActionLogBufferPathGenerator {
   private final AtomicInteger actionCounter = new AtomicInteger();
 
   private final Path actionOutputRoot;
+  private final Path persistentActionOutputRoot;
 
-  public ActionLogBufferPathGenerator(Path actionOutputRoot) {
+  public ActionLogBufferPathGenerator(Path actionOutputRoot, Path persistentActionOutputRoot) {
     this.actionOutputRoot = actionOutputRoot;
+    this.persistentActionOutputRoot = persistentActionOutputRoot;
   }
 
   /**
@@ -38,5 +40,12 @@ public final class ActionLogBufferPathGenerator {
     return new FileOutErr(
         resolver.convertPath(actionOutputRoot.getRelative("stdout-" + actionId)),
         resolver.convertPath(actionOutputRoot.getRelative("stderr-" + actionId)));
+  }
+
+  /** Generates a unique filename for an action to store its output. */
+  public FileOutErr persistent(String actionKey, ArtifactPathResolver resolver) {
+    return new FileOutErr(
+        resolver.convertPath(persistentActionOutputRoot.getRelative("stdout-" + actionKey)),
+        resolver.convertPath(persistentActionOutputRoot.getRelative("stderr-" + actionKey)));
   }
 }

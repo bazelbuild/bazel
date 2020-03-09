@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import java.util.Deque;
 import java.util.LinkedList;
-import java.util.Objects;
 
 /**
  * EvalException with a stack trace.
@@ -42,14 +41,14 @@ public class EvalExceptionWithStackTrace extends EvalException {
   /**
    * Returns the appropriate location for this exception.
    *
-   * <p>If the {@code Node} has a valid location, this one is used. Otherwise, we try to get the
-   * location of the exception.
+   * <p>If the {@code Node} is non-null, its location is used. Otherwise, we try to get the location
+   * of the exception.
    */
   private static Location extractLocation(Exception original, Node culprit) {
-    if (culprit != null && culprit.getLocation() != null) {
-      return culprit.getLocation();
+    if (culprit != null) {
+      return culprit.getStartLocation();
     }
-    return (original instanceof EvalException) ? ((EvalException) original).getLocation() : null;
+    return original instanceof EvalException ? ((EvalException) original).getLocation() : null;
   }
 
   /**
@@ -64,19 +63,19 @@ public class EvalExceptionWithStackTrace extends EvalException {
 
   /** Adds an entry for the given {@code Node} to the stack trace. */
   public void registerNode(Node node) {
-    addStackFrame(node.toString().trim(), node.getLocation());
+    addStackFrame(node.toString().trim(), node.getStartLocation());
   }
 
   /**
    * Makes sure the stack trace is rooted in a function call.
    *
-   * In some cases (rule implementation application, aspect implementation application)
-   * bazel calls into the function directly (using BaseFunction.call). In that case, since
-   * there is no FuncallExpression to evaluate, stack trace mechanism cannot record this call.
-   * This method allows to augument the stack trace with information about the call.
+   * <p>In some cases (rule implementation application, aspect implementation application) bazel
+   * calls into the function directly (using BaseFunction.call). In that case, since there is no
+   * CallExpression to evaluate, stack trace mechanism cannot record this call. This method allows
+   * to augument the stack trace with information about the call.
    */
-  public void registerPhantomFuncall(
-      String funcallDescription, Location location, BaseFunction function) {
+  public void registerPhantomCall(
+      String callDescription, Location location, BaseFunction function) {
     /*
      *
      * We add two new frames to the stack:
@@ -105,7 +104,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
      *
      * */
     addStackFrame(function.getName(), function.getLocation());
-    addStackFrame(funcallDescription, location, false);
+    addStackFrame(callDescription, location, false);
   }
 
   /** Adds a line for the given frame. */
@@ -116,7 +115,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
     //
     // The check is problematic because it suppresses tracebacks in the REPL, where line numbers
     // can be reset within a single session.
-    if (mostRecentElement != null && isSameLocation(location, mostRecentElement.getLocation())) {
+    if (mostRecentElement != null && location.equals(mostRecentElement.getLocation())) {
       return;
     }
     mostRecentElement = new StackFrame(label, location, mostRecentElement, canPrint);
@@ -124,20 +123,6 @@ public class EvalExceptionWithStackTrace extends EvalException {
 
   private void addStackFrame(String label, Location location)   {
     addStackFrame(label, location, true);
-  }
-
-  /**
-   * Checks two locations for equality in paths and start offsets.
-   *
-   * <p> LexerLocation#equals cannot be used since it cares about different end offsets.
-   */
-  private boolean isSameLocation(Location first, Location second) {
-    try {
-      return Objects.equals(first.getPath(), second.getPath())
-          && first.getStartOffset() == second.getStartOffset();
-    } catch (NullPointerException ex) {
-      return first == second;
-    }
   }
 
   /**
@@ -277,12 +262,11 @@ public class EvalExceptionWithStackTrace extends EvalException {
     }
 
     private String printPath(Location loc) {
-      return (loc == null || loc.getPath() == null) ? "<unknown>" : loc.getPath().getPathString();
+      return loc == null ? "<unknown>" : loc.file();
     }
 
     private int getLine(Location loc) {
-      return (loc == null || loc.getStartLineAndColumn() == null)
-          ? 0 : loc.getStartLineAndColumn().getLine();
+      return loc == null ? 0 : loc.line();
     }
 
     /**

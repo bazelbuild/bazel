@@ -92,16 +92,6 @@ public class Package {
    */
   private final PackageIdentifier packageIdentifier;
 
-  /**
-   * The name of the package, e.g. "foo/bar".
-   */
-  private final String name;
-
-  /**
-   * Like name, but in the form of a PathFragment.
-   */
-  private final PathFragment nameFragment;
-
   /** The filename of this package's BUILD file. */
   private RootedPath filename;
 
@@ -177,6 +167,9 @@ public class Package {
    */
   private ImmutableList<Label> skylarkFileDependencies;
 
+  /** The package's default "applicable_licenses" attribute. */
+  private Set<Label> defaultApplicableLicenses = ImmutableSet.of();
+
   /**
    * The package's default "licenses" and "distribs" attributes, as specified
    * in calls to licenses() and distribs() in the BUILD file.
@@ -200,14 +193,6 @@ public class Package {
    * within the main workspace.
    */
   private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
-
-  /**
-   * The names of the package() attributes that declare default values for rule
-   * {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} and {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR}
-   * values when not explicitly specified.
-   */
-  public static final String DEFAULT_COMPATIBLE_WITH_ATTRIBUTE = "default_compatible_with";
-  public static final String DEFAULT_RESTRICTED_TO_ATTRIBUTE = "default_restricted_to";
 
   private Set<Label> defaultCompatibleWith = ImmutableSet.of();
   private Set<Label> defaultRestrictedTo = ImmutableSet.of();
@@ -235,8 +220,6 @@ public class Package {
   protected Package(PackageIdentifier packageId, String runfilesPrefix) {
     this.packageIdentifier = packageId;
     this.workspaceName = runfilesPrefix;
-    this.nameFragment = packageId.getPackageFragment();
-    this.name = nameFragment.getPathString();
   }
 
   /** Returns this packages' identifier. */
@@ -313,6 +296,14 @@ public class Package {
    */
   private void setDefaultDeprecation(String deprecation) {
     defaultDeprecation = deprecation;
+  }
+
+  /**
+   * Sets the default 'applicable_licenses" value for this package attribute when not explicitly
+   * specified by the rule.
+   */
+  private void setDefaultApplicableLicenses(Set<Label> licenses) {
+    defaultApplicableLicenses = licenses;
   }
 
   /**
@@ -462,14 +453,14 @@ public class Package {
    * may not be unique!
    */
   public String getName() {
-    return name;
+    return packageIdentifier.getPackageFragment().getPathString();
   }
 
   /**
    * Like {@link #getName}, but has type {@code PathFragment}.
    */
   public PathFragment getNameFragment() {
-    return nameFragment;
+    return packageIdentifier.getPackageFragment();
   }
 
   /**
@@ -548,15 +539,8 @@ public class Package {
    * for walking through the dependency graph of a target.
    * Fails if the target is not a Rule.
    */
-  @VisibleForTesting // Should be package-private
   public Rule getRule(String targetName) {
     return (Rule) targets.get(targetName);
-  }
-
-  /** Returns all rules in the package that match the given rule class. */
-  public Iterable<Rule> getRulesMatchingRuleClass(final String ruleClass) {
-    Iterable<Rule> targets = getTargets(Rule.class);
-    return Iterables.filter(targets, rule -> rule.getRuleClass().equals(ruleClass));
   }
 
   /**
@@ -603,12 +587,22 @@ public class Package {
       // it's invalid on Windows.
       suffix = "";
     } else if (filename.isDirectory()) {
-      suffix = "; however, a source directory of this name exists.  (Perhaps add "
-          + "'exports_files([\"" + targetName + "\"])' to " + name + "/BUILD, or define a "
-          + "filegroup?)";
+      suffix =
+          "; however, a source directory of this name exists.  (Perhaps add "
+              + "'exports_files([\""
+              + targetName
+              + "\"])' to "
+              + getName()
+              + "/BUILD, or define a "
+              + "filegroup?)";
     } else if (filename.exists()) {
-      suffix = "; however, a source file of this name exists.  (Perhaps add "
-          + "'exports_files([\"" + targetName + "\"])' to " + name + "/BUILD?)";
+      suffix =
+          "; however, a source file of this name exists.  (Perhaps add "
+              + "'exports_files([\""
+              + targetName
+              + "\"])' to "
+              + getName()
+              + "/BUILD?)";
     } else {
       suffix = SpellChecker.didYouMean(targetName, targets.keySet());
     }
@@ -626,7 +620,7 @@ public class Package {
     String msg =
         String.format(
             "target '%s' not declared in package '%s'%s defined by %s",
-            targetName, name, suffix, filename.asPath().getPathString());
+            targetName, getName(), suffix, filename.asPath().getPathString());
     return new NoSuchTargetException(label, msg);
   }
 
@@ -676,6 +670,11 @@ public class Package {
     return defaultVisibilitySet;
   }
 
+  /** Gets the licenses list for the default applicable_licenses declared by this package. */
+  public Set<Label> getDefaultApplicableLicenses() {
+    return defaultApplicableLicenses;
+  }
+
   /**
    * Gets the parsed license object for the default license
    * declared by this package.
@@ -718,7 +717,9 @@ public class Package {
 
   @Override
   public String toString() {
-    return "Package(" + name + ")="
+    return "Package("
+        + getName()
+        + ")="
         + (targets != null ? getTargets(Rule.class) : "initializing...");
   }
 
@@ -845,6 +846,7 @@ public class Package {
     @Nullable private IOException ioException = null;
     private boolean containsErrors = false;
 
+    private ImmutableList<Label> defaultApplicableLicenses = ImmutableList.of();
     private License defaultLicense = License.NO_LICENSE;
     private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
@@ -876,6 +878,12 @@ public class Package {
     private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
+
+    private final Map<Location, String> generatorNameByLocation = new HashMap<>();
+
+    Map<Location, String> getGeneratorNameByLocation() {
+      return generatorNameByLocation;
+    }
 
     @ThreadCompatible
     private static class ThreadCompatibleInterner<T> implements Interner<T> {
@@ -988,7 +996,7 @@ public class Package {
       this.filename = filename;
       try {
         buildFileLabel = createLabel(filename.getRootRelativePath().getBaseName());
-        addInputFile(buildFileLabel, Location.fromPathFragment(filename.asPath().asFragment()));
+        addInputFile(buildFileLabel, Location.fromFile(filename.asPath().toString()));
       } catch (LabelSyntaxException e) {
         // This can't actually happen.
         throw new AssertionError("Package BUILD file has an illegal name: " + filename);
@@ -1155,6 +1163,23 @@ public class Package {
     Builder setSkylarkFileDependencies(ImmutableList<Label> skylarkFileDependencies) {
       this.skylarkFileDependencies = skylarkFileDependencies;
       return this;
+    }
+
+    /**
+     * Sets the default value to use for a rule's {@link RuleClass#APPLICABLE_LICENSES_ATTR}
+     * attribute when not explicitly specified by the rule. Records a package error if any labels
+     * are duplicated.
+     */
+    void setDefaultApplicableLicenses(List<Label> licenses, String attrName, Location location) {
+      if (!checkForDuplicateLabels(
+          licenses, "package " + pkg.getName(), attrName, location, builderEventHandler)) {
+        setContainsErrors();
+      }
+      pkg.setDefaultApplicableLicenses(ImmutableSet.copyOf(licenses));
+    }
+
+    ImmutableList<Label> getDefaultApplicableLicenses() {
+      return defaultApplicableLicenses;
     }
 
     /**
@@ -1476,11 +1501,8 @@ public class Package {
       // current instance here.
       buildFile = (InputFile) Preconditions.checkNotNull(targets.get(buildFileLabel.getName()));
 
-      // The Iterable returned by getTargets is sorted, so when we build up the list of tests by
-      // processing it in order below, that list will be sorted too.
-
-      List<Label> sortedTests = new ArrayList<>();
-      List<Rule> implicitTestSuites = new ArrayList<>();
+      List<Label> labelsOfTestTargets = new ArrayList<>();
+      List<Rule> implicitTestSuiteRuleInstances = new ArrayList<>();
       Map<Label, InputFile> newInputFiles = new HashMap<>();
       for (final Rule rule : getTargets(Rule.class)) {
         if (discoverAssumedInputFiles) {
@@ -1500,13 +1522,13 @@ public class Package {
         // since clearly this information isn't available at Rule construction
         // time, as forward references are permitted.
         if (TargetUtils.isTestRule(rule) && !TargetUtils.hasManualTag(rule)) {
-          sortedTests.add(rule.getLabel());
+          labelsOfTestTargets.add(rule.getLabel());
         }
 
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
         if (rule.getRuleClass().equals("test_suite")
             && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()) {
-          implicitTestSuites.add(rule);
+          implicitTestSuiteRuleInstances.add(rule);
         }
       }
 
@@ -1514,8 +1536,11 @@ public class Package {
         addInputFile(inputFile);
       }
 
-      for (Rule rule : implicitTestSuites) {
-        rule.setAttributeValueByName("$implicit_tests", sortedTests);
+      if (!implicitTestSuiteRuleInstances.isEmpty()) {
+        Collections.sort(labelsOfTestTargets);
+        for (Rule rule : implicitTestSuiteRuleInstances) {
+          rule.setAttributeValueByName("$implicit_tests", labelsOfTestTargets);
+        }
       }
       return this;
     }

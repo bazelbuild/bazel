@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -71,11 +73,9 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("bootclasspath", LABEL_LIST)
                 .value(ImmutableList.of())
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
-        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(extclasspath) -->
-        The Java target extdir entries. Corresponds to javac's -extdir flag.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("extclasspath", LABEL_LIST)
+                .undocumented("internal")
                 .value(ImmutableList.of())
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(xlint) -->
@@ -207,6 +207,14 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .value(ImmutableList.<String>of()))
         .add(
             attr("reduced_classpath_incompatible_processors", STRING_LIST)
+                .undocumented("internal")
+                .value(ImmutableList.<String>of()))
+        .add(
+            attr("reduced_classpath_incompatible_targets", NODEP_LABEL_LIST)
+                .undocumented("internal")
+                .value(ImmutableList.<Label>of()))
+        .add(
+            attr("turbine_incompatible_processors", STRING_LIST)
                 .undocumented("internal")
                 .value(ImmutableList.<String>of()))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->

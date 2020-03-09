@@ -54,9 +54,11 @@ import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -80,10 +82,15 @@ public class JavaHeaderCompileActionBuilder {
 
   private Artifact outputJar;
   @Nullable private Artifact outputDepsProto;
+  @Nullable private Artifact manifestOutput;
+  @Nullable private Artifact gensrcOutputJar;
+  @Nullable private Artifact resourceOutputJar;
+  private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
   private ImmutableList<Artifact> sourceJars = ImmutableList.of();
   private NestedSet<Artifact> classpathEntries = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-  private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
+  private NestedSet<Artifact> bootclasspathEntries =
+      NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   @Nullable private Label targetLabel;
   @Nullable private String injectingRuleKind;
   private StrictDepsMode strictJavaDeps = StrictDepsMode.OFF;
@@ -96,6 +103,8 @@ public class JavaHeaderCompileActionBuilder {
   private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
 
+  private boolean enableHeaderCompilerDirect = true;
+
   public JavaHeaderCompileActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
   }
@@ -103,6 +112,21 @@ public class JavaHeaderCompileActionBuilder {
   /** Sets the output jdeps file. */
   public JavaHeaderCompileActionBuilder setOutputDepsProto(@Nullable Artifact outputDepsProto) {
     this.outputDepsProto = outputDepsProto;
+    return this;
+  }
+
+  public JavaHeaderCompileActionBuilder setManifestOutput(@Nullable Artifact manifestOutput) {
+    this.manifestOutput = manifestOutput;
+    return this;
+  }
+
+  public JavaHeaderCompileActionBuilder setGensrcOutputJar(@Nullable Artifact gensrcOutputJar) {
+    this.gensrcOutputJar = gensrcOutputJar;
+    return this;
+  }
+
+  public JavaHeaderCompileActionBuilder setResourceOutputJar(@Nullable Artifact resourceOutputJar) {
+    this.resourceOutputJar = resourceOutputJar;
     return this;
   }
 
@@ -140,6 +164,12 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
+  public JavaHeaderCompileActionBuilder setAdditionalOutputs(ImmutableSet<Artifact> outputs) {
+    checkNotNull(outputs, "outputs must not be null");
+    this.additionalOutputs = outputs;
+    return this;
+  }
+
   /** Adds Java source files to compile. */
   public JavaHeaderCompileActionBuilder setSourceFiles(ImmutableSet<Artifact> sourceFiles) {
     checkNotNull(sourceFiles, "sourceFiles must not be null");
@@ -163,7 +193,7 @@ public class JavaHeaderCompileActionBuilder {
 
   /** Sets the compilation bootclasspath entries. */
   public JavaHeaderCompileActionBuilder setBootclasspathEntries(
-      ImmutableList<Artifact> bootclasspathEntries) {
+      NestedSet<Artifact> bootclasspathEntries) {
     checkNotNull(bootclasspathEntries, "bootclasspathEntries must not be null");
     this.bootclasspathEntries = bootclasspathEntries;
     return this;
@@ -210,6 +240,12 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
+  public JavaHeaderCompileActionBuilder enableHeaderCompilerDirect(
+      boolean enableHeaderCompilerDirect) {
+    this.enableHeaderCompilerDirect = enableHeaderCompilerDirect;
+    return this;
+  }
+
   /** Builds and registers the action for a header compilation. */
   public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase)
       throws InterruptedException {
@@ -243,7 +279,8 @@ public class JavaHeaderCompileActionBuilder {
     // java_toolchain.header_compiler_direct_processors.
     ImmutableSet<String> processorClasses = plugins.processorClasses().toSet();
     boolean useHeaderCompilerDirect =
-        javaToolchain.getHeaderCompilerDirect() != null
+        enableHeaderCompilerDirect
+            && javaToolchain.getHeaderCompilerDirect() != null
             && javaToolchain.getHeaderCompilerBuiltinProcessors().containsAll(processorClasses);
     JavaConfiguration javaConfiguration =
         ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
@@ -264,13 +301,19 @@ public class JavaHeaderCompileActionBuilder {
             /* sourceJars= */ sourceJars,
             /* plugins= */ plugins);
 
-    NestedSet<Artifact> outputs =
-        NestedSetBuilder.create(Order.STABLE_ORDER, outputJar, outputDepsProto);
+    ImmutableSet.Builder<Artifact> outputs =
+        ImmutableSet.<Artifact>builder()
+            .add(outputJar)
+            .add(outputDepsProto)
+            .addAll(additionalOutputs);
+    Stream.of(gensrcOutputJar, resourceOutputJar, manifestOutput)
+        .filter(x -> x != null)
+        .forEachOrdered(outputs::add);
 
     NestedSetBuilder<Artifact> mandatoryInputs =
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(additionalInputs)
-            .addAll(bootclasspathEntries)
+            .addTransitive(bootclasspathEntries)
             .addAll(sourceJars)
             .addAll(sourceFiles)
             .addTransitive(toolsJars);
@@ -305,6 +348,9 @@ public class JavaHeaderCompileActionBuilder {
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addExecPath("--output", outputJar)
+            .addExecPath("--gensrc_output", gensrcOutputJar)
+            .addExecPath("--resource_output", resourceOutputJar)
+            .addExecPath("--output_manifest_proto", manifestOutput)
             .addExecPath("--output_deps", outputDepsProto)
             .addExecPaths("--bootclasspath", bootclasspathEntries)
             .addExecPaths("--sources", sourceFiles)
@@ -357,9 +403,9 @@ public class JavaHeaderCompileActionBuilder {
       ruleContext.registerAction(
           new SpawnAction(
               /* owner= */ ruleContext.getActionOwner(),
-              /* tools= */ ImmutableList.of(),
+              /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
               /* inputs= */ mandatoryInputs.build(),
-              /* outputs= */ outputs,
+              /* outputs= */ outputs.build(),
               /* primaryOutput= */ outputJar,
               /* resourceSet= */ AbstractAction.DEFAULT_RESOURCE_SET,
               /* commandLines= */ CommandLines.builder()
@@ -415,7 +461,7 @@ public class JavaHeaderCompileActionBuilder {
             /* mandatoryInputs= */ mandatoryInputs.build(),
             /* transitiveInputs= */ classpathEntries,
             /* directJars= */ directJars,
-            /* outputs= */ outputs,
+            /* outputs= */ outputs.build(),
             /* executionInfo= */ executionInfo,
             /* extraActionInfoSupplier= */ null,
             /* executableLine= */ executableLine,
@@ -432,27 +478,28 @@ public class JavaHeaderCompileActionBuilder {
    */
   private static Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> createResultConsumer(
       Artifact outputDepsProto) {
-    return contextAndResults -> {
-      ActionExecutionContext context = contextAndResults.getFirst();
-      JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
-      if (javaContext == null) {
-        return;
-      }
-      SpawnResult spawnResult = Iterables.getOnlyElement(contextAndResults.getSecond());
-      try {
-        InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-        try (InputStream input =
-            inMemoryOutput == null
-                ? context.getInputPath(outputDepsProto).getInputStream()
-                : inMemoryOutput) {
-          javaContext.insertDependencies(
-              outputDepsProto,
-              Deps.Dependencies.parseFrom(input, ExtensionRegistry.getEmptyRegistry()));
-        }
-      } catch (IOException e) {
-        // Left empty. If we cannot read the .jdeps file now, we will read it later or throw
-        // an appropriate error then.
-      }
-    };
+    return (Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> & Serializable)
+        contextAndResults -> {
+          ActionExecutionContext context = contextAndResults.getFirst();
+          JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
+          if (javaContext == null) {
+            return;
+          }
+          SpawnResult spawnResult = Iterables.getOnlyElement(contextAndResults.getSecond());
+          try {
+            InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+            try (InputStream input =
+                inMemoryOutput == null
+                    ? context.getInputPath(outputDepsProto).getInputStream()
+                    : inMemoryOutput) {
+              javaContext.insertDependencies(
+                  outputDepsProto,
+                  Deps.Dependencies.parseFrom(input, ExtensionRegistry.getEmptyRegistry()));
+            }
+          } catch (IOException e) {
+            // Left empty. If we cannot read the .jdeps file now, we will read it later or throw
+            // an appropriate error then.
+          }
+        };
   }
 }

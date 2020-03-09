@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -99,7 +99,8 @@ public abstract class ImplicitOutputsFunction {
         // since we don't yet have a build configuration.
         if (!map.isConfigurable(attrName)) {
           Object value = map.get(attrName, attrType);
-          attrValues.put(attrName, value == null ? Runtime.NONE : value);
+          attrValues.put(
+              Attribute.getSkylarkName(attrName), Starlark.fromJava(value, /*mutability=*/ null));
         }
       }
       ClassObject attrs =

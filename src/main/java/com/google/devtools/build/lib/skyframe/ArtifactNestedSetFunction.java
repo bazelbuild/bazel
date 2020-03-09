@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.MapMaker;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
@@ -41,7 +43,7 @@ import java.util.concurrent.ConcurrentMap;
  * <p>[1] Heuristic: If the size of the NestedSet exceeds a certain threshold, we evaluate it as an
  * ArtifactNestedSetKey.
  */
-class ArtifactNestedSetFunction implements SkyFunction {
+public class ArtifactNestedSetFunction implements SkyFunction {
 
   /**
    * A concurrent map from Artifacts' SkyKeys to their ValueOrException, for Artifacts that are part
@@ -67,11 +69,14 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * we clear artifactSkyKeyToValueOrException between build 0 and 1, X2's member artifacts'
    * SkyValues would not be available in the map.
    *
-   * <p>The map has weak references to keys to prevent memory leaks: if an Artifact no longer
-   * exists, its entry would be automatically removed from the map by the GC. Note that the map
-   * compares the SkyKeys by identity rather than with the .equals method.
+   * <p>We can't make this a:
+   *
+   * <p>- Weak-keyd map since ActionExecutionValue holds a reference to Artifact.
+   *
+   * <p>- Weak-valued map since there's nothing else holding on to ValueOrException and the entry
+   * will GCed immediately.
    */
-  private final ConcurrentMap<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
+  private ConcurrentMap<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
       artifactSkyKeyToValueOrException;
 
   /**
@@ -88,7 +93,7 @@ class ArtifactNestedSetFunction implements SkyFunction {
   private static Integer sizeThreshold = null;
 
   private ArtifactNestedSetFunction() {
-    artifactSkyKeyToValueOrException = new MapMaker().weakKeys().makeMap();
+    artifactSkyKeyToValueOrException = Maps.newConcurrentMap();
     nestedSetToSkyKey = new MapMaker().weakKeys().makeMap();
   }
 
@@ -101,15 +106,14 @@ class ArtifactNestedSetFunction implements SkyFunction {
                 artifactNestedSetKey.directKeys(),
                 IOException.class,
                 ActionExecutionException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
 
     // Evaluate all children.
+    ArrayList<SkyKey> transitiveKeys = new ArrayList<>();
     for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
       nestedSetToSkyKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
-      env.getValue(nestedSetToSkyKey.get(transitive));
+      transitiveKeys.add(nestedSetToSkyKey.get(transitive));
     }
+    env.getValues(transitiveKeys);
 
     if (env.valuesMissing()) {
       return null;
@@ -117,7 +121,7 @@ class ArtifactNestedSetFunction implements SkyFunction {
 
     // Only commit to the map when every value is present.
     artifactSkyKeyToValueOrException.putAll(directArtifactsEvalResult);
-    return ArtifactNestedSetValue.createOrGetInstance();
+    return new ArtifactNestedSetValue();
   }
 
   public static ArtifactNestedSetFunction getInstance() {
@@ -135,6 +139,10 @@ class ArtifactNestedSetFunction implements SkyFunction {
   public static ArtifactNestedSetFunction createInstance() {
     singleton = new ArtifactNestedSetFunction();
     return singleton;
+  }
+
+  public void resetArtifactSkyKeyToValueOrException() {
+    artifactSkyKeyToValueOrException = Maps.newConcurrentMap();
   }
 
   Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>

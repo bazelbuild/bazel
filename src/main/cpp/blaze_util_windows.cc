@@ -383,7 +383,7 @@ string GetProcessIdAsString() {
   return ToString(GetCurrentProcessId());
 }
 
-string GetSelfPath() {
+string GetSelfPath(const char* argv0) {
   WCHAR buffer[kWindowsPathBufferSize] = {0};
   if (!GetModuleFileNameW(0, buffer, kWindowsPathBufferSize)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -454,10 +454,10 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   // TODO(bazel-team): There should be a similar function on Windows.
 }
 
-blaze_util::Path GetProcessCWD(int pid) {
+std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
   // TODO(bazel-team) 2016-11-18: decide whether we need this on Windows and
   // implement or delete.
-  return blaze_util::Path();
+  return nullptr;
 }
 
 bool IsSharedLibrary(const string &filename) {
@@ -791,13 +791,9 @@ void ExecuteRunRequest(const blaze_util::Path& exe,
                        const std::vector<string>& run_request_args) {
   std::vector<std::wstring> wargs;
   wargs.reserve(run_request_args.size());
-  std::wstringstream joined;
   for (const string& a : run_request_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a);
-    // The arguments are already escaped (Bash-style or Windows-style, depending
-    // on --[no]incompatible_windows_bashless_run_command).
-    wargs.push_back(wa);
-    joined << L' ' << wa;
+    // The arguments are already escaped, don't escape further.
+    wargs.push_back(blaze_util::CstringToWstring(a));
   }
 
   ExecuteProgram(exe, wargs);

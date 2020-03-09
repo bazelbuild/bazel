@@ -25,19 +25,20 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkMutable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -49,19 +50,24 @@ import javax.annotation.Nullable;
  * Implementation of the {@code Args} Starlark type, which, in a builder-like pattern, encapsulates
  * the data needed to build all or part of a command line.
  */
-public abstract class Args extends StarlarkMutable implements CommandLineArgsApi {
+public abstract class Args implements CommandLineArgsApi {
 
   private Args() {
     // Ensure Args subclasses are defined only in this file.
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public boolean isHashable() {
+    return false; // even a frozen Args is not hashable
+  }
+
+  @Override
+  public void repr(Printer printer) {
     printer.append("context.args() object");
   }
 
   @Override
-  public void debugPrint(SkylarkPrinter printer) {
+  public void debugPrint(Printer printer) {
     try {
       printer.append(Joiner.on(" ").join(build().arguments()));
     } catch (CommandLineExpansionException e) {
@@ -120,6 +126,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
    * A frozen (immutable) representation of {@link Args}, constructed from an already-built command
    * line.
    */
+  @Immutable
   private static class FrozenArgs extends Args {
     private final CommandLine commandLine;
     private final ParamFileInfo paramFileInfo;
@@ -160,11 +167,6 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
     }
 
     @Override
-    public Mutability mutability() {
-      return Mutability.IMMUTABLE;
-    }
-
-    @Override
     public CommandLineArgsApi addArgument(
         Object argNameOrValue,
         Object value,
@@ -172,9 +174,9 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Object beforeEach,
         Object joinWith,
         Object mapFn,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
-      throw new EvalException(null, "cannot modify frozen value");
+      throw Starlark.errorf("cannot modify frozen value");
     }
 
     @Override
@@ -188,9 +190,9 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Boolean uniquify,
         Boolean expandDirectories,
         Object terminateWith,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
-      throw new EvalException(null, "cannot modify frozen value");
+      throw Starlark.errorf("cannot modify frozen value");
     }
 
     @Override
@@ -204,9 +206,9 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Boolean omitIfEmpty,
         Boolean uniquify,
         Boolean expandDirectories,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
-      throw new EvalException(null, "cannot modify frozen value");
+      throw Starlark.errorf("cannot modify frozen value");
     }
 
     @Override
@@ -215,7 +217,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
       // TODO(cparsons): Even "frozen" Args may need to use params files.
       // If we go down this path, we will need to rename this class and update the documentation
       // (as this class no longe behaves exactly like a frozen Args object)
-      throw new EvalException(null, "cannot modify frozen value");
+      throw Starlark.errorf("cannot modify frozen value");
     }
 
     @Override
@@ -223,14 +225,13 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
       // TODO(cparsons): Even "frozen" Args may need to use params files.
       // If we go down this path, we will need to rename this class and update the documentation
       // (as this class no longe behaves exactly like a frozen Args object)
-      throw new EvalException(null, "cannot modify frozen value");
+      throw Starlark.errorf("cannot modify frozen value");
     }
   }
 
   /** Args module. */
-  private static class MutableArgs extends Args {
+  private static class MutableArgs extends Args implements StarlarkValue, Mutability.Freezable {
     private final Mutability mutability;
-    private final StarlarkSemantics starlarkSemantics;
     private final SkylarkCustomCommandLine.Builder commandLine;
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
     private final Set<Artifact> directoryArtifacts = new HashSet<>();
@@ -265,43 +266,39 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Object beforeEach,
         Object joinWith,
         Object mapFn,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable();
       final String argName;
       if (value == Starlark.UNBOUND) {
         value = argNameOrValue;
         argName = null;
       } else {
-        validateArgName(argNameOrValue, loc);
+        validateArgName(argNameOrValue);
         argName = (String) argNameOrValue;
       }
       if (argName != null) {
         commandLine.add(argName);
       }
-      if (value instanceof SkylarkNestedSet || value instanceof SkylarkList) {
-        throw new EvalException(
-            loc,
-            "Args#add doesn't accept vectorized arguments. "
-                + "Please use Args#add_all or Args#add_joined.");
+      if (value instanceof Depset || value instanceof Sequence) {
+        throw Starlark.errorf(
+            "Args#add doesn't accept vectorized arguments. Please use Args#add_all or"
+                + " Args#add_joined.");
       }
-      if (mapFn != Runtime.NONE) {
-        throw new EvalException(
-            loc, "Args#add doesn't accept map_fn. Please eagerly map the value.");
+      if (mapFn != Starlark.NONE) {
+        throw Starlark.errorf("Args#add doesn't accept map_fn. Please eagerly map the value.");
       }
-      if (beforeEach != Runtime.NONE) {
-        throw new EvalException(null, "'before_each' is not supported for scalar arguments");
+      if (beforeEach != Starlark.NONE) {
+        throw Starlark.errorf("'before_each' is not supported for scalar arguments");
       }
-      if (joinWith != Runtime.NONE) {
-        throw new EvalException(null, "'join_with' is not supported for scalar arguments");
+      if (joinWith != Starlark.NONE) {
+        throw Starlark.errorf("'join_with' is not supported for scalar arguments");
       }
       addScalarArg(
           value,
-          format != Runtime.NONE ? (String) format : null,
-          mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
-          loc);
+          format != Starlark.NONE ? (String) format : null,
+          mapFn != Starlark.NONE ? (BaseFunction) mapFn : null,
+          thread.getCallerLocation());
       return this;
     }
 
@@ -316,34 +313,32 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Boolean uniquify,
         Boolean expandDirectories,
         Object terminateWith,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable();
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
-        validateValues(values, loc);
+        validateValues(values);
         argName = null;
       } else {
-        validateArgName(argNameOrValue, loc);
+        validateArgName(argNameOrValue);
         argName = (String) argNameOrValue;
       }
       addVectorArg(
           values,
           argName,
           /* mapAll= */ null,
-          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
-          formatEach != Runtime.NONE ? (String) formatEach : null,
-          beforeEach != Runtime.NONE ? (String) beforeEach : null,
+          mapEach != Starlark.NONE ? (BaseFunction) mapEach : null,
+          formatEach != Starlark.NONE ? (String) formatEach : null,
+          beforeEach != Starlark.NONE ? (String) beforeEach : null,
           /* joinWith= */ null,
           /* formatJoined= */ null,
           omitIfEmpty,
           uniquify,
           expandDirectories,
-          terminateWith != Runtime.NONE ? (String) terminateWith : null,
-          loc);
+          terminateWith != Starlark.NONE ? (String) terminateWith : null,
+          thread.getCallerLocation());
       return this;
     }
 
@@ -358,34 +353,32 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Boolean omitIfEmpty,
         Boolean uniquify,
         Boolean expandDirectories,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable();
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
-        validateValues(values, loc);
+        validateValues(values);
         argName = null;
       } else {
-        validateArgName(argNameOrValue, loc);
+        validateArgName(argNameOrValue);
         argName = (String) argNameOrValue;
       }
       addVectorArg(
           values,
           argName,
           /* mapAll= */ null,
-          mapEach != Runtime.NONE ? (BaseFunction) mapEach : null,
-          formatEach != Runtime.NONE ? (String) formatEach : null,
+          mapEach != Starlark.NONE ? (BaseFunction) mapEach : null,
+          formatEach != Starlark.NONE ? (String) formatEach : null,
           /* beforeEach= */ null,
           joinWith,
-          formatJoined != Runtime.NONE ? (String) formatJoined : null,
+          formatJoined != Starlark.NONE ? (String) formatJoined : null,
           omitIfEmpty,
           uniquify,
           expandDirectories,
           /* terminateWith= */ null,
-          loc);
+          thread.getCallerLocation());
       return this;
     }
 
@@ -405,8 +398,8 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         Location loc)
         throws EvalException {
       SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
-      if (value instanceof SkylarkNestedSet) {
-        SkylarkNestedSet skylarkNestedSet = ((SkylarkNestedSet) value);
+      if (value instanceof Depset) {
+        Depset skylarkNestedSet = ((Depset) value);
         NestedSet<?> nestedSet = skylarkNestedSet.getSet();
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
@@ -414,15 +407,15 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
         vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(nestedSet);
       } else {
         @SuppressWarnings("unchecked")
-        SkylarkList<Object> skylarkList = (SkylarkList<Object>) value;
+        Sequence<Object> skylarkList = (Sequence<Object>) value;
         if (expandDirectories) {
           scanForDirectories(skylarkList);
         }
         vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(skylarkList);
       }
-      validateMapEach(mapEach, loc);
-      validateFormatString("format_each", formatEach, loc);
-      validateFormatString("format_joined", formatJoined, loc);
+      validateMapEach(mapEach);
+      validateFormatString("format_each", formatEach);
+      validateFormatString("format_joined", formatJoined);
       vectorArg
           .setLocation(loc)
           .setArgName(argName)
@@ -439,28 +432,23 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
       commandLine.add(vectorArg);
     }
 
-    private void validateArgName(Object argName, Location loc) throws EvalException {
+    private void validateArgName(Object argName) throws EvalException {
       if (!(argName instanceof String)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "expected value of type 'string' for arg name, got '%s'",
-                argName.getClass().getSimpleName()));
+        throw Starlark.errorf(
+            "expected value of type 'string' for arg name, got '%s'",
+            argName.getClass().getSimpleName());
       }
     }
 
-    private void validateValues(Object values, Location loc) throws EvalException {
-      if (!(values instanceof SkylarkList || values instanceof SkylarkNestedSet)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "expected value of type 'sequence or depset' for values, got '%s'",
-                values.getClass().getSimpleName()));
+    private void validateValues(Object values) throws EvalException {
+      if (!(values instanceof Sequence || values instanceof Depset)) {
+        throw Starlark.errorf(
+            "expected value of type 'sequence or depset' for values, got '%s'",
+            values.getClass().getSimpleName());
       }
     }
 
-    private void validateMapEach(@Nullable BaseFunction mapEach, Location loc)
-        throws EvalException {
+    private void validateMapEach(@Nullable BaseFunction mapEach) throws EvalException {
       if (mapEach == null) {
         return;
       }
@@ -471,27 +459,25 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
               && sig.numMandatoryNamedOnly() == 0
               && sig.numOptionalPositionals() == 0;
       if (!valid) {
-        throw new EvalException(
-            loc, "map_each must be a function that accepts a single positional argument");
+        throw Starlark.errorf(
+            "map_each must be a function that accepts a single positional argument");
       }
     }
 
-    private void validateFormatString(String argumentName, @Nullable String formatStr, Location loc)
+    private void validateFormatString(String argumentName, @Nullable String formatStr)
         throws EvalException {
       if (formatStr != null
           && !SingleStringArgFormatter.isValid(formatStr)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "Invalid value for parameter \"%s\": Expected string with a single \"%%s\"",
-                argumentName));
+        throw Starlark.errorf(
+            "Invalid value for parameter \"%s\": Expected string with a single \"%%s\"",
+            argumentName);
       }
     }
 
     private void addScalarArg(Object value, String format, BaseFunction mapFn, Location loc)
         throws EvalException {
-      validateNoDirectory(value, loc);
-      validateFormatString("format", format, loc);
+      validateNoDirectory(value);
+      validateFormatString("format", format);
       if (format == null && mapFn == null) {
         commandLine.add(value);
       } else {
@@ -501,10 +487,9 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
       }
     }
 
-    private void validateNoDirectory(Object value, Location loc) throws EvalException {
+    private void validateNoDirectory(Object value) throws EvalException {
       if (isDirectory(value)) {
-        throw new EvalException(
-            loc,
+        throw Starlark.errorf(
             "Cannot add directories to Args#add since they may expand to multiple values. "
                 + "Either use Args#add_all (if you want expansion) "
                 + "or args.add(directory.path) (if you do not).");
@@ -518,9 +503,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
     @Override
     public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
         throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable();
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
@@ -536,9 +519,7 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
 
     @Override
     public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
-      if (isImmutable()) {
-        throw new EvalException(null, "cannot modify frozen value");
-      }
+      checkMutable();
       final ParameterFileType parameterFileType;
       switch (format) {
         case "shell":
@@ -558,7 +539,6 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
 
     private MutableArgs(@Nullable Mutability mutability, StarlarkSemantics starlarkSemantics) {
       this.mutability = mutability != null ? mutability : Mutability.IMMUTABLE;
-      this.starlarkSemantics = starlarkSemantics;
       this.commandLine = new SkylarkCustomCommandLine.Builder(starlarkSemantics);
     }
 
@@ -574,8 +554,8 @@ public abstract class Args extends StarlarkMutable implements CommandLineArgsApi
 
     @Override
     public ImmutableSet<Artifact> getDirectoryArtifacts() {
-      for (Iterable<?> collection : potentialDirectoryArtifacts) {
-        scanForDirectories(collection);
+      for (NestedSet<?> collection : potentialDirectoryArtifacts) {
+        scanForDirectories(collection.toList());
       }
       potentialDirectoryArtifacts.clear();
       return ImmutableSet.copyOf(directoryArtifacts);

@@ -1,3 +1,5 @@
+load(":self_extract_binary.bzl", "self_extract_binary")
+
 package(default_visibility = ["//scripts/packages:__subpackages__"])
 
 filegroup(
@@ -5,6 +7,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//scripts/packages/debian:srcs",
         "//scripts/packages/fedora:srcs",
+        "//scripts/packages/dmg:srcs",
     ],
     visibility = [
         "//scripts:__pkg__",
@@ -20,6 +23,7 @@ filegroup(
             ":zip-bazel-exe_nojdk",
         ],
         "//src/conditions:freebsd": [],
+        "//src/conditions:openbsd": [],
         "//src/conditions:darwin": [
             ":with-jdk/install.sh",
             ":without-jdk/install.sh",
@@ -39,6 +43,14 @@ filegroup(
             "//scripts/packages/debian:bazel-debian-src",
         ],
     }),
+)
+
+filegroup(
+    name = "wrapper",
+    srcs = ["bazel.sh"],
+    visibility = [
+        "//src/test/shell/bazel:__subpackages__",
+    ],
 )
 
 sh_binary(
@@ -111,8 +123,6 @@ genrule(
     outs = ["without-jdk/bazel"],
     cmd = "mkdir -p $$(dirname $@); cp $< $@",
 )
-
-load(":self_extract_binary.bzl", "self_extract_binary")
 
 [self_extract_binary(
     name = "%s/install.sh" % kind,

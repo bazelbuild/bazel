@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.util.concurrent.Callables;
@@ -34,6 +33,8 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -181,7 +182,10 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     private final AtomicInteger executionCounter;
 
     ExecutionCountingAction(Artifact input, Artifact output, AtomicInteger executionCounter) {
-      super(ActionsTestUtil.NULL_ACTION_OWNER, ImmutableList.of(input), ImmutableList.of(output));
+      super(
+          ActionsTestUtil.NULL_ACTION_OWNER,
+          NestedSetBuilder.create(Order.STABLE_ORDER, input),
+          ImmutableSet.of(output));
       this.executionCounter = executionCounter;
     }
 
@@ -194,7 +198,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       // tests we assume that the input file is short, maybe just 10 bytes long.
       byte[] input = new byte[10];
       int inputLen = 0;
-      try (InputStream in = Iterables.getOnlyElement(getInputs()).getPath().getInputStream()) {
+      try (InputStream in = getInputs().getSingleton().getPath().getInputStream()) {
         inputLen = in.read(input);
       } catch (IOException e) {
         throw new ActionExecutionException(e, this, false);
@@ -668,8 +672,10 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     SingleOutputAction(@Nullable Artifact input, Artifact output) {
       super(
           ActionsTestUtil.NULL_ACTION_OWNER,
-          input == null ? ImmutableList.<Artifact>of() : ImmutableList.of(input),
-          ImmutableList.of(output));
+          input == null
+              ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+              : NestedSetBuilder.create(Order.STABLE_ORDER, input),
+          ImmutableSet.of(output));
     }
 
     protected static final class Buffer {

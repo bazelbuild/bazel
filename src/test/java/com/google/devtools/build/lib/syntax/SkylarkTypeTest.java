@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,7 +26,7 @@ import org.junit.runners.JUnit4;
 public final class SkylarkTypeTest {
 
   @SkylarkModule(name = "ParentType", doc = "A parent class annotated with @SkylarkModule.")
-  private static class ParentClassWithSkylarkModule implements SkylarkValue {}
+  private static class ParentClassWithSkylarkModule implements StarlarkValue {}
 
   private static class ChildClass extends ParentClassWithSkylarkModule {}
 
@@ -71,11 +70,5 @@ public final class SkylarkTypeTest {
     assertThat(inter.includes(SkylarkType.LIST)).isTrue();
     assertThat(inter.includes(combo)).isTrue();
     assertThat(inter.includes(SkylarkType.INT)).isFalse();
-  }
-
-  @Test
-  public void testStringPairTuple() {
-    assertThat(SkylarkType.intersection(SkylarkType.STRING_PAIR, SkylarkType.TUPLE))
-        .isEqualTo(SkylarkType.STRING_PAIR);
   }
 }

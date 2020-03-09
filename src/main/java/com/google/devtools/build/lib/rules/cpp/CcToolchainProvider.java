@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -428,23 +428,23 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   @Override
-  public SkylarkNestedSet getAllFilesForStarlark() {
-    return SkylarkNestedSet.of(Artifact.class, getAllFiles());
+  public Depset getAllFilesForStarlark() {
+    return Depset.of(Artifact.TYPE, getAllFiles());
   }
 
   @Override
-  public SkylarkNestedSet getStaticRuntimeLibForStarlark(
+  public Depset getStaticRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
-    return SkylarkNestedSet.of(
-        (Artifact.class),
+    return Depset.of(
+        Artifact.TYPE,
         getStaticRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
   @Override
-  public SkylarkNestedSet getDynamicRuntimeLibForStarlark(
+  public Depset getDynamicRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
-    return SkylarkNestedSet.of(
-        (Artifact.class),
+    return Depset.of(
+        Artifact.TYPE,
         getDynamicRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -863,68 +863,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     // is temporary until the crosstool configuration is modified to add fields that
     // indicate which flavor of fdo is being used.
     return toolchainIdentifier.contains("llvm");
-  }
-
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * Returns the execution path to the linker binary to use for this build. Relative paths are
-   * relative to the execution root.
-   */
-  @Override
-  public String getLdExecutableForSkylark() {
-    PathFragment ldExecutable = getToolPathFragmentOrNull(CppConfiguration.Tool.LD);
-    return ldExecutable != null ? ldExecutable.getPathString() : "";
-  }
-
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
-   * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.
-   */
-  @Override
-  public String getObjCopyExecutableForSkylark() {
-    PathFragment objCopyExecutable = getToolPathFragmentOrNull(Tool.OBJCOPY);
-    return objCopyExecutable != null ? objCopyExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getCppExecutableForSkylark() {
-    PathFragment cppExecutable = getToolPathFragmentOrNull(Tool.GCC);
-    return cppExecutable != null ? cppExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getCpreprocessorExecutableForSkylark() {
-    PathFragment cpreprocessorExecutable = getToolPathFragmentOrNull(Tool.CPP);
-    return cpreprocessorExecutable != null ? cpreprocessorExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getNmExecutableForSkylark() {
-    PathFragment nmExecutable = getToolPathFragmentOrNull(Tool.NM);
-    return nmExecutable != null ? nmExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getObjdumpExecutableForSkylark() {
-    PathFragment objdumpExecutable = getToolPathFragmentOrNull(Tool.OBJDUMP);
-    return objdumpExecutable != null ? objdumpExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getArExecutableForSkylark() {
-    PathFragment arExecutable = getToolPathFragmentOrNull(Tool.AR);
-    return arExecutable != null ? arExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getStripExecutableForSkylark() {
-    PathFragment stripExecutable = getToolPathFragmentOrNull(Tool.STRIP);
-    return stripExecutable != null ? stripExecutable.getPathString() : "";
   }
 
   // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality

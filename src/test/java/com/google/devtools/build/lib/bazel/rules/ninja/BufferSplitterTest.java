@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferSplitter;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationConsumer;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorPredicate;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -45,13 +45,13 @@ public class BufferSplitterTest {
     DeclarationConsumer consumer =
         (byteFragmentAtOffset) -> {
           result.add(byteFragmentAtOffset.getFragment().toString());
-          assertThat(byteFragmentAtOffset.getOffset()).isEqualTo(offsetValue);
+          assertThat(byteFragmentAtOffset.getBufferOffset()).isEqualTo(offsetValue);
         };
 
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
     ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
     BufferSplitter tokenizer =
-        new BufferSplitter(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, offsetValue);
+        new BufferSplitter(fragment, consumer, NinjaSeparatorFinder.INSTANCE, offsetValue);
     List<ByteFragmentAtOffset> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n");
     assertThat(
@@ -74,7 +74,7 @@ public class BufferSplitterTest {
 
     ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
     BufferSplitter tokenizer =
-        new BufferSplitter(fragment, consumer, NinjaSeparatorPredicate.INSTANCE, 0);
+        new BufferSplitter(fragment, consumer, NinjaSeparatorFinder.INSTANCE, 0);
     List<ByteFragmentAtOffset> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n\ttwo-detail\n");
     assertThat(

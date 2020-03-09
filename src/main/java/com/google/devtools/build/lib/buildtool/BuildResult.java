@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -47,7 +50,8 @@ public final class BuildResult {
   private Throwable crash = null;
   private boolean catastrophe = false;
   private boolean stopOnFirstFailure;
-  private ExitCode exitCondition = ExitCode.BLAZE_INTERNAL_ERROR;
+  private DetailedExitCode detailedExitCode =
+      DetailedExitCode.justExitCode(ExitCode.BLAZE_INTERNAL_ERROR);
 
   private BuildConfigurationCollection configurations;
   private Collection<ConfiguredTarget> actualTargets;
@@ -99,22 +103,21 @@ public final class BuildResult {
     return wasSuspended;
   }
 
-  public void setExitCondition(ExitCode exitCondition) {
-    this.exitCondition = exitCondition;
+  public void setDetailedExitCode(DetailedExitCode detailedExitCode) {
+    this.detailedExitCode = detailedExitCode;
   }
 
-  /**
-   * True iff the build request has been successfully completed.
-   */
+  /** True iff the build request has been successfully completed. */
   public boolean getSuccess() {
-    return exitCondition.equals(ExitCode.SUCCESS);
+    return detailedExitCode.isSuccess();
   }
 
   /**
-   * Gets the Blaze exit condition.
+   * Gets the {@link DetailedExitCode} containing the {@link ExitCode} and optional failure detail
+   * to complete the command with.
    */
-  public ExitCode getExitCondition() {
-    return exitCondition;
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
   }
 
   /**
@@ -281,7 +284,7 @@ public final class BuildResult {
         .add("stopTimeMillis", stopTimeMillis)
         .add("crash", crash)
         .add("catastrophe", catastrophe)
-        .add("exitCondition", exitCondition)
+        .add("detailedExitCode", detailedExitCode)
         .add("actualTargets", actualTargets)
         .add("testTargets", testTargets)
         .add("successfulTargets", successfulTargets)
@@ -294,7 +297,7 @@ public final class BuildResult {
    */
   public static final class BuildToolLogCollection {
     private final List<Pair<String, ByteString>> directValues = new ArrayList<>();
-    private final List<Pair<String, String>> directUris = new ArrayList<>();
+    private final List<Pair<String, ListenableFuture<String>>> futureUris = new ArrayList<>();
     private final List<LogFileEntry> localFiles = new ArrayList<>();
     private boolean frozen;
 
@@ -316,7 +319,13 @@ public final class BuildResult {
 
     public BuildToolLogCollection addUri(String name, String uri) {
       Preconditions.checkState(!frozen);
-      this.directUris.add(Pair.of(name, uri));
+      this.futureUris.add(Pair.of(name, Futures.immediateFuture(uri)));
+      return this;
+    }
+
+    public BuildToolLogCollection addUriFuture(String name, ListenableFuture<String> uriFuture) {
+      Preconditions.checkState(!frozen);
+      this.futureUris.add(Pair.of(name, uriFuture));
       return this;
     }
 
@@ -327,13 +336,20 @@ public final class BuildResult {
     public BuildToolLogCollection addLocalFile(
         String name, Path path, LocalFileType localFileType, LocalFileCompression compression) {
       Preconditions.checkState(!frozen);
+      switch (compression) {
+        case GZIP:
+          name = name + ".gz";
+          break;
+        case NONE:
+          break;
+      }
       this.localFiles.add(new LogFileEntry(name, path, localFileType, compression));
       return this;
     }
 
     public BuildToolLogs toEvent() {
       Preconditions.checkState(frozen);
-      return new BuildToolLogs(directValues, directUris, localFiles);
+      return new BuildToolLogs(directValues, futureUris, localFiles);
     }
 
     /** For debugging. */
@@ -341,7 +357,7 @@ public final class BuildResult {
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("directValues", directValues)
-          .add("directUris", directUris)
+          .add("futureUris", futureUris)
           .add("localFiles", localFiles)
           .toString();
     }

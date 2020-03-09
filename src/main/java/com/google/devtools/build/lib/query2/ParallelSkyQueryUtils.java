@@ -111,15 +111,15 @@ public class ParallelSkyQueryUtils {
                   new ThreadSafeAggregateAllSkyKeysCallback(concurrencyLevel);
               return env.execute(
                   () -> {
-                    UnfilteredSkyKeyTTVDTCVisitor visitor =
-                        new UnfilteredSkyKeyTTVDTCVisitor.Factory(
+                    UnfilteredSkyKeyLabelDTCVisitor visitor =
+                        new UnfilteredSkyKeyLabelDTCVisitor.Factory(
                                 env,
                                 env.createSkyKeyUniquifier(),
                                 processResultsBatchSize,
                                 aggregateAllCallback)
                             .create();
                     visitor.visitAndWaitForCompletion(
-                        SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(universeValue));
+                        SkyQueryEnvironment.makeLabelsStrict(universeValue));
                     return Predicates.in(aggregateAllCallback.getResult());
                   });
             };
@@ -154,7 +154,7 @@ public class ParallelSkyQueryUtils {
             /*resultUniquifier=*/ env.createSkyKeyUniquifier(),
             context,
             callback);
-    visitor.visitAndWaitForCompletion(env.getFileStateKeysForFileFragments(fileIdentifiers));
+    visitor.visitFileIdentifiersAndWaitForCompletion(env.graph, fileIdentifiers);
   }
 
   static QueryTaskFuture<Void> getDepsUnboundedParallel(
@@ -162,12 +162,13 @@ public class ParallelSkyQueryUtils {
       QueryExpression expression,
       QueryExpressionContext<Target> context,
       Callback<Target> callback,
-      boolean depsNeedFiltering) {
+      boolean depsNeedFiltering,
+      QueryExpression caller) {
     return env.eval(
         expression,
         context,
         ParallelVisitorUtils.createParallelVisitorCallback(
-            new DepsUnboundedVisitor.Factory(env, callback, depsNeedFiltering, context)));
+            new DepsUnboundedVisitor.Factory(env, callback, depsNeedFiltering, context, caller)));
   }
 
   static class DepAndRdep {
@@ -233,4 +234,3 @@ public class ParallelSkyQueryUtils {
     }
   }
 }
-

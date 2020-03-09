@@ -379,7 +379,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
     TargetPatternPhaseValue loadingResult =
-        skyframeExecutor.loadTargetPatterns(
+        skyframeExecutor.loadTargetPatternsWithFilters(
             reporter,
             ImmutableList.copyOf(labels),
             PathFragment.EMPTY_FRAGMENT,
@@ -446,7 +446,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     try {
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
-    } catch (StarlarkTransition.TransitionException | InvalidConfigurationException e) {
+    } catch (StarlarkTransition.TransitionException
+        | InvalidConfigurationException
+        | InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -496,7 +498,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     try {
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(
           reporter, parsedLabel, configuration);
-    } catch (StarlarkTransition.TransitionException | InvalidConfigurationException e) {
+    } catch (StarlarkTransition.TransitionException
+        | InvalidConfigurationException
+        | InterruptedException e) {
       throw new AssertionError(e);
     }
   }

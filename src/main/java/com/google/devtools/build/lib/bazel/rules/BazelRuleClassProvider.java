@@ -56,8 +56,6 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
-import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
-import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
@@ -92,6 +90,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PyInfo;
+import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PyStarlarkTransitions;
@@ -390,6 +389,9 @@ public class BazelRuleClassProvider {
               new PyBootstrap(
                   PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER, PyStarlarkTransitions.INSTANCE));
 
+          builder.addSymlinkDefinition(PySymlink.PY2);
+          builder.addSymlinkDefinition(PySymlink.PY3);
+
           try {
             builder.addWorkspaceFileSuffix(
                 ResourceFileLoader.loadResource(BazelPyBinaryRule.class, "python.WORKSPACE"));
@@ -409,8 +411,6 @@ public class BazelRuleClassProvider {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           // TODO(ulfjack): Split this up by conceptual units.
-          builder.addRuleDefinition(new MavenJarRule());
-          builder.addRuleDefinition(new MavenServerRule());
           builder.addRuleDefinition(new NewLocalRepositoryRule());
           builder.addRuleDefinition(new AndroidSdkRepositoryRule());
           builder.addRuleDefinition(new AndroidNdkRepositoryRule());

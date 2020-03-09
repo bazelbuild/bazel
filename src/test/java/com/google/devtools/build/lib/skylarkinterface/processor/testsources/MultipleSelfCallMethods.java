@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Test case for a class with multiple SkylarkCallable methods which have selfCall=true. */
-public class MultipleSelfCallMethods implements SkylarkValue {
+public class MultipleSelfCallMethods implements StarlarkValue {
 
   @SkylarkCallable(
       name = "selfCallMethod",

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
-import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.devtools.skylark.common.DocstringUtils;
@@ -41,24 +40,21 @@ public final class FunctionUtil {
    * @param functionName the name of the function in the target scope. (Note this is not necessarily
    *     the original exported function name; the function may have been renamed in the target
    *     Starlark file's scope)
-   * @param userDefinedFunction the raw function object
+   * @param fn the function object
    * @throws com.google.devtools.build.skydoc.rendering.DocstringParseException if the function's
    *     docstring is malformed
    */
-  public static StarlarkFunctionInfo fromNameAndFunction(
-      String functionName, StarlarkFunction userDefinedFunction) throws DocstringParseException {
+  public static StarlarkFunctionInfo fromNameAndFunction(String functionName, StarlarkFunction fn)
+      throws DocstringParseException {
     String functionDescription = "";
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
 
-    StringLiteral docStringLiteral =
-        DocstringUtils.extractDocstring(userDefinedFunction.getStatements());
-
-    if (docStringLiteral != null) {
+    String doc = fn.getDocumentation();
+    if (doc != null) {
       List<DocstringParseError> parseErrors = Lists.newArrayList();
-      DocstringInfo docstringInfo = DocstringUtils.parseDocstring(docStringLiteral, parseErrors);
+      DocstringInfo docstringInfo = DocstringUtils.parseDocstring(doc, parseErrors);
       if (!parseErrors.isEmpty()) {
-        throw new DocstringParseException(
-            functionName, userDefinedFunction.getLocation(), parseErrors);
+        throw new DocstringParseException(functionName, fn.getLocation(), parseErrors);
       }
       functionDescription += docstringInfo.getSummary();
       if (!docstringInfo.getSummary().isEmpty() && !docstringInfo.getLongDescription().isEmpty()) {
@@ -69,7 +65,7 @@ public final class FunctionUtil {
         paramNameToDocMap.put(paramDoc.getParameterName(), paramDoc.getDescription());
       }
     }
-    List<FunctionParamInfo> paramsInfo = parameterInfos(userDefinedFunction, paramNameToDocMap);
+    List<FunctionParamInfo> paramsInfo = parameterInfos(fn, paramNameToDocMap);
     return StarlarkFunctionInfo.newBuilder()
         .setFunctionName(functionName)
         .setDocString(functionDescription)

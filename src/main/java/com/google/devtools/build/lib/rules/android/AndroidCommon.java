@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -41,7 +42,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.rules.android.databinding.DataBindingContex
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -73,7 +75,6 @@ import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -107,7 +108,7 @@ public class AndroidCommon {
     return builder.build();
   }
 
-  public static final <T extends InfoInterface> Iterable<T> getTransitivePrerequisites(
+  public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, Mode mode, NativeProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
@@ -119,7 +120,7 @@ public class AndroidCommon {
     return builder.build();
   }
 
-  public static final <T extends InfoInterface> Iterable<T> getTransitivePrerequisites(
+  public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, Mode mode, BuiltinProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
@@ -289,8 +290,8 @@ public class AndroidCommon {
    * Gets the Java package for the current target.
    *
    * @deprecated If no custom_package is specified, this method will derive the Java package from
-   *     the package path, even if that path is not a valid Java path. Use {@link
-   *     AndroidManifest#getAndroidPackage(RuleContext)} instead.
+   *     the package path, even if that path is not a valid Java path. Use {@code
+   *     AndroidManifest#getAndroidPackage(RuleContext)}} instead.
    */
   @Deprecated
   public static String getJavaPackage(RuleContext ruleContext) {
@@ -464,43 +465,35 @@ public class AndroidCommon {
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
-    ImmutableList<Artifact> bootclasspath;
+    NestedSetBuilder<Artifact> bootclasspath = NestedSetBuilder.<Artifact>stableOrder();
     if (getAndroidConfig(ruleContext).desugarJava8()) {
-      bootclasspath =
-          ImmutableList.<Artifact>builder()
-              .addAll(
-                  ruleContext
-                      .getPrerequisite("$desugar_java8_extra_bootclasspath", Mode.HOST)
-                      .getProvider(FileProvider.class)
-                      .getFilesToBuild())
-              .add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar())
-              .build();
-    } else {
-      bootclasspath =
-          ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
+      bootclasspath.addTransitive(
+          PrerequisiteArtifacts.nestedSet(
+              ruleContext, "$desugar_java8_extra_bootclasspath", Mode.HOST));
     }
+    bootclasspath.add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     javacopts.addAll(androidSemantics.getCompatibleJavacOptions(ruleContext));
 
     resourceApk
         .asDataBindingContext()
         .supplyJavaCoptsUsing(ruleContext, isBinary, javacopts::addAll);
-    JavaTargetAttributes.Builder attributes =
+    JavaTargetAttributes.Builder attributesBuilder =
         javaCommon
             .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts.build())
-            .setBootClassPath(bootclasspath);
+            .setBootClassPath(BootClassPathInfo.create(bootclasspath.build()));
 
     resourceApk
         .asDataBindingContext()
         .supplyAnnotationProcessor(
             ruleContext,
             (plugin, additionalOutputs) -> {
-              attributes.addPlugin(plugin);
-              attributes.addAdditionalOutputs(additionalOutputs);
+              attributesBuilder.addPlugin(plugin);
+              attributesBuilder.addAdditionalOutputs(additionalOutputs);
             });
 
     if (excludedRuntimeArtifacts != null) {
-      attributes.addExcludedArtifacts(excludedRuntimeArtifacts);
+      attributesBuilder.addExcludedArtifacts(excludedRuntimeArtifacts);
     }
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
@@ -517,7 +510,7 @@ public class AndroidCommon {
             resourceApk.getResourceJavaClassJar(),
             resourceJavaSrcJar,
             artifactsBuilder,
-            attributes,
+            attributesBuilder,
             filesBuilder);
       }
 
@@ -532,22 +525,24 @@ public class AndroidCommon {
         resourceApk.asDataBindingContext().processDeps(ruleContext, isBinary);
 
     JavaCompilationHelper helper =
-        initAttributes(attributes, javaSemantics, additionalJavaInputsFromDatabinding);
+        initAttributes(attributesBuilder, javaSemantics, additionalJavaInputsFromDatabinding);
     if (ruleContext.hasErrors()) {
       return null;
     }
 
     if (addCoverageSupport) {
       androidSemantics.addCoverageSupport(
-          ruleContext, this, javaSemantics, true, attributes, artifactsBuilder);
+          ruleContext, this, javaSemantics, true, attributesBuilder, artifactsBuilder);
       if (ruleContext.hasErrors()) {
         return null;
       }
     }
 
+    JavaTargetAttributes attributes = attributesBuilder.build();
     initJava(
         javaSemantics,
         helper,
+        attributes,
         artifactsBuilder,
         collectJavaCompilationArgs,
         filesBuilder,
@@ -559,7 +554,7 @@ public class AndroidCommon {
       jarsProducedForRuntime.add(generatedExtensionRegistryProvider.getClassJar());
     }
     this.jarsProducedForRuntime = jarsProducedForRuntime.add(classJar).build();
-    return helper.getAttributes();
+    return attributes;
   }
 
   private JavaCompilationHelper initAttributes(
@@ -585,12 +580,12 @@ public class AndroidCommon {
   private void initJava(
       JavaSemantics javaSemantics,
       JavaCompilationHelper helper,
+      JavaTargetAttributes attributes,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       boolean collectJavaCompilationArgs,
       NestedSetBuilder<Artifact> filesBuilder,
       boolean generateExtensionRegistry)
       throws InterruptedException {
-    JavaTargetAttributes attributes = helper.getAttributes();
     if (ruleContext.hasErrors()) {
       // Avoid leaving filesToBuild set to null, otherwise we'll get a NullPointerException masking
       // the real error.
@@ -821,7 +816,7 @@ public class AndroidCommon {
 
   static CcInfo getCcInfo(
       final Iterable<? extends TransitiveInfoCollection> deps,
-      final Collection<String> linkOpts,
+      final ImmutableList<String> linkOpts,
       Label label,
       SymbolGenerator<?> symbolGenerator) {
 
@@ -927,7 +922,8 @@ public class AndroidCommon {
       } else if (fileProvider != null) {
         // The rule definition should enforce that only .apk files are allowed, however, it can't
         // hurt to double check.
-        supportApks.addAll(FileType.filter(fileProvider.getFilesToBuild(), AndroidRuleClasses.APK));
+        supportApks.addAll(
+            FileType.filter(fileProvider.getFilesToBuild().toList(), AndroidRuleClasses.APK));
       }
     }
     return supportApks.build();

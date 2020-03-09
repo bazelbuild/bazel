@@ -251,7 +251,7 @@ public class TestsFunction implements QueryFunction {
      */
     private Iterable<T> getPrerequisites(T testSuite, String attrName)
         throws QueryException, InterruptedException {
-      return accessor.getLabelListAttr(
+      return accessor.getPrerequisites(
           expression,
           testSuite,
           attrName,

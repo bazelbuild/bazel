@@ -44,6 +44,8 @@ function set_up {
   export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles 2>/dev/null)
   export BAZEL_BIN_DIR=$(bazel info bazel-bin 2>/dev/null)
 
+  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
+
   mkdir -p examples/genrule
   cat << 'EOF' > examples/genrule/a.txt
 foo bar bz
@@ -377,6 +379,17 @@ genrule(
   cmd = "curl --unix-socket ${socket} -o \$@ irrelevant-url",
   tags = [ ${tags} ],
 )
+
+genrule(
+  name = "loopback",
+  outs = [ "loopback.txt" ],
+  cmd = "python $python_server always $(pwd)/file_to_serve >port.txt & "
+      + "pid=\$\$!; "
+      + "while ! grep started port.txt; do sleep 1; done; "
+      + "port=\$\$(head -n 1 port.txt); "
+      + "curl -o \$@ localhost:\$\$port; "
+      + "kill \$\$pid",
+)
 EOF
 
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
@@ -451,6 +464,7 @@ function test_sandbox_network_access() {
 
   check_network_ok localhost
   check_network_ok unix-socket
+  check_network_ok loopback
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip
     check_network_ok remote-name
@@ -472,6 +486,7 @@ function test_sandbox_block_network_access() {
       ;;
   esac
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
+  check_network_ok loopback --experimental_sandbox_default_allow_network=false
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=false
     check_network_not_ok remote-name --experimental_sandbox_default_allow_network=false
@@ -483,6 +498,7 @@ function test_sandbox_network_access_with_local() {
 
   check_network_ok localhost
   check_network_ok unix-socket
+  check_network_ok loopback
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip
     check_network_ok remote-name
@@ -494,6 +510,7 @@ function test_sandbox_network_access_with_requires_network() {
 
   check_network_ok localhost --experimental_sandbox_default_allow_network=false
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
+  check_network_ok loopback --experimental_sandbox_default_allow_network=false
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip --experimental_sandbox_default_allow_network=false
     check_network_ok remote-name --experimental_sandbox_default_allow_network=false
@@ -515,6 +532,7 @@ function test_sandbox_network_access_with_block_network() {
       ;;
   esac
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=true
+  check_network_ok loopback --experimental_sandbox_default_allow_network=true
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=true
     check_network_not_ok remote-name --experimental_sandbox_default_allow_network=true

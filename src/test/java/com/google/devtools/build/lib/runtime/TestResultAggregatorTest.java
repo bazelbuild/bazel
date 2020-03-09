@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.runtime.TestResultAggregator.AggregationPolicy;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import org.junit.Before;
 import org.junit.Test;
@@ -39,12 +40,13 @@ import org.junit.runners.JUnit4;
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class TestResultAggregatorTest {
+  private TestParams mockParams;
   private ConfiguredTarget configuredTarget;
   private TestResultAggregator underTest;
 
   @Before
   public final void createMocks() throws Exception {
-    TestParams mockParams = mock(TestParams.class);
+    mockParams = mock(TestParams.class);
     when(mockParams.runsDetectsFlakes()).thenReturn(false);
     when(mockParams.getTimeout()).thenReturn(TestTimeout.LONG);
     when(mockParams.getTestStatusArtifacts())
@@ -124,5 +126,24 @@ public class TestResultAggregatorTest {
     assertThat(summary.getFirstStartTimeMillis()).isEqualTo(7);
     assertThat(summary.getLastStopTimeMillis()).isEqualTo(17);
     assertThat(summary.getTotalRunDurationMillis()).isEqualTo(11);
+  }
+
+  @Test
+  public void testCancelledTest() {
+    when(mockParams.runsDetectsFlakes()).thenReturn(true);
+    when(mockParams.getRuns()).thenReturn(2);
+    underTest.getCurrentSummaryForTesting().setActionRan(true);
+
+    TestResultData testResultData =
+        TestResultData.newBuilder().setStatus(BlazeTestStatus.PASSED).build();
+    underTest.incrementalAnalyze(
+        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true));
+
+    testResultData = TestResultData.newBuilder().setStatus(BlazeTestStatus.INCOMPLETE).build();
+    underTest.incrementalAnalyze(
+        new TestResult(mock(TestRunnerAction.class), testResultData, /*cached=*/ true));
+    TestSummary summary = underTest.getCurrentSummaryForTesting().build();
+
+    assertThat(summary.getStatus()).isEqualTo(BlazeTestStatus.PASSED);
   }
 }

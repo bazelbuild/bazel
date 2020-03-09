@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -86,38 +85,39 @@ final class FakeSandboxfsProcess implements SandboxfsProcess {
   }
 
   @Override
-  public synchronized void createSandbox(String name, List<Mapping> mappings) throws IOException {
+  public synchronized void createSandbox(String name, SandboxCreator creator) throws IOException {
     checkState(alive, "Cannot be called after destroy()");
 
     checkArgument(!PathFragment.containsSeparator(name));
     checkArgument(!activeSandboxes.contains(name), "Sandbox %s mapped more than once", name);
     activeSandboxes.add(name);
 
-    for (Mapping mapping : mappings) {
-      checkArgument(
-          mapping.path().isAbsolute(),
-          "Mapping specifications are expected to be" + "absolute but %s is not",
-          mapping.path());
-      Path link =
-          fileSystem.getPath(mountPoint).getRelative(name).getRelative(mapping.path().toRelative());
-      link.getParentDirectory().createDirectoryAndParents();
+    creator.create(
+        (path, underlyingPath, writable) -> {
+          checkArgument(
+              path.isAbsolute(),
+              "Mapping specifications are expected to be absolute but %s is not",
+              path);
+          Path link =
+              fileSystem.getPath(mountPoint).getRelative(name).getRelative(path.toRelative());
+          link.getParentDirectory().createDirectoryAndParents();
 
-      Path target = fileSystem.getPath(mapping.target());
-      if (!target.exists()) {
-        // Not a requirement for the creation of a symbolic link but this reflects the behavior of
-        // the real sandboxfs.
-        throw new IOException("Target " + mapping.target() + " does not exist");
-      }
+          Path target = fileSystem.getPath(underlyingPath);
+          if (!target.exists()) {
+            // Not a requirement for the creation of a symbolic link but this reflects the behavior
+            // of the real sandboxfs.
+            throw new IOException("Target " + underlyingPath + " does not exist");
+          }
 
-      if (target.isSymbolicLink()) {
-        // sandboxfs is able to expose symlinks as they are in the underlying file system.  Mimic
-        // this behavior by respecting the symlink in that case, instead of just creating a new
-        // symlink that points to the actual target.
-        link.createSymbolicLink(target.readSymbolicLink());
-      } else {
-        link.createSymbolicLink(fileSystem.getPath(mapping.target()));
-      }
-    }
+          if (target.isSymbolicLink()) {
+            // sandboxfs is able to expose symlinks as they are in the underlying file system.
+            // Mimic this behavior by respecting the symlink in that case, instead of just creating
+            // a new symlink that points to the actual target.
+            link.createSymbolicLink(target.readSymbolicLink());
+          } else {
+            link.createSymbolicLink(fileSystem.getPath(underlyingPath));
+          }
+        });
   }
 
   @Override

@@ -14,17 +14,16 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a module with native rule and package helper functions. */
 @SkylarkModule(
@@ -38,7 +37,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
             + "(i.e. for macros, not for rule implementations). Attributes will ignore "
             + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
             + "The following functions are also available:")
-public interface SkylarkNativeModuleApi extends SkylarkValue {
+public interface SkylarkNativeModuleApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "glob",
@@ -53,14 +52,14 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
       parameters = {
         @Param(
             name = "include",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
             doc = "The list of glob patterns to include."),
         @Param(
             name = "exclude",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -69,7 +68,7 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
         @Param(
             name = "exclude_directories",
             type = Integer.class,
-            defaultValue = "1",
+            defaultValue = "1", // keep consistent with glob prefetching logic in PackageFactory
             named = true,
             doc = "A flag whether to exclude directories or not."),
         @Param(
@@ -83,14 +82,12 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
                     + " result must be non-empty (after the matches of the `exclude` patterns are"
                     + " excluded).")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  public SkylarkList<?> glob(
-      SkylarkList<?> include,
-      SkylarkList<?> exclude,
+  Sequence<?> glob(
+      Sequence<?> include,
+      Sequence<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
-      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -127,9 +124,8 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
             legacyNamed = true,
             doc = "The name of the target.")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  public Object existingRule(String name, Location loc, StarlarkThread thread)
+  Object existingRule(String name, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -140,10 +136,9 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
               + " would be returned by <code>existing_rule(name)</code>.<p><i>Note: If possible,"
               + " avoid using this function. It makes BUILD files brittle and order-dependent, and"
               + " it may be expensive especially if called within a loop.</i>",
-      useLocation = true,
       useStarlarkThread = true)
-  public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      Location loc, StarlarkThread thread) throws EvalException, InterruptedException;
+  Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
+      throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "package_group",
@@ -159,7 +154,7 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
             doc = "The unique name for this rule."),
         @Param(
             name = "packages",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -167,39 +162,34 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
             doc = "A complete enumeration of packages in this group."),
         @Param(
             name = "includes",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = "Other package groups that are included in this one.")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  public Runtime.NoneType packageGroup(
-      String name,
-      SkylarkList<?> packages,
-      SkylarkList<?> includes,
-      Location loc,
-      StarlarkThread thread)
+  NoneType packageGroup(
+      String name, Sequence<?> packages, Sequence<?> includes, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
       name = "exports_files",
       doc =
           "Specifies a list of files belonging to this package that are exported to other "
-              + "packages but not otherwise mentioned.",
+              + "packages.",
       parameters = {
         @Param(
             name = "srcs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             doc = "The list of files to export."),
         // TODO(bazel-team): make it possible to express the precise type ListOf(LabelDesignator)
         @Param(
             name = "visibility",
-            type = SkylarkList.class,
+            type = Sequence.class,
             defaultValue = "None",
             noneable = true,
             named = true,
@@ -209,17 +199,15 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
                     + "to every package."),
         @Param(
             name = "licenses",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             noneable = true,
             named = true,
             defaultValue = "None",
             doc = "Licenses to be specified.")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  public Runtime.NoneType exportsFiles(
-      SkylarkList<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
+  NoneType exportsFiles(Sequence<?> srcs, Object visibility, Object licenses, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -231,10 +219,8 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
               + "If the BUILD file calls a function defined in a .bzl file, "
               + "<code>package_name()</code> will match the caller BUILD file package. "
               + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
-      parameters = {},
-      useLocation = true,
       useStarlarkThread = true)
-  public String packageName(Location loc, StarlarkThread thread) throws EvalException;
+  String packageName(StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
       name = "repository_name",
@@ -245,8 +231,6 @@ public interface SkylarkNativeModuleApi extends SkylarkValue {
               + "<code>@local</code>. In packages in the main repository, it will be set to "
               + "<code>@</code>. This function is equivalent to the deprecated variable "
               + "<code>REPOSITORY_NAME</code>.",
-      parameters = {},
-      useLocation = true,
       useStarlarkThread = true)
-  public String repositoryName(Location location, StarlarkThread thread) throws EvalException;
+  String repositoryName(StarlarkThread thread) throws EvalException;
 }

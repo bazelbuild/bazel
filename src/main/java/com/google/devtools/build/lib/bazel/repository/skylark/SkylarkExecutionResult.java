@@ -48,7 +48,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
   private final String stdout;
   private final String stderr;
 
-  private SkylarkExecutionResult(int returnCode, String stdout, String stderr) {
+  SkylarkExecutionResult(int returnCode, String stdout, String stderr) {
     this.returnCode = returnCode;
     this.stdout = stdout;
     this.stderr = stderr;
@@ -172,7 +172,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
       // exception when reaching a specific size.
       delegator.addSink(recorder);
       if (!quiet) {
-        delegator.addSink(OutErr.create(System.out, System.err));
+        delegator.addSink(OutErr.create(System.err, System.err));
       }
       try {
         String[] argsArray = new String[args.size()];

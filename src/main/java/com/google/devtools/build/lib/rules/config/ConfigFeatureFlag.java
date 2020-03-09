@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.List;
 import java.util.Optional;
 
@@ -91,12 +91,11 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     if (!ConfigFeatureFlag.isAvailable(ruleContext)) {
-      ruleContext.ruleError(
+      throw ruleContext.throwWithRuleError(
           String.format(
               "the %s rule is not available in package '%s'",
               ruleContext.getRuleClassNameForLogging(),
               ruleContext.getLabel().getPackageIdentifier()));
-      throw new RuleErrorException();
     }
 
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
@@ -113,7 +112,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "allowed_values",
           "cannot contain duplicates, but contained multiple of "
-              + Printer.repr(duplicates.build()));
+              + Starlark.repr(duplicates.build()));
     }
 
     Optional<String> defaultValue =
@@ -124,9 +123,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "default_value",
           "must be one of "
-              + Printer.repr(values.asList())
+              + Starlark.repr(values.asList())
               + ", but was "
-              + Printer.repr(defaultValue.get()));
+              + Starlark.repr(defaultValue.get()));
     }
 
     if (ruleContext.hasErrors()) {
@@ -144,9 +143,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       // TODO(b/140635901): When configurationError is available, use that instead.
       ruleContext.ruleError(
           "value must be one of "
-              + Printer.repr(values.asList())
+              + Starlark.repr(values.asList())
               + ", but was "
-              + Printer.repr(configuredValue.get()));
+              + Starlark.repr(configuredValue.get()));
       return null;
     }
 

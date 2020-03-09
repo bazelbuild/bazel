@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey.KeyAndHost;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import java.math.BigInteger;
 import javax.annotation.Nullable;
 
 /** An aspect in the context of the Skyframe graph. */
@@ -390,6 +390,17 @@ public final class AspectValue extends BasicActionLookupValue {
           && Objects.equal(skylarkValueName, that.skylarkValueName);
     }
 
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("targetLabel", targetLabel)
+          .add("aspectConfigurationKey", aspectConfigurationKey)
+          .add("baseConfiguredTargetKey", baseConfiguredTargetKey)
+          .add("skylarkFileLabel", skylarkFileLabel)
+          .add("skylarkValueName", skylarkValueName)
+          .toString();
+    }
+
     AspectKey toAspectKey(AspectClass aspectClass) {
       return AspectKey.createAspectKey(
           targetLabel,
@@ -440,9 +451,8 @@ public final class AspectValue extends BasicActionLookupValue {
       Label label,
       Location location,
       ConfiguredAspect configuredAspect,
-      NestedSet<Package> transitivePackagesForPackageRootResolution,
-      BigInteger nonceVersion) {
-    super(configuredAspect.getActions(), nonceVersion);
+      NestedSet<Package> transitivePackagesForPackageRootResolution) {
+    super(configuredAspect.getActions());
     this.label = Preconditions.checkNotNull(label, actions);
     this.aspect = Preconditions.checkNotNull(aspect, label);
     this.location = Preconditions.checkNotNull(location, label);
@@ -485,11 +495,6 @@ public final class AspectValue extends BasicActionLookupValue {
       configuredAspect = null;
     }
     transitivePackagesForPackageRootResolution = null;
-  }
-
-  @Override
-  public final boolean mustBeReferenceComparedOnRecomputation() {
-    return true;
   }
 
   /**

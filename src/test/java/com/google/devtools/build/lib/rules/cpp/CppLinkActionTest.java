@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -662,7 +661,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(resources.getCpuUsage())
         .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage());
 
-    final int linkSize = Iterables.size(linkAction.getLinkCommandLine().getLinkerInputArtifacts());
+    final int linkSize =
+        linkAction.getLinkCommandLine().getLinkerInputArtifacts().memoizedFlattenAndGetSize();
     ResourceSet scaledSet =
         ResourceSet.createWithRamCpu(
             CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
@@ -771,8 +771,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:foo");
     assertThat(configuredTarget).isNotNull();
     ImmutableList<String> inputs =
-        ImmutableList.copyOf(getGeneratingAction(configuredTarget, "foo/libfoo.so").getInputs())
-            .stream()
+        getGeneratingAction(configuredTarget, "foo/libfoo.so").getInputs().toList().stream()
             .map(Artifact::getExecPathString)
             .collect(ImmutableList.toImmutableList());
     assertThat(inputs.stream().anyMatch(i -> i.contains("tools/cpp/link_dynamic_library")))

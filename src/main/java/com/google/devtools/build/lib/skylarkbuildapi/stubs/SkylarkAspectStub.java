@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.stubs;
 
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /**
  * Stub implementation of {@link SkylarkAspectApi}. Should only be used for experimental,
@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
  */
 public final class SkylarkAspectStub implements SkylarkAspectApi {
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<unimplemented aspect>");
   }
 }

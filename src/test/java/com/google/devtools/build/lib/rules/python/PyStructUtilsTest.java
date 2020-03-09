@@ -24,10 +24,12 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts.ThrowingRunnable;
 import com.google.devtools.build.lib.vfs.Root;
@@ -64,11 +66,11 @@ public class PyStructUtilsTest extends FoundationTestCase {
     Map<String, Object> fields = new LinkedHashMap<>();
     fields.put(
         PyStructUtils.TRANSITIVE_SOURCES,
-        SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
+        Depset.of(Artifact.TYPE, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
     fields.put(PyStructUtils.USES_SHARED_LIBRARIES, false);
     fields.put(
         PyStructUtils.IMPORTS,
-        SkylarkNestedSet.of(String.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
+        Depset.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
     fields.put(PyStructUtils.HAS_PY2_ONLY_SOURCES, false);
     fields.put(PyStructUtils.HAS_PY3_ONLY_SOURCES, false);
     fields.putAll(overrides);
@@ -97,7 +99,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
   private static void assertHasOrderAndContainsExactly(
       NestedSet<?> set, Order order, Object... values) {
     assertThat(set.getOrder()).isEqualTo(order);
-    assertThat(set).containsExactly(values);
+    assertThat(set.toList()).containsExactly(values);
   }
 
   @Test
@@ -105,16 +107,17 @@ public class PyStructUtilsTest extends FoundationTestCase {
     NestedSet<Artifact> sources = NestedSetBuilder.create(Order.COMPILE_ORDER, dummyArtifact);
     StructImpl info =
         makeStruct(
-            ImmutableMap.of(
-                PyStructUtils.TRANSITIVE_SOURCES, SkylarkNestedSet.of(Artifact.class, sources)));
+            ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, Depset.of(Artifact.TYPE, sources)));
     assertThat(PyStructUtils.getTransitiveSources(info)).isSameInstanceAs(sources);
   }
 
+  private static final StructImpl emptyInfo =
+      SkylarkInfo.create(StructProvider.STRUCT, ImmutableMap.of(), /* loc= */ null);
+
   @Test
   public void getTransitiveSources_Missing() {
-    StructImpl info = StructProvider.STRUCT.createEmpty(null);
     assertHasMissingFieldMessage(
-        () -> PyStructUtils.getTransitiveSources(info), "transitive_sources");
+        () -> PyStructUtils.getTransitiveSources(emptyInfo), "transitive_sources");
   }
 
   @Test
@@ -129,8 +132,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
     NestedSet<Artifact> sources = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     StructImpl info =
         makeStruct(
-            ImmutableMap.of(
-                PyStructUtils.TRANSITIVE_SOURCES, SkylarkNestedSet.of(Artifact.class, sources)));
+            ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, Depset.of(Artifact.TYPE, sources)));
     assertThrowsEvalExceptionContaining(
         () -> PyStructUtils.getTransitiveSources(info),
         "Incompatible depset order for 'transitive_sources': expected 'default' or 'postorder', "
@@ -145,8 +147,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
 
   @Test
   public void getUsesSharedLibraries_Missing() throws Exception {
-    StructImpl info = StructProvider.STRUCT.createEmpty(null);
-    assertThat(PyStructUtils.getUsesSharedLibraries(info)).isFalse();
+    assertThat(PyStructUtils.getUsesSharedLibraries(emptyInfo)).isFalse();
   }
 
   @Test
@@ -160,15 +161,13 @@ public class PyStructUtilsTest extends FoundationTestCase {
   public void getImports_Good() throws Exception {
     NestedSet<String> imports = NestedSetBuilder.create(Order.COMPILE_ORDER, "abc");
     StructImpl info =
-        makeStruct(
-            ImmutableMap.of(PyStructUtils.IMPORTS, SkylarkNestedSet.of(String.class, imports)));
+        makeStruct(ImmutableMap.of(PyStructUtils.IMPORTS, Depset.of(SkylarkType.STRING, imports)));
     assertThat(PyStructUtils.getImports(info)).isSameInstanceAs(imports);
   }
 
   @Test
   public void getImports_Missing() throws Exception {
-    StructImpl info = StructProvider.STRUCT.createEmpty(null);
-    assertHasOrderAndContainsExactly(PyStructUtils.getImports(info), Order.COMPILE_ORDER);
+    assertHasOrderAndContainsExactly(PyStructUtils.getImports(emptyInfo), Order.COMPILE_ORDER);
   }
 
   @Test
@@ -185,8 +184,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
 
   @Test
   public void getHasPy2OnlySources_Missing() throws Exception {
-    StructImpl info = StructProvider.STRUCT.createEmpty(null);
-    assertThat(PyStructUtils.getHasPy2OnlySources(info)).isFalse();
+    assertThat(PyStructUtils.getHasPy2OnlySources(emptyInfo)).isFalse();
   }
 
   @Test
@@ -204,8 +202,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
 
   @Test
   public void getHasPy3OnlySources_Missing() throws Exception {
-    StructImpl info = StructProvider.STRUCT.createEmpty(null);
-    assertThat(PyStructUtils.getHasPy3OnlySources(info)).isFalse();
+    assertThat(PyStructUtils.getHasPy3OnlySources(emptyInfo)).isFalse();
   }
 
   @Test
@@ -231,12 +228,12 @@ public class PyStructUtilsTest extends FoundationTestCase {
     // Assert using struct operations, not PyStructUtils accessors, which aren't necessarily trusted
     // to be correct.
     assertHasOrderAndContainsExactly(
-        ((SkylarkNestedSet) info.getValue(PyStructUtils.TRANSITIVE_SOURCES)).getSet(Artifact.class),
+        ((Depset) info.getValue(PyStructUtils.TRANSITIVE_SOURCES)).getSet(Artifact.class),
         Order.COMPILE_ORDER,
         dummyArtifact);
     assertThat((Boolean) info.getValue(PyStructUtils.USES_SHARED_LIBRARIES)).isTrue();
     assertHasOrderAndContainsExactly(
-        ((SkylarkNestedSet) info.getValue(PyStructUtils.IMPORTS)).getSet(String.class),
+        ((Depset) info.getValue(PyStructUtils.IMPORTS)).getSet(String.class),
         Order.COMPILE_ORDER,
         "abc");
     assertThat((Boolean) info.getValue(PyStructUtils.HAS_PY2_ONLY_SOURCES)).isTrue();
@@ -253,8 +250,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
     // to be correct.
     assertThat((Boolean) info.getValue(PyStructUtils.USES_SHARED_LIBRARIES)).isFalse();
     assertHasOrderAndContainsExactly(
-        ((SkylarkNestedSet) info.getValue(PyStructUtils.IMPORTS)).getSet(String.class),
-        Order.COMPILE_ORDER);
+        ((Depset) info.getValue(PyStructUtils.IMPORTS)).getSet(String.class), Order.COMPILE_ORDER);
     assertThat((Boolean) info.getValue(PyStructUtils.HAS_PY2_ONLY_SOURCES)).isFalse();
     assertThat((Boolean) info.getValue(PyStructUtils.HAS_PY3_ONLY_SOURCES)).isFalse();
   }

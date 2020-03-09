@@ -85,8 +85,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
         "    srcs = ['foo.py'])");
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     FileConfiguredTarget srcFile = getFileConfiguredTarget("//pkg:foo.py");
-    assertThat(getFilesToBuild(target))
-        .containsExactly(srcFile.getArtifact());
+    assertThat(getFilesToBuild(target).toList()).containsExactly(srcFile.getArtifact());
   }
 
   @Test

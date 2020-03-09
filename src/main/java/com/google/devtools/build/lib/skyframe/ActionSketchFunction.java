@@ -98,7 +98,7 @@ public final class ActionSketchFunction implements SkyFunction {
     Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
     List<Artifact> srcArtifacts = new ArrayList<>();
     List<SketchKey> depActions = new ArrayList<>();
-    for (Artifact artifact : action.getInputs()) {
+    for (Artifact artifact : action.getInputs().toList()) {
       if (artifact.isSourceArtifact()) {
         srcArtifacts.add(artifact);
       } else {

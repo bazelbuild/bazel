@@ -46,6 +46,8 @@ abstract class KeepReference {
   }
 
   public abstract String internalName();
+
   public abstract String name();
+
   public abstract String desc();
 }

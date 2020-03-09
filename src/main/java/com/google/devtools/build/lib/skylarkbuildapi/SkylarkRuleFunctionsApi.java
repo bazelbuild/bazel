@@ -15,19 +15,18 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi.BuildSettingApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -38,7 +37,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 @SkylarkGlobalLibrary
 public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
 
-  static final String PROVIDES_DOC =
+  String PROVIDES_DOC =
       "A list of providers that the implementation function must return."
           + ""
           + "<p>It is an error if the implementation function omits any of the types of providers "
@@ -77,16 +76,16 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "       fields = { 'a' : 'Documentation for a', 'b' : 'Documentation for b'"
                     + " })</pre></ul>All fields are optional.",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = String.class),
-              @ParamType(type = SkylarkDict.class)
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = Dict.class)
             },
             noneable = true,
             named = true,
             positional = false,
             defaultValue = "None")
       },
-      useLocation = true)
-  public ProviderApi provider(String doc, Object fields, Location location) throws EvalException;
+      useStarlarkThread = true)
+  ProviderApi provider(String doc, Object fields, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
       name = "rule",
@@ -123,7 +122,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "for more information."),
         @Param(
             name = "attrs",
-            type = SkylarkDict.class,
+            type = Dict.class,
             named = true,
             noneable = true,
             defaultValue = "None",
@@ -140,7 +139,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "outputs",
             allowedTypes = {
-              @ParamType(type = SkylarkDict.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = NoneType.class),
               @ParamType(type = StarlarkFunction.class) // a function defined in Starlark
             },
@@ -215,7 +214,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "(e.g. when generating header files for C++), do not set this flag."),
         @Param(
             name = "fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -224,7 +223,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in target configuration."),
         @Param(
             name = "host_fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -247,7 +246,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "Starlark rules. This flag may be removed in the future."),
         @Param(
             name = "toolchains",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -266,14 +265,14 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "tools."),
         @Param(
             name = "provides",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             positional = false,
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
             name = "exec_compatible_with",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             positional = false,
@@ -330,26 +329,24 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                 "If set, points to the configuration transition the rule will "
                     + "apply to its own configuration before analysis.")
       },
-      useAst = true,
       useStarlarkThread = true)
-  public BaseFunction rule(
+  BaseFunction rule(
       StarlarkFunction implementation,
       Boolean test,
       Object attrs,
       Object implicitOutputs,
       Boolean executable,
       Boolean outputToGenfiles,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<?> toolchains,
+      Sequence<?> toolchains,
       String doc,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> execCompatibleWith,
+      Sequence<?> providesArg,
+      Sequence<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
       Object cfg,
-      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException;
 
@@ -373,7 +370,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "analysis phase for each application of an aspect to a target."),
         @Param(
             name = "attr_aspects",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -385,7 +382,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "target."),
         @Param(
             name = "attrs",
-            type = SkylarkDict.class,
+            type = Dict.class,
             named = true,
             noneable = true,
             defaultValue = "None",
@@ -405,7 +402,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "name, type, and valid values according to the restriction."),
         @Param(
             name = "required_aspect_providers",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             defaultValue = "[]",
             doc =
@@ -428,13 +425,13 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
         @Param(
             name = "provides",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
             name = "fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -443,7 +440,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in target configuration."),
         @Param(
             name = "host_fragments",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -452,7 +449,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "in host configuration."),
         @Param(
             name = "toolchains",
-            type = SkylarkList.class,
+            type = Sequence.class,
             named = true,
             generic1 = String.class,
             defaultValue = "[]",
@@ -488,20 +485,18 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "will propagate through `alpha`, `beta`, and `charlie`. If False, then the "
                     + "aspect will propagate only to `alpha`. </p><p>False by default.</p>")
       },
-      useStarlarkThread = true,
-      useAst = true)
-  public SkylarkAspectApi aspect(
+      useStarlarkThread = true)
+  SkylarkAspectApi aspect(
       StarlarkFunction implementation,
-      SkylarkList<?> attributeAspects,
+      Sequence<?> attributeAspects,
       Object attrs,
-      SkylarkList<?> requiredAspectProvidersArg,
-      SkylarkList<?> providesArg,
-      SkylarkList<?> fragments,
-      SkylarkList<?> hostFragments,
-      SkylarkList<?> toolchains,
+      Sequence<?> requiredAspectProvidersArg,
+      Sequence<?> providesArg,
+      Sequence<?> fragments,
+      Sequence<?> hostFragments,
+      Sequence<?> toolchains,
       String doc,
       Boolean applyToGeneratingRules,
-      FuncallExpression ast,
       StarlarkThread thread)
       throws EvalException;
 
@@ -533,10 +528,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "False, a repo-relative label is resolved relative to the file in which the "
                     + "Label() call appears.")
       },
-      useLocation = true,
       useStarlarkThread = true)
   @SkylarkConstructor(objectType = Label.class)
-  public Label label(
-      String labelString, Boolean relativeToCallerRepository, Location loc, StarlarkThread thread)
+  Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
       throws EvalException;
 }

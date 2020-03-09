@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -34,6 +33,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -105,6 +105,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -123,6 +124,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
@@ -234,15 +236,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     actionKeyContext = new ActionKeyContext();
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
-    mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
-    mockToolsConfig.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
+    mockToolsConfig.create("bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    mockToolsConfig.create("bazel_tools_workspace/tools/build_defs/repo/BUILD");
     mockToolsConfig.create(
-        "/bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
+        "bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
         "def maybe(repo_rule, name, **kwargs):",
         "  if name not in native.existing_rules():",
         "    repo_rule(name = name, **kwargs)");
     mockToolsConfig.create(
-        "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
+        "bazel_tools_workspace/tools/build_defs/repo/http.bzl",
         "def http_archive(**kwargs):",
         "  pass",
         "",
@@ -277,7 +279,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
-            .setEnvironmentExtensions(getEnvironmentExtensions());
+            .setEnvironmentExtensions(getEnvironmentExtensions())
+            .setPackageValidator(getPackageValidator());
     if (!doPackageLoadingChecks) {
       pkgFactoryBuilder.disableChecks();
     }
@@ -314,7 +317,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     useConfiguration();
     setUpSkyframe();
     this.actionLogBufferPathGenerator =
-        new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
+        new ActionLogBufferPathGenerator(
+            directories.getActionTempsDirectory(getExecRoot()),
+            directories.getPersistentActionOutsDirectory(getExecRoot()));
   }
 
   public void initializeMockClient() throws IOException {
@@ -345,6 +350,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected StarlarkSemantics getSkylarkSemantics() {
     return starlarkSemanticsOptions.toSkylarkSemantics();
+  }
+
+  protected PackageValidator getPackageValidator() {
+    return PackageValidator.NOOP_VALIDATOR;
   }
 
   protected final BuildConfigurationCollection createConfigurations(
@@ -709,7 +718,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       ConfiguredTarget target, String attributeName) throws Exception {
     Set<Artifact> result = new LinkedHashSet<>();
     for (FileProvider provider : getPrerequisites(target, attributeName, FileProvider.class)) {
-      Iterables.addAll(result, provider.getFilesToBuild());
+      result.addAll(provider.getFilesToBuild().toList());
     }
     return ImmutableList.copyOf(result);
   }
@@ -776,8 +785,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   @Nullable
-  private ParameterFileWriteAction paramFileWriteActionForAction(Action action) {
-    for (Artifact input : action.getInputs()) {
+  protected ParameterFileWriteAction paramFileWriteActionForAction(Action action) {
+    for (Artifact input : action.getInputs().toList()) {
       if (!(input instanceof SpecialArtifact)) {
         Action generatingAction = getGeneratingAction(input);
         if (generatingAction instanceof ParameterFileWriteAction) {
@@ -810,7 +819,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private Action getGeneratingAction(
       String outputName, NestedSet<Artifact> filesToBuild, String providerName) {
-    Artifact artifact = Iterables.find(filesToBuild, artifactNamed(outputName), null);
+    Artifact artifact = Iterables.find(filesToBuild.toList(), artifactNamed(outputName), null);
     if (artifact == null) {
       fail(
           String.format(
@@ -848,7 +857,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected SpawnAction getGeneratingSpawnAction(ConfiguredTarget target, String outputName) {
     return getGeneratingSpawnAction(
-        Iterables.find(getFilesToBuild(target), artifactNamed(outputName)));
+        Iterables.find(getFilesToBuild(target).toList(), artifactNamed(outputName)));
   }
 
   protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact)
@@ -901,7 +910,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     try {
       return view.getConfiguredTargetForTesting(
           reporter, BlazeTestUtils.convertLabel(label), config);
-    } catch (InvalidConfigurationException | StarlarkTransition.TransitionException e) {
+    } catch (InvalidConfigurationException
+        | StarlarkTransition.TransitionException
+        | InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -911,7 +922,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTargetAndData getConfiguredTargetAndData(
       Label label, BuildConfiguration config)
-      throws StarlarkTransition.TransitionException, InvalidConfigurationException {
+      throws StarlarkTransition.TransitionException, InvalidConfigurationException,
+          InterruptedException {
     return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
   }
 
@@ -922,7 +934,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
       throws LabelSyntaxException, StarlarkTransition.TransitionException,
-          InvalidConfigurationException {
+          InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
   }
 
@@ -1044,7 +1056,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Rule scratchRule(String packageName, String ruleName, String... lines)
       throws Exception {
-    String buildFilePathString = packageName + "/BUILD";
+    // Allow to create the BUILD file also in the top package.
+    String buildFilePathString = packageName.isEmpty() ? "BUILD" : packageName + "/BUILD";
     if (packageName.equals(LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString())) {
       buildFilePathString = "WORKSPACE";
       scratch.overwriteFile(buildFilePathString, lines);
@@ -1140,6 +1153,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .that(view.hasErrors(target))
         .isFalse();
     return assertContainsEvent(expectedWarningMessage);
+  }
+
+  /**
+   * Given a collection of Artifacts, returns a corresponding set of strings of the form "[root]
+   * [relpath]", such as "bin x/libx.a". Such strings make assertions easier to write.
+   *
+   * <p>The returned set preserves the order of the input.
+   */
+  protected Set<String> artifactsToStrings(NestedSet<? extends Artifact> artifacts) {
+    return artifactsToStrings(artifacts.toList());
   }
 
   /**
@@ -1266,7 +1289,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected List<Artifact> getInputs(Action owner, Collection<String> execPaths) {
     Set<String> expectedPaths = new HashSet<>(execPaths);
     List<Artifact> result = new ArrayList<>();
-    for (Artifact output : owner.getInputs()) {
+    for (Artifact output : owner.getInputs().toList()) {
       if (expectedPaths.remove(output.getExecPathString())) {
         result.add(output);
       }
@@ -1578,14 +1601,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ConfiguredTargetKey.of(makeLabel(label), getConfiguration(label));
   }
 
-  protected static List<String> actionInputsToPaths(Iterable<? extends ActionInput> actionInputs) {
+  protected static List<String> actionInputsToPaths(NestedSet<? extends ActionInput> actionInputs) {
     return ImmutableList.copyOf(
-        Iterables.transform(actionInputs, new Function<ActionInput, String>() {
-          @Override
-          public String apply(ActionInput actionInput) {
-            return actionInput.getExecPathString();
-          }
-        }));
+        Iterables.transform(
+            actionInputs.toList(), (actionInput) -> actionInput.getExecPathString()));
   }
 
   /**
@@ -1623,7 +1642,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     assertContainsEvent(label + " [self-edge]");
   }
 
-  protected Iterable<Artifact> collectRunfiles(ConfiguredTarget target) {
+  protected NestedSet<Artifact> collectRunfiles(ConfiguredTarget target) {
     RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
     if (runfilesProvider != null) {
       return runfilesProvider.getDefaultRunfiles().getAllArtifacts();
@@ -1641,7 +1660,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ImmutableList<Action> getExtraActionActions(ConfiguredTarget target) {
     LinkedHashSet<Action> result = new LinkedHashSet<>();
-    for (Artifact artifact : getExtraActionArtifacts(target)) {
+    for (Artifact artifact : getExtraActionArtifacts(target).toList()) {
       result.add(getGeneratingAction(artifact));
     }
     return ImmutableList.copyOf(result);
@@ -1655,7 +1674,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     for (Artifact artifact :
         target
             .getProvider(ExtraActionArtifactsProvider.class)
-            .getTransitiveExtraActionArtifacts()) {
+            .getTransitiveExtraActionArtifacts()
+            .toList()) {
       Action action = getGeneratingAction(artifact);
       if (action instanceof ExtraAction) {
         result.add((ExtraAction) action);
@@ -1666,7 +1686,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected ImmutableList<Action> getFilesToBuildActions(ConfiguredTarget target) {
     List<Action> result = new ArrayList<>();
-    for (Artifact artifact : getFilesToBuild(target)) {
+    for (Artifact artifact : getFilesToBuild(target).toList()) {
       Action action = getGeneratingAction(artifact);
       if (action != null) {
         result.add(action);
@@ -1778,7 +1798,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       ctad = getConfiguredTargetAndData(ct.getLabel().toString());
     } catch (LabelSyntaxException
         | StarlarkTransition.TransitionException
-        | InvalidConfigurationException e) {
+        | InvalidConfigurationException
+        | InterruptedException e) {
       throw new RuntimeException(e);
     }
     return getMapperFromConfiguredTargetAndTarget(ctad);
@@ -1818,7 +1839,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     AnalysisOptions viewOptions = Options.getDefaults(AnalysisOptions.class);
 
     TargetPatternPhaseValue loadingResult =
-        skyframeExecutor.loadTargetPatterns(
+        skyframeExecutor.loadTargetPatternsWithFilters(
             reporter,
             targets,
             PathFragment.EMPTY_FRAGMENT,
@@ -1976,6 +1997,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ExtendedEventHandler getEventHandler() {
       return reporter;
     }
@@ -2063,7 +2089,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     ImmutableList.Builder<String> basenames = ImmutableList.builder();
     for (Artifact baselineCoverage :
-        target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR).getBaselineCoverageArtifacts()) {
+        target
+            .get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR)
+            .getBaselineCoverageArtifacts()
+            .toList()) {
       BaselineCoverageAction baselineAction =
           (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
       ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -2078,6 +2107,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       }
     }
     return basenames.build();
+  }
+
+  /**
+   * Finds an artifact in the transitive closure of a set of other artifacts by following a path
+   * based on artifact name suffixes.
+   *
+   * <p>This selects the first artifact in the input set that matches the first suffix, then selects
+   * the first artifact in the inputs of its generating action that matches the second suffix etc.,
+   * and repeats this until the supplied suffixes run out.
+   */
+  protected Artifact artifactByPath(NestedSet<Artifact> artifacts, String... suffixes) {
+    return artifactByPath(artifacts.toList(), suffixes);
   }
 
   /**
@@ -2104,7 +2145,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       }
 
       action = getGeneratingAction(artifact);
-      artifacts = action.getInputs();
+      artifacts = action.getInputs().toList();
       artifact = getFirstArtifactEndingWith(artifacts, suffixes[i]);
     }
 
@@ -2241,13 +2282,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /*actionInputPrefetcher=*/ null,
           actionKeyContext,
           /*metadataHandler=*/ null,
+          LostInputsCheck.NONE,
           actionLogBufferPathGenerator.generate(ArtifactPathResolver.IDENTITY),
           reporter,
           clientEnv,
-          ImmutableMap.of(),
+          /*topLevelFilesets=*/ ImmutableMap.of(),
           artifactExpander,
           /*actionFileSystem=*/ null,
-          /*skyframeDepsResult*/ null);
+          /*skyframeDepsResult*/ null,
+          NestedSetExpander.NO_CALLBACKS);
     }
   }
 }

@@ -52,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Java compilation action builder. */
@@ -82,7 +83,7 @@ public final class JavaCompileActionBuilder {
     private final NestedSet<Artifact> classpathEntries;
 
     /** The list of bootclasspath entries to specify to javac. */
-    private final ImmutableList<Artifact> bootclasspathEntries;
+    private final NestedSet<Artifact> bootclasspathEntries;
 
     /** The list of classpath entries to search for annotation processors. */
     private final NestedSet<Artifact> processorPath;
@@ -102,7 +103,7 @@ public final class JavaCompileActionBuilder {
     JavaCompileExtraActionInfoSupplier(
         Artifact outputJar,
         NestedSet<Artifact> classpathEntries,
-        ImmutableList<Artifact> bootclasspathEntries,
+        NestedSet<Artifact> bootclasspathEntries,
         NestedSet<Artifact> processorPath,
         NestedSet<String> processorNames,
         ImmutableList<Artifact> sourceJars,
@@ -123,12 +124,12 @@ public final class JavaCompileActionBuilder {
       JavaCompileInfo.Builder info =
           JavaCompileInfo.newBuilder()
               .addAllSourceFile(Artifact.toExecPaths(sourceFiles))
-              .addAllClasspath(Artifact.toExecPaths(classpathEntries))
-              .addAllBootclasspath(Artifact.toExecPaths(bootclasspathEntries))
+              .addAllClasspath(Artifact.toExecPaths(classpathEntries.toList()))
+              .addAllBootclasspath(Artifact.toExecPaths(bootclasspathEntries.toList()))
               .addAllSourcepath(Artifact.toExecPaths(sourceJars))
               .addAllJavacOpt(javacOpts)
-              .addAllProcessor(processorNames)
-              .addAllProcessorpath(Artifact.toExecPaths(processorPath))
+              .addAllProcessor(processorNames.toList())
+              .addAllProcessorpath(Artifact.toExecPaths(processorPath.toList()))
               .setOutputjar(outputJar.getExecPathString());
       info.addAllArgument(arguments);
       builder.setExtension(JavaCompileInfo.javaCompileInfo, info.build());
@@ -139,7 +140,7 @@ public final class JavaCompileActionBuilder {
   private final BuildConfiguration configuration;
   private final JavaToolchainProvider toolchain;
   private PathFragment javaExecutable;
-  private List<Artifact> javabaseInputs = ImmutableList.of();
+  private NestedSet<Artifact> javabaseInputs = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
   private Artifact coverageArtifact;
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
@@ -154,9 +155,8 @@ public final class JavaCompileActionBuilder {
   private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
   private boolean compressJar;
   private NestedSet<Artifact> classpathEntries = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-  private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
+  private BootClassPathInfo bootClassPath = BootClassPathInfo.empty();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
-  private ImmutableList<Artifact> extdirInputs = ImmutableList.of();
   private FilesToRunProvider javaBuilder;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private PathFragment sourceGenDirectory;
@@ -167,7 +167,10 @@ public final class JavaCompileActionBuilder {
   private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
+  private Artifact genSourceOutput;
   private JavaCompileOutputs<Artifact> outputs;
+  private JavaClasspathMode classpathMode;
+  private Artifact manifestOutput;
 
   public JavaCompileActionBuilder(
       ActionOwner owner, BuildConfiguration configuration, JavaToolchainProvider toolchain) {
@@ -190,8 +193,6 @@ public final class JavaCompileActionBuilder {
     }
 
     // Invariant: if java_classpath is set to 'off', dependencyArtifacts are ignored
-    JavaConfiguration javaConfiguration = configuration.getFragment(JavaConfiguration.class);
-    JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
     if (!Collections.disjoint(
         plugins.processorClasses().toSet(),
         toolchain.getReducedClasspathIncompatibleProcessors())) {
@@ -236,19 +237,18 @@ public final class JavaCompileActionBuilder {
         .addTransitive(extraData)
         .addAll(sourceJars)
         .addAll(sourceFiles)
-        .addAll(javabaseInputs)
-        .addAll(bootclasspathEntries)
-        .addAll(sourcePathEntries)
-        .addAll(extdirInputs);
-    if (coverageArtifact != null) {
-      mandatoryInputs.add(coverageArtifact);
-    }
+        .addTransitive(javabaseInputs)
+        .addTransitive(bootClassPath.bootclasspath())
+        .addAll(sourcePathEntries);
+    Stream.of(coverageArtifact, bootClassPath.system())
+        .filter(x -> x != null)
+        .forEachOrdered(mandatoryInputs::add);
 
     JavaCompileExtraActionInfoSupplier extraActionInfoSupplier =
         new JavaCompileExtraActionInfoSupplier(
             outputs.output(),
             classpathEntries,
-            bootclasspathEntries,
+            bootClassPath.bootclasspath(),
             plugins.processorClasspath(),
             plugins.processorClasses(),
             sourceJars,
@@ -261,6 +261,7 @@ public final class JavaCompileActionBuilder {
     }
 
     if (outputs.depsProto() != null) {
+      JavaConfiguration javaConfiguration = configuration.getFragment(JavaConfiguration.class);
       if (javaConfiguration.inmemoryJdepsFiles()) {
         executionInfo =
             ImmutableMap.<String, String>builderWithExpectedSize(this.executionInfo.size() + 1)
@@ -300,11 +301,15 @@ public final class JavaCompileActionBuilder {
         /* classpathMode= */ classpathMode);
   }
 
-  private NestedSet<Artifact> allOutputs() {
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(outputs.toNestedSet())
-        .addAll(additionalOutputs)
-        .build();
+  private ImmutableSet<Artifact> allOutputs() {
+    ImmutableSet.Builder<Artifact> result =
+        ImmutableSet.<Artifact>builder()
+            .add(outputs.output())
+            .addAll(additionalOutputs);
+    Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput, manifestOutput)
+        .filter(x -> x != null)
+        .forEachOrdered(result::add);
+    return result.build();
   }
 
   private CustomCommandLine buildParamFileContents(Collection<String> javacOpts) {
@@ -318,14 +323,14 @@ public final class JavaCompileActionBuilder {
     result.addExecPath("--output", outputs.output());
     result.addExecPath("--native_header_output", outputs.nativeHeader());
     result.addPath("--sourcegendir", sourceGenDirectory);
-    result.addExecPath("--generated_sources_output", outputs.genSource());
-    result.addExecPath("--output_manifest_proto", outputs.manifestProto());
+    result.addExecPath("--generated_sources_output", genSourceOutput);
+    result.addExecPath("--output_manifest_proto", manifestOutput);
     if (compressJar) {
       result.add("--compress_jar");
     }
     result.addExecPath("--output_deps_proto", outputs.depsProto());
-    result.addExecPaths("--extclasspath", extdirInputs);
-    result.addExecPaths("--bootclasspath", bootclasspathEntries);
+    result.addExecPaths("--bootclasspath", bootClassPath.bootclasspath());
+    result.addExecPath("--system", bootClassPath.system());
     result.addExecPaths("--sourcepath", sourcePathEntries);
     result.addExecPaths("--processorpath", plugins.processorClasspath());
     result.addAll("--processors", plugins.processorClasses());
@@ -360,7 +365,6 @@ public final class JavaCompileActionBuilder {
     result.add("--experimental_fix_deps_tool", fixDepsTool);
 
     // Chose what artifact to pass to JavaBuilder, as input to jacoco instrumentation processor.
-    // metadata should be null when --experimental_java_coverage is true.
     if (coverageArtifact != null) {
       result.add("--post_processor");
       result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
@@ -379,8 +383,8 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setJavaBaseInputs(Iterable<Artifact> javabaseInputs) {
-    this.javabaseInputs = ImmutableList.copyOf(javabaseInputs);
+  public JavaCompileActionBuilder setJavaBaseInputs(NestedSet<Artifact> javabaseInputs) {
+    this.javabaseInputs = javabaseInputs;
     return this;
   }
 
@@ -425,8 +429,8 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setJavacOpts(Iterable<String> copts) {
-    this.javacOpts = ImmutableList.copyOf(copts);
+  public JavaCompileActionBuilder setJavacOpts(ImmutableList<String> copts) {
+    this.javacOpts = Preconditions.checkNotNull(copts);
     return this;
   }
 
@@ -451,18 +455,13 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setBootclasspathEntries(Iterable<Artifact> bootclasspathEntries) {
-    this.bootclasspathEntries = ImmutableList.copyOf(bootclasspathEntries);
+  public JavaCompileActionBuilder setBootClassPath(BootClassPathInfo bootClassPath) {
+    this.bootClassPath = bootClassPath;
     return this;
   }
 
-  public JavaCompileActionBuilder setSourcePathEntries(Iterable<Artifact> sourcePathEntries) {
-    this.sourcePathEntries = ImmutableList.copyOf(sourcePathEntries);
-    return this;
-  }
-
-  public JavaCompileActionBuilder setExtdirInputs(Iterable<Artifact> extdirEntries) {
-    this.extdirInputs = ImmutableList.copyOf(extdirEntries);
+  public JavaCompileActionBuilder setSourcePathEntries(ImmutableList<Artifact> sourcePathEntries) {
+    this.sourcePathEntries = Preconditions.checkNotNull(sourcePathEntries);
     return this;
   }
 
@@ -529,7 +528,19 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
+  public void setGenSourceOutput(Artifact genSourceOutput) {
+    this.genSourceOutput = genSourceOutput;
+  }
+
   public void setOutputs(JavaCompileOutputs<Artifact> outputs) {
     this.outputs = outputs;
+  }
+
+  public void setClasspathMode(JavaClasspathMode classpathMode) {
+    this.classpathMode = classpathMode;
+  }
+
+  public void setManifestOutput(Artifact manifestOutput) {
+    this.manifestOutput = manifestOutput;
   }
 }

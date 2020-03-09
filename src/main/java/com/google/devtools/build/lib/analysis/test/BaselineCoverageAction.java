@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifacts;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Generates baseline (empty) coverage for the given non-test target. */
 @VisibleForTesting
@@ -51,7 +49,7 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   @VisibleForSerialization
   BaselineCoverageAction(
       ActionOwner owner, NestedSet<Artifact> instrumentedFiles, Artifact primaryOutput) {
-    super(owner, ImmutableList.<Artifact>of(), primaryOutput, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
     this.instrumentedFiles = instrumentedFiles;
   }
 
@@ -62,15 +60,9 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
 
   @Override
   public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
-    fp.addStrings(getInstrumentedFilePathStrings());
-  }
-
-  private Iterable<String> getInstrumentedFilePathStrings() {
-    List<String> result = new ArrayList<>();
-    for (Artifact instrumentedFile : instrumentedFiles) {
-      result.add(instrumentedFile.getExecPathString());
-    }
-    return result;
+    // TODO(b/150305897): No UUID?
+    // TODO(b/150308417): Sort?
+    Artifacts.addToFingerprint(fp, instrumentedFiles.toList());
   }
 
   @Override
@@ -79,8 +71,8 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
         PrintWriter writer = new PrintWriter(out);
-        for (String execPath : getInstrumentedFilePathStrings()) {
-          writer.write("SF:" + execPath + "\n");
+        for (Artifact file : instrumentedFiles.toList()) {
+          writer.write("SF:" + file.getExecPathString() + "\n");
           writer.write("end_of_record\n");
         }
         writer.flush();

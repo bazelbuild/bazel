@@ -245,7 +245,7 @@ public class ExternalFilesHelper {
       return FileType.EXTERNAL;
     }
     if (rootedPath.asPath().startsWith(outputBase)) {
-      Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME);
+      Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
       if (rootedPath.asPath().startsWith(externalRepoDir)) {
         anyNonOutputExternalFilesSeen = true;
         return FileType.EXTERNAL_REPO;

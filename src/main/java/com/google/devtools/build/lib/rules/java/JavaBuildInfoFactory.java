@@ -22,6 +22,9 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.WriteBuildInfoPropertiesAction.TimestampFormatter;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -76,7 +79,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
             context,
             config,
             BUILD_INFO_REDACTED_PROPERTIES_NAME,
-            Artifact.NO_ARTIFACTS,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             createRedactedTranslator(),
             true,
             true,
@@ -86,7 +89,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
             context,
             config,
             BUILD_INFO_NONVOLATILE_PROPERTIES_NAME,
-            ImmutableList.of(stableStatus),
+            NestedSetBuilder.create(Order.STABLE_ORDER, stableStatus),
             createNonVolatileTranslator(),
             false,
             true,
@@ -96,7 +99,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
             context,
             config,
             BUILD_INFO_VOLATILE_PROPERTIES_NAME,
-            ImmutableList.of(volatileStatus),
+            NestedSetBuilder.create(Order.STABLE_ORDER, volatileStatus),
             createVolatileTranslator(),
             true,
             false,
@@ -132,7 +135,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       BuildInfoContext context,
       BuildConfiguration config,
       PathFragment propertyFileName,
-      ImmutableList<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       BuildInfoPropertiesTranslator translator,
       boolean includeVolatile,
       boolean includeNonVolatile,

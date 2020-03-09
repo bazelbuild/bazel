@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFuncti
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileOperationException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -157,10 +158,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
+    skyFunctions.put(
+        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction(
-            /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
-            /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+            /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
     skyFunctions.put(SkyFunctions.PACKAGE,
         new PackageFunction(null, null, null, null, null, null, null));
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
@@ -194,6 +195,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
   }
 
   private Artifact sourceArtifact(String path) {
@@ -338,7 +340,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       TraversalRequest params, ResolvedFile... expectedFilesIgnoringMetadata) throws Exception {
     RecursiveFilesystemTraversalValue result = evalTraversalRequest(params);
     Map<PathFragment, ResolvedFile> nameToActualResolvedFiles = new HashMap<>();
-    for (ResolvedFile act : result.getTransitiveFiles()) {
+    for (ResolvedFile act : result.getTransitiveFiles().toList()) {
       // We can't compare  directly, since metadata would be different, so we compare
       // by comparing the results of public method calls..
       nameToActualResolvedFiles.put(act.getNameInSymlinkTree(), act);

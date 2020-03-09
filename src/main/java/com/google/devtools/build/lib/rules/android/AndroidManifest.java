@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
@@ -280,10 +281,10 @@ public class AndroidManifest {
   }
 
   private static Map<Artifact, Label> getMergeeManifests(
-      Iterable<ValidatedAndroidResources> transitiveData,
+      NestedSet<ValidatedAndroidResources> transitiveData,
       AndroidConfiguration.ManifestMergerOrder manifestMergerOrder) {
     ImmutableMap.Builder<Artifact, Label> builder = new ImmutableMap.Builder<>();
-    for (ValidatedAndroidResources d : transitiveData) {
+    for (ValidatedAndroidResources d : transitiveData.toList()) {
       if (d.isManifestExported()) {
         builder.put(d.getManifest(), d.getLabel());
       }

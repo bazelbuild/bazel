@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 /**
  * Provides access to information about the Java toolchain rule. Accessible as a 'java_toolchain'
@@ -37,33 +37,33 @@ public interface JavaToolchainSkylarkApiProviderApi extends ToolchainInfoApi {
   String LEGACY_NAME = "java_toolchain";
 
   @SkylarkCallable(name = "source_version", doc = "The java source version.", structField = true)
-  public String getSourceVersion();
+  String getSourceVersion();
 
   @SkylarkCallable(name = "target_version", doc = "The java target version.", structField = true)
-  public String getTargetVersion();
+  String getTargetVersion();
 
   @SkylarkCallable(
       name = "javac_jar",
       doc = "The javac jar.",
       structField = true,
       allowReturnNones = true)
-  public FileApi getJavacJar();
+  FileApi getJavacJar();
 
   @SkylarkCallable(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
-  public FileApi getSingleJar();
+  FileApi getSingleJar();
 
   @SkylarkCallable(
       name = "bootclasspath",
       doc = "The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.",
       structField = true)
-  public SkylarkNestedSet getSkylarkBootclasspath();
+  Depset getSkylarkBootclasspath();
 
   @SkylarkCallable(
       name = "jvm_opt",
       doc = "The default options for the JVM running the java compiler and associated tools.",
       structField = true)
-  public SkylarkList<String> getSkylarkJvmOptions();
+  Sequence<String> getSkylarkJvmOptions();
 
   @SkylarkCallable(name = "tools", doc = "The compilation tools.", structField = true)
-  public SkylarkNestedSet getSkylarkTools();
+  Depset getSkylarkTools();
 }

@@ -13,14 +13,26 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.vfs.Path;
+import java.util.Set;
+import java.util.function.Function;
 
 /** Rule definitions for Python rules. */
 public class PyRuleClasses {
@@ -90,4 +102,41 @@ public class PyRuleClasses {
    */
   public static final TransitionFactory<Rule> VERSION_TRANSITION =
       makeVersionTransition(PythonVersionTransition.toDefault());
+
+  /** The py2 and py3 symlinks. */
+  public enum PySymlink implements SymlinkDefinition {
+    PY2(PythonVersion.PY2),
+    PY3(PythonVersion.PY3);
+
+    private final String versionString;
+    private final PythonVersionTransition transition;
+
+    private PySymlink(PythonVersion version) {
+      this.versionString = Ascii.toLowerCase(version.toString());
+      this.transition = PythonVersionTransition.toConstant(version);
+    }
+
+    @Override
+    public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
+      return symlinkPrefix + versionString;
+    }
+
+    @Override
+    public Set<Path> getLinkPaths(
+        BuildRequestOptions buildRequestOptions,
+        Set<BuildConfiguration> targetConfigs,
+        Function<BuildOptions, BuildConfiguration> configGetter,
+        RepositoryName repositoryName,
+        Path outputPath,
+        Path execRoot) {
+      if (!buildRequestOptions.experimentalCreatePySymlinks) {
+        return ImmutableSet.of();
+      }
+      return targetConfigs.stream()
+          .map(config -> configGetter.apply(transition.patch(config.getOptions())))
+          .map(config -> config.getOutputDirectory(repositoryName).getRoot().asPath())
+          .distinct()
+          .collect(toImmutableSet());
+    }
+  }
 }

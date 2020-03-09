@@ -45,10 +45,9 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcProtoProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -292,18 +291,18 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     assertThat(configuredAspect).isNotNull();
     Object names = configuredAspect.get("target_labels");
-    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(names).isInstanceOf(Depset.class);
     assertThat(
             transform(
-                ((SkylarkNestedSet) names).toCollection(),
+                ((Depset) names).toCollection(),
                 o -> {
                   assertThat(o).isInstanceOf(Label.class);
                   return o.toString();
                 }))
         .containsExactly("//test:xxx", "//test:yyy");
     Object ruleKinds = configuredAspect.get("rule_kinds");
-    assertThat(ruleKinds).isInstanceOf(SkylarkNestedSet.class);
-    assertThat(((SkylarkNestedSet) ruleKinds).toCollection()).containsExactly("java_library");
+    assertThat(ruleKinds).isInstanceOf(Depset.class);
+    assertThat(((Depset) ruleKinds).toCollection()).containsExactly("java_library");
   }
 
   @Test
@@ -349,12 +348,14 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     assertThat(configuredAspect).isNotNull();
     Object nameSet = configuredAspect.get("target_labels");
-    ImmutableList<String> names = ImmutableList.copyOf(transform(
-        ((SkylarkNestedSet) nameSet).toCollection(),
-        o -> {
-          assertThat(o).isInstanceOf(Label.class);
-          return ((Label) o).getName();
-        }));
+    ImmutableList<String> names =
+        ImmutableList.copyOf(
+            transform(
+                ((Depset) nameSet).toCollection(),
+                o -> {
+                  assertThat(o).isInstanceOf(Label.class);
+                  return ((Label) o).getName();
+                }));
 
     assertThat(names).containsAtLeast("xxx", "yyy");
     // Third is the C++ toolchain; its name changes between Blaze and Bazel.
@@ -425,11 +426,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -455,11 +456,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -484,11 +485,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -518,11 +519,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(aspectValue.getConfiguredAspect());
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -550,11 +551,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(aspectValue.getConfiguredAspect());
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -594,10 +595,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     Object names = target.get("rule_deps");
-    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(names).isInstanceOf(Depset.class);
     assertThat(
             transform(
-                ((SkylarkNestedSet) names).toCollection(),
+                ((Depset) names).toCollection(),
                 o -> {
                   assertThat(o).isInstanceOf(Label.class);
                   return o.toString();
@@ -1175,7 +1176,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   private static Iterable<String> getOutputGroupContents(
       OutputGroupInfo outputGroupInfo, String groupName) {
     return Iterables.transform(
-        outputGroupInfo.getOutputGroup(groupName), Artifact::getRootRelativePathString);
+        outputGroupInfo.getOutputGroup(groupName).toList(), Artifact::getRootRelativePathString);
   }
 
   @Test
@@ -1640,9 +1641,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   private void buildTargetAndCheckRuleInfo(String... expectedLabels) throws Exception {
     AnalysisResult result = update(ImmutableList.<String>of(), "//test:r2");
     ConfiguredTarget configuredTarget = result.getTargetsToBuild().iterator().next();
-    SkylarkNestedSet ruleInfoValue = (SkylarkNestedSet) configuredTarget.get("rule_info");
-    assertThat(ruleInfoValue.getSet(String.class))
-        .containsExactlyElementsIn(Arrays.asList(expectedLabels));
+    Depset ruleInfoValue = (Depset) configuredTarget.get("rule_info");
+    assertThat(ruleInfoValue.getSet(String.class).toList())
+        .containsExactlyElementsIn(expectedLabels);
   }
 
   private String[] aspectBzlFile(String attrAspects) {
@@ -1712,11 +1713,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "main_rule(name = 'main', deps = [':rbin', ':rgen'])");
     AnalysisResult analysisResult = update(ImmutableList.<String>of(), "//foo:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    NestedSet<Artifact> aspectFiles =
-        ((SkylarkNestedSet) target.get("aspect_files")).getSet(Artifact.class);
-    assertThat(transform(aspectFiles, Artifact::getFilename))
+    NestedSet<Artifact> aspectFiles = ((Depset) target.get("aspect_files")).getSet(Artifact.class);
+    assertThat(transform(aspectFiles.toList(), Artifact::getFilename))
         .containsExactly("aspect-output-rbin", "aspect-output-rgen");
-    for (Artifact aspectFile : aspectFiles) {
+    for (Artifact aspectFile : aspectFiles.toList()) {
       String rootPath = aspectFile.getRoot().getExecPath().toString();
       assertWithMessage("Artifact %s should not be in genfiles", aspectFile)
           .that(rootPath)
@@ -1900,10 +1900,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     assertThat(configuredAspect).isNotNull();
     Object names = configuredAspect.get("target_labels");
-    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(names).isInstanceOf(Depset.class);
     assertThat(
             transform(
-                ((SkylarkNestedSet) names).toCollection(),
+                ((Depset) names).toCollection(),
                 o -> {
                   assertThat(o).isInstanceOf(Label.class);
                   return ((Label) o).getName();
@@ -1945,7 +1945,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList<?> result = (SkylarkList) target.get("result");
+    Sequence<?> result = (Sequence) target.get("result");
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
@@ -2009,7 +2009,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "rcollect(name = 'rcollect', deps = [':r1', ':r2'])");
     AnalysisResult analysisResult = update("//test:rcollect");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList<?> result = (SkylarkList) target.get("result");
+    Sequence<?> result = (Sequence) target.get("result");
     assertThat(result)
         .containsExactly(
             "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
@@ -2059,7 +2059,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList<?> result = (SkylarkList) target.get("result");
+    Sequence<?> result = (Sequence) target.get("result");
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
@@ -2102,7 +2102,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList<?> result = (SkylarkList<?>) target.get("result");
+    Sequence<?> result = (Sequence<?>) target.get("result");
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
@@ -2141,7 +2141,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "r(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList<?> result = (SkylarkList<?>) target.get("result");
+    Sequence<?> result = (Sequence<?>) target.get("result");
 
     assertThat(result)
         .containsExactly(
@@ -2343,7 +2343,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     SkylarkKey p3 =
         new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "p3");
     StructImpl p3Provider = (StructImpl) configuredAspect.get(p3);
-    assertThat((SkylarkList<?>) p3Provider.getValue("value"))
+    assertThat((Sequence<?>) p3Provider.getValue("value"))
         .containsExactly(
             "//test:r0_1=True",
             "//test:r0_2=True",
@@ -2406,7 +2406,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     SkylarkKey pCollector =
         new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl pCollectorProvider = (StructImpl) configuredTarget.get(pCollector);
-    assertThat((SkylarkList<?>) pCollectorProvider.getValue("result"))
+    assertThat((Sequence<?>) pCollectorProvider.getValue("result"))
         .containsExactly("//test:r1", "//test:r0", "//test:r0+PAspect");
   }
 
@@ -2582,7 +2582,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     SkylarkKey pCollector =
         new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
-    assertThat(((SkylarkNestedSet) collector.getValue("visited")).toCollection())
+    assertThat(((Depset) collector.getValue("visited")).toCollection())
         .containsExactly(
             Label.parseAbsolute("//test:referenced_from_aspect_only", ImmutableMap.of()),
             Label.parseAbsolute("//test:bar", ImmutableMap.of()),
@@ -2686,7 +2686,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList<?> result = (SkylarkList<?>) target.get("result");
+    Sequence<?> result = (Sequence<?>) target.get("result");
 
     // We should see both the action from the 'r0' rule, and the action from the 'a1' aspect
     assertThat(result).hasSize(2);
@@ -2890,12 +2890,12 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl rootInfoWithFiles = (StructImpl) targetWithFiles.get(rootInfoKey);
     // With apply_to_generating_rules=True, the aspect should have traversed :beta_output and
     // applied to both :beta and :charlie.
-    assertThat(rootInfoWithFiles.getValue("from_aspect", SkylarkList.class))
+    assertThat(rootInfoWithFiles.getValue("from_aspect", Sequence.class))
         .containsExactly(
             Label.parseAbsolute("//test:charlie", ImmutableMap.of()),
             Label.parseAbsolute("//test:beta", ImmutableMap.of()),
             Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
-    assertThat(rootInfoWithFiles.getValue("non_aspect", SkylarkList.class))
+    assertThat(rootInfoWithFiles.getValue("non_aspect", Sequence.class))
         .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
 
     AnalysisResult analysisResultNoFiles = update("//test:test_no_files");
@@ -2904,9 +2904,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl rootInfoNoFiles = (StructImpl) targetNoFiles.get(rootInfoKey);
     // With apply_to_generating_rules=False, the aspect should have only accessed :alpha, as it
     // must have stopped before :beta_output.
-    assertThat(rootInfoNoFiles.getValue("from_aspect", SkylarkList.class))
+    assertThat(rootInfoNoFiles.getValue("from_aspect", Sequence.class))
         .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
-    assertThat(rootInfoWithFiles.getValue("non_aspect", SkylarkList.class))
+    assertThat(rootInfoWithFiles.getValue("non_aspect", Sequence.class))
         .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
   }
 
@@ -3004,13 +3004,13 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl rootInfo = (StructImpl) target.get(rootInfoKey);
     StructImpl depInfo = (StructImpl) target.get(depInfoKey);
 
-    assertThat(rootInfo.getValue("both_labels", SkylarkList.class))
+    assertThat(rootInfo.getValue("both_labels", Sequence.class))
         .containsExactly(
             Label.parseAbsolute("//test:alpha", ImmutableMap.of()),
             Label.parseAbsolute("//test:beta_output", ImmutableMap.of()),
             Label.parseAbsolute("//test:charlie", ImmutableMap.of()));
-    assertThat(rootInfo.getValue("root_only_labels", SkylarkList.class)).isEmpty();
-    assertThat(depInfo.getValue("labels", SkylarkList.class))
+    assertThat(rootInfo.getValue("root_only_labels", Sequence.class)).isEmpty();
+    assertThat(depInfo.getValue("labels", Sequence.class))
         .containsExactly(
             Label.parseAbsolute("//test:alpha", ImmutableMap.of()),
             Label.parseAbsolute("//test:beta", ImmutableMap.of()),
@@ -3032,10 +3032,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl rootInfo = (StructImpl) target.get(rootInfoKey);
     StructImpl depInfo = (StructImpl) target.get(depInfoKey);
 
-    assertThat(rootInfo.getValue("both_labels", SkylarkList.class))
+    assertThat(rootInfo.getValue("both_labels", Sequence.class))
         .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
-    assertThat(rootInfo.getValue("root_only_labels", SkylarkList.class)).isEmpty();
-    assertThat(depInfo.getValue("labels", SkylarkList.class))
+    assertThat(rootInfo.getValue("root_only_labels", Sequence.class)).isEmpty();
+    assertThat(depInfo.getValue("labels", Sequence.class))
         .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
   }
 
@@ -3054,13 +3054,13 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl rootInfo = (StructImpl) target.get(rootInfoKey);
     StructImpl depInfo = (StructImpl) target.get(depInfoKey);
 
-    assertThat(rootInfo.getValue("both_labels", SkylarkList.class))
+    assertThat(rootInfo.getValue("both_labels", Sequence.class))
         .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
-    assertThat(rootInfo.getValue("root_only_labels", SkylarkList.class))
+    assertThat(rootInfo.getValue("root_only_labels", Sequence.class))
         .containsExactly(
             Label.parseAbsolute("//test:beta_output", ImmutableMap.of()),
             Label.parseAbsolute("//test:charlie", ImmutableMap.of()));
-    assertThat(depInfo.getValue("labels", SkylarkList.class))
+    assertThat(depInfo.getValue("labels", Sequence.class))
         .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
   }
 
@@ -3079,10 +3079,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     StructImpl rootInfo = (StructImpl) target.get(rootInfoKey);
     StructImpl depInfo = (StructImpl) target.get(depInfoKey);
 
-    assertThat(rootInfo.getValue("both_labels", SkylarkList.class))
+    assertThat(rootInfo.getValue("both_labels", Sequence.class))
         .containsExactly(Label.parseAbsolute("//test:alpha", ImmutableMap.of()));
-    assertThat(rootInfo.getValue("root_only_labels", SkylarkList.class)).isEmpty();
-    assertThat(depInfo.getValue("labels", SkylarkList.class))
+    assertThat(rootInfo.getValue("root_only_labels", Sequence.class)).isEmpty();
+    assertThat(depInfo.getValue("labels", Sequence.class))
         .containsExactly(
             Label.parseAbsolute("//test:alpha", ImmutableMap.of()),
             Label.parseAbsolute("//test:beta", ImmutableMap.of()),

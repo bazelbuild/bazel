@@ -487,7 +487,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   private Action getPredecessorByInputName(Action action, String str) {
-    for (Artifact a : action.getInputs()) {
+    for (Artifact a : action.getInputs().toList()) {
       if (a.getExecPathString().contains(str)) {
         return getGeneratingAction(a);
       }

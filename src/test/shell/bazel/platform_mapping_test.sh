@@ -107,6 +107,43 @@ EOF
   expect_log "platform: //plat:platform1"
 }
 
+function test_custom_platform_mapping_location_after_exec_transition() {
+  mkdir custom
+  cat > custom/platform_mappings <<EOF
+platforms:
+  //plat:platform1
+    --copt=foo
+EOF
+
+  cat > package/BUILD <<EOF
+load("//report:report.bzl", "report_flags")
+genrule(
+    name = "genrule1",
+    outs = ["genrule1.out"],
+    cmd = "echo hello > \$@",
+    exec_tools = [
+      ":genrule2",
+    ],
+)
+genrule(
+    name = "genrule2",
+    outs = ["genrule2.out"],
+    cmd = "echo hello > \$@",
+    exec_tools = [
+      ":report",
+    ],
+)
+report_flags(name = "report")
+EOF
+
+  bazel build \
+      --platform_mappings=custom/platform_mappings \
+      --extra_execution_platforms=//plat:platform1 \
+      package:genrule1 &> $TEST_log || fail "Build failed unexpectedly"
+  expect_log "platform: //plat:platform1"
+  expect_log "copts: \[\"foo\"\]"
+}
+
 function test_top_level_multi_platform_mapping() {
   cat > platform_mappings <<EOF
 flags:

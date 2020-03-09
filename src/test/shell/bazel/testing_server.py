@@ -44,7 +44,9 @@ class Handler(BaseHTTPRequestHandler):
   simulate_timeout = False
   filename = None
   redirect = None
-  valid_header = b'Basic ' + base64.b64encode('foo:bar'.encode('ascii'))
+  valid_headers = [
+      b'Basic ' + base64.b64encode('foo:bar'.encode('ascii')), b'Bearer TOKEN'
+  ]
 
   def do_HEAD(self):  # pylint: disable=invalid-name
     self.send_response(200)
@@ -84,12 +86,13 @@ class Handler(BaseHTTPRequestHandler):
       return
 
     auth_header = self.headers.get('Authorization', '').encode('ascii')
-    if auth_header == self.valid_header:
+
+    if auth_header in self.valid_headers:
       self.do_HEAD()
       self.serve_file()
     else:
       self.do_AUTHHEAD()
-      self.wfile.write(b'Login required.')
+      self.wfile.write(b'Login required.' + str(auth_header))
 
   def serve_file(self):
     path_to_serve = self.path[1:]

@@ -26,7 +26,11 @@ import java.util.List;
 /** Represents the fragment of immutable {@link ByteBuffer} for parallel processing. */
 public class ByteBufferFragment {
   private final ByteBuffer buffer;
+
+  /** The start of this fragment in the backing {@link ByteBuffer}. */
   private final int startIncl;
+
+  /** The end of this fragment in the backing {@link ByteBuffer}. */
   private final int endExcl;
 
   public ByteBufferFragment(ByteBuffer buffer, int startIncl, int endExcl) {
@@ -38,6 +42,7 @@ public class ByteBufferFragment {
     this.endExcl = endExcl;
   }
 
+  /** Returns the start of this fragment in the backing {@link ByteBuffer}. */
   @VisibleForTesting
   public int getStartIncl() {
     return startIncl;
@@ -89,6 +94,21 @@ public class ByteBufferFragment {
     copy.position(startIncl + from);
     copy.get(bytes, 0, length);
     return bytes;
+  }
+
+  /**
+   * Helper method for forming error messages with text fragment around a place with a problem.
+   *
+   * @param index position of the problematic symbol.
+   * @return a fragment if text around the problematic place, that can be retrieved from this buffer
+   */
+  public String getFragmentAround(int index) {
+    if (index < 0 || index >= length()) {
+      throw new IndexOutOfBoundsException(
+          String.format("Index out of bounds: %d (%d, %d).", index, 0, length()));
+    }
+    byte[] bytes = getBytes(Math.max(0, index - 200), Math.min(length(), index + 200));
+    return new String(bytes, StandardCharsets.ISO_8859_1);
   }
 
   private void getBytes(byte[] dst, int offset) {

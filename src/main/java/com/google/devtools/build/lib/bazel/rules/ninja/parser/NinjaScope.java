@@ -15,18 +15,22 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
+import static com.google.common.base.Strings.nullToEmpty;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -41,38 +45,31 @@ public class NinjaScope {
   @Nullable private final Integer includePoint;
 
   private final NavigableMap<Integer, NinjaScope> includedScopes;
-  private final Map<String, List<Pair<Integer, NinjaVariableValue>>> variables;
+  private final NavigableMap<Integer, NinjaScope> subNinjaScopes;
+  private Map<String, List<Pair<Integer, String>>> expandedVariables;
   private final Map<String, List<Pair<Integer, NinjaRule>>> rules;
+  private final Map<String, List<Pair<Integer, NinjaPool>>> pools;
 
   public NinjaScope() {
     this(null, null);
   }
 
-  public NinjaScope(@Nullable NinjaScope parentScope, @Nullable Integer includePoint) {
+  private NinjaScope(@Nullable NinjaScope parentScope, @Nullable Integer includePoint) {
     this.parentScope = parentScope;
     this.includePoint = includePoint;
-    includedScopes = Maps.newTreeMap();
-    variables = Maps.newHashMap();
-    rules = Maps.newHashMap();
+    this.rules = Maps.newTreeMap();
+    this.pools = Maps.newTreeMap();
+    this.includedScopes = Maps.newTreeMap();
+    this.subNinjaScopes = Maps.newTreeMap();
+    this.expandedVariables = Maps.newHashMap();
   }
 
-  public NinjaScope createIncludeScope(int offset) {
-    NinjaScope includeScope = new NinjaScope(this, offset);
-    includedScopes.put(offset, includeScope);
-    return includeScope;
+  public void setRules(Map<String, List<Pair<Integer, NinjaRule>>> rules) {
+    this.rules.putAll(rules);
   }
 
-  public void addVariable(String name, int offset, NinjaVariableValue value) {
-    variables.computeIfAbsent(name, k -> Lists.newArrayList()).add(Pair.of(offset, value));
-  }
-
-  public void addRule(int offset, NinjaRule rule) {
-    rules.computeIfAbsent(rule.getName(), k -> Lists.newArrayList()).add(Pair.of(offset, rule));
-  }
-
-  @VisibleForTesting
-  public Map<String, List<Pair<Integer, NinjaVariableValue>>> getVariables() {
-    return variables;
+  public void setPools(Map<String, List<Pair<Integer, NinjaPool>>> pools) {
+    this.pools.putAll(pools);
   }
 
   @VisibleForTesting
@@ -81,22 +78,57 @@ public class NinjaScope {
   }
 
   @VisibleForTesting
-  public void sortResults() {
-    for (List<Pair<Integer, NinjaVariableValue>> list : variables.values()) {
-      list.sort(Comparator.comparing(Pair::getFirst));
-    }
-    for (List<Pair<Integer, NinjaRule>> list : rules.values()) {
-      list.sort(Comparator.comparing(Pair::getFirst));
-    }
+  public Map<String, List<Pair<Integer, NinjaPool>>> getPools() {
+    return pools;
+  }
+
+  public Collection<NinjaScope> getIncludedScopes() {
+    return includedScopes.values();
+  }
+
+  public Collection<NinjaScope> getSubNinjaScopes() {
+    return subNinjaScopes.values();
   }
 
   /**
-   * Finds a variable with the name <code>name</code> to be used in the reference to it at <code>
-   * offset</code>. Returns null if nothing was found.
+   * Expands variable value at the given offset. If some of the variable references, used in the
+   * value, can not be found, uses an empty string as their value.
+   */
+  public String getExpandedValue(int offset, NinjaVariableValue value) {
+    // Cache expanded variables values to save time replacing several references to the same
+    // variable.
+    // This cache is local to the offset, it depends on the offset of the variable we are expanding.
+    Map<String, String> cache = Maps.newHashMap();
+    // We are using the start offset of the value holding the reference to the variable.
+    // Do the same as Ninja implementation: if the variable is not found, use empty string.
+    Function<String, String> expander =
+        ref -> cache.computeIfAbsent(ref, (key) -> nullToEmpty(findExpandedVariable(offset, key)));
+    return value.getExpandedValue(expander);
+  }
+
+  public void addExpandedVariable(int offset, String name, String value) {
+    expandedVariables.computeIfAbsent(name, k -> Lists.newArrayList()).add(Pair.of(offset, value));
+  }
+
+  public NinjaScope addIncluded(int offset) {
+    NinjaScope scope = new NinjaScope(this, offset);
+    includedScopes.put(offset, scope);
+    return scope;
+  }
+
+  public NinjaScope addSubNinja(int offset) {
+    NinjaScope scope = new NinjaScope(this, offset);
+    subNinjaScopes.put(offset, scope);
+    return scope;
+  }
+
+  /**
+   * Finds expanded variable with the name <code>name</code> to be used in the reference to it at
+   * <code>offset</code>. Returns null if nothing was found.
    */
   @Nullable
-  public NinjaVariableValue findVariable(int offset, String name) {
-    return findByNameAndOffsetRecursively(offset, name, scope -> scope.variables);
+  public String findExpandedVariable(int offset, String name) {
+    return findByNameAndOffsetRecursively(offset, name, scope -> scope.expandedVariables);
   }
 
   /**
@@ -133,6 +165,7 @@ public class NinjaScope {
 
     int currentScopeOffset =
         currentScopeValue != null ? Preconditions.checkNotNull(currentScopeValue.getFirst()) : -1;
+
     // Search in included scopes, which were included after the current scope, so they could
     // override the value, but before the reference offset.
     NavigableMap<Integer, NinjaScope> subMap =
@@ -188,22 +221,21 @@ public class NinjaScope {
     return Pair.of(pair.getFirst(), pair.getSecond());
   }
 
-  public static NinjaScope mergeScopeParts(Collection<NinjaScope> parts) {
-    Preconditions.checkState(!parts.isEmpty());
-    NinjaScope first = Preconditions.checkNotNull(Iterables.getFirst(parts, null));
-    NinjaScope result = new NinjaScope(first.parentScope, first.includePoint);
-    for (NinjaScope part : parts) {
-      for (String name : part.variables.keySet()) {
-        result
-            .variables
-            .computeIfAbsent(name, k -> Lists.newArrayList())
-            .addAll(part.variables.get(name));
-      }
-      for (String name : part.rules.keySet()) {
-        result.rules.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(part.rules.get(name));
-      }
+  public NinjaScope createScopeFromExpandedValues(
+      ImmutableSortedMap<String, List<Pair<Integer, String>>> expandedVariables) {
+    NinjaScope scope = new NinjaScope(this, Integer.MAX_VALUE);
+    scope.expandedVariables.putAll(expandedVariables);
+    return scope;
+  }
+
+  public void iterate(Consumer<NinjaScope> consumer) {
+    ArrayDeque<NinjaScope> queue = new ArrayDeque<>();
+    queue.add(this);
+    while (!queue.isEmpty()) {
+      NinjaScope currentScope = queue.removeFirst();
+      consumer.accept(currentScope);
+      queue.addAll(currentScope.getIncludedScopes());
+      queue.addAll(currentScope.getSubNinjaScopes());
     }
-    result.sortResults();
-    return result;
   }
 }

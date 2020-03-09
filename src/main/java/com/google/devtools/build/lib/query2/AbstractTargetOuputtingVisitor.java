@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -26,6 +27,8 @@ import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Helper class to traverse a visitation graph where the outputs are {@link Target}s and there is a
@@ -48,9 +51,17 @@ public abstract class AbstractTargetOuputtingVisitor<VisitKeyT>
 
   @Override
   protected Iterable<Target> outputKeysToOutputValues(Iterable<SkyKey> targetKeys)
-      throws InterruptedException {
-    return env.getTargets(Iterables.transform(targetKeys, SkyQueryEnvironment.SKYKEY_TO_LABEL))
-        .values();
+      throws InterruptedException, QueryException {
+    Map<Label, Target> targets =
+        env.getTargets(Iterables.transform(targetKeys, SkyQueryEnvironment.SKYKEY_TO_LABEL));
+
+    handleMissingTargets(targets, ImmutableSet.copyOf(targetKeys));
+    return targets.values();
+  }
+
+  void handleMissingTargets(Map<? extends SkyKey, Target> keysWithTargets, Set<SkyKey> targetKeys)
+      throws InterruptedException, QueryException {
+    // Do nothing by default, as an optimization if we don't expect any missing targets.
   }
 
   @Override

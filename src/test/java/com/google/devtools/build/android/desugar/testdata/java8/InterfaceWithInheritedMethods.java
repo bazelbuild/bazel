@@ -22,7 +22,7 @@ public interface InterfaceWithInheritedMethods {
   static String staticSuffix() {
     return "!";
   }
-  
+
   static interface Passthrough extends InterfaceWithInheritedMethods {
     // inherits name().  Note that desugar doesn't produce a companion class for this interface
     // since it doesn't define any default or static interface methods itself.

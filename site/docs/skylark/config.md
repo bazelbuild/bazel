@@ -1,22 +1,12 @@
 ---
 layout: documentation
-title: Starlark Build Configurations
+title: Configuratios
 ---
 
-# Starlark Build Configurations
+# Configurations
 
-- [Overview](#overview)
-- [Current Status](#current-status)
-- [User-defined Build Settings](#user-defined-build-settings)
-- [Build Settings and Select](#build-settings-and-select)
-- [User-defined Transitions](#user-defined-transitions)
-- [Integration With Platforms and Toolchains](#integration-with-platforms-and-toolchains)
-- [Also See](#also-see)
 
-## Overview
-
-Starlark build configuration is Bazel's API for customizing how your project
-builds.
+Starlark configuration is Bazel's API for customizing how your project builds.
 
 This makes it possible to:
 
@@ -33,7 +23,7 @@ and more, all completely from .bzl files (no Bazel release required).
 
 <!-- [TOC] -->
 
-## Current Status
+## Current status
 
 As of Q4'19, everything documented here works but
 may have memory and performance consequences as we work on scaling concerns.
@@ -48,7 +38,7 @@ Related issues:
 *   [#5578](https://github.com/bazelbuild/bazel/issues/5578) - Configuration
     doesn't block native to Skylark rules migration
 
-## User-defined Build Settings
+## User-defined build settings
 A build setting is a single piece of
 [configuration](rules.html#configurations)
 information. Think of a configuration as a key/value map. Setting `--cpu=ppc`
@@ -65,9 +55,9 @@ register changes). They also can be set via the command line
 (if they're designated as `flags`, see more below), but can also be
 set via [user-defined transitions](#user-defined-transitions).
 
-### Defining Build Settings
+### Defining build settings
 
-#### The `build_setting` `rule()` Parameter
+#### The `build_setting` `rule()` parameter
 
 Build settings are rules like any other rule and are differentiated using the
 Starlark `rule()` function's `build_setting`
@@ -164,9 +154,9 @@ flavor(
 A collection of the most common build setting rules can be found in
 [skylib](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
 
-### Using Build Settings
+### Using build settings
 
-#### Depending on Build Settings
+#### Depending on build settings
 If a target would like to read a piece of configuration information, it can
 directly depend on the build setting via a regular attribute dependency.
 
@@ -253,7 +243,7 @@ instead of
 $ bazel build //my/target --//third_party/bazel/src/main:cpu=k8 --no//my/project:boolean_flag
 ```
 
-### Label-typed Build Settings
+### Label-typed build settings
 
 Unlike other build settings, label-typed settings cannot be defined using the
 `build_setting` rule parameter. Instead, bazel has two built-in rules:
@@ -307,7 +297,7 @@ label_flag(
 
 TODO(bazel-team): Expand supported build setting types.
 
-## Build Settings and Select
+## Build settings and the `select` function
 
 Users can configure attributes on build settings by using
  [`select()`](../be/functions.html#select). Build setting targets can be passed to the `flag_values` attribute of
@@ -324,14 +314,31 @@ config_setting(
 ```
 
 
-## User-defined Transitions
+## User-defined transitions
 
 A configuration
 [transition](lib/transition.html#transition)
 is how we change configuration of
 configured targets in the build graph.
 
-### Defining Transitions in Starlark
+> IMPORTANT: In order to use Starlark transitions, you need to attach a
+> special attribute to the rule to which the transition is attached:
+>
+> ```python
+> "_whitelist_function_transition": attr.label(
+>      default = "@bazel_tools//tools/whitelists/function_transition_whitelist"
+>  )
+> ```
+>
+> By adding transitions you can pretty easily explode the size of
+> your build graph. This sets a whitelist on the packages in which you can
+> create targets of this rule. The default value in the codeblock above
+> whitelists everything. But if you'd like to restrict who is using your rule,
+> you can set that attribute to point to your own custom whitelist.
+> Contact bazel-discuss@googlegroups.com if you'd like advice or assistance
+> understanding how transitions can affect on your build performance.
+
+### Defining
 
 Transitions define configuration changes between rules. For example, a request
 like "compile my dependency for a different CPU than its parent" is handled by a
@@ -390,7 +397,7 @@ parameter of the transition function. This is true even if a build setting is
 not actually changed over the course of the transition - its original value must
 be explicitly passed through in the returned dictionary.
 
-#### Defining 1:2+ Transitions
+#### Defining 1:2+ transitions
 [Outgoing edge transition](#outgoing-edge-transitions) can map a single input
 configuration to two or more output configurations. These are defined in
 Starlark by returning a list of dictionaries in the transition implementation
@@ -412,13 +419,18 @@ coffee_transition = transition(
 )
 ```
 
-### Attaching Transitions
+### Attaching transitions
 Transitions can be attached in two places: incoming edges and outgoing edges.
 Effectively this means rules can transition their own configuration (incoming
 edge transition) and transition their dependencies' configurations (outgoing
 edge transition).
 
-#### Incoming Edge Transitions
+NOTE: There is currently no way to attach Starlark transitions to native rules.
+If you need to do this, contact
+bazel-discuss@googlegroups.com
+and we can help you try to figure out a workaround.
+
+#### Incoming edge transitions
 Incoming edge transitions are activated by attaching a `transition` object
 (created by `transition()`) to `rule()`'s `cfg` parameter:
 
@@ -433,7 +445,7 @@ drink_rule = rule(
 
 Incoming edge transitions must be 1:1 transitions.
 
-### Outgoing Edge Transitions
+### Outgoing edge transitions
 Outgoing edge transitions are activated by attaching a `transition` object
 (created by `transition()`) to an attribute's `cfg` parameter:
 
@@ -447,8 +459,11 @@ drink_rule = rule(
 ```
 Outgoing edge transitions can be 1:1 or 1:2+.
 
-### Transitions on Native Options
-WARNING: This feature will be deprecated soon. Use at your own risk.
+### Transitions on native options
+WARNING: Long term, we plan to reimplement all native options as build settings.
+When that happens, this syntax will be deprecated. Currently other issues are
+blocking that migration but be aware you may have to migrate your transitions
+at some point in the future.
 
 Starlark transitions can also declare reads and writes on native options via
 a special prefix to the option name.
@@ -465,7 +480,7 @@ cpu_transition = transition(
     outputs = ["//command_line_option:cpu"]
 ```
 
-### Accessing Attributes with Transitions
+### Accessing attributes with transitions
 When [attaching a transition to an outgoing edge](#outgoing-edge-transitions)
 (regardless of whether the transition is a 1:1 or 1:2+ transition) access to
 values of that attribute in the rule implementation changes. Access through
@@ -503,13 +518,13 @@ coffee_rule = rule(
 Access to the value of a single branch of a 1:2+
 [has not been implemented yet](https://github.com/bazelbuild/bazel/issues/8633).
 
-## Integration with Platforms and Toolchains
+## Integration with platforms and toolchains
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
 [target platform](../platforms.html)
 
-## Also See:
+## Also see
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
  * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)

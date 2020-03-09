@@ -56,8 +56,8 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
   @AutoCodec
   static final AndroidDataConverter<ParsedAndroidResources> COMPILED_RESOURCE_CONVERTER =
       AndroidDataConverter.<ParsedAndroidResources>builder(JoinerType.SEMICOLON_AMPERSAND)
-          .withRoots(ParsedAndroidResources::getResourceRoots)
-          .withEmpty()
+          .withEmpty() // resourceDirs
+          .withEmpty() // assetDirs
           .withLabel(ParsedAndroidResources::getLabel)
           .maybeWithArtifact(ParsedAndroidResources::getCompiledSymbols)
           .build();

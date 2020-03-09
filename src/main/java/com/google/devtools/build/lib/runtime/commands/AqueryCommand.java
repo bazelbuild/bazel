@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
@@ -67,6 +68,13 @@ public final class AqueryCommand implements BlazeCommand {
     // TODO(twerth): Reduce overlap with CqueryCommand.
     AqueryOptions aqueryOptions = options.getOptions(AqueryOptions.class);
     boolean queryCurrentSkyframeState = aqueryOptions.queryCurrentSkyframeState;
+    if (aqueryOptions.protoV2) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "Note that --incompatible_proto_output_v2 is still experimental "
+                      + "and its API will change in the future."));
+    }
 
     // When querying for the state of Skyframe, it's possible to omit the query expression.
     if (options.getResidue().isEmpty() && !queryCurrentSkyframeState) {
@@ -129,8 +137,9 @@ public final class AqueryCommand implements BlazeCommand {
         return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
     }
-    ExitCode exitCode = aqueryBuildTool.processRequest(request, null).getExitCondition();
-    return BlazeCommandResult.exitCode(exitCode);
+    DetailedExitCode detailedExitCode =
+        aqueryBuildTool.processRequest(request, null).getDetailedExitCode();
+    return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }
 
   private ImmutableMap<String, QueryFunction> getFunctionsMap(CommandEnvironment env) {

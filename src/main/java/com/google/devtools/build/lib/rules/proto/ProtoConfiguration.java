@@ -75,6 +75,15 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean experimentalProtoExtraActions;
 
     @Option(
+        name = "experimental_proto_descriptor_sets_include_source_info",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Run extra actions for alternative Java api versions in a proto_library.")
+    public boolean experimentalProtoDescriptorSetsIncludeSourceInfo;
+
+    @Option(
         name = "proto_compiler",
         defaultValue = "@com_google_protobuf//:protoc",
         converter = CoreOptionConverters.LabelConverter.class,
@@ -85,8 +94,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_javalite",
-        defaultValue = "@com_google_protobuf_javalite//:javalite_toolchain",
-        converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
+        defaultValue = "@com_google_protobuf//:javalite_toolchain",
+        converter = CoreOptionConverters.LabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "Label of proto_lang_toolchain() which describes how to compile JavaLite protos")
@@ -181,6 +190,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       host.loadProtoRulesFromBzl = loadProtoRulesFromBzl;
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
+      host.experimentalProtoDescriptorSetsIncludeSourceInfo =
+          experimentalProtoDescriptorSetsIncludeSourceInfo;
       host.experimentalProtoExtraActions = experimentalProtoExtraActions;
       host.protoCompiler = protoCompiler;
       host.protoToolchainForJava = protoToolchainForJava;
@@ -232,6 +243,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public ImmutableList<String> protocOpts() {
     return protocOpts;
+  }
+
+  public boolean experimentalProtoDescriptorSetsIncludeSourceInfo() {
+    return options.experimentalProtoDescriptorSetsIncludeSourceInfo;
   }
 
   /**
