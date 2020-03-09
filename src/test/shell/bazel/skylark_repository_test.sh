@@ -1779,6 +1779,9 @@ password foopass
 machine bar.example.org
 login barusername
 password passbar
+
+machine oauthlife.com
+password TOKEN
 EOF
   # Read a given .netrc file and combine it with a list of URL,
   # and write the obtained authentication dicionary to disk; this
@@ -1787,7 +1790,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
 def _impl(ctx):
   rc = read_netrc(ctx, ctx.attr.path)
-  auth = use_netrc(rc, ctx.attr.urls)
+  auth = use_netrc(rc, ctx.attr.urls, {"oauthlife.com": "Bearer <password>",})
   ctx.file("data.bzl", "auth = %s" % (auth,))
   ctx.file("BUILD", "")
   ctx.file("WORKSPACE", "")
@@ -1811,6 +1814,7 @@ authrepo(
     "https://foo.example.org:8080/file2.tar",
     "https://bar.example.org/file3.tar",
     "https://evil.com/bar.example.org/file4.tar",
+    "https://oauthlife.com/fizz/buzz/file5.tar",
   ],
 )
 EOF
@@ -1832,6 +1836,11 @@ expected = {
       "type" : "basic",
       "login": "barusername",
       "password" : "passbar",
+    },
+    "https://oauthlife.com/fizz/buzz/file5.tar": {
+      "type" : "pattern",
+      "pattern" : "Bearer <password>",
+      "password" : "TOKEN",
     },
 }
 EOF
@@ -1937,6 +1946,41 @@ genrule(
 EOF
   bazel build //:it \
       || fail "Expected success despite needing a file behind basic auth"
+}
+
+function test_http_archive_auth_patterns() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
+  serve_file_auth x.tar
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  netrc = "$(pwd)/.netrc",
+  sha256="$sha256",
+  auth_patterns = {
+    "127.0.0.1": "Bearer <password>"
+  }
+)
+EOF
+  cat > .netrc <<'EOF'
+machine 127.0.0.1
+password TOKEN
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it \
+      || fail "Expected success despite needing a file behind bearer auth"
 }
 
 function test_implicit_netrc() {
