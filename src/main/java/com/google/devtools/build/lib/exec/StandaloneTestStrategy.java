@@ -298,7 +298,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Closeable streamed = null;
     if (executionOptions.testOutput.equals(TestOutputFormat.STREAMED)) {
       streamed =
-          new StreamedTestOutput(
+          createStreamedTestOutput(
               Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), out);
     }
     long startTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
