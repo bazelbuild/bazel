@@ -303,13 +303,15 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
+    Reporter reporter = new Reporter(new EventBus(), events.collector());
     QueryOutputUtils.output(
-        queryOptions, result,
-        callback.getResult(), formatter,
+        queryOptions,
+        result,
+        callback.getResult(),
+        formatter,
         outputStream,
-        queryOptions.aspectDeps.createResolver(
-            env.getPackageManager(),
-            new Reporter(new EventBus(), events.collector())));
+        queryOptions.aspectDeps.createResolver(env.getPackageManager(), reporter),
+        reporter);
     return outputStream.toByteArray();
   }
 
