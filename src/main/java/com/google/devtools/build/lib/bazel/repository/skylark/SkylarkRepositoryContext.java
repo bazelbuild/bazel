@@ -92,6 +92,10 @@ public class SkylarkRepositoryContext
     implements SkylarkRepositoryContextApi<RepositoryFunctionException> {
   private static final ImmutableList<String> WHITELISTED_REPOS_FOR_FLAG_ENABLED =
       ImmutableList.of("@rules_cc", "@bazel_tools");
+  private static final ImmutableList<String> WHITELISTED_PATHS_FOR_FLAG_ENABLED =
+      ImmutableList.of(
+          "rules_cc/cc/private/toolchain/unix_cc_configure.bzl",
+          "bazel_tools/tools/cpp/unix_cc_configure.bzl");
 
   private final Rule rule;
   private final PathPackageLocator packageLocator;
@@ -842,14 +846,10 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public boolean flagEnabled(String flag) throws EvalException {
+  public boolean flagEnabled(String flag, StarlarkThread starlarkThread) throws EvalException {
     try {
-      if (!WHITELISTED_REPOS_FOR_FLAG_ENABLED.contains(
-          rule.getRuleClassObject()
-              .getRuleDefinitionEnvironmentLabel()
-              .getPackageIdentifier()
-              .getRepository()
-              .getName())) {
+      if (WHITELISTED_PATHS_FOR_FLAG_ENABLED.stream()
+          .noneMatch(x -> !starlarkThread.getCallerLocation().toString().endsWith(x))) {
         throw Starlark.errorf(
             "flag_enabled() is restricted to: '%s'.",
             Joiner.on(", ").join(WHITELISTED_REPOS_FOR_FLAG_ENABLED));
