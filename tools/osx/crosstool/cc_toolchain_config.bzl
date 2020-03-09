@@ -5324,6 +5324,7 @@ def _impl(ctx):
                                 "-O2",
                                 "-D_FORTIFY_SOURCE=1",
                                 "-DNDEBUG",
+                                "-DNS_BLOCK_ASSERTIONS=1",
                             ],
                         ),
                     ],
