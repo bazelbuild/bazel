@@ -38,13 +38,6 @@ import java.util.List;
 // This module needs to be exported to Skylark so it can be passed as a mandatory host/target
 // configuration fragment in aspect definitions.
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
-  // TODO(yannic): Remove when
-  // `--incompatible_load_proto_toolchain_for_javalite_from_com_google_protobuf` defaults to true.
-  private static final Label DEFAULT_JAVALITE_TOOLCHAIN_OLD =
-      Label.parseAbsoluteUnchecked("@com_google_protobuf_javalite//:javalite_toolchain");
-  private static final Label DEFAULT_JAVALITE_TOOLCHAIN_NEW =
-      Label.parseAbsoluteUnchecked("@com_google_protobuf//:javalite_toolchain");
-
   /** Command line options. */
   public static class Options extends FragmentOptions {
     @Option(
@@ -92,11 +85,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_javalite",
-        // TODO(yannic): Set to `@com_google_protobuf//:javalite_toolchain` when
-        // `--incompatible_load_proto_toolchain_for_javalite_from_com_google_protobuf`
-        // defaults to true.
-        defaultValue = "null",
-        converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
+        defaultValue = "@com_google_protobuf//:javalite_toolchain",
+        converter = CoreOptionConverters.LabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "Label of proto_lang_toolchain() which describes how to compile JavaLite protos")
@@ -185,27 +175,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
                 + "the Starlark rules instead at https://github.com/bazelbuild/rules_proto")
     public boolean loadProtoRulesFromBzl;
 
-    @Option(
-        name = "incompatible_load_proto_toolchain_for_javalite_from_com_google_protobuf",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "If enabled, `--proto_toolchain_for_javalite` defaults to "
-                + "`@com_google_protobuf//:javalite_toolchain`. "
-                + "See https://github.com/bazelbuild/bazel/issues/10335")
-    public boolean loadProtoToolchainForJavaliteFromComGoogleProtobuf;
-
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
       host.loadProtoRulesFromBzl = loadProtoRulesFromBzl;
-      host.loadProtoToolchainForJavaliteFromComGoogleProtobuf =
-          loadProtoToolchainForJavaliteFromComGoogleProtobuf;
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
       host.experimentalProtoExtraActions = experimentalProtoExtraActions;
@@ -283,15 +256,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   }
 
   public Label protoToolchainForJavaLite() {
-    if (null != options.protoToolchainForJavaLite) {
-      // Flag was explicitly set by the user.
-      return options.protoToolchainForJavaLite;
-    }
-
-    if (options.loadProtoToolchainForJavaliteFromComGoogleProtobuf) {
-      return DEFAULT_JAVALITE_TOOLCHAIN_NEW;
-    }
-    return DEFAULT_JAVALITE_TOOLCHAIN_OLD;
+    return options.protoToolchainForJavaLite;
   }
 
   public Label protoToolchainForCc() {
