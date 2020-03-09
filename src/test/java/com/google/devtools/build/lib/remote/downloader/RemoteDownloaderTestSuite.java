@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository.downloader;
+package com.google.devtools.build.lib.remote.downloader;
 
-import java.io.IOException;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
-/** Indicates an HTTP error that cannot be recovered from. */
-public final class UnrecoverableHttpException extends IOException {
-  UnrecoverableHttpException(String message) {
-    super(message);
-  }
-}
+/** Test suite for remote/downloader package. */
+@RunWith(Suite.class)
+@SuiteClasses({
+  GrpcRemoteDownloaderTest.class,
+})
+public class RemoteDownloaderTestSuite {}
