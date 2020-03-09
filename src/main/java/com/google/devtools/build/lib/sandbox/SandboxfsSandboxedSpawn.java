@@ -44,9 +44,6 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /** Sequence number to assign a unique subtree to each action within the mount point. */
   private static final AtomicInteger lastId = new AtomicInteger();
 
-  /** Single instance of a path fragment representing a root directory. */
-  private static final PathFragment rootFragment = PathFragment.create("/");
-
   /** The sandboxfs instance to use for this spawn. */
   private final SandboxfsProcess process;
 
@@ -92,6 +89,9 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    */
   private final String sandboxName;
 
+  /** Path to the execroot within the sandbox. */
+  private final PathFragment rootFragment;
+
   /** Flag to track whether the sandbox needs to be unmapped. */
   private boolean sandboxIsMapped;
 
@@ -114,6 +114,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   SandboxfsSandboxedSpawn(
       SandboxfsProcess process,
       Path sandboxPath,
+      String workspaceName,
       List<String> arguments,
       Map<String, String> environment,
       SandboxInputs inputs,
@@ -146,8 +147,14 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     int id = lastId.getAndIncrement();
     this.sandboxName = "" + id;
     this.sandboxIsMapped = false;
-    this.execRoot = process.getMountPoint().getRelative(this.sandboxName);
     this.statisticsPath = statisticsPath;
+
+    // b/64689608: The execroot of the sandboxed process must end with the workspace name, just
+    // like the normal execroot does. Some tools walk their path hierarchy looking for this
+    // component and misbehave if they don't find it.
+    this.execRoot =
+        process.getMountPoint().getRelative(this.sandboxName).getRelative(workspaceName);
+    this.rootFragment = PathFragment.create("/" + workspaceName);
   }
 
   @Override
@@ -183,7 +190,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
     }
 
-    createSandbox(process, sandboxName, sandboxScratchDir, inputs, mapSymlinkTargets);
+    createSandbox(process, sandboxName, rootFragment, sandboxScratchDir, inputs, mapSymlinkTargets);
     sandboxIsMapped = true;
   }
 
@@ -284,6 +291,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    *
    * @param process the sandboxfs instance on which to create the sandbox
    * @param sandboxName the name of the sandbox to pass to sandboxfs
+   * @param rootFragment path within the sandbox to the execroot to create
    * @param scratchDir writable used as the target for all writable mappings
    * @param inputs collection of paths to expose within the sandbox as read-only mappings, given as
    *     a map of mapped path to target path. The target path may be null, in which case an empty
@@ -295,6 +303,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   private static void createSandbox(
       SandboxfsProcess process,
       String sandboxName,
+      PathFragment rootFragment,
       Path scratchDir,
       SandboxInputs inputs,
       boolean sandboxfsMapSymlinkTargets)
