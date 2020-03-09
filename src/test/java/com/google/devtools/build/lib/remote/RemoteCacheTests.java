@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -79,9 +80,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
-import org.junit.AfterClass;
+import java.util.concurrent.TimeUnit;
+import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -101,12 +102,7 @@ public class RemoteCacheTests {
   private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
   private FakeActionInputFileCache fakeFileCache;
 
-  private static ListeningScheduledExecutorService retryService;
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
+  private ListeningScheduledExecutorService retryService;
 
   @Before
   public void setUp() throws Exception {
@@ -117,11 +113,13 @@ public class RemoteCacheTests {
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getChild("outputs"));
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }
 
-  @AfterClass
-  public static void afterEverything() {
+  @After
+  public void afterEverything() throws InterruptedException {
     retryService.shutdownNow();
+    retryService.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
   }
 
   @Test

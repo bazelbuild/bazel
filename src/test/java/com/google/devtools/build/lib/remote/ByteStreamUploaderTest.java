@@ -73,9 +73,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -95,7 +93,7 @@ public class ByteStreamUploaderTest {
   private static final String INSTANCE_NAME = "foo";
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
-  private static ListeningScheduledExecutorService retryService;
+  private ListeningScheduledExecutorService retryService;
 
   private Server server;
   private ManagedChannel channel;
@@ -103,11 +101,6 @@ public class ByteStreamUploaderTest {
   private Context prevContext;
 
   @Mock private Retrier.Backoff mockBackoff;
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
 
   @Before
   public final void setUp() throws Exception {
@@ -120,6 +113,9 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata =
         TracingMetadataUtils.contextWithMetadata(
             "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
+
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
     // Needs to be repeated in every test that uses the timeout setting, since the tests run
     // on different threads than the setUp.
     prevContext = withEmptyMetadata.attach();
@@ -131,15 +127,14 @@ public class ByteStreamUploaderTest {
     // on different threads than the tearDown.
     withEmptyMetadata.detach(prevContext);
 
+    retryService.shutdownNow();
+    retryService.awaitTermination(
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
     channel.shutdownNow();
     channel.awaitTermination(5, TimeUnit.SECONDS);
     server.shutdownNow();
     server.awaitTermination();
-  }
-
-  @AfterClass
-  public static void afterEverything() {
-    retryService.shutdownNow();
   }
 
   @Test
