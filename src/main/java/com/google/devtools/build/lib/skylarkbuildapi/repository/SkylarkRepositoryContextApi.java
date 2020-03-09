@@ -589,6 +589,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
           "This method is present temporarily for a migration. It can be used only by a few "
               + "whitelisted bzl files embedded in Bazel.",
       useStarlarkThread = true,
+      documented = false,
       parameters = {
         @Param(name = "flag", type = String.class, doc = "Flag to get the value for."),
       })
