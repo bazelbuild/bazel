@@ -45,13 +45,11 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
    *
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
-   * @param productName the product name to use
    * @param timeoutKillDelay additional grace period before killing timing out commands
    */
   ProcessWrapperSandboxedSpawnRunner(
       CommandEnvironment cmdEnv,
       Path sandboxBase,
-      String productName,
       Duration timeoutKillDelay,
       TreeDeleter treeDeleter) {
     super(cmdEnv);

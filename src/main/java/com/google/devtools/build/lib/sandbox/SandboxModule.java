@@ -271,7 +271,6 @@ public final class SandboxModule extends BlazeModule {
               new ProcessWrapperSandboxedSpawnRunner(
                   cmdEnv,
                   sandboxBase,
-                  cmdEnv.getRuntime().getProductName(),
                   timeoutKillDelay,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
