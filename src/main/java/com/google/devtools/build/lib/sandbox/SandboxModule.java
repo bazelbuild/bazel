@@ -272,6 +272,8 @@ public final class SandboxModule extends BlazeModule {
                   cmdEnv,
                   sandboxBase,
                   timeoutKillDelay,
+                  sandboxfsProcess,
+                  options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.addActionContext(
