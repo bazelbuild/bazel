@@ -296,7 +296,7 @@ public class NinjaParserStep {
    * Parses Ninja target using {@link NinjaScope} of the file, where it is defined, to expand
    * variables.
    */
-  public NinjaTarget parseNinjaTarget(NinjaScope fileScope, int offset)
+  public NinjaTarget parseNinjaTarget(NinjaScope fileScope, long offset)
       throws GenericParsingException {
     NinjaTarget.Builder builder = NinjaTarget.builder(fileScope, offset);
     parseExpected(NinjaToken.BUILD);
@@ -315,7 +315,7 @@ public class NinjaParserStep {
                   value ->
                       PATH_FRAGMENT_INTERNER.intern(
                           PathFragment.create(
-                              targetScope.getExpandedValue(Integer.MAX_VALUE, value))))
+                              targetScope.getExpandedValue(Long.MAX_VALUE, value))))
               .collect(Collectors.toList());
       InputOutputKind inputOutputKind = entry.getKey();
       if (inputOutputKind instanceof InputKind) {
@@ -344,9 +344,9 @@ public class NinjaParserStep {
    * @return Ninja scope for expanding input and output paths of that statement
    */
   private NinjaScope parseTargetVariables(
-      int offset, NinjaScope fileScope, NinjaTarget.Builder builder)
+      long offset, NinjaScope fileScope, NinjaTarget.Builder builder)
       throws GenericParsingException {
-    Map<String, List<Pair<Integer, String>>> expandedVariables = Maps.newHashMap();
+    Map<String, List<Pair<Long, String>>> expandedVariables = Maps.newHashMap();
     lexer.interpretPoolAsVariable();
     while (parseIndentOrFinishDeclaration()) {
       Pair<String, NinjaVariableValue> pair = parseVariable();
@@ -355,7 +355,7 @@ public class NinjaParserStep {
       String expandedValue = fileScope.getExpandedValue(offset, value);
       expandedVariables
           .computeIfAbsent(name, k -> Lists.newArrayList())
-          .add(Pair.of(0, expandedValue));
+          .add(Pair.of(0l, expandedValue));
       builder.addVariable(name, expandedValue);
 
       if (lexer.hasNextToken()) {

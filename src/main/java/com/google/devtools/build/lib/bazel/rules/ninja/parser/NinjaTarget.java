@@ -32,11 +32,11 @@ public final class NinjaTarget {
     private final ImmutableSortedKeyListMultimap.Builder<InputKind, PathFragment> inputsBuilder;
     private final ImmutableSortedKeyListMultimap.Builder<OutputKind, PathFragment> outputsBuilder;
     private final NinjaScope scope;
-    private final int offset;
+    private final long offset;
 
     private final ImmutableSortedMap.Builder<String, String> variablesBuilder;
 
-    private Builder(NinjaScope scope, int offset) {
+    private Builder(NinjaScope scope, long offset) {
       this.scope = scope;
       this.offset = offset;
       inputsBuilder = ImmutableSortedKeyListMultimap.builder();
@@ -103,7 +103,7 @@ public final class NinjaTarget {
   private final ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs;
   private final ImmutableSortedMap<String, String> variables;
   private final NinjaScope scope;
-  private final int offset;
+  private final long offset;
 
   public NinjaTarget(
       String ruleName,
@@ -111,7 +111,7 @@ public final class NinjaTarget {
       ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs,
       ImmutableSortedMap<String, String> variables,
       NinjaScope scope,
-      int offset) {
+      long offset) {
     this.ruleName = ruleName;
     this.inputs = inputs;
     this.outputs = outputs;
@@ -164,11 +164,11 @@ public final class NinjaTarget {
     return scope;
   }
 
-  public int getOffset() {
+  public long getOffset() {
     return offset;
   }
 
-  public static Builder builder(NinjaScope scope, int offset) {
+  public static Builder builder(NinjaScope scope, long offset) {
     return new Builder(scope, offset);
   }
 

@@ -53,12 +53,12 @@ public class NinjaFileParseResult {
     void call() throws GenericParsingException, InterruptedException, IOException;
   }
 
-  private final NavigableMap<String, List<Pair<Integer, NinjaVariableValue>>> variables;
-  private final NavigableMap<String, List<Pair<Integer, NinjaRule>>> rules;
-  private final NavigableMap<String, List<Pair<Integer, NinjaPool>>> pools;
+  private final NavigableMap<String, List<Pair<Long, NinjaVariableValue>>> variables;
+  private final NavigableMap<String, List<Pair<Long, NinjaRule>>> rules;
+  private final NavigableMap<String, List<Pair<Long, NinjaPool>>> pools;
   private final List<ByteFragmentAtOffset> targets;
-  private final NavigableMap<Integer, NinjaPromise<NinjaFileParseResult>> includedFilesFutures;
-  private final NavigableMap<Integer, NinjaPromise<NinjaFileParseResult>> subNinjaFilesFutures;
+  private final NavigableMap<Long, NinjaPromise<NinjaFileParseResult>> includedFilesFutures;
+  private final NavigableMap<Long, NinjaPromise<NinjaFileParseResult>> subNinjaFilesFutures;
 
   public NinjaFileParseResult() {
     variables = Maps.newTreeMap();
@@ -69,11 +69,11 @@ public class NinjaFileParseResult {
     subNinjaFilesFutures = Maps.newTreeMap();
   }
 
-  public void addIncludeScope(int offset, NinjaPromise<NinjaFileParseResult> promise) {
+  public void addIncludeScope(long offset, NinjaPromise<NinjaFileParseResult> promise) {
     includedFilesFutures.put(offset, promise);
   }
 
-  public void addSubNinjaScope(int offset, NinjaPromise<NinjaFileParseResult> promise) {
+  public void addSubNinjaScope(long offset, NinjaPromise<NinjaFileParseResult> promise) {
     subNinjaFilesFutures.put(offset, promise);
   }
 
@@ -81,25 +81,25 @@ public class NinjaFileParseResult {
     targets.add(fragment);
   }
 
-  public void addVariable(String name, int offset, NinjaVariableValue value) {
+  public void addVariable(String name, long offset, NinjaVariableValue value) {
     variables.computeIfAbsent(name, k -> Lists.newArrayList()).add(Pair.of(offset, value));
   }
 
-  public void addRule(int offset, NinjaRule rule) {
+  public void addRule(long offset, NinjaRule rule) {
     rules.computeIfAbsent(rule.getName(), k -> Lists.newArrayList()).add(Pair.of(offset, rule));
   }
 
-  public void addPool(int offset, NinjaPool pool) {
+  public void addPool(long offset, NinjaPool pool) {
     pools.computeIfAbsent(pool.getName(), k -> Lists.newArrayList()).add(Pair.of(offset, pool));
   }
 
   @VisibleForTesting
-  public Map<String, List<Pair<Integer, NinjaVariableValue>>> getVariables() {
+  public Map<String, List<Pair<Long, NinjaVariableValue>>> getVariables() {
     return variables;
   }
 
   @VisibleForTesting
-  public Map<String, List<Pair<Integer, NinjaRule>>> getRules() {
+  public Map<String, List<Pair<Long, NinjaRule>>> getRules() {
     return rules;
   }
 
@@ -109,13 +109,13 @@ public class NinjaFileParseResult {
 
   @VisibleForTesting
   public void sortResults() {
-    for (List<Pair<Integer, NinjaVariableValue>> list : variables.values()) {
+    for (List<Pair<Long, NinjaVariableValue>> list : variables.values()) {
       list.sort(Comparator.comparing(Pair::getFirst));
     }
-    for (List<Pair<Integer, NinjaRule>> list : rules.values()) {
+    for (List<Pair<Long, NinjaRule>> list : rules.values()) {
       list.sort(Comparator.comparing(Pair::getFirst));
     }
-    for (List<Pair<Integer, NinjaPool>> list : pools.values()) {
+    for (List<Pair<Long, NinjaPool>> list : pools.values()) {
       list.sort(Comparator.comparing(Pair::getFirst));
     }
   }
@@ -126,16 +126,16 @@ public class NinjaFileParseResult {
       return result;
     }
     for (NinjaFileParseResult part : parts) {
-      for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry :
+      for (Map.Entry<String, List<Pair<Long, NinjaVariableValue>>> entry :
           part.variables.entrySet()) {
         String name = entry.getKey();
         result.variables.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(entry.getValue());
       }
-      for (Map.Entry<String, List<Pair<Integer, NinjaRule>>> entry : part.rules.entrySet()) {
+      for (Map.Entry<String, List<Pair<Long, NinjaRule>>> entry : part.rules.entrySet()) {
         String name = entry.getKey();
         result.rules.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(entry.getValue());
       }
-      for (Map.Entry<String, List<Pair<Integer, NinjaPool>>> entry : part.pools.entrySet()) {
+      for (Map.Entry<String, List<Pair<Long, NinjaPool>>> entry : part.pools.entrySet()) {
         String name = entry.getKey();
         result.pools.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(entry.getValue());
       }
@@ -159,11 +159,11 @@ public class NinjaFileParseResult {
     scope.setPools(pools);
     rawTargets.put(scope, targets);
 
-    TreeMap<Integer, NinjaCallable> resolvables = Maps.newTreeMap();
-    for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : variables.entrySet()) {
+    TreeMap<Long, NinjaCallable> resolvables = Maps.newTreeMap();
+    for (Map.Entry<String, List<Pair<Long, NinjaVariableValue>>> entry : variables.entrySet()) {
       String name = entry.getKey();
-      for (Pair<Integer, NinjaVariableValue> pair : entry.getValue()) {
-        int offset = Preconditions.checkNotNull(pair.getFirst());
+      for (Pair<Long, NinjaVariableValue> pair : entry.getValue()) {
+        Long offset = Preconditions.checkNotNull(pair.getFirst());
         NinjaVariableValue variableValue = Preconditions.checkNotNull(pair.getSecond());
         resolvables.put(
             offset,
@@ -172,9 +172,9 @@ public class NinjaFileParseResult {
                     offset, name, scope.getExpandedValue(offset, variableValue)));
       }
     }
-    for (Map.Entry<Integer, NinjaPromise<NinjaFileParseResult>> entry :
+    for (Map.Entry<Long, NinjaPromise<NinjaFileParseResult>> entry :
         includedFilesFutures.entrySet()) {
-      Integer offset = entry.getKey();
+      Long offset = entry.getKey();
       resolvables.put(
           offset,
           () -> {
@@ -183,9 +183,9 @@ public class NinjaFileParseResult {
             fileParseResult.expandIntoScope(includedScope, rawTargets);
           });
     }
-    for (Map.Entry<Integer, NinjaPromise<NinjaFileParseResult>> entry :
+    for (Map.Entry<Long, NinjaPromise<NinjaFileParseResult>> entry :
         subNinjaFilesFutures.entrySet()) {
-      Integer offset = entry.getKey();
+      Long offset = entry.getKey();
       resolvables.put(
           offset,
           () -> {

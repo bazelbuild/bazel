@@ -50,7 +50,7 @@ public class NinjaScopeTest {
 
     parseResult.sortResults();
 
-    List<Integer> offsets =
+    List<Long> offsets =
         parseResult.getVariables().get("abc").stream()
             .map(Pair::getFirst)
             .collect(Collectors.toList());
@@ -69,7 +69,7 @@ public class NinjaScopeTest {
 
     parseResult.sortResults();
 
-    List<Integer> offsets =
+    List<Long> offsets =
         parseResult.getRules().get(rule.getName()).stream()
             .map(Pair::getFirst)
             .collect(Collectors.toList());
@@ -104,7 +104,7 @@ public class NinjaScopeTest {
     assertThat(result.getVariables()).containsKey("from2");
     assertThat(result.getVariables()).containsKey("abc");
 
-    List<Pair<Integer, NinjaVariableValue>> abc = result.getVariables().get("abc");
+    List<Pair<Long, NinjaVariableValue>> abc = result.getVariables().get("abc");
     assertThat(abc).hasSize(4);
     assertThat(abc.stream().map(Pair::getFirst).collect(Collectors.toList())).isInOrder();
   }

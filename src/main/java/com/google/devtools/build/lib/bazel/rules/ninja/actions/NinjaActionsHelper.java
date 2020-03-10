@@ -166,9 +166,9 @@ public class NinjaActionsHelper {
     boolean isAlwaysDirty = fillArtifacts(target, inputsBuilder, outputsBuilder);
 
     NinjaScope targetScope = createTargetScope(target);
-    int targetOffset = target.getOffset();
+    long targetOffset = target.getOffset();
 
-    ImmutableSortedMap<String, List<Pair<Integer, String>>> map =
+    ImmutableSortedMap<String, List<Pair<Long, String>>> map =
         resolveRuleVariables(targetScope, targetOffset, rule);
     String command = map.get(NinjaRuleVariable.COMMAND.lowerCaseName()).get(0).getSecond();
     maybeCreateRspFile(rule, inputsBuilder, map);
@@ -218,11 +218,11 @@ public class NinjaActionsHelper {
   private void maybeCreateRspFile(
       NinjaRule rule,
       NestedSetBuilder<Artifact> inputsBuilder,
-      ImmutableSortedMap<String, List<Pair<Integer, String>>> ruleVariables)
+      ImmutableSortedMap<String, List<Pair<Long, String>>> ruleVariables)
       throws GenericParsingException {
-    List<Pair<Integer, String>> filePair =
+    List<Pair<Long, String>> filePair =
         ruleVariables.get(NinjaRuleVariable.RSPFILE.lowerCaseName());
-    List<Pair<Integer, String>> contentPair =
+    List<Pair<Long, String>> contentPair =
         ruleVariables.get(NinjaRuleVariable.RSPFILE_CONTENT.lowerCaseName());
 
     if (filePair == null && contentPair == null) {
@@ -259,9 +259,9 @@ public class NinjaActionsHelper {
    *
    * <p>See {@link NinjaRuleVariable} for the list.
    */
-  private static ImmutableSortedMap<String, List<Pair<Integer, String>>> resolveRuleVariables(
-      NinjaScope targetScope, int targetOffset, NinjaRule rule) {
-    ImmutableSortedMap.Builder<String, List<Pair<Integer, String>>> builder =
+  private static ImmutableSortedMap<String, List<Pair<Long, String>>> resolveRuleVariables(
+      NinjaScope targetScope, long targetOffset, NinjaRule rule) {
+    ImmutableSortedMap.Builder<String, List<Pair<Long, String>>> builder =
         ImmutableSortedMap.naturalOrder();
     for (Map.Entry<NinjaRuleVariable, NinjaVariableValue> entry : rule.getVariables().entrySet()) {
       NinjaRuleVariable type = entry.getKey();
@@ -270,22 +270,22 @@ public class NinjaActionsHelper {
         continue;
       }
       String expandedValue = targetScope.getExpandedValue(targetOffset, entry.getValue());
-      builder.put(Ascii.toLowerCase(type.name()), ImmutableList.of(Pair.of(0, expandedValue)));
+      builder.put(Ascii.toLowerCase(type.name()), ImmutableList.of(Pair.of(0l, expandedValue)));
     }
     NinjaScope expandedRuleScope = targetScope.createScopeFromExpandedValues(builder.build());
     String command =
         expandedRuleScope.getExpandedValue(
             targetOffset, rule.getVariables().get(NinjaRuleVariable.COMMAND));
-    builder.put(NinjaRuleVariable.COMMAND.lowerCaseName(), ImmutableList.of(Pair.of(0, command)));
+    builder.put(NinjaRuleVariable.COMMAND.lowerCaseName(), ImmutableList.of(Pair.of(0l, command)));
     return builder.build();
   }
 
   private NinjaScope createTargetScope(NinjaTarget target) {
-    ImmutableSortedMap.Builder<String, List<Pair<Integer, String>>> builder =
+    ImmutableSortedMap.Builder<String, List<Pair<Long, String>>> builder =
         ImmutableSortedMap.naturalOrder();
     target
         .getVariables()
-        .forEach((key, value) -> builder.put(key, ImmutableList.of(Pair.of(0, value))));
+        .forEach((key, value) -> builder.put(key, ImmutableList.of(Pair.of(0l, value))));
     String inNewline =
         target.getUsualInputs().stream()
             .map(this::getInputPathWithDepsMappingReplacement)
@@ -294,9 +294,9 @@ public class NinjaActionsHelper {
         target.getOutputs().stream()
             .map(PathFragment::getPathString)
             .collect(Collectors.joining(" "));
-    builder.put("in", ImmutableList.of(Pair.of(0, inNewline.replace('\n', ' '))));
-    builder.put("in_newline", ImmutableList.of(Pair.of(0, inNewline)));
-    builder.put("out", ImmutableList.of(Pair.of(0, out)));
+    builder.put("in", ImmutableList.of(Pair.of(0l, inNewline.replace('\n', ' '))));
+    builder.put("in_newline", ImmutableList.of(Pair.of(0l, inNewline)));
+    builder.put("out", ImmutableList.of(Pair.of(0l, out)));
 
     return target.getScope().createScopeFromExpandedValues(builder.build());
   }
