@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.rules.proto.BazelProtoModule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
+import com.google.devtools.build.lib.rules.proto.ProtoToolchainRule;
 import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
@@ -254,6 +255,7 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(new ProtoConfiguration.Loader());
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
+          builder.addRuleDefinition(new ProtoToolchainRule());
 
           ProtoBootstrap bootstrap =
               new ProtoBootstrap(
