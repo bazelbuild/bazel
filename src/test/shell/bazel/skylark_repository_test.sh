@@ -1986,12 +1986,16 @@ function test_http_archive_auth_patterns() {
   tar cvf x.tar x
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
+  netrc_dir="$(pwd)"
+  if "$is_windows"; then
+    netrc_dir="$(cygpath -m ${netrc_dir})"
+  fi
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
-  netrc = "$(pwd)/.netrc",
+  netrc = "${netrc_dir}/.netrc",
   sha256="$sha256",
   auth_patterns = {
     "127.0.0.1": "Bearer <password>"
