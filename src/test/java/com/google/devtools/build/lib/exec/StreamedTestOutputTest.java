@@ -66,11 +66,6 @@ public class StreamedTestOutputTest {
 
   @Test
   public void testOnlyOutputsContentsAfterHeaderWhenPresent() throws IOException {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // TODO(b/151095783): Disabled because underlying code doesn't respect system line separator.
-      return;
-    }
-
     Path watchedPath = fileSystem.getPath("/myfile");
     FileSystemUtils.writeLinesAs(
         watchedPath,
@@ -86,7 +81,8 @@ public class StreamedTestOutputTest {
     try (StreamedTestOutput underTest =
         new StreamedTestOutput(OutErr.create(out, err), fileSystem.getPath("/myfile"))) {}
 
-    assertThat(out.toString(StandardCharsets.UTF_8.name())).isEqualTo("included\nlines\n");
+    assertThat(out.toString(StandardCharsets.UTF_8.name()))
+        .isEqualTo(String.format("included%nlines%n"));
     assertThat(err.toString(StandardCharsets.UTF_8.name())).isEmpty();
   }
 

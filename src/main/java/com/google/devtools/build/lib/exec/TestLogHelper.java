@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.FilterOutputStream;
@@ -105,7 +106,9 @@ public class TestLogHelper {
       } else if (b == NEWLINE) {
         String line = lineBuilder.toString();
         lineBuilder = new StringBuilder();
-        if (line.equals(TestLogHelper.HEADER_DELIMITER)) {
+        if (line.equals(TestLogHelper.HEADER_DELIMITER) ||
+            // On Windows, the line break could be \r\n, we want this case to work as well.
+            (OS.getCurrent() == OS.WINDOWS && line.equals(TestLogHelper.HEADER_DELIMITER + "\r"))) {
           seenDelimiter = true;
         }
       } else if (lineBuilder.length() <= TestLogHelper.HEADER_DELIMITER.length()) {
