@@ -55,7 +55,6 @@ def _get_auth(ctx, urls):
         netrcfile = "%s/.netrc" % (ctx.os.environ["USERPROFILE"])
         if ctx.path(netrcfile).exists:
             netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls)
             return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
     return {}
