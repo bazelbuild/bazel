@@ -394,18 +394,18 @@ java_import(
 java_import(
     name = "flogger",
     jars = [
-        "flogger/flogger-0.3.1.jar",
-        "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar",
+        "flogger/flogger-0.4.jar",
+        "flogger/flogger-system-backend-0.4.jar",
+        "flogger/google-extensions-0.4.jar",
     ],
 )
 
 filegroup(
     name = "flogger-jars",
     srcs = [
-        "flogger/flogger-0.3.1.jar",
-        "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar",
+        "flogger/flogger-0.4.jar",
+        "flogger/flogger-system-backend-0.4.jar",
+        "flogger/google-extensions-0.4.jar",
     ],
 )
 
