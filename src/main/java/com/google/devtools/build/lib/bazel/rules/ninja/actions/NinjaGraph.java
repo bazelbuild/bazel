@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -125,28 +127,35 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
               .pipeline(mainArtifact.getPath());
       targetsPreparer.process(ninjaTargets);
 
+      NestedSet<Artifact> outputRootInputsSymlinks =
+          createSymlinkActions(ruleContext, sourceRoot, outputRootInputs, artifactsHelper);
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
+
+      ImmutableSortedSet<PathFragment> outputRootSymlinksPathFragments =
+          outputRootSymlinks.stream()
+              .map(PathFragment::create)
+              .collect(toImmutableSortedSet(Comparator.comparing(PathFragment::getPathString)));
+
+      ImmutableSet<PathFragment> outputRootInputsSymlinksPathFragments =
+          outputRootInputsSymlinks.toList().stream()
+              .map(Artifact::getExecPath)
+              .collect(toImmutableSet());
+
       NinjaGraphProvider ninjaGraphProvider =
           new NinjaGraphProvider(
               outputRoot,
               workingDirectory,
               targetsPreparer.getUsualTargets(),
               targetsPreparer.getPhonyTargetsMap(),
-              outputRootSymlinks.stream()
-                  .map(PathFragment::create)
-                  .collect(
-                      toImmutableSortedSet(Comparator.comparing(PathFragment::getPathString))));
-
-      NestedSet<Artifact> filesToBuild =
-          createSymlinkActions(
-              ruleContext, sourceRoot, outputRoot, outputRootInputs, artifactsHelper);
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
+              outputRootSymlinksPathFragments,
+              outputRootInputsSymlinksPathFragments);
 
       return new RuleConfiguredTargetBuilder(ruleContext)
           .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
           .addProvider(NinjaGraphProvider.class, ninjaGraphProvider)
-          .setFilesToBuild(filesToBuild)
+          .setFilesToBuild(outputRootInputsSymlinks)
           .build();
     } catch (GenericParsingException | IOException e) {
       // IOException is possible with reading Ninja file, describing the action graph.
@@ -158,16 +167,19 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
   private NestedSet<Artifact> createSymlinkActions(
       RuleContext ruleContext,
       Root sourceRoot,
-      PathFragment outputRootPath,
       List<String> outputRootInputs,
       NinjaGraphArtifactsHelper artifactsHelper)
       throws GenericParsingException {
+
     if (outputRootInputs.isEmpty()) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-    NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
+
+    NestedSetBuilder<Artifact> symlinks = NestedSetBuilder.stableOrder();
     Path outputRootInSources =
-        Preconditions.checkNotNull(sourceRoot.asPath()).getRelative(outputRootPath);
+        Preconditions.checkNotNull(sourceRoot.asPath())
+            .getRelative(artifactsHelper.getOutputRootPath());
+
     for (String input : outputRootInputs) {
       // output_root_inputs are relative to the output_root directory, and we should
       // pass inside createOutputArtifact() paths, relative to working directory.
@@ -177,7 +189,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
                   .getOutputRootPath()
                   .getRelative(input)
                   .relativeTo(artifactsHelper.getWorkingDirectory()));
-      filesToBuild.add(derivedArtifact);
+      symlinks.add(derivedArtifact);
       // This method already expects the path relative to output_root.
       PathFragment absolutePath =
           outputRootInSources.getRelative(PathFragment.create(input)).asFragment();
@@ -190,7 +202,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
                   "Symlinking %s under <execroot>/%s", input, artifactsHelper.getOutputRootPath()));
       ruleContext.registerAction(symlinkAction);
     }
-    return filesToBuild.build();
+    return symlinks.build();
   }
 
   private static class TargetsPreparer {

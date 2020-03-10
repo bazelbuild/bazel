@@ -84,7 +84,8 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
               graphProvider.getUsualTargets(),
               graphProvider.getPhonyTargetsMap(),
               phonyTargetArtifacts,
-              pathsToBuild)
+              pathsToBuild,
+              graphProvider.getOutputRootInputsSymlinks())
           .createNinjaActions();
 
       if (!checkOrphanArtifacts(ruleContext)) {
