@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata.SymlinkMetadata;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -260,36 +259,6 @@ public class RemoteCache implements AutoCloseable {
 
   private static Path toTmpDownloadPath(Path actualPath) {
     return actualPath.getParentDirectory().getRelative(actualPath.getBaseName() + ".tmp");
-  }
-
-  /**
-   * Exception which represents a collection of IOExceptions for the purpose
-   * of distinguishing remote communication exceptions from those which occur
-   * on filesystems locally. This exception serves as a trace point for the actual
-   * download, so that the intented operation can be observed in a stack, with all
-   * constituent exceptions available for observation.
-   */
-  static class DownloadException extends Exception {
-    // true since no empty DownloadException is ever thrown
-    boolean allCacheNotFoundException = true;
-
-    DownloadException() {
-    }
-
-    DownloadException(IOException e) {
-      add(e);
-    }
-
-    void add(IOException e) {
-      if (allCacheNotFoundException) {
-        allCacheNotFoundException = e instanceof CacheNotFoundException;
-      }
-      addSuppressed(e);
-    }
-
-    boolean onlyCausedByCacheNotFoundException() {
-      return allCacheNotFoundException;
-    }
   }
 
   /**

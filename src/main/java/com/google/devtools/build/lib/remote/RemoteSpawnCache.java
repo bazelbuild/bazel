@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteCache.DownloadException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -167,8 +166,6 @@ final class RemoteSpawnCache implements SpawnCache {
                 prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs")) {
               remoteCache.download(
                   result, execRoot, context.getFileOutErr(), context::lockOutputFiles);
-            } catch (DownloadException e) {
-              throw new IOException(e);
             }
           } else {
             PathFragment inMemoryOutputPath = getInMemoryOutputPath(spawn);
