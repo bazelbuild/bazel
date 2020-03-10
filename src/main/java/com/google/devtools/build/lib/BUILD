@@ -1204,6 +1204,7 @@ java_library(
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
