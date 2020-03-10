@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Discriminator;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
@@ -97,6 +98,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean flattenSelects = true;
   private boolean includeLocations = true;
   private boolean includeRuleInputsAndOutputs = true;
+  private boolean includeSyntheticAttributeHash = false;
 
   @Override
   public String getName() {
@@ -114,6 +116,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.flattenSelects = options.protoFlattenSelects;
     this.includeLocations = options.protoIncludeLocations;
     this.includeRuleInputsAndOutputs = options.protoIncludeRuleInputsAndOutputs;
+    this.includeSyntheticAttributeHash = options.protoIncludeSyntheticAttributeHash;
   }
 
   private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
@@ -157,12 +160,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
   public Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
-    return toTargetProtoBuffer(target, null);
+    return toTargetProtoBuffer(target, /*extraDataForAttrHash=*/ "");
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
   @VisibleForTesting
-  public Build.Target toTargetProtoBuffer(Target target, Object extraDataForPostProcess)
+  public Build.Target toTargetProtoBuffer(Target target, Object extraDataForAttrHash)
       throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
@@ -174,7 +177,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       if (includeLocations) {
         rulePb.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
-      addAttributes(rulePb, rule, extraDataForPostProcess);
+      addAttributes(rulePb, rule, extraDataForAttrHash);
       String transitiveHashCode = rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
       if (transitiveHashCode != null && includeRuleDefinitionEnvironment()) {
         // The RuleDefinitionEnvironment is always defined for Skylark rules and
@@ -329,7 +332,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     return targetPb.build();
   }
 
-  protected void addAttributes(Build.Rule.Builder rulePb, Rule rule, Object extraDataForPostProcess)
+  protected void addAttributes(Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash)
       throws InterruptedException {
     Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
@@ -361,7 +364,15 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             .sorted(ATTRIBUTE_NAME)
             .collect(Collectors.toList()));
 
-    postProcess(rule, rulePb, serializedAttributes, extraDataForPostProcess);
+    if (includeSyntheticAttributeHash()) {
+      rulePb.addAttribute(
+          Build.Attribute.newBuilder()
+              .setName("$internal_attr_hash")
+              .setStringValue(
+                  SyntheticAttributeHashCalculator.compute(
+                      rule, serializedAttributes, extraDataForAttrHash))
+              .setType(Discriminator.STRING));
+    }
   }
 
   protected boolean shouldIncludeAttribute(Rule rule, Attribute attr) {
@@ -385,13 +396,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     }
   }
 
-  /** Further customize the proto output */
-  protected void postProcess(
-      Rule rule,
-      Build.Rule.Builder rulePb,
-      Map<Attribute, Build.Attribute> serializedAttributes,
-      Object extraDataForPostProcess) {}
-
   /** Allow filtering of aspect attributes. */
   protected boolean includeAspectAttribute(Attribute attr, Collection<Label> value) {
     return true;
@@ -399,6 +403,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   protected boolean includeRuleDefinitionEnvironment() {
     return true;
+  }
+
+  /** Returns if the "$internal_attr_hash" should be computed and added to the result. */
+  protected boolean includeSyntheticAttributeHash() {
+    return includeSyntheticAttributeHash;
   }
 
   /**
