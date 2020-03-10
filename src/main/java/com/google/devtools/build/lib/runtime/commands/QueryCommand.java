@@ -158,8 +158,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             targets,
             formatter,
             out,
-            queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
-            env.getReporter());
+            queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
       } catch (ClosedByInterruptException | InterruptedException e) {
         env.getReporter().handle(Event.error("query interrupted"));
         return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.INTERRUPTED));

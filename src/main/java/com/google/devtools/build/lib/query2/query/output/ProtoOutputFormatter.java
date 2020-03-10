@@ -24,14 +24,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -101,8 +98,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean includeLocations = true;
   private boolean includeRuleInputsAndOutputs = true;
 
-  private EventHandler eventHandler;
-
   @Override
   public String getName() {
     return "proto";
@@ -119,11 +114,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.flattenSelects = options.protoFlattenSelects;
     this.includeLocations = options.protoIncludeLocations;
     this.includeRuleInputsAndOutputs = options.protoIncludeRuleInputsAndOutputs;
-  }
-
-  @Override
-  public void setEventHandler(EventHandler eventHandler) {
-    this.eventHandler = eventHandler;
   }
 
   private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
@@ -208,7 +198,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           if (!includeAspectAttribute(attribute, labels)) {
             continue;
           }
-          Object attributeValue = getAspectAttributeValue(target, attribute, labels);
+          Object attributeValue = getAspectAttributeValue(attribute, labels);
           Build.Attribute serializedAttribute =
               AttributeFormatter.getAttributeProto(
                   attribute,
@@ -379,29 +369,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         && ruleAttributePredicate.apply(attr.getName());
   }
 
-  private Object getAspectAttributeValue(
-      Target target, Attribute attribute, Collection<Label> labels) {
+  private static Object getAspectAttributeValue(Attribute attribute, Collection<Label> labels) {
     Type<?> attributeType = attribute.getType();
     if (attributeType.equals(BuildType.LABEL)) {
       Preconditions.checkState(labels.size() == 1, "attribute=%s, labels=%s", attribute, labels);
       return Iterables.getOnlyElement(labels);
-    } else if (attributeType.equals(BuildType.LABEL_KEYED_STRING_DICT)) {
-      // Ideally we'd support LABEL_KEYED_STRING_DICT by getting the value directly from the aspect
-      // definition vs. trying to reverse-construct it from the flattened labels as this method
-      // does. Unfortunately any proper support surfaces a latent bug between --output=proto and
-      // aspect attributes: "{@code labels} isn't the set of labels for a single attribute value but
-      // for all values of all attributes with the same name. We can have multiple attributes with
-      // the same name because multiple aspects may attach to a rule, and nothing is stopping them
-      // from defining the same attribute names. That means the "Attribute" proto message doesn't
-      // really represent a single attribute, in spite of its documented purpose. This all calls for
-      // an API design upgrade to properly consider these relationships. Details at b/149982967.
-      eventHandler.handle(
-          Event.error(
-              String.format(
-                  "Target \"%s\", aspect attribute \"%s\": type \"%s\" not yet supported with"
-                      + " --output=proto. See b/149982967",
-                  target.getLabel(), attribute.getName(), BuildType.LABEL_KEYED_STRING_DICT)));
-      return ImmutableMap.of();
     } else {
       Preconditions.checkState(
           attributeType.equals(BuildType.LABEL_LIST),

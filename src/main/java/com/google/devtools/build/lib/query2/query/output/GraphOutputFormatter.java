@@ -19,7 +19,6 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.EquivalenceRelation;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.DotOutputVisitor;
 import com.google.devtools.build.lib.graph.LabelSerializer;
@@ -59,8 +58,7 @@ class GraphOutputFormatter extends OutputFormatter {
       QueryOptions options,
       Digraph<Target> result,
       OutputStream out,
-      AspectResolver aspectProvider,
-      EventHandler eventHandler) {
+      AspectResolver aspectProvider) {
     this.graphNodeStringLimit = options.graphNodeStringLimit;
     this.graphConditionalEdgesLimit = options.graphConditionalEdgesLimit;
 

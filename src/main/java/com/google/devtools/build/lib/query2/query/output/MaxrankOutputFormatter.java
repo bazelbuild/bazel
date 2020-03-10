@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2.query.output;
 
 import static java.util.Comparator.comparingInt;
 
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Target;
@@ -52,11 +51,7 @@ class MaxrankOutputFormatter extends OutputFormatter {
 
   @Override
   public void output(
-      QueryOptions options,
-      Digraph<Target> result,
-      OutputStream out,
-      AspectResolver aspectResolver,
-      EventHandler eventHandler)
+      QueryOptions options, Digraph<Target> result, OutputStream out, AspectResolver aspectResolver)
       throws IOException {
     // In order to handle cycles correctly, we need work on the strong
     // component graph, as cycles should be treated a "clump" of nodes all on

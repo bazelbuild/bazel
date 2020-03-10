@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -55,10 +54,6 @@ public abstract class OutputFormatter implements Serializable {
    * by the QueryEnvironment), and print it to "out".
    */
   public abstract void output(
-      QueryOptions options,
-      Digraph<Target> result,
-      OutputStream out,
-      AspectResolver aspectProvider,
-      EventHandler eventHandler)
+      QueryOptions options, Digraph<Target> result, OutputStream out, AspectResolver aspectProvider)
       throws IOException, InterruptedException;
 }

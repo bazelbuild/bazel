@@ -404,8 +404,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           result,
           formatter,
           outputStream,
-          queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)),
-          getEventHandler(ruleContext));
+          queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)));
       outputStream.close();
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());
