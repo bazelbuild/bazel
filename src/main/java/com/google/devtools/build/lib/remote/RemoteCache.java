@@ -357,7 +357,12 @@ public class RemoteCache implements AutoCloseable {
           tmpOutErr.clearErr();
         }
       } catch (IOException e) {
-        downloadException.add(e);
+        if (downloadException != null) {
+          e.addSuppressed(downloadException);
+        }
+        if (interruptedException != null) {
+          e.addSuppressed(interruptedException);
+        }
 
         // If deleting of output files failed, we abort the build with a decent error message as
         // any subsequent local execution failure would likely be incomprehensible.
