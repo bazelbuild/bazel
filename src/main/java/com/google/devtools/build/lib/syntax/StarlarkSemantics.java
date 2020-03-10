@@ -83,8 +83,6 @@ public abstract class StarlarkSemantics {
     public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "incompatible_no_attr_license";
     public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
         "incompatible_allow_tags_propagation";
-    public static final String INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES =
-        "incompatible_remove_enable_toolchain_types";
     public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
         "incompatible_require_linker_input_cc_api";
     public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
@@ -137,8 +135,6 @@ public abstract class StarlarkSemantics {
         return incompatibleNoAttrLicense();
       case FlagIdentifier.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION:
         return experimentalAllowTagsPropagation();
-      case FlagIdentifier.INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES:
-        return incompatibleRemoveEnabledToolchainTypes();
       case FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API:
         return incompatibleRequireLinkerInputCcApi();
       case FlagIdentifier.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS:
@@ -250,8 +246,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoTargetOutputGroup();
 
-  public abstract boolean incompatibleRemoveEnabledToolchainTypes();
-
   public abstract boolean incompatibleRestrictNamedParams();
 
   public abstract boolean incompatibleRunShellCommandString();
@@ -341,7 +335,6 @@ public abstract class StarlarkSemantics {
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(true)
-          .incompatibleRemoveEnabledToolchainTypes(true)
           .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(true)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
@@ -426,8 +419,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
-
-    public abstract Builder incompatibleRemoveEnabledToolchainTypes(boolean value);
 
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
