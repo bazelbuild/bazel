@@ -1048,6 +1048,12 @@ EOF
   diff "${output_base}/external/foo/download_executable_file.sh" \
     "${download_executable_file}" >/dev/null \
     || fail "download_executable_file.sh is not downloaded successfully"
+
+  # No executable flag for file on Windows
+  if "$is_windows"; then
+    return
+  fi
+
   # Test executable
   test ! -x "${output_base}/external/foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is executable"
