@@ -136,7 +136,27 @@ def find_vc_path(repository_ctx):
         " installed.",
     )
 
-    # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
+    # 2. Use vswhere to locate all Visual Studio installations
+    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)")
+    if not program_files_dir:
+        program_files_dir = "C:\\Program Files (x86)"
+        auto_configure_warning_maybe(
+            repository_ctx,
+            "'PROGRAMFILES(X86)' environment variable is not set, using '%s' as default" % program_files_dir,
+        )
+
+    vswhere_binary = program_files_dir + "\\Microsoft Visual Studio\\Installer\\vswhere.exe"
+    if repository_ctx.path(vswhere_binary).exists:
+        result = repository_ctx.execute([vswhere_binary, "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath", "-latest"])
+        auto_configure_warning_maybe(repository_ctx, "vswhere query result:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                     (result.stdout, result.stderr))
+        installation_path = result.stdout.strip()
+        if not result.stderr and installation_path:
+            vc_dir = installation_path + "\\VC"
+            auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+            return vc_dir
+
+    # 3. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
     # vcvarsqueryregistry.bat / VsDevCmd.bat to detect VC++.
     auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
                                                  "eg. VS140COMNTOOLS")
@@ -167,9 +187,8 @@ def find_vc_path(repository_ctx):
         auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 3. User might have purged all environment variables. If so, look for Visual C++ in registry.
+    # 4. User might have purged all environment variables. If so, look for Visual C++ in registry.
     # Works for Visual Studio 2017 and older. (Does not work for Visual Studio 2019 Preview.)
-    # TODO(laszlocsomor): check if "16.0" also has this registry key, after VS 2019 is released.
     auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
@@ -189,15 +208,8 @@ def find_vc_path(repository_ctx):
         auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 4. Check default directories for VC installation
+    # 5. Check default directories for VC installation
     auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
-    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)")
-    if not program_files_dir:
-        program_files_dir = "C:\\Program Files (x86)"
-        auto_configure_warning_maybe(
-            repository_ctx,
-            "'PROGRAMFILES(X86)' environment variable is not set, using '%s' as default" % program_files_dir,
-        )
     for path in [
         "Microsoft Visual Studio\\2019\\Preview\\VC",
         "Microsoft Visual Studio\\2019\\BuildTools\\VC",
