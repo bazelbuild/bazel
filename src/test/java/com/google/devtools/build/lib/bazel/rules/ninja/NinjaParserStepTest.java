@@ -179,6 +179,38 @@ public class NinjaParserStepTest {
   }
 
   @Test
+  public void testNinjaRuleWithDollarSign() throws Exception {
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + "  command = something && $\n"
+                + "    something_else\n"
+                + "  description = Test $\n"
+                + "    rule");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
+        .isEqualTo("something && $\n    something_else");
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
+        .isEqualTo("Test $\n    rule");
+  }
+
+  @Test
+  public void testNinjaRuleWithStickyDollarSign() throws Exception {
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + "  command = something &&$\n"
+                + "    something_else\n"
+                + "  description = Test$\n"
+                + "    rule");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
+        .isEqualTo("something &&$\n    something_else");
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
+        .isEqualTo("Test$\n    rule");
+  }
+
+  @Test
   public void testVariableWithoutValue() throws Exception {
     NinjaParserStep parser =
         createParser(
@@ -345,6 +377,23 @@ public class NinjaParserStepTest {
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
     assertThat(target.getUsualInputs())
         .containsExactly(PathFragment.create("input with space"), PathFragment.create("other"));
+  }
+
+  @Test
+  public void testNinjaTargetsPathWithEscapedNewline() throws Exception {
+    NinjaTarget target =
+        parseNinjaTarget("build $\n"
+            + "  output : $\n"
+            + "  command input$\n"
+            + "  with$\n"
+            + "  newline");
+    assertThat(target.getRuleName()).isEqualTo("command");
+    assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
+    assertThat(target.getUsualInputs())
+        .containsExactly(
+            PathFragment.create("input"),
+            PathFragment.create("with"),
+            PathFragment.create("newline"));
   }
 
   @Test
