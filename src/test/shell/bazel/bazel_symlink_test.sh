@@ -503,6 +503,13 @@ EOF
 }
 
 function test_executable_symlink_to_nonexecutable_file() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Bazel's FileSystem uses java.io.File#canExecute(), which \
+          doesn't test for executability, it tests whether the current program is permitted \
+          to execute it"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/a.bzl <<'EOF'
 def _a_impl(ctx):
