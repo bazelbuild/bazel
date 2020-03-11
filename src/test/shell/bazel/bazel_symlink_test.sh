@@ -506,31 +506,37 @@ function test_executable_symlink_to_nonexecutable_file() {
   mkdir -p a
   cat > a/a.bzl <<'EOF'
 def _a_impl(ctx):
-    target = ctx.actions.declare_file(ctx.label.name + ".target")
-    ctx.actions.write(
-        output = target,
-        content = "Hello, World!",
-    )
-
     symlink = ctx.actions.declare_file(ctx.label.name + ".link")
     ctx.actions.symlink(
         output = symlink,
-        target_file = target,
+        target_file = ctx.file.file,
         is_executable = True,
     )
     return DefaultInfo(files = depset([symlink]))
 
-a = rule(implementation = _a_impl)
+a = rule(
+    implementation = _a_impl,
+    attrs = {
+        "file": attr.label(allow_single_file = True)
+    },
+)
 EOF
 
   cat > a/BUILD <<'EOF'
 load(":a.bzl", "a")
 
-a(name="a")
+a(
+    name = "a",
+    file = "foo.txt",
+)
 EOF
 
-  # bazel build //a:a && fail "build succeeded"
-  # [[ "$?" == 1 ]] || fail "unexpected exit code"
+  cat > a/foo.txt <<'EOF'
+Hello, World!
+EOF
+
+  bazel build //a:a && fail "build succeeded"
+  [[ "$?" == 1 ]] || fail "unexpected exit code"
 }
 
 run_suite "Tests for unresolved symlink artifacts"

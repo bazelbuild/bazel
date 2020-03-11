@@ -63,9 +63,9 @@ filegroup(
 )
 
 sh_test(
-    name = "bazel_unresolved_symlink_test",
+    name = "bazel_symlink_test",
     size = "medium",
-    srcs = ["bazel_unresolved_symlink_test.sh"],
+    srcs = ["bazel_symlink_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",

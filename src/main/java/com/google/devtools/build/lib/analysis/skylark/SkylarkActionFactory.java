@@ -231,6 +231,21 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     return "Creating symlink " + output.getRootRelativePathString();
   }
 
+  /** Return whether exactly one of the passed object is not {@link Starlark.NONE}. */
+  private boolean exactlyOneNotNone(Object first, Object... others) {
+    boolean seen = first != Starlark.NONE;
+    for (Object o : others) {
+      if (o == Starlark.NONE) {
+        continue;
+      }
+      if (seen) {
+        return false;
+      }
+      seen = true;
+    }
+    return seen;
+  }
+
   @Override
   public void symlink(
       FileApi output,
@@ -241,8 +256,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       throws EvalException {
     context.checkMutable("actions.symlink");
 
-    if ((targetFile != Starlark.NONE && targetPath != Starlark.NONE) ||
-        (targetFile == Starlark.NONE && targetPath == Starlark.NONE)) {
+    if (!exactlyOneNotNone(targetFile, targetPath)) {
       throw Starlark.errorf("\"target_file\" and \"target_path\" cannot be set at the same time");
     }
 
@@ -250,10 +264,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     Artifact outputArtifact = (Artifact)output;
 
     if (targetFile != Starlark.NONE) {
-      Preconditions.checkState(targetPath == Starlark.NONE);
-
       if (outputArtifact.isSymlink()) {
-        // TODO(yannic): Do we allow symlinks from files created by declare_symlink() to artifacts?
         throw Starlark.errorf(
             "output of symlink action with \"target_file\" must be created by declare_file()");
       }
@@ -279,7 +290,6 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       registerAction(action);
       return;
     }
-    Preconditions.checkState(targetPath != Starlark.NONE);
 
     if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
       throw Starlark.errorf(
@@ -292,7 +302,8 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     }
 
     if (isExecutable) {
-      // TODO(yannic): Do we allow dangling symlinks to be executable?
+      // This action creates a danglink symlink. We cannot enforce that the file this symlink
+      // eventually resolves to is indeed executable.
       throw Starlark.errorf("files created by declare_symlink() cannot be executable");
     }
 
