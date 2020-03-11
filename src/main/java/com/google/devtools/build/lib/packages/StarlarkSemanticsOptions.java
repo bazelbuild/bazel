@@ -654,6 +654,16 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "instead of linkopts to cc_toolchain_config")
   public boolean incompatibleLinkoptsToLinkLibs;
 
+  @Option(
+      name = "record_rule_instantiation_callstack",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "Causes each rule to record the callstack at the moment of its instantiation, at a"
+              + " modest cost in memory. The stack is visible in some forms of query output.")
+  public boolean recordRuleInstantiationCallstack;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -714,6 +724,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleRequireLinkerInputCcApi(incompatibleRequireLinkerInputCcApi)
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
             .incompatibleLinkoptsToLinkLibs(incompatibleLinkoptsToLinkLibs)
+            .recordRuleInstantiationCallstack(recordRuleInstantiationCallstack)
             .build();
     return INTERNER.intern(semantics);
   }

@@ -165,7 +165,8 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_require_linker_input_cc_api=" + rand.nextBoolean(),
         "--incompatible_restrict_string_escapes=" + rand.nextBoolean(),
         "--incompatible_use_cc_configure_from_rules_cc=" + rand.nextBoolean(),
-        "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
+        "--internal_skylark_flag_test_canary=" + rand.nextBoolean(),
+        "--record_rule_instantiation_callstack=" + rand.nextBoolean());
   }
 
   /**
@@ -220,6 +221,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleRestrictStringEscapes(rand.nextBoolean())
         .incompatibleUseCcConfigureFromRulesCc(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
+        .recordRuleInstantiationCallstack(rand.nextBoolean())
         .build();
   }
 

@@ -92,9 +92,9 @@ public class RuleClassTest extends PackageLoadingTestCase {
             }
           };
 
-  private static final class DummyFragment extends BuildConfiguration.Fragment {
+  private static final class DummyFragment extends BuildConfiguration.Fragment {}
 
-  }
+  private static final ImmutableList<StarlarkThread.CallStackEntry> NO_STACK = ImmutableList.of();
 
   private static final Predicate<String> PREFERRED_DEPENDENCY_PREDICATE = Predicates.alwaysFalse();
 
@@ -300,7 +300,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     attributeValues.put("list3", Lists.newArrayList(":dup1", ":dup1", ":dup2", ":dup2"));
 
     reporter.removeHandler(failFastHandler);
-    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation);
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
 
     assertThat(eventCollector.count()).isSameInstanceAs(3);
     assertDupError("//testpackage:dup1", "list1", "depsRule");
@@ -345,7 +345,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     EventCollector collector = new EventCollector(EventKind.ERRORS);
     reporter.addHandler(collector);
 
-    createRule(ruleClass, TEST_RULE_NAME, attributeValues, testRuleLocation);
+    createRule(ruleClass, TEST_RULE_NAME, attributeValues, testRuleLocation, NO_STACK);
 
     assertContainsEvent("//visibility:legacy_public only allowed in package declaration");
   }
@@ -364,7 +364,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     EventCollector collector = new EventCollector(EventKind.ERRORS);
     reporter.addHandler(collector);
 
-    Rule rule = createRule(ruleClassA, TEST_RULE_NAME, attributeValues, testRuleLocation);
+    Rule rule = createRule(ruleClassA, TEST_RULE_NAME, attributeValues, testRuleLocation, NO_STACK);
 
     // TODO(blaze-team): (2009) refactor to use assertContainsEvent
     Iterator<String> expectedMessages = Arrays.asList(
@@ -444,7 +444,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     attributeValues.put("outs", Collections.singletonList("explicit_out"));
     attributeValues.put("name", "myrule");
 
-    Rule rule = createRule(ruleClassC, "myrule", attributeValues, testRuleLocation);
+    Rule rule = createRule(ruleClassC, "myrule", attributeValues, testRuleLocation, NO_STACK);
 
     Set<String> set = new HashSet<>();
     for (OutputFile outputFile : rule.getOutputFiles()) {
@@ -480,13 +480,12 @@ public class RuleClassTest extends PackageLoadingTestCase {
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true);
 
-    Rule rule = createRule(ruleClass, "myRule", Collections.<String, Object>emptyMap(),
-        testRuleLocation);
+    Rule rule = createRule(ruleClass, "myRule", ImmutableMap.of(), testRuleLocation, NO_STACK);
     assertThat(Iterables.getOnlyElement(rule.getOutputFiles()).getName())
         .isEqualTo("libmyRule.bar");
 
-    Rule ruleWithSlash = createRule(ruleClass, "myRule/with/slash",
-        Collections.<String, Object>emptyMap(), testRuleLocation);
+    Rule ruleWithSlash =
+        createRule(ruleClass, "myRule/with/slash", ImmutableMap.of(), testRuleLocation, NO_STACK);
     assertThat(Iterables.getOnlyElement(ruleWithSlash.getOutputFiles()).getName())
         .isEqualTo("myRule/with/libslash.bar");
   }
@@ -531,8 +530,13 @@ public class RuleClassTest extends PackageLoadingTestCase {
       ImmutableMap<String, Object> attrValueMap) throws Exception {
     assertThat(computedDefault.getDefaultValueUnchecked())
         .isInstanceOf(Attribute.ComputedDefault.class);
-    Rule rule = createRule(getRuleClassWithComputedDefault(computedDefault), "myRule",
-        attrValueMap, testRuleLocation);
+    Rule rule =
+        createRule(
+            getRuleClassWithComputedDefault(computedDefault),
+            "myRule",
+            attrValueMap,
+            testRuleLocation,
+            NO_STACK);
     AttributeMap attributes = RawAttributeMapper.of(rule);
     assertThat(attributes.get(computedDefault.getName(), computedDefault.getType()))
         .isEqualTo(expectedValue);
@@ -552,7 +556,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
                     getRuleClassWithComputedDefault(computedDefault),
                     "myRule",
                     ImmutableMap.<String, Object>of(),
-                    testRuleLocation));
+                    testRuleLocation,
+                    NO_STACK));
     assertThat(e).hasMessageThat().isEqualTo(expectedMessage);
   }
 
@@ -688,7 +693,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     attributeValues.put("outs", ImmutableList.of("third", "fourth"));
     attributeValues.put("name", "myrule");
 
-    Rule rule = createRule(ruleClassC, "myrule", attributeValues, testRuleLocation);
+    Rule rule = createRule(ruleClassC, "myrule", attributeValues, testRuleLocation, NO_STACK);
 
     List<String> actual = new ArrayList<>();
     for (OutputFile outputFile : rule.getOutputFiles()) {
@@ -738,8 +743,9 @@ public class RuleClassTest extends PackageLoadingTestCase {
     attributeValues.put("baz", ImmutableList.of("baz", "BAZ"));
     attributeValues.put("empty", ImmutableList.<String>of());
 
-    AttributeMap rule = RawAttributeMapper.of(
-        createRule(ruleClass, "testrule", attributeValues, testRuleLocation));
+    AttributeMap rule =
+        RawAttributeMapper.of(
+            createRule(ruleClass, "testrule", attributeValues, testRuleLocation, NO_STACK));
 
     assertThat(substitutePlaceholderIntoTemplate("foo", rule)).containsExactly("foo");
     assertThat(substitutePlaceholderIntoTemplate("foo-%{baz}-bar", rule)).containsExactly(
@@ -767,7 +773,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     attributeValues.put("my-stringlist-attr", list);
     attributeValues.put("my-sorted-stringlist-attr", list);
 
-    Rule rule = createRule(ruleClassA, "testrule", attributeValues, testRuleLocation);
+    Rule rule = createRule(ruleClassA, "testrule", attributeValues, testRuleLocation, NO_STACK);
     AttributeMap attributes = RawAttributeMapper.of(rule);
 
     assertThat(attributes.get("my-stringlist-attr", Type.STRING_LIST)).isEqualTo(list);
@@ -776,7 +782,11 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   private Rule createRule(
-      RuleClass ruleClass, String name, Map<String, Object> attributeValues, Location location)
+      RuleClass ruleClass,
+      String name,
+      Map<String, Object> attributeValues,
+      Location location,
+      List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
     Package.Builder pkgBuilder = createDummyPackageBuilder();
     Label ruleLabel;
@@ -791,6 +801,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new BuildLangTypedAttributeValuesMap(attributeValues),
         reporter,
         location,
+        callstack,
         new AttributeContainer(ruleClass),
         /*checkThirdPartyRulesHaveLicenses=*/ true);
   }
@@ -829,8 +840,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     Map<String, Object> parentValues = new LinkedHashMap<>();
     Map<String, Object> childValues = new LinkedHashMap<>();
     childValues.put("attr", "somevalue");
-    createRule(parentRuleClass, "parent_rule", parentValues, testRuleLocation);
-    createRule(childRuleClass, "child_rule", childValues, testRuleLocation);
+    createRule(parentRuleClass, "parent_rule", parentValues, testRuleLocation, NO_STACK);
+    createRule(childRuleClass, "child_rule", childValues, testRuleLocation, NO_STACK);
   }
 
   @Test
@@ -840,7 +851,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     Map<String, Object> childValues = new LinkedHashMap<>();
     reporter.removeHandler(failFastHandler);
-    createRule(childRuleClass, "child_rule", childValues, testRuleLocation);
+    createRule(childRuleClass, "child_rule", childValues, testRuleLocation, NO_STACK);
 
     assertThat(eventCollector.count()).isSameInstanceAs(1);
     assertContainsEvent("//testpackage:child_rule: missing value for mandatory "
@@ -969,10 +980,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
         .add(attr("tags", STRING_LIST))
         .build();
-    final Rule dep1 = createRule(depClass, "dep1", Collections.<String, Object>emptyMap(),
-        testRuleLocation);
-    final Rule dep2 = createRule(depClass, "dep2", Collections.<String, Object>emptyMap(),
-        testRuleLocation);
+    final Rule dep1 = createRule(depClass, "dep1", ImmutableMap.of(), testRuleLocation, NO_STACK);
+    final Rule dep2 = createRule(depClass, "dep2", ImmutableMap.of(), testRuleLocation, NO_STACK);
 
     ValidityPredicate checker =
         new ValidityPredicate() {
@@ -997,8 +1006,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
               .validityPredicate(checker))
         .build();
 
-    Rule topRule = createRule(topClass, "top", Collections.<String, Object>emptyMap(),
-        testRuleLocation);
+    Rule topRule = createRule(topClass, "top", ImmutableMap.of(), testRuleLocation, NO_STACK);
 
     assertThat(topClass.getAttributeByName("deps").getValidityPredicate().checkValid(topRule, dep1))
         .isEqualTo("pear");
@@ -1020,8 +1028,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
         .add(attr("tags", STRING_LIST))
         .build();
-    final Rule defaultRule = createRule(defaultClass, "defaultRule",
-        Collections.<String, Object>emptyMap(), testRuleLocation);
+    final Rule defaultRule =
+        createRule(defaultClass, "defaultRule", ImmutableMap.of(), testRuleLocation, NO_STACK);
     assertThat(defaultRule.getRuleClassObject().isPreferredDependency(cppFile)).isFalse();
     assertThat(defaultRule.getRuleClassObject().isPreferredDependency(textFile)).isFalse();
 
@@ -1036,8 +1044,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
           }
         })
         .build();
-    final Rule cppRule = createRule(cppClass, "cppRule",
-        Collections.<String, Object>emptyMap(), testRuleLocation);
+    final Rule cppRule =
+        createRule(cppClass, "cppRule", ImmutableMap.of(), testRuleLocation, NO_STACK);
     assertThat(cppRule.getRuleClassObject().isPreferredDependency(cppFile)).isTrue();
     assertThat(cppRule.getRuleClassObject().isPreferredDependency(textFile)).isFalse();
   }
