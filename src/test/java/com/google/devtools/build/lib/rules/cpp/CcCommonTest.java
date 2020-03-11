@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
@@ -22,7 +21,6 @@ import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -37,6 +35,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.util.OS;
@@ -106,7 +105,7 @@ public class CcCommonTest extends BuildViewTestCase {
     if (emptyShouldOutputStaticLibrary()) {
       assertThat(baseNamesOf(getFilesToBuild(emptylib))).isEqualTo("libemptylib.a");
     } else {
-      assertThat(getFilesToBuild(emptylib)).isEmpty();
+      assertThat(getFilesToBuild(emptylib).toList()).isEmpty();
     }
     assertThat(
             emptylib
@@ -130,7 +129,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
   private List<String> getCopts(String target) throws Exception {
     ConfiguredTarget cLib = getConfiguredTarget(target);
-    Artifact object = getOnlyElement(getOutputGroup(cLib, OutputGroupInfo.FILES_TO_COMPILE));
+    Artifact object = getOutputGroup(cLib, OutputGroupInfo.FILES_TO_COMPILE).getSingleton();
     CppCompileAction compileAction = (CppCompileAction) getGeneratingAction(object);
     return compileAction.getCompilerOptions();
   }
@@ -195,7 +194,7 @@ public class CcCommonTest extends BuildViewTestCase {
   private Iterable<Artifact> getLinkerInputs(ConfiguredTarget target) {
     Artifact executable = getExecutable(target);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    return linkAction.getLinkCommandLine().getLinkerInputArtifacts();
+    return linkAction.getLinkCommandLine().getLinkerInputArtifacts().toList();
   }
 
   @Test
@@ -228,7 +227,7 @@ public class CcCommonTest extends BuildViewTestCase {
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
         .isTrue();
-    Artifact staticallyDotA = getOnlyElement(getFilesToBuild(statically));
+    Artifact staticallyDotA = getFilesToBuild(statically).getSingleton();
     assertThat(getGeneratingAction(staticallyDotA)).isInstanceOf(CppLinkAction.class);
     PathFragment dotAPath = staticallyDotA.getExecPath();
     assertThat(dotAPath.getPathString()).endsWith(STATIC_LIB);
@@ -243,7 +242,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'defineslib',",
             "           srcs = ['defines.cc'],",
             "           defines = ['FOO', 'BAR'])");
-    assertThat(isolatedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(isolatedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines().toList())
         .containsExactly("FOO", "BAR")
         .inOrder();
   }
@@ -267,7 +266,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:bin");
     CppLinkAction action = (CppLinkAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs()) {
+    for (Artifact input : action.getInputs().toList()) {
       String name = input.getFilename();
       assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
           .isTrue();
@@ -289,7 +288,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:bin");
     CppLinkAction action = (CppLinkAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs()) {
+    for (Artifact input : action.getInputs().toList()) {
       String name = input.getFilename();
       assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
           .isTrue();
@@ -402,7 +401,7 @@ public class CcCommonTest extends BuildViewTestCase {
     List<CppCompileAction> compilationSteps =
         actionsTestUtil()
             .findTransitivePrerequisitesOf(
-                getFilesToBuild(target).iterator().next(), CppCompileAction.class);
+                getFilesToBuild(target).toList().get(0), CppCompileAction.class);
     return compilationSteps.get(0);
   }
 
@@ -509,7 +508,7 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "mypackage", "mytest", "cc_test(name = 'mytest', srcs = ['mytest.cc'])");
 
-    Iterable<Artifact> runfiles = collectRunfiles(target);
+    NestedSet<Artifact> runfiles = collectRunfiles(target);
     assertThat(baseArtifactNames(runfiles)).contains("mytest.dwp");
   }
 
@@ -662,9 +661,9 @@ public class CcCommonTest extends BuildViewTestCase {
     // make sure we did not print warnings about the linkopt
     assertNoEvents();
     // make sure the binary is dependent on the static lib
-    Action linkAction = getGeneratingAction(getOnlyElement(getFilesToBuild(theApp)));
-    ImmutableList<Artifact> filesToBuild = ImmutableList.copyOf(getFilesToBuild(theLib));
-    assertThat(ImmutableSet.copyOf(linkAction.getInputs()).containsAll(filesToBuild)).isTrue();
+    Action linkAction = getGeneratingAction(getFilesToBuild(theApp).getSingleton());
+    ImmutableList<Artifact> filesToBuild = getFilesToBuild(theLib).toList();
+    assertThat(linkAction.getInputs().toSet()).containsAtLeastElementsIn(filesToBuild);
   }
 
   @Test
@@ -803,7 +802,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "    deps=['a.lds'])");
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
     CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
+        (CppLinkAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
     assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
         .containsExactly(
             String.format(
@@ -825,8 +824,8 @@ public class CcCommonTest extends BuildViewTestCase {
         "    deps=['a.lds'])");
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
     CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(getOnlyElement(getFilesToBuild(target)));
-    Iterable<Artifact> linkInputs = action.getInputs();
+        (CppLinkAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
+    NestedSet<Artifact> linkInputs = action.getInputs();
     assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("a.lds");
   }
 

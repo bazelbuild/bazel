@@ -220,6 +220,37 @@ public abstract class MockCcSupport {
     }
   }
 
+  protected void setupRulesCc(MockToolsConfig config) throws IOException {
+    for (String path :
+        ImmutableList.of(
+            "cc/BUILD",
+            "cc/defs.bzl",
+            "cc/action_names.bzl",
+            "cc/cc_toolchain_config_lib.bzl",
+            "cc/find_cc_toolchain.bzl",
+            "cc/toolchain_utils.bzl",
+            "cc/private/rules_impl/BUILD")) {
+      try {
+        config.create(
+            TestConstants.RULES_CC_REPOSITORY_SCRATCH + path,
+            ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
+      } catch (Exception e) {
+        throw new RuntimeException("Couldn't read rules_cc file from " + path, e);
+      }
+    }
+
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
+    config.overwrite(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
+    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
+    config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
+  }
+
   protected String getCrosstoolTopPathForConfig(MockToolsConfig config) {
     if (config.isRealFileSystem()) {
       return getRealFilesystemCrosstoolTopPath();

@@ -14,9 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Info object representing data about a specific toolchain. */
 @SkylarkModule(
@@ -26,4 +32,20 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + " rule implementation. Read more about <a"
             + " href='../../toolchains.$DOC_EXT'>toolchains</a> for more information.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface ToolchainInfoApi extends StructApi {}
+public interface ToolchainInfoApi extends StructApi {
+
+  /** Provider for {@link ToolchainInfoApi} objects. */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  interface Provider extends ProviderApi {
+
+    @SkylarkCallable(
+        name = "ToolchainInfo",
+        doc = "The <code>ToolchainInfo</code> constructor.",
+        documented = false,
+        extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
+        selfCall = true,
+        useStarlarkThread = true)
+    ToolchainInfoApi toolchainInfo(Dict<String, Object> kwargs, StarlarkThread thread)
+        throws EvalException;
+  }
+}

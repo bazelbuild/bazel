@@ -82,6 +82,7 @@ cc_autoconf_toolchains = repository_rule(
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
     ],
     implementation = cc_autoconf_toolchains_impl,
+    configure = True,
 )
 
 def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
@@ -100,19 +101,19 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
             "@bazel_tools//tools/cpp:empty_cc_toolchain_config.bzl",
         ])
         repository_ctx.symlink(paths["@bazel_tools//tools/cpp:empty_cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
-        repository_ctx.symlink(paths("@bazel_tools//tools/cpp:BUILD.empty"), "BUILD")
-    elif cpu_value == "freebsd":
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.empty"], "BUILD")
+    elif cpu_value == "freebsd" or cpu_value == "openbsd":
         paths = resolve_labels(repository_ctx, [
-            "@bazel_tools//tools/cpp:BUILD.static.freebsd",
-            "@bazel_tools//tools/cpp:freebsd_cc_toolchain_config.bzl",
+            "@bazel_tools//tools/cpp:BUILD.static.bsd",
+            "@bazel_tools//tools/cpp:bsd_cc_toolchain_config.bzl",
         ])
 
-        # This is defaulting to a static crosstool, we should eventually
-        # autoconfigure this platform too.  Theorically, FreeBSD should be
-        # straightforward to add but we cannot run it in a docker container so
-        # skipping until we have proper tests for FreeBSD.
-        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:freebsd_cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
-        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.freebsd"], "BUILD")
+        # This is defaulting to a static crosstool. We should eventually
+        # autoconfigure this platform too. Theorically, FreeBSD and OpenBSD
+        # should be straightforward to add but we cannot run them in a Docker
+        # container so skipping until we have proper tests for these platforms.
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:bsd_cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.bsd"], "BUILD")
     elif cpu_value == "x64_windows":
         # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
         # We might want to add that to Windows too(at least for msys toolchain).
@@ -158,6 +159,7 @@ cc_autoconf = repository_rule(
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
         "BAZEL_USE_LLVM_NATIVE_COVERAGE",
         "BAZEL_LLVM",
+        "BAZEL_IGNORE_SYSTEM_HEADERS_VERSIONS",
         "USE_CLANG_CL",
         "CC",
         "CC_CONFIGURE_DEBUG",
@@ -168,6 +170,7 @@ cc_autoconf = repository_rule(
         "SYSTEMROOT",
     ] + MSVC_ENVVARS,
     implementation = cc_autoconf_impl,
+    configure = True,
 )
 
 def cc_configure():

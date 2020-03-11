@@ -49,7 +49,7 @@ public final class WindowsSandboxUtil {
     try {
       process =
           new SubprocessBuilder()
-              .setArgv(binary.getPathString(), "-h")
+              .setArgv(ImmutableList.of(binary.getPathString(), "-h"))
               .setStdout(StreamAction.STREAM)
               .redirectErrorStream(true)
               .setWorkingDirectory(new File("."))
@@ -71,7 +71,8 @@ public final class WindowsSandboxUtil {
     }
     String outErr = outErrBytes.toString().replaceFirst("\n$", "");
 
-    int exitCode = SandboxHelpers.waitForProcess(process);
+    process.waitForUninterruptibly();
+    int exitCode = process.exitValue();
     if (exitCode == 0) {
       // TODO(rongjiecomputer): Validate the version number and ensure we support it. Would be nice
       // to reuse

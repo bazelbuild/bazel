@@ -116,7 +116,7 @@ public class Alias implements RuleConfiguredTargetFactory {
 
 <p>
   Aliasing only works for "regular" targets. In particular, <code>package_group</code>
-    and <code>test_suite</code> rules cannot be aliased.
+  and <code>test_suite</code> cannot be aliased.
 </p>
 
 <p>

@@ -41,9 +41,16 @@ REPO_BZL_FILES = [
 ) for name in REPO_BZL_FILES]
 
 [genrule(
+    name = "preamb_%s_md" % (name,),
+    srcs = [":preamb.md"],
+    outs = ["preamb_%s.md" % (name,)],
+    cmd = "sed 's/BZL_FILE_BASE_NAME/%s/g' < $< > $@" % (name,),
+) for name in REPO_BZL_FILES]
+
+[genrule(
     name = "%s_md" % (name,),
     srcs = [
-        ":preamb.md",
+        ":preamb_%s.md" % (name,),
         ":%s_raw_md" % (name,),
     ],
     outs = ["%s.md" % (name,)],

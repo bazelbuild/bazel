@@ -14,17 +14,18 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A representation of the concept "this builds these files". */
 @SkylarkModule(
     name = "file_provider",
     doc = "An interface for rules that provide files.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface FileProviderApi {
+public interface FileProviderApi extends StarlarkValue {
 
   /**
    * Returns the set of files that are the "output" of this rule.
@@ -42,5 +43,5 @@ public interface FileProviderApi {
    * implicit targets, for example, deploy jars.
    */
   @SkylarkCallable(name = "files_to_build", documented = false, structField = true)
-  NestedSet<? extends FileApi> getFilesToBuild();
+  Depset /*<? extends FileApi>*/ getFilesToBuildForStarlark();
 }

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -181,8 +182,9 @@ public class MobileInstallCommand implements BlazeCommand {
               env.getReporter().getOutErr(),
               env.getCommandId(),
               env.getCommandStartTime());
-      ExitCode exitCode = new BuildTool(env).processRequest(request, null).getExitCondition();
-      return BlazeCommandResult.exitCode(exitCode);
+      DetailedExitCode detailedExitCode =
+          new BuildTool(env).processRequest(request, null).getDetailedExitCode();
+      return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
 
     // This list should look like: ["//executable:target", "arg1", "arg2"]
@@ -211,7 +213,7 @@ public class MobileInstallCommand implements BlazeCommand {
 
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running target"));
-      return BlazeCommandResult.exitCode(result.getExitCondition());
+      return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
     }
 
     Collection<ConfiguredTarget> targetsBuilt = result.getSuccessfulTargets();

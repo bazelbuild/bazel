@@ -21,9 +21,7 @@ import java.util.Map;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.tree.ClassNode;
 
-/**
- * Simple wrapper around a map that holds generated classes so they can be processed later.
- */
+/** Simple wrapper around a map that holds generated classes so they can be processed later. */
 class GeneratedClassStore {
 
   /** Map from internal names to generated classes with deterministic iteration order. */

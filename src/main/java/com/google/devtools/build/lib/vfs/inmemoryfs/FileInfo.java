@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import com.google.devtools.build.lib.clock.Clock;
@@ -18,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.ReadableByteChannel;
 
 /**
  * This interface represents a mutable file stored in an InMemoryFileSystem.
@@ -51,6 +53,10 @@ public abstract class FileInfo extends InMemoryContentInfo {
   public abstract OutputStream getOutputStream(boolean append) throws IOException;
 
   public abstract InputStream getInputStream() throws IOException;
+
+  public ReadableByteChannel createReadableByteChannel() throws IOException {
+    throw new UnsupportedOperationException();
+  }
 
   public abstract byte[] getxattr(String name) throws IOException;
 

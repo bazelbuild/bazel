@@ -4,10 +4,11 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    srcs = glob(["*"]),
 )
 
+# Description:
+#   Main Java code for Bazel
 java_library(
     name = "cache",
     srcs = ["RepositoryCache.java"],
@@ -23,6 +24,5 @@ java_library(
     srcs = ["RepositoryCacheHitEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//third_party:guava",
     ],
 )

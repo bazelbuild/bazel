@@ -15,9 +15,15 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Provides access to make variables from the current fragments. */
 @SkylarkModule(
@@ -33,11 +39,31 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + " <code>platform_common.TemplateVariableInfo({'FOO': 'bar'})</code></p>")
 public interface TemplateVariableInfoApi extends StructApi {
 
+  /** The global provider name. */
+  String NAME = "TemplateVariableInfo";
+
   @SkylarkCallable(
-    name = "variables",
-    doc = "Returns the make variables defined by this target as a dictionary with string keys "
-        + "and string values",
-    structField = true
-  )
-  public ImmutableMap<String, String> getVariables();
+      name = "variables",
+      doc =
+          "Returns the make variables defined by this target as a dictionary with string keys "
+              + "and string values",
+      structField = true)
+  ImmutableMap<String, String> getVariables();
+
+  /** Provider for {@link TemplateVariableInfoApi} objects. */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  interface Provider extends ProviderApi {
+
+    @SkylarkCallable(
+        name = "TemplateVariableInfo",
+        doc = "The <code>TemplateVariableInfo</code> constructor.",
+        documented = false,
+        parameters = {
+          @Param(name = "vars", positional = true, named = true, type = Dict.class),
+        },
+        selfCall = true,
+        useStarlarkThread = true)
+    TemplateVariableInfoApi templateVariableInfo(Dict<?, ?> vars, StarlarkThread thread)
+        throws EvalException;
+  }
 }

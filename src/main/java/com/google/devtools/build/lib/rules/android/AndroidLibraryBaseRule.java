@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -82,6 +82,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
                 .copy("deps")
                 .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
                 .allowedFileTypes()
+                .mandatoryProviders(AndroidRuleClasses.CONTAINS_CC_INFO_PARAMS)
                 .mandatoryProviders(JavaRuleClasses.CONTAINS_JAVA_PROVIDER)
                 .aspect(androidNeverlinkAspect))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports) -->
@@ -94,6 +95,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
             attr("exports", LABEL_LIST)
                 .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
                 .allowedFileTypes(/*May not have files in exports!*/ )
+                .mandatoryProviders(AndroidRuleClasses.CONTAINS_CC_INFO_PARAMS)
                 .mandatoryProviders(JavaRuleClasses.CONTAINS_JAVA_PROVIDER)
                 .aspect(androidNeverlinkAspect))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports_manifest) -->

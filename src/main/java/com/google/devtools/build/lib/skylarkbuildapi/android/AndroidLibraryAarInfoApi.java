@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /** A target that can provide the aar artifact of Android libraries */
 @SkylarkModule(
@@ -47,5 +47,5 @@ public interface AndroidLibraryAarInfoApi<FileT extends FileApi> extends StructA
       doc = "",
       documented = false,
       structField = true)
-  NestedSet<FileT> getTransitiveAarArtifacts();
+  Depset /*<FileT>*/ getTransitiveAarArtifactsForStarlark();
 }

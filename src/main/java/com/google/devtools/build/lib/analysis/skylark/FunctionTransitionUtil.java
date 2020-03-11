@@ -24,20 +24,21 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -62,7 +63,7 @@ public class FunctionTransitionUtil {
    * @param attrObject the attributes of the rule to which this transition is attached
    * @return the post-transition build options.
    */
-  static List<BuildOptions> applyAndValidate(
+  static Map<String, BuildOptions> applyAndValidate(
       BuildOptions buildOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
       StructImpl attrObject)
@@ -70,19 +71,18 @@ public class FunctionTransitionUtil {
     // TODO(waltl): consider building this once and use it across different split
     // transitions.
     Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
-    SkylarkDict<String, Object> settings =
-        buildSettings(buildOptions, optionInfoMap, starlarkTransition);
+    Dict<String, Object> settings = buildSettings(buildOptions, optionInfoMap, starlarkTransition);
 
-    ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
+    ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
 
-    ImmutableList<Map<String, Object>> transitions =
+    ImmutableMap<String, Map<String, Object>> transitions =
         starlarkTransition.evaluate(settings, attrObject);
-    validateFunctionOutputsMatchesDeclaredOutputs(transitions, starlarkTransition);
+    validateFunctionOutputsMatchesDeclaredOutputs(transitions.values(), starlarkTransition);
 
-    for (Map<String, Object> transition : transitions) {
+    for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
       BuildOptions transitionedOptions =
-          applyTransition(buildOptions, transition, optionInfoMap, starlarkTransition);
-      splitBuildOptions.add(transitionedOptions);
+          applyTransition(buildOptions, entry.getValue(), optionInfoMap, starlarkTransition);
+      splitBuildOptions.put(entry.getKey(), transitionedOptions);
     }
     return splitBuildOptions.build();
   }
@@ -93,7 +93,7 @@ public class FunctionTransitionUtil {
    * StarlarkTransition#validate}
    */
   private static void validateFunctionOutputsMatchesDeclaredOutputs(
-      ImmutableList<Map<String, Object>> transitions,
+      Collection<Map<String, Object>> transitions,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws EvalException {
     for (Map<String, Object> transition : transitions) {
@@ -149,7 +149,7 @@ public class FunctionTransitionUtil {
    * @throws EvalException if any of the specified transition inputs do not correspond to a valid
    *     build setting
    */
-  static SkylarkDict<String, Object> buildSettings(
+  static Dict<String, Object> buildSettings(
       BuildOptions buildOptions,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
@@ -157,7 +157,7 @@ public class FunctionTransitionUtil {
     LinkedHashSet<String> remainingInputs = Sets.newLinkedHashSet(starlarkTransition.getInputs());
 
     try (Mutability mutability = Mutability.create("build_settings")) {
-      SkylarkDict<String, Object> dict = SkylarkDict.withMutability(mutability);
+      Dict<String, Object> dict = Dict.of(mutability);
 
       // Add native options
       for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
@@ -175,7 +175,7 @@ public class FunctionTransitionUtil {
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
 
-          dict.put(optionKey, optionValue == null ? Runtime.NONE : optionValue, null, mutability);
+          dict.put(optionKey, optionValue == null ? Starlark.NONE : optionValue, (Location) null);
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
           throw new RuntimeException(e);
@@ -187,7 +187,7 @@ public class FunctionTransitionUtil {
         if (!remainingInputs.remove(starlarkOption.getKey().toString())) {
           continue;
         }
-        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), null, mutability);
+        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), (Location) null);
       }
 
       if (!remainingInputs.isEmpty()) {

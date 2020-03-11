@@ -18,11 +18,12 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * The Skylark module containing the definition of {@code repository_rule} function to define a
@@ -39,15 +40,16 @@ public interface RepositoryModuleApi {
       parameters = {
         @Param(
             name = "implementation",
-            type = BaseFunction.class,
+            type = StarlarkFunction.class,
             named = true,
             doc =
-                "the function implementing this rule, has to have exactly one parameter: <code><a"
-                    + " href=\"repository_ctx.html\">repository_ctx</a></code>. The function is"
-                    + " called during loading phase for each instance of the rule."),
+                "the Starlark function that implements this rule. Must have a single parameter,"
+                    + " <code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The"
+                    + " function is called during the loading phase for each instance of the"
+                    + " rule."),
         @Param(
             name = "attrs",
-            type = SkylarkDict.class,
+            type = Dict.class,
             noneable = true,
             defaultValue = "None",
             doc =
@@ -70,7 +72,7 @@ public interface RepositoryModuleApi {
             positional = false),
         @Param(
             name = "environ",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             doc =
@@ -87,6 +89,15 @@ public interface RepositoryModuleApi {
             named = true,
             positional = false),
         @Param(
+            name = "remotable",
+            type = Boolean.class,
+            defaultValue = "False",
+            doc = "Compatible with remote execution",
+            named = true,
+            positional = false,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_REPO_REMOTE_EXEC,
+            valueWhenDisabled = "False"),
+        @Param(
             name = "doc",
             type = String.class,
             defaultValue = "''",
@@ -96,16 +107,24 @@ public interface RepositoryModuleApi {
             named = true,
             positional = false)
       },
-      useAst = true,
-      useEnvironment = true)
-  public BaseFunction repositoryRule(
-      BaseFunction implementation,
+      useStarlarkThread = true)
+  BaseFunction repositoryRule(
+      StarlarkFunction implementation,
       Object attrs,
       Boolean local,
-      SkylarkList<String> environ,
+      Sequence<?> environ, // <String> expected
       Boolean configure,
+      Boolean remotable,
       String doc,
-      FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
+
+  @SkylarkCallable(
+      name = "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc",
+      doc =
+          "When --incompatible_use_cc_configure_from_rules_cc is set to true, Bazel will "
+              + "fail the build. Please see https://github.com/bazelbuild/bazel/issues/10134 for "
+              + "details and migration instructions.",
+      useStarlarkThread = true)
+  void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread) throws EvalException;
 }

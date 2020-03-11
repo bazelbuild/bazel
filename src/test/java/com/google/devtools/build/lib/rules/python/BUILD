@@ -20,6 +20,7 @@ test_suite(
         ":PyProviderUtilsTest",
         ":PyRuntimeConfiguredTargetTest",
         ":PyRuntimeInfoTest",
+        ":PyStarlarkTransitionsTest",
         ":PyStructUtilsTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
@@ -203,13 +204,12 @@ java_test(
     name = "PyStructUtilsTest",
     srcs = ["PyStructUtilsTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
@@ -250,13 +250,28 @@ java_test(
 )
 
 java_test(
+    name = "PyStarlarkTransitionsTest",
+    srcs = ["PyStarlarkTransitionsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "PythonStarlarkApiTest",
     srcs = ["PythonStarlarkApiTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",

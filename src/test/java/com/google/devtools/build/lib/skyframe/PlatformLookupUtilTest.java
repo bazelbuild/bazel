@@ -138,9 +138,9 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
       return GET_PLATFORM_INFO_FUNCTION;
     }
 
-    abstract Iterable<ConfiguredTargetKey> platformKeys();
+    abstract ImmutableList<ConfiguredTargetKey> platformKeys();
 
-    public static GetPlatformInfoKey create(Iterable<ConfiguredTargetKey> platformKeys) {
+    public static GetPlatformInfoKey create(ImmutableList<ConfiguredTargetKey> platformKeys) {
       return new AutoValue_PlatformLookupUtilTest_GetPlatformInfoKey(platformKeys);
     }
   }

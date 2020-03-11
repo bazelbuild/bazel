@@ -24,6 +24,8 @@ public abstract class FieldInfo {
   }
 
   public abstract String owner();
+
   public abstract String name();
+
   public abstract String desc();
 }

@@ -29,15 +29,16 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkIterable;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -60,8 +61,8 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
-public final class OutputGroupInfo extends NativeInfo
-    implements SkylarkIndexable, Iterable<String>, OutputGroupInfoApi {
+public final class OutputGroupInfo extends StructImpl
+    implements SkylarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
   public static final String SKYLARK_NAME = "output_groups";
 
   public static final OutputGroupInfoProvider SKYLARK_CONSTRUCTOR = new OutputGroupInfoProvider();
@@ -100,6 +101,20 @@ public final class OutputGroupInfo extends NativeInfo
       HIDDEN_OUTPUT_GROUP_PREFIX + "hidden_top_level" + INTERNAL_SUFFIX;
 
   /**
+   * This output group contains artifacts that are the outputs of validation actions. These actions
+   * should be run even if no other action depends on their outputs, therefore this output group is:
+   *
+   * <ul>
+   *   <li>built even if <code>--output_groups</code> overrides the default output groups
+   *   <li>not affected by the subtraction operation of <code>--output_groups</code> (i.e. <code>
+   *       "--output_groups=-_validation"</code>)
+   * </ul>
+   *
+   * The only way to disable this output group is with <code>--run_validations=false</code>.
+   */
+  public static final String VALIDATION = HIDDEN_OUTPUT_GROUP_PREFIX + "validation";
+
+  /**
    * Temporary files created during building a rule, for example, .i, .d and .s files for C++
    * compilation.
    *
@@ -124,7 +139,7 @@ public final class OutputGroupInfo extends NativeInfo
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.outputGroups = outputGroups;
   }
 
@@ -180,19 +195,22 @@ public final class OutputGroupInfo extends NativeInfo
     return new OutputGroupInfo(resultBuilder.build());
   }
 
-  public static ImmutableSortedSet<String> determineOutputGroups(List<String> outputGroups) {
-    return determineOutputGroups(DEFAULT_GROUPS, outputGroups);
+  public static ImmutableSortedSet<String> determineOutputGroups(
+      List<String> outputGroups, boolean includeValidationOutputGroup) {
+    return determineOutputGroups(DEFAULT_GROUPS, outputGroups, includeValidationOutputGroup);
   }
 
   public static ImmutableSortedSet<String> determineOutputGroups(
-      Set<String> defaultOutputGroups, List<String> outputGroups) {
+      Set<String> defaultOutputGroups,
+      List<String> outputGroups,
+      boolean includeValidationOutputGroup) {
 
     Set<String> current = Sets.newHashSet();
 
     // If all of the requested output groups start with "+" or "-", then these are added or
     // subtracted to the set of default output groups.
     // If any of them don't start with "+" or "-", then the list of requested output groups
-    // overrides the default set of output groups.
+    // overrides the default set of output groups, except for the validation output group.
     boolean addDefaultOutputGroups = true;
     for (String outputGroup : outputGroups) {
       if (!(outputGroup.startsWith("+") || outputGroup.startsWith("-"))) {
@@ -214,30 +232,31 @@ public final class OutputGroupInfo extends NativeInfo
       }
     }
 
+    // Add the validation output group regardless of the additions and subtractions above.
+    if (includeValidationOutputGroup) {
+      current.add(VALIDATION);
+    }
+
     return ImmutableSortedSet.copyOf(current);
   }
 
   @Override
-  public Object getIndex(Object key, Location loc, StarlarkContext context) throws EvalException {
+  public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     if (!(key instanceof String)) {
-      throw new EvalException(loc, String.format(
-          "Output grout names must be strings, got %s instead",
-          EvalUtils.getDataTypeName(key)));
+      throw Starlark.errorf(
+          "Output group names must be strings, got %s instead", Starlark.type(key));
     }
 
     NestedSet<Artifact> result = outputGroups.get(key);
     if (result != null) {
-      return SkylarkNestedSet.of(Artifact.class, result);
+      return Depset.of(Artifact.TYPE, result);
     } else {
-      throw new EvalException(loc, String.format(
-          "Output group %s not present", key
-      ));
+      throw Starlark.errorf("Output group %s not present", key);
     }
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc, StarlarkContext context)
-      throws EvalException {
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     return outputGroups.containsKey(key);
   }
 
@@ -252,7 +271,7 @@ public final class OutputGroupInfo extends NativeInfo
     if (result == null) {
       return null;
     }
-    return SkylarkNestedSet.of(Artifact.class, result);
+    return Depset.of(Artifact.TYPE, result);
   }
 
   @Override
@@ -270,8 +289,7 @@ public final class OutputGroupInfo extends NativeInfo
     }
 
     @Override
-    public OutputGroupInfoApi constructor(SkylarkDict<?, ?> kwargs, Location loc)
-        throws EvalException {
+    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException {
       Map<String, Object> kwargsMap = kwargs.getContents(String.class, Object.class, "kwargs");
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
@@ -279,7 +297,7 @@ public final class OutputGroupInfo extends NativeInfo
         builder.put(
             entry.getKey(),
             SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
-                loc, entry.getKey(), entry.getValue()));
+                entry.getKey(), entry.getValue()));
       }
       return new OutputGroupInfo(builder.build());
     }

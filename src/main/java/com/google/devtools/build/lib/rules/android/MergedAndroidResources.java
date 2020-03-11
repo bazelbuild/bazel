@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 public class MergedAndroidResources extends ParsedAndroidResources {
   private final Artifact mergedResources;
   private final Artifact classJar;
+  @Nullable private final Artifact aapt2RTxt;
   @Nullable private final Artifact dataBindingInfoZip;
   private final ResourceDependencies resourceDependencies;
   /**
@@ -39,14 +40,11 @@ public class MergedAndroidResources extends ParsedAndroidResources {
   public static MergedAndroidResources mergeFrom(
       AndroidDataContext dataContext,
       ParsedAndroidResources parsed,
-      ResourceDependencies resourceDeps,
-      AndroidAaptVersion aaptVersion)
+      ResourceDependencies resourceDeps)
       throws InterruptedException {
 
-    boolean useCompiledMerge = aaptVersion == AndroidAaptVersion.AAPT2;
-
-    Preconditions.checkState(
-        !useCompiledMerge || parsed.getCompiledSymbols() != null,
+    Preconditions.checkNotNull(
+        parsed.getCompiledSymbols(),
         "Should not use compiled merge if no compiled symbols are available!");
 
     AndroidResourceMergingActionBuilder builder =
@@ -54,18 +52,20 @@ public class MergedAndroidResources extends ParsedAndroidResources {
             .setJavaPackage(parsed.getJavaPackage())
             .withDependencies(resourceDeps)
             .setThrowOnResourceConflict(dataContext.throwOnResourceConflict())
-            .setUseCompiledMerge(useCompiledMerge)
             .setAnnotateRFieldsFromTransitiveDeps(dataContext.annotateRFieldsFromTransitiveDeps())
-            .setOmitTransitiveDependencies(
+            .setOmitTransitiveDependenciesFromAndroidRClasses(
                 dataContext.omitTransitiveResourcesFromAndroidRClasses());
 
     parsed.asDataBindingContext().supplyLayoutInfo(builder::setDataBindingInfoZip);
 
+    if (dataContext.getAndroidConfig().useRTxtFromMergedResources()) {
+      builder.setAapt2RTxtOut(
+          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT));
+    }
+
     return builder
         .setManifestOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
-        .setMergedResourcesOut(
-            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
         .setClassJarOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
         .build(dataContext, parsed);
@@ -75,11 +75,18 @@ public class MergedAndroidResources extends ParsedAndroidResources {
       ParsedAndroidResources parsed,
       Artifact mergedResources,
       Artifact classJar,
+      Artifact aapt2RTxt,
       @Nullable Artifact dataBindingInfoZip,
       ResourceDependencies resourceDependencies,
       ProcessedAndroidManifest manifest) {
     return new MergedAndroidResources(
-        parsed, mergedResources, classJar, dataBindingInfoZip, resourceDependencies, manifest);
+        parsed,
+        mergedResources,
+        classJar,
+        aapt2RTxt,
+        dataBindingInfoZip,
+        resourceDependencies,
+        manifest);
   }
 
   MergedAndroidResources(MergedAndroidResources other) {
@@ -87,6 +94,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
         other,
         other.mergedResources,
         other.classJar,
+        other.aapt2RTxt,
         other.dataBindingInfoZip,
         other.resourceDependencies,
         other.manifest);
@@ -96,12 +104,14 @@ public class MergedAndroidResources extends ParsedAndroidResources {
       ParsedAndroidResources other,
       Artifact mergedResources,
       Artifact classJar,
+      Artifact aapt2RTxt,
       @Nullable Artifact dataBindingInfoZip,
       ResourceDependencies resourceDependencies,
       ProcessedAndroidManifest manifest) {
     super(other, manifest);
     this.mergedResources = mergedResources;
     this.classJar = classJar;
+    this.aapt2RTxt = aapt2RTxt;
     this.dataBindingInfoZip = dataBindingInfoZip;
     this.resourceDependencies = resourceDependencies;
     this.manifest = manifest;
@@ -134,6 +144,11 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     return classJar;
   }
 
+  @Nullable
+  Artifact getAapt2RTxt() {
+    return aapt2RTxt;
+  }
+
   @Override
   public ProcessedAndroidManifest getStampedManifest() {
     return manifest;
@@ -154,9 +169,9 @@ public class MergedAndroidResources extends ParsedAndroidResources {
    * MergedAndroidResources, AndroidAaptVersion)}. This method is a convenience method for calling
    * that one.
    */
-  public ValidatedAndroidResources validate(
-      AndroidDataContext dataContext, AndroidAaptVersion aaptVersion) throws InterruptedException {
-    return ValidatedAndroidResources.validateFrom(dataContext, this, aaptVersion);
+  public ValidatedAndroidResources validate(AndroidDataContext dataContext)
+      throws InterruptedException {
+    return ValidatedAndroidResources.validateFrom(dataContext, this);
   }
 
   @Override
@@ -170,6 +185,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
                     parsed,
                     mergedResources,
                     classJar,
+                    aapt2RTxt,
                     dataBindingInfoZip,
                     resourceDependencies,
                     manifest));
@@ -182,8 +198,9 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     }
 
     MergedAndroidResources other = (MergedAndroidResources) object;
-    return mergedResources.equals(other.mergedResources)
+    return Objects.equals(mergedResources, other.mergedResources)
         && classJar.equals(other.classJar)
+        && Objects.equals(aapt2RTxt, other.aapt2RTxt)
         && Objects.equals(dataBindingInfoZip, other.dataBindingInfoZip)
         && resourceDependencies.equals(other.resourceDependencies);
   }
@@ -191,6 +208,11 @@ public class MergedAndroidResources extends ParsedAndroidResources {
   @Override
   public int hashCode() {
     return Objects.hash(
-        super.hashCode(), mergedResources, classJar, dataBindingInfoZip, resourceDependencies);
+        super.hashCode(),
+        mergedResources,
+        classJar,
+        aapt2RTxt,
+        dataBindingInfoZip,
+        resourceDependencies);
   }
 }

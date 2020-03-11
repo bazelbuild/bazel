@@ -28,9 +28,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test that exercises the behavior of the IndexedInputs class.
- */
+/** Test that exercises the behavior of the IndexedInputs class. */
 @RunWith(JUnit4.class)
 public final class IndexedInputsTest {
 
@@ -110,21 +108,15 @@ public final class IndexedInputsTest {
   public void testClassFoundWithoutParentLibrary() throws Exception {
     IndexedInputs ijLib1Lib2 =
         new IndexedInputs(ImmutableList.of(lib1InputFileProvider, lib2InputFileProvider));
-    assertThat(ijLib1Lib2.getInputFileProvider("a/b/C.class").toString())
-        .isEqualTo(lib1Name);
-    assertThat(ijLib1Lib2.getInputFileProvider("a/b/D.class").toString())
-        .isEqualTo(lib1Name);
-    assertThat(ijLib1Lib2.getInputFileProvider("a/b/E.class").toString())
-        .isEqualTo(lib2Name);
+    assertThat(ijLib1Lib2.getInputFileProvider("a/b/C.class").toString()).isEqualTo(lib1Name);
+    assertThat(ijLib1Lib2.getInputFileProvider("a/b/D.class").toString()).isEqualTo(lib1Name);
+    assertThat(ijLib1Lib2.getInputFileProvider("a/b/E.class").toString()).isEqualTo(lib2Name);
 
     IndexedInputs ijLib2Lib1 =
         new IndexedInputs(ImmutableList.of(lib2InputFileProvider, lib1InputFileProvider));
-    assertThat(ijLib2Lib1.getInputFileProvider("a/b/C.class").toString())
-        .isEqualTo(lib2Name);
-    assertThat(ijLib2Lib1.getInputFileProvider("a/b/D.class").toString())
-        .isEqualTo(lib1Name);
-    assertThat(ijLib2Lib1.getInputFileProvider("a/b/E.class").toString())
-        .isEqualTo(lib2Name);
+    assertThat(ijLib2Lib1.getInputFileProvider("a/b/C.class").toString()).isEqualTo(lib2Name);
+    assertThat(ijLib2Lib1.getInputFileProvider("a/b/D.class").toString()).isEqualTo(lib1Name);
+    assertThat(ijLib2Lib1.getInputFileProvider("a/b/E.class").toString()).isEqualTo(lib2Name);
   }
 
   @Test

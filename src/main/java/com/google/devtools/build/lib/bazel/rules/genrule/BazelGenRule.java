@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBase;
-import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * An implementation of genrule for Bazel.

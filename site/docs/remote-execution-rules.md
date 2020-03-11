@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Adapting Bazel Rules for Remote Execution
+title: Adapting Bazel rules for remote execution
 ---
 
-# Adapting Bazel Rules for Remote Execution
+# Adapting Bazel rules for remote execution
 
 Remote execution allows Bazel to execute actions on a separate platform, such as
 a datacenter. A [gRPC protocol](https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)

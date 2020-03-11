@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -29,6 +28,9 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -61,7 +63,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    */
   public ParameterFileWriteAction(ActionOwner owner, Artifact output, CommandLine commandLine,
       ParameterFileType type, Charset charset) {
-    this(owner, ImmutableList.<Artifact>of(), output, commandLine, type, charset);
+    this(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, commandLine, type, charset);
   }
 
   /**
@@ -78,7 +80,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   @AutoCodec.Instantiator
   public ParameterFileWriteAction(
       ActionOwner owner,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       Artifact output,
       CommandLine commandLine,
       ParameterFileType type,
@@ -87,7 +89,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     this.commandLine = commandLine;
     this.type = type;
     this.charset = charset;
-    this.hasInputArtifactToExpand = !Iterables.isEmpty(inputs);
+    this.hasInputArtifactToExpand = !inputs.isEmpty();
   }
 
   @VisibleForTesting

@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -46,13 +48,12 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    * @param owner the action owner.
    * @param inputs the Artifacts that this Action depends on
    * @param output the Artifact that will be created by executing this Action.
-   * @param makeExecutable iff true will change the output file to be
-   *   executable.
+   * @param makeExecutable iff true will change the output file to be executable.
    */
-  public AbstractFileWriteAction(ActionOwner owner,
-      Iterable<Artifact> inputs, Artifact output, boolean makeExecutable) {
+  public AbstractFileWriteAction(
+      ActionOwner owner, NestedSet<Artifact> inputs, Artifact output, boolean makeExecutable) {
     // There is only one output, and it is primary.
-    super(owner, inputs, ImmutableList.of(output));
+    super(owner, inputs, ImmutableSet.of(output));
     this.makeExecutable = makeExecutable;
   }
 
@@ -76,23 +77,12 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
       FileWriteActionContext context = getStrategy(actionExecutionContext);
       SpawnContinuation first =
-          new SpawnContinuation() {
-            @Override
-            public ListenableFuture<?> getFuture() {
-              return null;
-            }
-
-            @Override
-            public SpawnContinuation execute() throws ExecException, InterruptedException {
-              return context.beginWriteOutputToFile(
-                  AbstractFileWriteAction.this,
-                  actionExecutionContext,
-                  deterministicWriter,
-                  makeExecutable,
-                  isRemotable());
-            }
-          };
-
+          context.beginWriteOutputToFile(
+              AbstractFileWriteAction.this,
+              actionExecutionContext,
+              deterministicWriter,
+              makeExecutable,
+              isRemotable());
       return new ActionContinuationOrResult() {
         private SpawnContinuation spawnContinuation = first;
 
@@ -105,11 +95,11 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
         @Override
         public ActionContinuationOrResult execute()
             throws ActionExecutionException, InterruptedException {
-          SpawnContinuation next;
+          SpawnContinuation nextContinuation;
           try {
-            next = spawnContinuation.execute();
-            if (!next.isDone()) {
-              spawnContinuation = next;
+            nextContinuation = spawnContinuation.execute();
+            if (!nextContinuation.isDone()) {
+              spawnContinuation = nextContinuation;
               return this;
             }
           } catch (ExecException e) {
@@ -119,9 +109,9 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
                 AbstractFileWriteAction.this);
           }
           afterWrite(actionExecutionContext);
-          return ActionContinuationOrResult.of(ActionResult.create(next.get()));
+          return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
-      }.execute();
+      };
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
@@ -137,7 +127,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    */
   public abstract DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException, InterruptedException, ExecException;
-  
+
   /**
    * This hook is called after the File has been successfully written to disk.
    *
@@ -165,8 +155,9 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     return true;
   }
 
-  private FileWriteActionContext getStrategy(ActionExecutionContext actionExecutionContext) {
-    return actionExecutionContext.getContext(FileWriteActionContext.class);
+  private FileWriteActionContext getStrategy(
+      ActionContext.ActionContextRegistry actionContextRegistry) {
+    return actionContextRegistry.getContext(FileWriteActionContext.class);
   }
 
   /**

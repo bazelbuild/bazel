@@ -16,8 +16,8 @@
 
 # Script for building bazel from scratch without bazel
 
-PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto)
-LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
+PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto src/main/java/com/google/devtools/build/skyframe/*.proto src/main/java/com/google/devtools/build/lib/skyframe/proto/*.proto)
+LIBRARY_JARS=$(find derived/jars third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
 GRPC_JAVA_VERSION=1.20.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
 GUAVA_VERSION=25.1
@@ -228,6 +228,8 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
                 -I. \
                 -Isrc/main/protobuf/ \
                 -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
+                -Isrc/main/java/com/google/devtools/build/lib/skyframe/proto/ \
+                -Isrc/main/java/com/google/devtools/build/skyframe/ \
                 --java_out=${OUTPUT_DIR}/src \
                 --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
                 --grpc_out=${OUTPUT_DIR}/src "$f"
@@ -289,6 +291,7 @@ EOF
 
   # Create the rest of @bazel_tools//tools/...
   link_children "${PWD}" tools/cpp "${BAZEL_TOOLS_REPO}"
+  mv -f ${BAZEL_TOOLS_REPO}/tools/cpp/BUILD.tools ${BAZEL_TOOLS_REPO}/tools/cpp/BUILD
   link_children "${PWD}" tools/python "${BAZEL_TOOLS_REPO}"
   link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
@@ -310,21 +313,21 @@ fi
 
 log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
-mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
+mkdir -p ${ARCHIVE_DIR}
 
 # Prepare @platforms local repository
-link_dir ${PWD}/platforms ${ARCHIVE_DIR}/_embedded_binaries/platforms
+link_dir ${PWD}/platforms ${ARCHIVE_DIR}/platforms
 
 # Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
 if [ "${PLATFORM}" = "windows" ]; then
   # We don't rely on runfiles trees on Windows
-  cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
+  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
 #!/bin/sh
 mkdir -p $2
 cp $1 $2/MANIFEST
 EOF
 else
-  cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
+  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
 #!/bin/sh
 # This is bash implementation of build-runfiles: reads space-separated paths
 # from each line in the file in $1, then creates a symlink under $2 for the
@@ -356,7 +359,7 @@ cp "$MANIFEST" "$TREE/MANIFEST"
 EOF
 fi
 
-chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
+chmod 0755 ${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
 
 function build_jni() {
   local -r output_dir=$1
@@ -390,17 +393,17 @@ function build_jni() {
   fi
 }
 
-build_jni "${ARCHIVE_DIR}/_embedded_binaries"
+build_jni "${ARCHIVE_DIR}"
 
-cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/_embedded_binaries/jdk.BUILD
+cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/jdk.BUILD
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 
 # TODO(b/28965185): Remove when xcode-locator is no longer required in embedded_binaries.
 log "Compiling xcode-locator..."
 if [[ $PLATFORM == "darwin" ]]; then
-  run /usr/bin/xcrun clang -fobjc-arc -framework CoreServices -framework Foundation -o ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator tools/osx/xcode_locator.m
+  run /usr/bin/xcrun --sdk macosx clang -mmacosx-version-min=10.9 -fobjc-arc -framework CoreServices -framework Foundation -o ${ARCHIVE_DIR}/xcode-locator tools/osx/xcode_locator.m
 else
-  cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
+  cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/xcode-locator
 fi
 
 function get_cwd() {

@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -45,15 +46,11 @@ public class BuildInfoCollectionFunction implements SkyFunction {
   private final ActionKeyContext actionKeyContext;
   // Supplier only because the artifact factory has not yet been created at constructor time.
   private final Supplier<ArtifactFactory> artifactFactory;
-  private final ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories;
 
   BuildInfoCollectionFunction(
-      ActionKeyContext actionKeyContext,
-      Supplier<ArtifactFactory> artifactFactory,
-      ImmutableMap<BuildInfoKey, BuildInfoFactory> buildInfoFactories) {
+      ActionKeyContext actionKeyContext, Supplier<ArtifactFactory> artifactFactory) {
     this.actionKeyContext = actionKeyContext;
     this.artifactFactory = artifactFactory;
-    this.buildInfoFactories = buildInfoFactories;
   }
 
   @Override
@@ -74,6 +71,13 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(
         nameValue.getName());
 
+    BuildConfiguration config =
+        ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey())).getConfiguration();
+    Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories =
+        PrecomputedValue.BUILD_INFO_FACTORIES.get(env);
+    BuildInfoFactory buildInfoFactory = buildInfoFactories.get(keyAndConfig.getInfoKey());
+    Preconditions.checkState(buildInfoFactory.isEnabled(config));
+
     final ArtifactFactory factory = artifactFactory.get();
     BuildInfoContext context =
         new BuildInfoContext() {
@@ -86,15 +90,12 @@ public class BuildInfoCollectionFunction implements SkyFunction {
           }
         };
     BuildInfoCollection collection =
-        buildInfoFactories
-            .get(keyAndConfig.getInfoKey())
-            .create(
-                context,
-                ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey()))
-                    .getConfiguration(),
-                infoArtifactValue.getStableArtifact(),
-                infoArtifactValue.getVolatileArtifact(),
-                repositoryName);
+        buildInfoFactory.create(
+            context,
+            config,
+            infoArtifactValue.getStableArtifact(),
+            infoArtifactValue.getVolatileArtifact(),
+            repositoryName);
     GeneratingActions generatingActions;
     try {
       generatingActions =

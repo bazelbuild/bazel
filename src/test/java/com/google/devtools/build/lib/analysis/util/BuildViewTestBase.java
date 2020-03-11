@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.events.Event;
@@ -44,10 +45,11 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
 
   protected static int getFrequencyOfErrorsWithLocation(
       PathFragment path, EventCollector eventCollector) {
+    String filename = path.getPathString();
     int frequency = 0;
     for (Event event : eventCollector) {
       if (event.getLocation() != null) {
-        if (path.equals(event.getLocation().getPath())) {
+        if (filename.equals(event.getLocation().file())) {
           frequency++;
         }
       }
@@ -150,7 +152,13 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
       events.add(event);
     }
 
+    @Subscribe
+    public void analysisFailureCause(AnalysisRootCauseEvent event) {
+      causes.add(event);
+    }
+
     public final List<AnalysisFailureEvent> events = new ArrayList<>();
+    public final List<AnalysisRootCauseEvent> causes = new ArrayList<>();
   }
 
   /**

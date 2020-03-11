@@ -18,9 +18,8 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -28,16 +27,21 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
@@ -45,7 +49,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.Clas
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -74,6 +77,7 @@ public interface JavaSemantics {
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
       fromTemplates("%{name}_proguard.config");
   SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT = fromTemplates("%{name}-one-version.txt");
+  SafeImplicitOutputsFunction SHARED_ARCHIVE_ARTIFACT = fromTemplates("%{name}.jsa");
 
   SafeImplicitOutputsFunction JAVA_COVERAGE_RUNTIME_CLASS_PATH_TXT =
       fromTemplates("%{name}-runtime-classpath.txt");
@@ -82,6 +86,7 @@ public interface JavaSemantics {
       fromTemplates("%{name}_deploy-src.jar");
 
   SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE = fromTemplates("%{name}_classpaths_file");
+  String TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER = "%test_runtime_classpath_file%";
 
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
@@ -167,25 +172,25 @@ public interface JavaSemantics {
               ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
 
   @AutoCodec
-  LabelListLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZERS =
-      LabelListLateBoundDefault.fromTargetConfiguration(
+  LabelLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZER =
+      LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
+          null,
           (rule, attributes, javaConfig) -> {
             // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
             boolean hasProguardSpecs =
                 attributes.has("proguard_specs")
                     && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
-            if (!hasProguardSpecs) {
-              return ImmutableList.<Label>of();
+            JavaConfiguration.NamedLabel optimizer = javaConfig.getBytecodeOptimizer();
+            if (!hasProguardSpecs || !optimizer.label().isPresent()) {
+              return null;
             }
-            return ImmutableList.copyOf(
-                Optional.presentInstances(javaConfig.getBytecodeOptimizers().values()));
+            return optimizer.label().get();
           });
 
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
   String JACOCO_MAIN_CLASS_PLACEHOLDER = "%set_jacoco_main_class%";
   String JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER = "%set_jacoco_java_runfiles_root%";
-  String JAVA_COVERAGE_NEW_IMPLEMENTATION_PLACEHOLDER = "%set_java_coverage_new_implementation%";
 
   /** Substitution for exporting the jars needed for jacoco coverage. */
   class ComputedJacocoSubstitution extends ComputedSubstitution {
@@ -204,7 +209,7 @@ public interface JavaSemantics {
      */
     @Override
     public String getValue() {
-      return Streams.stream(jars)
+      return jars.toList().stream()
           .map(artifact -> pathPrefix + "/" + artifact.getRootRelativePathString())
           .collect(Collectors.joining(File.pathSeparator, "export JACOCO_METADATA_JARS=", ""));
     }
@@ -259,7 +264,8 @@ public interface JavaSemantics {
       Artifact launcher,
       boolean usingNativeSinglejar,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      Artifact oneVersionWhitelistArtifact);
+      Artifact oneVersionWhitelistArtifact,
+      Artifact sharedArchive);
 
   /**
    * Creates the action that writes the Java executable stub script.
@@ -317,12 +323,55 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
-  /**
-   * Optionally creates a file containing the relative classpaths within the runfiles tree. If
-   * {@link Optional#isPresent()}, then the caller should ensure the file appears in the runfiles.
-   */
-  Optional<Artifact> createClasspathsFile(RuleContext ruleContext, JavaCommon javaCommon)
-      throws InterruptedException;
+  static boolean isTestTargetAndPersistentTestRunner(RuleContext ruleContext) {
+    return ruleContext.isTestTarget()
+        && ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
+  }
+
+  static Runfiles getTestSupportRunfiles(RuleContext ruleContext) {
+    TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
+    if (testSupport == null) {
+      return Runfiles.EMPTY;
+    }
+
+    RunfilesProvider testSupportRunfilesProvider = testSupport.getProvider(RunfilesProvider.class);
+    return testSupportRunfilesProvider.getDefaultRunfiles();
+  }
+
+  static NestedSet<Artifact> getTestSupportRuntimeClasspath(RuleContext ruleContext) {
+    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
+    if (testSupport == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    return JavaInfo.getProvider(JavaCompilationArgsProvider.class, testSupport).getRuntimeJars();
+  }
+
+  static TransitiveInfoCollection getTestSupport(RuleContext ruleContext) {
+    if (!isJavaBinaryOrJavaTest(ruleContext)) {
+      return null;
+    }
+
+    if (useLegacyJavaTest(ruleContext)) {
+      return null;
+    }
+
+    boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
+    if (createExecutable && ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
+      return Iterables.getOnlyElement(ruleContext.getPrerequisites("$testsupport", Mode.TARGET));
+    } else {
+      return null;
+    }
+  }
+
+  static boolean useLegacyJavaTest(RuleContext ruleContext) {
+    return !ruleContext.attributes().isAttributeValueExplicitlySpecified("test_class")
+        && ruleContext.getFragment(JavaConfiguration.class).useLegacyBazelJavaTest();
+  }
+
+  static boolean isJavaBinaryOrJavaTest(RuleContext ruleContext) {
+    return ruleContext.getRule().getRuleClass().equals("java_binary")
+        || ruleContext.getRule().getRuleClass().equals("java_test");
+  }
 
   /** Adds extra runfiles for a {@code java_binary} rule. */
   void addRunfilesForBinary(
@@ -453,12 +502,6 @@ public interface JavaSemantics {
       throws InterruptedException;
 
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
-
-  /**
-   * Checks if dependency errors coming from java_proto_library rules should be treated as errors
-   * even if the java_proto_library rule sets strict_deps = 0.
-   */
-  boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext);
 
   void checkDependencyRuleKinds(RuleContext ruleContext);
 }

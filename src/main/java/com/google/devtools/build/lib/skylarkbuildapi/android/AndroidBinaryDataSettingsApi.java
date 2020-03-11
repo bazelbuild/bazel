@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Wraps common settings for working with android binary assets, resources, and manifests. */
 @SkylarkModule(
@@ -24,4 +25,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
             + "Wraps common settings for working with android binary assets, resources, and "
             + "manifest",
     documented = false)
-public interface AndroidBinaryDataSettingsApi {}
+public interface AndroidBinaryDataSettingsApi extends StarlarkValue {}

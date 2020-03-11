@@ -39,6 +39,14 @@ public final class ProcessWrapperUtil {
     return cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(PROCESS_WRAPPER);
   }
 
+  /**
+   * Return the {@link Path} of the process wrapper binary, given the path of the embedded binaries
+   * root.
+   */
+  public static Path getProcessWrapper(Path embeddedBinariesRoot) {
+    return embeddedBinariesRoot.getRelative(PROCESS_WRAPPER);
+  }
+
   /** Returns a new {@link CommandLineBuilder} for the process wrapper tool. */
   public static CommandLineBuilder commandLineBuilder(
       String processWrapperPath, List<String> commandArguments) {

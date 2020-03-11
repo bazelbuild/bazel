@@ -14,15 +14,18 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -48,12 +51,14 @@ public final class TestTargetExecutionSettings {
   private final Runfiles runfiles;
   private final Artifact runfilesInputManifest;
   private final Artifact instrumentedFileManifest;
+  private final boolean testRunnerFailFast;
 
   TestTargetExecutionSettings(
       RuleContext ruleContext,
       RunfilesSupport runfilesSupport,
       Artifact executable,
       Artifact instrumentedFileManifest,
+      Artifact persistentTestRunnerFlagFile,
       int shards,
       int runs) {
     Preconditions.checkArgument(TargetUtils.isTestRule(ruleContext.getRule()));
@@ -62,8 +67,35 @@ public final class TestTargetExecutionSettings {
     TestConfiguration testConfig = config.getFragment(TestConfiguration.class);
 
     CommandLine targetArgs = runfilesSupport.getArgs();
-    testArguments =
-        CommandLine.concat(targetArgs, ImmutableList.copyOf(testConfig.getTestArguments()));
+    if (persistentTestRunnerFlagFile != null) {
+      // If an flag artifact exists for the persistent test runner, register an action that writes
+      // the test arguments to the said artifact. When the test runner runs in a persistent worker,
+      // the worker expects to find the test arguments in a special flag file.
+      ImmutableList.Builder<String> testTargetArgs = new ImmutableList.Builder<>();
+      try {
+        testTargetArgs.addAll(targetArgs.arguments());
+      } catch (CommandLineExpansionException e) {
+        // Don't fail the build and ignore the runfiles arguments.
+        ruleContext.ruleError("Could not expand test target arguments: " + e.getMessage());
+      }
+      testTargetArgs.addAll(testConfig.getTestArguments());
+      ruleContext.registerAction(
+          FileWriteAction.create(
+              ruleContext.getActionOwner(),
+              persistentTestRunnerFlagFile,
+              /* fileContents= */ Joiner.on(System.lineSeparator()).join(testTargetArgs.build()),
+              /* makeExecutable= */ false,
+              /* allowCompression= */ FileWriteAction.Compression.DISALLOW));
+
+      // When using the persistent test runner the test arguments are passed through --flagfile.
+      testArguments =
+          CommandLine.of(
+              ImmutableList.of(
+                  "--flagfile=" + persistentTestRunnerFlagFile.getRootRelativePathString()));
+    } else {
+      testArguments =
+          CommandLine.concat(targetArgs, ImmutableList.copyOf(testConfig.getTestArguments()));
+    }
 
     totalShards = shards;
     totalRuns = runs;
@@ -71,8 +103,9 @@ public final class TestTargetExecutionSettings {
     runUnderExecutable = getRunUnderExecutable(ruleContext);
 
     this.testFilter = testConfig.getTestFilter();
+    this.testRunnerFailFast = testConfig.getTestRunnerFailFast();
     this.executable = executable;
-    this.runfilesSymlinksCreated = runfilesSupport.getCreateSymlinks();
+    this.runfilesSymlinksCreated = runfilesSupport.isBuildRunfileLinks();
     this.runfilesDir = runfilesSupport.getRunfilesDirectory();
     this.runfiles = runfilesSupport.getRunfiles();
     this.runfilesInputManifest = runfilesSupport.getRunfilesInputManifest();
@@ -97,6 +130,10 @@ public final class TestTargetExecutionSettings {
 
   public String getTestFilter() {
     return testFilter;
+  }
+
+  public boolean getTestRunnerFailFast() {
+    return testRunnerFailFast;
   }
 
   public int getTotalShards() {

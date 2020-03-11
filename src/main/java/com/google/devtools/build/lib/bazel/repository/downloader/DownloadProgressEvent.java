@@ -75,7 +75,7 @@ public class DownloadProgressEvent implements ExtendedEventHandler.FetchProgress
     if (bytesRead > 0) {
       NumberFormat formatter = NumberFormat.getIntegerInstance(Locale.ENGLISH);
       formatter.setGroupingUsed(true);
-      return formatter.format(bytesRead) + "b";
+      return formatter.format(bytesRead) + "B";
     } else {
       return "";
     }

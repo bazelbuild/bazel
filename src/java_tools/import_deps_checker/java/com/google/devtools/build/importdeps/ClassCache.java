@@ -22,6 +22,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.Closer;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.ExistingState;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
@@ -33,7 +34,6 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -74,7 +74,7 @@ public final class ClassCache implements Closeable {
     return entry.getState(lazyClasspath);
   }
 
-  public ImmutableList<Path> collectUsedJarsInRegularClasspath() {
+  public ImmutableMap<Path, Boolean> collectUsedJarsInRegularClasspath() {
     return lazyClasspath.collectUsedJarsInRegularClasspath();
   }
 
@@ -88,18 +88,19 @@ public final class ClassCache implements Closeable {
     private final String internalName;
     private final ZipFile zipFile;
     private final Path jarPath;
-    private final boolean direct;
+    private final boolean isDirectDep;
 
     /**
      * The state of this class entry. If {@literal null}, then this class has not been resolved yet.
      */
     @Nullable private AbstractClassEntryState state = null;
 
-    private LazyClassEntry(String internalName, ZipFile zipFile, Path jarPath, boolean direct) {
+    private LazyClassEntry(
+        String internalName, ZipFile zipFile, Path jarPath, boolean isDirectDep) {
       this.internalName = internalName;
       this.zipFile = zipFile;
       this.jarPath = jarPath;
-      this.direct = direct;
+      this.isDirectDep = isDirectDep;
     }
 
     ZipFile getZipFile() {
@@ -132,13 +133,21 @@ public final class ClassCache implements Closeable {
       if (isResolved()) {
         return;
       }
-      resolveClassEntry(this, lazyClasspath);
+      resolveClassEntry(this, lazyClasspath, /* explicitUse= */ true);
       checkNotNull(state, "After resolution, the state cannot be null");
     }
 
-    private static void resolveClassEntry(LazyClassEntry classEntry, LazyClasspath lazyClasspath) {
+    private static void resolveClassEntry(
+        LazyClassEntry classEntry, LazyClasspath lazyClasspath, boolean explicitUse) {
       if (classEntry.state != null) {
         // Already resolved. See if it is the existing state.
+        if (classEntry.state instanceof ExistingState) {
+          ExistingState state = (ExistingState) classEntry.state;
+          if (!state.direct() && explicitUse) {
+            // If the state was previously indirect, update now for direct dep
+            classEntry.state = ExistingState.create(state.classInfo().get(), explicitUse);
+          }
+        }
         return;
       }
 
@@ -157,7 +166,7 @@ public final class ClassCache implements Closeable {
           failurePath.map(resolutionFailureChainsBuilder::add);
         }
         ClassInfoBuilder classInfoBuilder =
-            new ClassInfoBuilder().setJarPath(classEntry.jarPath).setDirect(classEntry.direct);
+            new ClassInfoBuilder().setJarPath(classEntry.jarPath).setDirect(classEntry.isDirectDep);
         // Only visit the class if we need to extract its list of members.  If we do visit, skip
         // code and debug attributes since we just care about finding declarations here.
         if (lazyClasspath.populateMembers) {
@@ -173,7 +182,8 @@ public final class ClassCache implements Closeable {
             resolutionFailureChainsBuilder.build();
         if (resolutionFailureChains.isEmpty()) {
           classEntry.state =
-              ExistingState.create(classInfoBuilder.build(lazyClasspath, /*incomplete=*/ false));
+              ExistingState.create(
+                  classInfoBuilder.build(lazyClasspath, /*incomplete=*/ false), explicitUse);
         } else {
           ClassInfo classInfo = classInfoBuilder.build(lazyClasspath, /*incomplete=*/ true);
           classEntry.state =
@@ -199,7 +209,7 @@ public final class ClassCache implements Closeable {
       if (superClassEntry == null) {
         return Optional.of(ResolutionFailureChain.createMissingClass(superName));
       } else {
-        resolveClassEntry(superClassEntry, lazyClasspath);
+        resolveClassEntry(superClassEntry, lazyClasspath, /* explicitUse= */ false);
         AbstractClassEntryState superState = superClassEntry.state;
         if (superState instanceof ExistingState) {
           // Do nothing. Good to proceed.
@@ -268,7 +278,7 @@ public final class ClassCache implements Closeable {
           .orElse(null);
     }
 
-    public ImmutableList<Path> collectUsedJarsInRegularClasspath() {
+    public ImmutableMap<Path, Boolean> collectUsedJarsInRegularClasspath() {
       return regularClasspath.collectUsedJarFiles();
     }
 
@@ -308,15 +318,18 @@ public final class ClassCache implements Closeable {
       return classIndex.get(internalName);
     }
 
-    public ImmutableList<Path> collectUsedJarFiles() {
-      HashSet<Path> usedJars = new HashSet<>();
+    /** Second argument in the Map is if the jar is used directly (at least once). */
+    public ImmutableMap<Path, Boolean> collectUsedJarFiles() {
+      Map<Path, Boolean> usedJars = new HashMap<>();
       for (Map.Entry<String, LazyClassEntry> entry : classIndex.entrySet()) {
         LazyClassEntry clazz = entry.getValue();
         if (clazz.isResolved()) {
-          usedJars.add(clazz.jarPath);
+          if (!usedJars.containsKey(clazz.jarPath) || clazz.state.direct()) {
+            usedJars.put(clazz.jarPath, clazz.state.direct());
+          }
         }
       }
-      return ImmutableList.sortedCopyOf(usedJars);
+      return ImmutableSortedMap.copyOf(usedJars);
     }
 
     private void printClasspath(PrintStream stream) {

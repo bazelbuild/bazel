@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -48,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -110,20 +109,20 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * <p>All implementations must be immutable and communicate this as clearly as possible (e.g.
    * declare {@link ImmutableList} signatures on their interfaces vs. {@link List}). This is because
    * fragment instances may be shared across configurations.
+   *
+   * <p>Fragments are Starlark values, as returned by {@code ctx.fragments.android}, for example.
    */
-  public abstract static class Fragment {
+  public abstract static class Fragment implements StarlarkValue {
     /**
-     * Validates the options for this Fragment. Issues warnings for the
-     * use of deprecated options, and warnings or errors for any option settings
-     * that conflict.
+     * Validates the options for this Fragment. Issues warnings for the use of deprecated options,
+     * and warnings or errors for any option settings that conflict.
      */
     @SuppressWarnings("unused")
-    public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    }
+    public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {}
 
     /**
-     * Returns a fragment of the output directory name for this configuration. The output
-     * directory for the whole configuration contains all the short names by all fragments.
+     * Returns a fragment of the output directory name for this configuration. The output directory
+     * for the whole configuration contains all the short names by all fragments.
      */
     @Nullable
     public String getOutputDirectoryName() {
@@ -176,14 +175,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public boolean equalsOrIsSupersetOf(BuildConfiguration other) {
     return this.equals(other)
         || (other != null
-        // TODO(gregce): add back in output root checking. This requires a better approach to
-        // configuration-safe output paths. If the parent config has a fragment the child config
-        // doesn't, it may inject $(FOO) into the output roots. So the child bindir might be
-        // "bazel-out/arm-linux-fastbuild/bin" while the parent bindir is
-        // "bazel-out/android-arm-linux-fastbuild/bin". That's pretty awkward to check here.
-        //      && outputRoots.equals(other.outputRoots)
-                && fragments.values().containsAll(other.fragments.values())
-                && buildOptions.getNativeOptions().containsAll(other.buildOptions.getNativeOptions()));
+            // TODO(gregce): add back in output root checking. This requires a better approach to
+            // configuration-safe output paths. If the parent config has a fragment the child config
+            // doesn't, it may inject $(FOO) into the output roots. So the child bindir might be
+            // "bazel-out/arm-linux-fastbuild/bin" while the parent bindir is
+            // "bazel-out/android-arm-linux-fastbuild/bin". That's pretty awkward to check here.
+            //      && outputRoots.equals(other.outputRoots)
+            && fragments.values().containsAll(other.fragments.values())
+            && buildOptions.getNativeOptions().containsAll(other.buildOptions.getNativeOptions()));
   }
 
   /**
@@ -207,23 +206,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return Objects.hash(fragments, buildOptions.getNativeOptions());
   }
 
-  public void describe(StringBuilder sb) {
-    sb.append("BuildConfiguration ").append(checksum()).append(":\n");
-    // Fragments.
-    sb.append("  fragments: ")
-        .append(
-            getFragmentsMap().keySet().stream()
-                .sorted(comparing(Class::getName))
-                .map(Class::getName)
-                .collect(joining(",")))
-        .append("\n");
-    // Options.
-    getOptions().getFragmentClasses().stream()
-        .sorted(comparing(Class::getName))
-        .map(optionsClass -> getOptions().get(optionsClass))
-        .forEach(options -> options.describe(sb));
-  }
-
   @Override
   public int hashCode() {
     return hashCode;
@@ -235,9 +217,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   /**
-   * Validates the options for this BuildConfiguration. Issues warnings for the
-   * use of deprecated options, and warnings or errors for any option settings
-   * that conflict.
+   * Validates the options for this BuildConfiguration. Issues warnings for the use of deprecated
+   * options, and warnings or errors for any option settings that conflict.
    */
   public void reportInvalidOptions(EventHandler reporter) {
     for (Fragment fragment : fragments.values()) {
@@ -245,8 +226,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
     }
 
     if (options.outputDirectoryName != null) {
-      reporter.handle(Event.error(
-          "The internal '--output directory name' option cannot be used on the command line"));
+      reporter.handle(
+          Event.error(
+              "The internal '--output directory name' option cannot be used on the command line"));
     }
   }
 
@@ -363,8 +345,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
         fragmentsMap.put(fragment.getClass(), fragment);
       }
     }
-    BuildOptions options = buildOptions.trim(
-        getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
+    BuildOptions options =
+        buildOptions.trim(getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
     BuildConfiguration newConfig =
         new BuildConfiguration(
             getDirectories(),
@@ -377,9 +359,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return newConfig;
   }
 
-  /**
-   * Returns the config fragment options classes used by the given fragment types.
-   */
+  /** Returns the config fragment options classes used by the given fragment types. */
   public static Set<Class<? extends FragmentOptions>> getOptionsClasses(
       Iterable<Class<? extends Fragment>> fragmentClasses, RuleClassProvider ruleClassProvider) {
 
@@ -387,8 +367,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
         fragmentToRequiredOptions = ArrayListMultimap.create();
     for (ConfigurationFragmentFactory fragmentLoader :
         ((ConfiguredRuleClassProvider) ruleClassProvider).getConfigurationFragments()) {
-      fragmentToRequiredOptions.putAll(fragmentLoader.creates(),
-          fragmentLoader.requiredOptions());
+      fragmentToRequiredOptions.putAll(fragmentLoader.creates(), fragmentLoader.requiredOptions());
     }
     Set<Class<? extends FragmentOptions>> options = new HashSet<>();
     for (Class<? extends BuildConfiguration.Fragment> fragmentClass : fragmentClasses) {
@@ -420,17 +399,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   /** Returns the output directory for this build configuration. */
   public ArtifactRoot getOutputDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getOutputDirectory(repositoryName);
+    return outputDirectories.getOutputDirectory();
   }
 
   @Override
   public ArtifactRoot getBinDir() {
-    return outputDirectories.getBinDir();
+    return outputDirectories.getBinDirectory();
   }
 
   /** Returns the bin directory for this build configuration. */
   public ArtifactRoot getBinDirectory() {
-    return outputDirectories.getBinDirectory(RepositoryName.MAIN);
+    return outputDirectories.getBinDirectory();
   }
 
   /**
@@ -440,24 +419,22 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * repositories (external) but will need to be fixed.
    */
   public ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getBinDirectory(repositoryName);
+    return outputDirectories.getBinDirectory();
   }
 
-  /**
-   * Returns a relative path to the bin directory at execution time.
-   */
+  /** Returns a relative path to the bin directory at execution time. */
   public PathFragment getBinFragment() {
     return outputDirectories.getBinDirectory().getExecPath();
   }
 
   /** Returns the include directory for this build configuration. */
   public ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getIncludeDirectory(repositoryName);
+    return outputDirectories.getIncludeDirectory();
   }
 
   @Override
   public ArtifactRoot getGenfilesDir() {
-    return outputDirectories.getGenfilesDirectory(RepositoryName.MAIN);
+    return outputDirectories.getGenfilesDirectory();
   }
 
   /** Returns the genfiles directory for this build configuration. */
@@ -466,7 +443,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   public ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getGenfilesDirectory(repositoryName);
+    return outputDirectories.getGenfilesDirectory();
   }
 
   public boolean hasSeparateGenfilesDirectory() {
@@ -479,17 +456,15 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * tools.
    */
   public ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getCoverageMetadataDirectory(repositoryName);
+    return outputDirectories.getCoverageMetadataDirectory();
   }
 
   /** Returns the testlogs directory for this build configuration. */
   public ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getTestLogsDirectory(repositoryName);
+    return outputDirectories.getTestLogsDirectory();
   }
 
-  /**
-   * Returns a relative path to the genfiles directory at execution time.
-   */
+  /** Returns a relative path to the genfiles directory at execution time. */
   public PathFragment getGenfilesFragment() {
     return outputDirectories.getGenfilesFragment();
   }
@@ -507,7 +482,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   /** Returns the internal directory (used for middlemen) for this build configuration. */
   public ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getMiddlemanDirectory(repositoryName);
+    return outputDirectories.getMiddlemanDirectory();
   }
 
   public boolean isStrictFilesets() {
@@ -576,8 +551,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   /**
-   * Returns a regex-based instrumentation filter instance that used to match label
-   * names to identify targets to be instrumented in the coverage mode.
+   * Returns a regex-based instrumentation filter instance that used to match label names to
+   * identify targets to be instrumented in the coverage mode.
    */
   public RegexFilter getInstrumentationFilter() {
     return options.instrumentationFilter;
@@ -610,46 +585,37 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   /**
-   * Returns a new, unordered mapping of names that are set through the command lines.
-   * (Fragments, in particular the Google C++ support, can set variables through the
-   * command line.)
+   * Returns a new, unordered mapping of names that are set through the command lines. (Fragments,
+   * in particular the Google C++ support, can set variables through the command line.)
    */
   public ImmutableMap<String, String> getCommandLineBuildVariables() {
     return commandLineBuildVariables;
   }
 
-  /**
-   * Returns the global defaults for this configuration for the Make environment.
-   */
+  /** Returns the global defaults for this configuration for the Make environment. */
   public ImmutableMap<String, String> getGlobalMakeEnvironment() {
     return globalMakeEnv;
   }
 
   /**
-   * Returns the default value for the specified "Make" variable for this
-   * configuration.  Returns null if no value was found.
+   * Returns the default value for the specified "Make" variable for this configuration. Returns
+   * null if no value was found.
    */
   public String getMakeVariableDefault(String var) {
     return globalMakeEnv.get(var);
   }
 
-  /**
-   * Returns a configuration fragment instances of the given class.
-   */
+  /** Returns a configuration fragment instances of the given class. */
   public <T extends Fragment> T getFragment(Class<T> clazz) {
     return clazz.cast(fragments.get(clazz));
   }
 
-  /**
-   * Returns true if the requested configuration fragment is present.
-   */
+  /** Returns true if the requested configuration fragment is present. */
   public <T extends Fragment> boolean hasFragment(Class<T> clazz) {
     return getFragment(clazz) != null;
   }
 
-  /**
-   * Returns true if all requested configuration fragment are present (this may be slow).
-   */
+  /** Returns true if all requested configuration fragment are present (this may be slow). */
   public boolean hasAllFragments(Set<Class<?>> fragmentClasses) {
     for (Class<?> fragmentClass : fragmentClasses) {
       if (!hasFragment(fragmentClass.asSubclass(Fragment.class))) {
@@ -668,37 +634,27 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return fragmentClassSet;
   }
 
-  /**
-   * Returns true if non-functional build stamps are enabled.
-   */
+  /** Returns true if non-functional build stamps are enabled. */
   public boolean stampBinaries() {
     return options.stampBinaries;
   }
 
-  /**
-   * Returns true if extended sanity checks should be enabled.
-   */
+  /** Returns true if extended sanity checks should be enabled. */
   public boolean extendedSanityChecks() {
     return options.extendedSanityChecks;
   }
 
-  /**
-   * Returns true if we are building runfiles manifests for this configuration.
-   */
+  /** Returns true if we are building runfiles manifests for this configuration. */
   public boolean buildRunfilesManifests() {
     return options.buildRunfilesManifests;
   }
 
-  /**
-   * Returns true if we are building runfiles symlinks for this configuration.
-   */
-  public boolean buildRunfiles() {
-    return options.buildRunfiles;
+  /** Returns true if we are building runfile links for this configuration. */
+  public boolean buildRunfileLinks() {
+    return options.buildRunfilesManifests && options.buildRunfiles;
   }
 
-  /**
-   * Returns if we are building external runfiles symlinks using the old-style structure.
-   */
+  /** Returns if we are building external runfiles symlinks using the old-style structure. */
   public boolean legacyExternalRunfiles() {
     return options.legacyExternalRunfiles;
   }
@@ -713,10 +669,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   /**
-   * Returns user-specified test environment variables and their values, as set by the
-   * {@code --test_env} options. It is incomplete in that it is not a superset of the
-   * {@link #getActionEnvironment}, but both have to be applied, with this one being applied after
-   * the other, such that {@code --test_env} settings can override {@code --action_env} settings.
+   * Returns user-specified test environment variables and their values, as set by the {@code
+   * --test_env} options. It is incomplete in that it is not a superset of the {@link
+   * #getActionEnvironment}, but both have to be applied, with this one being applied after the
+   * other, such that {@code --test_env} settings can override {@code --action_env} settings.
    */
   // TODO(ulfjack): Just return the merged action and test action environment here?
   public ActionEnvironment getTestActionEnvironment() {
@@ -736,9 +692,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.runUnder;
   }
 
-  /**
-   * Returns true if this is a host configuration.
-   */
+  /** Returns true if this is a host configuration. */
   public boolean isHostConfiguration() {
     return options.isHost;
   }
@@ -746,6 +700,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
   /** Returns true if this is an execution configuration. */
   public boolean isExecConfiguration() {
     return options.isExec;
+  }
+
+  /** Returns true if this is an tool-related configuration. */
+  public boolean isToolConfiguration() {
+    return isExecConfiguration() || isHostConfiguration();
   }
 
   public boolean checkVisibility() {
@@ -774,6 +733,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public List<Label> getActionListeners() {
     return options.actionListeners;
+  }
+
+  public boolean inmemoryUnusedInputsList() {
+    return options.inmemoryUnusedInputsList;
   }
 
   /**
@@ -819,9 +782,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.allowUnresolvedSymlinks;
   }
 
-  /**
-   * Returns compilation mode.
-   */
+  /** Returns compilation mode. */
   public CompilationMode getCompilationMode() {
     return options.compilationMode;
   }
@@ -840,10 +801,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
   /**
    * Returns the actual options reference used by this configuration.
    *
-   * <p><b>Be very careful using this method.</b> Options classes are mutable - no caller
-   * should ever call this method if there's any change the reference might be written to.
-   * This method only exists because {@link #cloneOptions} can be expensive when applied to
-   * every edge in a dependency graph.
+   * <p><b>Be very careful using this method.</b> Options classes are mutable - no caller should
+   * ever call this method if there's any change the reference might be written to. This method only
+   * exists because {@link #cloneOptions} can be expensive when applied to every edge in a
+   * dependency graph.
    *
    * <p>Do not use this method without careful review with other Bazel developers.
    */
@@ -864,6 +825,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.hostCpu;
   }
 
+  // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
   public static boolean runfilesEnabled(CoreOptions options) {
     switch (options.enableRunfiles) {
       case YES:
@@ -877,6 +839,18 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean runfilesEnabled() {
     return runfilesEnabled(this.options);
+  }
+
+  public boolean inprocessSymlinkCreation() {
+    return options.inprocessSymlinkCreation;
+  }
+
+  public boolean skipRunfilesManifests() {
+    return options.skipRunfilesManifests;
+  }
+
+  public boolean remotableSourceManifestActions() {
+    return options.remotableSourceManifestActions;
   }
 
   /**
@@ -904,8 +878,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   /**
-   * Returns the "top-level" environment space, i.e. the set of environments all top-level
-   * targets must be compatible with. An empty value implies no restrictions.
+   * Returns the "top-level" environment space, i.e. the set of environments all top-level targets
+   * must be compatible with. An empty value implies no restrictions.
    */
   public List<Label> getTargetEnvironments() {
     return options.targetEnvironments;
@@ -954,5 +928,4 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
   }
-
 }

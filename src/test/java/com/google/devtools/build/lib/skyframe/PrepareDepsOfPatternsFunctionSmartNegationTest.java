@@ -92,13 +92,12 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(new ActionKeyContext())
-            .setBuildInfoFactories(
-                AnalysisMock.get().createRuleClassProvider().getBuildInfoFactories())
             .setDefaultBuildOptions(
                 DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setExtraSkyFunctions(AnalysisMock.get().getSkyFunctions(directories))
-            .setAdditionalBlacklistedPackagePrefixesFile(
-                PathFragment.create(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING))
+            .setBlacklistedPackagePrefixesFunction(
+                new BlacklistedPackagePrefixesFunction(
+                    PathFragment.create(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
             .build();
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     skyframeExecutor.preparePackageLoading(

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleClassInfo;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeDefinition;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringUtilities;

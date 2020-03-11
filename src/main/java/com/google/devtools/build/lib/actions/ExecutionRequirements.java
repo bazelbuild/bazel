@@ -19,7 +19,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Rule;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -157,6 +156,8 @@ public class ExecutionRequirements {
   /** If an action supports running in persistent worker mode. */
   public static final String SUPPORTS_WORKERS = "supports-workers";
 
+  public static final String SUPPORTS_MULTIPLEX_WORKERS = "supports-multiplex-workers";
+
   public static final ImmutableMap<String, String> WORKER_MODE_ENABLED =
       ImmutableMap.of(SUPPORTS_WORKERS, "1");
 
@@ -189,12 +190,21 @@ public class ExecutionRequirements {
    */
   public static final String NO_REMOTE = "no-remote";
 
+  /** Disables local execution of a spawn. */
+  public static final String NO_LOCAL = "no-local";
+
   /** Disables local sandboxing of a spawn. */
   public static final String LEGACY_NOSANDBOX = "nosandbox";
 
   /** Disables local sandboxing of a spawn. */
   public static final String NO_SANDBOX = "no-sandbox";
 
+  /**
+   * Set for Xcode-related rules. Used for quality control to make sure that all Xcode-dependent
+   * rules propagate the necessary configurations. Begins with "supports" so as not to be filtered
+   * out for Bazel by {@code TargetUtils}.
+   */
+  public static final String REQUIREMENTS_SET = "supports-xcode-requirements-set";
 
   /**
    * Enables networking for a spawn if possible (only if sandboxing is enabled and if the sandbox
@@ -220,9 +230,4 @@ public class ExecutionRequirements {
   /** Use this to request eager fetching of a single remote output into local memory. */
   public static final String REMOTE_EXECUTION_INLINE_OUTPUTS = "internal-inline-outputs";
 
-  public static boolean maybeExecutedRemotely(Set<String> executionRequirements) {
-    return !executionRequirements.contains(ExecutionRequirements.LOCAL)
-        && !executionRequirements.contains(ExecutionRequirements.NO_REMOTE)
-        && !executionRequirements.contains(ExecutionRequirements.NO_REMOTE_EXEC);
-  }
 }

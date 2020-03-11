@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /** Information about the C++ toolchain. */
@@ -60,7 +60,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
           "Returns all toolchain files (so they can be passed to actions using this "
               + "toolchain as inputs).",
       structField = true)
-  public SkylarkNestedSet getAllFilesForStarlark();
+  public Depset getAllFilesForStarlark();
 
   @SkylarkCallable(
       name = "static_runtime_lib",
@@ -78,7 +78,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
             named = true,
             type = FeatureConfigurationApi.class)
       })
-  public SkylarkNestedSet getStaticRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
+  public Depset getStaticRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
       throws EvalException;
 
   @SkylarkCallable(
@@ -97,8 +97,8 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
             named = true,
             type = FeatureConfigurationApi.class)
       })
-  public SkylarkNestedSet getDynamicRuntimeLibForStarlark(
-      FeatureConfigurationT featureConfiguration) throws EvalException;
+  public Depset getDynamicRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "sysroot",
@@ -130,68 +130,4 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
     allowReturnNones = true
   )
   public String getTargetGnuSystemName();
-
-  @SkylarkCallable(
-      name = "ld_executable",
-      doc =
-          "Path to the linker binary. \n WARNING: This method is only added to allow incremental"
-              + "migration of existing users. Please do not use in new code. Will be removed soon"
-              + "as part of the new Starlark API to the C++ toolchain.")
-  public String getLdExecutableForSkylark();
-
-  @SkylarkCallable(
-      name = "objcopy_executable",
-      doc =
-          "Path to GNU binutils 'objcopy' binary. \n WARNING: This method is only added to allow"
-              + "incremental migration of existing users. Please do not use in new code. Will be"
-              + "removed soon as part of the new Starlark API to the C++ toolchain.")
-  public String getObjCopyExecutableForSkylark();
-
-  @SkylarkCallable(
-      name = "compiler_executable",
-      doc =
-          "Path to C/C++ compiler binary. \n WARNING: This method is only added to allow "
-              + "incremental migration of existing users. Please do not use in new code. Will be"
-              + "removed soon as part of the new Starlark API to the C++ toolchain.")
-  public String getCppExecutableForSkylark();
-
-  @SkylarkCallable(
-      name = "preprocessor_executable",
-      doc =
-          "Path to C/C++ preprocessor binary. \n WARNING: This method is only added to allow"
-              + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Starlark API to the C++ toolchain.")
-  public String getCpreprocessorExecutableForSkylark();
-
-  @SkylarkCallable(
-      name = "nm_executable",
-      doc =
-          "Path to GNU binutils 'nm' binary. \n WARNING: This method is only added to allow"
-              + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Starlark API to the C++ toolchain.")
-  public String getNmExecutableForSkylark();
-
-  @SkylarkCallable(
-      name = "objdump_executable",
-      doc =
-          "Path to GNU binutils 'objdump' binary. \n WARNING: This method is only added to allow"
-              + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Starlark API to the C++ toolchain.")
-  public String getObjdumpExecutableForSkylark();
-
-  @SkylarkCallable(
-      name = "ar_executable",
-      doc =
-          "Path to GNU binutils 'ar' binary. \n WARNING: This method is only added to allow"
-              + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Starlark API to the C++ toolchain.")
-  public String getArExecutableForSkylark();
-
-  @SkylarkCallable(
-      name = "strip_executable",
-      doc =
-          "Path to GNU binutils 'strip' binary. \n WARNING: This method is only added to allow"
-              + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Starlark API to the C++ toolchain.")
-  public String getStripExecutableForSkylark();
 }

@@ -29,9 +29,11 @@ java_library(
     visibility = [
         "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",
         "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:__pkg__",
     ],
     runtime_deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:string_concats",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
     ],
     deps = [
@@ -39,7 +41,11 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/covariantreturn",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/nest",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/strconcat",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",
@@ -63,8 +69,13 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/nest:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/covariantreturn:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/strconcat:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/scan:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:srcs",
     ],
     visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
 )

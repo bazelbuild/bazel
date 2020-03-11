@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.List;
@@ -75,7 +76,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact manifest =
         ActionsTestUtil.getFirstArtifactEndingWith(
             runfilesArtifacts, "dummyTest_processed_manifest/AndroidManifest.xml");
@@ -91,10 +92,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceClassJar =
         getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
-    assertThat(runfilesArtifacts).contains(resourceClassJar);
+    assertThat(runfilesArtifacts.toList()).contains(resourceClassJar);
   }
 
   @Test
@@ -106,10 +107,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourcesZip =
         getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_RESOURCES_ZIP);
-    assertThat(runfilesArtifacts).contains(resourcesZip);
+    assertThat(runfilesArtifacts.toList()).contains(resourcesZip);
   }
 
   @Test
@@ -170,7 +171,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    deps = extra_deps)");
     useConfiguration("--experimental_android_local_test_binary_resources");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceApk =
         ActionsTestUtil.getFirstArtifactEndingWith(runfilesArtifacts, "dummyTest.ap_");
     assertThat(resourceApk).isNotNull();
@@ -186,7 +187,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceApk =
         ActionsTestUtil.getFirstArtifactEndingWith(runfilesArtifacts, "dummyTest.ap_");
     assertThat(resourceApk).isNull();

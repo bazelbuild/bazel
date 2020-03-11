@@ -53,7 +53,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
@@ -173,9 +172,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       Throwable cause = e.getCause();
       Throwables.propagateIfInstanceOf(cause, IOException.class);
       Throwables.propagateIfInstanceOf(cause, InterruptedException.class);
-      if (cause instanceof StatusRuntimeException) {
-        throw new IOException(cause);
-      }
       Throwables.propagate(cause);
     }
   }
@@ -244,35 +240,24 @@ class ByteStreamUploader extends AbstractReferenceCounted {
                 return null;
               },
               MoreExecutors.directExecutor());
-      // A future that only completes once the upload and internal state updates have
-      // been completed.
-      SettableFuture<Void> uploadAndBookkeepingComplete = SettableFuture.create();
-      uploadsInProgress.put(hash, uploadAndBookkeepingComplete);
-      uploadAndBookkeepingComplete.addListener(
-          () -> {
-            if (uploadAndBookkeepingComplete.isCancelled()) {
-              uploadResult.cancel(true);
-            }
-          },
-          MoreExecutors.directExecutor());
+
+      uploadResult =
+          Futures.catchingAsync(
+              uploadResult,
+              StatusRuntimeException.class,
+              (sre) -> Futures.immediateFailedFuture(new IOException(sre)),
+              MoreExecutors.directExecutor());
+
+      uploadsInProgress.put(hash, uploadResult);
       uploadResult.addListener(
           () -> {
             synchronized (lock) {
               uploadsInProgress.remove(hash);
-              try {
-                uploadResult.get();
-                uploadAndBookkeepingComplete.set(null);
-              } catch (ExecutionException e) {
-                uploadAndBookkeepingComplete.setException(e.getCause());
-              } catch (CancellationException e) {
-                uploadAndBookkeepingComplete.cancel(true);
-              } catch (Throwable e) {
-                uploadAndBookkeepingComplete.setException(e);
-              }
             }
           },
           MoreExecutors.directExecutor());
-      return uploadAndBookkeepingComplete;
+
+      return uploadResult;
     }
   }
 
@@ -368,7 +353,12 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       AtomicLong committedOffset = new AtomicLong(0);
       return Futures.transformAsync(
           retrier.executeAsync(
-              () -> ctx.call(() -> callAndQueryOnFailure(committedOffset, progressiveBackoff)),
+              () -> {
+                if (committedOffset.get() < chunker.getSize()) {
+                  return ctx.call(() -> callAndQueryOnFailure(committedOffset, progressiveBackoff));
+                }
+                return Futures.immediateFuture(null);
+              },
               progressiveBackoff),
           (result) -> {
             long committedSize = committedOffset.get();

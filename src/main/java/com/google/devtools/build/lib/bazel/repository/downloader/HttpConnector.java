@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Function;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -87,9 +88,8 @@ class HttpConnector {
     return Math.round(unscaled * timeoutScaling);
   }
 
-  URLConnection connect(
-      URL originalUrl, ImmutableMap<String, String> requestHeaders)
-          throws IOException {
+  URLConnection connect(URL originalUrl, Function<URL, ImmutableMap<String, String>> requestHeaders)
+      throws IOException {
 
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
@@ -111,7 +111,7 @@ class HttpConnector {
             COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
                 || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
         connection.setInstanceFollowRedirects(false);
-        for (Map.Entry<String, String> entry : requestHeaders.entrySet()) {
+        for (Map.Entry<String, String> entry : requestHeaders.apply(url).entrySet()) {
           if (isAlreadyCompressed && Ascii.equalsIgnoreCase(entry.getKey(), "Accept-Encoding")) {
             // We're not going to ask for compression if we're downloading a file that already
             // appears to be compressed.

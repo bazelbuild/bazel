@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkdebug.server;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
@@ -37,17 +38,20 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Sta
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Stepping;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.DebugServerUtils;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Debug;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.net.BindException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.time.Duration;
@@ -92,9 +96,21 @@ public class SkylarkDebugServerTest {
         : ImmutableList.of();
   }
 
+  private static ServerSocket getServerSocket() throws IOException {
+    // For reasons only Apple knows, you cannot bind to IPv4-localhost when you run in a sandbox
+    // that only allows loopback traffic, but binding to IPv6-localhost works fine. This would
+    // however break on systems that don't support IPv6. So what we'll do is to try to bind to IPv6
+    // and if that fails, try again with IPv4.
+    try {
+      return new ServerSocket(0, 1, InetAddress.getByName("[::1]"));
+    } catch (BindException e) {
+      return new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
+    }
+  }
+
   @Before
   public void setUpServerAndClient() throws Exception {
-    ServerSocket serverSocket = new ServerSocket(0, 1, InetAddress.getByName(null));
+    ServerSocket serverSocket = getServerSocket();
     Future<SkylarkDebugServer> future =
         executor.submit(
             () ->
@@ -105,7 +121,7 @@ public class SkylarkDebugServerTest {
 
     server = future.get(10, TimeUnit.SECONDS);
     assertThat(server).isNotNull();
-    DebugServerUtils.initializeDebugServer(server);
+    Debug.setDebugger(server);
   }
 
   @After
@@ -136,10 +152,10 @@ public class SkylarkDebugServerTest {
 
   @Test
   public void testPausedUntilStartDebuggingRequestReceived() throws Exception {
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]");
+    StarlarkThread thread = newStarlarkThread();
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     String threadName = evaluationThread.getName();
     long threadId = evaluationThread.getId();
 
@@ -147,7 +163,7 @@ public class SkylarkDebugServerTest {
     DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
     Location expectedLocation =
-        DebugEventHelper.getLocationProto(buildFile.getStatements().get(0).getLocation());
+        DebugEventHelper.getLocationProto(buildFile.getStatements().get(0).getStartLocation());
 
     assertThat(event)
         .isEqualTo(
@@ -167,15 +183,15 @@ public class SkylarkDebugServerTest {
   @Test
   public void testResumeAllThreads() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
     // evaluate in two separate worker threads
-    execInWorkerThread(buildFile, newEnvironment());
-    execInWorkerThread(buildFile, newEnvironment());
+    execInWorkerThread(buildFile, newStarlarkThread());
+    execInWorkerThread(buildFile, newStarlarkThread());
 
     // wait for both breakpoints to be hit
     boolean paused =
@@ -202,14 +218,14 @@ public class SkylarkDebugServerTest {
   @Test
   public void testPauseAtBreakpoint() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     String threadName = evaluationThread.getName();
     long threadId = evaluationThread.getId();
 
@@ -230,9 +246,9 @@ public class SkylarkDebugServerTest {
   @Test
   public void testDoNotPauseAtUnsatisfiedConditionalBreakpoint() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile =
-        parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]", "z = 1");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile =
+        parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]", "z = 1");
+    StarlarkThread thread = newStarlarkThread();
 
     ImmutableList<Breakpoint> breakpoints =
         ImmutableList.of(
@@ -246,7 +262,7 @@ public class SkylarkDebugServerTest {
                 .build());
     setBreakpoints(breakpoints);
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     String threadName = evaluationThread.getName();
     long threadId = evaluationThread.getId();
     Breakpoint expectedBreakpoint = breakpoints.get(1);
@@ -266,8 +282,8 @@ public class SkylarkDebugServerTest {
   @Test
   public void testPauseAtSatisfiedConditionalBreakpoint() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkThread thread = newStarlarkThread();
 
     Location location =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -275,7 +291,7 @@ public class SkylarkDebugServerTest {
         Breakpoint.newBuilder().setLocation(location).setExpression("x[0] == 1").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     String threadName = evaluationThread.getName();
     long threadId = evaluationThread.getId();
 
@@ -296,8 +312,8 @@ public class SkylarkDebugServerTest {
   @Test
   public void testPauseAtInvalidConditionBreakpointWithError() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkThread thread = newStarlarkThread();
 
     Location location =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -305,7 +321,7 @@ public class SkylarkDebugServerTest {
         Breakpoint.newBuilder().setLocation(location).setExpression("z[0] == 1").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     String threadName = evaluationThread.getName();
     long threadId = evaluationThread.getId();
 
@@ -341,14 +357,14 @@ public class SkylarkDebugServerTest {
   @Test
   public void testSimpleListFramesRequest() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -359,27 +375,26 @@ public class SkylarkDebugServerTest {
     assertFramesEqualIgnoringValueIdentifiers(
         frames.getFrame(0),
         Frame.newBuilder()
-            .setFunctionName("<top level>")
+            .setFunctionName("<toplevel>")
             .setLocation(breakpoint.toBuilder().setColumnNumber(1))
             .addScope(
                 Scope.newBuilder()
                     .setName("global")
-                    .addBinding(
-                        getValueProto("x", SkylarkList.createImmutable(ImmutableList.of(1, 2, 3)))))
+                    .addBinding(getValueProto("x", StarlarkList.of(/*mutability=*/ null, 1, 2, 3))))
             .build());
   }
 
   @Test
   public void testGetChildrenRequest() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -389,7 +404,7 @@ public class SkylarkDebugServerTest {
     Value xValue = frames.getFrame(0).getScope(0).getBinding(0);
 
     assertValuesEqualIgnoringId(
-        xValue, getValueProto("x", SkylarkList.createImmutable(ImmutableList.of(1, 2, 3))));
+        xValue, getValueProto("x", StarlarkList.of(/*mutability=*/ null, 1, 2, 3)));
 
     List<Value> children = getChildren(xValue);
 
@@ -402,8 +417,8 @@ public class SkylarkDebugServerTest {
   @Test
   public void testListFramesShadowedBinding() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST bzlFile =
-        parseSkylarkFile(
+    StarlarkFile bzlFile =
+        parseFile(
             "/a/build/file/test.bzl",
             "a = 1",
             "c = 3",
@@ -412,13 +427,13 @@ public class SkylarkDebugServerTest {
             "  b = 1",
             "  b + 1",
             "fn()");
-    Environment env = newEnvironment();
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setPath("/a/build/file/test.bzl").setLineNumber(6).build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(bzlFile, env);
+    Thread evaluationThread = execInWorkerThread(bzlFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -441,13 +456,13 @@ public class SkylarkDebugServerTest {
                 Scope.newBuilder()
                     .setName("global")
                     .addBinding(getValueProto("c", 3))
-                    .addBinding(getValueProto("fn", env.moduleLookup("fn"))))
+                    .addBinding(getValueProto("fn", thread.getGlobals().lookup("fn"))))
             .build());
 
     assertFramesEqualIgnoringValueIdentifiers(
         frames.getFrame(1),
         Frame.newBuilder()
-            .setFunctionName("<top level>")
+            .setFunctionName("<toplevel>")
             .setLocation(
                 Location.newBuilder()
                     .setPath("/a/build/file/test.bzl")
@@ -458,21 +473,21 @@ public class SkylarkDebugServerTest {
                     .setName("global")
                     .addBinding(getValueProto("a", 1))
                     .addBinding(getValueProto("c", 3))
-                    .addBinding(getValueProto("fn", env.moduleLookup("fn"))))
+                    .addBinding(getValueProto("fn", thread.getGlobals().lookup("fn"))))
             .build());
   }
 
   @Test
   public void testEvaluateRequestWithExpression() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -492,14 +507,14 @@ public class SkylarkDebugServerTest {
   @Test
   public void testEvaluateRequestWithAssignmentStatement() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -516,26 +531,24 @@ public class SkylarkDebugServerTest {
                         .build())
                 .build());
     assertThat(response.getEvaluate().getResult())
-        .isEqualTo(
-            getValueProto(
-                "Evaluation result", SkylarkList.createImmutable(ImmutableList.of(5, 6))));
+        .isEqualTo(getValueProto("Evaluation result", Starlark.NONE));
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrame(0).getScope(0).getBindingList())
-        .contains(getValueProto("x", SkylarkList.createImmutable(ImmutableList.of(5, 6))));
+        .contains(getValueProto("x", StarlarkList.of(/*mutability=*/ null, 5, 6)));
   }
 
   @Test
   public void testEvaluateRequestWithExpressionStatementMutatingState() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -552,24 +565,24 @@ public class SkylarkDebugServerTest {
                         .build())
                 .build());
     assertThat(response.getEvaluate().getResult())
-        .isEqualTo(getValueProto("Evaluation result", Runtime.NONE));
+        .isEqualTo(getValueProto("Evaluation result", Starlark.NONE));
 
     ListFramesResponse frames = listFrames(threadId);
     assertThat(frames.getFrame(0).getScope(0).getBindingList())
-        .contains(getValueProto("x", SkylarkList.createImmutable(ImmutableList.of(1, 2, 3, 4))));
+        .contains(getValueProto("x", StarlarkList.of(/*mutability=*/ null, 1, 2, 3, 4)));
   }
 
   @Test
   public void testEvaluateRequestThrowingException() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST buildFile = parseBuildFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkFile buildFile = parseFile("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(buildFile, env);
+    Thread evaluationThread = execInWorkerThread(buildFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -589,21 +602,21 @@ public class SkylarkDebugServerTest {
   @Test
   public void testStepIntoFunction() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST bzlFile =
-        parseSkylarkFile(
+    StarlarkFile bzlFile =
+        parseFile(
             "/a/build/file/test.bzl",
             "def fn():",
             "  a = 2",
             "  return a",
             "x = fn()",
             "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(4).setPath("/a/build/file/test.bzl").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(bzlFile, env);
+    Thread evaluationThread = execInWorkerThread(bzlFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -637,21 +650,21 @@ public class SkylarkDebugServerTest {
   @Test
   public void testStepOverFunction() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST bzlFile =
-        parseSkylarkFile(
+    StarlarkFile bzlFile =
+        parseFile(
             "/a/build/file/test.bzl",
             "def fn():",
             "  a = 2",
             "  return a",
             "x = fn()",
             "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(4).setPath("/a/build/file/test.bzl").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(bzlFile, env);
+    Thread evaluationThread = execInWorkerThread(bzlFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -680,21 +693,21 @@ public class SkylarkDebugServerTest {
   @Test
   public void testStepOutOfFunction() throws Exception {
     sendStartDebuggingRequest();
-    BuildFileAST bzlFile =
-        parseSkylarkFile(
+    StarlarkFile bzlFile =
+        parseFile(
             "/a/build/file/test.bzl",
             "def fn():",
             "  a = 2",
             "  return a",
             "x = fn()",
             "y = [2,3,4]");
-    Environment env = newEnvironment();
+    StarlarkThread thread = newStarlarkThread();
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/test.bzl").build();
     setBreakpoints(ImmutableList.of(breakpoint));
 
-    Thread evaluationThread = execInWorkerThread(bzlFile, env);
+    Thread evaluationThread = execInWorkerThread(bzlFile, thread);
     long threadId = evaluationThread.getId();
 
     // wait for breakpoint to be hit
@@ -760,41 +773,36 @@ public class SkylarkDebugServerTest {
     return event.getListFrames();
   }
 
-  private static Environment newEnvironment() {
+  private static StarlarkThread newStarlarkThread() {
     Mutability mutability = Mutability.create("test");
-    return Environment.builder(mutability).useDefaultSemantics().build();
+    return StarlarkThread.builder(mutability).useDefaultSemantics().build();
   }
 
-  private BuildFileAST parseBuildFile(String path, String... lines) throws IOException {
-    Path file = scratch.file(path, lines);
-    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    ParserInputSource inputSource = ParserInputSource.create(bytes, file.asFragment());
-    return BuildFileAST.parseBuildFile(inputSource, events.reporter());
-  }
-
-  private BuildFileAST parseSkylarkFile(String path, String... lines) throws IOException {
-    Path file = scratch.file(path, lines);
-    byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    ParserInputSource inputSource = ParserInputSource.create(bytes, file.asFragment());
-    return BuildFileAST.parseSkylarkFile(inputSource, events.reporter());
+  private StarlarkFile parseFile(String filename, String... lines) throws IOException {
+    Path path = scratch.file(filename, lines);
+    byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
+    ParserInput input = ParserInput.create(bytes, filename);
+    StarlarkFile file = StarlarkFile.parse(input);
+    Event.replayEventsOn(events.reporter(), file.errors());
+    return file;
   }
 
   /**
-   * Creates and starts a worker thread executing the given {@link BuildFileAST} in the given
+   * Creates and starts a worker thread executing the given {@link StarlarkFile} in the given
    * environment.
    */
-  private Thread execInWorkerThread(BuildFileAST ast, Environment env) {
-    Thread thread =
+  private static Thread execInWorkerThread(StarlarkFile file, StarlarkThread thread) {
+    Thread javaThread =
         new Thread(
             () -> {
               try {
-                ast.exec(env, events.collector());
-              } catch (Throwable e) {
-                throw new AssertionError(e);
+                EvalUtils.exec(file, thread.getGlobals(), thread);
+              } catch (EvalException | InterruptedException ex) {
+                throw new AssertionError(ex);
               }
             });
-    thread.start();
-    return thread;
+    javaThread.start();
+    return javaThread;
   }
 
   /**

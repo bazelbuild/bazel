@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.errorprone.annotations.CompileTimeConstant;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -298,6 +300,9 @@ public abstract class TargetPattern implements Serializable {
     throw new IllegalStateException();
   }
 
+  /** Returns the repository name of the target pattern. */
+  public abstract RepositoryName getRepository();
+
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} or
    * {@code Type.TARGETS_IN_PACKAGE} and the target pattern suffix specified it should match
@@ -335,6 +340,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return directory;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      return directory.getRepository();
     }
 
     @Override
@@ -417,6 +427,13 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
+    public RepositoryName getRepository() {
+      // InterpretPathAsTarget is validated by PackageIdentifier.createInMainRepo,
+      // therefore it must belong to the main repository.
+      return RepositoryName.MAIN;
+    }
+
+    @Override
     public boolean getRulesOnly() {
       return false;
     }
@@ -486,6 +503,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return packageIdentifier;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      return packageIdentifier.getRepository();
     }
 
     @Override
@@ -617,6 +639,11 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public PackageIdentifier getDirectoryForTargetsUnderDirectory() {
       return directory;
+    }
+
+    @Override
+    public RepositoryName getRepository() {
+      return directory.getRepository();
     }
 
     @Override
@@ -881,15 +908,24 @@ public abstract class TargetPattern implements Serializable {
     }
 
     /**
-     * Absolutizes the target pattern to the offset.
-     * Patterns starting with "//" are absolute and not modified.
-     * Assumes the given pattern is not invalid wrt leading "/"s.
+     * Parses a constant string TargetPattern, throwing IllegalStateException on invalid pattern.
+     */
+    @CheckReturnValue
+    public TargetPattern parseConstantUnchecked(@CompileTimeConstant String pattern) {
+      try {
+        return parse(pattern);
+      } catch (TargetParsingException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    /**
+     * Absolutizes the target pattern to the offset. Patterns starting with "//" are absolute and
+     * not modified. Assumes the given pattern is not invalid wrt leading "/"s.
      *
-     * If the offset is "foo":
-     *   absolutize(":bar") --> "//foo:bar"
-     *   absolutize("bar") --> "//foo/bar"
-     *   absolutize("//biz/bar") --> "//biz/bar" (absolute)
-     *   absolutize("biz:bar") --> "//foo/biz:bar"
+     * <p>If the offset is "foo": absolutize(":bar") --> "//foo:bar" absolutize("bar") -->
+     * "//foo/bar" absolutize("//biz/bar") --> "//biz/bar" (absolute) absolutize("biz:bar") -->
+     * "//foo/biz:bar"
      *
      * @param pattern The target pattern to parse.
      * @return the pattern, absolutized to the offset if approprate.

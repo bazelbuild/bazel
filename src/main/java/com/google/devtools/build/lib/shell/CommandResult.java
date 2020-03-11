@@ -142,23 +142,23 @@ public abstract class CommandResult {
       return this;
     }
 
+    /** Sets or clears the wall execution time. */
+    public abstract Builder setWallExecutionTime(Optional<Duration> wallExecutionTime);
+
     /** Sets the user execution time. */
     public Builder setUserExecutionTime(Duration userExecutionTime) {
       setUserExecutionTime(Optional.of(userExecutionTime));
       return this;
     }
 
+    /** Sets or clears the user execution time. */
+    public abstract Builder setUserExecutionTime(Optional<Duration> userExecutionTime);
+
     /** Sets the system execution time. */
     public Builder setSystemExecutionTime(Duration systemExecutionTime) {
       setSystemExecutionTime(Optional.of(systemExecutionTime));
       return this;
     }
-
-    /** Sets or clears the wall execution time. */
-    public abstract Builder setWallExecutionTime(Optional<Duration> wallExecutionTime);
-
-    /** Sets or clears the user execution time. */
-    public abstract Builder setUserExecutionTime(Optional<Duration> userExecutionTime);
 
     /** Sets or clears the system execution time. */
     public abstract Builder setSystemExecutionTime(Optional<Duration> systemExecutionTime);

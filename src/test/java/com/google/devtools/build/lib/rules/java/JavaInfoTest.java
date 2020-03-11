@@ -56,8 +56,7 @@ public class JavaInfoTest {
   }
 
   @Test
-  public void testMergeJavaExportsProvider() throws LabelSyntaxException {
-
+  public void testMergeJavaExportsProvider() throws Exception {
     JavaInfo javaInfo1 =
         JavaInfo.Builder.create()
             .addProvider(JavaExportsProvider.class, createJavaExportsProvider("foo", 2))
@@ -70,9 +69,9 @@ public class JavaInfoTest {
 
     JavaInfo javaInfoMerged = JavaInfo.merge(ImmutableList.of(javaInfo1, javaInfo2));
 
-    NestedSet<Label> labels = javaInfoMerged.getTransitiveExports();
+    NestedSet<Label> labels = javaInfoMerged.getTransitiveExports().getSet(Label.class);
 
-    assertThat(labels)
+    assertThat(labels.toList())
         .containsExactly(
             Label.parseAbsolute("//foo:foo0.bzl", ImmutableMap.of()),
             Label.parseAbsolute("//foo:foo1.bzl", ImmutableMap.of()),

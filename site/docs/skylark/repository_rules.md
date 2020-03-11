@@ -1,8 +1,8 @@
 ---
 layout: documentation
-title: Repository Rules
+title: Repository rules
 ---
-# Repository Rules
+# Repository rules
 
 An [external repository](../external.md) is a rule that can be used only
 in the `WORKSPACE` file and enables non-hermetic operation at the loading phase
@@ -11,7 +11,7 @@ own BUILD files and artifacts. They can be used to depend on third-party
 libraries (such as Maven packaged libraries) but also to generate BUILD files
 specific to the host Bazel is running on.
 
-## Repository Rule creation
+## Repository rule creation
 
 In a `.bzl` file, use the
 [repository_rule](lib/globals.html#repository_rule) function to create a new
@@ -100,6 +100,21 @@ the command line with the
 flag (but this flag will invalidate every action of the build).
 - Content of any file used and referred to by a label (e.g.,
   `//mypkg:label.txt` not `mypkg/label.txt`).
+
+## Forcing refetch of external repositories
+
+Sometimes, an external repository can become outdated without any change to its
+definition or dependencies. For example, a repository fetching sources might
+follow a particular branch of a third-party repository, and new commits are
+available on that branch. In this case, you can ask bazel to refetch all
+external repositories unconditionally by calling `bazel sync`.
+
+Moreover, some rules inspect the local machine and might become
+outdated if the local machine was upgraded. Here you can ask bazel to
+only refetch those external repositories where the
+[`repository_rule`](https://docs.bazel.build/skylark/lib/globals.html#repository_rule)
+definition has the `configure` attribute set, use `bazel sync --configure`.
+
 
 ## Examples
 

@@ -22,6 +22,7 @@ load(
     "escape_string",
     "execute",
     "resolve_labels",
+    "write_builtin_include_directory_paths",
 )
 
 def _get_path_env_var(repository_ctx, name):
@@ -135,7 +136,27 @@ def find_vc_path(repository_ctx):
         " installed.",
     )
 
-    # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
+    # 2. Use vswhere to locate all Visual Studio installations
+    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)")
+    if not program_files_dir:
+        program_files_dir = "C:\\Program Files (x86)"
+        auto_configure_warning_maybe(
+            repository_ctx,
+            "'PROGRAMFILES(X86)' environment variable is not set, using '%s' as default" % program_files_dir,
+        )
+
+    vswhere_binary = program_files_dir + "\\Microsoft Visual Studio\\Installer\\vswhere.exe"
+    if repository_ctx.path(vswhere_binary).exists:
+        result = repository_ctx.execute([vswhere_binary, "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath", "-latest"])
+        auto_configure_warning_maybe(repository_ctx, "vswhere query result:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                     (result.stdout, result.stderr))
+        installation_path = result.stdout.strip()
+        if not result.stderr and installation_path:
+            vc_dir = installation_path + "\\VC"
+            auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+            return vc_dir
+
+    # 3. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
     # vcvarsqueryregistry.bat / VsDevCmd.bat to detect VC++.
     auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
                                                  "eg. VS140COMNTOOLS")
@@ -156,7 +177,7 @@ def find_vc_path(repository_ctx):
         repository_ctx.file(
             "get_vc_dir.bat",
             "@echo off\n" +
-            "call \"" + script + "\"\n" +
+            "call \"" + script + "\" > NUL\n" +
             "echo %VCINSTALLDIR%",
             True,
         )
@@ -166,9 +187,8 @@ def find_vc_path(repository_ctx):
         auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 3. User might have purged all environment variables. If so, look for Visual C++ in registry.
+    # 4. User might have purged all environment variables. If so, look for Visual C++ in registry.
     # Works for Visual Studio 2017 and older. (Does not work for Visual Studio 2019 Preview.)
-    # TODO(laszlocsomor): check if "16.0" also has this registry key, after VS 2019 is released.
     auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
@@ -188,15 +208,8 @@ def find_vc_path(repository_ctx):
         auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 4. Check default directories for VC installation
+    # 5. Check default directories for VC installation
     auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
-    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)")
-    if not program_files_dir:
-        program_files_dir = "C:\\Program Files (x86)"
-        auto_configure_warning_maybe(
-            repository_ctx,
-            "'PROGRAMFILES(X86)' environment variable is not set, using '%s' as default" % program_files_dir,
-        )
     for path in [
         "Microsoft Visual Studio\\2019\\Preview\\VC",
         "Microsoft Visual Studio\\2019\\BuildTools\\VC",
@@ -476,6 +489,7 @@ def _get_msys_mingw_vars(repository_ctx):
     """Get the variables we need to populate the msys/mingw toolchains."""
     tool_paths, tool_bin_path, inc_dir_msys = _get_escaped_windows_msys_starlark_content(repository_ctx)
     tool_paths_mingw, tool_bin_path_mingw, inc_dir_mingw = _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = True)
+    write_builtin_include_directory_paths(repository_ctx, "mingw", [inc_dir_mingw], file_suffix = "_mingw")
     msys_mingw_vars = {
         "%{cxx_builtin_include_directories}": inc_dir_msys,
         "%{mingw_cxx_builtin_include_directories}": inc_dir_mingw,
@@ -514,6 +528,7 @@ def _get_msvc_vars(repository_ctx, paths):
             )
 
     if not vc_path or missing_tools:
+        write_builtin_include_directory_paths(repository_ctx, "msvc", [], file_suffix = "_msvc")
         msvc_vars = {
             "%{msvc_env_tmp}": "msvc_not_found",
             "%{msvc_env_path}": "msvc_not_found",
@@ -569,6 +584,7 @@ def _get_msvc_vars(repository_ctx, paths):
 
     support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
 
+    write_builtin_include_directory_paths(repository_ctx, "msvc", escaped_cxx_include_directories, file_suffix = "_msvc")
     msvc_vars = {
         "%{msvc_env_tmp}": escaped_tmp_dir,
         "%{msvc_env_path}": escaped_paths,
@@ -615,6 +631,7 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars):
             error_script = "clang_installation_error.bat"
 
     if error_script:
+        write_builtin_include_directory_paths(repository_ctx, "clang-cl", [], file_suffix = "_clangcl")
         clang_cl_vars = {
             "%{clang_cl_env_tmp}": "clang_cl_not_found",
             "%{clang_cl_env_path}": "clang_cl_not_found",
@@ -639,12 +656,14 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars):
     clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
     clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
 
+    clang_cl_include_directories = msvc_vars["%{msvc_cxx_builtin_include_directories}"] + (",\n        \"%s\"" % clang_include_path)
+    write_builtin_include_directory_paths(repository_ctx, "clang-cl", [clang_cl_include_directories], file_suffix = "_clangcl")
     clang_cl_vars = {
         "%{clang_cl_env_tmp}": msvc_vars["%{msvc_env_tmp}"],
         "%{clang_cl_env_path}": msvc_vars["%{msvc_env_path}"],
         "%{clang_cl_env_include}": msvc_vars["%{msvc_env_include}"] + ";" + clang_include_path,
         "%{clang_cl_env_lib}": msvc_vars["%{msvc_env_lib}"] + ";" + clang_lib_path,
-        "%{clang_cl_cxx_builtin_include_directories}": msvc_vars["%{msvc_cxx_builtin_include_directories}"] + (",\n        \"%s\"" % clang_include_path),
+        "%{clang_cl_cxx_builtin_include_directories}": clang_cl_include_directories,
         "%{clang_cl_cl_path}": clang_cl_path,
         "%{clang_cl_link_path}": lld_link_path,
         "%{clang_cl_lib_path}": llvm_lib_path,

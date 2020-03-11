@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -56,16 +57,32 @@ public final class GlobFunction implements SkyFunction {
       throws GlobFunctionException, InterruptedException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
 
+    RepositoryName repositoryName = glob.getPackageId().getRepository();
+    BlacklistedPackagePrefixesValue blacklistedPackagePrefixes =
+        (BlacklistedPackagePrefixesValue)
+            env.getValue(BlacklistedPackagePrefixesValue.key(repositoryName));
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    PathFragment globSubdir = glob.getSubdir();
+    PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
+
+    for (PathFragment blacklistedPrefix : blacklistedPackagePrefixes.getPatterns()) {
+      if (dirPathFragment.startsWith(blacklistedPrefix)) {
+        return GlobValue.EMPTY;
+      }
+    }
+
     // Note that the glob's package is assumed to exist which implies that the package's BUILD file
     // exists which implies that the package's directory exists.
-    PathFragment globSubdir = glob.getSubdir();
     if (!globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
       PackageLookupValue globSubdirPkgLookupValue =
           (PackageLookupValue)
               env.getValue(
                   PackageLookupValue.key(
                       PackageIdentifier.create(
-                          glob.getPackageId().getRepository(),
+                          repositoryName,
                           glob.getPackageId().getPackageFragment().getRelative(globSubdir))));
       if (globSubdirPkgLookupValue == null) {
         return null;
@@ -99,7 +116,7 @@ public final class GlobFunction implements SkyFunction {
 
     boolean globMatchesBareFile = patternTail == null;
 
-    PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
+
     RootedPath dirRootedPath = RootedPath.toRootedPath(glob.getPackageRoot(), dirPathFragment);
     if (alwaysUseDirListing || containsGlobs(patternHead)) {
       // Pattern contains globs, so a directory listing is required.

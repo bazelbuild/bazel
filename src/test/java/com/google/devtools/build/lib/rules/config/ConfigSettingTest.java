@@ -336,6 +336,19 @@ public class ConfigSettingTest extends BuildViewTestCase {
         ")");
   }
 
+  /** Tests that None is not specifiable for a key's value. */
+  @Test
+  public void noneValueInSetting() throws Exception {
+    checkError(
+        "foo",
+        "none",
+        "ERROR /workspace/foo/BUILD:1:1: //foo:none: "
+            + "expected value of type 'string' for dict value element, but got None (NoneType)",
+        "config_setting(",
+        "    name = 'none',",
+        "    values = {\"none_value\": None})");
+  }
+
   /**
    * Tests that *some* settings (values or flag_values) must be specified.
    */
@@ -375,6 +388,20 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
     useConfiguration("--define", "foo=nope", "--define", "bar=baz", "--define", "foo=bar");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void invalidDefineProducesError() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'define': 'foo',", // Value should be "foo=<something>".
+        "    })");
+
+    checkError(
+        "//test:match", "Variable definitions must be in the form of a 'name=value' assignment");
   }
 
   @Test

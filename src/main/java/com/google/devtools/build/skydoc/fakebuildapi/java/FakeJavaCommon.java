@@ -16,20 +16,18 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
-import javax.annotation.Nullable;
 
 /** Fake implementation of {@link JavaCommonApi}. */
 public class FakeJavaCommon
@@ -38,24 +36,9 @@ public class FakeJavaCommon
         FakeJavaInfo,
         FakeJavaToolchainSkylarkApiProviderApi,
         FakeJavaRuntimeInfoApi,
-        SkylarkRuleContextApi,
+        ConstraintValueInfoApi,
+        SkylarkRuleContextApi<ConstraintValueInfoApi>,
         SkylarkActionFactoryApi> {
-
-  @Override
-  public FakeJavaInfo create(
-      @Nullable Object actionsUnchecked,
-      Object compileTimeJars,
-      Object runtimeJars,
-      Boolean useIjar,
-      @Nullable Object javaToolchainUnchecked,
-      Object transitiveCompileTimeJars,
-      Object transitiveRuntimeJars,
-      Object sourceJars,
-      Location location,
-      Environment environment)
-      throws EvalException {
-    return new FakeJavaInfo();
-  }
 
   @Override
   public ProviderApi getJavaProvider() {
@@ -64,27 +47,26 @@ public class FakeJavaCommon
 
   @Override
   public FakeJavaInfo createJavaCompileAction(
-      SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<FileApi> sourceJars,
-      SkylarkList<FileApi> sourceFiles,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      Sequence<?> sourceJars,
+      Sequence<?> sourceFiles,
       FileApi outputJar,
       Object outputSourceJar,
-      SkylarkList<String> javacOpts,
-      SkylarkList<FakeJavaInfo> deps,
-      SkylarkList<FakeJavaInfo> exports,
-      SkylarkList<FakeJavaInfo> plugins,
-      SkylarkList<FakeJavaInfo> exportedPlugins,
-      SkylarkList<FileApi> annotationProcessorAdditionalInputs,
-      SkylarkList<FileApi> annotationProcessorAdditionalOutputs,
+      Sequence<?> javacOpts,
+      Sequence<?> deps,
+      Sequence<?> experimentalLocalCompileTimeDeps,
+      Sequence<?> exports,
+      Sequence<?> plugins,
+      Sequence<?> exportedPlugins,
+      Sequence<?> annotationProcessorAdditionalInputs,
+      Sequence<?> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase,
-      SkylarkList<FileApi> sourcepathEntries,
-      SkylarkList<FileApi> resources,
+      Sequence<?> sourcepathEntries,
+      Sequence<?> resources,
       Boolean neverlink,
-      Location loc,
-      Environment environment)
-      throws EvalException, InterruptedException {
+      StarlarkThread thread) {
     return new FakeJavaInfo();
   }
 
@@ -93,10 +75,7 @@ public class FakeJavaCommon
       SkylarkActionFactoryApi actions,
       FileApi jar,
       Object targetLabel,
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
-      throws EvalException {
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain) {
     return null;
   }
 
@@ -105,10 +84,7 @@ public class FakeJavaCommon
       SkylarkActionFactoryApi actions,
       FileApi jar,
       Label targetLabel,
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
-      throws EvalException {
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain) {
     return null;
   }
 
@@ -116,24 +92,21 @@ public class FakeJavaCommon
   public FileApi packSources(
       SkylarkActionFactoryApi actions,
       FileApi outputJar,
-      SkylarkList<FileApi> sourceFiles,
-      SkylarkList<FileApi> sourceJars,
+      Sequence<?> sourceFiles,
+      Sequence<?> sourceJars,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      FakeJavaRuntimeInfoApi hostJavabase,
-      Location location,
-      StarlarkSemantics semantics)
-      throws EvalException {
+      FakeJavaRuntimeInfoApi hostJavabase) {
     return null;
   }
 
   @Override
   public ImmutableList<String> getDefaultJavacOpts(
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain, Location loc) throws EvalException {
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain) throws EvalException {
     return ImmutableList.of();
   }
 
   @Override
-  public FakeJavaInfo mergeJavaProviders(SkylarkList<FakeJavaInfo> providers) {
+  public FakeJavaInfo mergeJavaProviders(Sequence<?> providers) {
     return new FakeJavaInfo();
   }
 
@@ -153,7 +126,8 @@ public class FakeJavaCommon
   }
 
   @Override
-  public boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextApi ruleContext) {
+  public boolean isJavaToolchainResolutionEnabled(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> ruleContext) {
     return false;
   }
 
@@ -163,7 +137,7 @@ public class FakeJavaCommon
   }
 
   @Override
-  public FakeJavaInfo addConstraints(FakeJavaInfo javaInfo, SkylarkList<String> constraints) {
+  public FakeJavaInfo addConstraints(FakeJavaInfo javaInfo, Sequence<?> constraints) {
     return new FakeJavaInfo();
   }
 
@@ -173,19 +147,24 @@ public class FakeJavaCommon
   }
 
   @Override
-  public NestedSet<FileApi> getCompileTimeJavaDependencyArtifacts(FakeJavaInfo javaInfo) {
+  public Depset /*<FileApi>*/ getCompileTimeJavaDependencyArtifacts(FakeJavaInfo javaInfo) {
     return null;
   }
 
   @Override
   public FakeJavaInfo addCompileTimeJavaDependencyArtifacts(
-      FakeJavaInfo javaInfo, SkylarkList<FileApi> compileTimeJavaDependencyArtifacts) {
+      FakeJavaInfo javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts) {
     return new FakeJavaInfo();
   }
 
   @Override
-  public Label getJavaToolchainLabel(
-      JavaToolchainSkylarkApiProviderApi toolchain, Location location) throws EvalException {
+  public Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain)
+      throws EvalException {
+    return null;
+  }
+
+  @Override
+  public ProviderApi getBootClassPathInfo() {
     return null;
   }
 }

@@ -24,7 +24,7 @@ package com.google.devtools.build.skyframe;
  * node is done and written to the graph. Any attempt to access the edges once the node is done will
  * fail the build fast.
  */
-class EdgelessInMemoryNodeEntry extends InMemoryNodeEntry {
+public class EdgelessInMemoryNodeEntry extends InMemoryNodeEntry {
   @Override
   public KeepEdgesPolicy keepEdges() {
     return KeepEdgesPolicy.NONE;

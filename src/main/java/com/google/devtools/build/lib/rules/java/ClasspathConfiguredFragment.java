@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -25,7 +24,7 @@ public final class ClasspathConfiguredFragment {
 
   private final NestedSet<Artifact> runtimeClasspath;
   private final NestedSet<Artifact> compileTimeClasspath;
-  private final ImmutableList<Artifact> bootClasspath;
+  private final BootClassPathInfo bootClasspath;
 
   /**
    * Initializes the runtime and compile time classpaths for this target. This method should be
@@ -39,7 +38,7 @@ public final class ClasspathConfiguredFragment {
       JavaCompilationArtifacts javaArtifacts,
       JavaTargetAttributes attributes,
       boolean isNeverLink,
-      ImmutableList<Artifact> bootClasspath) {
+      BootClassPathInfo bootClasspath) {
     if (!isNeverLink) {
       runtimeClasspath = getRuntimeClasspathList(attributes, javaArtifacts);
     } else {
@@ -52,7 +51,7 @@ public final class ClasspathConfiguredFragment {
   public ClasspathConfiguredFragment() {
     runtimeClasspath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     compileTimeClasspath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    bootClasspath = ImmutableList.of();
+    bootClasspath = BootClassPathInfo.empty();
   }
 
   /**
@@ -89,7 +88,7 @@ public final class ClasspathConfiguredFragment {
    * Returns the classpath to be passed as a boot classpath to the Java compiler when compiling a
    * target containing this fragment.
    */
-  public ImmutableList<Artifact> getBootClasspath() {
+  public BootClassPathInfo getBootClasspath() {
     return bootClasspath;
   }
 }

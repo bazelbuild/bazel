@@ -63,13 +63,13 @@ java_test(
 
 java_test(
     name = "DebuggerSerializationTest",
-    srcs = glob(["DebuggerSerializationTest.java"]),
+    srcs = ["DebuggerSerializationTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:skylark_debugging_java_proto",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

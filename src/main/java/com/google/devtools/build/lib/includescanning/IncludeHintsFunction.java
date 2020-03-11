@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -35,8 +34,8 @@ import javax.annotation.Nullable;
  * INCLUDE_HINTS file.
  */
 public class IncludeHintsFunction implements SkyFunction {
-  // TODO(b/111722810): We don't re-run compiles if INCLUDE_HINTS file changes, because it is not
-  // present in the action graph. This is an incremental compilation bug.
+  // TODO(b/111722810): the action cache is not sensitive to changes in the INCLUDE_HINTS file, so
+  //  even though Skyframe handles changes, we may still not re-execute an affected action.
   @AutoCodec
   public static final SkyKey INCLUDE_HINTS_KEY =
       (SkyKey) () -> IncludeScanningSkyFunctions.INCLUDE_HINTS;
@@ -60,8 +59,17 @@ public class IncludeHintsFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      Preconditions.checkState(hintsLookupValue.hasContainingPackage(), "%s %s",
-          hintsFile, hintsLookupValue);
+      if (!hintsLookupValue.hasContainingPackage()) {
+        String reasonForNoContainingPackage = hintsLookupValue.getReasonForNoContainingPackage();
+        throw new IncludeHintsFunctionException(
+            new EnvironmentalExecException(
+                "INCLUDE_HINTS file "
+                    + hintsFile
+                    + " was not in a package"
+                    + (reasonForNoContainingPackage != null
+                        ? ": " + reasonForNoContainingPackage
+                        : "")));
+      }
       hintsPackageRoot = hintsLookupValue.getContainingPackageRoot();
       env.getValueOrThrow(FileValue.key(RootedPath.toRootedPath(hintsPackageRoot, hintsFile)),
           IOException.class);

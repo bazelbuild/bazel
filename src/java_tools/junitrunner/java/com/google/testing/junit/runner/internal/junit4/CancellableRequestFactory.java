@@ -14,7 +14,12 @@
 
 package com.google.testing.junit.runner.internal.junit4;
 
+import static com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory.CancellationRequest.HARD_STOP;
+import static com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory.CancellationRequest.NOT_REQUESTED;
+import static com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory.CancellationRequest.ORDERLY_STOP;
+
 import com.google.testing.junit.junit4.runner.RunNotifierWrapper;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import org.junit.runner.Description;
@@ -30,7 +35,8 @@ import org.junit.runner.notification.StoppedByUserException;
 public class CancellableRequestFactory {
   private boolean requestCreated;
   private volatile ThreadSafeRunNotifier currentNotifier;
-  private volatile boolean cancelRequested = false;
+  private final AtomicReference<CancellationRequest> cancellationRequest =
+      new AtomicReference<>(NOT_REQUESTED);
 
   @Inject
   public CancellableRequestFactory() {}
@@ -58,10 +64,20 @@ public class CancellableRequestFactory {
    * Cancels the request created by this request factory.
    */
   public void cancelRun() {
-    cancelRequested = true;
-    RunNotifier notifier = currentNotifier;
-    if (notifier != null) {
-      notifier.pleaseStop();
+    stop(true);
+  }
+
+  /** Cancels the request created by this request factory as orderly as possible. */
+  public void cancelRunOrderly() {
+    stop(false);
+  }
+
+  private void stop(boolean hardStop) {
+    if (cancellationRequest.compareAndSet(NOT_REQUESTED, hardStop ? HARD_STOP : ORDERLY_STOP)) {
+      RunNotifier notifier = currentNotifier;
+      if (notifier != null) {
+        notifier.pleaseStop();
+      }
     }
   }
 
@@ -81,15 +97,21 @@ public class CancellableRequestFactory {
     @Override
     public void run(RunNotifier notifier) {
       currentNotifier = new ThreadSafeRunNotifier(notifier);
-      if (cancelRequested) {
+      if (cancellationRequest.get() != NOT_REQUESTED) {
         currentNotifier.pleaseStop();
+      }
+      if (cancellationRequest.get() == ORDERLY_STOP) {
+        return;
       }
 
       try {
         delegate.run(currentNotifier);
       } catch (StoppedByUserException e) {
-        if (cancelRequested) {
+        if (cancellationRequest.get() == HARD_STOP) {
           throw new RuntimeException("Test run interrupted", e);
+        } else if (cancellationRequest.get() == ORDERLY_STOP) {
+          e.printStackTrace();
+          return;
         }
         throw e;
       }
@@ -127,5 +149,12 @@ public class CancellableRequestFactory {
     public void pleaseStop() {
       stopRequested = true;
     }
+  }
+
+  /** Cancellation request types of a {@link CancellableRequestFactory}. */
+  enum CancellationRequest {
+    NOT_REQUESTED, // Initial state of CancellableRequestFactory
+    HARD_STOP, // Propagates StoppedByUserException
+    ORDERLY_STOP // Catches StoppedByUserException and prevents further test runs
   }
 }

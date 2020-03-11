@@ -82,6 +82,7 @@ public enum EventKind {
   PASS,
   FAIL,
   TIMEOUT,
+  CANCELLED,
 
   /**
    * For the reasoning of the dependency checker (like GNU Make "-d").

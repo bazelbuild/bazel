@@ -13,16 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
 /** Exception indicating that a symlink has an unbounded expansion on resolution. */
+@VisibleForSerialization
 public class FileSymlinkInfiniteExpansionException extends FileSymlinkException {
   private final ImmutableList<RootedPath> pathToChain;
   private final ImmutableList<RootedPath> chain;
 
-  FileSymlinkInfiniteExpansionException(ImmutableList<RootedPath> pathToChain,
-      ImmutableList<RootedPath> chain) {
+  public FileSymlinkInfiniteExpansionException(
+      ImmutableList<RootedPath> pathToChain, ImmutableList<RootedPath> chain) {
     // The infinite expansion has already been reported by
     // FileSymlinkInfiniteExpansionUniquenessValue, but we still want to have a readable
     // #getMessage.
@@ -35,16 +39,24 @@ public class FileSymlinkInfiniteExpansionException extends FileSymlinkException 
    * The symlink path to the symlink that is the root cause of the infinite expansion. For example,
    * suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c/nope'. The path to the chain is 'a', 'b'.
    */
-  ImmutableList<RootedPath> getPathToChain() {
+  @VisibleForSerialization
+  public ImmutableList<RootedPath> getPathToChain() {
     return pathToChain;
   }
 
   /**
-   * The symlink chain that is the root cause of the infinite expansion. For example, suppose
-   * 'a' -> 'b' -> 'c' -> 'd' -> 'c/nope'. The chain is 'c', 'd', 'c/nope'.
+   * The symlink chain that is the root cause of the infinite expansion. For example, suppose 'a' ->
+   * 'b' -> 'c' -> 'd' -> 'c/nope'. The chain is 'c', 'd', 'c/nope'.
    */
-  ImmutableList<RootedPath> getChain() {
+  @VisibleForSerialization
+  public ImmutableList<RootedPath> getChain() {
     return chain;
+  }
+
+  @Override
+  public String getUserFriendlyMessage() {
+    return "Infinite symlink expansion: "
+        + Joiner.on("- > ").join(Iterables.transform(chain, RootedPath::asPath));
   }
 }
 

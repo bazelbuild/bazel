@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Matchers.eq;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -71,7 +72,7 @@ public class AbstractSpawnStrategyTest {
   private static final Spawn SIMPLE_SPAWN =
       new SpawnBuilder("/bin/echo", "Hi!").withEnvironment("VARIABLE", "value").build();
 
-  private final FileSystem fs = new InMemoryFileSystem();
+  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path execRoot = fs.getPath("/execroot");
   private Scratch scratch;
   private ArtifactRoot rootDir;
@@ -237,9 +238,10 @@ public class AbstractSpawnStrategyTest {
                     .setPath("foo")
                     .setDigest(
                         Digest.newBuilder()
-                            .setHash("b026324c6904b2a9cb4b88d6d61c81d1")
+                            .setHash(
+                                "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865")
                             .setSizeBytes(2)
-                            .setHashFunctionName("MD5")
+                            .setHashFunctionName("SHA-256")
                             .build())
                     .build())
             .addListedOutputs("out1")
@@ -249,9 +251,10 @@ public class AbstractSpawnStrategyTest {
                     .setPath("out1")
                     .setDigest(
                         Digest.newBuilder()
-                            .setHash("ba1f2511fc30423bdbb183fe33f3dd0f")
+                            .setHash(
+                                "181210f8f9c779c26da1d9b2075bde0127302ee0e3fca38c9a83f5b1dd8e5d3b")
                             .setSizeBytes(4)
-                            .setHashFunctionName("MD5")
+                            .setHashFunctionName("SHA-256")
                             .build())
                     .build())
             .addActualOutputs(
@@ -259,9 +262,10 @@ public class AbstractSpawnStrategyTest {
                     .setPath("out2")
                     .setDigest(
                         Digest.newBuilder()
-                            .setHash("ba1f2511fc30423bdbb183fe33f3dd0f")
+                            .setHash(
+                                "181210f8f9c779c26da1d9b2075bde0127302ee0e3fca38c9a83f5b1dd8e5d3b")
                             .setSizeBytes(4)
-                            .setHashFunctionName("MD5")
+                            .setHashFunctionName("SHA-256")
                             .build())
                     .build())
             .setStatus("NON_ZERO_EXIT")

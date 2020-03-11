@@ -16,20 +16,21 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a SkylarkCallable method which has a parameter with "None" set as the default,
- * but noneable is not true.
+ * Test case for a SkylarkCallable method which has a parameter with "None" set as the default, but
+ * noneable is not true.
  */
-public class InvalidParamNoneDefault {
+public class InvalidParamNoneDefault implements StarlarkValue {
 
   @SkylarkCallable(
       name = "method_with_invalid_default",
       documented = false,
       parameters = {
-          @Param(name = "a_parameter", type = String.class, named = true, defaultValue = "None"),
+        @Param(name = "a_parameter", type = String.class, named = true, defaultValue = "None"),
       })
-  public String methodWithParams() {
+  public String methodWithParams(String x) {
     return "lamb";
   }
 }

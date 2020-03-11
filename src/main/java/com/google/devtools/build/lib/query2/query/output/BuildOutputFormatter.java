@@ -93,7 +93,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
     /** Outputs a given rule in BUILD-style syntax. */
     private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
         throws IOException {
-      writer.append("# ").append(rule.getLocation().print()).append(lineTerm);
+      writer.append("# ").append(rule.getLocation().toString()).append(lineTerm);
       writer.append(rule.getRuleClass()).append("(").append(lineTerm);
       writer.append("  name = \"").append(rule.getName()).append("\",").append(lineTerm);
 
@@ -115,7 +115,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           continue;
         }
         PossibleAttributeValues values = attrReader.getPossibleValues(rule, attr);
-        if (values.source != AttributeValueSource.RULE) {
+        if (values.getSource() != AttributeValueSource.RULE) {
           continue; // Don't print default values.
         }
         if (Iterables.size(values) != 1) {
@@ -200,7 +200,8 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
     @Override
     public void processOutput(Iterable<Target> partialResult) throws IOException {
       for (Target target : partialResult) {
-        targetOutputter.output(target, (rule, attr) -> getPossibleAttributeValues(rule, attr));
+        targetOutputter.output(
+            target, (rule, attr) -> PossibleAttributeValues.forRuleAndAttribute(rule, attr));
       }
     }
   }

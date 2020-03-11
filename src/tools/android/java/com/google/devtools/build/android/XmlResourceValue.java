@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.aapt.Resources.Reference;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.Namespaces;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -50,11 +53,19 @@ public interface XmlResourceValue {
    * Queue up writing the resource to the given {@link AndroidResourceClassWriter}. Each resource
    * can generate one or more (in the case of styleable) fields and inner classes in the R class.
    *
+   * @param dependencyInfo The provenance (in terms of Bazel relationship) of the resource
    * @param key The FullyQualifiedName of the resource
    * @param sink the symbol sink for producing source and classes
    */
-  void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink);
+  void writeResourceToClass(
+      DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink);
 
   /** Returns a representation of the xml value as a string suitable for conflict messages. */
   String asConflictStringWith(DataSource source);
+
+  /** Visibility of this resource as denoted by a {@code <public>} tag, or lack thereof. */
+  Visibility getVisibility();
+
+  /** Resources referenced via XML attributes or proxying resource definitions. */
+  ImmutableList<Reference> getReferencedResources();
 }

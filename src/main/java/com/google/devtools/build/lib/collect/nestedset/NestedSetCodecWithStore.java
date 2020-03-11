@@ -157,7 +157,11 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
         try {
           childrenHashCode = Futures.getDone((ListenableFuture) nestedSet.rawChildren()).hashCode();
         } catch (ExecutionException e) {
-          throw new IllegalStateException(e);
+          // If the future failed, we can treat it as unequal to all non-future NestedSet instances
+          // (using the hashCode of the Future object) and hide the exception until the NestedSet is
+          // truly needed (i.e. unrolled). Note that NestedSetStore already attaches a listener to
+          // this future that sends a bug report if it fails.
+          childrenHashCode = nestedSet.rawChildren().hashCode();
         }
       } else {
         childrenHashCode = nestedSet.rawChildren().hashCode();
@@ -175,7 +179,7 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
       try {
         return Futures.getDone(contentsFuture) == contents;
       } catch (ExecutionException e) {
-        throw new IllegalStateException(e);
+        return false; // Treat a failure to fetch as unequal to a non-future NestedSet.
       }
     }
 

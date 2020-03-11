@@ -40,11 +40,9 @@ import javax.annotation.Nullable;
  */
 public abstract class BugReport {
 
-  static final BugReporter REPORTER_INSTANCE = BugReport::sendBugReport;
-
-  private BugReport() {}
-
   private static final Logger logger = Logger.getLogger(BugReport.class.getName());
+
+  static final BugReporter REPORTER_INSTANCE = new DefaultBugReporter();
 
   private static BlazeVersionInfo versionInfo = BlazeVersionInfo.instance();
 
@@ -57,6 +55,8 @@ public abstract class BugReport {
 
   private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
       IN_TEST && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
+
+  private BugReport() {}
 
   /**
    * This is a narrow interface for {@link BugReport}'s usage of BlazeRuntime. It lives in this
@@ -165,11 +165,11 @@ public abstract class BugReport {
    *
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
-  public static void handleCrash(Throwable throwable, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ true, /*exitCode=*/ null, args);
+  public static RuntimeException handleCrash(Throwable throwable, String... args) {
+    throw handleCrash(throwable, /*sendBugReport=*/ true, /*exitCode=*/ null, args);
   }
 
-  private static void handleCrash(
+  private static RuntimeException handleCrash(
       Throwable throwable, boolean sendBugReport, @Nullable ExitCode exitCode, String... args) {
     ExitCode exitCodeToUse = exitCode == null ? getExitCodeForThrowable(throwable) : exitCode;
     int numericExitCode = exitCodeToUse.getNumericExitCode();
@@ -178,7 +178,10 @@ public abstract class BugReport {
         if (IN_TEST) {
           unprocessedThrowableInTest = throwable;
         }
-        logCrash(throwable, sendBugReport, args);
+        // Don't try to send a bug report during a crash in a test, it will throw itself.
+        if (!IN_TEST || !sendBugReport) {
+          logCrash(throwable, sendBugReport, args);
+        }
         try {
           if (runtime != null) {
             runtime.cleanUpForCrash(exitCodeToUse);
@@ -209,6 +212,7 @@ public abstract class BugReport {
 
       Runtime.getRuntime().halt(numericExitCode);
     }
+    throw new IllegalStateException("never get here", throwable);
   }
 
   /** Get exit code corresponding to throwable. */
@@ -280,5 +284,22 @@ public abstract class BugReport {
 
     LoggingUtil.logToRemote(Level.SEVERE, preamble + Joiner.on(' ').join(args), exception,
         values);
+  }
+
+  private static class DefaultBugReporter implements BugReporter {
+    @Override
+    public void sendBugReport(Throwable exception) {
+      BugReport.sendBugReport(exception);
+    }
+
+    @Override
+    public void sendBugReport(Throwable exception, List<String> args, String... values) {
+      BugReport.sendBugReport(exception, args, values);
+    }
+
+    @Override
+    public RuntimeException handleCrash(Throwable throwable, String... args) {
+      throw BugReport.handleCrash(throwable, args);
+    }
   }
 }

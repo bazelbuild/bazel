@@ -96,8 +96,12 @@ class OutputJar {
   // Set classpath resource with given resource name and path.
   void ClasspathResource(const std::string& resource_name,
                          const std::string& resource_path);
+  // Append CDS archive file.
+  void AppendCDSArchive(const std::string &cds_archive);
+  // Append data from the file specified by file_path.
+  void AppendFile(Options *options, const char *const file_path);
   // Copy 'count' bytes starting at 'offset' from the given file.
-  ssize_t AppendFile(int in_fd, off64_t offset, size_t count);
+  ssize_t CopyAppendData(int in_fd, off64_t offset, size_t count);
   // Write bytes to the output file, return true on success.
   bool WriteBytes(const void *buffer, size_t count);
 

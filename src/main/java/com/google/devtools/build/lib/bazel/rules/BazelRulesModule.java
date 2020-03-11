@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
@@ -46,6 +45,18 @@ import java.io.IOException;
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
+    @Option(
+        name = "incompatible_disallow_legacy_java_provider",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean incompatibleDisallowLegacyJavaProvider;
+
     @Option(
         name = "incompatible_disable_legacy_proto_provider",
         defaultValue = "true",
@@ -373,6 +384,19 @@ public class BazelRulesModule extends BlazeModule {
         help = "This option is deprecated and has no effect.")
     public boolean incompatibleDisableLateBoundOptionDefaults;
 
+    @Option(
+        name = "incompatible_use_native_patch",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "This option is deprecated and has no effect.")
+    public boolean useNativePatch;
+
     @Deprecated
     @Option(
         name = "ui",
@@ -388,11 +412,10 @@ public class BazelRulesModule extends BlazeModule {
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
     BazelRuleClassProvider.setup(builder);
+
     try {
       // Load auto-configuration files, it is made outside of the rule class provider so that it
       // will not be loaded for our Java tests.
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelCppRuleClasses.class, "cc_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
@@ -416,7 +439,7 @@ public class BazelRulesModule extends BlazeModule {
 
   @Override
   public BuildOptions getDefaultBuildOptions(BlazeRuntime blazeRuntime) {
-    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+    return BuildOptions.getDefaultBuildOptionsForFragments(
         blazeRuntime.getRuleClassProvider().getConfigurationOptions());
   }
 

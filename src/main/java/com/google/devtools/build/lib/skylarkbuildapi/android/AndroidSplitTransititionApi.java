@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Android configuration for properly handling native dependencies */
 @SkylarkModule(
@@ -23,4 +23,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed.",
     documented = false)
-public interface AndroidSplitTransititionApi extends SkylarkValue {}
+public interface AndroidSplitTransititionApi extends StarlarkValue {}

@@ -92,7 +92,6 @@ public class BuildFileModificationTest extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setBuildInfoFactories(ruleClassProvider.getBuildInfoFactories())
             .setDefaultBuildOptions(
                 DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))

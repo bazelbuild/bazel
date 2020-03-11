@@ -16,6 +16,7 @@
 
 import locale
 import os
+import shutil
 import socket
 import stat
 import subprocess
@@ -49,6 +50,21 @@ class TestBase(unittest.TestCase):
   _worker_stdout = None
   _worker_stderr = None
   _worker_proc = None
+  _cas_path = None
+
+  _SHARED_REPOS = (
+      'rules_cc',
+      'rules_java',
+      'rules_proto',
+      'remotejdk11_linux_for_testing',
+      'remotejdk11_linux_aarch64_for_testing',
+      'remotejdk11_macos_for_testing',
+      'remotejdk11_win_for_testing',
+      'remote_java_tools_darwin_for_testing',
+      'remote_java_tools_linux_for_testing',
+      'remote_java_tools_windows_for_testing',
+      'remote_coverage_tools_for_testing',
+  )
 
   def setUp(self):
     unittest.TestCase.setUp(self)
@@ -61,7 +77,19 @@ class TestBase(unittest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
-      f.write('build --jobs=8\n')
+      shared_repo_home = os.environ.get('TEST_REPOSITORY_HOME')
+      if shared_repo_home and os.path.exists(shared_repo_home):
+        for repo in self._SHARED_REPOS:
+          f.write('common --override_repository={}={}\n'.format(
+              repo.replace('_for_testing', ''),
+              os.path.join(shared_repo_home, repo).replace('\\', '/')))
+      shared_install_base = os.environ.get('TEST_INSTALL_BASE')
+      if shared_install_base:
+        f.write('startup --install_base={}\n'.format(shared_install_base))
+      shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
+      if shared_repo_cache:
+        f.write('common --repository_cache={}\n'.format(shared_repo_cache))
+        f.write('common --experimental_repository_cache_hardlinks\n')
     os.chdir(self._test_cwd)
 
   def tearDown(self):
@@ -136,12 +164,12 @@ class TestBase(unittest.TestCase):
     return self.GetCcRulesRepoRule()
 
   def GetCcRulesRepoRule(self):
-    sha256 = '36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89'
-    strip_pfx = 'rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c'
+    sha256 = '1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f'
+    strip_pfx = 'rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0'
     url1 = ('https://mirror.bazel.build/github.com/bazelbuild/rules_cc/'
-            'archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip')
+            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
     url2 = ('https://github.com/bazelbuild/rules_cc/'
-            'archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip')
+            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
     return [
         'http_archive(',
         '    name = "rules_cc",',
@@ -313,11 +341,18 @@ class TestBase(unittest.TestCase):
     """
     self._worker_stdout = tempfile.TemporaryFile(dir=self._test_cwd)
     self._worker_stderr = tempfile.TemporaryFile(dir=self._test_cwd)
-    # Ideally we would use something under TEST_TMPDIR here, but the
-    # worker path must be as short as possible so we don't exceed Windows
-    # path length limits, so we run straight in TEMP. This should ideally
-    # be set to something like C:\temp. On CI this is set to D:\temp.
-    worker_path = TestBase.GetEnv('TEMP')
+    if TestBase.IsWindows():
+      # Ideally we would use something under TEST_TMPDIR here, but the
+      # worker path must be as short as possible so we don't exceed Windows
+      # path length limits, so we run straight in TEMP. This should ideally
+      # be set to something like C:\temp. On CI this is set to D:\temp.
+      worker_path = TestBase.GetEnv('TEMP')
+      worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker.exe')
+    else:
+      worker_path = tempfile.mkdtemp(dir=self._tests_root)
+      worker_exe = self.Rlocation('io_bazel/src/tools/remote/worker')
+    self._cas_path = os.path.join(worker_path, 'cas')
+    os.mkdir(self._cas_path)
 
     # Get an open port. Unfortunately this seems to be the best option in
     # Python.
@@ -326,21 +361,27 @@ class TestBase(unittest.TestCase):
     port = s.getsockname()[1]
     s.close()
 
+    env_add = {}
+    try:
+      env_add['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv(
+          'RUNFILES_MANIFEST_FILE')
+    except EnvVarUndefinedError:
+      pass
+
     # Tip: To help debug remote build problems, add the --debug flag below.
     self._worker_proc = subprocess.Popen(
         [
-            self.Rlocation('io_bazel/src/tools/remote/worker.exe'),
+            worker_exe,
             '--listen_port=' + str(port),
             # This path has to be extremely short to avoid Windows path
             # length restrictions.
             '--work_path=' + worker_path,
+            '--cas_path=' + self._cas_path,
         ],
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
         cwd=self._test_cwd,
-        env=self._EnvMap(env_add={
-            'RUNFILES_MANIFEST_FILE': TestBase.GetEnv('RUNFILES_MANIFEST_FILE'),
-        }))
+        env=self._EnvMap(env_add=env_add))
 
     return port
 
@@ -371,6 +412,8 @@ class TestBase(unittest.TestCase):
       print('Local remote worker stderr')
       print('--------------------------')
       print('\n'.join(stderr_lines))
+
+    shutil.rmtree(self._cas_path)
 
   def RunProgram(self,
                  args,

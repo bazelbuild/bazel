@@ -113,7 +113,8 @@ MappedOutputFile::MappedOutputFile(const char* name, size_t estimated_size)
   size_t mmap_length =
       std::min(static_cast<size_t>(estimated_size + sysconf(_SC_PAGESIZE)),
                std::numeric_limits<size_t>::max());
-  void* mapped = mmap(NULL, mmap_length, PROT_WRITE, MAP_SHARED, fd, 0);
+  void* mapped =
+      mmap(NULL, mmap_length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (mapped == MAP_FAILED) {
     snprintf(errmsg, MAX_ERROR, "mmap(): %s", strerror(errno));
     errmsg_ = errmsg;

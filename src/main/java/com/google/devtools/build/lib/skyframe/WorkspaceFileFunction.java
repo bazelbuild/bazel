@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -25,10 +26,10 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -40,9 +41,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * A SkyFunction to parse WORKSPACE files.
- */
+/** A SkyFunction to parse the WORKSPACE file at a given path. */
 public class WorkspaceFileFunction implements SkyFunction {
 
   private final PackageFactory packageFactory;
@@ -67,9 +66,9 @@ public class WorkspaceFileFunction implements SkyFunction {
       throws WorkspaceFileFunctionException, InterruptedException {
 
     WorkspaceFileKey key = (WorkspaceFileKey) skyKey.argument();
-    RootedPath workspaceRoot = key.getPath();
-    WorkspaceASTValue workspaceASTValue = (WorkspaceASTValue) env.getValue(
-        WorkspaceASTValue.key(workspaceRoot));
+    RootedPath workspaceFile = key.getPath();
+    WorkspaceASTValue workspaceASTValue =
+        (WorkspaceASTValue) env.getValue(WorkspaceASTValue.key(workspaceFile));
     if (workspaceASTValue == null) {
       return null;
     }
@@ -78,10 +77,9 @@ public class WorkspaceFileFunction implements SkyFunction {
       return null;
     }
 
-    RootedPath repoWorkspace =
-        RootedPath.toRootedPath(workspaceRoot.getRoot(), workspaceRoot.getRootRelativePath());
-    Package.Builder builder = packageFactory.newExternalPackageBuilder(
-        repoWorkspace, ruleClassProvider.getRunfilesPrefix());
+    Package.Builder builder =
+        packageFactory.newExternalPackageBuilder(
+            workspaceFile, ruleClassProvider.getRunfilesPrefix(), starlarkSemantics);
 
     if (workspaceASTValue.getASTs().isEmpty()) {
       try {
@@ -90,17 +88,18 @@ public class WorkspaceFileFunction implements SkyFunction {
             /* importMap = */ ImmutableMap.<String, Extension>of(),
             /* importToChunkMap = */ ImmutableMap.<String, Integer>of(),
             /* bindings = */ ImmutableMap.<String, Object>of(),
-            workspaceRoot,
+            workspaceFile,
             /* idx = */ 0, // first fragment
             /* hasNext = */ false,
-            ImmutableMap.of());
+            ImmutableMap.of(),
+            ImmutableSortedSet.of());
       } catch (NoSuchPackageException e) {
         throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
       }
     }
     WorkspaceFactory parser;
     WorkspaceFileValue prevValue = null;
-    try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
+    try (Mutability mutability = Mutability.create("workspace", workspaceFile)) {
       parser =
           new WorkspaceFactory(
               builder,
@@ -110,11 +109,12 @@ public class WorkspaceFileFunction implements SkyFunction {
               key.getIndex() == 0,
               directories.getEmbeddedBinariesRoot(),
               directories.getWorkspace(),
-              directories.getLocalJavabase());
+              directories.getLocalJavabase(),
+              starlarkSemantics);
       if (key.getIndex() > 0) {
         prevValue =
             (WorkspaceFileValue)
-                env.getValue(WorkspaceFileValue.key(key.getPath(), key.getIndex() - 1));
+                env.getValue(WorkspaceFileValue.key(workspaceFile, key.getIndex() - 1));
         if (prevValue == null) {
           return null;
         }
@@ -123,11 +123,12 @@ public class WorkspaceFileFunction implements SkyFunction {
         }
         parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
       }
-      BuildFileAST ast = workspaceASTValue.getASTs().get(key.getIndex());
+      StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
       PackageFunction.SkylarkImportResult importResult =
           PackageFunction.fetchImportsFromBuildFile(
-              repoWorkspace,
+              workspaceFile,
               rootPackage,
+              /*repoMapping=*/ ImmutableMap.of(),
               ast,
               key.getIndex(),
               env,
@@ -135,7 +136,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       if (importResult == null) {
         return null;
       }
-      parser.execute(ast, importResult.importMap, starlarkSemantics, key);
+      parser.execute(ast, importResult.importMap, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {
@@ -148,10 +149,11 @@ public class WorkspaceFileFunction implements SkyFunction {
           parser.getImportMap(),
           createImportToChunkMap(prevValue, parser, key),
           parser.getVariableBindings(),
-          workspaceRoot,
+          workspaceFile,
           key.getIndex(),
           key.getIndex() < workspaceASTValue.getASTs().size() - 1,
-          ImmutableMap.copyOf(parser.getManagedDirectories()));
+          ImmutableMap.copyOf(parser.getManagedDirectories()),
+          parser.getDoNotSymlinkInExecrootPaths());
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
     }

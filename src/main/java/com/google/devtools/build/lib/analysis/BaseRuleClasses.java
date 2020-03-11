@@ -20,13 +20,15 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -39,12 +41,13 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -101,7 +104,7 @@ public class BaseRuleClasses {
       "//tools/test:coverage_report_generator";
 
   private static final String DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE =
-      "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main";
+      "@bazel_tools//tools/test:lcov_merger";
 
   @AutoCodec
   static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
@@ -328,11 +331,24 @@ public class BaseRuleClasses {
                     "special logic for constraints and select: see ConstraintSemantics"))
         .add(
             attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
-                .nonconfigurable("stores configurability keys"));
+                .nonconfigurable("stores configurability keys"))
+        .add(
+            attr(RuleClass.APPLICABLE_LICENSES_ATTR, LABEL_LIST)
+                .cfg(HostTransition.createFactory())
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                // TODO(b/148601291): Require provider to be "LicenseInfo".
+                .dontCheckConstraints()
+                .nonconfigurable("applicable_licenses is not configurable"));
   }
 
   public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {
     return builder.add(attr("name", STRING).nonconfigurable("Rule name"));
+  }
+
+  public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
+      throws ConversionException {
+    return builder.add(
+        attr(RuleClass.EXEC_PROPERTIES, STRING_DICT).defaultValue(ImmutableMap.of()));
   }
 
   /**
@@ -389,15 +405,13 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($make_variable_expanding_rule).ATTRIBUTE(toolchains) -->
-          The set of toolchains that supply <a href="${link make-variables}">"Make variables"</a>
-          that this target can use in some of its attributes. Some rules have toolchains whose Make
-          variables they can use by default.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("toolchains", LABEL_LIST)
-              .allowedFileTypes(FileTypeSet.NO_FILE)
-              .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
-              .dontCheckConstraints())
+          // Documented in
+          // com/google/devtools/build/docgen/templates/attributes/common/toolchains.html.
+          .add(
+              attr("toolchains", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
+                  .dontCheckConstraints())
           .build();
     }
 
@@ -422,7 +436,12 @@ public class BaseRuleClasses {
               attr("data", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
                   .dontCheckConstraints())
-          .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
+          .add(attr(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT).value(ImmutableMap.of()))
+          .add(
+              attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
+                  .allowedFileTypes()
+                  .nonconfigurable("Used in toolchain resolution")
+                  .value(ImmutableList.of()))
           .build();
     }
 

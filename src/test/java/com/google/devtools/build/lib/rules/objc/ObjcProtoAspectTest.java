@@ -69,8 +69,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     assertThat(objcProtoProvider).isNotNull();
   }
 
-  @Test
-  public void testObjcProtoAspectPropagatesProtobufProvider() throws Exception {
+  private void testObjcProtoAspectPropagatesProtobufProvider() throws Exception {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file("x/data_filter.pbascii");
     scratch.file(
@@ -89,18 +88,30 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
     ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
-    assertThat(Artifact.toExecPaths(objcProtoProvider.getProtobufHeaders()))
+    assertThat(Artifact.asExecPaths(objcProtoProvider.getProtobufHeaders()))
         .containsExactly(TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "objcproto/include/header.h");
 
-    Artifact header = Iterables.getOnlyElement(objcProtoProvider.getProtobufHeaders());
+    Artifact header = objcProtoProvider.getProtobufHeaders().getSingleton();
     PathFragment includePath = header.getExecPath().getParentDirectory();
     PathFragment genIncludePath =
         PathFragment.create(
             configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
                 + "/" + includePath);
 
-    assertThat(objcProtoProvider.getProtobufHeaderSearchPaths())
+    assertThat(objcProtoProvider.getProtobufHeaderSearchPaths().toList())
         .containsExactly(includePath, genIncludePath);
+  }
+
+  @Test
+  public void testObjcProtoAspectPropagatesProtobufProviderPreMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
+    testObjcProtoAspectPropagatesProtobufProvider();
+  }
+
+  @Test
+  public void testObjcProtoAspectPropagatesProtobufProviderPostMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
+    testObjcProtoAspectPropagatesProtobufProvider();
   }
 
   @Test
@@ -149,9 +160,9 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
-    assertThat(Artifact.toExecPaths(Iterables.concat(objcProtoProvider.getProtoFiles())))
+    assertThat(Artifact.asExecPaths(Iterables.concat(objcProtoProvider.getProtoFiles().toList())))
         .containsExactly("x/data.proto");
-    assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
+    assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsExactly("x/data_filter.pbascii");
   }
 
@@ -181,7 +192,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
-    assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
+    assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsExactly(
             configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
                 + "/x/_proto_filters/objc_proto/generated_filter_file.pbascii");
@@ -224,7 +235,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
-    assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
+    assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsAtLeast(
             "x/filter.pbascii",
             configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)

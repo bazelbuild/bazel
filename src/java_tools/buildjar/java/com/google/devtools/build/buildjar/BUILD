@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "bootstrap_java_library")
 
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
@@ -150,16 +151,14 @@ java_library(
 ## Bootstrapping using Skylark rules
 #
 
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
-
 bootstrap_java_library(
     name = "skylark-deps",
     srcs = ["//:bootstrap-derived-java-srcs"],
     jars = [
         "//third_party:auto_value-jars",
+        "//:bootstrap-derived-java-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
-        "//third_party/protobuf:protobuf-jars",
         "//third_party/java/jacoco:core-jars",
         "//third_party/grpc:bootstrap-grpc-jars",
         "//third_party:tomcat_annotations_api-jars",

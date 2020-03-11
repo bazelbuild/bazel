@@ -130,7 +130,7 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     declareTargetWithImplementation( //
         TRANSITIVE_SOURCES_SETUP_CODE, //
         "return [modern_info]");
-    assertThat(PyProviderUtils.getTransitiveSources(getTarget()))
+    assertThat(PyProviderUtils.getTransitiveSources(getTarget()).toList())
         .containsExactly(getBinArtifact("a.py", getTarget()));
   }
 
@@ -139,7 +139,7 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     declareTargetWithImplementation( //
         TRANSITIVE_SOURCES_SETUP_CODE, //
         "return struct(py=legacy_info)");
-    assertThat(PyProviderUtils.getTransitiveSources(getTarget()))
+    assertThat(PyProviderUtils.getTransitiveSources(getTarget()).toList())
         .containsExactly(getBinArtifact("b.py", getTarget()));
   }
 
@@ -148,7 +148,7 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     declareTargetWithImplementation( //
         TRANSITIVE_SOURCES_SETUP_CODE, //
         "return struct(py=legacy_info, providers=[modern_info])");
-    assertThat(PyProviderUtils.getTransitiveSources(getTarget()))
+    assertThat(PyProviderUtils.getTransitiveSources(getTarget()).toList())
         .containsExactly(getBinArtifact("a.py", getTarget()));
   }
 
@@ -157,7 +157,7 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     declareTargetWithImplementation( //
         TRANSITIVE_SOURCES_SETUP_CODE, //
         "return [DefaultInfo(files=depset(direct=[afile]))]");
-    assertThat(PyProviderUtils.getTransitiveSources(getTarget()))
+    assertThat(PyProviderUtils.getTransitiveSources(getTarget()).toList())
         .containsExactly(getBinArtifact("a.py", getTarget()));
   }
 
@@ -211,7 +211,7 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     declareTargetWithImplementation( //
         IMPORTS_SETUP_CODE, //
         "return [modern_info]");
-    assertThat(PyProviderUtils.getImports(getTarget())).containsExactly("abc");
+    assertThat(PyProviderUtils.getImports(getTarget()).toList()).containsExactly("abc");
   }
 
   @Test
@@ -219,7 +219,7 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     declareTargetWithImplementation( //
         IMPORTS_SETUP_CODE, //
         "return struct(py=legacy_info)");
-    assertThat(PyProviderUtils.getImports(getTarget())).containsExactly("def");
+    assertThat(PyProviderUtils.getImports(getTarget()).toList()).containsExactly("def");
   }
 
   @Test
@@ -227,7 +227,7 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     declareTargetWithImplementation( //
         IMPORTS_SETUP_CODE, //
         "return struct(py=legacy_info, providers=[modern_info])");
-    assertThat(PyProviderUtils.getImports(getTarget())).containsExactly("abc");
+    assertThat(PyProviderUtils.getImports(getTarget()).toList()).containsExactly("abc");
   }
 
   @Test
@@ -235,7 +235,7 @@ public class PyProviderUtilsTest extends BuildViewTestCase {
     declareTargetWithImplementation( //
         IMPORTS_SETUP_CODE, //
         "return []");
-    assertThat(PyProviderUtils.getImports(getTarget())).isEmpty();
+    assertThat(PyProviderUtils.getImports(getTarget()).toList()).isEmpty();
   }
 
   private static final String HAS_PY2_ONLY_SOURCES_SETUP_CODE =

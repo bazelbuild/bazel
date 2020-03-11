@@ -145,6 +145,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaSourceInfoProvider.class, javaSourceInfoProvider)
+            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
             .setRuntimeJars(javaArtifacts.getRuntimeJars())
             .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
             .setNeverlink(neverLink)
@@ -195,7 +196,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
       if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, info) != null) {
         ruleContext.attributeError("jars", "should not refer to Java rules");
       }
-      for (Artifact jar : info.getProvider(FileProvider.class).getFilesToBuild()) {
+      for (Artifact jar : info.getProvider(FileProvider.class).getFilesToBuild().toList()) {
         if (!JavaSemantics.JAR.matches(jar.getFilename())) {
           ruleContext.attributeError("jars", jar.getFilename() + " is not a .jar file");
         } else {

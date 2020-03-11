@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.rules.repository;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /**
@@ -51,8 +51,7 @@ public class WorkspaceAttributeMapper {
     try {
       return type.cast(value);
     } catch (ClassCastException e) {
-      throw new EvalException(
-          rule.getAttributeContainer().getAttributeLocation(attributeName), e.getMessage());
+      throw new EvalException(rule.getLocation(), e.getMessage());
     }
   }
 
@@ -64,16 +63,14 @@ public class WorkspaceAttributeMapper {
     Object value = rule.getAttributeContainer().getAttr(checkNotNull(attributeName));
     if (value instanceof SelectorList) {
       String message;
-      if (rule.getLocation()
-          .getPath()
-          .getBaseName()
-          .equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString())) {
+      // Is there a basename function for strings?
+      String base = PathFragment.create(rule.getLocation().file()).getBaseName();
+      if (WorkspaceFileHelper.matchWorkspaceFileName(base)) {
         message = "select() cannot be used in WORKSPACE files";
       } else {
         message = "select() cannot be used in macros called from WORKSPACE files";
       }
-      throw new EvalException(
-          rule.getAttributeContainer().getAttributeLocation(attributeName), message);
+      throw new EvalException(rule.getLocation(), message);
     }
     return value;
   }

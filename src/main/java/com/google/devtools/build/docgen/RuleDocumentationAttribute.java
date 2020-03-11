@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -202,14 +202,20 @@ public class RuleDocumentationAttribute
     if (attribute == null) {
       return "";
     }
-    StringBuilder sb = new StringBuilder()
-        .append(TYPE_DESC.get(attribute.getType()))
-        .append("; " + (attribute.isMandatory() ? "required" : "optional"))
-        .append(!attribute.isConfigurable()
-            ? String.format("; <a href=\"%s#configurable-attributes\">nonconfigurable</a>",
-                RuleDocumentation.COMMON_DEFINITIONS_PAGE)
-            : "")
-        .append(getDefaultValue());
+    StringBuilder sb =
+        new StringBuilder()
+            .append(TYPE_DESC.get(attribute.getType()))
+            .append("; ")
+            .append(attribute.isMandatory() ? "required" : "optional")
+            .append(
+                !attribute.isConfigurable()
+                    ? String.format(
+                        "; <a href=\"%s#configurable-attributes\">nonconfigurable</a>",
+                        RuleDocumentation.COMMON_DEFINITIONS_PAGE)
+                    : "");
+    if (!attribute.isMandatory()) {
+      sb.append(getDefaultValue());
+    }
     return sb.toString();
   }
 

@@ -33,7 +33,9 @@ load(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//third_party/grpc/bazel:srcs",
+    ],
 )
 
 config_setting(

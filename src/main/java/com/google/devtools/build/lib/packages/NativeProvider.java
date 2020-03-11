@@ -17,10 +17,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.Pair;
 import javax.annotation.Nullable;
 
@@ -33,18 +30,15 @@ import javax.annotation.Nullable;
  * <p>Typical implementation of a non-constructable from Skylark declared provider is as follows:
  *
  * <pre>
- *     public static final Provider PROVIDER =
- *       new NativeProvider("link_params") { };
+ *     public static final Provider PROVIDER = new NativeProvider("link_params") {};
  * </pre>
- *
- * To allow construction from Skylark and custom construction logic, override {@link
- * ProviderFromFunction#createInstanceFromSkylark(Object[], Environment, Location)}.
  *
  * @deprecated use {@link BuiltinProvider} instead.
  */
 @Immutable
 @Deprecated
-public abstract class NativeProvider<V extends InfoInterface> extends ProviderFromFunction {
+public abstract class NativeProvider<V extends Info> implements StarlarkValue, Provider {
+  private final String name;
   private final NativeKey key;
   private final String errorMessageFormatForUnknownField;
 
@@ -66,23 +60,16 @@ public abstract class NativeProvider<V extends InfoInterface> extends ProviderFr
     String getSkylarkName();
   }
 
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
-
-  protected NativeProvider(Class<V> clazz, String name) {
-    this(clazz, name, SIGNATURE);
+  protected NativeProvider(Class<V> valueClass, String name) {
+    this.name = name;
+    this.key = new NativeKey(name, getClass());
+    this.valueClass = valueClass;
+    this.errorMessageFormatForUnknownField =
+        String.format("'%s' value has no field or method '%%s'", name);
   }
 
-  @SuppressWarnings("unchecked")
-  protected NativeProvider(
-      Class<V> valueClass,
-      String name,
-      FunctionSignature.WithValues<Object, SkylarkType> signature) {
-    super(name, signature, Location.BUILTIN);
-    Class<? extends NativeProvider<?>> clazz = (Class<? extends NativeProvider<?>>) getClass();
-    key = new NativeKey(name, clazz);
-    this.valueClass = valueClass;
-    errorMessageFormatForUnknownField = String.format("'%s' object has no attribute '%%s'", name);
+  public final SkylarkProviderIdentifier id() {
+    return SkylarkProviderIdentifier.forKey(getKey());
   }
 
   /**
@@ -109,12 +96,17 @@ public abstract class NativeProvider<V extends InfoInterface> extends ProviderFr
 
   @Override
   public String getPrintableName() {
-    return getName();
+    return name; // for provider-related errors
   }
 
   @Override
   public String getErrorMessageFormatForUnknownField() {
     return errorMessageFormatForUnknownField;
+  }
+
+  @Override
+  public Location getLocation() {
+    return Location.BUILTIN;
   }
 
   @Override
@@ -125,13 +117,6 @@ public abstract class NativeProvider<V extends InfoInterface> extends ProviderFr
   @Override
   public NativeKey getKey() {
     return key;
-  }
-
-  @Override
-  protected InfoInterface createInstanceFromSkylark(Object[] args, Environment env, Location loc)
-      throws EvalException {
-    throw new EvalException(
-        loc, String.format("'%s' cannot be constructed from Starlark", getPrintableName()));
   }
 
   public static Pair<String, String> getSerializedRepresentationForNativeKey(NativeKey key) {

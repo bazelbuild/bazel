@@ -49,7 +49,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -239,7 +239,7 @@ class DexFileMerger {
         System.setOut(Dexing.nullout);
       }
 
-      HashSet<String> seen = new HashSet<>();
+      LinkedHashSet<String> seen = new LinkedHashSet<>();
       for (Path inputArchive : options.inputArchives) {
         // Simply merge files from inputs in order.  Doing that with a main dex list doesn't work,
         // but we rule out more than one input with a main dex list above.
@@ -288,7 +288,10 @@ class DexFileMerger {
   }
 
   private static void processDexFiles(
-      ZipFile zip, Iterable<ZipEntry> filesToProcess, HashSet<String> seen, DexFileAggregator out)
+      ZipFile zip,
+      Iterable<ZipEntry> filesToProcess,
+      LinkedHashSet<String> seen,
+      DexFileAggregator out)
       throws IOException {
     for (ZipEntry entry : filesToProcess) {
       String filename = entry.getName();

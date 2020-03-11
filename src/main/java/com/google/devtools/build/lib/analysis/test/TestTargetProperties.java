@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import java.util.List;
 import java.util.Map;
 
@@ -99,7 +99,10 @@ public class TestTargetProperties {
     ruleContext.getConfiguration().modifyExecutionInfo(executionInfo, TestRunnerAction.MNEMONIC);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
 
-    isRemotable = ExecutionRequirements.maybeExecutedRemotely(executionInfo.keySet());
+    isRemotable =
+        !executionInfo.containsKey(ExecutionRequirements.LOCAL)
+            && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE)
+            && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_EXEC);
 
     language = TargetUtils.getRuleLanguage(rule);
   }

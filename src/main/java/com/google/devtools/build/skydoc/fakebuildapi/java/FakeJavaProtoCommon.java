@@ -16,21 +16,28 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/**
- * Fake implementation of {@link JavaProtoCommonApi}.
- */
+/** Fake implementation of {@link JavaProtoCommonApi}. */
 public class FakeJavaProtoCommon
-    implements JavaProtoCommonApi<FileApi, SkylarkRuleContextApi, TransitiveInfoCollectionApi> {
+    implements JavaProtoCommonApi<
+        FileApi,
+        ConstraintValueInfoApi,
+        SkylarkRuleContextApi<ConstraintValueInfoApi>,
+        TransitiveInfoCollectionApi> {
 
   @Override
-  public void createProtoCompileAction(SkylarkRuleContextApi skylarkRuleContext,
-      TransitiveInfoCollectionApi target, FileApi sourceJar, String protoToolchainAttr,
-      String flavour) throws EvalException {}
+  public void createProtoCompileAction(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      TransitiveInfoCollectionApi target,
+      FileApi sourceJar,
+      String protoToolchainAttr,
+      String flavour)
+      throws EvalException {}
 
   @Override
   public boolean hasProtoSources(TransitiveInfoCollectionApi target) {
@@ -38,8 +45,9 @@ public class FakeJavaProtoCommon
   }
 
   @Override
-  public JavaInfoApi<FileApi> getRuntimeToolchainProvider(SkylarkRuleContextApi skylarkRuleContext,
-      String protoToolchainAttr) throws EvalException {
+  public JavaInfoApi<FileApi> getRuntimeToolchainProvider(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, String protoToolchainAttr)
+      throws EvalException {
     return new FakeJavaInfo();
   }
 }

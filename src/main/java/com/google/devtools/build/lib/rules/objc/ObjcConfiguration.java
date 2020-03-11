@@ -62,32 +62,20 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   private final boolean moduleMapsEnabled;
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
-  @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
-  private final boolean experimentalHeaderThinning;
-  private final int objcHeaderThinningPartitionSize;
-  private final Label objcHeaderScannerTool;
+  private final boolean shouldScanIncludes;
   private final Label appleSdk;
-  private final boolean strictObjcModuleMaps;
+  private final boolean compileInfoMigration;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, CoreOptions options) {
-    this.iosSimulatorDevice =
-        Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
-    this.iosSimulatorVersion =
-        Preconditions.checkNotNull(DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion),
-            "iosSimulatorVersion");
-    this.watchosSimulatorDevice =
-        Preconditions.checkNotNull(objcOptions.watchosSimulatorDevice, "watchosSimulatorDevice");
-    this.watchosSimulatorVersion =
-        Preconditions.checkNotNull(DottedVersion.maybeUnwrap(objcOptions.watchosSimulatorVersion),
-            "watchosSimulatorVersion");
-    this.tvosSimulatorDevice =
-        Preconditions.checkNotNull(objcOptions.tvosSimulatorDevice, "tvosSimulatorDevice");
-    this.tvosSimulatorVersion =
-        Preconditions.checkNotNull(DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion),
-            "tvosSimulatorVersion");
+    this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
+    this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
+    this.watchosSimulatorDevice = objcOptions.watchosSimulatorDevice;
+    this.watchosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.watchosSimulatorVersion);
+    this.tvosSimulatorDevice = objcOptions.tvosSimulatorDevice;
+    this.tvosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion);
     this.generateLinkmap = objcOptions.generateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
@@ -100,18 +88,15 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
-    this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
-    this.experimentalHeaderThinning = objcOptions.experimentalObjcHeaderThinning;
-    this.objcHeaderThinningPartitionSize = objcOptions.objcHeaderThinningPartitionSize;
-    this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
+    this.shouldScanIncludes = objcOptions.scanIncludes;
     this.appleSdk = objcOptions.appleSdk;
-    this.strictObjcModuleMaps = objcOptions.strictObjcModuleMaps;
+    this.compileInfoMigration = objcOptions.incompatibleObjcCompileInfoMigration;
   }
 
   /**
@@ -245,14 +230,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   }
 
   /**
-   * Returns the extra entitlements plist specified as a flag or {@code null} if none was given.
-   */
-  @Nullable
-  public Label getExtraEntitlements() {
-    return extraEntitlements;
-  }
-
-  /**
    * Returns whether device debug entitlements should be included when signing an application.
    *
    * <p>Note that debug entitlements will be included only if the --device_debug_entitlements flag
@@ -274,19 +251,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     return dotdPruningPlan;
   }
 
-  /** Returns true if header thinning of ObjcCompile actions is enabled to reduce action inputs. */
-  public boolean useExperimentalHeaderThinning() {
-    return experimentalHeaderThinning;
-  }
-
-  /** Returns the max number of source files to add to each header scanning action. */
-  public int objcHeaderThinningPartitionSize() {
-    return objcHeaderThinningPartitionSize;
-  }
-
-  /** Returns the label for the ObjC header scanner tool. */
-  public Label getObjcHeaderScannerTool() {
-    return objcHeaderScannerTool;
+  /** Returns true iff we should do "include scanning" during this build. */
+  public boolean shouldScanIncludes() {
+    return shouldScanIncludes;
   }
 
   /** Returns the label for the Apple SDK for current build configuration. */
@@ -294,8 +261,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     return appleSdk;
   }
 
-  /** Returns true if Objective-C module maps should only be propagated to direct dependencies. */
-  public boolean useStrictObjcModuleMaps() {
-    return strictObjcModuleMaps;
+  /** Whether native rules can assume compile info has been migrated to CcInfo. */
+  public boolean compileInfoMigration() {
+    return compileInfoMigration;
   }
 }

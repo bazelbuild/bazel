@@ -108,6 +108,29 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
         .build();
   }
 
+  public static JavaSourceInfoProvider merge(Collection<JavaSourceInfoProvider> sourceInfos) {
+    JavaSourceInfoProvider.Builder javaSourceInfo = new JavaSourceInfoProvider.Builder();
+    ImmutableList.Builder<Artifact> jarFiles = new ImmutableList.Builder<>();
+    ImmutableMap.Builder<PathFragment, Artifact> resources = new ImmutableMap.Builder<>();
+    ImmutableList.Builder<Artifact> sourceFiles = new ImmutableList.Builder<>();
+    ImmutableList.Builder<Artifact> sourceJars = new ImmutableList.Builder<>();
+    ImmutableList.Builder<Artifact> sourceJarsForJarFiles = new ImmutableList.Builder<>();
+
+    for (JavaSourceInfoProvider sourceInfo : sourceInfos) {
+      jarFiles.addAll(sourceInfo.getJarFiles());
+      resources.putAll(sourceInfo.getResources());
+      sourceFiles.addAll(sourceInfo.getSourceFiles());
+      sourceJars.addAll(sourceInfo.getSourceJars());
+      sourceJarsForJarFiles.addAll(sourceInfo.getSourceJarsForJarFiles());
+    }
+    javaSourceInfo.setJarFiles(jarFiles.build());
+    javaSourceInfo.setResources(resources.build());
+    javaSourceInfo.setSourceFiles(sourceFiles.build());
+    javaSourceInfo.setSourceJars(sourceJars.build());
+    javaSourceInfo.setSourceJarsForJarFiles(sourceJarsForJarFiles.build());
+    return javaSourceInfo.build();
+  }
+
   /** Builder class for constructing JavaSourceInfoProviders. */
   public static final class Builder {
     private Collection<Artifact> sourceFiles = ImmutableList.<Artifact>of();

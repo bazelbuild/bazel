@@ -20,13 +20,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Streams;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -65,7 +66,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -79,7 +79,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -90,7 +89,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -139,7 +137,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   private final Semaphore cpuBoundSemaphore;
   private final BuildOptions defaultBuildOptions;
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
-  private final Supplier<BigInteger> nonceVersion;
 
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link
@@ -157,8 +154,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       boolean storeTransitivePackagesForPackageRootResolution,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       BuildOptions defaultBuildOptions,
-      @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
-      Supplier<BigInteger> nonceVersion) {
+      @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -167,7 +163,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.defaultBuildOptions = defaultBuildOptions;
     this.configuredTargetProgress = configuredTargetProgress;
-    this.nonceVersion = nonceVersion;
   }
 
   private void acquireWithLogging(SkyKey key) throws InterruptedException {
@@ -246,8 +241,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           GeneratingActions.EMPTY,
           transitivePackagesForPackageRootResolution == null
               ? null
-              : transitivePackagesForPackageRootResolution.build(),
-          nonceVersion.get());
+              : transitivePackagesForPackageRootResolution.build());
     }
 
     // This line is only needed for accurate error messaging. Say this target has a circular
@@ -334,6 +328,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         String targetDescription = target.toString();
         toolchainContext =
             ResolvedToolchainContext.load(
+                target.getPackage().getRepositoryMapping(),
                 unloadedToolchainContext,
                 targetDescription,
                 depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
@@ -362,7 +357,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         if (unloadedToolchainContext != null) {
           UnloadedToolchainContext finalUnloadedToolchainContext = unloadedToolchainContext;
           Set<Label> toolchainDependencyErrors =
-              Streams.stream(cvce.getRootCauses())
+              cvce.getRootCauses().toList().stream()
                   .map(Cause::getLabel)
                   .filter(l -> finalUnloadedToolchainContext.resolvedToolchainLabels().contains(l))
                   .collect(ImmutableSet.toImmutableSet());
@@ -479,7 +474,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             BuildOptions.diffForReconstruction(defaultBuildOptions, toolchainOptions));
 
     // Collect local (target, rule) constraints for filtering out execution platforms.
-    ImmutableSet<Label> execConstraintLabels = getExecutionPlatformConstraints(rule);
+    ImmutableSet<Label> execConstraintLabels =
+        getExecutionPlatformConstraints(
+            rule, configuration.getFragment(PlatformConfiguration.class));
     return (UnloadedToolchainContext)
         env.getValueOrThrow(
             UnloadedToolchainContext.key()
@@ -493,19 +490,22 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   /**
    * Returns the target-specific execution platform constraints, based on the rule definition and
-   * any constraints added by the target.
+   * any constraints added by the target, including those added for the target on the command line.
    */
-  public static ImmutableSet<Label> getExecutionPlatformConstraints(Rule rule) {
+  public static ImmutableSet<Label> getExecutionPlatformConstraints(
+      Rule rule, PlatformConfiguration platformConfiguration) {
     NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
     ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
 
     execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
-
-    if (rule.getRuleClassObject().executionPlatformConstraintsAllowed()
-        == ExecutionPlatformConstraintsAllowed.PER_TARGET) {
+    if (rule.getRuleClassObject()
+        .hasAttr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)) {
       execConstraintLabels.addAll(
           mapper.get(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
     }
+
+    execConstraintLabels.addAll(
+        platformConfiguration.getAdditionalExecutionConstraintsFor(rule.getLabel()));
 
     return execConstraintLabels.build();
   }
@@ -676,15 +676,30 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     ImmutableList<Dependency> configConditionDeps = depsBuilder.build();
 
-    Map<SkyKey, ConfiguredTargetAndData> configValues =
-        resolveConfiguredTargetDependencies(
-            env,
-            ctgValue,
-            configConditionDeps,
-            transitivePackagesForPackageRootResolution,
-            transitiveRootCauses);
-    if (configValues == null) {
-      return null;
+    Map<SkyKey, ConfiguredTargetAndData> configValues;
+    try {
+      configValues =
+          resolveConfiguredTargetDependencies(
+              env,
+              ctgValue,
+              configConditionDeps,
+              transitivePackagesForPackageRootResolution,
+              transitiveRootCauses);
+      if (configValues == null) {
+        return null;
+      }
+    } catch (DependencyEvaluationException e) {
+      // One of the config dependencies doesn't exist, and we need to report that. Unfortunately,
+      // there's not enough information to know which configurable attribute has the problem.
+      env.getListener()
+          .handle(
+              Event.error(
+                  String.format(
+                      "While resolving configuration keys for %s: %s",
+                      target.getLabel(), e.getCause().getMessage())));
+
+      // Re-throw the exception so it is handled by compute().
+      throw e;
     }
 
     Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
@@ -741,7 +756,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             Iterables.transform(
                 deps, input -> PackageValue.key(input.getLabel().getPackageIdentifier())));
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> depValuesOrExceptions =
-            env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
+        env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
     Map<SkyKey, ConfiguredTargetAndData> result = Maps.newHashMapWithExpectedSize(deps.size());
     Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
     List<Dependency> aliasDepsToRedo = new ArrayList<>();
@@ -796,12 +811,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   depValue.getConfiguredTarget().getConfigurationKey();
               // Retroactive trimming may change the configuration associated with the dependency.
               // If it does, we need to get that instance.
-              // TODO(mstaib): doing these individually instead of doing them all at once may end up
-              // being wasteful use of Skyframe. Although these configurations are guaranteed to be
-              // in the Skyframe cache (because the dependency would have had to retrieve them to be
-              // created in the first place), looking them up repeatedly may be slower than just
-              // keeping a local cache and assigning the same configuration to all the CTs which
-              // need it. Profile this and see if there's a better way.
+              // TODO(b/140632978): doing these individually instead of doing them all at once may
+              // end up being wasteful use of Skyframe. Although these configurations are guaranteed
+              // to be in the Skyframe cache (because the dependency would have had to retrieve them
+              // to be created in the first place), looking them up repeatedly may be slower than
+              // just keeping a local cache and assigning the same configuration to all the CTs
+              // which need it. Profile this and see if there's a better way.
               if (depKey != null && !depKey.equals(BuildConfigurationValue.key(depConfiguration))) {
                 if (!depConfiguration.trimConfigurationsRetroactively()) {
                   throw new AssertionError(
@@ -816,7 +831,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   new ConfiguredTargetAndData(
                       depValue.getConfiguredTarget(),
                       pkgValue.getPackage().getTarget(depLabel.getName()),
-                      depConfiguration));
+                      depConfiguration,
+                      dep.getTransitionKey()));
             } catch (NoSuchTargetException e) {
               throw new IllegalStateException("Target already verified for " + dep, e);
             }
@@ -888,6 +904,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               depValueMap,
               configConditions,
               toolchainContext);
+    } catch (MissingDepException e) {
+      Preconditions.checkState(env.valuesMissing(), e.getMessage());
+      return null;
     } catch (ActionConflictException e) {
       throw new ConfiguredTargetFunctionException(e);
     }
@@ -907,9 +926,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               .collect(Collectors.toList()));
       throw new ConfiguredTargetFunctionException(
           new ConfiguredValueCreationException(
-              "Analysis of target '" + target.getLabel() + "' failed; build aborted",
-              configuration,
-              rootCauses));
+              "Analysis of target '" + target.getLabel() + "' failed", configuration, rootCauses));
     }
     Preconditions.checkState(!analysisEnvironment.hasErrors(),
         "Analysis environment hasError() but no errors reported");
@@ -926,8 +943,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           ruleConfiguredTarget,
           transitivePackagesForPackageRootResolution == null
               ? null
-              : transitivePackagesForPackageRootResolution.build(),
-          nonceVersion.get());
+              : transitivePackagesForPackageRootResolution.build());
     } else {
       GeneratingActions generatingActions;
       // Check for conflicting actions within this configured target (that indicates a bug in the
@@ -947,8 +963,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           generatingActions,
           transitivePackagesForPackageRootResolution == null
               ? null
-              : transitivePackagesForPackageRootResolution.build(),
-          nonceVersion.get());
+              : transitivePackagesForPackageRootResolution.build());
     }
   }
 

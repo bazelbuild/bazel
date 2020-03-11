@@ -15,7 +15,7 @@ java_library(
     name = "repository",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",

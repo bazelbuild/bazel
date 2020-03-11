@@ -118,7 +118,6 @@ public final class TestSuiteBuilder {
   private static boolean isTestClass(Class<?> container) {
     return (isJunit4Test(container) || isJunit3Test(container))
         && !isSuite(container)
-        && Modifier.isPublic(container.getModifiers())
         && !Modifier.isAbstract(container.getModifiers());
   }
 

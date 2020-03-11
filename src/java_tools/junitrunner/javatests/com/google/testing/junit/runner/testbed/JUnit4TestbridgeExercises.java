@@ -26,11 +26,15 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class JUnit4TestbridgeExercises {
   @Test
-  public void doRun() {
+  public void testPass() {}
+
+  @Test
+  public void testFailOnce() {
+    fail();
   }
 
   @Test
-  public void doNotRun() {
+  public void testFailAgain() {
     fail();
   }
 }

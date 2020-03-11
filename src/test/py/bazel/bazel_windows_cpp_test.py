@@ -138,15 +138,15 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
-    # extensions correct on
-    # Windows.
+    # extensions correct on Windows.
     import_library = os.path.join(bazel_bin, 'A.if.lib')
     shared_library = os.path.join(bazel_bin, 'A.dll')
-    def_file = os.path.join(bazel_bin, 'A.gen.def')
+    empty_def_file = os.path.join(bazel_bin, 'A.gen.empty.def')
+
     self.assertTrue(os.path.exists(import_library))
     self.assertTrue(os.path.exists(shared_library))
-    # DEF file shouldn't be generated for //:A
-    self.assertFalse(os.path.exists(def_file))
+    # An empty DEF file should be generated for //:A
+    self.assertTrue(os.path.exists(empty_def_file))
 
   def testBuildDynamicLibraryWithExportSymbolFeature(self):
     self.createProjectFiles()
@@ -159,8 +159,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
-    # extensions correct on
-    # Windows.
+    # extensions correct on Windows.
     import_library = os.path.join(bazel_bin, 'B.if.lib')
     shared_library = os.path.join(bazel_bin, 'B.dll')
     def_file = os.path.join(bazel_bin, 'B.gen.def')
@@ -175,8 +174,15 @@ class BazelWindowsCppTest(test_base.TestBase):
         'build', '//:B', '--output_groups=dynamic_library',
         '--features=no_windows_export_all_symbols'
     ])
-    self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn('output \'B.if.lib\' was not created', ''.join(stderr))
+    self.AssertExitCode(exit_code, 0, stderr)
+    import_library = os.path.join(bazel_bin, 'B.if.lib')
+    shared_library = os.path.join(bazel_bin, 'B.dll')
+    empty_def_file = os.path.join(bazel_bin, 'B.gen.empty.def')
+    self.assertTrue(os.path.exists(import_library))
+    self.assertTrue(os.path.exists(shared_library))
+    # An empty DEF file should be generated for //:B
+    self.assertTrue(os.path.exists(empty_def_file))
+    self.AssertFileContentNotContains(empty_def_file, 'hello_B')
 
   def testBuildCcBinaryWithDependenciesDynamicallyLinked(self):
     self.createProjectFiles()
@@ -195,7 +201,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # a_shared_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.dll')))
     # a_def_file
-    self.assertFalse(os.path.exists(os.path.join(bazel_bin, 'A.gen.def')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A.gen.empty.def')))
     # b_import_library
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'B.if.lib')))
     # b_shared_library
@@ -505,6 +511,67 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertFileContentContains(def_file, 'hello_B')
     self.AssertFileContentContains(def_file, 'hello_C')
 
+  def testBuildSharedLibraryWithoutAnySymbolExported(self):
+    self.createProjectFiles()
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "A.dll",',
+        '  srcs = ["a.cc", "a.h"],',
+        '  copts = ["/DNO_DLLEXPORT"],',
+        '  linkshared = 1,'
+        ')',
+    ])
+    bazel_bin = self.getBazelInfo('bazel-bin')
+
+    exit_code, _, stderr = self.RunBazel(['build', '//:A.dll'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    # Although windows_export_all_symbols is not specified for this target,
+    # we should still be able to build a DLL without any symbol exported.
+    empty_def_file = os.path.join(bazel_bin, 'A.dll.gen.empty.def')
+    self.assertTrue(os.path.exists(empty_def_file))
+    self.AssertFileContentNotContains(empty_def_file, 'hello_A')
+
+  def testUsingDefFileGeneratedFromCcLibrary(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('lib_A.cc', ['void hello_A() {}'])
+    self.ScratchFile('lib_B.cc', ['void hello_B() {}'])
+    self.ScratchFile('BUILD', [
+        'cc_library(',
+        '  name = "lib_A",',
+        '  srcs = ["lib_A.cc"],',
+        ')',
+        '',
+        'cc_library(',
+        '  name = "lib_B",',
+        '  srcs = ["lib_B.cc"],',
+        '  deps = [":lib_A"]',
+        ')',
+        '',
+        'filegroup(',
+        '  name = "lib_B_symbols",',
+        '  srcs = [":lib_B"],',
+        '  output_group = "def_file",',
+        ')',
+        '',
+        'cc_binary(',
+        '  name = "lib.dll",',
+        '  deps = [":lib_B"],',
+        '  win_def_file = ":lib_B_symbols",',
+        '  linkshared = 1,',
+        ')',
+    ])
+    # Test specifying DEF file in cc_binary
+    bazel_bin = self.getBazelInfo('bazel-bin')
+    exit_code, _, stderr = self.RunBazel(['build', '//:lib.dll', '-s'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    def_file = bazel_bin + '/lib_B.gen.def'
+    self.assertTrue(os.path.exists(def_file))
+    # hello_A should not be exported
+    self.AssertFileContentNotContains(def_file, 'hello_A')
+    # hello_B should be exported
+    self.AssertFileContentContains(def_file, 'hello_B')
+
   def testWinDefFileAttribute(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('lib.cc', ['void hello() {}'])
@@ -659,6 +726,67 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     exit_code, _, stderr = self.RunBazel(
         ['build', '--disk_cache=' + cache_dir, ':lib'], cwd=dir_b)
+    self.AssertExitCode(exit_code, 0, stderr)
+
+  # Regression test for https://github.com/bazelbuild/bazel/issues/9321
+  def testCcCompileWithTreeArtifactAsSource(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'load(":genccs.bzl", "genccs")',
+        '',
+        'genccs(',
+        '    name = "gen_tree",',
+        ')',
+        '',
+        'cc_library(',
+        '    name = "main",',
+        '    srcs = [ "gen_tree" ]',
+        ')',
+        '',
+        'cc_binary(',
+        '    name = "genccs",',
+        '    srcs = [ "genccs.cpp" ],',
+        ')',
+    ])
+    self.ScratchFile('genccs.bzl', [
+        'def _impl(ctx):',
+        '  tree = ctx.actions.declare_directory(ctx.attr.name + ".cc")',
+        '  ctx.actions.run(',
+        '    inputs = [],',
+        '    outputs = [ tree ],',
+        '    arguments = [ tree.path ],',
+        '    progress_message = "Generating cc files into \'%s\'" % tree.path,',
+        '    executable = ctx.executable._tool,',
+        '  )',
+        '',
+        '  return [ DefaultInfo(files = depset([ tree ])) ]',
+        '',
+        'genccs = rule(',
+        '  implementation = _impl,',
+        '  attrs = {',
+        '    "_tool": attr.label(',
+        '      executable = True,',
+        '      cfg = "host",',
+        '      allow_files = True,',
+        '      default = Label("//:genccs"),',
+        '    )',
+        '  }',
+        ')',
+    ])
+    self.ScratchFile('genccs.cpp', [
+        '#include <fstream>',
+        '#include <Windows.h>',
+        'using namespace std;',
+        '',
+        'int main (int argc, char *argv[]) {',
+        '  CreateDirectory(argv[1], NULL);',
+        '  ofstream myfile;',
+        '  myfile.open(string(argv[1]) + string("/foo.cpp"));',
+        '  myfile << "int main() { return 42; }";',
+        '  return 0;',
+        '}',
+    ])
+    exit_code, _, stderr = self.RunBazel(['build', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
 
 

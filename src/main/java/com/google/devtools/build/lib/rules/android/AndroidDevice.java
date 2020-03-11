@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -145,7 +145,14 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         .addFilesToRun(extraFilesToRun)
         .addNativeDeclaredProvider(new ExecutionInfo(executionInfo))
         .addNativeDeclaredProvider(new AndroidDeviceBrokerInfo(DEVICE_BROKER_TYPE))
-        .addNativeDeclaredProvider(new AndroidDex2OatInfo(dex2OatEnabled))
+        .addNativeDeclaredProvider(
+            new AndroidDex2OatInfo(
+                dex2OatEnabled,
+                false /* executeDex2OatOnHost */,
+                null /* deviceForPregeneratingOatFilesForTests */,
+                null /* framework */,
+                null /* dalvikCache */,
+                null /* deviceProps */))
         .build();
   }
 
@@ -238,8 +245,11 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         return;
       }
 
-      Iterable<Artifact> files =
-          systemImagesAndSourceProperties.getProvider(FileProvider.class).getFilesToBuild();
+      List<Artifact> files =
+          systemImagesAndSourceProperties
+              .getProvider(FileProvider.class)
+              .getFilesToBuild()
+              .toList();
       sourcePropertiesFile = Iterables.tryFind(files, SOURCE_PROPERTIES_SELECTOR).orNull();
       systemImages = Iterables.filter(files, SOURCE_PROPERTIES_FILTER);
       validateAttributes();
@@ -251,7 +261,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
                 + systemImagesAndSourceProperties.getLabel()
                 + ")");
       }
-      int numberOfSourceProperties = Iterables.size(files) - Iterables.size(systemImages);
+      int numberOfSourceProperties = files.size() - Iterables.size(systemImages);
       if (numberOfSourceProperties > 1) {
         ruleContext.attributeError(
             "system_image",

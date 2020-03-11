@@ -48,11 +48,11 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   private static void assertHasOrderAndContainsExactly(
       NestedSet<?> set, Order order, Object... values) {
     assertThat(set.getOrder()).isEqualTo(order);
-    assertThat(set).containsExactly(values);
+    assertThat(set.toList()).containsExactly(values);
   }
 
   @Test
-  public void factoryMethod_InBuildRuntime() {
+  public void factoryMethod_InBuildRuntime() throws Exception {
     NestedSet<Artifact> files = NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile);
     PyRuntimeInfo inBuildRuntime =
         PyRuntimeInfo.createForInBuildRuntime(dummyInterpreter, files, PythonVersion.PY2);
@@ -84,14 +84,14 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructor_InBuildRuntime() throws Exception {
-    eval(
+    exec(
         "info = PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = depset([dummy_file]),",
         "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = (PyRuntimeInfo) lookup("info");
-    assertThat(info.getCreationLoc().getStartOffset()).isEqualTo(7);
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
     assertThat(info.getInterpreterPath()).isNull();
     assertThat(info.getInterpreter()).isEqualTo(dummyInterpreter);
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER, dummyFile);
@@ -100,13 +100,13 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructor_PlatformRuntime() throws Exception {
-    eval(
+    exec(
         "info = PyRuntimeInfo(", //
         "    interpreter_path = '/system/interpreter',",
         "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = (PyRuntimeInfo) lookup("info");
-    assertThat(info.getCreationLoc().getStartOffset()).isEqualTo(7);
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
     assertThat(info.getInterpreterPath()).isEqualTo(PathFragment.create("/system/interpreter"));
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
@@ -115,7 +115,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructor_FilesDefaultsToEmpty() throws Exception {
-    eval(
+    exec(
         "info = PyRuntimeInfo(", //
         "    interpreter = dummy_interpreter,",
         "    python_version = 'PY2',",
@@ -143,14 +143,14 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_Files() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'depset of Files or NoneType' for parameter 'files'",
+        "got value of type 'string', want 'depset of Files or NoneType'",
         "PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = 'abc',",
         "    python_version = 'PY2',",
         ")");
     checkEvalErrorContains(
-        "expected value of type 'depset of Files or NoneType' for parameter 'files'",
+        "got value of type 'depset', want 'depset of Files or NoneType'",
         "PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = depset(['abc']),",
@@ -168,7 +168,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_PythonVersion() throws Exception {
     checkEvalErrorContains(
-        "parameter 'python_version' has no default value",
+        "missing 1 required named argument: python_version",
         "PyRuntimeInfo(",
         "    interpreter_path = '/system/interpreter',",
         ")");

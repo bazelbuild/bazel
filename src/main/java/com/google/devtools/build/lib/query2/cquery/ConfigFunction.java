@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -72,7 +72,8 @@ public final class ConfigFunction implements QueryFunction {
 
     Argument targetExpression = args.get(0);
     String configuration = args.get(1).toString();
-
+    // Turn "'string'" to "string" (remove the surrounding apostrophes).
+    configuration = configuration.substring(1, configuration.length() - 1);
 
     final QueryTaskFuture<ThreadSafeMutableSet<T>> targets =
         QueryUtil.evalAll(env, context, targetExpression.getExpression());

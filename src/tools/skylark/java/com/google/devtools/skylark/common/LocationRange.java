@@ -38,12 +38,6 @@ public class LocationRange {
     this.end = end;
   }
 
-  public static LocationRange from(com.google.devtools.build.lib.events.Location location) {
-    Location start = Location.from(location.getStartLineAndColumn());
-    Location end = Location.from(location.getEndLineAndColumn());
-    return new LocationRange(start, end);
-  }
-
   public static int compare(LocationRange l1, LocationRange l2) {
     int cmp = Location.compare(l1.start, l2.start);
     if (cmp != 0) {
@@ -68,11 +62,11 @@ public class LocationRange {
     }
 
     public static Location from(@Nullable LineAndColumn lac) {
-      // LineAndColumn may be null, e.g. if a BuildFileAST contains no statements:
+      // LineAndColumn may be null, e.g. if a StarlarkFile contains no statements:
       if (lac == null) {
         return new Location(1, 1);
       }
-      return new Location(lac.getLine(), lac.getColumn());
+      return new Location(lac.line, lac.column);
     }
 
     public static int compare(Location l1, Location l2) {

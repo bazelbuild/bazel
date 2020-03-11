@@ -15,7 +15,7 @@ package com.google.devtools.build.android.ziputils;
 
 import com.google.common.base.Preconditions;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 class Splitter {
@@ -38,7 +38,7 @@ class Splitter {
   public Splitter(int numberOfShards, int expectedSize) {
     this.numberOfShards = numberOfShards;
     this.remaining = expectedSize;
-    this.assigned = new HashMap<>();
+    this.assigned = new LinkedHashMap<>();
     idealSize = remaining / (numberOfShards - shard);
     // Before you change this, please do the math.
     // It's not always perfect, but designed to keep shards reasonably balanced in most cases.

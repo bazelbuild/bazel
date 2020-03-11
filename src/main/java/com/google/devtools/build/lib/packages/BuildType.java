@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -25,19 +24,16 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.Type.DictType;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.packages.Type.ListType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SelectorValue;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.Type.DictType;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
-import com.google.devtools.build.lib.syntax.Type.ListType;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -148,10 +144,12 @@ public final class BuildType {
   public static <T> Object selectableConvert(
       Type<T> type, Object x, Object what, LabelConversionContext context)
       throws ConversionException {
-    if (x instanceof com.google.devtools.build.lib.syntax.SelectorList) {
+    if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
       return new SelectorList<T>(
-          ((com.google.devtools.build.lib.syntax.SelectorList) x).getElements(),
-          what, context, type);
+          ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
+          what,
+          context,
+          type);
     } else {
       return type.convert(x, what, context);
     }
@@ -263,20 +261,22 @@ public final class BuildType {
         if (!(x instanceof String)) {
           throw new ConversionException(Type.STRING, x, what);
         }
+        // This String here is about to be parsed into a Label. We do not use STRING.convert since
+        // there is absolutely no motivation to intern the String; the Label we create will be
+        // storing a reference to different string (a substring in fact).
+        String str = (String) x;
         // TODO(b/110101445): check if context is ever actually null
         if (context == null) {
           return Label.parseAbsolute(
-              (String) x, /* defaultToMain= */ false, /* repositoryMapping= */ ImmutableMap.of());
+              str, /* defaultToMain= */ false, /* repositoryMapping= */ ImmutableMap.of());
           // TODO(b/110308446): remove instances of context being a Label
         } else if (context instanceof Label) {
-          return ((Label) context)
-              .getRelativeWithRemapping(STRING.convert(x, what, context), ImmutableMap.of());
+          return ((Label) context).getRelativeWithRemapping(str, ImmutableMap.of());
         } else if (context instanceof LabelConversionContext) {
           LabelConversionContext labelConversionContext = (LabelConversionContext) context;
           return labelConversionContext
               .getLabel()
-              .getRelativeWithRemapping(
-                  STRING.convert(x, what, context), labelConversionContext.getRepositoryMapping());
+              .getRelativeWithRemapping(str, labelConversionContext.getRepositoryMapping());
         } else {
           throw new ConversionException("invalid context '" + context + "' in " + what);
         }
@@ -488,11 +488,13 @@ public final class BuildType {
   }
 
   /**
-   * Holds an ordered collection of {@link Selector}s. This is used to support
-   * {@code attr = rawValue + select(...) + select(...) + ..."} syntax. For consistency's
-   * sake, raw values are stored as selects with only a default condition.
+   * Holds an ordered collection of {@link Selector}s. This is used to support {@code attr =
+   * rawValue + select(...) + select(...) + ..."} syntax. For consistency's sake, raw values are
+   * stored as selects with only a default condition.
    */
-  public static final class SelectorList<T> implements SkylarkValue {
+  // TODO(adonovan): merge with packages.Selector{List,Value}.
+  // We don't need three classes for the same concept.
+  public static final class SelectorList<T> implements StarlarkValue {
     private final Type<T> originalType;
     private final List<Selector<T>> elements;
 
@@ -557,11 +559,11 @@ public final class BuildType {
 
     @Override
     public String toString() {
-      return Printer.repr(this);
+      return Starlark.repr(this);
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       // Convert to a lib.syntax.SelectorList to guarantee consistency with callers that serialize
       // directly on that type.
       List<SelectorValue> selectorValueList = new ArrayList<>();
@@ -569,7 +571,7 @@ public final class BuildType {
         selectorValueList.add(new SelectorValue(element.getEntries(), element.getNoMatchError()));
       }
       try {
-        printer.repr(com.google.devtools.build.lib.syntax.SelectorList.of(null, selectorValueList));
+        printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));
       } catch (EvalException e) {
         throw new IllegalStateException("this list should have been validated on creation");
       }
@@ -623,7 +625,7 @@ public final class BuildType {
         if (key.equals(DEFAULT_CONDITION_LABEL)) {
           foundDefaultCondition = true;
         }
-        if (entry.getValue() == Runtime.NONE) {
+        if (entry.getValue() == Starlark.NONE) {
           // { "//condition": None } is the same as not setting the value.
           result.put(key, originalType.getDefaultValue());
           defaultValuesBuilder.add(key);

@@ -87,6 +87,17 @@ public final class BuildOptions implements Cloneable, Serializable {
             Collectors.toMap(e -> Label.parseAbsoluteUnchecked(e.getKey()), Map.Entry::getValue));
   }
 
+  public static BuildOptions getDefaultBuildOptionsForFragments(
+      List<Class<? extends FragmentOptions>> fragmentClasses) {
+    ArrayList<String> collector = new ArrayList<>();
+    try {
+      String[] stringCollector = new String[collector.size()];
+      return BuildOptions.of(fragmentClasses, collector.toArray(stringCollector));
+    } catch (OptionsParsingException e) {
+      throw new IllegalArgumentException("Failed to parse default options", e);
+    }
+  }
+
   /** Creates a new BuildOptions instance for host. */
   public BuildOptions createHostOptions() {
     Builder builder = builder();
@@ -527,6 +538,12 @@ public final class BuildOptions implements Cloneable, Serializable {
       return starlarkOptions.containsKey(key);
     }
 
+    /** Removes the value for the {@link FragmentOptions} with the given FragmentOptions class. */
+    public Builder removeFragmentOptions(Class<? extends FragmentOptions> key) {
+      fragmentOptions.remove(key);
+      return this;
+    }
+
     /** Removes the value for the Starlark option with the given key. */
     public Builder removeStarlarkOption(Label key) {
       starlarkOptions.remove(key);
@@ -728,7 +745,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     // specific options differ between the first and second built options.
     private final Map<OptionDefinition, Object> first = new LinkedHashMap<>();
     // Since this class can be used to track the result of transitions, {@link second} is a multimap
-    // to be able to handle [@link SplitTransition}s.
+    // to be able to handle {@link SplitTransition}s.
     private final Multimap<OptionDefinition, Object> second = OrderedSetMultimap.create();
     // List of "extra" fragments for each BuildOption aka fragments that were trimmed off one
     // BuildOption but not the other.
@@ -795,6 +812,19 @@ public final class BuildOptions implements Cloneable, Serializable {
     private void addExtraSecondStarlarkOption(Label buildSetting, Object value) {
       extraStarlarkOptionsSecond.put(buildSetting, value);
       hasStarlarkOptions = true;
+    }
+
+    /**
+     * Returns the labels of all starlark options that caused a difference between the first and
+     * second options set.
+     */
+    public Set<Label> getChangedStarlarkOptions() {
+      return ImmutableSet.<Label>builder()
+          .addAll(skylarkFirst.keySet())
+          .addAll(skylarkSecond.keySet())
+          .addAll(extraStarlarkOptionsFirst)
+          .addAll(extraStarlarkOptionsSecond.keySet())
+          .build();
     }
 
     @VisibleForTesting
@@ -1097,7 +1127,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof OptionsDiffForReconstruction)) {
         return false;
       }
       OptionsDiffForReconstruction that = (OptionsDiffForReconstruction) o;
@@ -1239,7 +1269,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     private static final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction>
         byteStringToDiffMap = new ConcurrentHashMap<>();
 
-    @VisibleForTesting
     public DiffToByteCache() {}
 
     @Override

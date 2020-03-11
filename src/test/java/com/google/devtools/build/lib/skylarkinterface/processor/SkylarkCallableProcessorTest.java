@@ -18,9 +18,6 @@ import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 
 import com.google.common.io.Resources;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
@@ -52,7 +49,7 @@ public final class SkylarkCallableProcessorTest {
         .that(getFile("PrivateMethod.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
-        .withErrorContaining("@SkylarkCallable annotated methods must be public.");
+        .withErrorContaining("SkylarkCallable-annotated methods must be public.");
   }
 
   @Test
@@ -61,7 +58,7 @@ public final class SkylarkCallableProcessorTest {
         .that(getFile("StaticMethod.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
-        .withErrorContaining("@SkylarkCallable annotated methods cannot be static.");
+        .withErrorContaining("SkylarkCallable-annotated methods cannot be static.");
   }
 
 
@@ -72,9 +69,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable annotated methods with structField=true must have 0 user-supplied "
-                + "parameters. Expected 0 extra interpreter parameters, "
-                + "but found 1 total parameters.");
+            "method structFieldMethod is annotated structField=true but also has 1 Param"
+                + " annotations");
   }
 
   @Test
@@ -84,8 +80,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useAst, extraPositionals, or extraKeywords");
+            "a SkylarkCallable-annotated method with structField=true may not also specify"
+                + " useStarlarkThread");
   }
 
   @Test
@@ -95,8 +91,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                 + "useAst, extraPositionals, or extraKeywords");
+            "a SkylarkCallable-annotated method with structField=true may not also specify"
+                + " extraPositionals");
   }
 
   @Test
@@ -106,8 +102,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useAst, extraPositionals, or extraKeywords");
+            "a SkylarkCallable-annotated method with structField=true may not also specify"
+                + " extraKeywords");
   }
 
   @Test
@@ -126,45 +122,18 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable annotated method has 0 parameters, "
-                + "but annotation declared 1 user-supplied parameters "
-                + "and 0 extra interpreter parameters.");
+            "method methodWithParams has 1 Param annotations but only 0 parameters");
   }
 
   @Test
-  public void testEnvironmentMissing() throws Exception {
+  public void testStarlarkThreadMissing() throws Exception {
     assertAbout(javaSource())
-        .that(getFile("EnvironmentMissing.java"))
+        .that(getFile("StarlarkThreadMissing.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Expected parameter index 2 to be the "
-                + Environment.class.getCanonicalName()
-                + " type, matching useEnvironment, but was java.lang.String");
-  }
-
-  @Test
-  public void testContextMissing() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("ContextMissing.java"))
-        .processedWith(new SkylarkCallableProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Expected parameter index 2 to be the "
-                + StarlarkContext.class.getCanonicalName()
-                + " type, matching useContext, but was java.lang.String");
-  }
-
-  @Test
-  public void testLocationMissing() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("LocationMissing.java"))
-        .processedWith(new SkylarkCallableProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Expected parameter index 2 to be the "
-                + Location.class.getCanonicalName()
-                + " type, matching useLocation, but was java.lang.String");
+            "for useStarlarkThread special parameter 'shouldBeThread', got type java.lang.String,"
+                + " want StarlarkThread");
   }
 
   @Test
@@ -174,22 +143,13 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Expected parameter index 3 to be the "
-                + Location.class.getCanonicalName()
-                + " type, matching useLocation, but was java.lang.Integer");
-  }
-
-  @Test
-  public void testSkylarkInfoParamsWrongOrder() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("SkylarkInfoParamsWrongOrder.java"))
-        .processedWith(new SkylarkCallableProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Expected parameter index 1 to be the "
-                + Location.class.getCanonicalName()
-                + " type, matching useLocation, but was "
-                + Environment.class.getCanonicalName());
+            "for useStarlarkThread special parameter 'three', got type java.lang.String, want"
+                + " StarlarkThread");
+    // Also reports:
+    // - annotated type java.lang.String of parameter 'one' is not assignable
+    //   to variable of type com.google.devtools.build.lib.events.StarlarkThread
+    // - annotated type java.lang.Integer of parameter 'two' is not assignable
+    //   to variable of type java.lang.String
   }
 
   @Test
@@ -199,9 +159,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable annotated method has 2 parameters, "
-                + "but annotation declared 1 user-supplied parameters "
-                + "and 0 extra interpreter parameters.");
+            "method methodWithTooManyArguments is annotated with 1 Params plus 0 special"
+                + " parameters, yet has 2 parameter variables");
   }
 
   @Test
@@ -253,7 +212,7 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Positional parameter 'two' is specified after one or more non-positonal parameters");
+            "Positional parameter 'two' is specified after one or more non-positional parameters");
   }
 
   @Test
@@ -273,9 +232,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Expected parameter index 1 to be the "
-                + "com.google.devtools.build.lib.syntax.SkylarkDict<?,?> type, matching "
-                + "extraKeywords, but was java.lang.String");
+            "extraKeywords special parameter 'one' has type java.lang.String, to which"
+                + " Dict<String, Object> cannot be assigned");
   }
 
   @Test
@@ -285,8 +243,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable annotated method has 3 parameters, but annotation declared "
-                + "1 user-supplied parameters and 3 extra interpreter parameters.");
+            "method threeArgMethod is annotated with 1 Params plus 2 special parameters, but has"
+                + " only 2 parameter variables");
   }
 
   @Test
@@ -295,7 +253,7 @@ public final class SkylarkCallableProcessorTest {
         .that(getFile("SelfCallWithNoName.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
-        .withErrorContaining("@SkylarkCallable.name must be non-empty.");
+        .withErrorContaining("SkylarkCallable.name must be non-empty.");
   }
 
   @Test
@@ -305,7 +263,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkCallable-annotated methods with selfCall=true must have structField=false");
+            "a SkylarkCallable-annotated method with structField=true may not also specify"
+                + " selfCall=true");
   }
 
   @Test
@@ -325,7 +284,7 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Only one of @SkylarkCallable.enablingFlag and @SkylarkCallable.disablingFlag may be "
+            "Only one of SkylarkCallable.enablingFlag and SkylarkCallable.disablingFlag may be "
                 + "specified.");
   }
 
@@ -346,8 +305,8 @@ public final class SkylarkCallableProcessorTest {
         .that(getFile("ConflictingMethodNames.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
-        .withErrorContaining("Containing class has more than one method with name "
-            + "'conflicting_method' defined");
+        .withErrorContaining(
+            "Containing class defines more than one method named 'conflicting_method'");
   }
 
   @Test
@@ -377,5 +336,39 @@ public final class SkylarkCallableProcessorTest {
         .withErrorContaining(
             "Parameter 'two' may be disabled by semantic flag, "
                 + "thus valueWhenDisabled must be set");
+  }
+
+  @Test
+  public void testSpecifiedGenericType() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("SpecifiedGenericType.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "parameter 'one' has generic type "
+                + "com.google.devtools.build.lib.syntax.Sequence<java.lang.String>");
+  }
+
+  @Test
+  public void testInvalidNoneableParameter() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("InvalidNoneableParameter.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Expected type 'Object' but got type 'java.lang.String' "
+                + "for noneable parameter 'aParameter'.");
+  }
+
+  @Test
+  public void testDoesntImplementStarlarkValue() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("DoesntImplementSkylarkValue.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "method x has SkylarkCallable annotation but enclosing class"
+                + " DoesntImplementSkylarkValue does not implement StarlarkValue nor has"
+                + " SkylarkGlobalLibrary annotation");
   }
 }

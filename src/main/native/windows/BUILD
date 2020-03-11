@@ -1,7 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
-package(default_visibility = ["//visibility:private"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -58,19 +56,33 @@ cc_binary(
         "file-jni.cc",
         "jni-util.cc",
         "jni-util.h",
+        "memory_pressure_jni.cc",
         "processes-jni.cc",
+        "sleep_prevention_jni.cc",
+        "suspend_counter_jni.cc",
         "//src/main/native:jni.h",
         "//src/main/native:jni_md.h",
     ],
     linkshared = 1,
-    visibility = [
-        "//src:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
-        "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
-    ],
+    # :target-os-native-lib should be used outside of this package
+    visibility = ["//visibility:private"],
     deps = [
         ":lib-file",
         ":lib-process",
+    ],
+)
+
+# Platform-independent holder for native JNI libraries (empty for non-Windows systems).
+# Targets should depend on this filegroup rather then on Platform-dependent libraries directly!
+filegroup(
+    name = "target-os-native-lib",
+    srcs = select({
+        "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
+        "//conditions:default": [],
+    }),
+    visibility = [
+        "//src:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni:__pkg__",
     ],
 )
 

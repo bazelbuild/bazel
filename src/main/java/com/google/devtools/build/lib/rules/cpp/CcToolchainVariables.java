@@ -966,6 +966,60 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /**
+   * A sequence of simple string values. Exists as a memory optimization - a typical build can
+   * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
+   * objects significantly reduces memory overhead.
+   *
+   * <p>Because checking nested set equality is expensive, equality for these sequences is defined
+   * in terms of {@link NestedSet#shallowEquals}, which can miss some value-equal nested sets. In
+   * practice, since equality is needed just for interning when deserializing, this is acceptable.
+   */
+  @Immutable
+  private static final class StringSetSequence extends VariableValueAdapter {
+    private final NestedSet<String> values;
+
+    StringSetSequence(NestedSet<String> values) {
+      Preconditions.checkNotNull(values);
+      this.values = values;
+    }
+
+    @Override
+    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+      final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
+      for (String value : values.toList()) {
+        sequences.add(new StringValue(value));
+      }
+      return sequences.build();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !values.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof StringSetSequence)) {
+        return false;
+      }
+      if (this == other) {
+        return true;
+      }
+      return values.shallowEquals(((StringSetSequence) other).values);
+    }
+
+    @Override
+    public int hashCode() {
+      return values.shallowHashCode();
+    }
+  }
+
+  /**
    * Single structure value. Be careful not to create sequences of single structures, as the memory
    * overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
    */
@@ -1177,7 +1231,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new StringSequence(values));
+      variablesMap.put(name, new StringSetSequence(values));
       return this;
     }
 

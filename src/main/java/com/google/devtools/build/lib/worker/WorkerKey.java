@@ -20,8 +20,6 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
-import java.util.Map;
 import java.util.SortedMap;
 
 /**
@@ -42,50 +40,74 @@ final class WorkerKey {
   private final HashCode workerFilesCombinedHash;
   private final SortedMap<PathFragment, HashCode> workerFilesWithHashes;
   private final boolean mustBeSandboxed;
+  /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
+  private final boolean proxied;
 
   WorkerKey(
-      List<String> args,
-      Map<String, String> env,
+      ImmutableList<String> args,
+      ImmutableMap<String, String> env,
       Path execRoot,
       String mnemonic,
       HashCode workerFilesCombinedHash,
       SortedMap<PathFragment, HashCode> workerFilesWithHashes,
-      boolean mustBeSandboxed) {
-    this.args = ImmutableList.copyOf(Preconditions.checkNotNull(args));
-    this.env = ImmutableMap.copyOf(Preconditions.checkNotNull(env));
+      boolean mustBeSandboxed,
+      boolean proxied) {
+    /** Build options. */
+    this.args = Preconditions.checkNotNull(args);
+    /** Environment variables. */
+    this.env = Preconditions.checkNotNull(env);
+    /** Execution root of Bazel process. */
     this.execRoot = Preconditions.checkNotNull(execRoot);
+    /** Mnemonic of the worker. */
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
+    /** One combined hash code for all files. */
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
+    /** Worker files with the corresponding hash code. */
     this.workerFilesWithHashes = Preconditions.checkNotNull(workerFilesWithHashes);
+    /** Set it to true if this job should be run in sandbox. */
     this.mustBeSandboxed = mustBeSandboxed;
+    /** Set it to true if this job should be run with WorkerProxy. */
+    this.proxied = proxied;
   }
 
+  /** Getter function for variable args. */
   public ImmutableList<String> getArgs() {
     return args;
   }
 
+  /** Getter function for variable env. */
   public ImmutableMap<String, String> getEnv() {
     return env;
   }
 
+  /** Getter function for variable execRoot. */
   public Path getExecRoot() {
     return execRoot;
   }
 
+  /** Getter function for variable mnemonic. */
   public String getMnemonic() {
     return mnemonic;
   }
 
+  /** Getter function for variable workerFilesCombinedHash. */
   public HashCode getWorkerFilesCombinedHash() {
     return workerFilesCombinedHash;
   }
 
+  /** Getter function for variable workerFilesWithHashes. */
   public SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
     return workerFilesWithHashes;
   }
 
+  /** Getter function for variable mustBeSandboxed. */
   public boolean mustBeSandboxed() {
     return mustBeSandboxed;
+  }
+
+  /** Getter function for variable proxied. */
+  public boolean getProxied() {
+    return proxied;
   }
 
   @Override

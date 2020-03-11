@@ -136,7 +136,7 @@ public final class FilesetEntryFunction implements SkyFunction {
       // the parent. Finding and discarding the children is easy if we traverse the tree from
       // root to leaf.
       DirectoryTree root = new DirectoryTree();
-      for (ResolvedFile f : rftv.getTransitiveFiles()) {
+      for (ResolvedFile f : rftv.getTransitiveFiles().toList()) {
         PathFragment path = f.getNameInSymlinkTree().relativeTo(prefixToRemove);
         if (!path.isEmpty()) {
           path = t.getDestPath().getRelative(path);

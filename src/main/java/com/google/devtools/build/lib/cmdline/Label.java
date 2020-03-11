@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -29,9 +28,11 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -51,15 +52,17 @@ import javax.annotation.Nullable;
  * <p>Parsing is robust against bad input, for example, from the command line.
  */
 @SkylarkModule(
-  name = "Label",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc = "A BUILD target identifier."
-)
+    name = "Label",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "A BUILD target identifier.")
 @AutoCodec
 @Immutable
 @ThreadSafe
 public final class Label
-    implements Comparable<Label>, Serializable, SkylarkValue, SkyKey, CommandLineItem {
+    implements Comparable<Label>, Serializable, StarlarkValue, SkyKey, CommandLineItem {
+
+  /** The Starlark type symbol for Label values. */
+  public static final SkylarkType TYPE = SkylarkType.of(Label.class);
 
   /**
    * Package names that aren't made relative to the current repository because they mean special
@@ -366,16 +369,20 @@ public final class Label
    * it will returns an empty string.
    */
   @SkylarkCallable(
-    name = "workspace_root",
-    structField = true,
-    doc =
-        "Returns the execution root for the workspace of this label, relative to the execroot. "
-            + "For instance:<br>"
-            + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
-            + " \"external/repo\"</pre>"
-  )
-  public String getWorkspaceRoot() {
-    return packageIdentifier.getRepository().getSourceRoot().toString();
+      name = "workspace_root",
+      structField = true,
+      doc =
+          "Returns the execution root for the workspace of this label, relative to the execroot. "
+              + "For instance:<br>"
+              + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
+              + " \"external/repo\"</pre>",
+      useStarlarkSemantics = true)
+  public String getWorkspaceRoot(StarlarkSemantics semantics) {
+    if (semantics.experimentalSiblingRepositoryLayout()) {
+      return packageIdentifier.getRepository().getExecPath(true).toString();
+    } else {
+      return packageIdentifier.getRepository().getSourceRoot().toString();
+    }
   }
 
   /**
@@ -504,6 +511,7 @@ public final class Label
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
+   * @param thread the Starlark thread, which must provide a thread-local {@code HasRepoMapping}.
    */
   @SkylarkCallable(
       name = "relative",
@@ -537,10 +545,20 @@ public final class Label
             type = String.class,
             doc = "The label that will be resolved relative to this one.")
       },
-      useContext = true)
-  public Label getRelative(String relName, StarlarkContext context) throws LabelSyntaxException {
-    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
-    return getRelativeWithRemapping(relName, bazelStarlarkContext.getRepoMapping());
+      useStarlarkThread = true)
+  public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
+    HasRepoMapping hrm = thread.getThreadLocal(HasRepoMapping.class);
+    return getRelativeWithRemapping(relName, hrm.getRepoMapping());
+  }
+
+  /**
+   * An interface for retrieving a repository mapping.
+   *
+   * <p>This has only a single implementation, {@code BazelStarlarkContext}, but we can't mention
+   * that type here because logically it belongs in Bazel, above this package.
+   */
+  public interface HasRepoMapping {
+    ImmutableMap<RepositoryName, RepositoryName> getRepoMapping();
   }
 
   /**
@@ -670,14 +688,14 @@ public final class Label
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("Label(");
     printer.repr(getCanonicalForm());
     printer.append(")");
   }
 
   @Override
-  public void str(SkylarkPrinter printer) {
+  public void str(Printer printer) {
     printer.append(getCanonicalForm());
   }
 

@@ -235,7 +235,7 @@ public class TestCollatz {
 }
 EOF
 
-  bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main --combined_report=lcov &>$TEST_log \
+  bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
    || echo "Coverage for //:test failed"
 
   cat <<EOF > result.dat
@@ -358,11 +358,6 @@ EOF
 }
 
 function test_run_jar_in_subprocess_empty_env() {
-  # These features don't work with java tools version javac11-v1.0,
-  # javac10-v3.1, javac9-v1.0 and lower.
-  # TODO(iirina): Remove this statement after new java tools versions are
-  # released.
-  [[ "${JAVA_TOOLS_ZIP}" == "released" ]] && echo "Skipping test" && return
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF
@@ -453,11 +448,6 @@ EOF
 }
 
 function test_runtime_deploy_jar() {
-  # These features don't work with java tools version javac11-v1.0,
-  # javac10-v3.1, javac9-v1.0 and lower.
-  # TODO(iirina): Remove this statement after new java tools versions are
-  # released.
-  [[ "${JAVA_TOOLS_ZIP}" == "released" ]] && echo "Skipping test" && return
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF
@@ -527,12 +517,6 @@ EOF
 }
 
 function test_runtime_and_data_deploy_jars() {
-  # These features don't work with java tools version javac11-v1.0,
-  # javac10-v3.1, javac9-v1.0 and lower.
-  # TODO(iirina): Remove this statement after new java tools versions are
-  # released.
-  [[ "${JAVA_TOOLS_ZIP}" == "released" ]] && echo "Skipping test" && return
-
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF

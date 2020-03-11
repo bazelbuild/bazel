@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -32,7 +33,7 @@ public final class FailAction extends AbstractAction {
   private final String errorMessage;
 
   public FailAction(ActionOwner owner, Iterable<Artifact> outputs, String errorMessage) {
-    super(owner, ImmutableList.<Artifact>of(), outputs);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputs);
     this.errorMessage = errorMessage;
   }
 

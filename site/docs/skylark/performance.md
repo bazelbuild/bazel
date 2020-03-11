@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Optimizing Performance
+title: Optimizing performance
 ---
 
-# Optimizing Performance
+# Optimizing performance
 
 When writing rules, the most common performance pitfall is to traverse or copy
 data that is accumulated from dependencies. When aggregated over the whole
@@ -15,11 +15,6 @@ assists you in finding spots where you might have made a mistake. Be warned:
 The cost of writing an inefficient rule may not be evident until it is in
 widespread use.
 
-## Contents
-{:.no_toc}
-
-* ToC
-{:toc}
 
 ## Use depsets
 
@@ -91,30 +86,6 @@ at top-level targets, such as an `<xx>_binary` rule, since then the cost is not
 accumulated over each level of the build graph. But this is *still* O(N^2) when
 you build a set of targets with overlapping dependencies. This happens when
 building your tests `//foo/tests/...`, or when importing an IDE project.
-
-### Avoid calling `len(depset)`
-
-It is O(N) to get the number of items in a depset. It is however
-O(1) to check if a depset is empty. This includes checking the truthiness
-of a depset:
-
-```
-def _impl(ctx):
-  args = ctx.actions.args()
-  files = depset(...)
-
-  # Bad, has to iterate over entire depset to get length
-  if len(files) != 0:
-    args.add("--files")
-    args.add_all(files)
-
-  # Good, O(1)
-  if files:
-    args.add("--files")
-    args.add_all(files)
-```
-
-As mentioned above, support for `len(<depset>)` is deprecated.
 
 ### Reduce the number of calls to `depset`
 
@@ -188,9 +159,10 @@ def _impl(ctx):
   # Bad, constructs a full string "--foo=<file path>" for each rule instance
   args.add("--foo=" + file.path)
 
-  # Good, shares "-foo" among all rule instances, and defers file.path to later
-  args.add("--foo")
-  args.add(file)
+  # Good, shares "--foo" among all rule instances, and defers file.path to later
+  # It will however pass ["--foo", <file path>] to the action command line,
+  # instead of ["--foo=<file_path>"]
+  args.add("--foo", file)
 
   # Use format if you prefer ["--foo=<file path>"] to ["--foo", <file path>]
   args.add(format="--foo=%s", value=file)
@@ -380,7 +352,7 @@ Note that we filter out fast tasks and certain task types completely to keep the
 profile files small enough to render fast in the Chrome Trace Viewer.
 
 
-## Memory Profiling
+## Memory profiling
 
 Bazel comes with a built-in memory profiler that can help you check your rule's
 memory use. If there is a problem you can dump the heap to find the

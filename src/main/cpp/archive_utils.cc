@@ -11,14 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/cpp/archive_utils.h"
-
+#include <functional>
+#include <memory>
+#include <string>
 #include <vector>
 
+#include "src/main/cpp/archive_utils.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
-#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/strings.h"
@@ -26,235 +28,106 @@
 
 namespace blaze {
 
-using std::vector;
 using std::string;
+using std::vector;
 
-// A devtools_ijar::ZipExtractorProcessor that has a pure version of Accept.
-class PureZipExtractorProcessor : public devtools_ijar::ZipExtractorProcessor {
- public:
-  virtual ~PureZipExtractorProcessor() {}
+struct PartialZipExtractor : public devtools_ijar::ZipExtractorProcessor {
+  using CallbackType =
+      std::function<void(const char *name, const char *data, size_t size)>;
 
-  // Like devtools_ijar::ZipExtractorProcessor::Accept, but is guaranteed to not
-  // have side-effects.
-  virtual bool AcceptPure(const char *filename,
-                          const devtools_ijar::u4 attr) const = 0;
-};
-
-// A devtools_ijar::ZipExtractorProcessor that processes the ZIP entries using
-// the given PureZipExtractorProcessors.
-class CompoundZipProcessor : public devtools_ijar::ZipExtractorProcessor {
- public:
-  explicit CompoundZipProcessor(
-      const vector<PureZipExtractorProcessor*>& processors)
-      : processors_(processors) {}
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    bool should_accept = false;
-    for (auto *processor : processors_) {
-      if (processor->Accept(filename, attr)) {
-        // ZipExtractorProcessor::Accept is allowed to be side-effectful, so
-        // we don't want to break out on the first true here.
-        should_accept = true;
-      }
-    }
-    return should_accept;
-  }
-
-  void Process(const char *filename, const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data, const size_t size) override {
-    for (auto *processor : processors_) {
-      if (processor->AcceptPure(filename, attr)) {
-        processor->Process(filename, attr, data, size);
-      }
-    }
-  }
-
- private:
-  const vector<PureZipExtractorProcessor*> processors_;
-};
-
-// A PureZipExtractorProcessor to extract the InstallKeyFile
-class GetInstallKeyFileProcessor : public PureZipExtractorProcessor {
- public:
-  explicit GetInstallKeyFileProcessor(string *install_base_key)
-    : install_base_key_(install_base_key) {}
-
-  bool AcceptPure(const char *filename,
-                  const devtools_ijar::u4 attr) const override {
-    return strcmp(filename, "install_base_key") == 0;
-  }
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    return AcceptPure(filename, attr);
-  }
-
-  void Process(const char *filename,
-               const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data,
-               const size_t size) override {
-    string str(reinterpret_cast<const char *>(data), size);
-    blaze_util::StripWhitespace(&str);
-    if (str.size() != 32) {
+  // Scan the zip file "archive_path" until a file named "stop_entry" is seen,
+  // then stop.
+  // If entry_names is not null, it receives a list of all file members
+  // up to and including "stop_entry".
+  // If a callback is given, it is run with the name and contents of
+  // each such member.
+  // Returns the contents of the "stop_entry" member.
+  string UnzipUntil(const string &archive_path, const string &stop_entry,
+                    vector<string> *entry_names = nullptr,
+                    CallbackType &&callback = {}) {
+    std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
+        devtools_ijar::ZipExtractor::Create(archive_path.c_str(), this));
+    if (!extractor) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Failed to extract install_base_key: file size mismatch "
-             "(should be 32, is "
-          << str.size() << ")";
+          << "Failed to open '" << archive_path
+          << "' as a zip file: " << blaze_util::GetLastErrorString();
     }
-    *install_base_key_ = str;
+    stop_name_ = stop_entry;
+    seen_names_.clear();
+    callback_ = callback;
+    done_ = false;
+    while (!done_ && extractor->ProcessNext()) {
+      // Scan zip until EOF, an error, or Accept() has seen stop_entry.
+    }
+    if (const char *err = extractor->GetError()) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Error reading zip file '" << archive_path << "': " << err;
+    }
+    if (!done_) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Failed to find member '" << stop_entry << "' in zip file '"
+          << archive_path << "'";
+    }
+    if (entry_names) *entry_names = std::move(seen_names_);
+    return stop_value_;
   }
 
- private:
-  string *install_base_key_;
+  bool Accept(const char *filename, devtools_ijar::u4 attr) override {
+    if (devtools_ijar::zipattr_is_dir(attr)) return false;
+    // Sometimes that fails to detect directories.  Check the name too.
+    string fn = filename;
+    if (fn.empty() || fn.back() == '/') return false;
+    if (stop_name_ == fn) done_ = true;
+    seen_names_.push_back(std::move(fn));
+    return done_ || !!callback_;  // true if a callback was supplied
+  }
+
+  void Process(const char *filename, devtools_ijar::u4 attr,
+               const devtools_ijar::u1 *data, size_t size) override {
+    if (done_) {
+      stop_value_.assign(reinterpret_cast<const char *>(data), size);
+    }
+    if (callback_) {
+      callback_(filename, reinterpret_cast<const char *>(data), size);
+    }
+  }
+
+  string stop_name_;
+  string stop_value_;
+  vector<string> seen_names_;
+  CallbackType callback_;
+  bool done_ = false;
 };
 
-// A PureZipExtractorProcessor that adds the names of all the files ZIP up in
-// the Blaze binary to the given vector.
-class NoteAllFilesZipProcessor : public PureZipExtractorProcessor {
- public:
-  explicit NoteAllFilesZipProcessor(std::vector<std::string>* files)
-      : files_(files) {}
-
-  bool AcceptPure(const char *filename,
-                  const devtools_ijar::u4 attr) const override {
-    return false;
-  }
-
-  bool Accept(const char *filename,
-              const devtools_ijar::u4 attr) override {
-    files_->push_back(filename);
-    return false;
-  }
-
-  void Process(const char *filename,
-               const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data,
-               const size_t size) override {
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "NoteAllFilesZipProcessor::Process shouldn't be called";
-  }
-
- private:
-  std::vector<std::string>* files_;
-};
-
-// A PureZipExtractorProcessor to extract the files from the blaze zip.
-class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
- public:
-  explicit ExtractBlazeZipProcessor(const string &output_dir,
-                                    blaze::embedded_binaries::Dumper *dumper)
-      : output_dir_(output_dir), dumper_(dumper) {}
-
-  bool AcceptPure(const char *filename,
-                  const devtools_ijar::u4 attr) const override {
-    return !devtools_ijar::zipattr_is_dir(attr);
-  }
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    return AcceptPure(filename, attr);
-  }
-
-  void Process(const char *filename,
-               const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data,
-               const size_t size) override {
-    dumper_->Dump(data, size, blaze_util::JoinPath(output_dir_, filename));
-  }
-
- private:
-  const string output_dir_;
-  blaze::embedded_binaries::Dumper *dumper_;
-};
-
-// A ZipExtractorProcessor that reads the contents of the build-label.txt file
-// from the archive.
-class GetBuildLabelFileProcessor
-    : public devtools_ijar::ZipExtractorProcessor {
- public:
-  explicit GetBuildLabelFileProcessor(string *build_label)
-    : build_label_(build_label) {}
-
-  bool Accept(const char *filename, const devtools_ijar::u4 attr) override {
-    return strcmp(filename, "build-label.txt") == 0;
-  }
-
-  void Process(const char *filename,
-               const devtools_ijar::u4 attr,
-               const devtools_ijar::u1 *data,
-               const size_t size) override {
-    string contents(reinterpret_cast<const char *>(data), size);
-    blaze_util::StripWhitespace(&contents);
-    *build_label_ = contents;
-  }
-
- private:
-  string *build_label_;
-};
-
-static void RunZipProcessorOrDie(
-    const string &archive_path,
-    const string &product_name,
-    devtools_ijar::ZipExtractorProcessor *processor) {
-  std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
-      devtools_ijar::ZipExtractor::Create(archive_path.c_str(), processor));
-
-  if (extractor == NULL) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to open " << product_name
-        << " as a zip file: " << blaze_util::GetLastErrorString();
-  }
-
-  if (extractor->ProcessAll() < 0) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to extract install_base_key: " << extractor->GetError();
-  }
+void DetermineArchiveContents(const string &archive_path, vector<string> *files,
+                              string *install_md5) {
+  PartialZipExtractor pze;
+  *install_md5 = pze.UnzipUntil(archive_path, "install_base_key", files);
 }
 
-void DetermineArchiveContents(
-    const string &archive_path,
-    const string &product_name,
-    std::vector<std::string>* files,
-    string *install_md5) {
-  NoteAllFilesZipProcessor note_all_files_processor(files);
-  GetInstallKeyFileProcessor install_key_processor(install_md5);
-  CompoundZipProcessor processor({&note_all_files_processor,
-                                  &install_key_processor});
-
-  RunZipProcessorOrDie(archive_path, product_name, &processor);
-
-  if (install_md5->empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Failed to find install_base_key's in zip file";
-  }
-}
-
-void ExtractArchiveOrDie(const string &archive_path,
-                         const string &product_name,
+void ExtractArchiveOrDie(const string &archive_path, const string &product_name,
                          const string &expected_install_md5,
                          const string &output_dir) {
-  std::string install_md5;
-  GetInstallKeyFileProcessor install_key_processor(&install_md5);
-
-  std::string error;
+  string error;
   std::unique_ptr<blaze::embedded_binaries::Dumper> dumper(
       blaze::embedded_binaries::Create(&error));
   if (dumper == nullptr) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << error;
   }
-  ExtractBlazeZipProcessor extract_blaze_processor(output_dir,
-                                                   dumper.get());
-
-  CompoundZipProcessor processor({&extract_blaze_processor,
-                                  &install_key_processor});
   if (!blaze_util::MakeDirectories(output_dir, 0777)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "couldn't create '" << output_dir
         << "': " << blaze_util::GetLastErrorString();
   }
 
-  BAZEL_LOG(USER) << "Extracting " << product_name
-                  << " installation...";
+  BAZEL_LOG(USER) << "Extracting " << product_name << " installation...";
 
-  RunZipProcessorOrDie(archive_path, product_name, &processor);
+  PartialZipExtractor pze;
+  string install_md5 = pze.UnzipUntil(
+      archive_path, "install_base_key", nullptr,
+      [&](const char *name, const char *data, size_t size) {
+        dumper->Dump(data, size, blaze_util::JoinPath(output_dir, name));
+      });
 
   if (!dumper->Finish(&error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -273,22 +146,12 @@ void ExtractArchiveOrDie(const string &archive_path,
   }
 }
 
-void ExtractBuildLabel(const string &archive_path,
-                       const string &product_name,
-                       string *build_label) {
-  GetBuildLabelFileProcessor processor(build_label);
-  RunZipProcessorOrDie(archive_path, product_name, &processor);
-
-  // We expect the build label file to exist and be non-empty, if neither is the
-  // case then something unexpected is going on.
-  if (build_label->empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Couldn't determine build label from archive";
-  }
+void ExtractBuildLabel(const string &archive_path, string *build_label) {
+  PartialZipExtractor pze;
+  *build_label = pze.UnzipUntil(archive_path, "build-label.txt");
 }
 
-std::string GetServerJarPath(
-    const std::vector<std::string> &archive_contents) {
+string GetServerJarPath(const vector<string> &archive_contents) {
   if (archive_contents.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Couldn't find server jar in archive";

@@ -37,7 +37,10 @@ alias(
 
 filegroup(
     name = "emulator_x86_bios",
-    srcs = glob(["emulator/lib/pc-bios/*"]),
+    srcs = glob(
+        ["emulator/lib/pc-bios/*"],
+        allow_empty = True,
+    ),
 )
 
 alias(
@@ -47,7 +50,10 @@ alias(
 
 filegroup(
     name = "emulator_shared_libs",
-    srcs = glob(["emulator/lib64/**"]),
+    srcs = glob(
+        ["emulator/lib64/**"],
+        allow_empty = True,
+    ),
 )
 
 filegroup(
@@ -70,4 +76,4 @@ create_system_images_filegroups(
 )
 
 exports_files([
-%exported_files%] + glob(["system-images/**"]))
+%exported_files%] + glob(["system-images/**"], allow_empty = True))

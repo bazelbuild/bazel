@@ -19,10 +19,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -58,6 +59,11 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    */
   public static ArtifactRoot asSourceRoot(Root root) {
     return new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source);
+  }
+
+  public static ArtifactRoot asExternalSourceRoot(Root root) {
+    return new ArtifactRoot(
+        root, LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX, RootType.Source);
   }
 
   /**
@@ -191,7 +197,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append(isSourceRoot() ? "<source root>" : "<derived root>");
   }
 }

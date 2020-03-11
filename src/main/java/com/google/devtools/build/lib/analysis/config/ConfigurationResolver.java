@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigurationsRes
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -121,9 +122,10 @@ public final class ConfigurationResolver {
       throws ConfiguredTargetFunction.DependencyEvaluationException, InterruptedException {
 
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
-    // configuration. For cases where Skyframe isn't needed to get the configuration (e.g. when
-    // we just re-used the original rule's configuration), we should skip this outright.
-    Multimap<SkyKey, Map.Entry<DependencyKind, Dependency>> keysToEntries =
+    // configuration paired with a transition key corresponding to the BuildConfiguration. For cases
+    // where Skyframe isn't needed to get the configuration (e.g. when we just re-used the original
+    // rule's configuration), we should skip this outright.
+    Multimap<SkyKey, Pair<Map.Entry<DependencyKind, Dependency>, String>> keysToEntries =
         LinkedListMultimap.create();
 
     // Stores the result of applying a transition to the current configuration using a
@@ -131,8 +133,8 @@ public final class ConfigurationResolver {
     // same transition for every dependency edge that requests that transition. This can have
     // real effect on analysis time for commonly triggered transitions.
     //
-    // Split transitions may map to multiple values. All other transitions map to one.
-    Map<FragmentsAndTransition, List<BuildOptions>> transitionsMap = new LinkedHashMap<>();
+    // Split transitions may map to one or multiple values. Patch transitions map to exactly one.
+    Map<FragmentsAndTransition, Map<String, BuildOptions>> transitionsMap = new LinkedHashMap<>();
 
     BuildConfiguration currentConfiguration = ctgValue.getConfiguration();
 
@@ -243,7 +245,7 @@ public final class ConfigurationResolver {
 
       // Apply the transition or use the cached result if it was already applied.
       FragmentsAndTransition transitionKey = new FragmentsAndTransition(depFragments, transition);
-      List<BuildOptions> toOptions = transitionsMap.get(transitionKey);
+      Map<String, BuildOptions> toOptions = transitionsMap.get(transitionKey);
       if (toOptions == null) {
         try {
           HashMap<PackageValue.Key, PackageValue> buildSettingPackages =
@@ -266,7 +268,8 @@ public final class ConfigurationResolver {
       // configuration.
       if (sameFragments
           && toOptions.size() == 1
-          && Iterables.getOnlyElement(toOptions).equals(currentConfiguration.getOptions())) {
+          && Iterables.getOnlyElement(toOptions.values())
+              .equals(currentConfiguration.getOptions())) {
         if (ctgValue.getConfiguration().trimConfigurationsRetroactively()
             && !dep.getAspects().isEmpty()) {
           String message =
@@ -281,8 +284,8 @@ public final class ConfigurationResolver {
         putOnlyEntry(
             resolvedDeps,
             dependencyEdge,
-            Dependency.withConfigurationAndAspects(
-                dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
+            Dependency.withConfigurationAspectsAndTransitionKey(
+                dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects(), null));
         continue;
       }
 
@@ -296,15 +299,16 @@ public final class ConfigurationResolver {
       }
 
       try {
-        for (BuildOptions options : toOptions) {
+        for (Map.Entry<String, BuildOptions> optionsEntry : toOptions.entrySet()) {
           if (sameFragments) {
             keysToEntries.put(
                 BuildConfigurationValue.keyWithPlatformMapping(
                     platformMappingValue,
                     defaultBuildOptions,
                     currentConfiguration.fragmentClasses(),
-                    BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
-                depsEntry);
+                    BuildOptions.diffForReconstruction(
+                        defaultBuildOptions, optionsEntry.getValue())),
+                new Pair<>(depsEntry, optionsEntry.getKey()));
 
           } else {
             keysToEntries.put(
@@ -312,8 +316,9 @@ public final class ConfigurationResolver {
                     platformMappingValue,
                     defaultBuildOptions,
                     depFragments,
-                    BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
-                depsEntry);
+                    BuildOptions.diffForReconstruction(
+                        defaultBuildOptions, optionsEntry.getValue())),
+                new Pair<>(depsEntry, optionsEntry.getKey()));
           }
         }
       } catch (OptionsParsingException e) {
@@ -354,8 +359,8 @@ public final class ConfigurationResolver {
         }
         BuildConfiguration trimmedConfig =
             ((BuildConfigurationValue) valueOrException.get()).getConfiguration();
-        for (Map.Entry<DependencyKind, Dependency> info : keysToEntries.get(key)) {
-          Dependency originalDep = info.getValue();
+        for (Pair<Map.Entry<DependencyKind, Dependency>, String> info : keysToEntries.get(key)) {
+          Dependency originalDep = info.first.getValue();
           if (trimmedConfig.trimConfigurationsRetroactively()
               && !originalDep.getAspects().isEmpty()) {
             String message =
@@ -367,10 +372,10 @@ public final class ConfigurationResolver {
             throw new ConfiguredTargetFunction.DependencyEvaluationException(
                 new InvalidConfigurationException(message));
           }
-          DependencyEdge attr = new DependencyEdge(info.getKey(), originalDep.getLabel());
+          DependencyEdge attr = new DependencyEdge(info.first.getKey(), originalDep.getLabel());
           Dependency resolvedDep =
-              Dependency.withConfigurationAndAspects(
-                  originalDep.getLabel(), trimmedConfig, originalDep.getAspects());
+              Dependency.withConfigurationAspectsAndTransitionKey(
+                  originalDep.getLabel(), trimmedConfig, originalDep.getAspects(), info.second);
           Attribute attribute = attr.dependencyKind.getAttribute();
           if (attribute != null && attribute.getTransitionFactory().isSplit()) {
             resolvedDeps.put(attr, resolvedDep);
@@ -528,7 +533,7 @@ public final class ConfigurationResolver {
    * @return the build options for the transitioned configuration.
    */
   @VisibleForTesting
-  public static List<BuildOptions> applyTransition(
+  public static Map<String, BuildOptions> applyTransition(
       BuildOptions fromOptions,
       ConfigurationTransition transition,
       Map<PackageValue.Key, PackageValue> buildSettingPackages,
@@ -542,8 +547,8 @@ public final class ConfigurationResolver {
               StarlarkTransition.getDefaultInputValues(buildSettingPackages, transition));
     }
 
-    // TODO(bazel-team): safety-check that this never mutates fromOptions.
-    List<BuildOptions> result = transition.apply(fromOptions);
+    // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
+    Map<String, BuildOptions> result = transition.apply(fromOptions);
 
     if (doesStarlarkTransition) {
       StarlarkTransition.replayEvents(eventHandler, transition);
@@ -658,8 +663,8 @@ public final class ConfigurationResolver {
    * <p>Resolution consists of two steps:
    *
    * <ol>
-   *   <li>Apply the per-target transitions specified in {@code asDeps}. This can be used, e.g., to
-   *       apply {@link
+   *   <li>Apply the per-target transitions specified in {@code targetsToEvaluate}. This can be
+   *       used, e.g., to apply {@link
    *       com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory}s over global
    *       top-level configurations.
    *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This is
@@ -694,7 +699,7 @@ public final class ConfigurationResolver {
       SkyframeExecutor skyframeExecutor)
       throws InvalidConfigurationException {
 
-    Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
+    Map<Label, Target> labelsToTargets = new HashMap<>();
     for (TargetAndConfiguration targetAndConfig : defaultContext) {
       labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
     }

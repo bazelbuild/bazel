@@ -15,16 +15,15 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
@@ -37,30 +36,31 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A class that exposes apple rule implementation internals to skylark.
- */
+/** A class that exposes apple rule implementation internals to skylark. */
 public class AppleSkylarkCommon
-    implements AppleCommonApi<Artifact, ObjcProvider, XcodeConfigProvider, ApplePlatform> {
+    implements AppleCommonApi<
+        Artifact,
+        ConstraintValueInfo,
+        SkylarkRuleContext,
+        ObjcProvider,
+        XcodeConfigInfo,
+        ApplePlatform> {
 
   @VisibleForTesting
   public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
@@ -68,7 +68,11 @@ public class AppleSkylarkCommon
 
   @VisibleForTesting
   public static final String BAD_SET_TYPE_ERROR =
-      "Value for key %s must be a set of %s, instead found set of %s.";
+      "Value for key %s must be a set of %s, instead found %s.";
+
+  @VisibleForTesting
+  public static final String BAD_FRAMEWORK_PATH_ERROR =
+      "Value for key framework_search_paths must end in .framework; instead found %s.";
 
   @VisibleForTesting
   public static final String BAD_PROVIDERS_ITER_ERROR =
@@ -78,6 +82,10 @@ public class AppleSkylarkCommon
   public static final String BAD_PROVIDERS_ELEM_ERROR =
       "Value for argument 'providers' must be a list of ObjcProvider instances, instead found "
           + "iterable with %s.";
+
+  @VisibleForTesting
+  public static final String BAD_DIRECT_DEPENDENCY_KEY_ERROR =
+      "Key %s not allowed to be in direct_dep_provider.";
 
   @VisibleForTesting
   public static final String NOT_SET_ERROR = "Value for key %s must be a set, instead found %s.";
@@ -122,7 +130,7 @@ public class AppleSkylarkCommon
 
   @Override
   public Provider getXcodeVersionConfigConstructor() {
-    return XcodeConfigProvider.PROVIDER;
+    return XcodeConfigInfo.PROVIDER;
   }
 
   @Override
@@ -161,14 +169,14 @@ public class AppleSkylarkCommon
   }
 
   @Override
-  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigProvider xcodeConfig) {
+  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfo xcodeConfig) {
     return AppleConfiguration.getXcodeVersionEnv(xcodeConfig.getXcodeVersion());
   }
 
   @Override
   public ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigProvider xcodeConfigApi, ApplePlatform platformApi) {
-    XcodeConfigProvider xcodeConfig = (XcodeConfigProvider) xcodeConfigApi;
+      XcodeConfigInfo xcodeConfigApi, ApplePlatform platformApi) {
+    XcodeConfigInfo xcodeConfig = xcodeConfigApi;
     ApplePlatform platform = (ApplePlatform) platformApi;
     return AppleConfiguration.appleTargetPlatformEnv(
         platform, xcodeConfig.getSdkVersionForPlatform(platform));
@@ -181,9 +189,10 @@ public class AppleSkylarkCommon
 
   @Override
   // This method is registered statically for skylark, and never called directly.
-  public ObjcProvider newObjcProvider(
-      Boolean usesSwift, SkylarkDict<?, ?> kwargs, Environment environment) throws EvalException {
-    ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder(environment.getSemantics());
+  public ObjcProvider newObjcProvider(Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread)
+      throws EvalException {
+    ObjcProvider.StarlarkBuilder resultBuilder =
+        new ObjcProvider.StarlarkBuilder(thread.getSemantics());
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
     }
@@ -207,23 +216,13 @@ public class AppleSkylarkCommon
       Object dylibBinary,
       ObjcProvider depsObjcProvider,
       Object dynamicFrameworkDirs,
-      Object dynamicFrameworkFiles) {
-    NestedSet<PathFragment> frameworkDirs;
-    if (dynamicFrameworkDirs == Runtime.NONE) {
-      frameworkDirs = NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER);
-    } else {
-      Iterable<String> pathStrings =
-          ((SkylarkNestedSet) dynamicFrameworkDirs).getSet(String.class);
-      frameworkDirs =
-          NestedSetBuilder.<PathFragment>stableOrder()
-              .addAll(Iterables.transform(pathStrings, PathFragment::create))
-              .build();
-    }
+      Object dynamicFrameworkFiles)
+      throws EvalException {
+    NestedSet<String> frameworkDirs =
+        Depset.getSetFromNoneableParam(dynamicFrameworkDirs, String.class, "framework_dirs");
     NestedSet<Artifact> frameworkFiles =
-        dynamicFrameworkFiles != Runtime.NONE
-            ? ((SkylarkNestedSet) dynamicFrameworkFiles).getSet(Artifact.class)
-            : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-    Artifact binary = (dylibBinary != Runtime.NONE) ? (Artifact) dylibBinary : null;
+        Depset.getSetFromNoneableParam(dynamicFrameworkFiles, Artifact.class, "framework_files");
+    Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
 
     return new AppleDynamicFrameworkInfo(
         binary, depsObjcProvider, frameworkDirs, frameworkFiles);
@@ -231,20 +230,19 @@ public class AppleSkylarkCommon
 
   @Override
   public StructImpl linkMultiArchBinary(
-      SkylarkRuleContextApi skylarkRuleContextApi,
-      SkylarkList<String> extraLinkopts,
-      SkylarkList<? extends FileApi> extraLinkInputs,
-      Environment environment)
+      SkylarkRuleContext skylarkRuleContext,
+      Sequence<?> extraLinkopts,
+      Sequence<?> extraLinkInputs,
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
-    SkylarkRuleContext skylarkRuleContext = (SkylarkRuleContext) skylarkRuleContextApi;
     try {
       RuleContext ruleContext = skylarkRuleContext.getRuleContext();
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
-              extraLinkopts.getImmutableList(),
-              SkylarkList.castList(extraLinkInputs, Artifact.class, "extra_link_inputs"));
-      return createAppleBinaryOutputSkylarkStruct(appleBinaryOutput, environment);
+              ImmutableList.copyOf(extraLinkopts.getContents(String.class, "extra_linkopts")),
+              Sequence.castList(extraLinkInputs, Artifact.class, "extra_link_inputs"));
+      return createAppleBinaryOutputSkylarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(null, exception);
     }
@@ -269,20 +267,21 @@ public class AppleSkylarkCommon
    * function.
    */
   private StructImpl createAppleBinaryOutputSkylarkStruct(
-      AppleBinaryOutput output, Environment environment) {
+      AppleBinaryOutput output, StarlarkThread thread) {
     Provider constructor =
         new NativeProvider<StructImpl>(StructImpl.class, "apple_binary_output") {};
-    // We have to transform the output group dictionary into one that contains SkylarkValues instead
+    // We have to transform the output group dictionary into one that contains StarlarkValues
+    // instead
     // of plain NestedSets because the Skylark caller may want to return this directly from their
     // implementation function.
-    Map<String, SkylarkValue> outputGroups =
-        Maps.transformValues(output.getOutputGroups(), v -> SkylarkNestedSet.of(Artifact.class, v));
+    Map<String, StarlarkValue> outputGroups =
+        Maps.transformValues(output.getOutputGroups(), v -> Depset.of(Artifact.TYPE, v));
 
     ImmutableMap<String, Object> fields =
         ImmutableMap.of(
             "binary_provider", output.getBinaryInfoProvider(),
             "debug_outputs_provider", output.getDebugOutputsProvider(),
-            "output_groups", SkylarkDict.copyOf(environment, outputGroups));
-    return SkylarkInfo.createSchemaless(constructor, fields, Location.BUILTIN);
+            "output_groups", Dict.copyOf(thread.mutability(), outputGroups));
+    return SkylarkInfo.create(constructor, fields, Location.BUILTIN);
   }
 }

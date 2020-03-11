@@ -321,10 +321,8 @@ bool InputZipFile::ProcessNext() {
   }
 
   // There might be an offset specified in the central directory that does
-  // not match the file offset, if so, correct the pointer.
-  if (offset != 0 && (p != (zipdata_in_ + in_offset_ + offset))) {
-    p = zipdata_in_ + offset;
-  }
+  // not match the file offset, so always update our pointer.
+  p = zipdata_in_ + in_offset_ + offset;
 
   if (EnsureRemaining(4, "signature") < 0) {
     return false;

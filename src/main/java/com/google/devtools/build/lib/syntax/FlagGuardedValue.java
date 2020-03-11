@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /**
  * Wrapper on a value that controls its accessibility in Starlark based on the value of a
@@ -30,7 +28,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
  */
 public class FlagGuardedValue {
   private final Object obj;
-  private final FlagIdentifier flagIdentifier;
+  private final String flag;
   private final FlagType flagType;
 
   private enum FlagType {
@@ -38,20 +36,19 @@ public class FlagGuardedValue {
     EXPERIMENTAL;
   }
 
-  private FlagGuardedValue(Object obj, FlagIdentifier flagIdentifier, FlagType flagType) {
+  private FlagGuardedValue(Object obj, String flag, FlagType flagType) {
     this.obj = obj;
-    this.flagIdentifier = flagIdentifier;
+    this.flag = flag;
     this.flagType = flagType;
   }
 
   /**
-   * Creates a flag guard which only permits access of the given object when the given flag is
-   * true. If the given flag is false and the object would be accessed, an error is thrown
-   * describing the feature as experimental, and describing that the flag must be set to true.
+   * Creates a flag guard which only permits access of the given object when the given flag is true.
+   * If the given flag is false and the object would be accessed, an error is thrown describing the
+   * feature as experimental, and describing that the flag must be set to true.
    */
-  public static FlagGuardedValue onlyWhenExperimentalFlagIsTrue(
-      FlagIdentifier flagIdentifier, Object obj) {
-    return new FlagGuardedValue(obj, flagIdentifier, FlagType.EXPERIMENTAL);
+  public static FlagGuardedValue onlyWhenExperimentalFlagIsTrue(String flag, Object obj) {
+    return new FlagGuardedValue(obj, flag, FlagType.EXPERIMENTAL);
   }
 
   /**
@@ -59,37 +56,31 @@ public class FlagGuardedValue {
    * false. If the given flag is true and the object would be accessed, an error is thrown
    * describing the feature as deprecated, and describing that the flag must be set to false.
    */
-  public static FlagGuardedValue onlyWhenIncompatibleFlagIsFalse(
-      FlagIdentifier flagIdentifier, Object obj) {
-    return new FlagGuardedValue(obj, flagIdentifier, FlagType.DEPRECATION);
+  public static FlagGuardedValue onlyWhenIncompatibleFlagIsFalse(String flag, Object obj) {
+    return new FlagGuardedValue(obj, flag, FlagType.DEPRECATION);
   }
 
   /**
-   * Returns an {@link EvalException} with error appropriate to throw when one attempts to access
-   * this guard's protected object when it should be inaccessible in the given semantics.
+   * Returns an error describing an attempt to access this guard's protected object when it should
+   * be inaccessible in the given semantics.
    *
    * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is true given the
    *     semantics
    */
-  public EvalException getEvalExceptionFromAttemptingAccess(
-      Location location, StarlarkSemantics semantics, String symbolDescription) {
+  String getErrorFromAttemptingAccess(StarlarkSemantics semantics, String name) {
     Preconditions.checkArgument(!isObjectAccessibleUsingSemantics(semantics),
         "getEvalExceptionFromAttemptingAccess should only be called if the underlying "
             + "object is inaccessible given the semantics");
-    if (flagType == FlagType.EXPERIMENTAL) {
-      return new EvalException(
-            location,
-            symbolDescription
-                + " is experimental and thus unavailable with the current flags. It may be "
-                + "enabled by setting --" + flagIdentifier.getFlagName());
-    } else {
-      return new EvalException(
-        location,
-        symbolDescription
-            + " is deprecated and will be removed soon. It may be temporarily re-enabled by "
-            + "setting --" + flagIdentifier.getFlagName() + "=false");
-
-    }
+    return flagType == FlagType.EXPERIMENTAL
+        ? name
+            + " is experimental and thus unavailable with the current flags. It may be enabled by"
+            + " setting --"
+            + flag
+        : name
+            + " is deprecated and will be removed soon. It may be temporarily re-enabled by"
+            + " setting --"
+            + flag
+            + "=false";
   }
 
   /**
@@ -109,9 +100,9 @@ public class FlagGuardedValue {
   /** Returns true if this guard's underlying object is accessible under the given semantics. */
   public boolean isObjectAccessibleUsingSemantics(StarlarkSemantics semantics) {
     if (flagType == FlagType.EXPERIMENTAL) {
-      return semantics.isFeatureEnabledBasedOnTogglingFlags(flagIdentifier, FlagIdentifier.NONE);
+      return semantics.isFeatureEnabledBasedOnTogglingFlags(flag, "");
     } else {
-      return semantics.isFeatureEnabledBasedOnTogglingFlags(FlagIdentifier.NONE, flagIdentifier);
+      return semantics.isFeatureEnabledBasedOnTogglingFlags("", flag);
     }
   }
 }

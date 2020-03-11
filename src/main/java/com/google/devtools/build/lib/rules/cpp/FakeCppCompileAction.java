@@ -31,12 +31,13 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -72,7 +73,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       boolean usePic,
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
-      Iterable<Artifact> inputsForInvalidation,
+      NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> prunableHeaders,
       Artifact outputFile,
@@ -137,8 +138,8 @@ public class FakeCppCompileAction extends CppCompileAction {
     byte[] dotDContents = null;
     try {
       Spawn spawn = createSpawn(actionExecutionContext.getClientEnv());
-      SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
-      spawnResults = context.exec(spawn, actionExecutionContext);
+      SpawnStrategy strategy = actionExecutionContext.getContext(SpawnStrategy.class);
+      spawnResults = strategy.exec(spawn, actionExecutionContext);
       // The SpawnActionContext guarantees that the first list entry is the successful one.
       dotDContents = getDotDContents(spawnResults.get(0));
     } catch (ExecException e) {
@@ -164,16 +165,23 @@ public class FakeCppCompileAction extends CppCompileAction {
               .setDependencies(
                   processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies())
               .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
-              .setAllowedDerivedinputs(getAllowedDerivedInputs());
+              .setAllowedDerivedInputs(getAllowedDerivedInputs());
 
       if (needsIncludeValidation) {
         discoveryBuilder.shouldValidateInclusions();
       }
 
+      boolean siblingRepositoryLayout =
+          actionExecutionContext
+              .getOptions()
+              .getOptions(StarlarkSemanticsOptions.class)
+              .experimentalSiblingRepositoryLayout;
+
       discoveredInputs =
           discoveryBuilder
               .build()
-              .discoverInputsFromDependencies(execRoot, scanningContext.getArtifactResolver());
+              .discoverInputsFromDependencies(
+                  execRoot, scanningContext.getArtifactResolver(), siblingRepositoryLayout);
     }
 
     dotDContents = null; // Garbage collect in-memory .d contents.

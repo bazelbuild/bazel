@@ -5,9 +5,6 @@ title: Aspects
 
 # Aspects
 
-* ToC
-{:toc}
-
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
 
@@ -83,8 +80,8 @@ def _print_aspect_impl(target, ctx):
     if hasattr(ctx.rule.attr, 'srcs'):
         # Iterate through the files that make up the sources and
         # print their paths.
-        for src in ctx.rule.attr.srcs:
-            for f in src.files:
+        for src in ctx.rule.attr.srcs.to_list():
+            for f in src.files.to_list():
                 print(f.path)
     return []
 
@@ -126,7 +123,7 @@ def _print_aspect_impl(target, ctx):
         # Iterate through the files that make up the sources and
         # print their paths.
         for src in ctx.rule.attr.srcs:
-            for f in src.files:
+            for f in src.files.to_list():
                 print(f.path)
     return []
 ```
@@ -184,7 +181,7 @@ def _file_count_aspect_impl(target, ctx):
     if hasattr(ctx.rule.attr, 'srcs'):
         # Iterate through the sources counting files
         for src in ctx.rule.attr.srcs:
-            for f in src.files:
+            for f in src.files.to_list():
                 if ctx.attr.extension == '*' or ctx.attr.extension == f.extension:
                     count = count + 1
     # Get the counts from our dependencies.
@@ -298,7 +295,7 @@ def _file_count_aspect_impl(target, ctx):
     if hasattr(ctx.rule.attr, 'srcs'):
         # Iterate through the sources counting files
         for src in ctx.rule.attr.srcs:
-            for f in src.files:
+            for f in src.files.to_list():
                 if ctx.attr.extension == '*' or ctx.attr.extension == f.extension:
                     count = count + 1
     # Get the counts from our dependencies.

@@ -16,6 +16,8 @@
 
 #include <string.h>
 
+namespace blaze_jni {
+
 jstring NewStringLatin1(JNIEnv *env, const char *str) {
   int len = strlen(str);
   jchar buf[512];
@@ -92,3 +94,5 @@ char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
  * GetStringLatin1Chars.
  */
 void ReleaseStringLatin1Chars(const char *s) { delete[] s; }
+
+}  // namespace blaze_jni

@@ -65,7 +65,8 @@ TEST(OptionsTest, SingleOptargs) {
                         "--build_info_file", "build_file1",
                         "--extra_build_info", "extra_build_line1",
                         "--build_info_file", "build_file2",
-                        "--extra_build_info", "extra_build_line2"};
+                        "--extra_build_info", "extra_build_line2",
+                        "--cds_archive", "classes.jsa"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -78,6 +79,7 @@ TEST(OptionsTest, SingleOptargs) {
   ASSERT_EQ(2UL, options.build_info_lines.size());
   EXPECT_EQ("extra_build_line1", options.build_info_lines[0]);
   EXPECT_EQ("extra_build_line2", options.build_info_lines[1]);
+  EXPECT_EQ("classes.jsa", options.cds_archive);
 }
 
 TEST(OptionsTest, MultiOptargs) {

@@ -83,8 +83,8 @@ Add the following snippet to the `WORKSPACE` file:
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-RULES_JVM_EXTERNAL_TAG = "2.0.1"
-RULES_JVM_EXTERNAL_SHA = "55e8d3951647ae3dffde22b4f7f8dee11b3f70f3f89424713debd7076197eaca"
+RULES_JVM_EXTERNAL_TAG = "2.8"
+RULES_JVM_EXTERNAL_SHA = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad"
 
 http_archive(
     name = "rules_jvm_external",

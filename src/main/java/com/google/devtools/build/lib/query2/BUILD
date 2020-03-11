@@ -5,7 +5,6 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -23,27 +22,33 @@ java_library(
         ],
     ),
     deps = [
-        ":abstract-blaze-query-env",
-        ":aspect-resolver",
-        ":fake-load-target",
-        ":query-engine",
-        ":query-output",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:command-utils",
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:shell_escaper",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/causes",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/graph",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:options",
+        "//src/main/java/com/google/devtools/build/lib/query2/compat:fake-load-target",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
@@ -52,96 +57,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "query-output",
-    srcs = glob(
-        ["query/output/*.java"],
-    ),
-    deps = [
-        ":abstract-blaze-query-env",
-        ":aspect-resolver",
-        ":common-query-options",
-        ":fake-load-target",
-        ":query-engine",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/graph",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "abstract-blaze-query-env",
-    srcs = [
-        "AbstractBlazeQueryEnvironment.java",
-    ],
-    deps = [
-        ":query-engine",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "common-query-options",
-    srcs = [
-        "CommonQueryOptions.java",
-    ],
-    deps = [
-        ":aspect-resolver",
-        ":query-engine",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_java_proto",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "aspect-resolver",
-    srcs = glob(["query/aspectresolvers/*.java"]),
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "fake-load-target",
-    srcs = [
-        "FakeLoadTarget.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//third_party:guava",
-    ],
-)
-
-# Query library.
-java_library(
-    name = "query-engine",
-    srcs = glob(["engine/*.java"]),
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/graph",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
 
@@ -152,8 +68,9 @@ java_library(
         "aquery/AqueryUtils.java",
     ],
     deps = [
-        ":query-engine",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//third_party:guava",
     ],
 )

@@ -11,6 +11,18 @@ filegroup(
 )
 
 config_setting(
+    name = "linux_ppc",
+    values = {"cpu": "ppc"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_s390x",
+    values = {"cpu": "s390x"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_x86_64",
     values = {"cpu": "k8"},
     visibility = ["//visibility:public"],
@@ -37,6 +49,12 @@ config_setting(
 config_setting(
     name = "freebsd",
     values = {"cpu": "freebsd"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "openbsd",
+    values = {"cpu": "openbsd"},
     visibility = ["//visibility:public"],
 )
 

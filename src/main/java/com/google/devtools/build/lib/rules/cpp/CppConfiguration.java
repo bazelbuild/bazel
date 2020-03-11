@@ -164,7 +164,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
   private final boolean collectCodeCoverage;
-  private final boolean isThisHostConfigurationDoNotUseWillBeRemovedFor129045294;
+  private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   static CppConfiguration create(CpuTransformer cpuTransformer, BuildOptions options)
       throws InvalidConfigurationException {
@@ -235,7 +235,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
                 && compilationMode == CompilationMode.FASTBUILD)),
         compilationMode,
         commonOptions.collectCodeCoverage,
-        commonOptions.isHost);
+        commonOptions.isHost || commonOptions.isExec);
   }
 
   private CppConfiguration(
@@ -254,7 +254,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       boolean stripBinaries,
       CompilationMode compilationMode,
       boolean collectCodeCoverage,
-      boolean isHostConfiguration) {
+      boolean isToolConfiguration) {
     this.transformedCpuFromOptions = transformedCpuFromOptions;
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
@@ -270,7 +270,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.stripBinaries = stripBinaries;
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = collectCodeCoverage;
-    this.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294 = isHostConfiguration;
+    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = isToolConfiguration;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -536,7 +536,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   String getFdoInstrument() {
-    if (isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // We don't want FDO in the host configuration
       return null;
     }
@@ -570,7 +570,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   Label getFdoPrefetchHintsLabel() {
-    if (isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // We don't want FDO in the host configuration
       return null;
     }
@@ -649,6 +649,18 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
   public Label getTargetLibcTopLabel() {
+    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
+      // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
+      // target configuration while platform-enabled toolchains evaluate in the host/exec
+      // configuration). targetLibcTopLabel is only intended for platform-enabled toolchains and can
+      // cause errors otherwise.
+      //
+      // For example: if a legacy-configured toolchain inherits a --grte_top pointing to an Android
+      // runtime alias that select()s on a target Android CPU and an iOS dep changes the CPU to an
+      // iOS CPU, the alias resolution fails. Legacy toolchains should read --grte_top through
+      // libcTopLabel (which changes along with the iOS CPU change), not this.
+      return null;
+    }
     return cppOptions.targetLibcTopLabel;
   }
 
@@ -671,8 +683,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /** @deprecated this is only a temporary workaround, will be removed by b/129045294. */
   // TODO(b/129045294): Remove at first opportunity
   @Deprecated
-  boolean isThisHostConfigurationDoNotUseWillBeRemovedFor129045294() {
-    return isThisHostConfigurationDoNotUseWillBeRemovedFor129045294;
+  boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294() {
+    return isToolConfigurationDoNotUseWillBeRemovedFor129045294;
   }
 
   public boolean enableCcToolchainResolution() {
@@ -697,5 +709,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean loadCcRulesFromBzl() {
     return cppOptions.loadCcRulesFromBzl;
+  }
+
+  public boolean validateTopLevelHeaderInclusions() {
+    return cppOptions.validateTopLevelHeaderInclusions;
   }
 }

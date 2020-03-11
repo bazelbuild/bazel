@@ -17,12 +17,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.math.BigInteger;
 import java.util.Collection;
-import javax.annotation.Nullable;
 
 /** Value for aggregating artifacts, which must be expanded to a set of other artifacts. */
 class AggregatingArtifactValue implements SkyValue {
@@ -55,30 +52,6 @@ class AggregatingArtifactValue implements SkyValue {
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
   FileArtifactValue getSelfData() {
     return selfData;
-  }
-
-  protected final BigIntegerFingerprint getFingerprintBuilder() {
-    BigIntegerFingerprint fp = new BigIntegerFingerprint();
-    fp.addNullableBigIntegerOrdered(selfData.getValueFingerprint());
-    addFingerprint(fileInputs, fp);
-    addFingerprint(directoryInputs, fp);
-    return fp;
-  }
-
-  private static void addFingerprint(
-      ImmutableList<? extends Pair<Artifact, ? extends SkyValue>> list,
-      BigIntegerFingerprint fingerprint) {
-    list.forEach(
-        pair -> {
-          fingerprint.addPath(pair.first.getExecPath());
-          fingerprint.addBigIntegerOrdered(pair.second.getValueFingerprint());
-        });
-  }
-
-  @Nullable
-  @Override
-  public BigInteger getValueFingerprint() {
-    return getFingerprintBuilder().getFingerprint();
   }
 
   @SuppressWarnings("EqualsGetClass") // RunfilesArtifactValue not equal to Aggregating.

@@ -17,13 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -34,13 +33,13 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -287,8 +286,8 @@ public class AttributeTest {
 
   private static class TestSplitTransition implements SplitTransition {
     @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
-      return ImmutableList.of(buildOptions.clone(), buildOptions.clone());
+    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
+      return ImmutableMap.of("test0", buildOptions.clone(), "test1", buildOptions.clone());
     }
   }
 

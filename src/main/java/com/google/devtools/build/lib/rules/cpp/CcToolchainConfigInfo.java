@@ -36,7 +36,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 
 /** Information describing C++ toolchain derived from CROSSTOOL file. */
 @Immutable
@@ -62,7 +64,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final ImmutableList<Pair<String, String>> makeVariables;
   private final String builtinSysroot;
   private final String ccTargetOs;
-  private final String proto;
 
   @AutoCodec.Instantiator
   public CcToolchainConfigInfo(
@@ -81,8 +82,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       ImmutableList<Pair<String, String>> toolPaths,
       ImmutableList<Pair<String, String>> makeVariables,
       String builtinSysroot,
-      String ccTargetOs,
-      String proto) {
+      String ccTargetOs) {
     super(PROVIDER);
     this.actionConfigs = actionConfigs;
     this.features = features;
@@ -100,7 +100,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.makeVariables = makeVariables;
     this.builtinSysroot = builtinSysroot;
     this.ccTargetOs = ccTargetOs;
-    this.proto = proto;
   }
 
   public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain) throws EvalException {
@@ -140,8 +139,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
             .map(makeVariable -> Pair.of(makeVariable.getName(), makeVariable.getValue()))
             .collect(ImmutableList.toImmutableList()),
         toolchain.getBuiltinSysroot(),
-        toolchain.getCcTargetOs(),
-        /* proto= */ "");
+        toolchain.getCcTargetOs());
   }
 
   public ImmutableList<ActionConfig> getActionConfigs() {
@@ -212,7 +210,61 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
 
   @Override
   public String getProto() {
-    return proto;
+    CToolchain.Builder cToolchain = CToolchain.newBuilder();
+    cToolchain.addAllFeature(
+        features.stream()
+            .map(feature -> featureToProto(feature))
+            .collect(ImmutableList.toImmutableList()));
+    cToolchain.addAllActionConfig(
+        actionConfigs.stream()
+            .map(actionConfig -> actionConfigToProto(actionConfig))
+            .collect(ImmutableList.toImmutableList()));
+    cToolchain.addAllArtifactNamePattern(
+        artifactNamePatterns.stream()
+            .map(
+                artifactNamePattern ->
+                    CToolchain.ArtifactNamePattern.newBuilder()
+                        .setCategoryName(
+                            artifactNamePattern.getArtifactCategory().getCategoryName())
+                        .setPrefix(artifactNamePattern.getPrefix())
+                        .setExtension(artifactNamePattern.getExtension())
+                        .build())
+            .collect(ImmutableList.toImmutableList()));
+    cToolchain.addAllToolPath(
+        toolPaths.stream()
+            .map(
+                toolPath ->
+                    ToolPath.newBuilder()
+                        .setName(toolPath.getFirst())
+                        .setPath(toolPath.getSecond())
+                        .build())
+            .collect(ImmutableList.toImmutableList()));
+    cToolchain.addAllMakeVariable(
+        makeVariables.stream()
+            .map(
+                makeVariable ->
+                    CrosstoolConfig.MakeVariable.newBuilder()
+                        .setName(makeVariable.getFirst())
+                        .setValue(makeVariable.getSecond())
+                        .build())
+            .collect(ImmutableList.toImmutableList()));
+    cToolchain
+        .addAllCxxBuiltinIncludeDirectory(cxxBuiltinIncludeDirectories)
+        .setToolchainIdentifier(toolchainIdentifier)
+        .setHostSystemName(hostSystemName)
+        .setTargetSystemName(targetSystemName)
+        .setTargetCpu(targetCpu)
+        .setTargetLibc(targetLibc)
+        .setCompiler(compiler)
+        .setAbiVersion(abiVersion)
+        .setAbiLibcVersion(abiLibcVersion);
+    if (!ccTargetOs.isEmpty()) {
+      cToolchain.setCcTargetOs(ccTargetOs);
+    }
+    if (!builtinSysroot.isEmpty()) {
+      cToolchain.setBuiltinSysroot(builtinSysroot);
+    }
+    return cToolchain.build().toString();
   }
 
   private static CToolchain.WithFeatureSet withFeatureSetToProto(WithFeatureSet withFeatureSet) {
@@ -287,7 +339,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         .build();
   }
 
-  static CToolchain.Feature featureToProto(Feature feature) {
+  private static CToolchain.Feature featureToProto(Feature feature) {
     return CToolchain.Feature.newBuilder()
         .setName(feature.getName())
         .setEnabled(feature.isEnabled())
@@ -341,7 +393,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         .build();
   }
 
-  static CToolchain.ActionConfig actionConfigToProto(ActionConfig actionConfig) {
+  private static CToolchain.ActionConfig actionConfigToProto(ActionConfig actionConfig) {
     return CToolchain.ActionConfig.newBuilder()
         .setConfigName(actionConfig.getName())
         .setActionName(actionConfig.getActionName())

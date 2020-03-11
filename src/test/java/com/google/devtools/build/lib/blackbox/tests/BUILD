@@ -51,6 +51,17 @@ java_test(
     ],
 )
 
+java_test(
+    name = "NinjaBlackBoxTest",
+    timeout = "moderate",
+    srcs = ["NinjaBlackBoxTest.java"],
+    tags = ["black_box_test"],
+    deps = [
+        ":common_deps",
+        "//src/main/java/com/google/devtools/build/lib:bazel-ninja",
+    ],
+)
+
 test_suite(
     name = "black_box_tests",
     tags = ["black_box_test"],

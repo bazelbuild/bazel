@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -171,8 +172,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                       + "]"),
               Transience.PERSISTENT);
         }
-        DeclaredToolchainInfo toolchainInfo = target.getProvider(DeclaredToolchainInfo.class);
-
+        DeclaredToolchainInfo toolchainInfo = PlatformProviderUtils.declaredToolchainInfo(target);
         if (toolchainInfo == null) {
           throw new RegisteredToolchainsFunctionException(
               new InvalidToolchainLabelException(toolchainLabel), Transience.PERSISTENT);

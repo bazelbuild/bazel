@@ -40,7 +40,6 @@ public class BazelShTestConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget ct = getConfiguredTarget("//sh/test:foo_test");
     assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", Mode.HOST).getLabel().toString())
-        .isEqualTo(
-            "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main");
+        .isEqualTo("@bazel_tools//tools/test:lcov_merger");
   }
 }

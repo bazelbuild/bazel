@@ -15,14 +15,14 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import java.util.List;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,13 +34,13 @@ import org.junit.runners.JUnit4;
 public final class ConfigurationFragmentPolicyTest {
 
   @SkylarkModule(name = "test_fragment", doc = "first fragment")
-  private static final class TestFragment {}
+  private static final class TestFragment implements StarlarkValue {}
 
   @SkylarkModule(name = "other_fragment", doc = "second fragment")
-  private static final class OtherFragment {}
+  private static final class OtherFragment implements StarlarkValue {}
 
   @SkylarkModule(name = "unknown_fragment", doc = "useless waste of permgen")
-  private static final class UnknownFragment {}
+  private static final class UnknownFragment implements StarlarkValue {}
 
   @Test
   public void testMissingFragmentPolicy() throws Exception {
@@ -77,8 +77,8 @@ public final class ConfigurationFragmentPolicyTest {
   private static final ConfigurationTransition TEST_HOST_TRANSITION =
       new ConfigurationTransition() {
         @Override
-        public List<BuildOptions> apply(BuildOptions buildOptions) {
-          return ImmutableList.of(buildOptions);
+        public ImmutableMap<String, BuildOptions> apply(BuildOptions buildOptions) {
+          return ImmutableMap.of("", buildOptions);
         }
 
         @Override
@@ -109,16 +109,14 @@ public final class ConfigurationFragmentPolicyTest {
     assertThat(
             policy.isLegalConfigurationFragment(Integer.class, NoTransition.INSTANCE))
         .isTrue();
-    // TODO(mstaib): .isFalse() when dynamic configurations care which configuration a fragment was
-    // specified for
-    assertThat(policy.isLegalConfigurationFragment(Integer.class, TEST_HOST_TRANSITION))
-        .isTrue();
+    // TODO(b/140641941): .isFalse() when dynamic configurations care which configuration a fragment
+    // was specified for
+    assertThat(policy.isLegalConfigurationFragment(Integer.class, TEST_HOST_TRANSITION)).isTrue();
 
     assertThat(policy.isLegalConfigurationFragment(Long.class)).isTrue();
-    // TODO(mstaib): .isFalse() when dynamic configurations care which configuration a fragment was
-    // specified for
-    assertThat(policy.isLegalConfigurationFragment(Long.class, NoTransition.INSTANCE))
-        .isTrue();
+    // TODO(b/140641941): .isFalse() when dynamic configurations care which configuration a fragment
+    // was specified for
+    assertThat(policy.isLegalConfigurationFragment(Long.class, NoTransition.INSTANCE)).isTrue();
     assertThat(policy.isLegalConfigurationFragment(Long.class, TEST_HOST_TRANSITION))
         .isTrue();
 

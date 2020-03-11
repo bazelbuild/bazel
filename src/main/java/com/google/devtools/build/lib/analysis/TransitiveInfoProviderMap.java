@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import javax.annotation.concurrent.Immutable;
 
@@ -26,7 +26,7 @@ import javax.annotation.concurrent.Immutable;
  *
  * <ul>
  *   <li>Declared providers. They are exposed to Skylark and identified by {@link Provider.Key}.
- *       Provider instances are {@link InfoInterface}s.
+ *       Provider instances are {@link Info}s.
  *   <li>Native providers. They are identified by their {@link Class} and their instances are
  *       instances of that class. They should implement {@link TransitiveInfoProvider} marker
  *       interface.

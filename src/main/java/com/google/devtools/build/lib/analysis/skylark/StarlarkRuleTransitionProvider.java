@@ -29,12 +29,11 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -89,8 +88,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
           continue;
         }
         attributes.put(
-            Attribute.getSkylarkName(attribute.getPublicName()),
-            val == null ? Runtime.NONE : SkylarkType.convertToSkylark(val, (Environment) null));
+            Attribute.getSkylarkName(attribute.getPublicName()), Starlark.fromJava(val, null));
       }
       attrObject =
           StructProvider.STRUCT.create(
@@ -108,10 +106,19 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
     // attributes that are then configured by the outputs of these transitions.
     @Override
     public BuildOptions patch(BuildOptions buildOptions) {
-      List<BuildOptions> result;
+      Map<String, BuildOptions> result;
       try {
         result = applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
-      } catch (EvalException | InterruptedException e) {
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        starlarkDefinedConfigTransition
+            .getEventHandler()
+            .handle(
+                Event.error(
+                    starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                    "Starlark transition interrupted during rule transition implementation"));
+        return buildOptions.clone();
+      } catch (EvalException e) {
         starlarkDefinedConfigTransition
             .getEventHandler()
             .handle(
@@ -129,7 +136,24 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
                     "Rule transition only allowed to return a single transitioned configuration."));
         return buildOptions.clone();
       }
-      return Iterables.getOnlyElement(result);
+      return Iterables.getOnlyElement(result.values());
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (object == this) {
+        return true;
+      }
+      if (!(object instanceof FunctionPatchTransition)) {
+        return false;
+      }
+      FunctionPatchTransition other = (FunctionPatchTransition) object;
+      return Objects.equals(attrObject, other.attrObject) && super.equals(other);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(attrObject, super.hashCode());
     }
   }
 }

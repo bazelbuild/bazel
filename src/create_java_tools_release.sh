@@ -80,27 +80,32 @@ for platform in linux windows darwin; do
     release_artifact="releases/javac${java_version}/v${java_tools_version}/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
     release_sources_artifact="releases/javac${java_version}/v${java_tools_version}/sources/java_tools_javac${java_version}_${platform}-v${java_tools_version}.zip"
     # Make release candidate the release artifact for the current platform.
-    gsutil -q cp "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
+    # Don't overwrite existing file.
+    gsutil -q cp -n "${gcs_bucket}/${rc_url}" "${gcs_bucket}/${release_artifact}"
 
     # Copy the associated zip file that contains the sources of the release zip.
-    gsutil -q cp "${gcs_bucket}/${rc_sources_url}" "${gcs_bucket}/${release_sources_artifact}"
+    # Don't overwrite existing file.
+    gsutil -q cp -n "${gcs_bucket}/${rc_sources_url}" "${gcs_bucket}/${release_sources_artifact}"
   else
     tmp_url=$(gsutil ls -lh ${gcs_bucket}/tmp/build/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
 
 
     # Make the generated artifact a release candidate for the current platform.
-    gsutil -q cp ${tmp_url} "${gcs_bucket}/${rc_url}"
+    # Don't overwrite existing file.
+    gsutil -q cp -n ${tmp_url} "${gcs_bucket}/${rc_url}"
     release_artifact="${rc_url}"
 
     # Copy the associated zip file that contains the sources of the release zip.
+    # Don't overwrite existing file.
     tmp_sources_url=$(gsutil ls -lh ${gcs_bucket}/tmp/sources/${commit_hash}/java${java_version}/java_tools_javac${java_version}_${platform}* | sort -k 2 | grep gs -m 1 | awk '{print $4}')
-    gsutil -q cp ${tmp_sources_url} ${gcs_bucket}/${rc_sources_url}
+    gsutil -q cp -n ${tmp_sources_url} ${gcs_bucket}/${rc_sources_url}
   fi
 
   # Download the file locally to compute its sha256sum (needed to update the
   # java_tools in Bazel).
+  # Don't overwrite existing file.
   local_zip="$tmp_dir/java_tools_$platform.zip"
-  gsutil -q cp ${gcs_bucket}/${rc_url} ${local_zip}
+  gsutil -q cp -n ${gcs_bucket}/${rc_url} ${local_zip}
   file_hash=$(sha256sum ${local_zip} | cut -d' ' -f1)
   echo "${release_artifact} ${file_hash}"
 done

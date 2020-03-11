@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 

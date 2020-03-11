@@ -31,17 +31,18 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -115,6 +116,8 @@ public abstract class Artifact
         Comparable<Artifact>,
         CommandLineItem,
         SkyKey {
+
+  public static final SkylarkType TYPE = SkylarkType.of(Artifact.class);
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
@@ -266,10 +269,6 @@ public abstract class Artifact
 
   private Artifact(ArtifactRoot root, PathFragment execPath, boolean contentBasedPath) {
     Preconditions.checkNotNull(root);
-    if (execPath.isEmpty()) {
-      throw new IllegalArgumentException(
-          "it is illegal to create an artifact with an empty execPath");
-    }
     // The ArtifactOwner is not part of this computation because it is very rare that two Artifacts
     // have the same execPath and different owners, so a collision is fine there. If this is
     // changed, OwnerlessArtifactWrapper must also be changed.
@@ -285,7 +284,6 @@ public abstract class Artifact
     /** Only used for deserializing artifacts. */
     private static final Interner<DerivedArtifact> INTERNER = BlazeInterners.newWeakInterner();
 
-    private final PathFragment rootRelativePath;
     /**
      * An {@link ActionLookupKey} until {@link #setGeneratingActionKey} is set, at which point it is
      * an {@link ActionLookupData}, whose {@link ActionLookupData#getActionLookupKey} will be the
@@ -310,7 +308,6 @@ public abstract class Artifact
       super(root, execPath, contentBasedPath);
       Preconditions.checkState(
           !root.getExecPath().isEmpty(), "Derived root has no exec path: %s, %s", root, execPath);
-      this.rootRelativePath = execPath.relativeTo(root.getExecPath());
       this.owner = owner;
     }
 
@@ -360,7 +357,7 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      return rootRelativePath;
+      return getExecPath().relativeTo(getRoot().getExecPath());
     }
 
     @Override
@@ -605,6 +602,11 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
+      // flag-less way of checking of the root is <execroot>/.., or sibling of __main__.
+      if (getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
+        return LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(getExecPath().subFragment(1));
+      }
+
       return getExecPath();
     }
 
@@ -836,13 +838,6 @@ public abstract class Artifact
     return getExecPath().getPathString();
   }
 
-  /*
-   * Returns getExecPathString escaped for potential use in a shell command.
-   */
-  public final String getShellEscapedExecPathString() {
-    return ShellUtils.shellEscape(getExecPathString());
-  }
-
   public final String getRootRelativePathString() {
     return getRootRelativePath().getPathString();
   }
@@ -889,15 +884,6 @@ public abstract class Artifact
   }
 
   /**
-   * Returns the root-part of a given path by trimming off the end specified by
-   * a given tail. Assumes that the tail is known to match, and simply relies on
-   * the segment lengths.
-   */
-  private static PathFragment trimTail(PathFragment path, PathFragment tail) {
-    return path.subFragment(0, path.segmentCount() - tail.segmentCount());
-  }
-
-  /**
    * Returns a string representing the complete artifact path information.
    */
   public final String toDetailString() {
@@ -914,6 +900,7 @@ public abstract class Artifact
   }
 
   /** {@link ObjectCodec} for {@link SourceArtifact} */
+  @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
   private static class SourceArtifactCodec implements ObjectCodec<SourceArtifact> {
 
     @Override
@@ -978,6 +965,14 @@ public abstract class Artifact
    * Lazily converts artifacts into root-relative path strings. Middleman artifacts are ignored by
    * this method.
    */
+  public static Iterable<String> toRootRelativePaths(NestedSet<Artifact> artifacts) {
+    return toRootRelativePaths(artifacts.toList());
+  }
+
+  /**
+   * Lazily converts artifacts into root-relative path strings. Middleman artifacts are ignored by
+   * this method.
+   */
   public static Iterable<String> toRootRelativePaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
         Iterables.filter(artifacts, MIDDLEMAN_FILTER),
@@ -990,6 +985,17 @@ public abstract class Artifact
    */
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
     return ActionInputHelper.toExecPaths(Iterables.filter(artifacts, MIDDLEMAN_FILTER));
+  }
+
+  /**
+   * Converts a collection of artifacts into execution-time path strings, and returns those as an
+   * immutable list. Middleman artifacts are ignored by this method.
+   *
+   * <p>Avoid this method in production code - it flattens the given nested set unconditionally.
+   */
+  @VisibleForTesting
+  public static List<String> asExecPaths(NestedSet<Artifact> artifacts) {
+    return asExecPaths(artifacts.toList());
   }
 
   /**
@@ -1026,31 +1032,6 @@ public abstract class Artifact
   }
 
   /**
-   * Converts a collection of artifacts into execution-time path strings, and
-   * adds those to a given collection. Middleman artifacts for
-   * {@link MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions are expanded
-   * once.
-   */
-  @VisibleForTesting
-  public static void addExpandedExecPathStrings(Iterable<Artifact> artifacts,
-                                                 Collection<String> output,
-                                                 ArtifactExpander artifactExpander) {
-    addExpandedArtifacts(artifacts, output, ActionInputHelper.EXEC_PATH_STRING_FORMATTER,
-        artifactExpander);
-  }
-
-  /**
-   * Converts a collection of artifacts into execution-time path fragments, and
-   * adds those to a given collection. Middleman artifacts for
-   * {@link MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions are expanded
-   * once.
-   */
-  public static void addExpandedExecPaths(Iterable<Artifact> artifacts,
-      Collection<PathFragment> output, ArtifactExpander artifactExpander) {
-    addExpandedArtifacts(artifacts, output, Artifact::getExecPath, artifactExpander);
-  }
-
-  /**
    * Converts a collection of artifacts into the outputs computed by
    * outputFormatter and adds them to a given collection. Middleman artifacts
    * are expanded once.
@@ -1081,21 +1062,6 @@ public abstract class Artifact
   }
 
   /**
-   * Converts a collection of artifacts into execution-time path strings with
-   * the root-break delimited with a colon ':', and adds those to a given list.
-   * <pre>
-   * Source: sourceRoot/rootRelative => :rootRelative
-   * Derived: execRoot/rootPrefix/rootRelative => rootPrefix:rootRelative
-   * </pre>
-   */
-  public static void addRootPrefixedExecPaths(Iterable<Artifact> artifacts,
-      List<String> output) {
-    for (Artifact artifact : artifacts) {
-      output.add(asRootPrefixedExecPath(artifact));
-    }
-  }
-
-  /**
    * Convenience method to filter the files to build for a certain filetype.
    *
    * @param artifacts the files to filter
@@ -1111,18 +1077,6 @@ public abstract class Artifact
       }
     }
     return filesToBuild;
-  }
-
-  @VisibleForTesting
-  static String asRootPrefixedExecPath(Artifact artifact) {
-    PathFragment execPath = artifact.getExecPath();
-    PathFragment rootRel = artifact.getRootRelativePath();
-    if (execPath.equals(rootRel)) {
-      return ":" + rootRel.getPathString();
-    } else { //if (execPath.endsWith(rootRel)) {
-      PathFragment rootPrefix = trimTail(execPath, rootRel);
-      return rootPrefix.getPathString() + ":" + rootRel.getPathString();
-    }
   }
 
   /**
@@ -1146,7 +1100,7 @@ public abstract class Artifact
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     if (isSourceArtifact()) {
       printer.append("<source file " + getRootRelativePathString() + ">");
     } else {

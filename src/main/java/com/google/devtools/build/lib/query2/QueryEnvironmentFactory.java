@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.BlazeQueryEnvironment;
@@ -55,7 +56,6 @@ public class QueryEnvironmentFactory {
       Iterable<QueryFunction> extraFunctions,
       @Nullable PathPackageLocator packagePath,
       boolean blockUniverseEvaluationErrors,
-      boolean useForkJoinPool,
       boolean useGraphlessQuery) {
     Preconditions.checkNotNull(universeScope);
     if (canUseSkyQuery(orderedResults, universeScope, packagePath, strictScope, labelFilter)) {
@@ -83,8 +83,7 @@ public class QueryEnvironmentFactory {
           labelFilter,
           eventHandler,
           settings,
-          extraFunctions,
-          useForkJoinPool);
+          extraFunctions);
     } else {
       return new BlazeQueryEnvironment(
           transitivePackageLoader,
@@ -98,8 +97,7 @@ public class QueryEnvironmentFactory {
           labelFilter,
           eventHandler,
           settings,
-          extraFunctions,
-          useForkJoinPool);
+          extraFunctions);
     }
   }
 

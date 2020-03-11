@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
@@ -159,25 +160,61 @@ public class ActionGraphQueryEnvironment
           BuildConfiguration hostConfiguration,
           @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
           PackageManager packageManager) {
-    return ImmutableList.of(
-        new ActionGraphProtoOutputFormatterCallback(
-            eventHandler,
-            aqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            OutputType.BINARY,
-            actionFilters),
-        new ActionGraphProtoOutputFormatterCallback(
-            eventHandler,
-            aqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            OutputType.TEXT,
-            actionFilters),
-        new ActionGraphTextOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
+    return aqueryOptions.protoV2
+        ? ImmutableList.of(
+            new ActionGraphProtoV2OutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                StreamedOutputHandler.OutputType.BINARY,
+                actionFilters),
+            new ActionGraphProtoV2OutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                StreamedOutputHandler.OutputType.TEXT,
+                actionFilters),
+            new ActionGraphProtoV2OutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                StreamedOutputHandler.OutputType.JSON,
+                actionFilters),
+            new ActionGraphTextOutputFormatterCallback(
+                eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters))
+        : ImmutableList.of(
+            new ActionGraphProtoOutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                OutputType.BINARY,
+                actionFilters),
+            new ActionGraphProtoOutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                OutputType.TEXT,
+                actionFilters),
+            new ActionGraphProtoOutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                OutputType.JSON,
+                actionFilters),
+            new ActionGraphTextOutputFormatterCallback(
+                eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
   }
 
   @Override
@@ -324,7 +361,7 @@ public class ActionGraphQueryEnvironment
     if (configuredTargetValue != null) {
       return configuredTargetValue;
     }
-    // Try with host configuration (even when --nohost_deps is set in the case that top-level
+    // Try with host configuration (even when --notool_deps is set in the case that top-level
     // targets are configured in the host configuration so we are doing a host-configuration-only
     // query).
     configuredTargetValue = getHostConfiguredTarget(label);

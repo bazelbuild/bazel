@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
-import java.io.IOException;
 
 /** A UnaryOperatorExpression represents a unary operator expression, 'op x'. */
 public final class UnaryOperatorExpression extends Expression {
@@ -38,16 +36,6 @@ public final class UnaryOperatorExpression extends Expression {
   }
 
   @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
-    // conservatively emit them here.
-    buffer.append(op == TokenKind.NOT ? "not " : op.toString());
-    buffer.append('(');
-    x.prettyPrint(buffer);
-    buffer.append(')');
-  }
-
-  @Override
   public String toString() {
     // Note that this omits the parentheses for brevity, but is not correct in general due to
     // operator precedence rules. For example, "(not False) in mylist" prints as
@@ -56,50 +44,8 @@ public final class UnaryOperatorExpression extends Expression {
     return (op == TokenKind.NOT ? "not " : op.toString()) + x;
   }
 
-  private static Object evaluate(TokenKind op, Object value, Location loc)
-      throws EvalException, InterruptedException {
-    switch (op) {
-      case NOT:
-        return !EvalUtils.toBoolean(value);
-
-      case MINUS:
-        if (value instanceof Integer) {
-          try {
-            return Math.negateExact((Integer) value);
-          } catch (ArithmeticException e) {
-            // Fails for -MIN_INT.
-            throw new EvalException(loc, e.getMessage());
-          }
-        }
-        break;
-
-      case PLUS:
-        if (value instanceof Integer) {
-          return value;
-        }
-        break;
-
-      case TILDE:
-        if (value instanceof Integer) {
-          return ~((Integer) value);
-        }
-        break;
-
-        // ignore any other operator and proceed to report an error
-      default:
-    }
-    throw new EvalException(
-        loc,
-        String.format("unsupported unary operation: %s%s", op, EvalUtils.getDataTypeName(value)));
-  }
-
   @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    return evaluate(op, x.eval(env), getLocation());
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

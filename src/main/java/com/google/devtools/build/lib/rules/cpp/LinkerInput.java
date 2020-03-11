@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
  * embedded objects and if so, the list of the object files themselves.
  */
 public interface LinkerInput {
+
   /**
    * Returns the type of the linker input.
    */
@@ -45,6 +46,10 @@ public interface LinkerInput {
    * Returns whether the input artifact is a fake object file or not.
    */
   boolean isFake();
+
+  default boolean isLinkstamp() {
+    return false;
+  }
 
   /**
    * Return the list of object files included in the input artifact, if there are any. It is

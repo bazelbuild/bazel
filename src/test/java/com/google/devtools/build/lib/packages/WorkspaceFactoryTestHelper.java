@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -66,7 +66,8 @@ class WorkspaceFactoryTestHelper {
         Package.newExternalPackageBuilder(
             Package.Builder.DefaultHelper.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFilePath),
-            "");
+            "",
+            StarlarkSemantics.DEFAULT_SEMANTICS);
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,
@@ -76,15 +77,14 @@ class WorkspaceFactoryTestHelper {
             allowOverride,
             root.asPath(),
             root.asPath(),
-            /* defaultSystemJavabaseDir= */ null);
+            /* defaultSystemJavabaseDir= */ null,
+            starlarkSemantics);
     Exception exception = null;
     try {
       byte[] bytes =
           FileSystemUtils.readWithKnownFileSize(workspaceFilePath, workspaceFilePath.getFileSize());
       factory.parseForTesting(
-          ParserInputSource.create(bytes, workspaceFilePath.asFragment()),
-          starlarkSemantics,
-          eventHandler);
+          ParserInput.create(bytes, workspaceFilePath.toString()), eventHandler);
     } catch (BuildFileContainsErrorsException e) {
       exception = e;
     } catch (IOException | InterruptedException e) {

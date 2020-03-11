@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLU
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -30,8 +29,8 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_S
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -39,12 +38,14 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -52,10 +53,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Set;
@@ -115,7 +113,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
             .write();
 
-    Iterable<Artifact> files = getFilesToBuild(target);
+    NestedSet<Artifact> files = getFilesToBuild(target);
     assertThat(Artifact.toRootRelativePaths(files)).containsExactly("objc/libOne.a");
   }
 
@@ -165,10 +163,12 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(getGeneratingAction(a2)).isNotNull();
     assertThat(getGeneratingAction(b)).isNotNull();
 
-    assertThat(getGeneratingAction(a0).getInputs()).contains(getSourceArtifact("foo/a.m"));
-    assertThat(getGeneratingAction(a1).getInputs()).contains(getSourceArtifact("foo/pkg1/a.m"));
-    assertThat(getGeneratingAction(a2).getInputs()).contains(getSourceArtifact("foo/pkg2/a.m"));
-    assertThat(getGeneratingAction(b).getInputs()).contains(getSourceArtifact("foo/b.m"));
+    assertThat(getGeneratingAction(a0).getInputs().toList()).contains(getSourceArtifact("foo/a.m"));
+    assertThat(getGeneratingAction(a1).getInputs().toList())
+        .contains(getSourceArtifact("foo/pkg1/a.m"));
+    assertThat(getGeneratingAction(a2).getInputs().toList())
+        .contains(getSourceArtifact("foo/pkg2/a.m"));
+    assertThat(getGeneratingAction(b).getInputs().toList()).contains(getSourceArtifact("foo/b.m"));
   }
 
   @Test
@@ -293,7 +293,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//baselib:baselib")
         .write();
     ObjcProvider provider = providerForTarget("//lib:lib");
-    assertThat(provider.get(LIBRARY))
+    assertThat(provider.get(LIBRARY).toList())
         .containsExactlyElementsIn(archiveAction("//baselib:baselib").getOutputs());
   }
 
@@ -376,10 +376,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setAndCreateFiles("hdrs", "d.h", "e.m")
             .setList("deps", "//objc:lib")
             .write();
-    assertThat(getArifactPaths(target, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h", "objc/f.m");
-    assertThat(getArifactPaths(depender, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h", "objc/f.m", "objc2/d.h", "objc2/e.m");
+    assertThat(getArifactPathsOfHeaders(target))
+        .containsExactly("objc/a.h", "objc/b.h", "objc/f.m", "objc/private.h");
+    assertThat(getArifactPathsOfHeaders(depender))
+        .containsExactly(
+            "objc/a.h",
+            "objc/b.h",
+            "objc/f.m",
+            "objc/private.h",
+            "objc2/d.h",
+            "objc2/e.m",
+            "objc2/private.h");
   }
 
   @Test
@@ -392,14 +399,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
 
     assertThat(view.hasErrors(getConfiguredTarget("//objc:lib"))).isFalse();
-  }
-
-  static Iterable<String> iquoteArgs(ObjcProvider provider, BuildConfiguration configuration) {
-    return Interspersing.beforeEach(
-        "-iquote",
-        Iterables.transform(
-            ObjcCommon.userHeaderSearchPaths(provider, configuration),
-            PathFragment::getSafePathString));
   }
 
   @Test
@@ -504,27 +503,22 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompileWithFrameworkImportsIncludesFlagsAndInputArtifactsPreCleanup()
-      throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=false");
+  public void testCompileWithFrameworkImportsIncludesFlagsPreMigration() throws Exception {
+    useConfiguration(
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
+        "--incompatible_objc_compile_info_migration=false");
     addBinWithTransitiveDepOnFrameworkImport(false);
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
     assertThat(compileAction.getArguments()).doesNotContain("-framework");
     assertThat(Joiner.on("").join(compileAction.getArguments())).contains("-Ffx");
-    assertThat(compileAction.getInputs())
-        .containsAtLeast(
-            getSourceArtifact("fx/fx1.framework/a"),
-            getSourceArtifact("fx/fx1.framework/b"),
-            getSourceArtifact("fx/fx2.framework/c"),
-            getSourceArtifact("fx/fx2.framework/d"));
   }
 
   @Test
-  public void testCompileWithFrameworkImportsIncludesFlagsPostCleanup() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-    setSkylarkSemanticsOptions("--incompatible_objc_framework_cleanup=true");
+  public void testCompileWithFrameworkImportsIncludesFlagsPostMigration() throws Exception {
+    useConfiguration(
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
+        "--incompatible_objc_compile_info_migration=true");
     addBinWithTransitiveDepOnFrameworkImport(true);
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
@@ -884,7 +878,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//objc:lib_dep")
         .write();
     ObjcProvider objcProvider = providerForTarget("//objc2:lib");
-    assertThat(objcProvider.get(CC_LIBRARY)).isEmpty();
+    assertThat(objcProvider.get(CC_LIBRARY).toList()).isEmpty();
   }
 
   @Test
@@ -995,8 +989,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
     CppCompileAction compileAction = (CppCompileAction) compileAction("//lib:lib", "a.o");
     assertThat(
-            compileAction.discoverInputsFromDotdFiles(
-                new ActionExecutionContextBuilder().build(), null, null, null))
+            compileAction
+                .discoverInputsFromDotdFiles(
+                    new ActionExecutionContextBuilder().build(), null, null, null, false)
+                .toList())
         .isEmpty();
   }
 
@@ -1016,15 +1012,21 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(getArifactPaths(target, LIBRARY)).containsExactly("objc/liblib.a");
     assertThat(getArifactPaths(depender, LIBRARY)).containsExactly(
         "objc/liblib.a", "objc2/liblib.a");
-    assertThat(getArifactPaths(target, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h");
-    assertThat(getArifactPaths(depender, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h", "objc2/c.h", "objc2/d.h");
+    assertThat(getArifactPathsOfHeaders(target))
+        .containsExactly("objc/a.h", "objc/b.h", "objc/private.h");
+    assertThat(getArifactPathsOfHeaders(depender))
+        .containsExactly(
+            "objc/a.h", "objc/b.h", "objc/private.h", "objc2/c.h", "objc2/d.h", "objc2/private.h");
   }
 
-  private Iterable<String> getArifactPaths(ConfiguredTarget target, Key<Artifact> artifactKey) {
+  private static Iterable<String> getArifactPaths(
+      ConfiguredTarget target, ObjcProvider.Key<Artifact> artifactKey) {
     return Artifact.toRootRelativePaths(
         target.get(ObjcProvider.SKYLARK_CONSTRUCTOR).get(artifactKey));
+  }
+
+  private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
+    return Artifact.toRootRelativePaths(target.get(ObjcProvider.SKYLARK_CONSTRUCTOR).header());
   }
 
   @Test
@@ -1042,8 +1044,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
     ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
 
-    assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK)).containsExactly(new SdkFramework("foo"));
-    assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK))
+    assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList())
+        .containsExactly(new SdkFramework("foo"));
+    assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList())
         .containsExactly(new SdkFramework("foo"), new SdkFramework("bar"));
   }
 
@@ -1082,7 +1085,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("sdk_dylibs", "libdy1", "libdy2")
         .write();
     ObjcProvider provider = providerForTarget("//lib:lib");
-    assertThat(provider.get(SDK_DYLIB)).containsExactly("libdy1", "libdy2").inOrder();
+    assertThat(provider.get(SDK_DYLIB).toList()).containsExactly("libdy1", "libdy2").inOrder();
   }
 
   @Test
@@ -1319,18 +1322,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .add("-arch x86_64")
                 .add("-isysroot", AppleToolchain.sdkDir())
                 .addAll(FASTBUILD_COPTS)
-                .addAll(
-                    iquoteArgs(
-                        getConfiguredTarget("//objc:lib").get(ObjcProvider.SKYLARK_CONSTRUCTOR),
-                        getAppleCrosstoolConfiguration()))
+                .add("-iquote", ".")
+                .add(
+                    "-iquote",
+                    getAppleCrosstoolConfiguration().getGenfilesFragment().getSafePathString())
                 .add("-include", "objc/some.pch")
                 .add("-fobjc-arc")
                 .add("-c", "objc/a.m")
                 .addAll(outputArgs(compileActionA.getOutputs()))
                 .build());
 
-    assertThat(compileActionA.getPossibleInputsForTesting()).contains(
-        getFileConfiguredTarget("//objc:some.pch").getArtifact());
+    assertThat(compileActionA.getPossibleInputsForTesting().toList())
+        .contains(getFileConfiguredTarget("//objc:some.pch").getArtifact());
   }
 
   // Converts output artifacts into expected command-line arguments.
@@ -1379,13 +1382,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     Iterable<Artifact> linkerInputArtifacts =
         Iterables.transform(
-            objcProvider.get(CC_LIBRARY),
-            new Function<LibraryToLink, Artifact>() {
-              @Override
-              public Artifact apply(LibraryToLink library) {
-                return library.getStaticLibrary();
-              }
-            });
+            objcProvider.get(CC_LIBRARY).toList(), (library) -> library.getStaticLibrary());
 
     assertThat(linkerInputArtifacts)
         .containsAtLeast(
@@ -1415,8 +1412,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     Set<SdkFramework> baseFrameworks = ImmutableSet.of(new SdkFramework("foo"));
     Set<SdkFramework> dependerFrameworks =
         ImmutableSet.of(new SdkFramework("foo"), new SdkFramework("bar"));
-    assertThat(baseProvider.get(SDK_FRAMEWORK)).containsExactlyElementsIn(baseFrameworks);
-    assertThat(dependerProvider.get(SDK_FRAMEWORK)).containsExactlyElementsIn(dependerFrameworks);
+    assertThat(baseProvider.get(SDK_FRAMEWORK).toList()).containsExactlyElementsIn(baseFrameworks);
+    assertThat(dependerProvider.get(SDK_FRAMEWORK).toList())
+        .containsExactlyElementsIn(dependerFrameworks);
 
     // Make sure that the archive action does not actually include the frameworks. This is needed
     // for creating binaries but is ignored for libraries.
@@ -1593,7 +1591,57 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testProvidesHdrsAndIncludes() throws Exception {
-    checkProvidesHdrsAndIncludes(RULE_TYPE);
+    checkProvidesHdrsAndIncludes(RULE_TYPE, Optional.of("x/private.h"));
+  }
+
+  @Test
+  public void testPruningActionsSetLocalityBasedOnXcode() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "   name = 'version10_1_0',",
+        "   version = '10.1.0',",
+        "   aliases = ['10.1' ,'10.1.0'],",
+        "   default_ios_sdk_version = '12.1',",
+        "   default_tvos_sdk_version = '12.1',",
+        "   default_macos_sdk_version = '10.14',",
+        "   default_watchos_sdk_version = '5.1',",
+        ")",
+        "xcode_version(",
+        "   name = 'version10_2_1',",
+        "   version = '10.2.1',",
+        "   aliases = ['10.2.1' ,'10.2'],",
+        "   default_ios_sdk_version = '12.2',",
+        "   default_tvos_sdk_version = '12.2',",
+        "   default_macos_sdk_version = '10.14',",
+        "   default_watchos_sdk_version = '5.2',",
+        ")",
+        "available_xcodes(",
+        "   name= 'local',",
+        "   versions = [':version10_1_0'],",
+        "   default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "   name= 'remote',",
+        "   versions = [':version10_2_1'],",
+        "   default = ':version10_2_1',",
+        ")",
+        "xcode_config(",
+        "   name = 'my_config',",
+        "   local_versions = ':local',",
+        "   remote_versions = ':remote',",
+        ")");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.2.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--objc_use_dotd_pruning",
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+    createLibraryTargetWriter("//lib:lib").setList("srcs", "a.m").write();
+    CppCompileAction action = (CppCompileAction) compileAction("//lib:lib", "a.o");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertHasRequirement(action, ExecutionRequirements.NO_LOCAL);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_REMOTE);
   }
 
   @Test
@@ -1607,7 +1655,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             ActionExecutionException.class,
             () ->
                 compileAction.discoverInputsFromDotdFiles(
-                    new ActionExecutionContextBuilder().build(), null, null, null));
+                    new ActionExecutionContextBuilder().build(), null, null, null, false));
     assertThat(expected).hasMessageThat().contains("error while parsing .d file");
   }
 
@@ -1802,39 +1850,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMapPropagatedByTargetUnderTest(RULE_TYPE);
-  }
-
-  private boolean containsObjcFeature(String srcName) throws Exception {
-    MockObjcSupport.setupCcToolchainConfig(
-        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures("contains_objc_sources"));
-    createLibraryTargetWriter("//bottom:lib").setList("srcs", srcName).write();
-    createLibraryTargetWriter("//middle:lib")
-        .setList("srcs", "b.cc")
-        .setList("deps", "//bottom:lib")
-        .write();
-    createLibraryTargetWriter("//top:lib")
-        .setList("srcs", "a.cc")
-        .setList("deps", "//middle:lib")
-        .write();
-
-    CommandAction compileAction = compileAction("//top:lib", "a.o");
-    return compileAction.getArguments().contains("DUMMY_FLAG");
-  }
-
-  @Test
-  public void testObjcSourcesFeatureCC() throws Exception {
-    assertThat(containsObjcFeature("c.cc")).isFalse();
-  }
-
-  @Test
-  public void testObjcSourcesFeatureObjc() throws Exception {
-     assertThat(containsObjcFeature("c.m")).isTrue();
-  }
-
-  @Test
-  public void testObjcSourcesFeatureObjcPlusPlus() throws Exception {
-     assertThat(containsObjcFeature("c.mm")).isTrue();
+    checkCustomModuleMap(RULE_TYPE);
   }
 
   @Test

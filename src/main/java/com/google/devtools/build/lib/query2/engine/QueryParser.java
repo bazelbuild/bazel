@@ -260,9 +260,14 @@ public final class QueryParser {
     }
   }
 
+  /**
+   * Unquoted words may not start with a hyphen or asterisk, even though relative target names may
+   * start with those characters.
+   */
   private static TargetLiteral validateTargetLiteral(String word) throws QueryException {
-    if (word.startsWith("-")) {
-      throw new QueryException("target literal must not begin with hyphen (-): " + word);
+    if (word.startsWith("-") || word.startsWith("*")) {
+      throw new QueryException(
+          "target literal must not begin with " + "(" + word.charAt(0) + "): " + word);
     }
     return new TargetLiteral(word);
   }

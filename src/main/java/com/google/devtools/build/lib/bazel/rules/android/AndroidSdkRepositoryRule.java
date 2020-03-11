@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.syntax.Type.INTEGER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +40,8 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
         String prefix = "@" + rule.getName() + "//:";
         ImmutableMap.Builder<String, Label> builder = ImmutableMap.builder();
         builder.put("android/sdk", Label.parseAbsoluteUnchecked(prefix + "sdk"));
+        builder.put(
+            "android/d8_jar_import", Label.parseAbsoluteUnchecked(prefix + "d8_jar_import"));
         builder.put(
             "android/dx_jar_import", Label.parseAbsoluteUnchecked(prefix + "dx_jar_import"));
         builder.put("android_sdk_for_testing", Label.parseAbsoluteUnchecked(prefix + "files"));

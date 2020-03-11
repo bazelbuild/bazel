@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Command line args module. */
 @SkylarkModule(
@@ -110,7 +110,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
             + "  ...\n"
             + ")\n"
             + "</pre>")
-public interface CommandLineArgsApi extends SkylarkValue {
+public interface CommandLineArgsApi extends StarlarkValue {
   @SkylarkCallable(
       name = "add",
       doc =
@@ -142,8 +142,6 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "string or a <code>File</code>. A directory <code>File</code> must be "
                     + "passed to <a href='#add_all'><code>add_all()</code> or "
                     + "<a href='#add_joined'><code>add_joined()</code></a> instead of this method."
-                    + "<p><i>Deprecated behavior:</i> <code>value</code> may be a directory "
-                    + "unless --noincompatible_expand_directories is passed.</p>"
                     + "<p><i>Deprecated behavior:</i> <code>value</code> may also be a "
                     + "list, tuple, or depset of multiple items to append."),
         @Param(
@@ -195,15 +193,15 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "list's length must equal the number of items. Use <code>map_each</code> "
                     + "of <code>add_all</code> or <code>add_joined</code> instead.")
       },
-      useLocation = true)
-  public CommandLineArgsApi addArgument(
+      useStarlarkThread = true)
+  CommandLineArgsApi addArgument(
       Object argNameOrValue,
       Object value,
       Object format,
       Object beforeEach,
       Object joinWith,
       Object mapFn,
-      Location loc)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -216,8 +214,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
               + "the following steps:"
               + "<ol>"
               + "<li>Each directory <code>File</code> item is replaced by all <code>File</code>s "
-              + "recursively contained in that directory, unless "
-              + "<code>expand_directories=False</code> is specified."
+              + "recursively contained in that directory."
               + "</li>"
               + "<li>If <code>map_each</code> is given, it is applied to each item, and the "
               + "    resulting lists of strings are concatenated to form the initial argument "
@@ -250,8 +247,8 @@ public interface CommandLineArgsApi extends SkylarkValue {
         @Param(
             name = "values",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
             },
             defaultValue = "unbound",
             doc = "The list, tuple, or depset whose items will be appended."),
@@ -335,12 +332,10 @@ public interface CommandLineArgsApi extends SkylarkValue {
             type = Boolean.class,
             named = true,
             positional = false,
-            defaultValue = "unbound",
+            defaultValue = "True",
             doc =
                 "If true, any directories in <code>values</code> will be expanded to a flat list "
-                    + "of files. This happens before <code>map_each</code> is applied. "
-                    + "The default value of this flag is controlled by "
-                    + "--incompatible_expand_directories."),
+                    + "of files. This happens before <code>map_each</code> is applied."),
         @Param(
             name = "terminate_with",
             type = String.class,
@@ -354,8 +349,8 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "items are appended (as happens if <code>values</code> is empty or all of "
                     + "its items are filtered)."),
       },
-      useLocation = true)
-  public CommandLineArgsApi addAll(
+      useStarlarkThread = true)
+  CommandLineArgsApi addAll(
       Object argNameOrValue,
       Object values,
       Object mapEach,
@@ -363,9 +358,9 @@ public interface CommandLineArgsApi extends SkylarkValue {
       Object beforeEach,
       Boolean omitIfEmpty,
       Boolean uniquify,
-      Object expandDirectories,
+      Boolean expandDirectories,
       Object terminateWith,
-      Location loc)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -402,8 +397,8 @@ public interface CommandLineArgsApi extends SkylarkValue {
         @Param(
             name = "values",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
             },
             defaultValue = "unbound",
             doc = "The list, tuple, or depset whose items will be joined."),
@@ -467,11 +462,11 @@ public interface CommandLineArgsApi extends SkylarkValue {
             type = Boolean.class,
             named = true,
             positional = false,
-            defaultValue = "unbound",
+            defaultValue = "True",
             doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>.")
       },
-      useLocation = true)
-  public CommandLineArgsApi addJoined(
+      useStarlarkThread = true)
+  CommandLineArgsApi addJoined(
       Object argNameOrValue,
       Object values,
       String joinWith,
@@ -480,8 +475,8 @@ public interface CommandLineArgsApi extends SkylarkValue {
       Object formatJoined,
       Boolean omitIfEmpty,
       Boolean uniquify,
-      Object expandDirectories,
-      Location loc)
+      Boolean expandDirectories,
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -514,8 +509,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "bazel will decide whether the arguments need to be spilled "
                     + "based on your system and arg length.")
       })
-  public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
-      throws EvalException;
+  CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException;
 
   @SkylarkCallable(
       name = "set_param_file_format",
@@ -533,5 +527,5 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "characters</li></ul>"
                     + "<p>The format defaults to \"shell\" if not called.")
       })
-  public CommandLineArgsApi setParamFileFormat(String format) throws EvalException;
+  CommandLineArgsApi setParamFileFormat(String format) throws EvalException;
 }

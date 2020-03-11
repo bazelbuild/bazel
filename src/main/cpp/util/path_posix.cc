@@ -56,6 +56,10 @@ bool IsRootDirectory(const std::string &path) {
   return path.size() == 1 && path[0] == '/';
 }
 
+bool IsRootDirectory(const Path &path) {
+  return IsRootDirectory(path.AsNativePath());
+}
+
 bool IsAbsolute(const std::string &path) {
   return !path.empty() && path[0] == '/';
 }
@@ -93,5 +97,72 @@ std::string ResolveEnvvars(const std::string &path) {
 std::string MakeAbsoluteAndResolveEnvvars(const std::string &path) {
   return MakeAbsolute(ResolveEnvvars(path));
 }
+
+static std::string NormalizeAbsPath(const std::string &p) {
+  if (p.empty() || p[0] != '/') {
+    return "";
+  }
+  typedef std::string::size_type index;
+  std::vector<std::pair<index, index> > segments;
+  for (index s = 0; s < p.size();) {
+    index e = p.find_first_of('/', s);
+    if (e == std::string::npos) {
+      e = p.size();
+    }
+    if (e > s) {
+      if (p.compare(s, e - s, "..") == 0) {
+        if (!segments.empty()) {
+          segments.pop_back();
+        }
+      } else if (p.compare(s, e - s, ".") != 0) {
+        segments.push_back(std::make_pair(s, e - s));
+      }
+    }
+    s = e + 1;
+  }
+  if (segments.empty()) {
+    return "/";
+  } else {
+    std::stringstream r;
+    for (const auto &s : segments) {
+      r << "/" << p.substr(s.first, s.second);
+    }
+    if (p[p.size() - 1] == '/') {
+      r << "/";
+    }
+    return r.str();
+  }
+}
+
+std::string TestOnly_NormalizeAbsPath(const std::string &s) {
+  return NormalizeAbsPath(s);
+}
+
+Path::Path(const std::string &path)
+    : path_(NormalizeAbsPath(MakeAbsolute(path))) {}
+
+bool Path::IsNull() const { return path_ == "/dev/null"; }
+
+bool Path::Contains(const char c) const {
+  return path_.find_first_of(c) != std::string::npos;
+}
+
+bool Path::Contains(const std::string &s) const {
+  return path_.find(s) != std::string::npos;
+}
+
+Path Path::GetRelative(const std::string &r) const {
+  return Path(JoinPath(path_, r));
+}
+
+Path Path::Canonicalize() const { return Path(MakeCanonical(path_.c_str())); }
+
+Path Path::GetParent() const { return Path(SplitPath(path_).first); }
+
+std::string Path::AsPrintablePath() const { return path_; }
+
+std::string Path::AsJvmArgument() const { return path_; }
+
+std::string Path::AsCommandLineArgument() const { return path_; }
 
 }  // namespace blaze_util

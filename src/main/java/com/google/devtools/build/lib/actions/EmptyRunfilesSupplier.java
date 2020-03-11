@@ -50,4 +50,14 @@ public class EmptyRunfilesSupplier implements RunfilesSupplier {
   public ImmutableList<Artifact> getManifests() {
     return ImmutableList.<Artifact>of();
   }
+
+  @Override
+  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
+    return false;
+  }
+
+  @Override
+  public boolean isRunfileLinksEnabled(PathFragment runfilesDir) {
+    return false;
+  }
 }

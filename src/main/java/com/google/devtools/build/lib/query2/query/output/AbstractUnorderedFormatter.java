@@ -18,7 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
@@ -32,11 +32,7 @@ abstract class AbstractUnorderedFormatter extends OutputFormatter implements Str
 
   @Override
   public void output(
-      QueryOptions options,
-      Digraph<Target> result,
-      OutputStream out,
-      AspectResolver aspectResolver,
-      ConditionalEdges conditionalEdges)
+      QueryOptions options, Digraph<Target> result, OutputStream out, AspectResolver aspectResolver)
       throws IOException, InterruptedException {
     setOptions(options, aspectResolver);
     OutputFormatterCallback.processAllTargets(
@@ -47,7 +43,7 @@ abstract class AbstractUnorderedFormatter extends OutputFormatter implements Str
     Iterable<Node<Target>> orderedResult =
         options.orderOutput == OrderOutput.DEPS
             ? result.getTopologicalOrder()
-            : result.getTopologicalOrder(new TargetOrdering());
-    return Iterables.transform(orderedResult, EXTRACT_NODE_LABEL);
+            : result.getTopologicalOrder(new FormatUtils.TargetOrdering());
+    return Iterables.transform(orderedResult, Node::getLabel);
   }
 }

@@ -40,7 +40,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
 
   private String getGenruleCommand(String genrule) throws Exception {
     return ((SpawnAction)
-            getGeneratingAction(getFilesToBuild(getConfiguredTarget(genrule)).iterator().next()))
+            getGeneratingAction(getFilesToBuild(getConfiguredTarget(genrule)).toList().get(0)))
         .getArguments()
         .get(2);
   }
@@ -74,6 +74,11 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   private void genrule(String command) throws Exception {
     scratch.overwriteFile(
         "test/BUILD",
+        // This is a horrible workaround for b/147306893:
+        // somehow, duplicate events (same location, same message)
+        // are being suppressed, so we must vary the location of the
+        // genrule by inserting a unique number of newlines.
+        new String(new char[seq++]).replace("\0", "\n"),
         "genrule(name = 'test',",
         "        outs = ['out'],",
         "        cmd = '" + command + "')");
@@ -82,13 +87,13 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     invalidatePackages();
   }
 
+  private int seq = 0;
+
   @Test
   public void testLocationSyntaxErrors() throws Exception {
     genrule("$(location )");
     assertExpansionFails(
         "invalid label in $(location) expression: empty package-relative label", "//test");
-
-    eventCollector.clear();
 
     genrule("$(location foo bar");
     assertExpansionFails("unterminated variable reference", "//test");
@@ -215,8 +220,6 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     genrule("$(locations )");
     assertExpansionFails(
         "invalid label in $(locations) expression: empty package-relative label", "//test");
-
-    eventCollector.clear();
 
     genrule("$(locations foo bar");
     assertExpansionFails("unterminated variable reference", "//test");

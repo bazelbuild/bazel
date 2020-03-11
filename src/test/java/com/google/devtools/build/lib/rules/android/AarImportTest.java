@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -140,14 +139,12 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void aapt2RTxtProvided() throws Exception {
-    useConfiguration("--android_sdk=//aapt2/sdk:sdk", "--android_aapt=aapt2");
+    useConfiguration("--android_sdk=//aapt2/sdk:sdk");
 
     ConfiguredTarget libTarget = getConfiguredTarget("//a:library");
 
     NestedSet<Artifact> transitiveCompiledSymbols =
         libTarget.get(AndroidResourcesInfo.PROVIDER).getTransitiveCompiledSymbols();
-
-    assertThat(transitiveCompiledSymbols).hasSize(2);
 
     assertThat(
             transitiveCompiledSymbols.toSet().stream()
@@ -158,10 +155,10 @@ public class AarImportTest extends BuildViewTestCase {
     NestedSet<ValidatedAndroidResources> directResources =
         libTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
 
-    assertThat(directResources).hasSize(1);
+    assertThat(directResources.toList()).hasSize(1);
 
-    ValidatedAndroidResources resourceContainer = directResources.iterator().next();
-    Truth.assertThat(resourceContainer.getAapt2RTxt()).isNotNull();
+    ValidatedAndroidResources resourceContainer = directResources.toList().get(0);
+    assertThat(resourceContainer.getAapt2RTxt()).isNotNull();
   }
 
   @Test
@@ -170,9 +167,9 @@ public class AarImportTest extends BuildViewTestCase {
 
     NestedSet<ValidatedAndroidResources> directResources =
         aarImportTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
-    assertThat(directResources).hasSize(1);
+    assertThat(directResources.toList()).hasSize(1);
 
-    ValidatedAndroidResources resourceContainer = directResources.iterator().next();
+    ValidatedAndroidResources resourceContainer = directResources.toList().get(0);
     assertThat(resourceContainer.getManifest()).isNotNull();
 
     Artifact resourceTreeArtifact = Iterables.getOnlyElement(resourceContainer.getResources());
@@ -181,9 +178,9 @@ public class AarImportTest extends BuildViewTestCase {
 
     NestedSet<ParsedAndroidAssets> directAssets =
         aarImportTarget.get(AndroidAssetsInfo.PROVIDER).getDirectParsedAssets();
-    assertThat(directAssets).hasSize(1);
+    assertThat(directAssets.toList()).hasSize(1);
 
-    ParsedAndroidAssets assets = directAssets.iterator().next();
+    ParsedAndroidAssets assets = directAssets.toList().get(0);
     assertThat(assets.getSymbols()).isNotNull();
 
     Artifact assetsTreeArtifact = Iterables.getOnlyElement(assets.getAssets());
@@ -213,10 +210,9 @@ public class AarImportTest extends BuildViewTestCase {
   public void testSourceJarsCollectedTransitively() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
 
-    Iterable<Artifact> srcJars =
+    NestedSet<Artifact> srcJars =
         JavaInfo.getProvider(JavaSourceJarsProvider.class, aarImportTarget)
             .getTransitiveSourceJars();
-    assertThat(srcJars).hasSize(2);
     assertThat(ActionsTestUtil.baseArtifactNames(srcJars))
         .containsExactly("foo-src.jar", "bar-src.jar");
 
@@ -270,12 +266,12 @@ public class AarImportTest extends BuildViewTestCase {
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
         outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(outputGroup).hasSize(2);
+    assertThat(outputGroup.toList()).hasSize(2);
 
     // We should force asset merging to happen
     Artifact mergedAssetsZip =
         aarImportTarget.get(AndroidAssetsInfo.PROVIDER).getValidationResult();
-    assertThat(outputGroup).contains(mergedAssetsZip);
+    assertThat(outputGroup.toList()).contains(mergedAssetsZip);
 
     // Get the other artifact from the output group
     Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, "jdeps.proto");
@@ -315,7 +311,7 @@ public class AarImportTest extends BuildViewTestCase {
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
         outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(outputGroup).hasSize(1);
+    assertThat(outputGroup.toList()).hasSize(1);
     assertThat(ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, "jdeps.proto")).isNull();
   }
 
@@ -326,12 +322,12 @@ public class AarImportTest extends BuildViewTestCase {
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
         outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(outputGroup).hasSize(2);
+    assertThat(outputGroup.toList()).hasSize(2);
 
     // We should force asset merging to happen
     Artifact mergedAssetsZip =
         aarImportTarget.get(AndroidAssetsInfo.PROVIDER).getValidationResult();
-    assertThat(outputGroup).contains(mergedAssetsZip);
+    assertThat(outputGroup.toList()).contains(mergedAssetsZip);
 
     // Get the other artifact from the output group
     Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, "jdeps.proto");
@@ -385,7 +381,7 @@ public class AarImportTest extends BuildViewTestCase {
 
     NestedSet<Artifact> nativeLibs =
         androidLibraryTarget.get(AndroidNativeLibsInfo.PROVIDER).getNativeLibs();
-    assertThat(nativeLibs)
+    assertThat(nativeLibs.toList())
         .containsExactly(
             ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
             ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"),
@@ -439,8 +435,8 @@ public class AarImportTest extends BuildViewTestCase {
         getConfiguredTarget("//a:foo")
             .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()
-            .iterator()
-            .next();
+            .toList()
+            .get(0);
 
     // aar_import should not set a custom java package. Instead aapt will read the
     // java package from the manifest.
@@ -558,7 +554,7 @@ public class AarImportTest extends BuildViewTestCase {
     // caused by the Android split transition.
     assertThat(
             Iterables.transform(
-                getGeneratingAction(binaryMergedManifest).getInputs(),
+                getGeneratingAction(binaryMergedManifest).getInputs().toList(),
                 Artifact::getRootRelativePathString))
         .containsAtLeast(getAndroidManifest("//a:foo"), getAndroidManifest("//a:bar"));
   }
@@ -575,7 +571,12 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveExports() throws Exception {
-    assertThat(getConfiguredTarget("//a:bar").get(JavaInfo.PROVIDER).getTransitiveExports())
+    assertThat(
+            getConfiguredTarget("//a:bar")
+                .get(JavaInfo.PROVIDER)
+                .getTransitiveExports()
+                .getSet(Label.class)
+                .toList())
         .containsExactly(
             Label.parseAbsolute("//a:foo", ImmutableMap.of()),
             Label.parseAbsolute("//java:baz", ImmutableMap.of()));
@@ -585,7 +586,8 @@ public class AarImportTest extends BuildViewTestCase {
   public void testRClassFromAarImportInCompileClasspath() throws Exception {
     NestedSet<Artifact> compilationClasspath =
         JavaInfo.getProvider(JavaCompilationInfoProvider.class, getConfiguredTarget("//a:library"))
-            .getCompilationClasspath();
+            .getCompilationClasspath()
+            .getSet(Artifact.class);
 
     assertThat(
             compilationClasspath.toList().stream()

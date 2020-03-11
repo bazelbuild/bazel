@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import javax.annotation.Nullable;
 
@@ -35,15 +34,15 @@ public class AndroidResourceMergingActionBuilder {
   // Outputs
   private Artifact mergedResourcesOut;
   private Artifact classJarOut;
+  private Artifact aapt2RTxtOut;
   private Artifact manifestOut;
   private @Nullable Artifact dataBindingInfoZip;
 
   // Flags
   private String customJavaPackage;
   private boolean throwOnResourceConflict;
-  private boolean useCompiledMerge;
   private boolean annotateRFieldsFromTransitiveDeps;
-  private boolean omitTransitiveDependencies;
+  private boolean omitTransitiveDependenciesFromAndroidRClasses;
 
   /**
    * The primary resource for merging. This resource will overwrite any resource or data value in
@@ -66,6 +65,11 @@ public class AndroidResourceMergingActionBuilder {
 
   public AndroidResourceMergingActionBuilder setClassJarOut(Artifact classJarOut) {
     this.classJarOut = classJarOut;
+    return this;
+  }
+
+  public AndroidResourceMergingActionBuilder setAapt2RTxtOut(Artifact aapt2RTxtOut) {
+    this.aapt2RTxtOut = aapt2RTxtOut;
     return this;
   }
 
@@ -96,20 +100,16 @@ public class AndroidResourceMergingActionBuilder {
     return this;
   }
 
-  public AndroidResourceMergingActionBuilder setUseCompiledMerge(boolean useCompiledMerge) {
-    this.useCompiledMerge = useCompiledMerge;
-    return this;
-  }
-
   public AndroidResourceMergingActionBuilder setAnnotateRFieldsFromTransitiveDeps(
       boolean annotateRFieldsFromTransitiveDeps) {
     this.annotateRFieldsFromTransitiveDeps = annotateRFieldsFromTransitiveDeps;
     return this;
   }
 
-  public AndroidResourceMergingActionBuilder setOmitTransitiveDependencies(
-      boolean omitTransitiveDependencies) {
-    this.omitTransitiveDependencies = omitTransitiveDependencies;
+  public AndroidResourceMergingActionBuilder setOmitTransitiveDependenciesFromAndroidRClasses(
+      boolean omitTransitiveDependenciesFromAndroidRClasses) {
+    this.omitTransitiveDependenciesFromAndroidRClasses =
+        omitTransitiveDependenciesFromAndroidRClasses;
     return this;
   }
 
@@ -128,8 +128,7 @@ public class AndroidResourceMergingActionBuilder {
         .addInput(
             "--primaryData",
             AndroidDataConverter.COMPILED_RESOURCE_CONVERTER.map(primary),
-            Iterables.concat(
-                primary.getArtifacts(), ImmutableList.of(primary.getCompiledSymbols())));
+            ImmutableList.of(primary.getCompiledSymbols()));
 
     if (dependencies != null) {
       builder.addTransitiveFlag(
@@ -137,9 +136,9 @@ public class AndroidResourceMergingActionBuilder {
           dependencies.getDirectResourceContainers(),
           AndroidDataConverter.COMPILED_RESOURCE_CONVERTER);
 
-      if (omitTransitiveDependencies) {
-        for (ValidatedAndroidResources resources : dependencies.getDirectResourceContainers()) {
-          builder.addInputs(resources.getResources());
+      if (omitTransitiveDependenciesFromAndroidRClasses) {
+        for (ValidatedAndroidResources resources :
+            dependencies.getDirectResourceContainers().toList()) {
           builder.maybeAddInput(resources.getCompiledSymbols());
         }
       } else {
@@ -148,7 +147,6 @@ public class AndroidResourceMergingActionBuilder {
                 "--data",
                 dependencies.getTransitiveResourceContainers(),
                 AndroidDataConverter.COMPILED_RESOURCE_CONVERTER)
-            .addTransitiveInputValues(dependencies.getTransitiveResources())
             .addTransitiveInputValues(dependencies.getTransitiveCompiledSymbols());
       }
     }
@@ -158,66 +156,19 @@ public class AndroidResourceMergingActionBuilder {
     builder.buildAndRegister("Merging compiled Android resources", "AndroidCompiledResourceMerger");
   }
 
-  private void buildParsedResourceMergingAction(BusyBoxActionBuilder builder) {
-    Preconditions.checkNotNull(primary);
-
-    createInputsForBuilder(builder)
-        .addInput(
-            "--primaryData",
-            AndroidDataConverter.PARSED_RESOURCE_CONVERTER.map(primary),
-            Iterables.concat(primary.getArtifacts(), ImmutableList.of(primary.getSymbols())));
-
-    if (dependencies != null) {
-      builder.addTransitiveFlag(
-          "--directData",
-          dependencies.getDirectResourceContainers(),
-          AndroidDataConverter.PARSED_RESOURCE_CONVERTER);
-
-      if (omitTransitiveDependencies) {
-        for (ValidatedAndroidResources resources : dependencies.getDirectResourceContainers()) {
-          builder.addInputs(resources.getResources());
-          builder.maybeAddInput(resources.getSymbols());
-        }
-      } else {
-        builder
-            .addTransitiveFlag(
-                "--data",
-                dependencies.getTransitiveResourceContainers(),
-                AndroidDataConverter.PARSED_RESOURCE_CONVERTER)
-            .addTransitiveInputValues(dependencies.getTransitiveResources())
-            .addTransitiveInputValues(dependencies.getTransitiveSymbolsBin());
-      }
-    }
-
-    builder.buildAndRegister("Merging Android resources", "AndroidResourceMerger");
-  }
-
   private void build(AndroidDataContext dataContext) {
-    BusyBoxActionBuilder parsedMergeBuilder = BusyBoxActionBuilder.create(dataContext, "MERGE");
     BusyBoxActionBuilder compiledMergeBuilder =
-        BusyBoxActionBuilder.create(dataContext, "MERGE_COMPILED");
+        BusyBoxActionBuilder.create(dataContext, "MERGE_COMPILED")
+            .addOutput("--classJarOutput", classJarOut)
+            .addLabelFlag("--targetLabel")
 
-    parsedMergeBuilder.addOutput("--resourcesOutput", mergedResourcesOut);
+            // For now, do manifest processing to remove placeholders that aren't handled by the
+            // legacy manifest merger. Remove this once enough users migrate over to the new
+            // manifest merger.
+            .maybeAddOutput("--manifestOutput", manifestOut)
+            .maybeAddOutput("--rTxtOut", aapt2RTxtOut);
 
-    // TODO(corysmith): Move the data binding parsing out of the merging pass to enable faster
-    // aapt2 builds.
-    parsedMergeBuilder.maybeAddOutput("--dataBindingInfoOut", dataBindingInfoZip);
-
-    (useCompiledMerge ? compiledMergeBuilder : parsedMergeBuilder)
-        .addOutput("--classJarOutput", classJarOut)
-        .addLabelFlag("--targetLabel")
-
-        // For now, do manifest processing to remove placeholders that aren't handled by the legacy
-        // manifest merger. Remove this once enough users migrate over to the new manifest merger.
-        .maybeAddOutput("--manifestOutput", manifestOut);
-
-    if (useCompiledMerge) {
-      buildCompiledResourceMergingAction(compiledMergeBuilder);
-    }
-
-    // Always make an action for merging parsed resources - the merged resources are still created
-    // this way.
-    buildParsedResourceMergingAction(parsedMergeBuilder);
+    buildCompiledResourceMergingAction(compiledMergeBuilder);
   }
 
   public MergedAndroidResources build(
@@ -228,6 +179,7 @@ public class AndroidResourceMergingActionBuilder {
         parsed,
         mergedResourcesOut,
         classJarOut,
+        aapt2RTxtOut,
         dataBindingInfoZip,
         dependencies,
         parsed.getStampedManifest().withProcessedManifest(manifestOut));

@@ -14,13 +14,10 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Common utilities for Skylark rules related to Android. */
 public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact, JavaInfo> {
@@ -31,8 +28,8 @@ public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact, J
   }
 
   @Override
-  public PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
-    return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource);
+  public String getSourceDirectoryRelativePathFromResource(Artifact resource) {
+    return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource).toString();
   }
 
   @Override
@@ -54,49 +51,6 @@ public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact, J
         .addProvider(
             JavaCompilationArgsProvider.class,
             javaInfo.getProvider(JavaCompilationArgsProvider.class))
-        .build();
-  }
-
-  /**
-   * TODO(b/132905414): Provides a Starlark compatibility layer for maintaining the consistency of
-   * the Javac actions created by dependers of a Starlark android_library rule. Specifically, this
-   * method attempts to keep the --classpath and --direct_dependencies ordering the same by ensuring
-   * that the resource jar appears before the other jars in the dependencies.
-   */
-  @Override
-  public JavaInfo addRJarToJavaInfo(JavaInfo javaInfo, Artifact rJar) {
-    JavaCompilationArgsProvider javaCompilationArgsProvider =
-        javaInfo.getProvider(JavaCompilationArgsProvider.class);
-    JavaCompilationArgsProvider compilationArgsProvider =
-        JavaCompilationArgsProvider.create(
-            NestedSetBuilder.<Artifact>naiveLinkOrder()
-                .add(rJar)
-                .addTransitive(javaCompilationArgsProvider.getRuntimeJars())
-                .build(),
-            NestedSetBuilder.<Artifact>naiveLinkOrder()
-                .add(rJar)
-                .addTransitive(javaCompilationArgsProvider.getDirectCompileTimeJars())
-                .build(),
-            NestedSetBuilder.<Artifact>naiveLinkOrder()
-                .add(rJar)
-                .addTransitive(javaCompilationArgsProvider.getTransitiveCompileTimeJars())
-                .build(),
-            NestedSetBuilder.<Artifact>naiveLinkOrder()
-                .add(rJar)
-                .addTransitive(javaCompilationArgsProvider.getDirectFullCompileTimeJars())
-                .build(),
-            NestedSetBuilder.<Artifact>naiveLinkOrder()
-                .add(rJar)
-                .addTransitive(javaCompilationArgsProvider.getTransitiveFullCompileTimeJars())
-                .build(),
-            NestedSetBuilder.<Artifact>naiveLinkOrder()
-                .addTransitive(javaCompilationArgsProvider.getCompileTimeJavaDependencyArtifacts())
-                .build());
-    return JavaInfo.Builder.copyOf(javaInfo)
-        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
-        .addProvider(
-            JavaStrictCompilationArgsProvider.class,
-            new JavaStrictCompilationArgsProvider(compilationArgsProvider))
         .build();
   }
 }

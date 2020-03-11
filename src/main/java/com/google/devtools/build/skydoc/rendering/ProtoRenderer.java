@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.util.Collection;
@@ -50,11 +50,11 @@ public class ProtoRenderer {
     return this;
   }
 
-  /** Appends {@link UserDefinedFunctionInfo} protos to a {@link ModuleInfo.Builder}. */
-  public ProtoRenderer appendUserDefinedFunctionInfos(Map<String, UserDefinedFunction> funcInfosMap)
+  /** Appends {@link StarlarkFunctionInfo} protos to a {@link ModuleInfo.Builder}. */
+  public ProtoRenderer appendStarlarkFunctionInfos(Map<String, StarlarkFunction> funcInfosMap)
       throws DocstringParseException {
-    for (Map.Entry<String, UserDefinedFunction> entry : funcInfosMap.entrySet()) {
-      UserDefinedFunctionInfo funcInfo =
+    for (Map.Entry<String, StarlarkFunction> entry : funcInfosMap.entrySet()) {
+      StarlarkFunctionInfo funcInfo =
           FunctionUtil.fromNameAndFunction(entry.getKey(), entry.getValue());
       moduleInfo.addFuncInfo(funcInfo);
     }

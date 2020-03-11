@@ -38,8 +38,8 @@ public class EventTest extends EventTestTemplate {
 
   @Test
   public void eventRetainsLocation() {
-    assertThat(event.getLocation().getStartOffset()).isEqualTo(21);
-    assertThat(event.getLocation().getEndOffset()).isEqualTo(31);
+    assertThat(event.getLocation().toString())
+        .isEqualTo("/path/to/workspace/my/sample/path.txt:3:4");
   }
 
   @Test

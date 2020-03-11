@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import java.math.BigInteger;
 import javax.annotation.Nullable;
 
 /** A non-rule configured target in the context of a Skyframe graph. */
@@ -52,7 +51,7 @@ public final class NonRuleConfiguredTargetValue extends BasicActionLookupValue
   NonRuleConfiguredTargetValue(
       ImmutableList<ActionAnalysisMetadata> actions,
       ConfiguredTarget configuredTarget) {
-    super(actions, /*nonceVersion=*/ null);
+    super(actions);
     this.configuredTarget = configuredTarget;
     // Transitive packages are not serialized.
     this.transitivePackagesForPackageRootResolution = null;
@@ -61,9 +60,8 @@ public final class NonRuleConfiguredTargetValue extends BasicActionLookupValue
   NonRuleConfiguredTargetValue(
       ConfiguredTarget configuredTarget,
       GeneratingActions generatingActions,
-      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution,
-      @Nullable BigInteger nonceVersion) {
-    super(generatingActions, nonceVersion);
+      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
+    super(generatingActions);
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget, generatingActions);
     this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
   }

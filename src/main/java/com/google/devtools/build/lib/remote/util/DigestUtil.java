@@ -23,7 +23,7 @@ import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.remote.common.SimpleBlobStore.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
@@ -116,7 +116,7 @@ public class DigestUtil {
     return new HashingOutputStream(hashFn.getHashFunction(), out);
   }
 
-  public String toString(Digest digest) {
+  public static String toString(Digest digest) {
     return digest.getHash() + "/" + digest.getSizeBytes();
   }
 

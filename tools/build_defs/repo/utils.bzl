@@ -48,67 +48,99 @@ def workspace_and_buildfile(ctx):
         ctx.fail("Only one of workspace_file and workspace_file_content can be provided.")
 
     if ctx.attr.workspace_file:
-        ctx.delete("WORKSPACE")
-        ctx.symlink(ctx.attr.workspace_file, "WORKSPACE")
+        ctx.file("WORKSPACE", ctx.read(ctx.attr.workspace_file))
     elif ctx.attr.workspace_file_content:
-        ctx.delete("WORKSPACE")
         ctx.file("WORKSPACE", ctx.attr.workspace_file_content)
     else:
         ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
 
     if ctx.attr.build_file:
-        ctx.delete("BUILD.bazel")
-        ctx.symlink(ctx.attr.build_file, "BUILD.bazel")
+        ctx.file("BUILD.bazel", ctx.read(ctx.attr.build_file))
     elif ctx.attr.build_file_content:
-        ctx.delete("BUILD.bazel")
         ctx.file("BUILD.bazel", ctx.attr.build_file_content)
 
 def _is_windows(ctx):
     return ctx.os.name.lower().find("windows") != -1
 
-def _use_native_patch(ctx):
-    """If patch_tool is empty and patch_args only contains -p<NUM> options, we use the native patch implementation."""
-    if ctx.attr.patch_tool:
-        return False
-    for arg in ctx.attr.patch_args:
+def _use_native_patch(patch_args):
+    """If patch_args only contains -p<NUM> options, we can use the native patch implementation."""
+    for arg in patch_args:
         if not arg.startswith("-p"):
             return False
     return True
 
-def patch(ctx):
+def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None):
     """Implementation of patching an already extracted repository.
 
-    This rule is inteded to be used in the implementation function of a
-    repository rule. It assumes that the parameters `patches`, `patch_tool`,
-    `patch_args`, `patch_cmds` and `patch_cmds_win` are present in `ctx.attr`.
+    This rule is inteded to be used in the implementation function of
+    a repository rule. Ifthe parameters `patches`, `patch_tool`,
+    `patch_args`, `patch_cmds` and `patch_cmds_win` are not specified
+    then they are taken from `ctx.attr`.
 
     Args:
       ctx: The repository context of the repository rule calling this utility
         function.
+      patches: The patch files to apply. List of strings, Labels, or paths.
+      patch_cmds: Bash commands to run for patching, passed one at a
+        time to bash -c. List of strings
+      patch_cmds_win: Powershell commands to run for patching, passed
+        one at a time to powershell /c. List of strings. If the
+        boolean value of this parameter is false, patch_cmds will be
+        used and this parameter will be ignored.
+      patch_tool: Path of the patch tool to execute for applying
+        patches. String.
+      patch_args: Arguments to pass to the patch tool. List of strings.
+
     """
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     powershell_exe = ctx.os.environ["BAZEL_POWERSHELL"] if "BAZEL_POWERSHELL" in ctx.os.environ else "powershell.exe"
-    if len(ctx.attr.patches) > 0 or len(ctx.attr.patch_cmds) > 0:
+
+    if patches == None and hasattr(ctx.attr, "patches"):
+        patches = ctx.attr.patches
+    if patches == None:
+        patches = []
+
+    if patch_cmds == None and hasattr(ctx.attr, "patch_cmds"):
+        patch_cmds = ctx.attr.patch_cmds
+    if patch_cmds == None:
+        patch_cmds = []
+
+    if patch_cmds_win == None and hasattr(ctx.attr, "patch_cmds_win"):
+        patch_cmds_win = ctx.attr.patch_cmds_win
+    if patch_cmds_win == None:
+        patch_cmds_win = []
+
+    if patch_tool == None and hasattr(ctx.attr, "patch_tool"):
+        patch_tool = ctx.attr.patch_tool
+    if not patch_tool:
+        patch_tool = "patch"
+        native_patch = True
+    else:
+        native_patch = False
+
+    if patch_args == None and hasattr(ctx.attr, "patch_args"):
+        patch_args = ctx.attr.patch_args
+    if patch_args == None:
+        patch_args = []
+
+    if len(patches) > 0 or len(patch_cmds) > 0:
         ctx.report_progress("Patching repository")
 
-    if _use_native_patch(ctx):
-        if ctx.attr.patch_args:
-            strip = int(ctx.attr.patch_args[-1][2:])
+    if native_patch and _use_native_patch(patch_args):
+        if patch_args:
+            strip = int(patch_args[-1][2:])
         else:
             strip = 0
-        for patchfile in ctx.attr.patches:
+        for patchfile in patches:
             ctx.patch(patchfile, strip)
     else:
-        for patchfile in ctx.attr.patches:
-            patch_tool = ctx.attr.patch_tool
-            if not patch_tool:
-                patch_tool = "patch"
+        for patchfile in patches:
             command = "{patchtool} {patch_args} < {patchfile}".format(
                 patchtool = patch_tool,
                 patchfile = ctx.path(patchfile),
                 patch_args = " ".join([
                     "'%s'" % arg
-                    for arg in ctx.attr.patch_args
+                    for arg in patch_args
                 ]),
             )
             st = ctx.execute([bash_exe, "-c", command])
@@ -116,14 +148,14 @@ def patch(ctx):
                 fail("Error applying patch %s:\n%s%s" %
                      (str(patchfile), st.stderr, st.stdout))
 
-    if _is_windows(ctx) and hasattr(ctx.attr, "patch_cmds_win") and ctx.attr.patch_cmds_win:
-        for cmd in ctx.attr.patch_cmds_win:
+    if _is_windows(ctx) and patch_cmds_win:
+        for cmd in patch_cmds_win:
             st = ctx.execute([powershell_exe, "/c", cmd])
             if st.return_code:
                 fail("Error applying patch command %s:\n%s%s" %
                      (cmd, st.stdout, st.stderr))
     else:
-        for cmd in ctx.attr.patch_cmds:
+        for cmd in patch_cmds:
             st = ctx.execute([bash_exe, "-c", cmd])
             if st.return_code:
                 fail("Error applying patch command %s:\n%s%s" %
@@ -192,7 +224,10 @@ def read_netrc(ctx, filename):
     currentmacro = ""
     cmd = None
     for line in contents.splitlines():
-        if macdef:
+        if line.startswith("#"):
+            # Comments start with #. Ignore these lines.
+            continue
+        elif macdef:
             # as we're in a macro, just determine if we reached the end.
             if line:
                 currentmacro += line + "\n"
@@ -254,19 +289,20 @@ def read_netrc(ctx, filename):
         netrc[currentmachinename] = currentmachine
     return netrc
 
-def use_netrc(netrc, urls):
+def use_netrc(netrc, urls, patterns):
     """compute an auth dict from a parsed netrc file and a list of URLs
 
     Args:
       netrc: a netrc file already parsed to a dict, e.g., as obtained from
         read_netrc
       urls: a list of URLs.
+      patterns: optional dict of url to authorization patterns
 
     Returns:
       dict suitable as auth argument for ctx.download; more precisely, the dict
       will map all URLs where the netrc file provides login and password to a
-      dict containing the corresponding login and passwored, as well as the
-      mapping of "type" to "basic"
+      dict containing the corresponding login, password and optional authorization pattern,
+      as well as the mapping of "type" to "basic" or "pattern".
     """
     auth = {}
     for url in urls:
@@ -281,10 +317,24 @@ def use_netrc(netrc, urls):
         if not host in netrc:
             continue
         authforhost = netrc[host]
-        if "login" in authforhost and "password" in authforhost:
+        if host in patterns:
+            auth_dict = {
+                "type": "pattern",
+                "pattern": patterns[host],
+            }
+
+            if "login" in authforhost:
+                auth_dict["login"] = authforhost["login"]
+
+            if "password" in authforhost:
+                auth_dict["password"] = authforhost["password"]
+
+            auth[url] = auth_dict
+        elif "login" in authforhost and "password" in authforhost:
             auth[url] = {
                 "type": "basic",
                 "login": authforhost["login"],
                 "password": authforhost["password"],
             }
+
     return auth

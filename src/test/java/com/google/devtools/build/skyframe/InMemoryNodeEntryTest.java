@@ -477,7 +477,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(ZERO_VERSION, /*childForDebugging=*/ null);
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.VERIFIED_CLEAN);
-    assertThat(entry.markClean()).containsExactly(parent);
+    assertThat(entry.markClean().getRdepsToSignal()).containsExactly(parent);
     assertThat(entry.isDone()).isTrue();
     assertThat(entry.getVersion()).isEqualTo(ZERO_VERSION);
   }
@@ -788,7 +788,7 @@ public class InMemoryNodeEntryTest {
     entry.markRebuilding();
     addTemporaryDirectDep(entry, originalChild);
     entry.signalDep(ZERO_VERSION, originalChild);
-    entry.setValue(originalValue, version, null);
+    entry.setValue(originalValue, version);
     entry.addReverseDepAndCheckIfDone(key("parent1"));
     InMemoryNodeEntry clone1 = entry.cloneNodeEntry();
     entry.addReverseDepAndCheckIfDone(key("parent2"));
@@ -802,7 +802,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(clone2, newChild);
     clone2.signalDep(ONE_VERSION, newChild);
     clone2.markRebuilding();
-    clone2.setValue(updatedValue, version.next(), null);
+    clone2.setValue(updatedValue, version.next());
 
     assertThat(entry.getVersion()).isEqualTo(version);
     assertThat(clone1.getVersion()).isEqualTo(version);
@@ -846,7 +846,7 @@ public class InMemoryNodeEntryTest {
         entry.signalDep(ZERO_VERSION, dep);
       }
     }
-    entry.setValue(new IntegerValue(42), IntVersion.of(42L), null);
+    entry.setValue(new IntegerValue(42), IntVersion.of(42L));
     assertThat(entry.getNumberOfDirectDepGroups()).isEqualTo(groupedDirectDeps.size());
     int i = 0;
     GroupedList<SkyKey> entryGroupedDirectDeps =
@@ -862,8 +862,7 @@ public class InMemoryNodeEntryTest {
       throws InterruptedException {
     return entry.setValue(
         ValueWithMetadata.normal(value, errorInfo, NO_EVENTS, NO_POSTS),
-        IntVersion.of(graphVersion),
-        null);
+        IntVersion.of(graphVersion));
   }
 
   private static void addTemporaryDirectDep(NodeEntry entry, SkyKey key) {

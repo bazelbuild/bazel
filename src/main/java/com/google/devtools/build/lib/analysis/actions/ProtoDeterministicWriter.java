@@ -24,7 +24,7 @@ public class ProtoDeterministicWriter implements DeterministicWriter {
   private final MessageSupplier messageSupplier;
 
   /** Constructs a {@link ProtoDeterministicWriter} with an eagerly constructed message. */
-  public ProtoDeterministicWriter(AbstractMessageLite message) {
+  public ProtoDeterministicWriter(AbstractMessageLite<?, ?> message) {
     this.messageSupplier = () -> message;
   }
 

@@ -22,19 +22,13 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.analysis.test.TestActionContext;
-import com.google.devtools.build.lib.analysis.test.TestResult;
-import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -55,27 +49,20 @@ public class SpawnActionContextMapsTest {
   private static final AC1 ac1 = new AC1();
   private static final AC2 ac2 = new AC2();
 
-  private static final ImmutableList<ActionContextProvider> PROVIDERS =
-      ImmutableList.of(
-          new ActionContextProvider() {
-            @Override
-            public Iterable<? extends ActionContext> getActionContexts() {
-              return ImmutableList.of(ac1, ac2, new ACTest());
-            }
-          });
-
   @Before
   public void setUp() {
-    builder = new SpawnActionContextMaps.Builder();
+    builder =
+        new SpawnActionContextMaps.Builder()
+            .addContext(SpawnStrategy.class, ac1, "ac1")
+            .addContext(SpawnStrategy.class, ac2, "ac2");
   }
 
   @Test
   public void duplicateMnemonics_bothGetStored() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "ac1");
     builder.strategyByMnemonicMap().put("Spawn1", "ac2");
-    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
-    List<SpawnActionContext> result =
-        maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
+    SpawnActionContextMaps maps = builder.build();
+    List<SpawnStrategy> result = maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
     assertThat(result).containsExactly(ac1, ac2);
   }
 
@@ -83,9 +70,8 @@ public class SpawnActionContextMapsTest {
   public void emptyStrategyFallsBackToEmptyMnemonicNotToDefault() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "");
     builder.strategyByMnemonicMap().put("", "ac2");
-    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
-    List<SpawnActionContext> result =
-        maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
+    SpawnActionContextMaps maps = builder.build();
+    List<SpawnStrategy> result = maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
     assertThat(result).containsExactly(ac2);
   }
 
@@ -93,9 +79,9 @@ public class SpawnActionContextMapsTest {
   public void multipleRegexps_firstMatchWins() throws Exception {
     builder.addStrategyByRegexp(converter.convert("foo"), ImmutableList.of("ac1"));
     builder.addStrategyByRegexp(converter.convert("foo/bar"), ImmutableList.of("ac2"));
-    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
+    SpawnActionContextMaps maps = builder.build();
 
-    List<SpawnActionContext> result =
+    List<SpawnStrategy> result =
         maps.getSpawnActionContexts(mockSpawn(null, "Doing something with foo/bar/baz"), reporter);
 
     assertThat(result).containsExactly(ac1);
@@ -105,9 +91,9 @@ public class SpawnActionContextMapsTest {
   public void regexpAndMnemonic_regexpWins() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "ac1");
     builder.addStrategyByRegexp(converter.convert("foo/bar"), ImmutableList.of("ac2"));
-    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
+    SpawnActionContextMaps maps = builder.build();
 
-    List<SpawnActionContext> result =
+    List<SpawnStrategy> result =
         maps.getSpawnActionContexts(
             mockSpawn("Spawn1", "Doing something with foo/bar/baz"), reporter);
 
@@ -130,51 +116,31 @@ public class SpawnActionContextMapsTest {
     return mockSpawn;
   }
 
-  @ExecutionStrategy(contextType = SpawnActionContext.class, name = "ac1")
-  private static class AC1 implements SpawnActionContext {
+  private static class AC1 implements SpawnStrategy {
     @Override
-    public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+    public ImmutableList<SpawnResult> exec(
+        Spawn spawn, ActionExecutionContext actionExecutionContext)
         throws ExecException, InterruptedException {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean canExec(Spawn spawn) {
+    public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
       return true;
     }
   }
 
-  @ExecutionStrategy(contextType = SpawnActionContext.class, name = "ac2")
-  private static class AC2 implements SpawnActionContext {
+  private static class AC2 implements SpawnStrategy {
     @Override
-    public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+    public ImmutableList<SpawnResult> exec(
+        Spawn spawn, ActionExecutionContext actionExecutionContext)
         throws ExecException, InterruptedException {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean canExec(Spawn spawn) {
+    public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
       return true;
-    }
-  }
-
-  @ExecutionStrategy(contextType = TestActionContext.class, name = "actest")
-  private static class ACTest implements TestActionContext {
-    @Override
-    public TestRunnerSpawn createTestRunnerSpawn(
-        TestRunnerAction testRunnerAction, ActionExecutionContext actionExecutionContext) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isTestKeepGoing() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public TestResult newCachedTestResult(
-        Path execRoot, TestRunnerAction action, TestResultData cached) {
-      throw new UnsupportedOperationException();
     }
   }
 }

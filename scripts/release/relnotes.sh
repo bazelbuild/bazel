@@ -18,8 +18,8 @@ set -eu
 
 # Generate the release notes from the git history.
 
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source ${SCRIPT_DIR}/common.sh
+RELNOTES_SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source ${RELNOTES_SCRIPT_DIR}/common.sh
 
 # It uses the RELNOTES tag in the history to knows the important changes to
 # report:
@@ -171,3 +171,149 @@ function create_release_notes() {
   [ -n "${last_release}" ] || { echo "Initial release."; return 0; }
   __release_notes ${last_release}
 }
+
+# Trim empty lines at the beginning and the end of the buffer.
+function __trim_empty_lines() {
+  # Replace all new line by a linefeed, then using sed, remove the leading
+  # and trailing linefeeds and convert them back to newline
+  tr '\n' '\f' | sed -e "s/^\f*//" -e "s/\f*$//" | tr '\f' '\n'
+}
+
+# Launch the editor and return the edited release notes.
+function __release_note_processor() {
+  local tmpfile="$1"
+
+  # Strip the release notes.
+  local relnotes="$(cat ${tmpfile} | grep -v '^#' | __trim_empty_lines)"
+  if [ -z "${relnotes}" ]; then
+    echo "Release notes are empty, cancelling release creation..." >&2
+    return 1
+  fi
+
+  echo "${relnotes}" > "${tmpfile}"
+}
+
+# Create the revision information given a list of commits. The first
+# commit should be the baseline, and the other ones are the cherry-picks.
+# The result is of the form:
+# Baseline: BASELINE_COMMIT
+#
+# Cherry picks:
+#
+#    + CHERRY_PICK1: commit message summary of the CHERRY_PICK1. This
+#                    message will be wrapped into 70 columns.
+#    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
+function __create_revision_information() {
+  echo "Baseline: $(__git_commit_hash "${1}")"
+  local first=1
+  shift
+  while [ -n "${1-}" ]; do
+    if [[ "$first" -eq 1 ]]; then
+      echo -e "\nCherry picks:"
+      echo
+      first=0
+    fi
+    local hash="$(__git_commit_hash "${1}")"
+    local subject="$(__git_commit_subject $hash)"
+    local lines=$(echo "$subject" | wrap_text 65)  # 5 leading spaces.
+    echo "   + $hash:"
+    echo "$lines" | sed 's/^/     /'
+    shift
+  done
+}
+
+# Get the baseline of master.
+# Args: $1: release branch (or HEAD)
+# TODO(philwo) this gives the wrong baseline when HEAD == release == master.
+function get_release_baseline() {
+  git merge-base master "$1"
+}
+
+# Get the list of cherry-picks since master
+# Args:
+#   $1: branch, default to HEAD
+#   $2: baseline change, default to $(get_release_baseline $1)
+function get_cherrypicks() {
+  local branch="${1:-HEAD}"
+  local baseline="${2:-$(get_release_baseline "${branch}")}"
+  # List of changes since the baseline on the release branch
+  local changes="$(git_log_hash "${baseline}" "${branch}" --reverse)"
+  # List of changes since the baseline on the master branch, and their patch-id
+  local master_changes="$(git_log_hash "${baseline}" master | xargs git show | git patch-id)"
+  # Now for each changes on the release branch
+  for i in ${changes}; do
+    # Find the change with the same patch-id on the master branch if the note is not present
+    hash=$(echo "${master_changes}" \
+        | grep "^$(git show "$i" | git patch-id | cut -d " " -f 1)" \
+        | cut -d " " -f 2)
+    if [ -z "${hash}" ]; then
+     # We don't know which cherry-pick it is coming from, fall back to the new commit hash.
+     echo "$i"
+    else
+     echo "${hash}"
+    fi
+  done
+}
+
+# Generate the title of the release with the date from the release name ($1).
+function get_release_title() {
+  echo "Release ${1} ($(date +%Y-%m-%d))"
+}
+
+# Generate the release message to be added to the changelog
+# from the release notes for release $1
+# Args:
+#   $1: release name
+#   $2: release ref (default HEAD)
+#   $3: delimiter around the revision information (default none)
+function generate_release_message() {
+  local release_name="$1"
+  local branch="${2:-HEAD}"
+  local delimiter="${3-}"
+  local baseline="$(get_release_baseline "${branch}")"
+  local cherrypicks="$(get_cherrypicks "${branch}" "${baseline}")"
+
+  get_release_title "$release_name"
+  echo
+
+  if [ -n "${delimiter}" ]; then
+    echo "${delimiter}"
+  fi
+  __create_revision_information $baseline $cherrypicks
+  if [ -n "${delimiter}" ]; then
+    echo "${delimiter}"
+  fi
+
+  echo
+
+  # Generate the release notes
+  local tmpfile=$(mktemp --tmpdir relnotes-XXXXXXXX)
+  trap "rm -f ${tmpfile}" EXIT
+
+  # Save the changelog so we compute the relnotes against HEAD.
+  git show master:CHANGELOG.md > "${tmpfile}"
+
+  local relnotes="$(create_release_notes "${tmpfile}" "${baseline}" ${cherrypicks})"
+  echo "${relnotes}" > "${tmpfile}"
+
+  __release_note_processor "${tmpfile}" || return 1
+  relnotes="$(cat ${tmpfile})"
+
+  cat "${tmpfile}"
+}
+
+# Returns the release notes for the CHANGELOG.md taken from either from
+# the notes for a release candidate or from the commit message for a
+# full release.
+function get_full_release_notes() {
+  local release_name="$(get_full_release_name "$@")"
+
+  if [[ "${release_name}" =~ rc[0-9]+$ ]]; then
+    # Release candidate, we need to generate from the notes
+    generate_release_message "${release_name}" "$@"
+  else
+    # Full release, returns the commit message
+    git_commit_msg "$@"
+  fi
+}
+

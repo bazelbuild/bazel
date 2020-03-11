@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -88,10 +87,6 @@ public interface SpawnCache extends ActionContext {
   }
 
   /** A no-op spawn cache. */
-  @ExecutionStrategy(
-      name = {"no-cache"},
-      contextType = SpawnCache.class
-  )
   public static class NoSpawnCache implements SpawnCache {
     @Override
     public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context) {

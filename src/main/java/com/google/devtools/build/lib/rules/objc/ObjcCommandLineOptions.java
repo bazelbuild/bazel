@@ -29,71 +29,65 @@ import java.util.List;
 /** Command-line options for building Objective-C targets. */
 public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
-    name = "ios_simulator_version",
-    defaultValue = "9.3",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help =
-        "The version of iOS to run on the simulator when running or testing. This is ignored "
-            + "for ios_test rules if a target device is specified in the rule."
-  )
+      name = "ios_simulator_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help =
+          "The version of iOS to run on the simulator when running or testing. This is ignored "
+              + "for ios_test rules if a target device is specified in the rule.")
   public DottedVersion.Option iosSimulatorVersion;
 
   @Option(
-    name = "ios_simulator_device",
-    defaultValue = "iPhone 5s",
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help =
-        "The device to simulate when running an iOS application in the simulator, e.g. "
-            + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list "
-            + "devicetypes' on the machine the simulator will be run on."
-  )
+      name = "ios_simulator_device",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help =
+          "The device to simulate when running an iOS application in the simulator, e.g. "
+              + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list "
+              + "devicetypes' on the machine the simulator will be run on.")
   public String iosSimulatorDevice;
 
   @Option(
-    name = "watchos_simulator_version",
-    defaultValue = "2.0",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help = "The version of watchOS to run on the simulator when running or testing."
-  )
+      name = "watchos_simulator_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help = "The version of watchOS to run on the simulator when running or testing.")
   public DottedVersion.Option watchosSimulatorVersion;
 
   @Option(
-    name = "watchos_simulator_device",
-    defaultValue = "Apple Watch - 38mm",
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help =
-        "The device to simulate when running an watchOS application in the simulator, e.g. "
-            + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
-            + "devicetypes' on the machine the simulator will be run on."
-  )
+      name = "watchos_simulator_device",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help =
+          "The device to simulate when running an watchOS application in the simulator, e.g. "
+              + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
+              + "devicetypes' on the machine the simulator will be run on.")
   public String watchosSimulatorDevice;
 
   @Option(
-    name = "tvos_simulator_version",
-    defaultValue = "9.0",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help = "The version of tvOS to run on the simulator when running or testing."
-  )
+      name = "tvos_simulator_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help = "The version of tvOS to run on the simulator when running or testing.")
   public DottedVersion.Option tvosSimulatorVersion;
 
   @Option(
-    name = "tvos_simulator_device",
-    defaultValue = "Apple TV 1080p",
-    documentationCategory = OptionDocumentationCategory.TESTING,
-    effectTags = {OptionEffectTag.TEST_RUNNER},
-    help =
-        "The device to simulate when running an tvOS application in the simulator, e.g. "
-            + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
-            + "devicetypes' on the machine the simulator will be run on."
-  )
+      name = "tvos_simulator_device",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TESTING,
+      effectTags = {OptionEffectTag.TEST_RUNNER},
+      help =
+          "The device to simulate when running an tvOS application in the simulator, e.g. "
+              + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
+              + "devicetypes' on the machine the simulator will be run on.")
   public String tvosSimulatorDevice;
 
   @Option(
@@ -156,15 +150,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean enableModuleMaps;
 
   @Option(
-    name = "objc_enable_binary_stripping",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-    help =
-        "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
-            + "strippings will be performed if both this flag and --compilationMode=opt are "
-            + "specified."
-  )
+      name = "objc_enable_binary_stripping",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
+              + "strippings will be performed if both this flag and --compilation_mode=opt are "
+              + "specified.")
   public boolean enableBinaryStripping;
 
   @Option(
@@ -208,18 +201,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean debugWithGlibcxx;
 
   @Option(
-    name = "extra_entitlements",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.SIGNING,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "Location of a .entitlements file that is merged into any iOS signing action in this "
-            + "build."
-  )
-  public Label extraEntitlements;
-
-  @Option(
     name = "device_debug_entitlements",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.SIGNING,
@@ -251,36 +232,26 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean enableAppleBinaryNativeProtos;
 
   @Option(
-    name = "experimental_objc_header_thinning",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-    help =
-        "If set then ObjcCompile actions will have their action inputs reduced by running a tool "
-            + "to detect which headers are actually required for compilation."
-  )
-  public boolean experimentalObjcHeaderThinning;
+      name = "experimental_objc_include_scanning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      help = "Whether to perform include scanning for objective C/C++.")
+  public boolean scanIncludes;
 
   @Option(
-    name = "objc_header_thinning_partition_size",
-    defaultValue = "120",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-    help = "The maximum number of source files to process within in each header scanning action."
-  )
-  public int objcHeaderThinningPartitionSize;
-
-  @Option(
-    name = "objc_header_scanner_tool",
-    defaultValue = "@bazel_tools//tools/objc:header_scanner",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
-            + "file."
-  )
+      name = "objc_header_scanner_tool",
+      defaultValue = "@bazel_tools//tools/objc:header_scanner",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
+              + "file.")
   public Label objcHeaderScannerTool;
 
   @Option(
@@ -296,25 +267,17 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public Label appleSdk;
 
   @Option(
-    name = "incompatible_strict_objc_module_maps",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "Propagates Objective-C module maps only to direct dependencies in the 'objc' provider, "
-            + "not to all transitive dependencies."
-  )
-  public boolean strictObjcModuleMaps;
-
-  @Override
-  public FragmentOptions getHost() {
-    ObjcCommandLineOptions host = (ObjcCommandLineOptions) super.getHost();
-    // This should have the same value in both target and host configurations
-    host.objcHeaderScannerTool = this.objcHeaderScannerTool;
-    return host;
-  }
+      name = "incompatible_objc_compile_info_migration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+      },
+      help =
+          "If true, native rules can assume compile info has been migrated to CcInfo. See "
+              + "https://github.com/bazelbuild/bazel/issues/10854 for details and migration "
+              + "instructions")
+  public boolean incompatibleObjcCompileInfoMigration;
 }

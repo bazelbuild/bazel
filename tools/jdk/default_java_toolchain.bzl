@@ -48,17 +48,6 @@ DEFAULT_JAVACOPTS = [
     "-parameters",
 ]
 
-PROTO_JAVACOPTS = [
-    # Restrict protos to Java 7 so that they are compatible with Android.
-    "-source",
-    "7",
-    "-target",
-    "7",
-]
-
-COMPATIBLE_JAVACOPTS = {
-    "proto": PROTO_JAVACOPTS,
-}
 DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "forcibly_disable_header_compilation": 0,
     "genclass": ["@bazel_tools//tools/jdk:genclass"],
@@ -72,9 +61,11 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
         "@bazel_tools//tools/jdk:jdk_compiler_jar",
     ],
     "javac_supports_workers": 1,
-    "jvm_opts": JDK9_JVM_OPTS,
+    "jvm_opts": select({
+        "@bazel_tools//src/conditions:openbsd": JDK8_JVM_OPTS,
+        "//conditions:default": JDK9_JVM_OPTS,
+    }),
     "misc": DEFAULT_JAVACOPTS,
-    "compatible_javacopts": COMPATIBLE_JAVACOPTS,
     "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
     "bootclasspath": ["@bazel_tools//tools/jdk:platformclasspath"],
     "source_version": "8",

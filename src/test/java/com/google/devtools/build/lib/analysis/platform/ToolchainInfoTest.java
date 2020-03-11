@@ -71,17 +71,14 @@ public class ToolchainInfoTest extends BuildViewTestCase {
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
-            ToolchainInfo.create(
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
-                Location.BUILTIN),
-            ToolchainInfo.create(
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
-                Location.BUILTIN))
+            new ToolchainInfo(
+                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"), Location.BUILTIN),
+            new ToolchainInfo(
+                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"), Location.BUILTIN))
         .addEqualityGroup(
             // Different data.
-            ToolchainInfo.create(
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val3"),
-                Location.BUILTIN))
+            new ToolchainInfo(
+                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val3"), Location.BUILTIN))
         .testEquals();
   }
 }

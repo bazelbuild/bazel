@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.unix;
 
-import com.google.devtools.build.lib.UnixJniLoader;
-
+import com.google.devtools.build.lib.unix.jni.UnixJniLoader;
 import java.io.IOException;
 
 /**

@@ -120,22 +120,14 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
   @Deprecated
   public static JavaCompilationArgsProvider legacyFromTargets(
       Iterable<? extends TransitiveInfoCollection> infos) {
-    return legacyFromTargets(infos, /* javaProtoLibraryStrictDeps= */ false);
-  }
-
-  @Deprecated
-  public static JavaCompilationArgsProvider legacyFromTargets(
-      Iterable<? extends TransitiveInfoCollection> infos, boolean javaProtoLibraryStrictDeps) {
     Builder argsBuilder = builder();
     for (TransitiveInfoCollection info : infos) {
       JavaCompilationArgsProvider provider = null;
 
-      if (javaProtoLibraryStrictDeps) {
-        JavaStrictCompilationArgsProvider strictCompilationArgsProvider =
-            JavaInfo.getProvider(JavaStrictCompilationArgsProvider.class, info);
-        if (strictCompilationArgsProvider != null) {
-          provider = strictCompilationArgsProvider.getJavaCompilationArgsProvider();
-        }
+      JavaStrictCompilationArgsProvider strictCompilationArgsProvider =
+          JavaInfo.getProvider(JavaStrictCompilationArgsProvider.class, info);
+      if (strictCompilationArgsProvider != null) {
+        provider = strictCompilationArgsProvider.getJavaCompilationArgsProvider();
       }
       if (provider == null) {
         provider = JavaInfo.getProvider(JavaCompilationArgsProvider.class, info);
@@ -144,7 +136,7 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
         argsBuilder.addExports(provider);
       } else {
         NestedSet<Artifact> filesToBuild = info.getProvider(FileProvider.class).getFilesToBuild();
-        for (Artifact jar : FileType.filter(filesToBuild, JavaSemantics.JAR)) {
+        for (Artifact jar : FileType.filter(filesToBuild.toList(), JavaSemantics.JAR)) {
           argsBuilder
               .addRuntimeJar(jar)
               .addDirectCompileTimeJar(/* interfaceJar= */ jar, /* fullJar= */ jar);
@@ -186,7 +178,7 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
    * Returns a {@link JavaCompilationArgsProvider} that forwards the union of information from the
    * inputs. Direct deps of the inputs are merged into the direct deps of the outputs.
    *
-   * <p>This is moralley equivalent to an exports-only {@code java_import} rule that forwards some
+   * <p>This is morally equivalent to an exports-only {@code java_import} rule that forwards some
    * dependencies.
    */
   public static JavaCompilationArgsProvider merge(Iterable<JavaCompilationArgsProvider> providers) {

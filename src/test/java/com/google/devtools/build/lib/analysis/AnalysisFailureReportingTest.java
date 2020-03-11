@@ -92,7 +92,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new LoadingFailedCause(
                 causeLabel,
-                "no such package 'bar': BUILD file not found in any of the following directories.\n"
+                "no such package 'bar': BUILD file not found in any of the following "
+                    + "directories. Add a BUILD file to a directory to mark it as a package.\n"
                     + " - /workspace/bar"));
   }
 
@@ -124,8 +125,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new LoadingFailedCause(
                 Label.parseAbsolute("//cycles1", ImmutableMap.of()),
-                // TODO(ulfjack): Ideally, we'd get an error message about a symlink cycle instead.
-                "Target '//cycles1:cycles1' contains an error and its package is in error"));
+                "no such package 'cycles1': Symlink issue while evaluating globs: Symlink cycle: "
+                    + "/workspace/cycles1/cycles1.sh"));
   }
 
   @Test
@@ -149,6 +150,30 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
                 "in sh_library rule //foo:foo: target '//bar:bar' is not visible from target "
                     + "'//foo:foo'. Check the visibility declaration of the former target if you "
                     + "think the dependency is legitimate"));
+  }
+
+  @Test
+  public void testFileVisibilityError() throws Exception {
+    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = ['//bar:bar.sh'])");
+    scratch.file("bar/BUILD", "exports_files(['bar.sh'], visibility = ['//visibility:private'])");
+    scratch.file("bar/bar.sh");
+
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
+    assertThat(result.hasError()).isTrue();
+
+    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+    assertThat(collector.events)
+        .valuesForKey(topLevel)
+        .containsExactly(
+            new AnalysisFailedCause(
+                Label.parseAbsolute("//foo", ImmutableMap.of()),
+                toId(
+                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
+                        .getConfiguration()),
+                "in sh_library rule //foo:foo: target '//bar:bar.sh' is not visible from target "
+                    + "'//foo:foo'. Check the visibility declaration of the former target if you "
+                    + "think the dependency is legitimate. To set the visibility of that source "
+                    + "file target, use the exports_files() function"));
   }
 
   @Test
@@ -202,7 +227,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
 
     @Subscribe
     public void failureEvent(AnalysisFailureEvent event) {
-      events.putAll(event.getFailedTarget().getLabel(), event.getRootCauses());
+      events.putAll(event.getFailedTarget().getLabel(), event.getRootCauses().toList());
     }
   }
 }

@@ -15,15 +15,14 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * {@link SkylarkValue}s that need special handling when they are
- * exported from an extension file. For example, rule definitions
- * receive their name at the end of the execution of the .bzl file.
+ * {@link StarlarkValue}s that need special handling when they are exported from an extension file.
+ * For example, rule definitions receive their name at the end of the execution of the .bzl file.
  */
-public interface SkylarkExportable extends SkylarkValue {
+public interface SkylarkExportable extends StarlarkValue {
 
   /**
    * Is this value already exported?

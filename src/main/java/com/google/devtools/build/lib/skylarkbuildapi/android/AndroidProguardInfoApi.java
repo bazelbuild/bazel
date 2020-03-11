@@ -15,14 +15,14 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 /** A target that can provide local proguard specifications. */
 @SkylarkModule(
@@ -49,7 +49,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<F extends FileApi> extends ProviderApi {
+  interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -61,11 +61,12 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
               doc = "A list of local proguard specs.",
               positional = true,
               named = false,
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = FileApi.class)
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidProguardInfoApi.class)
-    AndroidProguardInfoApi<F> createInfo(SkylarkList<F> localProguardSpecs) throws EvalException;
+    AndroidProguardInfoApi<FileT> createInfo(Sequence<?> localProguardSpecs /* <FileT> */)
+        throws EvalException;
   }
 }

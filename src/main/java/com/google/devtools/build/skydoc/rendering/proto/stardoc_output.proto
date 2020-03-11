@@ -31,7 +31,7 @@ message ModuleInfo {
 
   repeated ProviderInfo provider_info = 2;
 
-  repeated UserDefinedFunctionInfo func_info = 3;
+  repeated StarlarkFunctionInfo func_info = 3;
 
   repeated AspectInfo aspect_info = 4;
 
@@ -97,6 +97,9 @@ message AttributeInfo {
   // label, a label list, or a label-keyed string dictionary, the field will be
   // left empty.
   repeated ProviderNameGroup provider_name_group = 5;
+
+  // The string representation of the default value of this attribute.
+  string default_value = 6;
 }
 
 // Representation of a set of providers that a rule attribute may be required to
@@ -110,7 +113,7 @@ message ProviderNameGroup {
 }
 
 // Representation of Starlark function definition.
-message UserDefinedFunctionInfo {
+message StarlarkFunctionInfo {
   // The name of the function.
   string function_name = 1;
 

@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -53,13 +55,14 @@ public class HeaderDiscoveryTest {
                 ImmutableList.of(
                     derivedRoot.getRelative("tree_artifact1/foo.h"),
                     derivedRoot.getRelative("tree_artifact1/subdir/foo.h")),
-                ImmutableList.of(treeArtifact(derivedRoot.getRelative("tree_artifact2")))));
+                NestedSetBuilder.create(
+                    Order.STABLE_ORDER, treeArtifact(derivedRoot.getRelative("tree_artifact2")))));
   }
 
   private NestedSet<Artifact> checkHeaderInclusion(
       ArtifactResolver artifactResolver,
       ImmutableList<Path> dependencies,
-      ImmutableList<Artifact> includedHeaders)
+      NestedSet<Artifact> includedHeaders)
       throws ActionExecutionException {
     return new HeaderDiscovery.Builder()
         .shouldValidateInclusions()
@@ -68,9 +71,9 @@ public class HeaderDiscoveryTest {
         .setSourceFile(
             ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")))
         .setDependencies(dependencies)
-        .setAllowedDerivedinputs(includedHeaders)
+        .setAllowedDerivedInputs(includedHeaders)
         .build()
-        .discoverInputsFromDependencies(execRoot, artifactResolver);
+        .discoverInputsFromDependencies(execRoot, artifactResolver, false);
   }
 
   private SpecialArtifact treeArtifact(Path path) {

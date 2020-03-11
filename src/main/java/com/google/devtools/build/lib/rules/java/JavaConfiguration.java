@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Preconditions.checkState;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
@@ -30,7 +33,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaConfigurationApi;
 import com.google.devtools.common.options.TriState;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -95,12 +97,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
-  private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
+  private final NamedLabel bytecodeOptimizer;
   private final boolean enforceProguardFileExtension;
   private final Label toolchainLabel;
   private final Label runtimeLabel;
   private final boolean explicitJavaTestDeps;
-  private final boolean experimentalTestRunner;
   private final boolean jplPropagateCcLinkParamsStore;
   private final boolean addTestSupportToCompileTimeDeps;
   private final boolean isJlplStrictDepsEnforced;
@@ -109,7 +110,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean disallowResourceJars;
   private final boolean loadJavaRulesFromBzl;
   private final boolean disallowLegacyJavaToolchainFlags;
-  private final boolean experimentalJavaHeaderInputPruning;
+  private final boolean experimentalTurbineAnnotationProcessing;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -142,13 +143,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
     this.allowRuntimeDepsOnNeverLink = javaOptions.allowRuntimeDepsOnNeverLink;
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
-    this.experimentalTestRunner = javaOptions.experimentalTestRunner;
     this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
     this.isJlplStrictDepsEnforced = javaOptions.isJlplStrictDepsEnforced;
     this.disallowResourceJars = javaOptions.disallowResourceJars;
     this.loadJavaRulesFromBzl = javaOptions.loadJavaRulesFromBzl;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
-    this.experimentalJavaHeaderInputPruning = javaOptions.experimentalJavaHeaderInputPruning;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -166,19 +165,26 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     }
     this.translationTargets = translationsBuilder.build();
 
-    ImmutableMap.Builder<String, Optional<Label>> optimizersBuilder = ImmutableMap.builder();
-    for (Map.Entry<String, Label> optimizer : javaOptions.bytecodeOptimizers.entrySet()) {
-      String mnemonic = optimizer.getKey();
-      if (optimizer.getValue() == null && !"Proguard".equals(mnemonic)) {
-        throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
-      }
-      optimizersBuilder.put(mnemonic, Optional.fromNullable(optimizer.getValue()));
+    Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
+    checkState(
+        optimizers.size() <= 1,
+        "--experimental_bytecode_optimizers can only accept up to one mapping, but %s mappings "
+            + "were provided.",
+        optimizers.size());
+    Map.Entry<String, Label> optimizer = Iterables.getOnlyElement(optimizers.entrySet());
+    String mnemonic = optimizer.getKey();
+    Label optimizerLabel = optimizer.getValue();
+    if (optimizerLabel == null && !"Proguard".equals(mnemonic)) {
+      throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
     }
-    this.bytecodeOptimizers = optimizersBuilder.build();
+    this.bytecodeOptimizer = NamedLabel.create(mnemonic, Optional.fromNullable(optimizerLabel));
+
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
     this.requireJavaToolchainHeaderCompilerDirect =
         javaOptions.requireJavaToolchainHeaderCompilerDirect;
     this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
+    this.experimentalTurbineAnnotationProcessing =
+        javaOptions.experimentalTurbineAnnotationProcessing;
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
       if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
@@ -340,9 +346,21 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return runtimeLabel;
   }
 
+  /** Stores a String name and an optional associated label. */
+  @AutoValue
+  public abstract static class NamedLabel {
+    public static NamedLabel create(String name, Optional<Label> label) {
+      return new AutoValue_JavaConfiguration_NamedLabel(name, label);
+    }
+
+    public abstract String name();
+
+    public abstract Optional<Label> label();
+  }
+
   /** Returns ordered list of optimizers to run. */
-  public ImmutableMap<String, Optional<Label>> getBytecodeOptimizers() {
-    return bytecodeOptimizers;
+  public NamedLabel getBytecodeOptimizer() {
+    return bytecodeOptimizer;
   }
 
   /**
@@ -353,13 +371,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useLegacyBazelJavaTest;
   }
 
-  /**
-   * Returns true if we should be the ExperimentalTestRunner instead of the BazelTestRunner for
-   * bazel's java_test runs.
-   */
-  public boolean useExperimentalTestRunner() {
-    return experimentalTestRunner;
-  }
 
   /**
    * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest
@@ -412,7 +423,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return isJlplStrictDepsEnforced;
   }
 
-  public List<Label> getPlugins() {
+  @Override
+  public ImmutableList<Label> getPlugins() {
     return pluginList;
   }
 
@@ -428,7 +440,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return loadJavaRulesFromBzl;
   }
 
-  public boolean experimentalJavaHeaderInputPruning() {
-    return experimentalJavaHeaderInputPruning;
+  public boolean experimentalTurbineAnnotationProcessing() {
+    return experimentalTurbineAnnotationProcessing;
   }
 }

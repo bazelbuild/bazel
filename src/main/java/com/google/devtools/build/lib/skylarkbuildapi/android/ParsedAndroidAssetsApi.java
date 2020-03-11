@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Parsed Android assets which can be merged together with assets from dependencies. */
 @SkylarkModule(
@@ -25,4 +26,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + "Information about the Android assets provided by a rule.",
     documented = false,
     category = SkylarkModuleCategory.PROVIDER)
-public interface ParsedAndroidAssetsApi {}
+public interface ParsedAndroidAssetsApi extends StarlarkValue {}

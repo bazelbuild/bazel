@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
-import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -59,28 +59,17 @@ public class ExecutionOptions extends OptionsBase {
   public static final ExecutionOptions DEFAULTS = Options.getDefaults(ExecutionOptions.class);
 
   @Option(
-      name = "incompatible_list_based_execution_strategy_selection",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "See https://github.com/bazelbuild/bazel/issues/7480")
-  public boolean incompatibleListBasedExecutionStrategySelection;
-
-  @Option(
       name = "spawn_strategy",
       defaultValue = "",
       converter = CommaSeparatedNonEmptyOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Specify how spawn actions are executed by default. "
-              + "'standalone' means run all of them locally without any kind of sandboxing. "
-              + "'sandboxed' means to run them in a sandboxed environment with limited privileges "
-              + "(details depend on platform support).")
+          "Specify how spawn actions are executed by default. Accepts a comma-separated list of"
+              + " strategies from highest to lowest priority. For each action Bazel picks the"
+              + " strategy with the highest priority that can execute the action. The default"
+              + " value is \"remote,worker,sandboxed,local\".See"
+              + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<String> spawnStrategy;
 
   @Option(
@@ -98,14 +87,16 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "strategy",
       allowMultiple = true,
-      converter = AssignmentToListOfValuesConverter.class,
+      converter = Converters.StringToStringListConverter.class,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Specify how to distribute compilation of other spawn actions. "
-              + "Example: 'Javac=local' means to spawn Java compilation locally. "
-              + "'JavaIjar=sandboxed' means to spawn Java Ijar actions in a sandbox. ")
+          "Specify how to distribute compilation of other spawn actions. Accepts a comma-separated"
+              + " list of strategies from highest to lowest priority. For each action Bazel picks"
+              + " the strategy with the highest priority that can execute the action. The default"
+              + " value is \"remote,worker,sandboxed,local\".See"
+              + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<Map.Entry<String, List<String>>> strategy;
 
   @Option(
@@ -136,12 +127,22 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Writes intermediate parameter files to output tree even when using "
               + "remote action execution. Useful when debugging actions. "
-              + "This is implied by --subcommands.")
+              + "This is implied by --subcommands and --verbose_failures.")
   public boolean materializeParamFiles;
 
+  @Option(
+      name = "experimental_materialize_param_files_directly",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If materializing param files, do so with direct writes to disk.")
+  public boolean materializeParamFilesDirectly;
+
   public boolean shouldMaterializeParamFiles() {
-    // Implied by --subcommands
-    return materializeParamFiles || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE;
+    // Implied by --subcommands and --verbose_failures
+    return materializeParamFiles
+        || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE
+        || verboseFailures;
   }
 
   @Option(
@@ -211,17 +212,6 @@ public class ExecutionOptions extends OptionsBase {
   public boolean testKeepGoing;
 
   @Option(
-    name = "runs_per_test_detects_flakes",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If true, any shard in which at least one run/attempt passes and at least one "
-            + "run/attempt fails gets a FLAKY status."
-  )
-  public boolean runsPerTestDetectsFlakes;
-
-  @Option(
     name = "flaky_test_attempts",
     allowMultiple = true,
     defaultValue = "default",
@@ -287,21 +277,26 @@ public class ExecutionOptions extends OptionsBase {
   public boolean useResourceAutoSense;
 
   @Option(
+      name = "incompatible_remove_ram_utilization_factor",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, fully deprecates --ram_utilization_factor.")
+  public boolean removeRamUtilizationFactor;
+
+  @Option(
       name = "ram_utilization_factor",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specify what percentage of the system's RAM Bazel should try to use for its "
-              + "subprocesses. This option affects how many processes Bazel will try to run in "
-              + "parallel. If you run several Bazel builds in parallel, using a lower value for "
-              + "this option may avoid thrashing and thus improve overall throughput. "
-              + "Using a value higher than 67 is NOT recommended. "
-              + "Note that Blaze's estimates are very coarse, so the actual RAM usage may be much "
-              + "higher or much lower than specified. "
-              + "Note also that this option does not affect the amount of memory that the Bazel "
-              + "server itself will use. "
-              + "Setting this value overrides --local_ram_resources")
+      deprecationWarning =
+          "--ram_utilization_factor will be deprecated. Please use"
+              + " --local_ram_resources=HOST_RAM*<float> instead.",
+      help = "This flag will be deprecated. Please use --local_ram_resources.")
   public int ramUtilizationPercentage;
 
   @Option(
@@ -310,19 +305,17 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Explicitly set amount of local resources available to Blaze. By default, Bazel will "
-              + "query system configuration to estimate amount of RAM (in MB) "
-              + "and number of CPU cores available for the locally executed build actions. It "
-              + "would also assume default I/O capabilities of the local workstation (1.0). This "
-              + "options allows to explicitly set all 3 values. Note, that if this option is used, "
-              + "Bazel will ignore --ram_utilization_factor, --local_cpu_resources, and "
-              + "--local_ram_resources.",
+          "Deprecated by '--incompatible_remove_local_resources'. Please use "
+              + "'--local_ram_resources' and '--local_cpu_resources'",
+      deprecationWarning =
+          "--local_resources will be deprecated. Please use"
+              + " --local_ram_resources and --local_cpu_resources instead.",
       converter = ResourceSet.ResourceSetConverter.class)
   public ResourceSet availableResources;
 
   @Option(
       name = "incompatible_remove_local_resources",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {

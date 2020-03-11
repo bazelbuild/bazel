@@ -30,8 +30,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import org.checkerframework.framework.qual.DefaultQualifierInHierarchy;
-import org.checkerframework.framework.qual.ImplicitFor;
 import org.checkerframework.framework.qual.LiteralKind;
+import org.checkerframework.framework.qual.QualifierForLiterals;
 import org.checkerframework.framework.qual.SubtypeOf;
 
 /**
@@ -54,7 +54,7 @@ public final class GroupedList<T> implements Iterable<List<T>> {
    */
   @SubtypeOf(DefaultObject.class)
   @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
-  @ImplicitFor(literals = LiteralKind.NULL)
+  @QualifierForLiterals(LiteralKind.NULL)
   public @interface Compressed {}
 
   /** Default annotation for type-safety checks of {@link Compressed}. */
@@ -381,6 +381,32 @@ public final class GroupedList<T> implements Iterable<List<T>> {
       singletonElementOfFirstGroup,
       singleElementOrList(elementsOfSecondGroup),
       singleElementOrList(elementsOfThirdGroup)
+    };
+  }
+
+  /** Creates an already compressed {@code GroupedList} with four groups. */
+  public static <E> @Compressed Object createCompressedWithFourGroups(
+      E singletonElementOfFirstGroup,
+      List<? extends E> elementsOfSecondGroup,
+      List<? extends E> elementsOfThirdGroup,
+      List<? extends E> elementsOfFourthGroup) {
+    if (elementsOfSecondGroup.isEmpty()) {
+      return createCompressedWithThreeGroups(
+          singletonElementOfFirstGroup, elementsOfThirdGroup, elementsOfFourthGroup);
+    }
+    if (elementsOfThirdGroup.isEmpty()) {
+      return createCompressedWithThreeGroups(
+          singletonElementOfFirstGroup, elementsOfSecondGroup, elementsOfFourthGroup);
+    }
+    if (elementsOfFourthGroup.isEmpty()) {
+      return createCompressedWithThreeGroups(
+          singletonElementOfFirstGroup, elementsOfSecondGroup, elementsOfThirdGroup);
+    }
+    return new Object[] {
+      singletonElementOfFirstGroup,
+      singleElementOrList(elementsOfSecondGroup),
+      singleElementOrList(elementsOfThirdGroup),
+      singleElementOrList(elementsOfFourthGroup),
     };
   }
 

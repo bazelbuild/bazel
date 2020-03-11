@@ -63,11 +63,7 @@ class MinrankOutputFormatter extends OutputFormatter {
 
   @Override
   public void output(
-      QueryOptions options,
-      Digraph<Target> result,
-      OutputStream out,
-      AspectResolver aspectResolver,
-      ConditionalEdges conditionalEdges)
+      QueryOptions options, Digraph<Target> result, OutputStream out, AspectResolver aspectResolver)
       throws IOException {
     PrintStream printStream = new PrintStream(out);
     // getRoots() isn't defined for cyclic graphs, so in order to handle

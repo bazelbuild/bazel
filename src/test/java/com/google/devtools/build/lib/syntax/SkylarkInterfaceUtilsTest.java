@@ -25,15 +25,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- *  Test Skylark interface annotations and utilities.
- */
+/** Test Skylark interface annotations and utilities. */
 @RunWith(JUnit4.class)
 public class SkylarkInterfaceUtilsTest {
 
   /** MockClassA */
   @SkylarkModule(name = "MockClassA", doc = "MockClassA")
-  public static class MockClassA {
+  public static class MockClassA implements StarlarkValue {
     @SkylarkCallable(name = "foo", doc = "MockClassA#foo")
     public void foo() {}
     @SkylarkCallable(name = "bar", doc = "MockClassA#bar")
@@ -43,7 +41,7 @@ public class SkylarkInterfaceUtilsTest {
 
   /** MockInterfaceB1 */
   @SkylarkModule(name = "MockInterfaceB1", doc = "MockInterfaceB1")
-  public static interface MockInterfaceB1 {
+  public static interface MockInterfaceB1 extends StarlarkValue {
     @SkylarkCallable(name = "foo", doc = "MockInterfaceB1#foo")
     void foo();
     @SkylarkCallable(name = "bar", doc = "MockInterfaceB1#bar")
@@ -54,7 +52,7 @@ public class SkylarkInterfaceUtilsTest {
 
   /** MockInterfaceB2 */
   @SkylarkModule(name = "MockInterfaceB2", doc = "MockInterfaceB2")
-  public static interface MockInterfaceB2 {
+  public static interface MockInterfaceB2 extends StarlarkValue {
     @SkylarkCallable(name = "baz", doc = "MockInterfaceB2#baz")
     void baz();
     @SkylarkCallable(name = "qux", doc = "MockInterfaceB2#qux")
@@ -100,14 +98,14 @@ public class SkylarkInterfaceUtilsTest {
 
   /** ClassAModule test class */
   @SkylarkModule(name = "ClassAModule", doc = "ClassAModule")
-  public static class ClassAModule {}
+  public static class ClassAModule implements StarlarkValue {}
 
   /** ExtendsClassA test class */
   public static class ExtendsClassA extends ClassAModule {}
 
   /** InterfaceBModule test interface */
   @SkylarkModule(name = "InterfaceBModule", doc = "InterfaceBModule")
-  public static interface InterfaceBModule {}
+  public static interface InterfaceBModule extends StarlarkValue {}
 
   /** ExtendsInterfaceB test interface */
   public static interface ExtendsInterfaceB extends InterfaceBModule {}

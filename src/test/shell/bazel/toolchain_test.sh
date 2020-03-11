@@ -1105,12 +1105,21 @@ constraint_setting(name = 'setting1', default_constraint_value = ':value_foo')
 constraint_value(name = 'value_foo', constraint_setting = ':setting1')
 constraint_value(name = 'value_bar', constraint_setting = ':setting1')
 
+# Default constraint values don't block toolchain resolution.
+constraint_setting(name = 'setting2', default_constraint_value = ':value_unused')
+constraint_value(name = 'value_unused', constraint_setting = ':setting2')
+
 platform(
     name = 'platform_default',
-    constraint_values = [])
+    constraint_values = [
+      ':value_unused',
+    ])
 platform(
     name = 'platform_no_default',
-    constraint_values = [':value_bar'])
+    constraint_values = [
+      ':value_bar',
+      ':value_unused',
+    ])
 EOF
 
   # Add test toolchains using the constraints.
@@ -1135,7 +1144,7 @@ toolchain(
     toolchain_type = '//toolchain:test_toolchain',
     exec_compatible_with = [],
     target_compatible_with = [
-      # No constraint set, takes the default.
+      '//platforms:value_foo',
     ],
     toolchain = ':test_toolchain_impl_foo',
     visibility = ['//visibility:public'])
@@ -1144,7 +1153,6 @@ toolchain(
     toolchain_type = '//toolchain:test_toolchain',
     exec_compatible_with = [],
     target_compatible_with = [
-      # Explicitly sets a non-default value.
       '//platforms:value_bar',
     ],
     toolchain = ':test_toolchain_impl_bar',
@@ -1366,6 +1374,36 @@ EOF
   expect_not_log "java.lang.IllegalStateException"
   expect_log "Misconfigured toolchains: //:upper_toolchain is declared as a toolchain but has inappropriate dependencies"
 }
+
+
+# Catch the error when a target platform requires a configuration which contains the same target platform.
+# This can only happen when the target platform is not actually a platform.
+function test_target_platform_cycle() {
+  cat >> hello.sh <<EOF
+  #!/bin/sh
+  echo "Hello world"
+EOF
+  cat >> target.sh <<EOF
+  #!/bin/sh
+  echo "Hello target"
+EOF
+  chmod +x hello.sh
+  chmod +x target.sh
+  cat >> BUILD <<EOF
+sh_binary(
+  name = "hello",
+  srcs = ["hello.sh"],
+)
+sh_binary(
+  name = "target",
+  srcs = ["target.sh"],
+)
+EOF
+
+  bazel build --platforms=//:hello //:target &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "While resolving toolchains for target //:target: Target //:hello was referenced as a platform, but does not provide PlatformInfo"
+}
+
 
 function test_platform_duplicate_constraint_error() {
   # Write a platform with duplicate constraint values for the same setting.
@@ -1635,6 +1673,73 @@ EOF
 
   bazel build --//project:version="unstable" //project:test &> "${TEST_log}" || fail "Build failed"
   expect_log 'Using toolchain: rule message: "hello", toolchain extra_str: "unstable"'
+}
+
+function test_add_exec_constraints_to_targets() {
+  # Add test platforms.
+  mkdir -p platforms
+  cat >> platforms/BUILD <<EOF
+package(default_visibility = ['//visibility:public'])
+constraint_setting(name = 'setting')
+constraint_value(name = 'value1', constraint_setting = ':setting')
+constraint_value(name = 'value2', constraint_setting = ':setting')
+
+platform(
+    name = 'platform1',
+    constraint_values = [':value1'],
+    visibility = ['//visibility:public'])
+platform(
+    name = 'platform2',
+    constraint_values = [':value2'],
+    visibility = ['//visibility:public'])
+EOF
+
+  # Add a rule with default execution constraints.
+  mkdir -p demo
+  cat >> demo/rule.bzl <<EOF
+def _sample_rule_impl(ctx):
+  return []
+
+sample_rule = rule(
+  implementation = _sample_rule_impl,
+  attrs = {
+    "tool": attr.label(cfg = 'exec'),
+  }
+)
+
+def _display_platform_impl(ctx):
+  print("%s target platform: %s" % (ctx.label, ctx.fragments.platform.platforms[0]))
+  return []
+
+display_platform = rule(
+  implementation = _display_platform_impl,
+  attrs = {},
+  fragments = ['platform'],
+)
+EOF
+
+  # Use the new rule.
+  cat >> demo/BUILD <<EOF
+load(':rule.bzl', 'sample_rule', 'display_platform')
+
+sample_rule(
+  name = 'sample',
+  tool = ":tool",
+)
+
+display_platform(name = 'tool')
+EOF
+
+  bazel build \
+    --extra_execution_platforms=//platforms:platform1,//platforms:platform2 \
+    //demo:sample &> $TEST_log || fail "Build failed"
+  expect_log "//demo:tool target platform: //platforms:platform1"
+
+  bazel build \
+      --extra_execution_platforms=//platforms:platform1,//platforms:platform2 \
+      --experimental_add_exec_constraints_to_targets //demo:sample=//platforms:value2 \
+      //demo:sample &> $TEST_log || fail "Build failed"
+  expect_log "//demo:tool target platform: //platforms:platform2"
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.

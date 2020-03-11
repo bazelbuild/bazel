@@ -20,7 +20,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -241,7 +241,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             targetConfig.extendedSanityChecks(),
             targetConfig.allowAnalysisFailures(),
             eventHandler,
-            null),
+            skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler)),
         new BuildConfigurationCollection(
             ImmutableList.of(dummy.getConfiguration()), dummy.getHostConfiguration()));
   }
@@ -263,15 +263,17 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
                 DataBinding.DISABLED_V1_CONTEXT),
             getOutput("merged/resources.zip"),
             getOutput("class.jar"),
+            includeAapt2Outs ? getOutput("aapt2-r.txt") : null,
             /* dataBindingInfoZip = */ null,
             resourceDependencies,
             manifest),
         getOutput("r.txt"),
         getOutput("source.jar"),
         getOutput("resources.apk"),
-        includeAapt2Outs ? getOutput("aapt2-r.txt") : null,
+        includeAapt2Outs ? getOutput("aapt2-validation.txt") : null,
         includeAapt2Outs ? getOutput("aapt2-source.jar") : null,
-        includeAapt2Outs ? getOutput("aapt2-static-lib") : null);
+        includeAapt2Outs ? getOutput("aapt2-static-lib") : null,
+        /*useRTxtFromMergedResources=*/ true);
   }
 
   /**
@@ -293,8 +295,8 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
   }
 
   /** Remove busybox and aapt2 tooling artifacts from a list of action inputs */
-  private Iterable<Artifact> removeToolingArtifacts(Iterable<Artifact> inputArtifacts) {
-    return Streams.stream(inputArtifacts)
+  private static Iterable<Artifact> removeToolingArtifacts(NestedSet<Artifact> inputArtifacts) {
+    return inputArtifacts.toList().stream()
         .filter(
             artifact ->
                 // Not a known tool

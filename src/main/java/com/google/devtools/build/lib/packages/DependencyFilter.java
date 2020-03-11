@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.packages.DependencyFilter.AttributeInfoProvider;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 /**
@@ -33,8 +33,8 @@ public abstract class DependencyFilter
           return true;
         }
       };
-  /** Dependency predicate that excludes host dependencies */
-  public static final DependencyFilter NO_HOST_DEPS =
+  /** Dependency predicate that excludes non-target dependencies */
+  public static final DependencyFilter ONLY_TARGET_DEPS =
       new DependencyFilter() {
         @Override
         public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
@@ -43,7 +43,7 @@ public abstract class DependencyFilter
             return true;
           }
 
-          return !attribute.getTransitionFactory().isHost();
+          return !attribute.getTransitionFactory().isTool();
         }
       };
   /** Dependency predicate that excludes implicit dependencies */
@@ -66,15 +66,25 @@ public abstract class DependencyFilter
     }
   };
   /**
-   * Checks to see if the attribute has the isDirectCompileTimeInput property.
+   * Dependency predicate that excludes those edges that are not present in the loading phase target
+   * dependency graph but *does* include edges from the `visibility` attribute.
    */
+  public static final DependencyFilter NO_NODEP_ATTRIBUTES_EXCEPT_VISIBILITY =
+      new DependencyFilter() {
+        @Override
+        public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
+          return NO_NODEP_ATTRIBUTES.apply(infoProvider, attribute)
+              || attribute.getName().equals("visibility");
+        }
+      };
+  /** Checks to see if the attribute has the isDirectCompileTimeInput property. */
   public static final DependencyFilter DIRECT_COMPILE_TIME_INPUT =
       new DependencyFilter() {
-    @Override
-    public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
-      return attribute.isDirectCompileTimeInput();
-    }
-  };
+        @Override
+        public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
+          return attribute.isDirectCompileTimeInput();
+        }
+      };
 
   /**
    * Returns true if a given attribute should be processed.

@@ -14,46 +14,44 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
  */
 @SkylarkModule(
     name = "AnalysisTestResultInfo",
-    doc = "<b>Experimental. This API is experimental and subject to change at any time</b><p> "
-        + "Encapsulates the result of analyis-phase testing. Build targets which return an "
-        + "instance of this provider signal to the build system that it should generate a "
-        + "'stub' test executable which generates the equivalent test result. Analysis-phase "
-        + "('in-build') test rules <b>must</b> return an instance of this provider, and "
-        + "non-analysis-phase test rules <b>cannot</b> return this provider.",
-    documented = false)
-public interface AnalysisTestResultInfoApi extends SkylarkValue {
+    doc =
+        "Encapsulates the result of analyis-phase testing. Build targets which return an instance"
+            + " of this provider signal to the build system that it should generate a 'stub' test"
+            + " executable which generates the equivalent test result. Analysis test rules (rules"
+            + " created with <code>analysis_test=True</code> <b>must</b> return an instance of"
+            + " this provider, and non-analysis-phase test rules <b>cannot</b> return this "
+            + "provider.")
+public interface AnalysisTestResultInfoApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "success",
       doc =
           "If true, then the analysis-phase test represented by this target passed. If "
               + "false, the test failed.",
-      documented = false,
       structField = true)
-  public Boolean getSuccess();
+  Boolean getSuccess();
 
   @SkylarkCallable(
       name = "message",
       doc = "A descriptive message containing information about the test and its success/failure.",
-      documented = false,
       structField = true)
-  public String getMessage();
+  String getMessage();
 
   /** Provider class for {@link AnalysisTestResultInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public interface AnalysisTestResultInfoProviderApi extends ProviderApi {
+  interface AnalysisTestResultInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(
         name = "AnalysisTestResultInfo",
@@ -78,6 +76,6 @@ public interface AnalysisTestResultInfoApi extends SkylarkValue {
     @SkylarkConstructor(
         objectType = AnalysisTestResultInfoApi.class,
         receiverNameForDoc = "AnalysisTestResultInfo")
-    public AnalysisTestResultInfoApi testResultInfo(Boolean success, String message);
+    AnalysisTestResultInfoApi testResultInfo(Boolean success, String message);
   }
 }

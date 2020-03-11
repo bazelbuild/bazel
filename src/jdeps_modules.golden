@@ -4,7 +4,6 @@ java.instrument
 java.logging
 java.management
 java.naming
-java.security.jgss
 java.sql
 java.xml
 jdk.management

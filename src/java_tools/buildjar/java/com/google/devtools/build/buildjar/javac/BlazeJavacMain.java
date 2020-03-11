@@ -90,7 +90,7 @@ public class BlazeJavacMain {
     // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
     // it and handling exceptions directly in callers.
     PrintWriter errWriter = new PrintWriter(errOutput);
-    Listener diagnostics = new Listener(context);
+    Listener diagnostics = new Listener(arguments.failFast(), context);
     BlazeJavaCompiler compiler;
 
     try (JavacFileManager fileManager =
@@ -231,6 +231,11 @@ public class BlazeJavacMain {
       }
       fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcePath);
 
+      Path system = arguments.system();
+      if (system != null) {
+        fileManager.setLocationFromPaths(
+            StandardLocation.locationFor("SYSTEM_MODULES"), ImmutableList.of(system));
+      }
       // The bootclasspath may legitimately be empty if --release is being used.
       Collection<Path> bootClassPath = arguments.bootClassPath();
       if (!bootClassPath.isEmpty()) {
@@ -280,7 +285,7 @@ public class BlazeJavacMain {
                   || name.startsWith("com.google.common.collect.")
                   || name.startsWith("com.google.common.base.")
                   || name.startsWith("com.google.common.graph.")
-                  || name.startsWith("org.checkerframework.dataflow.")
+                  || name.startsWith("org.checkerframework.shaded.dataflow.")
                   || name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
                   || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")

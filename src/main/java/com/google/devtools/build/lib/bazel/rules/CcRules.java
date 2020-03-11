@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsRule;
 import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
 import com.google.devtools.build.lib.rules.cpp.GoogleLegacyStubs;
+import com.google.devtools.build.lib.rules.cpp.GraphNodeAspect;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -56,9 +57,11 @@ public class CcRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
+    GraphNodeAspect graphNodeAspect = new GraphNodeAspect();
     builder.addConfigurationFragment(new CppConfigurationLoader(CpuTransformer.IDENTITY));
     builder.addBuildInfoFactory(new CppBuildInfo());
 
+    builder.addNativeAspectClass(graphNodeAspect);
     builder.addRuleDefinition(new CcToolchainRule());
     builder.addRuleDefinition(new CcToolchainSuiteRule());
     builder.addRuleDefinition(new CcToolchainAliasRule());
@@ -69,7 +72,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
-    builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
+    builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule(graphNodeAspect));
     builder.addRuleDefinition(new BazelCcBinaryRule());
     builder.addRuleDefinition(new BazelCcTestRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());

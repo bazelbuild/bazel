@@ -38,7 +38,7 @@ public final class TransitionFactories {
     } else if (transition instanceof SplitTransition) {
       return split((SplitTransition) transition);
     }
-    return new AutoValue_TransitionFactories_IdentityFactory(transition);
+    return new AutoValue_TransitionFactories_IdentityFactory<T>(transition);
   }
 
   /** Returns a {@link TransitionFactory} that wraps a static split transition. */

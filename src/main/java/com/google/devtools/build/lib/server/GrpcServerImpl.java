@@ -34,8 +34,11 @@ import com.google.devtools.build.lib.server.CommandProtos.PingRequest;
 import com.google.devtools.build.lib.server.CommandProtos.PingResponse;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
+import com.google.devtools.build.lib.server.CommandProtos.ServerInfo;
 import com.google.devtools.build.lib.server.CommandProtos.StartupOption;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted.InterruptedCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.FailureDetailUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -43,6 +46,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.ByteString;
+import io.grpc.Context;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NettyServerBuilder;
@@ -58,7 +62,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -314,12 +318,13 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   private static final String PORT_FILE = "command_port";
   private static final String REQUEST_COOKIE_FILE = "request_cookie";
   private static final String RESPONSE_COOKIE_FILE = "response_cookie";
+  private static final String SERVER_INFO_FILE = "server_info.rawproto";
 
   private static final AtomicBoolean runShutdownHooks = new AtomicBoolean(true);
 
   private final CommandManager commandManager;
   private final CommandDispatcher dispatcher;
-  private final ExecutorService commandExecutorPool;
+  private final Executor commandExecutorPool;
   private final Clock clock;
   private final Path serverDirectory;
   private final String requestCookie;
@@ -364,8 +369,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     this.serving = false;
 
     this.commandExecutorPool =
-        Executors.newCachedThreadPool(
-            new ThreadFactoryBuilder().setNameFormat("grpc-command-%d").setDaemon(true).build());
+        Context.currentContextExecutor(
+            Executors.newCachedThreadPool(
+                new ThreadFactoryBuilder()
+                    .setNameFormat("grpc-command-%d")
+                    .setDaemon(true)
+                    .build()));
 
     this.requestCookie = requestCookie;
     this.responseCookie = responseCookie;
@@ -445,10 +454,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     }
     serving = true;
 
-    writeServerFile(
-        PORT_FILE, InetAddresses.toUriString(address.getAddress()) + ":" + server.getPort());
-    writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
-    writeServerFile(RESPONSE_COOKIE_FILE, responseCookie);
+    writeServerStatusFiles(address);
 
     try {
       server.awaitTermination();
@@ -456,6 +462,30 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       // TODO(lberki): Handle SIGINT in a reasonable way
       throw new IllegalStateException(e);
     }
+  }
+
+  private void writeServerStatusFiles(InetSocketAddress address) throws IOException {
+    String addressString = InetAddresses.toUriString(address.getAddress()) + ":" + server.getPort();
+    writeServerFile(PORT_FILE, addressString);
+    writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
+    writeServerFile(RESPONSE_COOKIE_FILE, responseCookie);
+
+    ServerInfo info =
+        ServerInfo.newBuilder()
+            .setPid(Integer.parseInt(pidInFile))
+            .setAddress(addressString)
+            .setRequestCookie(requestCookie)
+            .setResponseCookie(responseCookie)
+            .build();
+
+    // Write then mv so the user never sees incomplete contents.
+    Path serverInfoTmpFile = serverDirectory.getChild(SERVER_INFO_FILE + ".tmp");
+    try (OutputStream out = serverInfoTmpFile.getOutputStream()) {
+      info.writeTo(out);
+    }
+    Path serverInfoFile = serverDirectory.getChild(SERVER_INFO_FILE);
+    serverInfoTmpFile.renameTo(serverInfoFile);
+    deleteAtExit(serverInfoFile);
   }
 
   private void writeServerFile(String name, String contents) throws IOException {
@@ -583,7 +613,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         result = BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
     } catch (InterruptedException e) {
-      result = BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+      result =
+          BlazeCommandResult.failureDetail(
+              FailureDetailUtil.interrupted(InterruptedCode.INTERRUPTED_UNSPECIFIED));
       commandId = ""; // The default value, the client will ignore it
     }
 
@@ -598,6 +630,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       response.setExecRequest(result.getExecRequest());
     } else {
       response.setExitCode(result.getExitCode().getNumericExitCode());
+      if (result.getFailureDetail() != null) {
+        response.setFailureDetail(result.getFailureDetail());
+      }
     }
 
     try {
@@ -621,7 +656,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         ((ServerCallStreamObserver<RunResponse>) observer);
     BlockingStreamObserver<RunResponse> blockingStreamObserver =
         new BlockingStreamObserver<>(serverCallStreamObserver);
-    new Thread(() -> executeCommand(request, blockingStreamObserver), "command-thread").start();
+    commandExecutorPool.execute(() -> executeCommand(request, blockingStreamObserver));
   }
 
   @Override

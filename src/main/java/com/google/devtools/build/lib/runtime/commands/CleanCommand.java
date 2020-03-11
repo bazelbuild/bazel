@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -34,7 +35,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -205,6 +205,7 @@ public final class CleanCommand implements BlazeCommand {
       CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
       throws IOException, CommandException, ExecException,
           InterruptedException {
+    BlazeRuntime runtime = env.getRuntime();
     String workspaceDirectory = env.getWorkspace().getBaseName();
     if (env.getOutputService() != null) {
       env.getOutputService().clean();
@@ -212,7 +213,7 @@ public final class CleanCommand implements BlazeCommand {
     env.getBlazeWorkspace().clearCaches();
     if (expunge && !async) {
       logger.info("Expunging...");
-      env.getRuntime().prepareForAbruptShutdown();
+      runtime.prepareForAbruptShutdown();
       // Close java.log.
       LogManager.getLogManager().reset();
       // Close the default stdout/stderr.
@@ -234,7 +235,7 @@ public final class CleanCommand implements BlazeCommand {
       outputBase.deleteTree();
     } else if (expunge && async) {
       logger.info("Expunging asynchronously...");
-      env.getRuntime().prepareForAbruptShutdown();
+      runtime.prepareForAbruptShutdown();
       asyncClean(env, outputBase, "Output base");
     } else {
       logger.info("Output cleaning...");
@@ -251,6 +252,7 @@ public final class CleanCommand implements BlazeCommand {
     }
     // remove convenience links
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
+        runtime.getRuleClassProvider().getSymlinkDefinitions(),
         workspaceDirectory,
         env.getWorkspace(),
         env.getReporter(),
@@ -264,7 +266,4 @@ public final class CleanCommand implements BlazeCommand {
     System.gc();
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) {}
 }

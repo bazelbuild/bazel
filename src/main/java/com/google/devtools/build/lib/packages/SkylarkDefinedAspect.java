@@ -20,13 +20,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -44,6 +43,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   private final ConfigurationTransition hostTransition;
   private final ImmutableSet<String> hostFragments;
   private final ImmutableList<Label> requiredToolchains;
+  private final boolean applyToGeneratingRules;
 
   private SkylarkAspectClass aspectClass;
 
@@ -58,7 +58,8 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       // The host transition is in lib.analysis, so we can't reference it directly here.
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
-      ImmutableList<Label> requiredToolchains) {
+      ImmutableList<Label> requiredToolchains,
+      boolean applyToGeneratingRules) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
@@ -69,6 +70,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
     this.hostTransition = hostTransition;
     this.hostFragments = hostFragments;
     this.requiredToolchains = requiredToolchains;
+    this.applyToGeneratingRules = applyToGeneratingRules;
   }
 
   /** Constructor for post export reconstruction for serialization. */
@@ -86,9 +88,20 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableList<Label> requiredToolchains,
+      boolean applyToGeneratingRules,
       SkylarkAspectClass aspectClass) {
-    this(implementation, attributeAspects, attributes, requiredAspectProviders, provides,
-        paramAttributes, fragments, hostTransition, hostFragments, requiredToolchains);
+    this(
+        implementation,
+        attributeAspects,
+        attributes,
+        requiredAspectProviders,
+        provides,
+        paramAttributes,
+        fragments,
+        hostTransition,
+        hostFragments,
+        requiredToolchains,
+        applyToGeneratingRules);
     this.aspectClass = aspectClass;
   }
 
@@ -110,7 +123,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<aspect>");
   }
 
@@ -173,6 +186,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
     builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
     builder.requiresConfigurationFragmentsBySkylarkModuleName(hostTransition, hostFragments);
     builder.addRequiredToolchains(requiredToolchains);
+    builder.applyToGeneratingRules(applyToGeneratingRules);
     return builder.build();
   }
 
@@ -221,13 +235,12 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   }
 
   @Override
-  public void attachToAttribute(Attribute.Builder<?> attrBuilder, Location loc)
-      throws EvalException {
+  public void attachToAttribute(Attribute.Builder<?> attrBuilder) throws EvalException {
     if (!isExported()) {
-      throw new EvalException(
-          loc, "Aspects should be top-level values in extension files that define them.");
+      throw Starlark.errorf(
+          "Aspects should be top-level values in extension files that define them.");
     }
-    attrBuilder.aspect(this, loc);
+    attrBuilder.aspect(this);
   }
 
   @Override

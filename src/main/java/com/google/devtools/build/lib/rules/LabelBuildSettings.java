@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -58,9 +59,20 @@ public class LabelBuildSettings {
             }
             Object commandLineValue =
                 configuration.getOptions().getStarlarkOptions().get(rule.getLabel());
-            return commandLineValue == null
-                ? attributes.get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)
-                : (Label) commandLineValue;
+            Label asLabel;
+            try {
+              asLabel =
+                  commandLineValue == null
+                      ? attributes.get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)
+                      : LABEL.convert(commandLineValue, "label_flag value resolution");
+            } catch (ConversionException e) {
+              throw new IllegalStateException(
+                  "Getting here means we must have processed a transition via"
+                      + " StarlarkTransition.validate, which checks that LABEL.convert works"
+                      + " without error.",
+                  e);
+            }
+            return asLabel;
           });
 
   private static RuleClass buildRuleClass(RuleClass.Builder builder, boolean flag) {

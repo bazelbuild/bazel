@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 
-/**
- * Mocks out Android dependencies for testing.
- */
-public class BazelMockAndroidSupport {
+/** Mocks out Android dependencies for testing. */
+public final class BazelMockAndroidSupport {
+
+  private BazelMockAndroidSupport() {}
 
   public static void setupNdk(MockToolsConfig config) throws IOException {
     new Crosstool(config, "android/crosstool")

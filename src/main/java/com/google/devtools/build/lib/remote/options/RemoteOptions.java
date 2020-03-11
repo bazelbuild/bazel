@@ -47,7 +47,7 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Connect to the remote cache through a proxy. Currently this flag can only be used to "
-              + "configure a Unix domain socket (unix:/path/to/socket) for the HTTP cache.")
+              + "configure a Unix domain socket (unix:/path/to/socket).")
   public String remoteProxy;
 
   @Option(
@@ -66,7 +66,10 @@ public final class RemoteOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "HOST or HOST:PORT of a remote execution endpoint.")
+      help =
+          "HOST or HOST:PORT of a remote execution endpoint.The supported schemas are grpc and"
+              + " grpcs (grpc with TLS enabled). If no schema is provided bazel'll default to"
+              + " grpcs. Specify grpc:// schema to disable TLS.")
   public String remoteExecutor;
 
   @Option(
@@ -76,10 +79,22 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a caching endpoint. The supported schemas are http(s) and grpc. "
-              + "If no schema is provided we'll default to grpc. "
-              + "See https://docs.bazel.build/versions/master/remote-caching.html")
+          "A URI of a caching endpoint. The supported schemas are http, https, grpc and grpcs"
+              + " (grpc with TLS enabled). If no schema is provided bazel will default to grpcs."
+              + " Specify grpc:// or http:// schema to disable TLS.See"
+              + " https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
+
+  @Option(
+      name = "experimental_remote_downloader",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A URI of a remote downloader endpoint. The supported schemas are grpc and grpcs"
+              + " (grpc with TLS enabled). If no schema is provided bazel will default to grpcs."
+              + " Specify grpc:// schema to disable TLS.")
+  public String remoteDownloader;
 
   @Option(
       name = "remote_header",
@@ -88,12 +103,53 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Specify a HTTP header that will be included in requests: --remote_header=Name=Value. "
+          "Specify a header that will be included in requests: --remote_header=Name=Value. "
               + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
-              + "values for the same name will be converted to a comma-separated list. This flag"
-              + "is currently only implemented for the HTTP protocol.",
+              + "values for the same name will be converted to a comma-separated list.",
       allowMultiple = true)
   public List<Entry<String, String>> remoteHeaders;
+
+  @Option(
+      name = "remote_cache_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a header that will be included in cache requests: "
+              + "--remote_cache_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteCacheHeaders;
+
+  @Option(
+      name = "remote_exec_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a header that will be included in execution requests: "
+              + "--remote_exec_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteExecHeaders;
+
+  @Option(
+      name = "remote_downloader_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a header that will be included in remote downloader requests: "
+              + "--remote_downloader_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteDownloaderHeaders;
 
   @Option(
       name = "remote_timeout",
@@ -138,6 +194,26 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to upload locally executed action results to the remote cache.")
   public boolean remoteUploadLocalResults;
+
+  @Option(
+      name = "incompatible_remote_results_ignore_disk",
+      defaultValue = "false",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
+              + " apply to the disk cache. If a combined cache is used:\n"
+              + "\t--noremote_upload_local_results will cause results to be written to the disk"
+              + " cache, but not uploaded to the remote cache.\n"
+              + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
+              + " cache, but not in the remote cache.\n"
+              + "See #8216 for details.")
+  public boolean incompatibleRemoteResultsIgnoreDisk;
 
   @Option(
       name = "remote_instance_name",
@@ -235,7 +311,8 @@ public final class RemoteOptions extends OptionsBase {
   public boolean allowSymlinkUpload;
 
   @Option(
-      name = "experimental_remote_download_outputs",
+      name = "remote_download_outputs",
+      oldName = "experimental_remote_download_outputs",
       defaultValue = "all",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -257,9 +334,11 @@ public final class RemoteOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_remote_download_minimal",
+      name = "remote_download_minimal",
+      oldName = "experimental_remote_download_minimal",
       defaultValue = "null",
       expansion = {
+        "--nobuild_runfile_links",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
         "--experimental_remote_download_outputs=minimal"
@@ -275,7 +354,8 @@ public final class RemoteOptions extends OptionsBase {
   public Void remoteOutputsMinimal;
 
   @Option(
-      name = "experimental_remote_download_toplevel",
+      name = "remote_download_toplevel",
+      oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
       expansion = {
         "--experimental_inmemory_jdeps_files",
@@ -357,7 +437,11 @@ public final class RemoteOptions extends OptionsBase {
   public int maxOutboundMessageSize = 1024 * 1024;
 
   public boolean isRemoteEnabled() {
-    return !Strings.isNullOrEmpty(remoteCache) || !Strings.isNullOrEmpty(remoteExecutor);
+    return !Strings.isNullOrEmpty(remoteCache) || isRemoteExecutionEnabled();
+  }
+
+  public boolean isRemoteExecutionEnabled() {
+    return !Strings.isNullOrEmpty(remoteExecutor);
   }
 
   /**

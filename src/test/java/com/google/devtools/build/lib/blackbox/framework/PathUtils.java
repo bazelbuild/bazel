@@ -245,6 +245,21 @@ public class PathUtils {
   }
 
   /**
+   * Writes the file in the <code>directory/subPath</code> location using ISO_8859_1. Overrides the
+   * file if it exists, creates the file if it does not exist.
+   *
+   * @param directory root directory, under which the subtree with the file is created
+   * @param subPath path under <code>directory</code>, under which the file is created
+   * @param lines lines to be written
+   * @return Path to created file
+   * @throws IOException in case file can not be written
+   */
+  public static Path writeFileInDir(Path directory, String subPath, List<String> lines)
+      throws IOException {
+    return writeFile(resolve(directory, subPath), lines);
+  }
+
+  /**
    * Writes the file in the <code>path</code> location using ISO_8859_1. Overrides the file if it
    * exists, creates the file if it does not exist.
    *
@@ -255,6 +270,19 @@ public class PathUtils {
   public static Path writeFile(Path path, String... lines) throws IOException {
     Files.createDirectories(path.getParent());
     return Files.write(path, Lists.newArrayList(lines), StandardCharsets.ISO_8859_1);
+  }
+
+  /**
+   * Writes the file in the <code>path</code> location using ISO_8859_1. Overrides the file if it
+   * exists, creates the file if it does not exist.
+   *
+   * @param path location where to write the file
+   * @param lines lines to be written
+   * @throws IOException in case file can not be written
+   */
+  public static Path writeFile(Path path, List<String> lines) throws IOException {
+    Files.createDirectories(path.getParent());
+    return Files.write(path, lines, StandardCharsets.ISO_8859_1);
   }
 
   /**

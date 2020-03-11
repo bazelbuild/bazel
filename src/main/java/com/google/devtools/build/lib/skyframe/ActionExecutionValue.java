@@ -31,20 +31,13 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.math.BigInteger;
-import java.util.Comparator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
-/**
- * A value representing an executed action.
- */
+/** A value representing an executed action. */
 @Immutable
 @ThreadSafe
 public class ActionExecutionValue implements SkyValue {
@@ -58,11 +51,6 @@ public class ActionExecutionValue implements SkyValue {
   @Nullable private final ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
   @Nullable private final NestedSet<Artifact> discoveredModules;
-
-  /**
-   * Transient because it can be reconstituted on demand, and {@link BigInteger} isn't serializable.
-   */
-  @Nullable private transient BigInteger valueFingerprint;
 
   /**
    * @param artifactData Map from Artifacts to corresponding {@link FileArtifactValue}.
@@ -136,7 +124,16 @@ public class ActionExecutionValue implements SkyValue {
    */
   @Nullable
   public FileArtifactValue getArtifactValue(Artifact artifact) {
-    return artifactData.get(artifact);
+    FileArtifactValue result = artifactData.get(artifact);
+    if (result != null || !artifact.hasParent()) {
+      return result;
+    }
+    // In some cases, TreeFileArtifact metadata may not have been injected directly, and is only
+    // available via the parent. However, if this ActionExecutionValue corresponds to a templated
+    // action, as opposed to an action that created a tree artifact itself, the TreeFileArtifact
+    // metadata will be in artifactData, since this value will have no treeArtifactData.
+    TreeArtifactValue treeArtifactValue = treeArtifactData.get(artifact.getParent());
+    return treeArtifactValue == null ? null : treeArtifactValue.getChildValues().get(artifact);
   }
 
   TreeArtifactValue getTreeArtifactValue(Artifact artifact) {
@@ -170,38 +167,6 @@ public class ActionExecutionValue implements SkyValue {
   @Nullable
   public NestedSet<Artifact> getDiscoveredModules() {
     return discoveredModules;
-  }
-
-  @Override
-  public BigInteger getValueFingerprint() {
-    if (valueFingerprint == null) {
-      BigIntegerFingerprint fp = new BigIntegerFingerprint();
-      sortMapByArtifactExecPathAndStream(artifactData)
-          .forEach(
-              (entry) -> {
-                fp.addPath(entry.getKey().getExecPath());
-                fp.addBigIntegerOrdered(entry.getValue().getValueFingerprint());
-              });
-      sortMapByArtifactExecPathAndStream(treeArtifactData)
-          .forEach(
-              (entry) -> {
-                fp.addPath(entry.getKey().getExecPath());
-                fp.addBigIntegerOrdered(entry.getValue().getValueFingerprint());
-              });
-      if (outputSymlinks != null) {
-        for (FilesetOutputSymlink symlink : outputSymlinks) {
-          fp.addBigIntegerOrdered(symlink.getFingerprint());
-        }
-      }
-      valueFingerprint = fp.getFingerprint();
-    }
-    return valueFingerprint;
-  }
-
-  private static <T> Stream<Entry<Artifact, T>> sortMapByArtifactExecPathAndStream(
-      Map<Artifact, T> inputMap) {
-    return inputMap.entrySet().stream()
-        .sorted(Comparator.comparing(Entry::getKey, Artifact.EXEC_PATH_COMPARATOR));
   }
 
   @Override
@@ -310,8 +275,7 @@ public class ActionExecutionValue implements SkyValue {
 
   ActionExecutionValue transformForSharedAction(ImmutableSet<Artifact> outputs) {
     Map<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
-        outputs
-            .stream()
+        outputs.stream()
             .collect(Collectors.toMap(OwnerlessArtifactWrapper::new, Function.identity()));
     // This is only called for shared actions, so we'll almost certainly have to transform all keys
     // in all sets.

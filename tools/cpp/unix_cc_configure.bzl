@@ -25,6 +25,7 @@ load(
     "resolve_labels",
     "split_escaped",
     "which",
+    "write_builtin_include_directory_paths",
 )
 
 def _field(name, value):
@@ -139,10 +140,18 @@ def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_fl
     else:
         inc_dirs = result.stderr[index1 + 1:index2].strip()
 
-    return [
+    inc_directories = [
         _prepare_include_path(repository_ctx, _cxx_inc_convert(p))
         for p in inc_dirs.split("\n")
     ]
+
+    if _is_compiler_option_supported(repository_ctx, cc, "-print-resource-dir"):
+        resource_dir = repository_ctx.execute(
+            [cc, "-print-resource-dir"],
+        ).stdout.strip() + "/share"
+        inc_directories.append(_prepare_include_path(repository_ctx, resource_dir))
+
+    return inc_directories
 
 def _is_compiler_option_supported(repository_ctx, cc, option):
     """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
@@ -198,6 +207,10 @@ def _find_gold_linker_path(repository_ctx, cc):
             continue
         for flag in line.split(" "):
             if flag.find("gold") == -1:
+                continue
+            if flag.find("--enable-gold") > -1 or flag.find("--with-plugin-ld") > -1:
+                # skip build configuration options of gcc itself
+                # TODO(hlopko): Add redhat-like worker on the CI (#9392)
                 continue
 
             # flag is '-fuse-ld=gold' for GCC or "/usr/lib/ld.gold" for Clang
@@ -366,16 +379,22 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         "-std=c++0x",
         False,
     ), ":")
+
+    bazel_linkopts = "-lstdc++:-lm"
+    bazel_linklibs = ""
+    if repository_ctx.flag_enabled("incompatible_linkopts_to_linklibs"):
+        bazel_linkopts, bazel_linklibs = bazel_linklibs, bazel_linkopts
+
     link_opts = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_LINKOPTS",
-        "-lstdc++:-lm",
+        bazel_linkopts,
         False,
     ), ":")
     link_libs = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_LINKLIBS",
-        "",
+        bazel_linklibs,
         False,
     ), ":")
     gold_linker_path = _find_gold_linker_path(repository_ctx, cc)
@@ -388,7 +407,24 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         bin_search_flag = []
 
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
+    builtin_include_directories = _uniq(
+        get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
+        get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++", cxx_opts) +
+        get_escaped_cxx_inc_directories(
+            repository_ctx,
+            cc,
+            "-xc",
+            _get_no_canonical_prefixes_opt(repository_ctx, cc),
+        ) +
+        get_escaped_cxx_inc_directories(
+            repository_ctx,
+            cc,
+            "-xc++",
+            cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
+        ),
+    )
 
+    write_builtin_include_directory_paths(repository_ctx, cc, builtin_include_directories)
     repository_ctx.template(
         "BUILD",
         paths["@bazel_tools//tools/cpp:BUILD.tpl"],
@@ -396,7 +432,9 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{cc_toolchain_identifier}": cc_toolchain_identifier,
             "%{name}": cpu_value,
             "%{supports_param_files}": "0" if darwin else "1",
-            "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
+            "%{cc_compiler_deps}": get_starlark_list([":builtin_include_directory_paths"] + (
+                [":cc_wrapper"] if darwin else []
+            )),
             "%{compiler}": escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_COMPILER",
@@ -442,24 +480,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{tool_paths}": ",\n        ".join(
                 ['"%s": "%s"' % (k, v) for k, v in tool_paths.items()],
             ),
-            "%{cxx_builtin_include_directories}": get_starlark_list(
-                _uniq(
-                    get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
-                    get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++", cxx_opts) +
-                    get_escaped_cxx_inc_directories(
-                        repository_ctx,
-                        cc,
-                        "-xc",
-                        _get_no_canonical_prefixes_opt(repository_ctx, cc),
-                    ) +
-                    get_escaped_cxx_inc_directories(
-                        repository_ctx,
-                        cc,
-                        "-xc++",
-                        cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
-                    ),
-                ),
-            ),
+            "%{cxx_builtin_include_directories}": get_starlark_list(builtin_include_directories),
             "%{compile_flags}": get_starlark_list(
                 [
                     # Security hardening requires optimization.

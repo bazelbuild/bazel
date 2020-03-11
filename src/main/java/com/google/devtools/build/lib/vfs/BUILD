@@ -5,7 +5,6 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 PATH_FRAGMENT_SOURCES = [
@@ -26,13 +25,13 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
         "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -44,14 +43,9 @@ java_library(
         ],
         exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES,
     ),
-    visibility = ["//visibility:public"],
-    exports = [
-        ":pathfragment",
-    ],
     deps = [
         ":pathfragment",
         "//src/main/java/com/google/devtools/build/lib:filetype",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",

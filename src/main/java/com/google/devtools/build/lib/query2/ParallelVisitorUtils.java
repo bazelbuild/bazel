@@ -76,8 +76,7 @@ public final class ParallelVisitorUtils {
           visitorFactory.create();
       // TODO(b/131109214): It's not ideal to have an operation like this in #process that blocks on
       // another, potentially expensive computation. Refactor to something like "processAsync".
-      visitor.visitAndWaitForCompletion(
-          SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(partialResult));
+      visitor.visitAndWaitForCompletion(SkyQueryEnvironment.makeLabelsStrict(partialResult));
     }
   }
 
@@ -86,7 +85,10 @@ public final class ParallelVisitorUtils {
       extends ParallelVisitor<
           SkyKey, VisitKeyT, OutputKeyT, OutputResultT, QueryException, Callback<OutputResultT>> {
     public ParallelQueryVisitor(
-        Callback<OutputResultT> callback, int visitBatchSize, int processResultsBatchSize) {
+        Callback<OutputResultT> callback,
+        int visitBatchSize,
+        int processResultsBatchSize,
+        VisitTaskStatusCallback visitTaskStatusCallback) {
       super(
           callback,
           QueryException.class,
@@ -94,7 +96,8 @@ public final class ParallelVisitorUtils {
           processResultsBatchSize,
           3L * SkyQueryEnvironment.DEFAULT_THREAD_COUNT,
           SkyQueryEnvironment.BATCH_CALLBACK_SIZE,
-          FIXED_THREAD_POOL_EXECUTOR);
+          FIXED_THREAD_POOL_EXECUTOR,
+          visitTaskStatusCallback);
     }
   }
 }

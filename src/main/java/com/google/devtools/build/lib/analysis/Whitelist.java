@@ -20,10 +20,10 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 
@@ -89,8 +89,8 @@ public final class Whitelist {
   }
 
   public static boolean isAvailableFor(
-      Iterable<PackageGroupContents> packageGroupContents, Label relevantLabel) {
-    return Streams.stream(packageGroupContents)
+      NestedSet<PackageGroupContents> packageGroupContents, Label relevantLabel) {
+    return packageGroupContents.toList().stream()
         .anyMatch(p -> p.containsPackage(relevantLabel.getPackageIdentifier()));
   }
 

@@ -31,7 +31,7 @@ public class KnownNestedSets extends BaseCache<Object, AnalysisProtos.DepSetOfFi
 
   @Override
   protected Object transformToKey(Object nestedSetViewObject) {
-    NestedSetView<Artifact> nestedSetView = (NestedSetView<Artifact>) nestedSetViewObject;
+    NestedSetView<?> nestedSetView = (NestedSetView<?>) nestedSetViewObject;
     // The NestedSet is identified by their raw 'children' object since multiple NestedSetViews
     // can point to the same object.
     return nestedSetView.identifier();
@@ -39,15 +39,15 @@ public class KnownNestedSets extends BaseCache<Object, AnalysisProtos.DepSetOfFi
 
   @Override
   AnalysisProtos.DepSetOfFiles createProto(Object nestedSetViewObject, String id) {
-    NestedSetView<Artifact> nestedSetView = (NestedSetView<Artifact>) nestedSetViewObject;
+    NestedSetView<?> nestedSetView = (NestedSetView) nestedSetViewObject;
     AnalysisProtos.DepSetOfFiles.Builder depSetBuilder = AnalysisProtos.DepSetOfFiles
         .newBuilder()
         .setId(id);
-    for (NestedSetView<Artifact> transitiveNestedSet : nestedSetView.transitives()) {
+    for (NestedSetView<?> transitiveNestedSet : nestedSetView.transitives()) {
       depSetBuilder.addTransitiveDepSetIds(this.dataToId(transitiveNestedSet));
     }
-    for (Artifact directArtifact : nestedSetView.directs()) {
-      depSetBuilder.addDirectArtifactIds(knownArtifacts.dataToId(directArtifact));
+    for (Object directArtifact : nestedSetView.directs()) {
+      depSetBuilder.addDirectArtifactIds(knownArtifacts.dataToId((Artifact) directArtifact));
     }
     return depSetBuilder.build();
   }

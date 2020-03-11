@@ -313,7 +313,7 @@ public class FdoHelper {
       RuleContext ruleContext,
       CppConfiguration cppConfiguration,
       String fdoUniqueArtifactName) {
-    if (cppConfiguration.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (cppConfiguration.isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       return null;
     }
 
@@ -442,7 +442,8 @@ public class FdoHelper {
   }
 
   private static FdoInputFile fdoInputFileFromArtifacts(
-      RuleContext ruleContext, CcToolchainAttributesProvider attributes) {
+      RuleContext ruleContext, CcToolchainAttributesProvider attributes)
+      throws InterruptedException {
     ImmutableList<Artifact> fdoArtifacts = attributes.getFdoOptimizeArtifacts();
     if (fdoArtifacts.size() != 1) {
       ruleContext.ruleError("--fdo_optimize does not point to a single target");
@@ -458,7 +459,11 @@ public class FdoHelper {
     Label fdoLabel = attributes.getFdoOptimize().getLabel();
     if (!fdoLabel
         .getPackageIdentifier()
-        .getPathUnderExecRoot()
+        .getExecPath(
+            ruleContext
+                .getAnalysisEnvironment()
+                .getSkylarkSemantics()
+                .experimentalSiblingRepositoryLayout())
         .getRelative(fdoLabel.getName())
         .equals(fdoArtifact.getExecPath())) {
       ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");

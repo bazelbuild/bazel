@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
@@ -26,10 +25,9 @@ public interface SkylarkAspect extends SkylarkAspectApi {
    * Attaches this aspect to an attribute.
    *
    * @param attrBuilder the builder of the attribute to add this aspect to
-   * @param loc the location in skylark which adds this aspect to an attribute
    * @throws EvalException if this aspect cannot be successfully applied to the given attribute
    */
-  void attachToAttribute(Attribute.Builder<?> attrBuilder, Location loc) throws EvalException;
+  void attachToAttribute(Attribute.Builder<?> attrBuilder) throws EvalException;
 
   /** Returns the aspect class for this aspect. */
   AspectClass getAspectClass();

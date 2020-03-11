@@ -25,13 +25,13 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetNotFoundException;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,7 +64,7 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   @Override
-  public Iterable<Target> getLabelListAttr(
+  public Iterable<Target> getPrerequisites(
       QueryExpression caller, Target target, String attrName, String errorMsgPrefix)
       throws QueryException, InterruptedException {
     Preconditions.checkArgument(target instanceof Rule);

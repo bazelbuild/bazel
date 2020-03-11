@@ -86,7 +86,8 @@ function test_glob_utf8() {
   bazel query "//$pkg:*" >& $TEST_log || fail "Expected success"
 }
 
-function test_glob_with_io_error() {
+function run_test_glob_with_io_error() {
+  local option=$1
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -96,14 +97,22 @@ function test_glob_with_io_error() {
   echo "filegroup(name='t', srcs=glob(['u/*']))" > $pkg/t/BUILD
   chmod 000 $pkg/t/u
 
-  bazel query "//$pkg/t:*" >& $TEST_log && fail "Expected failure"
+  bazel query "$option" "//$pkg/t:*" >& $TEST_log && fail "Expected failure"
   expect_log 'error globbing.*Permission denied'
 
   chmod 755 $pkg/t/u
-  bazel query "//$pkg/t:*" >& $TEST_log || fail "Expected success"
+  bazel query "$option" "//$pkg/t:*" >& $TEST_log || fail "Expected success"
   expect_not_log 'error globbing.*Permission denied'
   expect_log "//$pkg/t:u"
   expect_log "//$pkg/t:u/v"
+}
+
+function test_glob_with_io_error_nokeep_going() {
+  run_test_glob_with_io_error "--nokeep_going"
+}
+
+function test_glob_with_io_error_keep_going() {
+  run_test_glob_with_io_error "--keep_going"
 }
 
 function test_build_file_symlinks() {

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -58,12 +59,12 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
-  public Iterable<? extends ActionInput> getToolFiles() {
+  public NestedSet<? extends ActionInput> getToolFiles() {
     return spawn.getToolFiles();
   }
 
   @Override
-  public Iterable<? extends ActionInput> getInputFiles() {
+  public NestedSet<? extends ActionInput> getInputFiles() {
     return spawn.getInputFiles();
   }
 
@@ -85,6 +86,11 @@ public class DelegateSpawn implements Spawn {
   @Override
   public String getMnemonic() {
     return spawn.getMnemonic();
+  }
+
+  @Override
+  public ImmutableMap<String, String> getCombinedExecProperties() {
+    return spawn.getCombinedExecProperties();
   }
 
   @Override

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** The interface for late bound defaults in Skylark. */
 @SkylarkModule(
@@ -30,4 +30,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + " build configuration. <p>See <a"
             + " href=\"globals.html#configuration_field\">configuration_field</a> for example"
             + " usage.")
-public interface LateBoundDefaultApi extends SkylarkValue {}
+public interface LateBoundDefaultApi extends StarlarkValue {}

@@ -61,38 +61,44 @@ add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-    if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
-        JAVA_TOOLS_ZIP_FILE_URL="${JAVA_TOOLS_ZIP}"
-    elif "$is_windows"; then
-        JAVA_TOOLS_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
-    else
-        JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
-    fi
+  if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
+    JAVA_TOOLS_ZIP_FILE_URL="${JAVA_TOOLS_ZIP}"
+  elif "$is_windows"; then
+    JAVA_TOOLS_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+  else
+    JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+  fi
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
 if [[ $# -gt 0 ]]; then
-    JAVABASE_VALUE="$1"; shift
-    add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
-    add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
+  JAVABASE_VALUE="$1"; shift
+  add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
+  add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
 fi
 
+export TESTENV_DONT_BAZEL_CLEAN=1
+
 function set_up() {
-    cat >>WORKSPACE <<EOF
+  cat >>WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # java_tools versions only used to test Bazel with various JDK toolchains.
 EOF
 
-    if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
+  if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
     cat >>WORKSPACE <<EOF
 http_archive(
     name = "local_java_tools",
     urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
 )
 EOF
-    fi
+  fi
 
-    cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+}
+
+function tear_down() {
+  rm -rf "$(bazel info bazel-bin)/java"
 }
 
 function write_hello_library_files() {
@@ -382,11 +388,6 @@ EOF
 }
 
  function test_java_common_compile_sourcepath() {
-   # TODO(bazel-team): Enable this for Java 7 when VanillaJavaBuilder supports --sourcepath.
-   JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:remote_toolchain' | grep source_version | cut -d '"' -f 2)"
-   if [ "${JAVA_VERSION}" = "1.7" ]; then
-     return 0
-   fi
    mkdir -p g
    cat >g/A.java <<'EOF'
 package g;
@@ -458,11 +459,6 @@ EOF
  }
 
 function test_java_common_compile_sourcepath_with_implicit_class() {
-   # TODO(bazel-team): Enable this for Java 7 when VanillaJavaBuilder supports --sourcepath.
-   JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:remote_toolchain' | grep source_version | cut -d '"' -f 2)"
-   if [ "${JAVA_VERSION}" = "1.7" ]; then
-     return 0
-   fi
    mkdir -p g
    cat >g/A.java <<'EOF'
 package g;
@@ -544,11 +540,6 @@ function test_build_and_run_hello_world_without_runfiles() {
 }
 
 function test_errorprone_error_fails_build_by_default() {
-  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:remote_toolchain' | grep source_version | cut -d '"' -f 2)"
-  if [ "${JAVA_VERSION}" = "1.7" ]; then
-    return 0
-  fi
-
   write_hello_library_files
   # Trigger an error-prone error by comparing two arrays via #equals().
   cat >java/hello_library/HelloLibrary.java <<EOF
@@ -567,11 +558,6 @@ EOF
 }
 
 function test_extrachecks_off_disables_errorprone() {
-  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:remote_toolchain' | grep source_version | cut -d '"' -f 2)"
-  if [ "${JAVA_VERSION}" = "1.7" ]; then
-    return 0
-  fi
-
   write_hello_library_files
   # Trigger an error-prone error by comparing two arrays via #equals().
   cat >java/hello_library/HelloLibrary.java <<EOF
@@ -1509,6 +1495,135 @@ function test_build_hello_world_with_remote_embedded_tool_targets() {
 
   bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
     &> $TEST_log || fail "build failed"
+}
+
+
+function test_target_exec_properties_java() {
+  cat > Hello.java << 'EOF'
+public class Hello {
+  public static void main(String[] args) {
+    System.out.println("Hello!");
+  }
+}
+EOF
+  cat > BUILD <<'EOF'
+java_binary(
+  name = "a",
+  srcs = ["Hello.java"],
+  main_class = "Hello",
+  exec_properties = {"key3": "value3", "overridden": "child_value"},
+)
+
+platform(
+    name = "my_platform",
+    parents = ["@local_config_platform//:host"],
+    exec_properties = {
+        "key2": "value2",
+        "overridden": "parent_value",
+        }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" --toolchain_resolution_debug :a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  grep "key3" out.txt || fail "Did not find the target attribute key"
+  grep "child_value" out.txt || fail "Did not find the overriding value"
+  grep "key2" out.txt || fail "Did not find the platform key"
+}
+
+
+function test_current_host_java_runtime_runfiles() {
+  if "$is_windows"; then
+    echo "Skipping test on Windows" && return
+  fi
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir "${pkg}" || fail "Expected success"
+
+  touch "${pkg}"/BUILD "${pkg}"/run.sh
+
+  cat > "${pkg}"/BUILD <<EOF
+sh_test(
+    name = "bar",
+    args = ["\$(JAVA)"],
+    data = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+    srcs = ["run.sh"],
+    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+)
+EOF
+
+  cat > "${pkg}"/run.sh <<EOF
+#!/bin/bash
+
+set -eu
+
+JAVA=\$1
+[[ "\$JAVA" =~ ^(/|[^/]+$) ]] || JAVA="\$PWD/\$JAVA"
+"\${JAVA}" -fullversion
+EOF
+  chmod +x "${pkg}"/run.sh
+
+  bazel test //"${pkg}":bar --test_output=all --verbose_failures >& "$TEST_log" \
+      || fail "Expected success"
+}
+
+
+# Build and run a java_binary that calls a C++ function through JNI.
+# This test exercises the built-in @bazel_tools//tools/jdk:jni target.
+#
+# The java_binary wrapper script specifies -Djava.library.path=$runfiles/test,
+# and the Java program expects to find a DSO there---except on MS Windows,
+# which lacks support for symbolic links. Really there needs to
+# be a cleaner mechanism for finding and loading the JNI library (and better
+# hygiene around the library namespace). By contrast, Blaze links all the
+# native code and the JVM into a single executable, which is an elegant solution.
+#
+function test_jni() {
+  # Skip on MS Windows, as Bazel does not create a runfiles symlink tree.
+  # (MSYS_NT is the system name reported by MinGW uname.)
+  # TODO(adonovan): make this work.
+  uname -s | grep -q MSYS_NT && return
+
+  # Skip on Darwin, as System.loadLibrary looks for a file named
+  # .dylib, not .so, and that's not what the file is called.
+  # TODO(adonovan): make this just work.
+  uname -s | grep -q Darwin && return
+
+  mkdir -p test/
+  cat > test/BUILD <<'EOF'
+java_binary(
+  name = "app",
+  srcs = ["App.java"],
+  main_class = 'foo.App',
+  data = [":libnative.so"],
+  jvm_flags = ["-Djava.library.path=test"],
+)
+cc_binary(
+  name = "libnative.so",
+  srcs = ["native.cc"],
+  linkshared = 1,
+  deps = ["@bazel_tools//tools/jdk:jni"],
+)
+EOF
+  cat > test/App.java <<'EOF'
+package foo;
+
+public class App {
+  static { System.loadLibrary("native"); }
+  public static void main(String[] args) { f(123); }
+  private static native void f(int x);
+}
+EOF
+  cat > test/native.cc <<'EOF'
+#include <jni.h>
+#include <stdio.h>
+
+extern "C" JNIEXPORT void JNICALL Java_foo_App_f(JNIEnv *env, jclass clazz, jint x) {
+  printf("hello %d\n", x);
+}
+EOF
+  bazel run //test:app > $TEST_log || {
+    find bazel-bin/ | native # helpful for debugging
+    fail "bazel run command failed"
+  }
+  expect_log "hello 123"
 }
 
 run_suite "Java integration tests"

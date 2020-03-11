@@ -8,9 +8,19 @@
 6. `rm -rf third_party/grpc/src/core/tsi/test_creds`
 7. Update BUILD files by copying the rules from the BUILD file of gRPC;
    fix macros in third_party/grpc/build_defs.bzl if necessary
-8. Apply local patches if necessary: `patch -p3 < netinet_tcp_h.patch`
+8. In the `third_party/grpc` directory, apply local patches if necessary:
+   `patch -p3 < netinet_tcp_h.patch`, `patch -p1 < grpc-gettid.patch`
 9. Update //third_party/nanopb if necessary
 
+# How to update the BUILD/bzl sources of gRPC:
+
+1. Unless you've done so while updating C++ sources,
+   `git clone http://github.com/grpc/grpc.git` in a convenient directory
+2. `git checkout <tag>` (current is `v1.26.0`, commithash `de893acb`)
+3. `mkdir -p third_party/grpc/bazel`
+4. `cp <gRPC git tree>/bazel/{BUILD,cc_grpc_library.bzl,generate_cc.bzl,protobuf.bzl} third_party/grpc/bazel`
+5. In the `third_party/grpc` directory, apply local patches:
+   `patch -p3 < bazel.patch`
 
 # How to update the Java plugin:
 

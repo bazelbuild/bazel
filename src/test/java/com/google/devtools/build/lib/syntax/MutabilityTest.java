@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -84,7 +83,7 @@ public final class MutabilityTest {
   public void queryLockedState_OneLocation() throws Exception {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromPathFragment(PathFragment.create("/a"));
+    Location locA = Location.fromFileLineColumn("/a", 1, 0);
 
     mutability.lock(dummy, locA);
     assertThat(mutability.isLocked(dummy)).isTrue();
@@ -95,10 +94,10 @@ public final class MutabilityTest {
   public void queryLockedState_ManyLocations() throws Exception {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromPathFragment(PathFragment.create("/a"));
-    Location locB = Location.fromPathFragment(PathFragment.create("/b"));
-    Location locC = Location.fromPathFragment(PathFragment.create("/c"));
-    Location locD = Location.fromPathFragment(PathFragment.create("/d"));
+    Location locA = Location.fromFileLineColumn("/a", 1, 0);
+    Location locB = Location.fromFileLineColumn("/b", 1, 0);
+    Location locC = Location.fromFileLineColumn("/c", 1, 0);
+    Location locD = Location.fromFileLineColumn("/d", 1, 0);
 
     mutability.lock(dummy, locA);
     mutability.lock(dummy, locB);
@@ -113,8 +112,8 @@ public final class MutabilityTest {
   public void queryLockedState_LockTwiceUnlockOnce() throws Exception {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromPathFragment(PathFragment.create("/a"));
-    Location locB = Location.fromPathFragment(PathFragment.create("/b"));
+    Location locA = Location.fromFileLineColumn("/a", 1, 0);
+    Location locB = Location.fromFileLineColumn("/b", 1, 0);
 
     mutability.lock(dummy, locA);
     mutability.lock(dummy, locB);
@@ -127,8 +126,8 @@ public final class MutabilityTest {
   public void queryLockedState_LockTwiceUnlockTwice() throws Exception {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromPathFragment(PathFragment.create("/a"));
-    Location locB = Location.fromPathFragment(PathFragment.create("/b"));
+    Location locA = Location.fromFileLineColumn("/a", 1, 0);
+    Location locB = Location.fromFileLineColumn("/b", 1, 0);
 
     mutability.lock(dummy, locA);
     mutability.lock(dummy, locB);
@@ -142,8 +141,8 @@ public final class MutabilityTest {
   public void cannotMutateLocked() throws Exception {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromPathFragment(PathFragment.create("/a"));
-    Location locB = Location.fromPathFragment(PathFragment.create("/b"));
+    Location locA = Location.fromFileLineColumn("/a", 1, 0);
+    Location locB = Location.fromFileLineColumn("/b", 1, 0);
 
     mutability.lock(dummy, locA);
     mutability.lock(dummy, locB);
@@ -158,8 +157,8 @@ public final class MutabilityTest {
   public void unlockLocationMismatch() throws Exception {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromPathFragment(PathFragment.create("/a"));
-    Location locB = Location.fromPathFragment(PathFragment.create("/b"));
+    Location locA = Location.fromFileLineColumn("/a", 1, 0);
+    Location locB = Location.fromFileLineColumn("/b", 1, 0);
 
     mutability.lock(dummy, locA);
     IllegalArgumentException expected =
@@ -172,7 +171,7 @@ public final class MutabilityTest {
   public void lockAndThenFreeze() throws Exception {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
-    Location loc = Location.fromPathFragment(PathFragment.create("/a"));
+    Location loc = Location.fromFileLineColumn("/a", 1, 0);
 
     mutability.lock(dummy, loc);
     mutability.freeze();
@@ -199,7 +198,7 @@ public final class MutabilityTest {
     Mutability mutability1 = Mutability.create("test1");
     Mutability mutability2 = Mutability.create("test2");
     DummyFreezable dummy = new DummyFreezable(mutability1);
-    Location loc = Location.fromPathFragment(PathFragment.create("/a"));
+    Location loc = Location.fromFileLineColumn("/a", 1, 0);
 
     IllegalArgumentException expected =
         assertThrows(IllegalArgumentException.class, () -> mutability2.lock(dummy, loc));
@@ -212,7 +211,7 @@ public final class MutabilityTest {
     Mutability mutability1 = Mutability.create("test1");
     Mutability mutability2 = Mutability.create("test2");
     DummyFreezable dummy = new DummyFreezable(mutability1);
-    Location loc = Location.fromPathFragment(PathFragment.create("/a"));
+    Location loc = Location.fromFileLineColumn("/a", 1, 0);
 
     IllegalArgumentException expected =
         assertThrows(IllegalArgumentException.class, () -> mutability2.unlock(dummy, loc));
@@ -225,7 +224,7 @@ public final class MutabilityTest {
     Mutability mutability1 = Mutability.create("test1");
     Mutability mutability2 = Mutability.create("test2");
     DummyFreezable dummy = new DummyFreezable(mutability1);
-    Location loc = Location.fromPathFragment(PathFragment.create("/a"));
+    Location loc = Location.fromFileLineColumn("/a", 1, 0);
 
     mutability1.lock(dummy, loc);
     IllegalArgumentException expected =

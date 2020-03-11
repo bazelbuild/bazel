@@ -32,8 +32,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -87,7 +85,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
-  private static final String ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING =
+  private static final String BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING =
       "config/blacklisted.txt";
 
   protected abstract CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy();
@@ -128,7 +126,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         FileStateValue.FILE_STATE,
         new FileStateFunction(
             new AtomicReference<TimestampGranularityMonitor>(),
-            new AtomicReference(UnixGlob.DEFAULT_SYSCALLS),
+            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
             externalFilesHelper));
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
@@ -136,10 +134,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(
             externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
-    skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
+    skyFunctions.put(
+        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction(
-            /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
-            PathFragment.create(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING)));
+            PathFragment.create(BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING)));
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
@@ -148,9 +146,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             ruleClassProvider,
             analysisMock
                 .getPackageFactoryBuilderForTesting(directories)
-                .setEnvironmentExtensions(
-                    ImmutableList.<EnvironmentExtension>of(
-                        new PackageFactory.EmptyEnvironmentExtension()))
                 .build(ruleClassProvider, fileSystem),
             directories,
             /*skylarkImportLookupFunctionForInlining=*/ null));
@@ -242,8 +237,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   public void testBlacklistedPackage() throws Exception {
     scratch.file("blacklisted/subdir/BUILD");
     scratch.file("blacklisted/BUILD");
-    Path blacklist = scratch.overwriteFile(
-        ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "blacklisted");
+    Path blacklist =
+        scratch.overwriteFile(BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "blacklisted");
 
     ImmutableSet<String> pkgs = ImmutableSet.of("blacklisted/subdir", "blacklisted");
     for (String pkg : pkgs) {
@@ -253,8 +248,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       assertThat(packageLookupValue.getErrorMsg()).isNotNull();
     }
 
-    scratch.overwriteFile(
-        ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "not_blacklisted");
+    scratch.overwriteFile(BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "not_blacklisted");
     RootedPath rootedBlacklist =
         RootedPath.toRootedPath(
             Root.fromPath(blacklist.getParentDirectory().getParentDirectory()),

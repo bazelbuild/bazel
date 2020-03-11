@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -59,17 +59,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -177,7 +175,7 @@ public class CppHelper {
           ruleContext.getPrerequisites("additional_linker_inputs", Mode.TARGET)) {
         builder.put(
             AliasProvider.getDependencyLabel(current),
-            ImmutableList.copyOf(current.getProvider(FileProvider.class).getFilesToBuild()));
+            current.getProvider(FileProvider.class).getFilesToBuild().toList());
       }
     }
 
@@ -239,29 +237,35 @@ public class CppHelper {
   /**
    * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
    * for non C++ rules that link against the C++ runtime.
+   *
+   * <p>This uses the default feature configuration. Do *not* use this method in rules that use a
+   * non-default feature configuration, or risk a mismatch.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
-      RuleContext ruleContext) throws RuleErrorException {
+      RuleContext ruleContext, CppSemantics semantics) throws RuleErrorException {
     try {
-      return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext);
+      return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext, semantics);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
   }
 
   /**
    * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
    * for Starlark-defined rules that link against the C++ runtime.
+   *
+   * <p>This uses the default feature configuration. Do *not* use this method in rules that use a
+   * non-default feature configuration, or risk a mismatch.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(
-      RuleContext ruleContext) throws EvalException {
+      RuleContext ruleContext, CppSemantics semantics) throws EvalException {
     CcToolchainProvider defaultToolchain =
         getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     if (defaultToolchain == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
 
     return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
   }
@@ -271,18 +275,18 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
-      RuleContext ruleContext) throws RuleErrorException {
+      RuleContext ruleContext, CppSemantics semantics) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     if (defaultToolchain == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
     try {
       return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
   }
 
@@ -574,7 +578,7 @@ public class CppHelper {
   static List<Artifact> getAggregatingMiddlemanForCppRuntimes(
       RuleContext ruleContext,
       String purpose,
-      Iterable<Artifact> artifacts,
+      NestedSet<Artifact> artifacts,
       String solibDir,
       String solibDirOverride,
       BuildConfiguration configuration) {
@@ -595,7 +599,7 @@ public class CppHelper {
       RuleContext ruleContext,
       ActionOwner owner,
       String purpose,
-      Iterable<Artifact> artifacts,
+      NestedSet<Artifact> artifacts,
       boolean useSolibSymlinks,
       String solibDir,
       BuildConfiguration configuration) {
@@ -616,7 +620,7 @@ public class CppHelper {
       RuleContext ruleContext,
       ActionOwner actionOwner,
       String purpose,
-      Iterable<Artifact> artifacts,
+      NestedSet<Artifact> artifacts,
       boolean useSolibSymlinks,
       boolean isCppRuntime,
       String solibDir,
@@ -624,8 +628,8 @@ public class CppHelper {
       BuildConfiguration configuration) {
     MiddlemanFactory factory = ruleContext.getAnalysisEnvironment().getMiddlemanFactory();
     if (useSolibSymlinks) {
-      List<Artifact> symlinkedArtifacts = new ArrayList<>();
-      for (Artifact artifact : artifacts) {
+      NestedSetBuilder<Artifact> symlinkedArtifacts = NestedSetBuilder.stableOrder();
+      for (Artifact artifact : artifacts.toList()) {
         Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename()));
         symlinkedArtifacts.add(
             isCppRuntime
@@ -639,7 +643,7 @@ public class CppHelper {
                     /* preserveName= */ false,
                     /* prefixConsumer= */ true));
       }
-      artifacts = symlinkedArtifacts;
+      artifacts = symlinkedArtifacts.build();
       purpose += "_with_solib";
     }
     return ImmutableList.of(
@@ -743,7 +747,7 @@ public class CppHelper {
     try {
       return ImmutableList.copyOf(featureConfiguration.getCommandLine(actionName, variables));
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      throw ruleErrorConsumer.throwWithRuleError(e);
     }
   }
 
@@ -756,7 +760,7 @@ public class CppHelper {
     try {
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      throw ruleErrorConsumer.throwWithRuleError(e);
     }
   }
 
@@ -809,7 +813,7 @@ public class CppHelper {
     try {
       return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
     } catch (EvalException e) {
-      ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      ruleErrorConsumer.throwWithRuleError(e);
       throw new IllegalStateException("Should not be reached");
     }
   }
@@ -887,6 +891,45 @@ public class CppHelper {
   }
 
   /**
+   * Create action for generating an empty DEF file without any exports, should only be used when
+   * targeting Windows.
+   *
+   * @return The artifact of an empty DEF file.
+   */
+  private static Artifact createEmptyDefFileAction(RuleContext ruleContext) {
+    Artifact trivialDefFile =
+        ruleContext.getBinArtifact(
+            ruleContext.getLabel().getName()
+                + ".gen.empty"
+                + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
+    ruleContext.registerAction(FileWriteAction.create(ruleContext, trivialDefFile, "", false));
+    return trivialDefFile;
+  }
+
+  /**
+   * Decide which DEF file should be used for the linking action.
+   *
+   * @return The artifact of the DEF file that should be used for the linking action.
+   */
+  public static Artifact getWindowsDefFileForLinking(
+      RuleContext ruleContext,
+      Artifact customDefFile,
+      Artifact generatedDefFile,
+      FeatureConfiguration featureConfiguration) {
+    // 1. If a custom DEF file is specified in win_def_file attribute, use it.
+    // 2. If a generated DEF file is available and should be used, use it.
+    // 3. Otherwise, we use an empty DEF file to ensure the import library will be generated.
+    if (customDefFile != null) {
+      return customDefFile;
+    } else if (generatedDefFile != null
+        && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
+      return generatedDefFile;
+    } else {
+      return createEmptyDefFileAction(ruleContext);
+    }
+  }
+
+  /**
    * Returns true if the build implied by the given config and toolchain uses --start-lib/--end-lib
    * ld options.
    */
@@ -932,30 +975,12 @@ public class CppHelper {
     return new CcNativeLibraryProvider(result.build());
   }
 
-  public static void checkProtoLibrariesInDeps(
-      RuleErrorConsumer ruleErrorConsumer, Iterable<TransitiveInfoCollection> deps) {
-    for (TransitiveInfoCollection dep : deps) {
-      if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
-        ruleErrorConsumer.attributeError(
-            "deps",
-            String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
-      }
-    }
-  }
-
   static boolean useToolchainResolution(RuleContext ruleContext) {
     CppOptions cppOptions =
         Preconditions.checkNotNull(
             ruleContext.getConfiguration().getOptions().get(CppOptions.class));
 
-    if (cppOptions.enableCcToolchainResolution) {
-      return true;
-    }
-
-    // TODO(https://github.com/bazelbuild/bazel/issues/7260): Remove this and the flag.
-    PlatformConfiguration platformConfig =
-        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
-    return platformConfig.isToolchainTypeEnabled(getToolchainTypeFromRuleClass(ruleContext));
+    return cppOptions.enableCcToolchainResolution;
   }
 
   public static ImmutableList<CcCompilationContext> getCompilationContextsFromDeps(

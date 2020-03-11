@@ -34,8 +34,8 @@ public class ConcreteFunction implements SpecializedFunction<String, Long> {
     return (l -> Integer.MIN_VALUE <= l && l <= Integer.MAX_VALUE);
   }
 
-  public static <T extends Number> List<T> parseAll(List<String> in,
-      SpecializedFunction<String, T> parser) {
+  public static <T extends Number> List<T> parseAll(
+      List<String> in, SpecializedFunction<String, T> parser) {
     return in.stream().map(parser).collect(Collectors.toList());
   }
 
@@ -44,11 +44,13 @@ public class ConcreteFunction implements SpecializedFunction<String, Long> {
   }
 
   interface Parser<T> extends Function<String, T> {
-    @Override public T apply(String in);
+    @Override
+    public T apply(String in);
   }
 
   public interface SpecializedParser<T extends Number>
       extends SpecializedFunction<String, T>, Parser<T> {
-    @Override public T apply(String in);
+    @Override
+    public T apply(String in);
   }
 }

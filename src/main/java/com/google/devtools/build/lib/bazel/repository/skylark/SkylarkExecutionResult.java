@@ -48,7 +48,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
   private final String stdout;
   private final String stderr;
 
-  private SkylarkExecutionResult(int returnCode, String stdout, String stderr) {
+  SkylarkExecutionResult(int returnCode, String stdout, String stderr) {
     this.returnCode = returnCode;
     this.stdout = stdout;
     this.stderr = stderr;
@@ -97,13 +97,13 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
 
     /**
      * Adds arguments to the list of arguments to pass to the command. The first argument is
-     * expected to be the binary to execute. The subsequent arguments are the arguments passed
-     * to the binary.
+     * expected to be the binary to execute. The subsequent arguments are the arguments passed to
+     * the binary.
      *
      * <p>Each argument can be either a string or a {@link SkylarkPath}, passing another argument
      * will fail when executing the command.
      */
-    Builder addArguments(Iterable<Object> args) throws EvalException {
+    Builder addArguments(Iterable<?> args) throws EvalException {
       for (Object arg : args) {
         // We might have skylark path, do conversion.
         if (!(arg instanceof String || arg instanceof SkylarkPath)) {
@@ -172,7 +172,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
       // exception when reaching a specific size.
       delegator.addSink(recorder);
       if (!quiet) {
-        delegator.addSink(OutErr.create(System.out, System.err));
+        delegator.addSink(OutErr.create(System.err, System.err));
       }
       try {
         String[] argsArray = new String[args.size()];

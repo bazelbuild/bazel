@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,11 +15,18 @@
 
 """Tests for aar_resources_extractor."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import io
 import os
 import shutil
 import unittest
 import zipfile
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+import six
 
 from tools.android import aar_resources_extractor
 
@@ -44,8 +52,9 @@ class AarResourcesExtractorTest(unittest.TestCase):
 
   def DirContents(self, d):
     return [
-        _HostPath(path + "/" + f)
-        for (path, _, files) in os.walk(d) for f in files
+        _HostPath(six.ensure_str(path) + "/" + six.ensure_str(f))
+        for (path, _, files) in os.walk(d)
+        for f in files
     ]
 
   def testNoResources(self):

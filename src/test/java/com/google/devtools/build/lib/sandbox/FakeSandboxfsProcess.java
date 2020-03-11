@@ -14,21 +14,18 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * A fake in-process sandboxfs implementation that uses symlinks on the Bazel file system API.
- *
- * <p>TODO(jmmv): It's possible that this could replace {@link SymlinkedSandboxedSpawn} altogether,
- * simplifying all callers that need to perform a sandboxed spawn because they would all go through
- * the sandboxfs worker interface.  Evaluate this idea once we are confident enough that we won't
- * just remove all sandboxfs support code.
  */
 final class FakeSandboxfsProcess implements SandboxfsProcess {
 
@@ -39,7 +36,15 @@ final class FakeSandboxfsProcess implements SandboxfsProcess {
   private final PathFragment mountPoint;
 
   /**
-   * Whether this "process" is valid or not.  Used to better represent the workflow of a real
+   * Tracker for the sandbox names that currently exist in the sandbox.
+   *
+   * <p>Used to catch mistakes in creating an already-existing sandbox or deleting a non-existent
+   * sandbox.
+   */
+  private final Set<String> activeSandboxes = new HashSet<>();
+
+  /**
+   * Whether this "process" is valid or not. Used to better represent the workflow of a real
    * sandboxfs subprocess.
    */
   private boolean alive = true;
@@ -80,39 +85,49 @@ final class FakeSandboxfsProcess implements SandboxfsProcess {
   }
 
   @Override
-  public synchronized void map(List<Mapping> mappings) throws IOException {
+  public synchronized void createSandbox(String name, SandboxCreator creator) throws IOException {
     checkState(alive, "Cannot be called after destroy()");
 
-    for (Mapping mapping : mappings) {
-      checkState(mapping.path().isAbsolute(), "Mapping specifications are expected to be absolute"
-          + " but %s is not", mapping.path());
-      Path link = fileSystem.getPath(mountPoint).getRelative(mapping.path().toRelative());
-      link.getParentDirectory().createDirectoryAndParents();
+    checkArgument(!PathFragment.containsSeparator(name));
+    checkArgument(!activeSandboxes.contains(name), "Sandbox %s mapped more than once", name);
+    activeSandboxes.add(name);
 
-      Path target = fileSystem.getPath(mapping.target());
-      if (!target.exists()) {
-        // Not a requirement for the creation of a symbolic link but this reflects the behavior of
-        // the real sandboxfs.
-        throw new IOException("Target " + mapping.target() + " does not exist");
-      }
+    creator.create(
+        (path, underlyingPath, writable) -> {
+          checkArgument(
+              path.isAbsolute(),
+              "Mapping specifications are expected to be absolute but %s is not",
+              path);
+          Path link =
+              fileSystem.getPath(mountPoint).getRelative(name).getRelative(path.toRelative());
+          link.getParentDirectory().createDirectoryAndParents();
 
-      if (target.isSymbolicLink()) {
-        // sandboxfs is able to expose symlinks as they are in the underlying file system.  Mimic
-        // this behavior by respecting the symlink in that case, instead of just creating a new
-        // symlink that points to the actual target.
-        link.createSymbolicLink(target.readSymbolicLink());
-      } else {
-        link.createSymbolicLink(fileSystem.getPath(mapping.target()));
-      }
-    }
+          Path target = fileSystem.getPath(underlyingPath);
+          if (!target.exists()) {
+            // Not a requirement for the creation of a symbolic link but this reflects the behavior
+            // of the real sandboxfs.
+            throw new IOException("Target " + underlyingPath + " does not exist");
+          }
+
+          if (target.isSymbolicLink()) {
+            // sandboxfs is able to expose symlinks as they are in the underlying file system.
+            // Mimic this behavior by respecting the symlink in that case, instead of just creating
+            // a new symlink that points to the actual target.
+            link.createSymbolicLink(target.readSymbolicLink());
+          } else {
+            link.createSymbolicLink(fileSystem.getPath(underlyingPath));
+          }
+        });
   }
 
   @Override
-  public synchronized void unmap(PathFragment mapping) throws IOException {
+  public synchronized void destroySandbox(String name) throws IOException {
     checkState(alive, "Cannot be called after destroy()");
 
-    checkState(mapping.isAbsolute(), "Mapping specifications are expected to be absolute"
-        + " but %s is not", mapping);
-    fileSystem.getPath(mountPoint).getRelative(mapping.toRelative()).deleteTree();
+    checkArgument(!PathFragment.containsSeparator(name));
+    checkArgument(activeSandboxes.contains(name), "Sandbox %s not previously created", name);
+    activeSandboxes.remove(name);
+
+    fileSystem.getPath(mountPoint).getRelative(name).deleteTree();
   }
 }

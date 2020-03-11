@@ -74,7 +74,8 @@ public class SymlinkedSandboxedSpawnTest {
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(execRoot.getRelative("wow/writable")),
-            new SynchronousTreeDeleter());
+            new SynchronousTreeDeleter(),
+            /* statisticsPath= */ null);
 
     symlinkedExecRoot.createFileSystem();
 
@@ -100,7 +101,8 @@ public class SymlinkedSandboxedSpawnTest {
             SandboxOutputs.create(
                 ImmutableSet.of(outputFile.relativeTo(execRoot)), ImmutableSet.of()),
             ImmutableSet.of(),
-            new SynchronousTreeDeleter());
+            new SynchronousTreeDeleter(),
+            /* statisticsPath= */ null);
     symlinkedExecRoot.createFileSystem();
 
     FileSystemUtils.createEmptyFile(outputFile);

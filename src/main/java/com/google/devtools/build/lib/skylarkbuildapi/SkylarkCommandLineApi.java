@@ -18,7 +18,10 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a module associated with creating efficient command lines. */
 @SkylarkModule(
@@ -26,22 +29,21 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     namespace = true,
     category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
     doc = "Deprecated. Module for creating memory efficient command lines.")
-public interface SkylarkCommandLineApi {
+@StarlarkDeprecated
+public interface SkylarkCommandLineApi extends StarlarkValue {
 
   @SkylarkCallable(
-    name = "join_paths",
-    doc =
-        "Deprecated. Creates a single command line argument joining the paths of a set "
-            + "of files on the separator string.",
-    parameters = {
-      @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
-      @Param(
-        name = "files",
-        type = SkylarkNestedSet.class,
-        generic1 = FileApi.class,
-        doc = "the files to concatenate."
-      )
-    }
-  )
-  public String joinPaths(String separator, SkylarkNestedSet files);
+      name = "join_paths",
+      doc =
+          "Deprecated. Creates a single command line argument joining the paths of a set "
+              + "of files on the separator string.",
+      parameters = {
+        @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
+        @Param(
+            name = "files",
+            type = Depset.class,
+            generic1 = FileApi.class,
+            doc = "the files to concatenate.")
+      })
+  String joinPaths(String separator, Depset files) throws EvalException;
 }

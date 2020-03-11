@@ -43,7 +43,7 @@ public final class CommandUsingLinuxSandboxTest {
 
   @Before
   public final void createFileSystem() throws Exception {
-    testFS = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    testFS = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
     runfilesDir = testFS.getPath(BlazeTestUtils.runfilesDir());
   }
 

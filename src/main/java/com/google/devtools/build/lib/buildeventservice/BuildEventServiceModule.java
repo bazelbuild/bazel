@@ -18,8 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -60,7 +58,6 @@ import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
 import com.google.devtools.build.lib.runtime.SynchronizedOutputStream;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -73,13 +70,13 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -97,7 +94,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
    * TargetComplete BEP events scale with the value of --runs_per_tests, thus setting a very large
    * value for can result in BEP events that are too big for BES to handle.
    */
-  private static final int RUNS_PER_TEST_LIMIT = 100000;
+  @VisibleForTesting static final int RUNS_PER_TEST_LIMIT = 100000;
 
   private BuildEventProtocolOptions bepOptions;
   private AuthAndTLSOptions authTlsOptions;
@@ -193,7 +190,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     return e.getCause() instanceof TimeoutException;
   }
 
-  private void waitForPreviousInvocation() {
+  private void waitForPreviousInvocation(boolean isShutdown) {
     if (closeFuturesWithTimeoutsMap.isEmpty()) {
       return;
     }
@@ -214,7 +211,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     boolean cancelCloseFutures = true;
     switch (previousUploadMode) {
       case FULLY_ASYNC:
-        waitingFutureMap = halfCloseFuturesWithTimeoutsMap;
+        waitingFutureMap =
+            isShutdown ? closeFuturesWithTimeoutsMap : halfCloseFuturesWithTimeoutsMap;
         cancelCloseFutures = false;
         break;
       case WAIT_FOR_UPLOAD_COMPLETE:
@@ -315,8 +313,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
             : "local";
 
     CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
-    Supplier<BuildEventArtifactUploader> uploaderSupplier =
-        Suppliers.memoize(
+    ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier =
+        new ThrowingBuildEventArtifactUploaderSupplier(
             () ->
                 cmdEnv
                     .getRuntime()
@@ -328,14 +326,21 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     // allow completing previous runs using BES, for example:
     //   bazel build (..run with async BES..)
     //   bazel info <-- Doesn't run with BES unless we wait before checking the whitelist.
-    waitForPreviousInvocation();
+    waitForPreviousInvocation("shutdown".equals(cmdEnv.getCommandName()));
 
     if (!whitelistedCommands(besOptions).contains(cmdEnv.getCommandName())) {
       // Exit early if the running command isn't supported.
       return;
     }
 
-    bepTransports = createBepTransports(cmdEnv, uploaderSupplier, artifactGroupNamer);
+    try {
+      bepTransports = createBepTransports(cmdEnv, uploaderSupplier, artifactGroupNamer);
+    } catch (IOException e) {
+      cmdEnv
+          .getBlazeModuleEnvironment()
+          .exit(new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e));
+      return;
+    }
     if (bepTransports.isEmpty()) {
       // Exit early if there are no transports to stream to.
       return;
@@ -394,7 +399,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFuturesWithTimeoutsMap.values()));
     } catch (ExecutionException e) {
       googleLogger.atSevere().withCause(e).log("Failed to close a build event transport");
-      LoggingUtil.logToRemote(Level.SEVERE, "Failed to close a build event transport", e);
     } finally {
       cancelAndResetPendingUploads();
     }
@@ -547,8 +551,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         // This should not occur, but close with an internal error if a {@link BuildEventStreamer}
         // bug manifests as an unclosed streamer.
         googleLogger.atWarning().log("Attempting to close BES streamer after command");
-        String msg = "BES was not properly closed";
-        LoggingUtil.logToRemote(Level.WARNING, msg, new IllegalStateException(msg));
+        reporter.handle(Event.warn("BES was not properly closed"));
         forceShutdownBuildEventStreamer();
       }
 
@@ -594,20 +597,19 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     }
   }
 
-  private void constructAndReportIds() {
-    reporter.handle(
-        Event.info(
-            String.format(
-                "Streaming Build Event Protocol to '%s' with build_request_id: '%s'"
-                    + " and invocation_id: '%s'",
-                besOptions.besBackend, buildRequestId, invocationId)));
+  private void logIds() {
+    googleLogger.atInfo().log(
+        "Streaming Build Event Protocol to '%s' with build_request_id: '%s'"
+            + " and invocation_id: '%s'",
+        besOptions.besBackend, buildRequestId, invocationId);
   }
 
   @Nullable
   private BuildEventServiceTransport createBesTransport(
       CommandEnvironment cmdEnv,
-      Supplier<BuildEventArtifactUploader> uploaderSupplier,
-      CountingArtifactGroupNamer artifactGroupNamer) {
+      ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier,
+      CountingArtifactGroupNamer artifactGroupNamer)
+      throws IOException {
     if (Strings.isNullOrEmpty(besOptions.besBackend)) {
       clearBesClient();
       return null;
@@ -628,7 +630,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       return null;
     }
 
-    constructAndReportIds();
+    logIds();
 
     ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
     if (status.status != Status.OK) {
@@ -677,8 +679,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
   private ImmutableSet<BuildEventTransport> createBepTransports(
       CommandEnvironment cmdEnv,
-      Supplier<BuildEventArtifactUploader> uploaderSupplier,
-      CountingArtifactGroupNamer artifactGroupNamer) {
+      ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier,
+      CountingArtifactGroupNamer artifactGroupNamer)
+      throws IOException {
     ImmutableSet.Builder<BuildEventTransport> bepTransportsBuilder = new ImmutableSet.Builder<>();
 
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventTextFile)) {
@@ -809,5 +812,32 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @VisibleForTesting
   ImmutableSet<BuildEventTransport> getBepTransports() {
     return bepTransports;
+  }
+
+  private static class ThrowingBuildEventArtifactUploaderSupplier {
+    private final Callable<BuildEventArtifactUploader> callable;
+    @Nullable private BuildEventArtifactUploader memoizedValue;
+    @Nullable private IOException exception;
+
+    ThrowingBuildEventArtifactUploaderSupplier(Callable<BuildEventArtifactUploader> callable) {
+      this.callable = callable;
+    }
+
+    BuildEventArtifactUploader get() throws IOException {
+      if (memoizedValue == null && exception == null) {
+        try {
+          memoizedValue = callable.call();
+        } catch (IOException e) {
+          exception = e;
+        } catch (Exception e) {
+          Throwables.throwIfUnchecked(e);
+          throw new IllegalStateException(e);
+        }
+      }
+      if (memoizedValue != null) {
+        return memoizedValue;
+      }
+      throw exception;
+    }
   }
 }

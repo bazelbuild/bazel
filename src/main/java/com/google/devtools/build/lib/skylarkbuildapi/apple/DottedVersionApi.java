@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Interface for a value representing a version with multiple components, separated by periods, such
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
         "A value representing a version with multiple components, separated by periods, such as "
             + "1.2.3.4.")
 public interface DottedVersionApi<SelfT extends DottedVersionApi<?>>
-    extends SkylarkValue, Comparable<SelfT> {
+    extends StarlarkValue, Comparable<SelfT> {
 
   @SkylarkCallable(
       name = "compare_to",
@@ -44,9 +44,7 @@ public interface DottedVersionApi<SelfT extends DottedVersionApi<?>>
             positional = true,
             named = false,
             type = DottedVersionApi.class,
-            doc = "The other dotted version."
-        )
-      }
-  )
-  public int compareTo_skylark(SelfT other);
+            doc = "The other dotted version.")
+      })
+  int compareTo_skylark(SelfT other);
 }

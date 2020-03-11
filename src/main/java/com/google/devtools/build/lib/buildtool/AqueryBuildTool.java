@@ -37,16 +37,19 @@ import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.Factory.CommandL
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 
 /** A version of {@link BuildTool} that handles all aquery work. */
-public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTargetValue> {
+public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTargetValue> {
   private final AqueryActionFilter actionFilters;
 
   public AqueryBuildTool(CommandEnvironment env, @Nullable QueryExpression queryExpression)
@@ -99,6 +102,7 @@ public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget
       BuildRequest request,
       BuildConfiguration hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
+      Collection<SkyKey> transitiveConfigurationKeys,
       WalkableGraph walkableGraph) {
     ImmutableList<QueryFunction> extraFunctions =
         new ImmutableList.Builder<QueryFunction>()
@@ -161,7 +165,11 @@ public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget
             (ActionFilterFunction) functionExpression.getFunction();
 
         String patternString = functionExpression.getArgs().get(0).getWord();
-        actionFiltersBuilder.put(actionFilterFunction.getName(), Pattern.compile(patternString));
+        try {
+          actionFiltersBuilder.put(actionFilterFunction.getName(), Pattern.compile(patternString));
+        } catch (PatternSyntaxException e) {
+          throw new AqueryActionFilterException("Wrong query syntax: " + e.getMessage());
+        }
       } else {
         nonAqueryFilterFunctionExpression = functionExpression;
       }

@@ -41,9 +41,14 @@ public class CppFileTypesTest {
     assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.20.2")).isTrue();
     assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("a/somelibrary.so.2")).isTrue();
     assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.e")).isFalse();
-    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.2e")).isFalse();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.2e")).isTrue();
     assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.e2")).isFalse();
     assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.20.e2")).isFalse();
     assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.a.2")).isFalse();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.2$")).isFalse();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.1a_b2")).isTrue();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("libA.so.gen.empty.def")).isFalse();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("libA.so.if.exp")).isFalse();
+    assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("libA.so.if.lib")).isFalse();
   }
 }

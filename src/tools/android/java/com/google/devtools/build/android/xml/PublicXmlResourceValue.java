@@ -14,19 +14,23 @@
 package com.google.devtools.build.android.xml;
 
 import com.android.SdkConstants;
+import com.android.aapt.Resources.Reference;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
+import com.google.devtools.build.android.DependencyInfo;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.EnumMap;
@@ -90,11 +94,8 @@ public class PublicXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    for (Map.Entry<ResourceType, Optional<Integer>> entry : typeToId.entrySet()) {
-      sink.acceptPublicResource(entry.getKey(), key.name(), entry.getValue());
-    }
-  }
+  public void writeResourceToClass(
+      DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {}
 
   @Override
   public int hashCode() {
@@ -186,5 +187,16 @@ public class PublicXmlResourceValue implements XmlResourceValue {
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    // <public id="..."> itself is not a value
+    return Visibility.UNKNOWN;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return ImmutableList.of();
   }
 }

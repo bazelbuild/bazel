@@ -3,7 +3,9 @@ You need to load the rules in your BUILD file for use, like:
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 """
 
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_proto//proto:defs.bzl", "ProtoInfo")
 
 def _path_ignoring_repository(f):
     if (len(f.owner.workspace_root) == 0):
@@ -147,7 +149,7 @@ def grpc_cc_library(
             ],
             ":windows": ["/we4013"],
         })
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = srcs,
         defines = ["GRPC_ARES=0"],  # Our use case doesn't need ares.

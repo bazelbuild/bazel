@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * Test case for a class with a SkylarkCallable method which has selfCall=true but no name.
- */
-public class SelfCallWithNoName {
+/** Test case for a class with a SkylarkCallable method which has selfCall=true but no name. */
+public class SelfCallWithNoName implements StarlarkValue {
 
   @SkylarkCallable(
       name = "",

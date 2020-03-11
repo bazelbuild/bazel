@@ -18,6 +18,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -112,9 +113,9 @@ public enum LinkBuildVariables {
       PathFragment ltoOutputRootPrefix,
       String defFile,
       FdoContext fdoContext,
-      Iterable<String> runtimeLibrarySearchDirectories,
+      NestedSet<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
-      Iterable<String> librarySearchDirectories,
+      NestedSet<String> librarySearchDirectories,
       boolean addIfsoRelatedVariables)
       throws EvalException {
     CcToolchainVariables.Builder buildVariables =
@@ -184,11 +185,13 @@ public enum LinkBuildVariables {
           ccToolchainProvider
               .getFeatures()
               .getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE);
-      buildVariables.addStringVariable(
-          THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
-          Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
-              + ";"
-              + objectFileExtension);
+      if (!featureConfiguration.isEnabled(CppRuleClasses.NO_USE_LTO_INDEXING_BITCODE_FILE)) {
+        buildVariables.addStringVariable(
+            THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
+            Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
+                + ";"
+                + objectFileExtension);
+      }
       if (thinltoMergedObjectFile != null) {
         buildVariables.addStringVariable(
             THINLTO_MERGED_OBJECT_FILE.getVariableName(), thinltoMergedObjectFile);

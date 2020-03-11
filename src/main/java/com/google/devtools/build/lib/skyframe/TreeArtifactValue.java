@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -49,13 +47,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
-          DigestUtils.fromMetadata(ImmutableMap.of()).getDigestBytesUnsafe(),
+          DigestUtils.fromMetadata(ImmutableMap.of()),
           ImmutableSortedMap.of(),
           /* remote= */ false);
 
   private final byte[] digest;
   private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
-  private BigInteger valueFingerprint;
   private final boolean remote;
 
   @AutoCodec.VisibleForSerialization
@@ -87,7 +84,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), value);
     }
     return new TreeArtifactValue(
-        DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe(),
+        DigestUtils.fromMetadata(digestBuilder),
         ImmutableSortedMap.copyOf(childFileValues),
         remote);
   }
@@ -112,7 +109,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return digest.clone();
   }
 
-  Iterable<TreeFileArtifact> getChildren() {
+  public Iterable<TreeFileArtifact> getChildren() {
     return childData.keySet();
   }
 
@@ -123,16 +120,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   /** Returns true if the {@link TreeFileArtifact}s are only stored remotely. */
   public boolean isRemote() {
     return remote;
-  }
-
-  @Override
-  public BigInteger getValueFingerprint() {
-    if (valueFingerprint == null) {
-      BigIntegerFingerprint fp = new BigIntegerFingerprint();
-      fp.addDigestedBytes(digest);
-      valueFingerprint = fp.getFingerprint();
-    }
-    return valueFingerprint;
   }
 
   @Override
@@ -178,7 +165,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         }
 
         @Override
-        Iterable<TreeFileArtifact> getChildren() {
+        public Iterable<TreeFileArtifact> getChildren() {
           throw new UnsupportedOperationException();
         }
 

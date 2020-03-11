@@ -18,12 +18,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MoreCollectors;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -31,10 +33,10 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -44,6 +46,9 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
@@ -58,6 +63,8 @@ import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -85,23 +92,24 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   }
 
   private class FakeActionExecutionContext extends ActionExecutionContext {
-    private final SpawnActionContext spawnActionContext;
+    private final SpawnStrategy spawnActionContext;
 
-    public FakeActionExecutionContext(
-        FileOutErr fileOutErr, SpawnActionContext spawnActionContext) {
+    public FakeActionExecutionContext(FileOutErr fileOutErr, SpawnStrategy spawnActionContext) {
       super(
-          /* executor= */ null,
-          /* actionInputFileCache= */ null,
+          /*executor=*/ null,
+          /*actionInputFileCache=*/ null,
           ActionInputPrefetcher.NONE,
           new ActionKeyContext(),
-          /* metadataHandler= */ null,
+          /*metadataHandler=*/ null,
+          LostInputsCheck.NONE,
           fileOutErr,
           /*eventHandler=*/ null,
-          /* clientEnv= */ ImmutableMap.of(),
-          /* topLevelFilesets= */ ImmutableMap.of(),
-          /* artifactExpander= */ null,
-          /* actionFileSystem= */ null,
-          /* skyframeDepsResult= */ null);
+          /*clientEnv=*/ ImmutableMap.of(),
+          /*topLevelFilesets=*/ ImmutableMap.of(),
+          /*artifactExpander=*/ null,
+          /*actionFileSystem=*/ null,
+          /*skyframeDepsResult=*/ null,
+          NestedSetExpander.NO_CALLBACKS);
       this.spawnActionContext = spawnActionContext;
     }
 
@@ -111,8 +119,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     }
 
     @Override
-    public <T extends ActionContext> T getContext(Class<? extends T> type) {
-      return SpawnActionContext.class.equals(type) ? type.cast(spawnActionContext) : null;
+    @Nullable
+    public <T extends ActionContext> T getContext(Class<T> type) {
+      return SpawnStrategy.class.equals(type) ? type.cast(spawnActionContext) : null;
     }
 
     @Override
@@ -122,7 +131,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     @Override
     public Path getExecRoot() {
-      return outputBase.getRelative("execroot");
+      return StandaloneTestStrategyTest.this.getExecRoot();
     }
 
     @Override
@@ -131,7 +140,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     }
   }
 
-  @Mock private SpawnActionContext spawnActionContext;
+  @Mock private SpawnStrategy spawnActionContext;
 
   private StoredEventHandler storedEvents = new StoredEventHandler();
 
@@ -156,12 +165,50 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     return action;
   }
 
+  private List<TestRunnerAction> getTestActions(String target) throws Exception {
+    ConfiguredTarget configuredTarget = getConfiguredTarget(target);
+    ImmutableList<Artifact.DerivedArtifact> testStatusArtifacts =
+        configuredTarget.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
+    return testStatusArtifacts.stream()
+        .map(
+            (a) -> {
+              TestRunnerAction action = (TestRunnerAction) getGeneratingAction(a);
+              try {
+                action.getTestLog().getPath().getParentDirectory().createDirectoryAndParents();
+              } catch (IOException e) {
+                throw new IllegalStateException(e);
+              }
+              return action;
+            })
+        .collect(Collectors.toList());
+  }
+
   private List<SpawnResult> execute(
       TestRunnerAction testRunnerAction,
       ActionExecutionContext actionExecutionContext,
       TestActionContext testActionContext)
       throws ActionExecutionException, InterruptedException {
     return testRunnerAction.execute(actionExecutionContext, testActionContext).spawnResults();
+  }
+
+  @Test
+  public void testCreateTmpDirForTest() throws Exception {
+    // setup a test action
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"simple_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"simple_test.sh\"],",
+        ")");
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
+
+    String tmpDirName = TestStrategy.getTmpDirName(testRunnerAction);
+    // Make sure the length of tmpDirName doesn't change unexpectedy: it cannot be too long
+    // because Windows and macOS have limitations on file path length.
+    // Note: It's OK to update 32 to a smaller number if tmpDirName gets shorter.
+    assertThat(tmpDirName.length()).isEqualTo(32);
   }
 
   @Test
@@ -257,7 +304,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setRunnerName("test")
             .build();
     when(spawnActionContext.beginExecution(any(), any()))
-        .thenThrow(new SpawnExecException("test failed", failSpawnResult, false))
+        .thenReturn(
+            SpawnContinuation.failedWithExecException(
+                new SpawnExecException("test failed", failSpawnResult, false)))
         .thenReturn(SpawnContinuation.immediate(passSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
@@ -454,11 +503,12 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
                   stream.write((TestLogHelper.HEADER_DELIMITER + "\n").getBytes(UTF_8));
                   stream.write("This will appear in the test output: foo\n".getBytes(UTF_8));
                 }
-                throw new SpawnExecException(
-                    "Failure!!",
-                    expectedSpawnResult,
-                    /*forciblyRunRemotely=*/ false,
-                    /*catastrophe=*/ false);
+                return SpawnContinuation.failedWithExecException(
+                    new SpawnExecException(
+                        "Failure!!",
+                        expectedSpawnResult,
+                        /*forciblyRunRemotely=*/ false,
+                        /*catastrophe=*/ false));
               } else {
                 return SpawnContinuation.immediate(
                     new SpawnResult.Builder()
@@ -554,11 +604,12 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
                   stream.write((TestLogHelper.HEADER_DELIMITER + "\n").getBytes(UTF_8));
                   stream.write("This will appear in the test output: foo\n".getBytes(UTF_8));
                 }
-                throw new SpawnExecException(
-                    "Failure!!",
-                    testSpawnResult,
-                    /*forciblyRunRemotely=*/ false,
-                    /*catastrophe=*/ false);
+                return SpawnContinuation.failedWithExecException(
+                    new SpawnExecException(
+                        "Failure!!",
+                        testSpawnResult,
+                        /*forciblyRunRemotely=*/ false,
+                        /*catastrophe=*/ false));
               } else {
                 String testName =
                     OS.getCurrent() == OS.WINDOWS
@@ -699,5 +750,248 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     } catch (IOException e) {
       fail("Test stdout file missing: " + outErr.getOutputPath());
     }
+  }
+
+  @Test
+  public void testExperimentalCancelConcurrentTests() throws Exception {
+    useConfiguration(
+        "--runs_per_test=2",
+        "--runs_per_test_detects_flakes",
+        "--experimental_cancel_concurrent_tests");
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"empty_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"empty_test.sh\"],",
+        ")");
+    List<TestRunnerAction> testRunnerActions = getTestActions("//standalone:empty_test");
+    assertThat(testRunnerActions).hasSize(2);
+
+    TestRunnerAction actionA = testRunnerActions.get(0);
+    TestRunnerAction actionB = testRunnerActions.get(1);
+    ListenableFuture<Void> cancelFuture =
+        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
+    assertThat(cancelFuture)
+        .isSameInstanceAs(
+            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
+
+    SpawnResult expectedSpawnResult =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionA.resolve(getExecRoot()).getXmlOutputPath());
+              return SpawnContinuation.immediate(expectedSpawnResult);
+            });
+
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnActionContext);
+    List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
+    assertThat(cancelFuture.isCancelled()).isTrue();
+    verify(spawnActionContext).beginExecution(any(), any());
+    assertThat(resultA).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(storedEvents.getEvents())
+        .contains(Event.of(EventKind.PASS, null, "//standalone:empty_test (run 1 of 2)"));
+    // Reset postedResult.
+    standaloneTestStrategy.postedResult = null;
+
+    when(spawnActionContext.beginExecution(any(), any()))
+        .thenThrow(new AssertionError("failure: this should not have been called"));
+    List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
+    assertThat(resultB).isEmpty();
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.INCOMPLETE);
+    assertThat(storedEvents.getEvents())
+        .contains(Event.of(EventKind.CANCELLED, null, "//standalone:empty_test (run 2 of 2)"));
+    // Check that there are no ERROR events.
+    assertThat(
+            storedEvents.getEvents().stream()
+                .filter((e) -> e.getKind() == EventKind.ERROR)
+                .collect(Collectors.toList()))
+        .isEmpty();
+  }
+
+  @Test
+  public void testExperimentalCancelConcurrentTestsDoesNotTriggerOnFailedRun() throws Exception {
+    useConfiguration(
+        "--runs_per_test=2",
+        "--runs_per_test_detects_flakes",
+        "--experimental_cancel_concurrent_tests");
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"empty_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"empty_test.sh\"],",
+        ")");
+    List<TestRunnerAction> testRunnerActions = getTestActions("//standalone:empty_test");
+    assertThat(testRunnerActions).hasSize(2);
+
+    TestRunnerAction actionA = testRunnerActions.get(0);
+    TestRunnerAction actionB = testRunnerActions.get(1);
+    ListenableFuture<Void> cancelFuture =
+        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
+    assertThat(cancelFuture)
+        .isSameInstanceAs(
+            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
+    assertThat(cancelFuture.isCancelled()).isFalse();
+
+    SpawnResult expectedSpawnResultA =
+        new SpawnResult.Builder()
+            .setStatus(Status.NON_ZERO_EXIT)
+            .setExitCode(1)
+            .setRunnerName("test")
+            .build();
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionA.resolve(getExecRoot()).getXmlOutputPath());
+              return SpawnContinuation.failedWithExecException(
+                  new SpawnExecException("", expectedSpawnResultA, false));
+            });
+
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnActionContext);
+    List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
+    assertThat(cancelFuture.isCancelled()).isFalse();
+    verify(spawnActionContext).beginExecution(any(), any());
+    assertThat(resultA).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.FAILED);
+    assertContainsPrefixedEvent(
+        storedEvents.getEvents(),
+        Event.of(EventKind.FAIL, null, "//standalone:empty_test (run 1 of 2)"));
+    // Reset postedResult.
+    standaloneTestStrategy.postedResult = null;
+
+    SpawnResult expectedSpawnResultB =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionB.resolve(getExecRoot()).getXmlOutputPath());
+              return SpawnContinuation.immediate(expectedSpawnResultB);
+            });
+    List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
+    assertThat(cancelFuture.isCancelled()).isTrue();
+    assertThat(resultB).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(storedEvents.getEvents())
+        .contains(Event.of(EventKind.PASS, null, "//standalone:empty_test (run 2 of 2)"));
+  }
+
+  private static void assertContainsPrefixedEvent(Iterable<Event> events, Event event) {
+    for (Event e : events) {
+      if (e.getKind() == event.getKind() && e.getMessage().startsWith(event.getMessage())) {
+        return;
+      }
+    }
+    assertThat(events).contains(event);
+  }
+
+  @Test
+  public void testExperimentalCancelConcurrentTestsAllFailed() throws Exception {
+    useConfiguration(
+        "--runs_per_test=2",
+        "--runs_per_test_detects_flakes",
+        "--experimental_cancel_concurrent_tests");
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+
+    scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"empty_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"empty_test.sh\"],",
+        ")");
+    List<TestRunnerAction> testRunnerActions = getTestActions("//standalone:empty_test");
+    assertThat(testRunnerActions).hasSize(2);
+
+    TestRunnerAction actionA = testRunnerActions.get(0);
+    TestRunnerAction actionB = testRunnerActions.get(1);
+    ListenableFuture<Void> cancelFuture =
+        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
+    assertThat(cancelFuture)
+        .isSameInstanceAs(
+            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
+    assertThat(cancelFuture.isCancelled()).isFalse();
+
+    SpawnResult expectedSpawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.NON_ZERO_EXIT)
+            .setExitCode(1)
+            .setRunnerName("test")
+            .build();
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionA.resolve(getExecRoot()).getXmlOutputPath());
+              return SpawnContinuation.failedWithExecException(
+                  new SpawnExecException("", expectedSpawnResult, false));
+            });
+
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnActionContext);
+    List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
+    assertThat(cancelFuture.isCancelled()).isFalse();
+    verify(spawnActionContext).beginExecution(any(), any());
+    assertThat(resultA).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.FAILED);
+    assertContainsPrefixedEvent(
+        storedEvents.getEvents(),
+        Event.of(EventKind.FAIL, null, "//standalone:empty_test (run 1 of 2)"));
+    // Reset postedResult.
+    standaloneTestStrategy.postedResult = null;
+
+    when(spawnActionContext.beginExecution(any(), any()))
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionB.resolve(getExecRoot()).getXmlOutputPath());
+              return SpawnContinuation.failedWithExecException(
+                  new SpawnExecException("", expectedSpawnResult, false));
+            });
+    List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
+    assertThat(cancelFuture.isCancelled()).isFalse();
+    assertThat(resultB).hasSize(1);
+    assertThat(standaloneTestStrategy.postedResult).isNotNull();
+    assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
+        .isEqualTo(BlazeTestStatus.FAILED);
+    assertContainsPrefixedEvent(
+        storedEvents.getEvents(),
+        Event.of(EventKind.FAIL, null, "//standalone:empty_test (run 2 of 2)"));
   }
 }

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.remote.RemoteModule;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -47,7 +46,6 @@ public class BazelStrategyModule extends BlazeModule {
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContext(new WriteAdbArgsActionContext(env.getClientEnv().get("HOME")));
     ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
 
@@ -83,7 +81,6 @@ public class BazelStrategyModule extends BlazeModule {
         .addStrategyByContext(CppIncludeScanningContext.class, "")
         .addStrategyByContext(FileWriteActionContext.class, "")
         .addStrategyByContext(TemplateExpansionContext.class, "")
-        .addStrategyByContext(WriteAdbArgsActionContext.class, "")
         .addStrategyByContext(SpawnCache.class, "");
   }
 }

@@ -88,8 +88,7 @@ std::string MakeAbsolute(const std::string& path) {
         << "): AsAbsoluteWindowsPath failed: " << error;
   }
   std::transform(wpath.begin(), wpath.end(), wpath.begin(), ::towlower);
-  return std::string(
-      WstringToCstring(RemoveUncPrefixMaybe(wpath.c_str())).get());
+  return WstringToCstring(RemoveUncPrefixMaybe(wpath.c_str()));
 }
 
 std::string MakeAbsoluteAndResolveEnvvars(const std::string& path) {
@@ -302,8 +301,7 @@ bool AsWindowsPath(const std::string& path, std::string* result,
 
 bool AsWindowsPath(const std::string& path, std::wstring* result,
                    std::string* error) {
-  return AsWindowsPathImpl(std::wstring(CstringToWstring(path.c_str()).get()),
-                           result, error);
+  return AsWindowsPathImpl(CstringToWstring(path), result, error);
 }
 
 bool AsWindowsPath(const std::wstring& path, std::wstring* result,
@@ -339,8 +337,7 @@ static bool AsAbsoluteWindowsPathImpl(const std::wstring& path,
 
 bool AsAbsoluteWindowsPath(const std::string& path, std::wstring* result,
                            std::string* error) {
-  return AsAbsoluteWindowsPathImpl(CstringToWstring(path.c_str()).get(), result,
-                                   error);
+  return AsAbsoluteWindowsPathImpl(CstringToWstring(path), result, error);
 }
 
 bool AsAbsoluteWindowsPath(const std::wstring& path, std::wstring* result,
@@ -350,8 +347,19 @@ bool AsAbsoluteWindowsPath(const std::wstring& path, std::wstring* result,
 
 bool AsShortWindowsPath(const std::string& path, std::string* result,
                         std::string* error) {
+  std::wstring wresult;
+  if (AsShortWindowsPath(CstringToWstring(path), &wresult, error)) {
+    *result = WstringToCstring(wresult);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool AsShortWindowsPath(const std::wstring& path, std::wstring* result,
+                        std::string* error) {
   if (IsDevNull(path.c_str())) {
-    result->assign("NUL");
+    *result = L"NUL";
     return true;
   }
 
@@ -401,8 +409,9 @@ bool AsShortWindowsPath(const std::string& path, std::string* result,
       if (error) {
         std::string last_error = GetLastErrorString();
         std::stringstream msg;
-        msg << "AsShortWindowsPath(" << path << "): GetShortPathNameW("
-            << WstringToString(wpath) << ") failed: " << last_error;
+        msg << "AsShortWindowsPath(" << WstringToCstring(path)
+            << "): GetShortPathNameW(" << WstringToCstring(wpath)
+            << ") failed: " << last_error;
         *error = msg.str();
       }
       return false;
@@ -411,8 +420,8 @@ bool AsShortWindowsPath(const std::string& path, std::string* result,
     wresult = std::wstring(RemoveUncPrefixMaybe(wshort.get())) + wsuffix;
   }
 
-  result->assign(WstringToCstring(wresult.c_str()).get());
-  ToLower(result);
+  std::transform(wresult.begin(), wresult.end(), wresult.begin(), towlower);
+  *result = wresult;
   return true;
 }
 
@@ -436,6 +445,10 @@ bool IsRootDirectory(const std::string& path) {
   return IsRootOrAbsolute(path, true);
 }
 
+bool IsRootDirectory(const Path& path) {
+  return IsRootOrAbsolute(path.AsNativePath(), true);
+}
+
 bool IsAbsolute(const std::string& path) {
   return IsRootOrAbsolute(path, false);
 }
@@ -454,5 +467,65 @@ static char GetCurrentDrive() {
   wchar_t offset = wdrive >= L'A' && wdrive <= L'Z' ? L'A' : L'a';
   return 'a' + wdrive - offset;
 }
+
+Path::Path(const std::string& path) {
+  if (path.empty()) {
+    return;
+  } else if (IsDevNull(path.c_str())) {
+    path_ = L"NUL";
+  } else {
+    std::string error;
+    if (!AsAbsoluteWindowsPath(path, &path_, &error)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Path::Path(" << path
+          << "): AsAbsoluteWindowsPath failed: " << error;
+    }
+  }
+}
+
+Path Path::GetRelative(const std::string& r) const {
+  if (r.empty()) {
+    return *this;
+  } else if (IsDevNull(r.c_str())) {
+    return Path(L"NUL");
+  } else if (IsAbsolute(r)) {
+    return Path(r);
+  } else {
+    std::string error;
+    std::wstring new_path;
+    if (!AsAbsoluteWindowsPath(path_ + L"\\" + CstringToWstring(r), &new_path,
+                               &error)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Path::GetRelative failed: " << error;
+    }
+    return Path(new_path);
+  }
+}
+
+Path Path::Canonicalize() const {
+  return Path(MakeCanonical(WstringToCstring(path_).c_str()));
+}
+
+Path Path::GetParent() const { return Path(SplitPathW(path_).first); }
+
+bool Path::IsNull() const { return path_ == L"NUL"; }
+
+bool Path::Contains(const char c) const {
+  return path_.find_first_of(c) != std::wstring::npos;
+}
+
+bool Path::Contains(const std::string& s) const {
+  return path_.find(CstringToWstring(s)) != std::wstring::npos;
+}
+
+std::string Path::AsPrintablePath() const {
+  return WstringToCstring(RemoveUncPrefixMaybe(path_.c_str()));
+}
+
+std::string Path::AsJvmArgument() const {
+  return PathAsJvmFlag(AsPrintablePath());
+}
+
+std::string Path::AsCommandLineArgument() const { return AsPrintablePath(); }
 
 }  // namespace blaze_util

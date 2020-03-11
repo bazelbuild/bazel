@@ -79,5 +79,9 @@ public final class HostTransition implements PatchTransition {
       return true;
     }
 
+    @Override
+    public boolean isTool() {
+      return true;
+    }
   }
 }

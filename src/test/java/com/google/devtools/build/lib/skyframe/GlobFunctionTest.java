@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -172,10 +170,9 @@ public abstract class GlobFunctionTest {
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        new BlacklistedPackagePrefixesFunction(
-            /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
-            /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+    skyFunctions.put(
+        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
+        BazelSkyframeExecutorConstants.BLACKLISTED_PACKAGE_PREFIXES_FUNCTION);
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
@@ -198,9 +195,6 @@ public abstract class GlobFunctionTest {
             ruleClassProvider,
             analysisMock
                 .getPackageFactoryBuilderForTesting(directories)
-                .setEnvironmentExtensions(
-                    ImmutableList.<EnvironmentExtension>of(
-                        new PackageFactory.EmptyEnvironmentExtension()))
                 .build(ruleClassProvider, fs),
             directories,
             /*skylarkImportLookupFunctionForInlining=*/ null));
@@ -231,6 +225,27 @@ public abstract class GlobFunctionTest {
   @Test
   public void testSimple() throws Exception {
     assertGlobMatches("food", /* => */ "food");
+  }
+
+  @Test
+  public void testBlacklist() throws Exception {
+    FileSystemUtils.writeContentAsLatin1(root.getRelative(".bazelignore"), "pkg/foo/bar");
+    assertGlobMatches("foo/**", "foo/barnacle/wiz", "foo/barnacle", "foo");
+    differencer.invalidate(
+        ImmutableList.of(
+            FileStateValue.key(
+                RootedPath.toRootedPath(
+                    Root.fromPath(root), PathFragment.create(".bazelignore")))));
+
+    FileSystemUtils.createEmptyFile(root.getRelative(".bazelignore"));
+    assertGlobMatches(
+        "foo/**",
+        "foo/bar/wiz",
+        "foo/bar/wiz/file",
+        "foo/bar",
+        "foo/barnacle/wiz",
+        "foo/barnacle",
+        "foo");
   }
 
   @Test
@@ -420,7 +435,7 @@ public abstract class GlobFunctionTest {
     // directories.
     assertThat(
             Iterables.transform(
-                runGlob(excludeDirs, pattern).getMatches(), Functions.toStringFunction()))
+                runGlob(excludeDirs, pattern).getMatches().toList(), Functions.toStringFunction()))
         .containsExactlyElementsIn(ImmutableList.copyOf(expecteds))
         .inOrder();
   }

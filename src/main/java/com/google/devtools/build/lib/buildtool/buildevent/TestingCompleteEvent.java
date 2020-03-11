@@ -29,10 +29,11 @@ public class TestingCompleteEvent extends BuildCompletingEvent {
   /**
    * Creates a new {@link TestingCompleteEvent}.
    *
-   * @param exitCode  the overall exit code of "bazel test".
+   * @param exitCode the overall exit code of "bazel test".
    * @param finishTimeMillis the finish time in milliseconds since the epoch.
+   * @param wasSuspended was the build suspended at any point.
    */
-  public TestingCompleteEvent(ExitCode exitCode, long finishTimeMillis) {
-    super(exitCode, finishTimeMillis, ImmutableList.of(BuildEventId.buildToolLogs()));
+  public TestingCompleteEvent(ExitCode exitCode, long finishTimeMillis, boolean wasSuspended) {
+    super(exitCode, finishTimeMillis, ImmutableList.of(BuildEventId.buildToolLogs()), wasSuspended);
   }
 }

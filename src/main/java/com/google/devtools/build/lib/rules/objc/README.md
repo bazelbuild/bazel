@@ -56,7 +56,7 @@ The provider can be queried by accessing fields that correspond to ObjcProvider
 keys.
 
 ```
-    libraries = objc_provider.library  # A SkylarkNestedSet of Artifacts
+    libraries = objc_provider.library  # A Depset of Artifacts
 ```
 
 A skylark rule that is intended to be a dependency of native objc rules should

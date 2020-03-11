@@ -55,7 +55,8 @@ import javax.tools.StandardLocation;
 /** Performs a javac-based turbine compilation given a {@link JavacTurbineCompileRequest}. */
 public class JavacTurbineCompiler {
 
-  static JavacTurbineCompileResult compile(JavacTurbineCompileRequest request) throws IOException {
+  static JavacTurbineCompileResult compile(
+      JavacTurbineCompileRequest request, ImmutableList<Path> classPath) throws IOException {
 
     Map<String, byte[]> classOutputs = new LinkedHashMap<>();
     Map<String, byte[]> sourceOutputs = new LinkedHashMap<>();
@@ -87,7 +88,7 @@ public class JavacTurbineCompiler {
 
         fm.setContext(context);
         fm.setLocationFromPaths(StandardLocation.SOURCE_PATH, Collections.<Path>emptyList());
-        fm.setLocationFromPaths(StandardLocation.CLASS_PATH, request.classPath());
+        fm.setLocationFromPaths(StandardLocation.CLASS_PATH, classPath);
         // The bootclasspath may legitimately be empty if --release is being used.
         Collection<Path> bootClassPath = request.bootClassPath();
         if (!bootClassPath.isEmpty()) {
@@ -114,6 +115,7 @@ public class JavacTurbineCompiler {
         ImmutableMap.copyOf(classOutputs),
         ImmutableMap.copyOf(sourceOutputs),
         status,
+        classPath,
         sw.toString(),
         diagnostics.build(),
         context);

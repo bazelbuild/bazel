@@ -89,7 +89,7 @@ assert_eq('a'.endswith(('b',)), False)
 assert_eq('a'.endswith(()), False)
 assert_eq(''.endswith(()), False)
 ---
-'a'.endswith(['a']) ### expected value of type 'string or tuple of strings' for parameter 'sub', for call to method endswith(sub, start = 0, end = None) of 'string'
+'a'.endswith(['a']) ### got .* 'list', want 'string or tuple of strings
 ---
 '1'.endswith((1,)) ### expected type 'string' for 'string' element but got type 'int' instead
 ---
@@ -117,7 +117,7 @@ assert_eq('a'.startswith(('b',)), False)
 assert_eq('a'.startswith(()), False)
 assert_eq(''.startswith(()), False)
 ---
-'a'.startswith(['a']) ### expected value of type 'string or tuple of strings' for parameter 'sub', for call to method startswith(sub, start = 0, end = None) of 'string'
+'a'.startswith(['a']) ### got .* 'list', want 'string or tuple of strings'
 ---
 '1'.startswith((1,)) ### expected type 'string' for 'string' element but got type 'int' instead
 ---
@@ -179,4 +179,4 @@ assert_eq(enumerate({'a': 0, 2: 1, 'ab': 3}), [(0, 'a'), (1, 2), (2, 'ab')])
 assert_eq(enumerate({}), [])
 assert_eq(enumerate([False, True, None], 42), [(42, False), (43, True), (44, None)])
 ---
-enumerate("ab") ### type 'string' is not a collection
+enumerate("ab") ### type 'string' is not iterable

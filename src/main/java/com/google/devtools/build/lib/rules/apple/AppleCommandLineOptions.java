@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBitcodeModeApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -75,84 +75,103 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public String xcodeVersion;
 
   @Option(
-    name = "ios_sdk_version",
-    defaultValue = "null",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Specifies the version of the iOS SDK to use to build iOS applications."
-  )
+      name = "ios_sdk_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Specifies the version of the iOS SDK to use to build iOS applications. "
+              + "If unspecified, uses default iOS SDK version from 'xcode_version'.")
   public DottedVersion.Option iosSdkVersion;
 
   @Option(
-    name = "watchos_sdk_version",
-    defaultValue = "null",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Specifies the version of the watchOS SDK to use to build watchOS applications."
-  )
+      name = "watchos_sdk_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Specifies the version of the watchOS SDK to use to build watchOS applications. "
+              + "If unspecified, uses default watchOS SDK version from 'xcode_version'.")
   public DottedVersion.Option watchOsSdkVersion;
 
   @Option(
-    name = "tvos_sdk_version",
-    defaultValue = "null",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Specifies the version of the tvOS SDK to use to build tvOS applications."
-  )
+      name = "tvos_sdk_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Specifies the version of the tvOS SDK to use to build tvOS applications. "
+              + "If unspecified, uses default tvOS SDK version from 'xcode_version'.")
   public DottedVersion.Option tvOsSdkVersion;
 
   @Option(
-    name = "macos_sdk_version",
-    defaultValue = "null",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Specifies the version of the macOS SDK to use to build macOS applications."
-  )
+      name = "macos_sdk_version",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Specifies the version of the macOS SDK to use to build macOS applications. "
+              + "If unspecified, uses default macOS SDK version from 'xcode_version'.")
   public DottedVersion.Option macOsSdkVersion;
 
   @Option(
-    name = "ios_minimum_os",
-    defaultValue = "null",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Minimum compatible iOS version for target simulators and devices."
-  )
+      name = "ios_minimum_os",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Minimum compatible iOS version for target simulators and devices. "
+              + "If unspecified, uses 'ios_sdk_version'.")
   public DottedVersion.Option iosMinimumOs;
 
   @Option(
-    name = "watchos_minimum_os",
-    defaultValue = "null",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Minimum compatible watchOS version for target simulators and devices."
-  )
+      name = "watchos_minimum_os",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Minimum compatible watchOS version for target simulators and devices. "
+              + "If unspecified, uses 'watchos_sdk_version'.")
   public DottedVersion.Option watchosMinimumOs;
 
   @Option(
-    name = "tvos_minimum_os",
-    defaultValue = "null",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Minimum compatible tvOS version for target simulators and devices."
-  )
+      name = "tvos_minimum_os",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Minimum compatible tvOS version for target simulators and devices. "
+              + "If unspecified, uses 'tvos_sdk_version'.")
   public DottedVersion.Option tvosMinimumOs;
 
   @Option(
-    name = "macos_minimum_os",
-    defaultValue = "null",
-    converter = DottedVersionConverter.class,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Minimum compatible macOS version for targets."
-  )
+      name = "macos_minimum_os",
+      defaultValue = "null",
+      converter = DottedVersionConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "Minimum compatible macOS version for targets. "
+              + "If unspecified, uses 'macos_sdk_version'.")
   public DottedVersion.Option macosMinimumOs;
+
+  @Option(
+      name = "experimental_prefer_mutual_xcode",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If true, use the most recent Xcode that is available both locally and remotely. If"
+              + " false, or if there are no mutual available versions, use the local Xcode version"
+              + " selected via xcode-select.")
+  public boolean preferMutualXcode;
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
@@ -407,7 +426,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {
+    public void repr(Printer printer) {
       printer.append(mode);
     }
 

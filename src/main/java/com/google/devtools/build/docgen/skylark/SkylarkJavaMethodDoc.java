@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +33,8 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   private final Method method;
   private final SkylarkCallable callable;
   private final ImmutableList<SkylarkParamDoc> params;
+  // TODO(cparsons): Move to superclass when SkylarkBuiltinMethodDoc is removed.
+  private final boolean deprecated;
 
   private boolean isOverloaded;
 
@@ -47,6 +49,7 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
             withoutSelfParam(callable, method),
             callable.extraPositionals(),
             callable.extraKeywords());
+    this.deprecated = method.isAnnotationPresent(StarlarkDeprecated.class);
   }
 
   public Method getMethod() {
@@ -56,6 +59,11 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   @Override
   public boolean documented() {
     return callable.documented();
+  }
+
+  @Override
+  public boolean isDeprecated() {
+    return deprecated;
   }
 
   @Override
@@ -91,15 +99,21 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   @Override
   public String getDocumentation() {
     String prefixWarning = "";
-    if (callable.enableOnlyWithFlag() != FlagIdentifier.NONE) {
-      prefixWarning = "<b>Experimental</b>. This API is experimental and may change at any time. "
-          + "Please do not depend on it. It may be enabled on an experimental basis by setting "
-          + "<code>--" + callable.enableOnlyWithFlag().getFlagName() + "</code> <br>";
-    } else if (callable.disableWithFlag() != FlagIdentifier.NONE) {
-      prefixWarning = "<b>Deprecated</b>. This API is deprecated and will be removed soon. "
-          + "Please do not depend on it. It is <i>disabled</i> with "
-          + "<code>--" + callable.disableWithFlag().getFlagName() + "</code>. Use this flag "
-          + "to verify your code is compatible with its imminent removal. <br>";
+    if (!callable.enableOnlyWithFlag().isEmpty()) {
+      prefixWarning =
+          "<b>Experimental</b>. This API is experimental and may change at any time. "
+              + "Please do not depend on it. It may be enabled on an experimental basis by setting "
+              + "<code>--"
+              + callable.enableOnlyWithFlag()
+              + "</code> <br>";
+    } else if (!callable.disableWithFlag().isEmpty()) {
+      prefixWarning =
+          "<b>Deprecated</b>. This API is deprecated and will be removed soon. "
+              + "Please do not depend on it. It is <i>disabled</i> with "
+              + "<code>--"
+              + callable.disableWithFlag()
+              + "</code>. Use this flag "
+              + "to verify your code is compatible with its imminent removal. <br>";
     }
     return prefixWarning + SkylarkDocUtils.substituteVariables(callable.doc());
   }

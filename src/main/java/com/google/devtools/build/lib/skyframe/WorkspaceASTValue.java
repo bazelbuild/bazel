@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -48,14 +48,14 @@ import java.util.List;
  */
 public class WorkspaceASTValue implements SkyValue {
 
-  private final ImmutableList<BuildFileAST> asts;
+  private final ImmutableList<StarlarkFile> asts;
 
-  public WorkspaceASTValue(List<BuildFileAST> asts) {
+  public WorkspaceASTValue(List<StarlarkFile> asts) {
     Preconditions.checkNotNull(asts);
     this.asts = ImmutableList.copyOf(asts);
   }
 
-  public ImmutableList<BuildFileAST> getASTs() {
+  public ImmutableList<StarlarkFile> getASTs() {
     return asts;
   }
 

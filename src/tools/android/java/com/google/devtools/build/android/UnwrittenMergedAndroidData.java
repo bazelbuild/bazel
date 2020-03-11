@@ -91,6 +91,12 @@ public class UnwrittenMergedAndroidData {
     resourceClassWriter.flush();
   }
 
+  void writeRTxt(PlaceholderRTxtWriter rTxtWriter) throws IOException {
+    primary.writeResourcesTo(rTxtWriter);
+    transitive.writeResourcesTo(rTxtWriter);
+    rTxtWriter.flush();
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)

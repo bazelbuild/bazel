@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -89,8 +88,8 @@ public class SubprocessBuilder {
    * @throws IllegalArgumentException if argv is empty, or its first element (which becomes
    *     this.argv[0]) is neither an absolute path nor just a single file name
    */
-  public SubprocessBuilder setArgv(Iterable<String> argv) {
-    this.argv = ImmutableList.copyOf(argv);
+  public SubprocessBuilder setArgv(ImmutableList<String> argv) {
+    this.argv = Preconditions.checkNotNull(argv);
     Preconditions.checkArgument(!this.argv.isEmpty());
     File argv0 = new File(this.argv.get(0));
     Preconditions.checkArgument(
@@ -98,11 +97,6 @@ public class SubprocessBuilder {
         "argv[0] = '%s'; it should be either absolute or just a single file name"
             + " (no directory component)",
         this.argv.get(0));
-    return this;
-  }
-
-  public SubprocessBuilder setArgv(String... argv) {
-    this.setArgv(Arrays.asList(argv));
     return this;
   }
 

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /**
@@ -37,7 +38,7 @@ public class SpawnExecException extends ExecException {
     super(message, result.isCatastrophe());
     checkArgument(
         !Status.SUCCESS.equals(result.status()),
-        "Can't create exception with successful" + " spawn result.");
+        "Can't create exception with successful spawn result.");
     this.result = Preconditions.checkNotNull(result);
     this.forciblyRunRemotely = forciblyRunRemotely;
   }
@@ -65,25 +66,18 @@ public class SpawnExecException extends ExecException {
     if (messagePrefix == null) {
       messagePrefix = action.describe();
     }
-    // Note: we intentionally do not include the ExecException here, unless verboseFailures is true,
-    // because it creates unwieldy and useless messages. If users need more info, they can run with
-    // --verbose_failures.
     String message =
-        result.getDetailMessage(messagePrefix, getMessage(), isCatastrophic(), forciblyRunRemotely);
-    if (verboseFailures) {
-      return new ActionExecutionException(message, this, action, isCatastrophic(), getExitCode());
-    } else {
-      return new ActionExecutionException(message, action, isCatastrophic(), getExitCode());
-    }
+        result.getDetailMessage(
+            messagePrefix, getMessage(), verboseFailures, isCatastrophic(), forciblyRunRemotely);
+    return new ActionExecutionException(
+        message, this, action, isCatastrophic(), getDetailedExitCode());
   }
 
   /** Return exit code depending on the spawn result. */
-  protected ExitCode getExitCode() {
+  private DetailedExitCode getDetailedExitCode() {
     if (result.status().isConsideredUserError()) {
       return null;
     }
-    return (result != null && result.status() == Status.REMOTE_EXECUTOR_OVERLOADED)
-        ? ExitCode.REMOTE_EXECUTOR_OVERLOADED
-        : ExitCode.REMOTE_ERROR;
+    return DetailedExitCode.justExitCode(ExitCode.REMOTE_ERROR);
   }
 }

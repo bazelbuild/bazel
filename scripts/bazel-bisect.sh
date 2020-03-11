@@ -36,6 +36,9 @@ BAZEL_REPO=${BAZEL_REPO:-https://github.com/bazelbuild/bazel}
 BAZEL_DIR=${BAZEL_DIR:-$HOME/os-bazel-bisect}
 # Bazel to use to build local bazel binaries.
 BAZEL_BINARY=${BAZEL_BINARY:-$(which bazel)}
+# Whether to run 'bazel clean' between invocations.
+# Set BAZEL_BISECT_WITH_CLEAN=y to clean build artifacts between runs.
+BAZEL_BISECT_WITH_CLEAN=${BAZEL_BISECT_WITH_CLEAN:-n}
 
 # Collect the arguments.
 if [ "$#" -lt 3 ]; then
@@ -73,13 +76,16 @@ WORKING_DIR="$PWD"
   cat >$BISECT_SCRIPT <<EOF
 #!/bin/bash
 set -eu
-"$BAZEL_BINARY" build //src:bazel || exit 1
+"$BAZEL_BINARY" build //src:bazel >/dev/null 2>&1 || exit 1
 cp -f bazel-bin/src/bazel "$TMP_BIN"
 cd "$WORKING_DIR"
 # Call the newly built Bazel. If it fails, save the exit code but don't stop
 # the script.
 result=0
-"$TMP_BIN" $BAZEL_ARGUMENTS || result=$\? && true
+if [[ "${BAZEL_BISECT_WITH_CLEAN}" = "y" ]]; then
+  "$TMP_BIN" clean || true
+fi
+"$TMP_BIN" $BAZEL_ARGUMENTS || result=\$? && true
 "$TMP_BIN" shutdown || true
 exit \$result
 EOF

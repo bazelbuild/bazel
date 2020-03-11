@@ -81,13 +81,13 @@ public abstract class BlackBoxTestEnvironment {
             "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
             "http_archive(",
             "    name = 'rules_cc',",
-            "    sha256 = '36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89',",
-            "    strip_prefix = 'rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c',",
+            "    sha256 = '1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f',",
+            "    strip_prefix = 'rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0',",
             "    urls = [",
             "        'https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/"
-                + "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip',",
+                + "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip',",
             "        'https://github.com/bazelbuild/rules_cc/archive/"
-                + "0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip',",
+                + "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip',",
             "    ],",
             ")",
             "http_archive(",
@@ -106,9 +106,9 @@ public abstract class BlackBoxTestEnvironment {
             "    strip_prefix = 'rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313',",
             "    urls = [",
             "        'https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/"
-                + "97d8af4dc474595af3900dd85cb3a29ad28cc313.zip',",
+                + "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz',",
             "        'https://github.com/bazelbuild/rules_proto/archive/"
-                + "97d8af4dc474595af3900dd85cb3a29ad28cc313.zip',",
+                + "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz',",
             "    ],",
             ")");
   }

@@ -16,77 +16,72 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
-import com.google.devtools.build.lib.exec.ActionContextProvider;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
+import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
-/**
- * Provide a remote execution context.
- */
-final class RemoteActionContextProvider extends ActionContextProvider {
+/** Provide a remote execution context. */
+final class RemoteActionContextProvider implements ExecutorLifecycleListener {
+
   private final CommandEnvironment env;
-  private final AbstractRemoteActionCache cache;
+  private final RemoteCache cache;
   @Nullable private final GrpcRemoteExecutor executor;
-  private final RemoteRetrier retrier;
+  @Nullable private final ListeningScheduledExecutorService retryScheduler;
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
-  private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
-  private ImmutableSet<ActionInput> topLevelOutputs = ImmutableSet.of();
+  private ImmutableSet<ActionInput> filesToDownload = ImmutableSet.of();
 
   private RemoteActionContextProvider(
       CommandEnvironment env,
-      AbstractRemoteActionCache cache,
+      RemoteCache cache,
       @Nullable GrpcRemoteExecutor executor,
-      RemoteRetrier retrier,
+      @Nullable ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       @Nullable Path logDir) {
     this.env = Preconditions.checkNotNull(env, "env");
     this.cache = Preconditions.checkNotNull(cache, "cache");
     this.executor = executor;
-    this.retrier = retrier;
+    this.retryScheduler = retryScheduler;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
   }
 
   public static RemoteActionContextProvider createForRemoteCaching(
       CommandEnvironment env,
-      AbstractRemoteActionCache cache,
-      RemoteRetrier retrier,
+      RemoteCache cache,
+      ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil) {
     return new RemoteActionContextProvider(
-        env, cache, /*executor=*/ null, retrier, digestUtil, /*logDir=*/ null);
+        env, cache, /*executor=*/ null, retryScheduler, digestUtil, /*logDir=*/ null);
   }
 
   public static RemoteActionContextProvider createForRemoteExecution(
       CommandEnvironment env,
-      GrpcRemoteCache cache,
+      RemoteExecutionCache cache,
       GrpcRemoteExecutor executor,
-      RemoteRetrier retrier,
+      ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       Path logDir) {
-    return new RemoteActionContextProvider(env, cache, executor, retrier, digestUtil, logDir);
+    return new RemoteActionContextProvider(
+        env, cache, executor, retryScheduler, digestUtil, logDir);
   }
 
-  @Override
-  public Iterable<? extends ActionContext> getActionContexts() {
+  /** Registers the action contexts whose lifecycle this class manages. */
+  public void registerActionContexts(ExecutorBuilder executorBuilder) {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
@@ -103,83 +98,49 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               commandId,
               env.getReporter(),
               digestUtil,
-              topLevelOutputs);
-      return ImmutableList.of(spawnCache);
+              filesToDownload);
+      executorBuilder.addActionContext(SpawnCache.class, spawnCache, "remote-cache");
     } else {
       RemoteSpawnRunner spawnRunner =
           new RemoteSpawnRunner(
               env.getExecRoot(),
               remoteOptions,
               env.getOptions().getOptions(ExecutionOptions.class),
-              fallbackRunner,
               executionOptions.verboseFailures,
               env.getReporter(),
               buildRequestId,
               commandId,
-              (GrpcRemoteCache) cache,
+              (RemoteExecutionCache) cache,
               executor,
-              retrier,
+              retryScheduler,
               digestUtil,
               logDir,
-              topLevelOutputs);
-      return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
+              filesToDownload);
+      executorBuilder.addActionContext(
+          SpawnStrategy.class, new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner), "remote");
     }
   }
 
-  @Override
-  public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {
-    SortedSet<String> validStrategies = new TreeSet<>();
-    fallbackRunner.set(null);
-
-    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
-    String strategyName = remoteOptions.remoteLocalFallbackStrategy;
-
-    for (ActionContext context : usedContexts) {
-      if (context instanceof RemoteSpawnStrategy && cache == null) {
-        throw new ExecutorInitException(
-            "--remote_cache or --remote_executor should be initialized when using "
-                + "--spawn_strategy=remote",
-            ExitCode.COMMAND_LINE_ERROR);
-      }
-      if (context instanceof AbstractSpawnStrategy) {
-        ExecutionStrategy annotation = context.getClass().getAnnotation(ExecutionStrategy.class);
-        if (annotation != null) {
-          Collections.addAll(validStrategies, annotation.name());
-          if (!strategyName.equals("remote")
-              && Arrays.asList(annotation.name()).contains(strategyName)) {
-            AbstractSpawnStrategy spawnStrategy = (AbstractSpawnStrategy) context;
-            SpawnRunner spawnRunner = Preconditions.checkNotNull(spawnStrategy.getSpawnRunner());
-            fallbackRunner.set(spawnRunner);
-          }
-        }
-      }
-    }
-
-    if (fallbackRunner.get() == null) {
-      validStrategies.remove("remote");
-      throw new ExecutorInitException(
-          String.format(
-              "'%s' is an invalid value for --remote_local_fallback_strategy. Valid values are: %s",
-              strategyName, validStrategies),
-          ExitCode.COMMAND_LINE_ERROR);
-    }
-  }
-
-  /** Returns the remote cache object if any. */
-  @Nullable
-  AbstractRemoteActionCache getRemoteCache() {
+  /** Returns the remote cache. */
+  RemoteCache getRemoteCache() {
     return cache;
   }
 
-  void setTopLevelOutputs(ImmutableSet<ActionInput> topLevelOutputs) {
-    this.topLevelOutputs = Preconditions.checkNotNull(topLevelOutputs, "topLevelOutputs");
+  void setFilesToDownload(ImmutableSet<ActionInput> topLevelOutputs) {
+    this.filesToDownload = Preconditions.checkNotNull(topLevelOutputs, "filesToDownload");
   }
 
   @Override
+  public void executorCreated() throws ExecutorInitException {}
+
+  @Override
+  public void executionPhaseStarting(
+      ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels)
+      throws ExecutorInitException, InterruptedException {}
+
+  @Override
   public void executionPhaseEnding() {
-    if (cache != null) {
-      cache.close();
-    }
+    cache.close();
     if (executor != null) {
       executor.close();
     }

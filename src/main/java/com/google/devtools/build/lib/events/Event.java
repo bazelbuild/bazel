@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.events;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.util.io.FileOutErr.OutputReference;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
@@ -31,8 +33,7 @@ public final class Event implements Serializable {
   private final EventKind kind;
   private final Location location;
   private final String message;
-  @Nullable private final String stdout;
-  @Nullable private final String stderr;
+  @Nullable private final FileOutErr outErr;
 
   /**
    * An alternative representation for message.
@@ -53,15 +54,13 @@ public final class Event implements Serializable {
       @Nullable Location location,
       String message,
       @Nullable String tag,
-      @Nullable String stdout,
-      @Nullable String stderr) {
+      @Nullable FileOutErr outErr) {
     this.kind = Preconditions.checkNotNull(kind);
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
     this.messageBytes = null;
     this.tag = tag;
-    this.stdout = stdout;
-    this.stderr = stderr;
+    this.outErr = outErr;
   }
 
   private Event(
@@ -69,15 +68,13 @@ public final class Event implements Serializable {
       @Nullable Location location,
       byte[] messageBytes,
       @Nullable String tag,
-      @Nullable String stdout,
-      @Nullable String stderr) {
+      @Nullable FileOutErr outErr) {
     this.kind = Preconditions.checkNotNull(kind);
     this.location = location;
     this.message = null;
     this.messageBytes = Preconditions.checkNotNull(messageBytes);
     this.tag = tag;
-    this.stdout = stdout;
-    this.stderr = stderr;
+    this.outErr = outErr;
   }
 
   public Event withTag(String tag) {
@@ -85,17 +82,17 @@ public final class Event implements Serializable {
       return this;
     }
     if (this.message != null) {
-      return new Event(this.kind, this.location, this.message, tag, this.stdout, this.stderr);
+      return new Event(this.kind, this.location, this.message, tag, this.outErr);
     } else {
-      return new Event(this.kind, this.location, this.messageBytes, tag, this.stdout, this.stderr);
+      return new Event(this.kind, this.location, this.messageBytes, tag, this.outErr);
     }
   }
 
-  public Event withStdoutStderr(String stdout, String stderr) {
+  public Event withStdoutStderr(FileOutErr outErr) {
     if (this.message != null) {
-      return new Event(this.kind, this.location, this.message, this.tag, stdout, stderr);
+      return new Event(this.kind, this.location, this.message, this.tag, outErr);
     } else {
-      return new Event(this.kind, this.location, this.messageBytes, this.tag, stdout, stderr);
+      return new Event(this.kind, this.location, this.messageBytes, this.tag, outErr);
     }
   }
 
@@ -105,6 +102,13 @@ public final class Event implements Serializable {
 
   public byte[] getMessageBytes() {
     return messageBytes != null ? messageBytes : message.getBytes(UTF_8);
+  }
+
+  /** Provide the message as a reference object. */
+  public OutputReference getMessageReference() {
+    // The message is short and we have it in memory anyway; so just wrap it into
+    // the common interface.
+    return new ArrayOutputReference(getMessageBytes());
   }
 
   public EventKind getKind() {
@@ -119,13 +123,21 @@ public final class Event implements Serializable {
     return tag;
   }
 
+  /** Indicate if any output is associated with this event. */
+  public boolean hasStdoutStderr() {
+    return outErr != null;
+  }
+
   /**
    * Get the stdout bytes associated with this event; typically, the event will report where the
    * output originated from.
    */
   @Nullable
   public String getStdOut() {
-    return stdout;
+    if (outErr == null) {
+      return null;
+    }
+    return outErr.outAsLatin1();
   }
 
   /**
@@ -134,7 +146,20 @@ public final class Event implements Serializable {
    */
   @Nullable
   public String getStdErr() {
-    return stderr;
+    if (outErr == null) {
+      return null;
+    }
+    return outErr.errAsLatin1();
+  }
+
+  /** Get a reference to the associated output. */
+  public OutputReference getStdOutReference() {
+    return outErr.getOutReference();
+  }
+
+  /** Get a reference to the associated output. */
+  public OutputReference getStdErrReference() {
+    return outErr.getErrReference();
   }
 
   /**
@@ -146,13 +171,14 @@ public final class Event implements Serializable {
     return location;
   }
 
-  /**
-   * Returns <i>some</i> moderately sane representation of the event. Should never be used in
-   * user-visible places, only for debugging and testing.
-   */
+  /** Returns the event formatted as {@code "ERROR foo.bzl:1:2: oops"}. */
   @Override
   public String toString() {
-    return kind + " " + (location != null ? location.print() : "<no location>") + ": "
+    // TODO(adonovan): <no location> is just noise.
+    return kind
+        + " "
+        + (location != null ? location.toString() : "<no location>")
+        + ": "
         + getMessage();
   }
 
@@ -169,7 +195,7 @@ public final class Event implements Serializable {
     // read, so we must take care to only read the field once.
     int h = hashCode;
     if (h == 0) {
-      h = Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes), stdout, stderr);
+      h = Objects.hash(kind, location, message, tag, Arrays.hashCode(messageBytes), outErr);
       hashCode = h;
     }
     return h;
@@ -188,8 +214,7 @@ public final class Event implements Serializable {
         && Objects.equals(this.location, that.location)
         && Objects.equals(this.tag, that.tag)
         && Objects.equals(this.message, that.message)
-        && Objects.equals(this.stdout, that.stdout)
-        && Objects.equals(this.stderr, that.stderr)
+        && Objects.equals(this.outErr, that.outErr)
         && Arrays.equals(this.messageBytes, that.messageBytes);
   }
 
@@ -203,7 +228,7 @@ public final class Event implements Serializable {
   }
 
   public static Event of(EventKind kind, @Nullable Location location, String message) {
-    return new Event(kind, location, message, null, null, null);
+    return new Event(kind, location, message, null, null);
   }
 
   /**
@@ -212,12 +237,12 @@ public final class Event implements Serializable {
    * The bytes must be decodable as UTF-8 text.
    */
   public static Event of(EventKind kind, @Nullable Location location, byte[] messageBytes) {
-    return new Event(kind, location, messageBytes, null, null, null);
+    return new Event(kind, location, messageBytes, null, null);
   }
 
   /** Reports an error. */
   public static Event error(@Nullable Location location, String message) {
-    return new Event(EventKind.ERROR, location, message, null, null, null);
+    return new Event(EventKind.ERROR, location, message, null, null);
   }
 
   /** Reports an error. */
@@ -227,7 +252,7 @@ public final class Event implements Serializable {
 
   /** Reports a warning. */
   public static Event warn(@Nullable Location location, String message) {
-    return new Event(EventKind.WARNING, location, message, null, null, null);
+    return new Event(EventKind.WARNING, location, message, null, null);
   }
 
   /** Reports a warning. */
@@ -239,7 +264,7 @@ public final class Event implements Serializable {
    * Reports atemporal statements about the build, i.e. they're true for the duration of execution.
    */
   public static Event info(@Nullable Location location, String message) {
-    return new Event(EventKind.INFO, location, message, null, null, null);
+    return new Event(EventKind.INFO, location, message, null, null);
   }
 
   /**
@@ -251,7 +276,7 @@ public final class Event implements Serializable {
 
   /** Reports a temporal statement about the build. */
   public static Event progress(@Nullable Location location, String message) {
-    return new Event(EventKind.PROGRESS, location, message, null, null, null);
+    return new Event(EventKind.PROGRESS, location, message, null, null);
   }
 
   /** Reports a temporal statement about the build. */
@@ -261,7 +286,7 @@ public final class Event implements Serializable {
 
   /** Reports a debug message. */
   public static Event debug(@Nullable Location location, String message) {
-    return new Event(EventKind.DEBUG, location, message, null, null, null);
+    return new Event(EventKind.DEBUG, location, message, null, null);
   }
 
   /**
@@ -269,5 +294,27 @@ public final class Event implements Serializable {
    */
   public static Event debug(String message) {
     return debug(null, message);
+  }
+
+  private static class ArrayOutputReference implements OutputReference {
+    private final byte[] message;
+
+    ArrayOutputReference(byte[] message) {
+      this.message = message;
+    }
+
+    @Override
+    public long getLength() {
+      return message.length;
+    }
+
+    @Override
+    public byte[] getFinalBytes(int count) {
+      if (count >= message.length) {
+        return message;
+      } else {
+        return Arrays.copyOfRange(message, message.length - count, message.length);
+      }
+    }
   }
 }

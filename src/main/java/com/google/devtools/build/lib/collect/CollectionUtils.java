@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -116,7 +115,6 @@ public final class CollectionUtils {
   /**
    * Returns an immutable set of all non-null parameters in the order in which they are specified.
    */
-  @SuppressWarnings("unchecked")
   public static <T> ImmutableSet<T> asSetWithoutNulls(T... elements) {
     return Arrays.stream(elements).filter(Objects::nonNull).collect(toImmutableSet());
   }
@@ -130,8 +128,6 @@ public final class CollectionUtils {
     return iterable instanceof ImmutableList<?>
         || iterable instanceof ImmutableSet<?>
         || iterable instanceof IterablesChain<?>
-        || iterable instanceof DedupingIterable<?>
-        || iterable instanceof NestedSet<?>
         || iterable instanceof ImmutableIterable<?>;
   }
 
@@ -169,7 +165,6 @@ public final class CollectionUtils {
    * Converts a set of enum values to a bit field. Requires that the enum contains at most 32
    * elements.
    */
-  @SuppressWarnings("unchecked")
   public static <T extends Enum<T>> int toBits(T... values) {
     return toBits(ImmutableSet.copyOf(values));
   }
@@ -210,12 +205,11 @@ public final class CollectionUtils {
   }
 
   /**
-   * A variant of {@link com.google.common.collect.Iterables.isEmpty} that avoids expanding nested
+   * A variant of {@link com.google.common.collect.Iterables#isEmpty} that avoids expanding nested
    * sets.
    */
   public static <T> boolean isEmpty(Iterable<T> iterable) {
-    return (iterable instanceof NestedSet)
-        ? ((NestedSet) iterable).isEmpty()
-        : Iterables.isEmpty(iterable);
+    // Only caller is IterablesChain.
+    return Iterables.isEmpty(iterable);
   }
 }

@@ -43,6 +43,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.xml.XmlEscapers;
 import com.google.devtools.build.android.AndroidResourceOutputs.UniqueZipBuilder;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,7 +62,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -122,13 +123,13 @@ public class ProtoApk implements Closeable {
         final UniqueZipBuilder dstZip = UniqueZipBuilder.createFor(destination)) {
       final ResourceTable.Builder dstTableBuilder = ResourceTable.newBuilder();
       final ResourceTable resourceTable =
-          ResourceTable.parseFrom(Files.newInputStream(apkFileSystem.getPath(RESOURCE_TABLE)));
+          ResourceTable.parseFrom(
+              Files.newInputStream(apkFileSystem.getPath(RESOURCE_TABLE)),
+              ExtensionRegistry.getEmptyRegistry());
       dstTableBuilder.setSourcePool(resourceTable.getSourcePool());
       for (Package pkg : resourceTable.getPackageList()) {
         Package dstPkg = copyPackage(resourceFilter, dstZip, pkg);
-        if (!dstPkg.getTypeList().isEmpty()) {
-          dstTableBuilder.addPackage(dstPkg);
-        }
+        dstTableBuilder.addPackage(dstPkg);
       }
       dstZip.addEntry(RESOURCE_TABLE, dstTableBuilder.build().toByteArray(), ZipEntry.DEFLATED);
       srcZip.stream()
@@ -213,11 +214,16 @@ public class ProtoApk implements Closeable {
     }
   }
 
+  public XmlNode getManifest() throws IOException {
+    try (InputStream in = Files.newInputStream(apkFileSystem.getPath(MANIFEST))) {
+      return XmlNode.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
+    }
+  }
+
   /** Copy manifest as xml to an external directory. */
   public Path writeManifestAsXmlTo(Path directory) {
-    try (InputStream in = Files.newInputStream(apkFileSystem.getPath(MANIFEST));
-        XmlWriter out = XmlWriter.openNew(Files.createDirectories(directory).resolve(MANIFEST))) {
-      out.write(XmlNode.parseFrom(in));
+    try (XmlWriter out = XmlWriter.openNew(Files.createDirectories(directory).resolve(MANIFEST))) {
+      out.write(getManifest());
       return directory.resolve(MANIFEST);
     } catch (IOException e) {
       throw new ProtoApkException(e);
@@ -283,7 +289,7 @@ public class ProtoApk implements Closeable {
       }
       final ByteString name = element.getNameBytes();
       name.writeTo(out);
-      final Map<ByteString, ByteString> namespaces = new HashMap<>();
+      final Map<ByteString, ByteString> namespaces = new LinkedHashMap<>();
       for (XmlNamespace namespace : element.getNamespaceDeclarationList()) {
         final ByteString prefix = namespace.getPrefixBytes();
         SPACE.writeTo(out);
@@ -314,6 +320,10 @@ public class ProtoApk implements Closeable {
         }
         ANGLE_OPEN.writeTo(out);
         FORWARD_SLASH.writeTo(out);
+        if (!element.getNamespaceUriBytes().isEmpty()) {
+          findNamespacePrefix(element.getNamespaceUriBytes()).writeTo(out);
+          COLON.writeTo(out);
+        }
         name.writeTo(out);
         ANGLE_CLOSE.writeTo(out);
       }
@@ -361,7 +371,9 @@ public class ProtoApk implements Closeable {
 
     // visit resource table and associated files.
     final ResourceTable resourceTable =
-        ResourceTable.parseFrom(Files.newInputStream(apkFileSystem.getPath(RESOURCE_TABLE)));
+        ResourceTable.parseFrom(
+            Files.newInputStream(apkFileSystem.getPath(RESOURCE_TABLE)),
+            ExtensionRegistry.getEmptyRegistry());
 
     final List<String> sourcePool =
         resourceTable.hasSourcePool()
@@ -433,6 +445,7 @@ public class ProtoApk implements Closeable {
 
         strings.add(new String(bytes, stringOffset, length, "UTF8"));
       } else {
+        // TODO(b/148817379): this next block of lines is forming an int with holes in it.
         int characterCount = byteBuffer.get(stringOffset) & 0xFFFF;
         if ((characterCount & 0x8000) != 0) {
           characterCount =
@@ -582,7 +595,7 @@ public class ProtoApk implements Closeable {
     }
 
     try (InputStream in = Files.newInputStream(path)) {
-      visit(XmlNode.parseFrom(in), visitor);
+      visit(XmlNode.parseFrom(in, ExtensionRegistry.getEmptyRegistry()), visitor);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

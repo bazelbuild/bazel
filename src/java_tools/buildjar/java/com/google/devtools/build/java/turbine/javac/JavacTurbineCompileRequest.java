@@ -26,7 +26,6 @@ import javax.annotation.Nullable;
 class JavacTurbineCompileRequest {
 
   private final ImmutableList<Path> sources;
-  private final ImmutableList<Path> classPath;
   private final ImmutableList<Path> bootClassPath;
   private final ImmutableSet<String> builtinProcessors;
   private final ImmutableList<Path> processorClassPath;
@@ -36,7 +35,6 @@ class JavacTurbineCompileRequest {
 
   JavacTurbineCompileRequest(
       ImmutableList<Path> sources,
-      ImmutableList<Path> classPath,
       ImmutableList<Path> bootClassPath,
       ImmutableSet<String> builtinProcessors,
       ImmutableList<Path> processorClassPath,
@@ -44,7 +42,6 @@ class JavacTurbineCompileRequest {
       @Nullable StrictJavaDepsPlugin strictJavaDepsPlugin,
       JavacTransitive transitivePlugin) {
     this.sources = checkNotNull(sources);
-    this.classPath = checkNotNull(classPath);
     this.bootClassPath = checkNotNull(bootClassPath);
     this.builtinProcessors = checkNotNull(builtinProcessors);
     this.processorClassPath = checkNotNull(processorClassPath);
@@ -56,11 +53,6 @@ class JavacTurbineCompileRequest {
   /** The sources to compile. */
   ImmutableList<Path> sources() {
     return sources;
-  }
-
-  /** The class path; correspond's to javac -classpath. */
-  ImmutableList<Path> classPath() {
-    return classPath;
   }
 
   /** The boot class path; corresponds to javac -bootclasspath. */
@@ -100,7 +92,6 @@ class JavacTurbineCompileRequest {
 
   static class Builder {
     private ImmutableList<Path> sources;
-    private ImmutableList<Path> classPath;
     private ImmutableList<Path> bootClassPath;
     private ImmutableSet<String> builtinProcessors;
     private ImmutableList<Path> processorClassPath;
@@ -113,7 +104,6 @@ class JavacTurbineCompileRequest {
     JavacTurbineCompileRequest build() {
       return new JavacTurbineCompileRequest(
           sources,
-          classPath,
           bootClassPath,
           builtinProcessors,
           processorClassPath,
@@ -124,11 +114,6 @@ class JavacTurbineCompileRequest {
 
     Builder setSources(ImmutableList<Path> sources) {
       this.sources = sources;
-      return this;
-    }
-
-    Builder setClassPath(ImmutableList<Path> classPath) {
-      this.classPath = classPath;
       return this;
     }
 

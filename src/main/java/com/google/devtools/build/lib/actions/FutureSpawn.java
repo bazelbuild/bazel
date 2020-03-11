@@ -93,7 +93,7 @@ public class FutureSpawn {
   /**
    * Wraps the evaluation within this future with the given wrapper. This is similar to {@link
    * com.google.common.util.concurrent.Futures#lazyTransform} in that the wrapper is executed every
-   * time get() is called. However, it ensures that the wrapper code isexecuted in the Skyframe
+   * time get() is called. However, it ensures that the wrapper code is executed in the Skyframe
    * thread pool.
    */
   public FutureSpawn wrap(Wrapper wrapper) {

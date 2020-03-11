@@ -25,11 +25,11 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
+import com.google.devtools.build.lib.query2.query.output.AttributeValueSource;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.TargetOutputter;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
-import com.google.devtools.build.lib.query2.query.output.OutputFormatter.PossibleAttributeValues;
+import com.google.devtools.build.lib.query2.query.output.PossibleAttributeValues;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
@@ -68,7 +68,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
       Object actualValue = attributeMap.get(attr.getName(), attr.getType());
       return new PossibleAttributeValues(
           actualValue == null ? ImmutableList.of() : ImmutableList.of(actualValue),
-          OutputFormatter.getAttributeSource(rule, attr));
+          AttributeValueSource.forRuleAndAttribute(rule, attr));
     }
   }
 

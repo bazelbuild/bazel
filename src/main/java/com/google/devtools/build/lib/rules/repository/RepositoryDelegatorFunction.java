@@ -174,7 +174,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           !DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING.get(env));
     }
 
-    byte[] ruleSpecificData = handler.getRuleSpecificMarkerData(rule, env);
     if (env.valuesMissing()) {
       return null;
     }
@@ -185,7 +184,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
             directories,
             repositoryName,
             rule,
-            Preconditions.checkNotNull(ruleSpecificData),
             managedDirectories);
 
     // Local repositories are fetched regardless of the marker file because the operation is
@@ -388,9 +386,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         BlazeDirectories directories,
         RepositoryName repositoryName,
         Rule rule,
-        byte[] ruleSpecificData,
         ImmutableSet<PathFragment> managedDirectories) {
-      ruleKey = computeRuleKey(rule, ruleSpecificData);
+      ruleKey = computeRuleKey(rule);
       markerPath = getMarkerPath(directories, repositoryName.strippedName());
       this.rule = rule;
       markerData = Maps.newHashMap();
@@ -496,10 +493,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return markerRuleKey;
     }
 
-    private String computeRuleKey(Rule rule, byte[] ruleSpecificData) {
+    private String computeRuleKey(Rule rule) {
       return new Fingerprint()
           .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
-          .addBytes(ruleSpecificData)
           .addInt(MARKER_FILE_VERSION)
           .hexDigestAndReset();
     }

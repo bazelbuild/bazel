@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,34 +11,119 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import java.util.List;
-import java.util.Map;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Location;
 import javax.annotation.Nullable;
 
-/**
- * A base interface for function-like objects that are callable in Starlark, whether builtin or
- * user-defined.
- */
-public interface StarlarkFunction extends SkylarkValue {
+/** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */
+public final class StarlarkFunction extends BaseFunction {
 
-  /**
-   * Call this function with the given arguments.
-   *
-   * @param args a list of all positional arguments (as in *starArg)
-   * @param kwargs a map for key arguments (as in **kwArgs)
-   * @param ast the expression for this function's definition
-   * @param env the Environment in which the function is called
-   * @return the value resulting from evaluating the function with the given arguments
-   * @throws EvalException if there was an error invoking this function
-   */
-  public Object call(
-      List<Object> args,
-      @Nullable Map<String, Object> kwargs,
-      @Nullable FuncallExpression ast,
-      Environment env)
-      throws EvalException, InterruptedException;
+  private final String name;
+  private final FunctionSignature signature;
+  private final Location location;
+  private final ImmutableList<Statement> statements;
+  private final Module module; // a function closes over its defining module
+  private final Tuple<Object> defaultValues;
+
+  // isToplevel indicates that this is the <toplevel> function containing
+  // top-level statements of a file. It causes assignments to unresolved
+  // identifiers to update the module, not the lexical frame.
+  // TODO(adonovan): remove this hack when identifier resolution is accurate.
+  boolean isToplevel;
+
+  // TODO(adonovan): make this private. The CodecTests should go through interpreter to instantiate
+  // such things.
+  public StarlarkFunction(
+      String name,
+      Location location,
+      FunctionSignature signature,
+      Tuple<Object> defaultValues,
+      ImmutableList<Statement> statements,
+      Module module) {
+    this.name = name;
+    this.signature = signature;
+    this.location = location;
+    this.statements = statements;
+    this.module = module;
+    this.defaultValues = defaultValues;
+  }
+
+  @Override
+  public Tuple<Object> getDefaultValues() {
+    return defaultValues;
+  }
+
+  @Override
+  public FunctionSignature getSignature() {
+    return signature;
+  }
+
+  @Override
+  public Location getLocation() {
+    return location;
+  }
+
+  @Override
+  public String getName() {
+    return name;
+  }
+
+  /** Returns the value denoted by the function's doc string literal, or null if absent. */
+  @Nullable
+  public String getDocumentation() {
+    if (statements.isEmpty()) {
+      return null;
+    }
+    Statement first = statements.get(0);
+    if (!(first instanceof ExpressionStatement)) {
+      return null;
+    }
+    Expression expr = ((ExpressionStatement) first).getExpression();
+    if (!(expr instanceof StringLiteral)) {
+      return null;
+    }
+    return ((StringLiteral) expr).getValue();
+  }
+
+  public Module getModule() {
+    return module;
+  }
+
+  @Override
+  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+      throws EvalException, InterruptedException {
+    if (thread.mutability().isFrozen()) {
+      throw Starlark.errorf("Trying to call in frozen environment");
+    }
+    if (thread.isRecursiveCall(this)) {
+      throw Starlark.errorf("function '%s' called recursively", name);
+    }
+
+    // Compute the effective parameter values
+    // and update the corresponding variables.
+    Object[] arguments =
+        Starlark.matchSignature(
+            getSignature(), this, getDefaultValues(), thread.mutability(), positional, named);
+
+    StarlarkThread.Frame fr = thread.frame(0);
+    ImmutableList<String> names = getSignature().getParameterNames();
+    for (int i = 0; i < names.size(); ++i) {
+      fr.locals.put(names.get(i), arguments[i]);
+    }
+
+    return Eval.execFunctionBody(fr, statements);
+  }
+
+  @Override
+  public void repr(Printer printer) {
+    Object label = module.getLabel();
+
+    printer.append("<function " + getName());
+    if (label != null) {
+      printer.append(" from " + label);
+    }
+    printer.append(">");
+  }
 }

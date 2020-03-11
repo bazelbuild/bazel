@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -29,8 +28,12 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.SkylarkNativeAspect;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 
 /**
  * Aspect that gathers the proto dependencies of the attached rule target, and propagates the proto
@@ -72,7 +75,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
     if (attributes.isObjcProtoLibrary()) {
 
       // Gather up all the dependency protos depended by this target.
-      Iterable<ProtoInfo> protoInfos =
+      List<ProtoInfo> protoInfos =
           ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER);
 
       for (ProtoInfo protoInfo : protoInfos) {
@@ -85,7 +88,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
 
       // If this target does not provide filters but specifies direct proto_library dependencies,
       // generate a filter file only for those proto files.
-      if (Iterables.isEmpty(portableProtoFilters) && !Iterables.isEmpty(protoInfos)) {
+      if (portableProtoFilters.isEmpty() && !protoInfos.isEmpty()) {
         Artifact generatedFilter =
             ProtobufSupport.getGeneratedPortableFilter(ruleContext, ruleContext.getConfiguration());
         ProtobufSupport.registerPortableFilterGenerationAction(
@@ -97,12 +100,26 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
 
       // Propagate protobuf's headers and search paths so the BinaryLinkingTargetFactory subclasses
       // (i.e. objc_binary) don't have to depend on it.
-      ObjcProvider protobufObjcProvider =
-          ruleContext.getPrerequisite(
-              ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
-      aspectObjcProtoProvider.addProtobufHeaders(protobufObjcProvider.get(ObjcProvider.HEADER));
+      ObjcConfiguration objcConfiguration =
+          ruleContext.getConfiguration().getFragment(ObjcConfiguration.class);
+      CcCompilationContext protobufCcCompilationContext;
+      if (objcConfiguration.compileInfoMigration()) {
+        CcInfo protobufCcInfo =
+            ruleContext.getPrerequisite(
+                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, CcInfo.PROVIDER);
+        protobufCcCompilationContext = protobufCcInfo.getCcCompilationContext();
+      } else {
+        ObjcProvider protobufObjcProvider =
+            ruleContext.getPrerequisite(
+                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        protobufCcCompilationContext = protobufObjcProvider.getCcCompilationContext();
+      }
+      aspectObjcProtoProvider.addProtobufHeaders(
+          protobufCcCompilationContext.getDeclaredIncludeSrcs());
       aspectObjcProtoProvider.addProtobufHeaderSearchPaths(
-          protobufObjcProvider.get(ObjcProvider.INCLUDE));
+          NestedSetBuilder.<PathFragment>linkOrder()
+              .addAll(protobufCcCompilationContext.getIncludeDirs())
+              .build());
     }
 
     // Only add the provider if it has any values, otherwise skip it.

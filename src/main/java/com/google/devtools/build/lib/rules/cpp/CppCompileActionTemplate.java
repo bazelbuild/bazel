@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyCacher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
 public final class CppCompileActionTemplate extends ActionKeyCacher
@@ -83,7 +84,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     this.mandatoryInputs = cppCompileActionBuilder.buildMandatoryInputs();
     this.allInputs =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
-            .addAll(cppCompileActionBuilder.buildInputsForInvalidation())
+            .addTransitive(cppCompileActionBuilder.buildInputsForInvalidation())
             .build();
   }
 
@@ -127,9 +128,12 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         TreeFileArtifact outputTreeFileArtifact =
             ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
                 outputTreeArtifact, PathFragment.create(outputName), artifactOwner);
-        TreeFileArtifact dotdFileArtifact =
-            ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-                dotdTreeArtifact, PathFragment.create(outputName + ".d"), artifactOwner);
+        TreeFileArtifact dotdFileArtifact = null;
+        if (dotdTreeArtifact != null) {
+          dotdFileArtifact =
+              ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+                  dotdTreeArtifact, PathFragment.create(outputName + ".d"), artifactOwner);
+        }
         expandedActions.add(
             createAction(
                 inputTreeFileArtifact, outputTreeFileArtifact, dotdFileArtifact, privateHeaders));
@@ -166,7 +170,10 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         cppCompileActionBuilder.buildPrunableHeaders(),
         cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-        cppCompileActionBuilder.buildInputsForInvalidation());
+        cppCompileActionBuilder.buildInputsForInvalidation(),
+        toolchain
+            .getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
+            .validateTopLevelHeaderInclusions());
   }
 
   private boolean shouldCompileHeaders() {
@@ -176,7 +183,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   private CppCompileAction createAction(
       Artifact sourceTreeFileArtifact,
       Artifact outputTreeFileArtifact,
-      Artifact dotdFileArtifact,
+      @Nullable Artifact dotdFileArtifact,
       ImmutableList<Artifact> privateHeaders)
       throws ActionTemplateExpansionException {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(cppCompileActionBuilder);
@@ -192,9 +199,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     buildVariables.overrideStringVariable(
         CompileBuildVariables.OUTPUT_FILE.getVariableName(),
         outputTreeFileArtifact.getExecPathString());
-    buildVariables.overrideStringVariable(
-        CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
-        dotdFileArtifact.getExecPathString());
+    if (dotdFileArtifact != null) {
+      buildVariables.overrideStringVariable(
+          CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
+          dotdFileArtifact.getExecPathString());
+    }
 
     builder.setVariables(buildVariables.build());
 
@@ -244,7 +253,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     return NestedSetBuilder.<Artifact>compileOrder()
         .add(sourceTreeArtifact)
         .addTransitive(mandatoryInputs)
@@ -252,10 +261,9 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    return ImmutableList.of();
+  public NestedSet<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext) {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
@@ -264,12 +272,12 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<Artifact> getTools() {
-    return ImmutableList.<Artifact>of();
+  public NestedSet<Artifact> getTools() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
-  public Iterable<Artifact> getInputs() {
+  public NestedSet<Artifact> getInputs() {
     return NestedSetBuilder.<Artifact>stableOrder()
         .add(sourceTreeArtifact)
         .addTransitive(allInputs)
@@ -278,6 +286,9 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
 
   @Override
   public ImmutableSet<Artifact> getOutputs() {
+    if (dotdTreeArtifact == null) {
+      return ImmutableSet.of(outputTreeArtifact);
+    }
     return ImmutableSet.of(outputTreeArtifact, dotdTreeArtifact);
   }
 

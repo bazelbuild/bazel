@@ -54,7 +54,7 @@ public final class JavaLibraryBuildRequest {
   private final ImmutableList<Path> sourcePath;
   private final ImmutableList<Path> classPath;
   private final ImmutableList<Path> bootClassPath;
-  private final ImmutableList<Path> extClassPath;
+  private final Path system;
 
   private final ImmutableList<Path> processorPath;
   private final List<String> processorNames;
@@ -123,10 +123,7 @@ public final class JavaLibraryBuildRequest {
     }
     depsBuilder.addDepsArtifacts(asPaths(optionsParser.getDepsArtifacts()));
     depsBuilder.setPlatformJars(
-        ImmutableSet.<Path>builder()
-            .addAll(asPaths(optionsParser.getBootClassPath()))
-            .addAll(asPaths(optionsParser.getExtClassPath()))
-            .build());
+        optionsParser.getBootClassPath().stream().map(Paths::get).collect(toImmutableSet()));
     if (optionsParser.reduceClasspathMode() != OptionsParser.ReduceClasspathMode.NONE) {
       depsBuilder.setReduceClasspath();
     }
@@ -142,7 +139,6 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.getManifestProtoPath() != null) {
       processingBuilder.setManifestProtoPath(Paths.get(optionsParser.getManifestProtoPath()));
     }
-    processingBuilder.addAllSourceRoots(optionsParser.getSourceRoots());
     this.processingModule = processingBuilder.build();
 
     ImmutableList.Builder<BlazeJavaCompilerPlugin> pluginsBuilder =
@@ -160,7 +156,7 @@ public final class JavaLibraryBuildRequest {
     this.classPath = asPaths(optionsParser.getClassPath());
     this.sourcePath = asPaths(optionsParser.getSourcePath());
     this.bootClassPath = asPaths(optionsParser.getBootClassPath());
-    this.extClassPath = asPaths(optionsParser.getExtClassPath());
+    this.system = asPath(optionsParser.getSystem());
     this.processorPath = asPaths(optionsParser.getProcessorPath());
     this.processorNames = optionsParser.getProcessorNames();
     this.builtinProcessorNames = ImmutableSet.copyOf(optionsParser.getBuiltinProcessorNames());
@@ -238,8 +234,8 @@ public final class JavaLibraryBuildRequest {
     return bootClassPath;
   }
 
-  public ImmutableList<Path> getExtClassPath() {
-    return extClassPath;
+  public Path getSystem() {
+    return system;
   }
 
   public ImmutableList<Path> getProcessorPath() {
@@ -319,11 +315,8 @@ public final class JavaLibraryBuildRequest {
         BlazeJavacArguments.builder()
             .classPath(classPath)
             .classOutput(getClassDir())
-            .bootClassPath(
-                ImmutableList.<Path>builder()
-                    .addAll(getBootClassPath())
-                    .addAll(getExtClassPath())
-                    .build())
+            .bootClassPath(getBootClassPath())
+            .system(getSystem())
             .javacOptions(makeJavacArguments())
             .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
             .processors(null)
@@ -332,6 +325,16 @@ public final class JavaLibraryBuildRequest {
             .sourceOutput(getSourceGenDir())
             .processorPath(getProcessorPath())
             .plugins(getPlugins());
+    // Performance optimization: when reduced classpaths are enabled, stop the compilation after
+    // the first diagnostic that would result in fallback to the transitive classpath. The user
+    // only sees diagnostics from the fallback compilation, so collecting additional diagnostics
+    // from the reduced classpath compilation is a waste of time.
+    // Exception: this doesn't hold if annotation processing is enabled, since diagnostics may be
+    // resolved during subsequent processing rounds.
+    if (reduceClasspathMode.equals(OptionsParser.ReduceClasspathMode.BAZEL_REDUCED)
+        && getProcessors().isEmpty()) {
+      builder.failFast(getProcessors().isEmpty());
+    }
     if (getNativeHeaderOutput() != null) {
       builder.nativeHeaderOutput(getNativeHeaderDir());
     }

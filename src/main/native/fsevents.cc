@@ -11,12 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include <CoreServices/CoreServices.h>
 #include <jni.h>
 #include <pthread.h>
 #include <stdlib.h>
+
 #include <list>
 #include <string>
+
+namespace {
 
 // A structure to pass around the FSEvents info and the list of paths.
 struct JNIEventsDiffAwareness {
@@ -111,14 +115,22 @@ JNIEventsDiffAwareness *GetInfo(JNIEnv *env, jobject fsEventsDiffAwareness) {
   return reinterpret_cast<JNIEventsDiffAwareness *>(field);
 }
 
+}  // namespace
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_run(
-    JNIEnv *env, jobject fsEventsDiffAwareness) {
+    JNIEnv *env, jobject fsEventsDiffAwareness, jobject listening) {
   JNIEventsDiffAwareness *info = GetInfo(env, fsEventsDiffAwareness);
   info->runLoop = CFRunLoopGetCurrent();
   FSEventStreamScheduleWithRunLoop(info->stream, info->runLoop,
                                    kCFRunLoopDefaultMode);
   FSEventStreamStart(info->stream);
+
+  jclass countDownLatchClass = env->GetObjectClass(listening);
+  jmethodID countDownMethod =
+      env->GetMethodID(countDownLatchClass, "countDown", "()V");
+  env->CallVoidMethod(listening, countDownMethod);
+
   CFRunLoopRun();
 }
 

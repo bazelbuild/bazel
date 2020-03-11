@@ -91,7 +91,8 @@ public interface WalkableGraph {
    * Returns a map giving the reverse dependencies of the nodes with the given keys. A node for each
    * given key must be done in the graph if it exists.
    */
-  Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys) throws InterruptedException;
+  Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<? extends SkyKey> keys)
+      throws InterruptedException;
 
   /**
    * Returns a map giving the reverse dependencies of the nodes with the given keys as well as the

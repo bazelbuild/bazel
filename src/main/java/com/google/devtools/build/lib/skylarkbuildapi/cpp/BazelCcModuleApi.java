@@ -14,21 +14,20 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.Tuple;
 
 /** Utilites related to C++ support. */
 @SkylarkModule(
@@ -37,12 +36,14 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public interface BazelCcModuleApi<
         SkylarkActionFactoryT extends SkylarkActionFactoryApi,
         FileT extends FileApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         LinkingOutputsT extends CcLinkingOutputsApi<FileT>,
+        LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
         LibraryToLinkT extends LibraryToLinkApi<FileT>,
         LinkingContextT extends CcLinkingContextApi<FileT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
@@ -53,18 +54,21 @@ public interface BazelCcModuleApi<
         CcToolchainProviderT,
         FeatureConfigurationT,
         CompilationContextT,
+        LinkerInputT,
         LinkingContextT,
         LibraryToLinkT,
         CcToolchainVariablesT,
+        ConstraintValueT,
         SkylarkRuleContextT,
         CcToolchainConfigInfoT,
         CompilationOutputsT> {
 
   @SkylarkCallable(
       name = "compile",
-      doc = "Should be used for C++ compilation.",
-      useEnvironment = true,
-      useLocation = true,
+      doc =
+          "Should be used for C++ compilation. Returns tuple of "
+              + "(<code>CompilationContext</code>, <code>CcCompilationOutputs</code>).",
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -90,7 +94,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "public_hdrs",
             doc =
@@ -99,7 +103,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "private_hdrs",
             doc =
@@ -108,7 +112,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "includes",
             doc =
@@ -116,9 +120,8 @@ public interface BazelCcModuleApi<
                     + "Usually passed with -I. Propagated to dependents transitively.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "quote_includes",
             doc =
@@ -128,21 +131,19 @@ public interface BazelCcModuleApi<
                     + "transitively.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "system_includes",
             doc =
                 "Search paths for header files referenced by angle brackets, e.g. #include"
-                    + " <foo/bar/header.h>. They can be either relative to the exec root or"
+                    + " &lt;foo/bar/header.h&gt;. They can be either relative to the exec root or"
                     + " absolute. Usually passed with -isystem. Propagated to dependents "
                     + "transitively.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "framework_includes",
             doc =
@@ -151,9 +152,8 @@ public interface BazelCcModuleApi<
                     + "dependents transitively.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "defines",
             doc =
@@ -162,7 +162,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "local_defines",
             doc =
@@ -171,22 +171,21 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "user_compile_flags",
             doc = "Additional list of compilation options.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "compilation_contexts",
             doc = "Headers from dependencies used for compilation.",
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "name",
             doc =
@@ -208,36 +207,41 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "False",
-            type = Boolean.class)
+            type = Boolean.class),
+        @Param(
+            name = "additional_inputs",
+            doc = "List of additional files needed for compilation of srcs",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = Sequence.class),
       })
   Tuple<Object> compile(
       SkylarkActionFactoryT skylarkActionFactoryApi,
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
-      SkylarkList<FileT> sources,
-      SkylarkList<FileT> publicHeaders,
-      SkylarkList<FileT> privateHeaders,
-      SkylarkList<String> includes,
-      SkylarkList<String> quoteIncludes,
-      SkylarkList<String> systemIncludes,
-      SkylarkList<String> frameworkIncludes,
-      SkylarkList<String> defines,
-      SkylarkList<String> localDefines,
-      SkylarkList<String> userCompileFlags,
-      SkylarkList<CompilationContextT> ccCompilationContexts,
+      Sequence<?> sources, // <FileT> expected
+      Sequence<?> publicHeaders, // <FileT> expected
+      Sequence<?> privateHeaders, // <FileT> expected
+      Sequence<?> includes, // <String> expected
+      Sequence<?> quoteIncludes, // <String> expected
+      Sequence<?> systemIncludes, // <String> expected
+      Sequence<?> frameworkIncludes, // <String> expected
+      Sequence<?> defines, // <String> expected
+      Sequence<?> localDefines, // <String> expected
+      Sequence<?> userCompileFlags, // <String> expected
+      Sequence<?> ccCompilationContexts, // <CompilationContextT> expected
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
-      Location location,
-      Environment environment)
+      Sequence<?> additionalInputs, // <FileT> expected
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "link",
       doc = "Should be used for C++ transitive linking.",
-      useEnvironment = true,
-      useLocation = true,
-      useContext = true,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -274,8 +278,7 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            noneable = true,
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "linking_contexts",
             doc =
@@ -283,9 +286,8 @@ public interface BazelCcModuleApi<
                     + "generated by this rule.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "name",
             doc =
@@ -299,7 +301,6 @@ public interface BazelCcModuleApi<
             doc = "Only C++ supported for now. Do not use this parameter.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "'c++'",
             type = String.class),
         @Param(
@@ -307,7 +308,6 @@ public interface BazelCcModuleApi<
             doc = "Can be either 'executable' or 'dynamic_library'.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "'executable'",
             type = String.class),
         @Param(
@@ -315,7 +315,6 @@ public interface BazelCcModuleApi<
             doc = " True to link dependencies statically, False dynamically.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "True",
             type = Boolean.class),
         @Param(
@@ -324,29 +323,34 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
+        @Param(
+            name = "grep_includes",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
       })
   LinkingOutputsT link(
       SkylarkActionFactoryT skylarkActionFactoryApi,
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
       Object compilationOutputs,
-      SkylarkList<String> userLinkFlags,
-      SkylarkList<LinkingContextT> linkingContexts,
+      Sequence<?> userLinkFlags, // <String> expected
+      Sequence<?> linkingContexts, // <LinkingContextT> expected
       String name,
       String language,
       String outputType,
       boolean linkDepsStatically,
-      SkylarkList<FileT> additionalInputs,
-      Location location,
-      Environment environment,
-      StarlarkContext starlarkContext)
+      Sequence<?> additionalInputs, // <FileT> expected
+      Object grepIncludes,
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @SkylarkCallable(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
-      useLocation = true,
       parameters = {
         @Param(
             name = "objects",
@@ -355,10 +359,7 @@ public interface BazelCcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = SkylarkNestedSet.class),
-              @ParamType(type = NoneType.class)
-            }),
+            allowedTypes = {@ParamType(type = Depset.class), @ParamType(type = NoneType.class)}),
         @Param(
             name = "pic_objects",
             doc = "List of pic object files.",
@@ -366,13 +367,10 @@ public interface BazelCcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = SkylarkNestedSet.class),
-              @ParamType(type = NoneType.class)
-            }),
+            allowedTypes = {@ParamType(type = Depset.class), @ParamType(type = NoneType.class)}),
       })
   CompilationOutputsT createCompilationOutputsFromSkylark(
-      Object objectsObject, Object picObjectsObject, Location location) throws EvalException;
+      Object objectsObject, Object picObjectsObject) throws EvalException;
 
   @SkylarkCallable(
       name = "merge_compilation_outputs",
@@ -383,8 +381,9 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
       })
   CompilationOutputsT mergeCcCompilationOutputsFromSkylark(
-      SkylarkList<CompilationOutputsT> compilationOutputs);
+      Sequence<?> compilationOutputs) // <CompilationOutputsT> expected
+      throws EvalException;
 }

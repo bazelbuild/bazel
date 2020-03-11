@@ -95,14 +95,37 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
     return diagnostic.getMessage(locale);
   }
 
+  /** Returns true if the diagnostic might be caused by the reduced classpath optimizaiton. */
+  public boolean maybeReducedClasspathError() {
+    String code = getCode();
+    if (code.contains("doesnt.exist")
+        || code.contains("cant.resolve")
+        || code.contains("cant.access")) {
+      return true;
+    }
+    // handle -Xdoclint:reference errors, which don't have a diagnostic code
+    // TODO(cushon): this is locale-dependent
+    if (getFormatted().contains("error: reference not found")) {
+      return true;
+    }
+    // Error Prone wraps completion failures
+    if (code.equals("compiler.err.error.prone.crash")
+        && getFormatted().contains("com.sun.tools.javac.code.Symbol$CompletionFailure")) {
+      return true;
+    }
+    return false;
+  }
+
   /** A {@link DiagnosticListener<JavaFileObject>} that saves {@link FormattedDiagnostic}s. */
   @Trusted
   static class Listener implements DiagnosticListener<JavaFileObject> {
 
     private final ImmutableList.Builder<FormattedDiagnostic> diagnostics = ImmutableList.builder();
+    private final boolean failFast;
     private final Context context;
 
-    Listener(Context context) {
+    Listener(boolean failFast, Context context) {
+      this.failFast = failFast;
       // retrieve context values later, in case it isn't initialized yet
       this.context = context;
     }
@@ -112,11 +135,17 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
       DiagnosticFormatter<JCDiagnostic> formatter = Log.instance(context).getDiagnosticFormatter();
       Locale locale = JavacMessages.instance(context).getCurrentLocale();
       String formatted = formatter.format((JCDiagnostic) diagnostic, locale);
-      diagnostics.add(new FormattedDiagnostic(diagnostic, formatted));
+      FormattedDiagnostic formattedDiagnostic = new FormattedDiagnostic(diagnostic, formatted);
+      diagnostics.add(formattedDiagnostic);
+      if (failFast && formattedDiagnostic.maybeReducedClasspathError()) {
+        throw new FailFastException();
+      }
     }
 
     ImmutableList<FormattedDiagnostic> build() {
       return diagnostics.build();
     }
   }
+
+  static class FailFastException extends RuntimeException {}
 }

@@ -17,8 +17,8 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 
 /**
  * Rule definition for compiler definition.
@@ -126,7 +126,7 @@ public final class CcToolchainRule implements RuleDefinition {
    * enabled through --fdo_optimize or --fdo_profile
    */
   private static boolean shouldIncludeZipperInToolchain(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (cppConfiguration.isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // This is actually a bug, because with platforms, and before toolchain-transitions are
       // implemented, all toolchains are analyzed in the host configuration. We're betting on
       // nobody in the Bazel world actually using zipped fdo profiles and platforms at the same
@@ -224,22 +224,15 @@ public final class CcToolchainRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(as_files) -->
-        Currently unused (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).
-
         <p>Collection of all cc_toolchain artifacts required for assembly actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("as_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(ar_files) -->
-        Currently unused (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).
-
         <p>Collection of all cc_toolchain artifacts required for archiving actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("ar_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.createFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(linker_files) -->
         Collection of all cc_toolchain artifacts required for linking actions.
-
-        <p>Currently also used for archiving actions
-         (<a href="https://github.com/bazelbuild/bazel/issues/6928">#6928</a>).</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("linker_files", LABEL)

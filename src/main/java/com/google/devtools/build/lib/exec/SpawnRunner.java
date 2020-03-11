@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FutureSpawn;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /**
  * A runner for spawns. Implementations can execute spawns on the local machine as a subprocess with
@@ -100,7 +103,7 @@ public interface SpawnRunner {
    * <p>{@link SpawnRunner} implementations should post a progress status before any potentially
    * long-running operation.
    */
-  public enum ProgressStatus {
+  enum ProgressStatus {
     /** Spawn is waiting for local or remote resources to become available. */
     SCHEDULING,
 
@@ -118,7 +121,7 @@ public interface SpawnRunner {
     EXECUTING,
 
     /** Downloading outputs from a remote machine. */
-    DOWNLOADING;
+    DOWNLOADING
   }
 
   /**
@@ -178,10 +181,10 @@ public interface SpawnRunner {
 
     /**
      * All implementations must call this method before writing to the provided stdout / stderr or
-     * to any of the output file locations. This method is used to coordinate - implementations
-     * must throw an {@link InterruptedException} for all but one caller.
+     * to any of the output file locations. This method is used to coordinate - implementations must
+     * throw an {@link InterruptedException} for all but one caller.
      */
-    void lockOutputFiles() throws InterruptedException;
+    void lockOutputFiles() throws InterruptedException, IOException;
 
     /**
      * Returns whether this spawn may be executing concurrently under multiple spawn runners. If so,
@@ -206,6 +209,16 @@ public interface SpawnRunner {
      * outputs that are stored remotely.
      */
     MetadataInjector getMetadataInjector();
+
+    /**
+     * Returns the context registered for the given identifying type or {@code null} if none was
+     * registered.
+     */
+    @Nullable
+    <T extends ActionContext> T getContext(Class<T> identifyingType);
+
+    /** Throws if lost inputs have been detected. */
+    void checkForLostInputs() throws LostInputsExecException;
   }
 
   /**

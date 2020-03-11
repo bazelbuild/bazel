@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 public abstract class CompileOnlyTestCase extends BuildViewTestCase {
 
   protected Artifact getArtifactByExecPathSuffix(ConfiguredTarget target, String path) {
-    for (Artifact artifact : getOutputGroup(target, OutputGroupInfo.FILES_TO_COMPILE)) {
+    for (Artifact artifact : getOutputGroup(target, OutputGroupInfo.FILES_TO_COMPILE).toList()) {
       if (artifact.getExecPathString().endsWith(path)) {
         return artifact;
       }

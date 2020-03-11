@@ -102,7 +102,7 @@ public class FdoContext implements TransitiveInfoProvider {
   }
 
   boolean hasArtifacts(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (cppConfiguration.isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // We don't want FDO for host configuration
       return false;
     }

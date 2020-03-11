@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.analysis.extra;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -32,7 +30,8 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -40,17 +39,18 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
  * Action used by extra_action rules to create an action that shadows an existing action. Runs a
- * command-line using {@link SpawnActionContext} for executions.
+ * command-line using {@link SpawnStrategy} for executions.
  */
 public final class ExtraAction extends SpawnAction {
   private final Action shadowedAction;
   private final boolean createDummyOutput;
-  private final ImmutableSet<Artifact> extraActionInputs;
+  private final NestedSet<Artifact> extraActionInputs;
 
   /**
    * A long way to say (ExtraAction xa) -> xa.getShadowedAction().
@@ -65,7 +65,7 @@ public final class ExtraAction extends SpawnAction {
       };
 
   ExtraAction(
-      ImmutableSet<Artifact> extraActionInputs,
+      NestedSet<Artifact> extraActionInputs,
       RunfilesSupplier runfilesSupplier,
       Collection<Artifact.DerivedArtifact> outputs,
       Action shadowedAction,
@@ -77,8 +77,11 @@ public final class ExtraAction extends SpawnAction {
       String mnemonic) {
     super(
         shadowedAction.getOwner(),
-        ImmutableList.<Artifact>of(),
-        createInputs(shadowedAction.getInputs(), ImmutableList.<Artifact>of(), extraActionInputs),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        createInputs(
+            shadowedAction.getInputs(),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            extraActionInputs),
         outputs,
         Iterables.getFirst(outputs, null),
         AbstractAction.DEFAULT_RESOURCE_SET,
@@ -108,9 +111,13 @@ public final class ExtraAction extends SpawnAction {
     return shadowedAction.discoversInputs();
   }
 
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
   @Nullable
   @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Preconditions.checkState(discoversInputs(), this);
     // We depend on the outputs of actions doing input discovery and they should know their inputs
@@ -119,39 +126,38 @@ public final class ExtraAction extends SpawnAction {
 
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
-    Iterable<Artifact> oldInputs = getInputs();
+    NestedSet<Artifact> oldInputs = getInputs();
+    NestedSet<Artifact> inputFilesForExtraAction =
+        shadowedAction.getInputFilesForExtraAction(actionExecutionContext);
+    if (inputFilesForExtraAction == null) {
+      return null;
+    }
     updateInputs(
-        createInputs(
-            shadowedAction.getInputs(),
-            shadowedAction.getInputFilesForExtraAction(actionExecutionContext),
-            extraActionInputs));
-    return Sets.<Artifact>difference(
-        ImmutableSet.<Artifact>copyOf(getInputs()), ImmutableSet.<Artifact>copyOf(oldInputs));
+        createInputs(shadowedAction.getInputs(), inputFilesForExtraAction, extraActionInputs));
+    return NestedSetBuilder.wrap(
+        Order.STABLE_ORDER, Sets.<Artifact>difference(getInputs().toSet(), oldInputs.toSet()));
   }
 
   private static NestedSet<Artifact> createInputs(
-      Iterable<Artifact> shadowedActionInputs,
-      Iterable<Artifact> inputFilesForExtraAction,
-      ImmutableSet<Artifact> extraActionInputs) {
-    NestedSetBuilder<Artifact> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
-    for (Iterable<Artifact> inputSet : ImmutableList.of(
-        shadowedActionInputs, inputFilesForExtraAction)) {
-      if (inputSet instanceof NestedSet) {
-        result.addTransitive((NestedSet<Artifact>) inputSet);
-      } else {
-        result.addAll(inputSet);
-      }
-    }
-    return result.addAll(extraActionInputs).build();
+      NestedSet<Artifact> shadowedActionInputs,
+      NestedSet<Artifact> inputFilesForExtraAction,
+      NestedSet<Artifact> extraActionInputs) {
+    return new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+        .addTransitive(shadowedActionInputs)
+        .addTransitive(inputFilesForExtraAction)
+        .addTransitive(extraActionInputs)
+        .build();
   }
 
   @Override
-  public Iterable<Artifact> getAllowedDerivedInputs() {
+  public NestedSet<Artifact> getAllowedDerivedInputs() {
     return shadowedAction.getAllowedDerivedInputs();
   }
 
   @Override
-  protected void afterExecute(ActionExecutionContext actionExecutionContext) throws IOException {
+  protected void afterExecute(
+      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      throws IOException {
     // PHASE 3: create dummy output.
     // If the user didn't specify output, we need to create dummy output
     // to make blaze schedule this action.

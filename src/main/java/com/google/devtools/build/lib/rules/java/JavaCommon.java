@@ -43,10 +43,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -81,7 +82,7 @@ public class JavaCommon {
                 && action.getMnemonic().equals(ResourceJarActionBuilder.MNEMONIC)) {
               // recurse on resource jar actions
               collectMetadataArtifacts(
-                  action.getInputs(), analysisEnvironment, metadataFilesBuilder);
+                  action.getInputs().toList(), analysisEnvironment, metadataFilesBuilder);
             }
           }
         }
@@ -267,13 +268,11 @@ public class JavaCommon {
         getJavaCompilationArtifacts(),
         /* deps= */ ImmutableList.of(
             JavaCompilationArgsProvider.legacyFromTargets(
-                targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY), javaProtoLibraryStrictDeps)),
+                targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))),
         /* runtimeDeps= */ ImmutableList.of(
-            JavaCompilationArgsProvider.legacyFromTargets(
-                getRuntimeDeps(ruleContext), javaProtoLibraryStrictDeps)),
+            JavaCompilationArgsProvider.legacyFromTargets(getRuntimeDeps(ruleContext))),
         /* exports= */ ImmutableList.of(
-            JavaCompilationArgsProvider.legacyFromTargets(
-                getExports(ruleContext), javaProtoLibraryStrictDeps)));
+            JavaCompilationArgsProvider.legacyFromTargets(getExports(ruleContext))));
   }
 
   static JavaCompilationArgsProvider collectJavaCompilationArgs(
@@ -482,15 +481,15 @@ public class JavaCommon {
   }
 
   public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
-    return JavaRuntimeInfo.forHost(ruleContext).javaBinaryExecPath();
+    return JavaRuntimeInfo.forHost(ruleContext).javaBinaryExecPathFragment();
   }
 
   public static PathFragment getHostJavaExecutable(JavaRuntimeInfo javaRuntime) {
-    return javaRuntime.javaBinaryExecPath();
+    return javaRuntime.javaBinaryExecPathFragment();
   }
 
   public static PathFragment getJavaExecutable(RuleContext ruleContext) {
-    return JavaRuntimeInfo.from(ruleContext).javaBinaryExecPath();
+    return JavaRuntimeInfo.from(ruleContext).javaBinaryExecPathFragment();
   }
 
   /**
@@ -507,7 +506,7 @@ public class JavaCommon {
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
     } else {
-      javaExecutable = javaRuntime.javaBinaryRunfilesPath();
+      javaExecutable = javaRuntime.javaBinaryRunfilesPathFragment();
     }
 
     if (!javaExecutable.isAbsolute()) {
@@ -594,12 +593,8 @@ public class JavaCommon {
     }
   }
 
-  public JavaTargetAttributes.Builder initCommon() {
+  public JavaTargetAttributes.Builder initCommon() throws InterruptedException {
     return initCommon(ImmutableList.of(), getCompatibleJavacOptions());
-  }
-
-  private ImmutableList<String> getCompatibleJavacOptions() {
-    return semantics.getCompatibleJavacOptions(ruleContext, javaToolchain);
   }
 
   /**
@@ -611,7 +606,7 @@ public class JavaCommon {
    * @return the processed attributes
    */
   public JavaTargetAttributes.Builder initCommon(
-      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) {
+      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) throws InterruptedException {
     Preconditions.checkState(javacOpts == null);
     javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
     activePlugins = collectPlugins();
@@ -652,6 +647,10 @@ public class JavaCommon {
     javaTargetAttributes.setTargetLabel(ruleContext.getLabel());
 
     return javaTargetAttributes;
+  }
+
+  private ImmutableList<String> getCompatibleJavacOptions() {
+    return semantics.getCompatibleJavacOptions(ruleContext, javaToolchain);
   }
 
   private boolean disallowDepsWithoutSrcs(String ruleClass) {
@@ -778,7 +777,7 @@ public class JavaCommon {
         ruleContext,
         instrumentationSpec,
         JAVA_METADATA_COLLECTOR,
-        filesToBuild,
+        filesToBuild.toList(),
         coverageSupportFiles,
         coverageEnvironment,
         /* withBaselineCoverage= */ !TargetUtils.isTestRule(ruleContext.getTarget()),
@@ -820,8 +819,7 @@ public class JavaCommon {
     List<TransitiveInfoCollection> runtimeDepInfo = getRuntimeDeps(ruleContext);
     checkRuntimeDeps(ruleContext, runtimeDepInfo);
     JavaCompilationArgsProvider provider =
-        JavaCompilationArgsProvider.legacyFromTargets(
-            runtimeDepInfo, semantics.isJavaProtoLibraryStrictDeps(ruleContext));
+        JavaCompilationArgsProvider.legacyFromTargets(runtimeDepInfo);
     attributes.addRuntimeClassPathEntries(provider.getRuntimeJars());
   }
 
@@ -933,13 +931,51 @@ public class JavaCommon {
   }
 
   /** Gets all the deps. */
-  public final Iterable<? extends TransitiveInfoCollection> getDependencies() {
+  public final List<? extends TransitiveInfoCollection> getDependencies() {
     return targetsTreatedAsDeps(ClasspathType.BOTH);
   }
 
   /** Gets all the deps that implement a particular provider. */
-  public final <P extends TransitiveInfoProvider> Iterable<P> getDependencies(Class<P> provider) {
+  public final <P extends TransitiveInfoProvider> List<P> getDependencies(Class<P> provider) {
     return JavaInfo.getProvidersFromListOfTargets(provider, getDependencies());
+  }
+
+  /**
+   * Returns a list of the current target's runtime jars and the first two levels of its direct
+   * dependencies.
+   *
+   * <p>This method is meant to aid the persistent test runner, which aims at avoiding loading all
+   * classes on the classpath for each test run. To that extent this method computes a small jars
+   * set of the most likely to be changed classes when writing code for a test. Their classes should
+   * be loaded in a separate classloader by the persistent test runner.
+   */
+  public ImmutableSet<Artifact> getDirectRuntimeClasspath() {
+    ImmutableSet.Builder<Artifact> directDeps = new ImmutableSet.Builder<>();
+    directDeps.addAll(javaArtifacts.getRuntimeJars());
+    for (TransitiveInfoCollection dep : targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY)) {
+      JavaInfo javaInfo = JavaInfo.getJavaInfo(dep);
+      if (javaInfo != null) {
+        directDeps.addAll(javaInfo.getDirectRuntimeJars());
+      }
+    }
+    return directDeps.build();
+  }
+
+  /**
+   * Return the runtime jars of the transitive closure of the target, excluding the first level of
+   * dependencies and the current target itself.
+   *
+   * <p>This particular set of jars is used by the persistent test runner, to create a classloader
+   * for the transitive dependencies. The target itself and its direct dependencies are loaded into
+   * a different classloader.
+   */
+  public NestedSet<Artifact> getRuntimeClasspathExcludingDirect() {
+    NestedSetBuilder<Artifact> classpath = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY).stream()
+        .map(JavaInfo::getJavaInfo)
+        .filter(Objects::nonNull)
+        .forEach(j -> classpath.addTransitive(j.getTransitiveOnlyRuntimeJars()));
+    return classpath.build();
   }
 
   /**
@@ -969,7 +1005,7 @@ public class JavaCommon {
     return javacOpts;
   }
 
-  public ImmutableList<Artifact> getBootClasspath() {
+  public BootClassPathInfo getBootClasspath() {
     return classpathFragment.getBootClasspath();
   }
 

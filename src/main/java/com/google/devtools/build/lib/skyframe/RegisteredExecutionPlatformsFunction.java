@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
@@ -52,7 +51,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws RegisteredExecutionPlatformsFunctionException, InterruptedException {
 
     BuildConfigurationValue buildConfigurationValue =
         (BuildConfigurationValue)
@@ -225,6 +224,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
   }
 
+  // This class uses AutoValue solely to get default equals/hashCode behavior, which is needed to
+  // make skyframe serialization work properly.
   @AutoValue
   @AutoCodec
   abstract static class HasPlatformInfo extends FilteringPolicy {
@@ -234,14 +235,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       if (explicit) {
         return true;
       }
-
-      // If the rule requires platforms or toolchain resolution, it can't be used as a platform.
-      RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
-      if (ruleClass == null || ruleClass.useToolchainResolution()) {
-        return false;
-      }
-
-      return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
+      return PlatformLookupUtil.hasPlatformInfo(target);
     }
 
     @AutoCodec.Instantiator

@@ -15,10 +15,11 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
@@ -32,18 +33,21 @@ public class CcBootstrap implements Bootstrap {
           ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
           ? extends FeatureConfigurationApi,
           ? extends CcCompilationContextApi,
+          ? extends
+              LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
           ? extends CcLinkingContextApi<? extends FileApi>,
           ? extends LibraryToLinkApi<? extends FileApi>,
           ? extends CcToolchainVariablesApi,
-          ? extends SkylarkRuleContextApi,
+          ? extends ConstraintValueInfoApi,
+          ? extends SkylarkRuleContextApi<? extends ConstraintValueInfoApi>,
           ? extends CcToolchainConfigInfoApi,
           ? extends CcCompilationOutputsApi<? extends FileApi>>
       ccModule;
 
   private final CcInfoApi.Provider ccInfoProvider;
   private final CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider;
-  private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
-  private final GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper;
+  private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
+  private final GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper;
   private final PyWrapCcInfoApi.Provider pyWrapCcInfoProvider;
   private final PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider;
 
@@ -54,17 +58,20 @@ public class CcBootstrap implements Bootstrap {
               ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
               ? extends FeatureConfigurationApi,
               ? extends CcCompilationContextApi,
+              ? extends
+                  LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
               ? extends CcLinkingContextApi<? extends FileApi>,
               ? extends LibraryToLinkApi<? extends FileApi>,
               ? extends CcToolchainVariablesApi,
-              ? extends SkylarkRuleContextApi,
+              ? extends ConstraintValueInfoApi,
+              ? extends SkylarkRuleContextApi<? extends ConstraintValueInfoApi>,
               ? extends CcToolchainConfigInfoApi,
               ? extends CcCompilationOutputsApi<? extends FileApi>>
           ccModule,
       CcInfoApi.Provider ccInfoProvider,
       CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider,
-      PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
-      GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper,
+      PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
+      GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper,
       PyWrapCcInfoApi.Provider pyWrapCcInfoProvider,
       PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider) {
     this.ccModule = ccModule;

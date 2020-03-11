@@ -123,6 +123,10 @@ def _jvm_import_external(repository_ctx):
         "    actual = \"@%s\"," % repository_ctx.name,
         ")",
         "",
+        "filegroup(",
+        "    name = \"file\",",
+        "    srcs = [\"//:%s\"]," % path,
+        ")",
     ]))
 
 def _should_fetch_sources_in_current_env(repository_ctx):
@@ -248,6 +252,10 @@ def jvm_maven_import_external(
     srcjar_urls = kwargs.pop("srcjar_urls", None)
 
     rule_name = kwargs.pop("rule_name", "java_import")
+    rule_load = kwargs.pop(
+        "rule_load",
+        'load("@rules_java//java:defs.bzl", "java_import")',
+    )
 
     if fetch_sources:
         src_coordinates = struct(
@@ -260,4 +268,10 @@ def jvm_maven_import_external(
 
         srcjar_urls = _convert_coordinates_to_urls(src_coordinates, server_urls)
 
-    jvm_import_external(artifact_urls = jar_urls, srcjar_urls = srcjar_urls, rule_name = rule_name, **kwargs)
+    jvm_import_external(
+        artifact_urls = jar_urls,
+        srcjar_urls = srcjar_urls,
+        rule_name = rule_name,
+        rule_load = rule_load,
+        **kwargs
+    )

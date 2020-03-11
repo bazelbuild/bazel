@@ -17,8 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
-import java.math.BigInteger;
-import javax.annotation.Nullable;
 
 /**
  * Basic implementation of {@link ActionLookupValue} where the value itself owns and maintains
@@ -27,17 +25,13 @@ import javax.annotation.Nullable;
 public class BasicActionLookupValue extends ActionLookupValue {
   protected final ImmutableList<ActionAnalysisMetadata> actions;
 
-  protected BasicActionLookupValue(
-      ImmutableList<ActionAnalysisMetadata> actions,
-      @Nullable BigInteger nonceVersion) {
-    super(nonceVersion);
+  protected BasicActionLookupValue(ImmutableList<ActionAnalysisMetadata> actions) {
     this.actions = actions;
   }
 
   @VisibleForTesting
-  public BasicActionLookupValue(
-      Actions.GeneratingActions generatingActions, @Nullable BigInteger nonceVersion) {
-    this(generatingActions.getActions(), nonceVersion);
+  public BasicActionLookupValue(Actions.GeneratingActions generatingActions) {
+    this(generatingActions.getActions());
   }
 
   @Override

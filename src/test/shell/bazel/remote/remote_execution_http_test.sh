@@ -24,6 +24,7 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
 
 function set_up() {
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
+  cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
   attempts=1
   while [ $attempts -le 5 ]; do
@@ -32,6 +33,7 @@ function set_up() {
     http_port=$(pick_random_unused_tcp_port) || fail "no port found"
     "${BAZEL_RUNFILES}/src/tools/remote/worker" \
         --work_path="${work_path}" \
+        --cas_path="${cas_path}" \
         --listen_port=${worker_port} \
         --http_listen_port=${http_port} \
         --pid_file="${pid_file}" &
@@ -57,6 +59,7 @@ function tear_down() {
   fi
   rm -rf "${pid_file}"
   rm -rf "${work_path}"
+  rm -rf "${cas_path}"
 }
 
 function test_remote_http_cache_flag() {
@@ -361,6 +364,10 @@ EOF
 function test_genrule_combined_disk_http_cache() {
   # Test for the combined disk and http cache.
   # Built items should be pushed to both the disk and http cache.
+  # If --noremote_upload_local_results flag is set,
+  # built items should only be pushed to the disk cache.
+  # If --noremote_accept_cached flag is set,
+  # built items should only be checked from the disk cache.
   # If an item is missing on disk cache, but present on http cache,
   # then bazel should copy it from http cache to disk cache on fetch.
 
@@ -380,10 +387,66 @@ EOF
   rm -rf $cache
   mkdir $cache
 
-  # Build and push to disk and http cache
-  bazel build $disk_flags $http_flags //a:test \
+  # Build and push to disk cache but not http cache
+  bazel build $disk_flags $http_flags --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results //a:test \
     || fail "Failed to build //a:test with combined disk http cache"
   cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  # No cache result from http cache, rebuild target
+  bazel clean
+  bazel build $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # No cache result from http cache, rebuild target, and upload result to http cache
+  bazel clean
+  bazel build $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+
+  # No cache result from http cache, rebuild target, and upload result to disk cache
+  bazel clean
+  bazel build $disk_flags $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  rm -rf $cache
+  mkdir $cache
+
+  # Build and push to disk cache and http cache
+  bazel clean
+  bazel build $disk_flags $http_flags //a:test \
+    || fail "Failed to build //a:test with combined disk http cache"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Built target generated different result"
 
   # Fetch from disk cache
   bazel clean
@@ -421,6 +484,36 @@ EOF
     || fail "Disk cache generated different result"
 
   rm -rf $cache
+}
+
+function test_tag_no_remote_cache() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+  tags = ["no-remote-cache"]
+)
+EOF
+
+  bazel build \
+    --spawn_strategy=local \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 local"
+
+  bazel clean
+
+  bazel build \
+    --spawn_strategy=local \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:foo || "Failed to build //a:foo"
+
+  expect_log "1 local"
+  expect_not_log "remote cache hit"
 }
 
 run_suite "Remote execution and remote cache tests"

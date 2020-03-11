@@ -14,19 +14,18 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Arrays;
@@ -34,27 +33,25 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Helper functions for Starlark to access coverage-related infrastructure. */
-public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
+public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, SkylarkRuleContext> {
 
   @Override
   @SuppressWarnings("unchecked") // Casting extensions param is verified by Starlark interpreter.
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
       SkylarkRuleContext skylarkRuleContext,
-      SkylarkList<String> sourceAttributes,
-      SkylarkList<String> dependencyAttributes,
-      Object extensions,
-      Location location)
+      Sequence<?> sourceAttributes, // <String>
+      Sequence<?> dependencyAttributes, // <String>
+      Object extensions)
       throws EvalException {
     List<String> extensionsList =
-        extensions == Runtime.NONE
+        extensions == Starlark.NONE
             ? null
-            : SkylarkList.castList((List<?>) extensions, String.class, "extensions");
+            : Sequence.castList((List<?>) extensions, String.class, "extensions");
 
     return createInstrumentedFilesInfo(
-        location,
         skylarkRuleContext.getRuleContext(),
-        sourceAttributes,
-        dependencyAttributes,
+        sourceAttributes.getContents(String.class, "source_attributes"),
+        dependencyAttributes.getContents(String.class, "dependency_attributes"),
         extensionsList);
   }
 
@@ -64,7 +61,6 @@ public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
    * example, the instrumented sources are determined given the values of the attributes named in
    * {@code sourceAttributes} given by the {@code ruleContext}.
    *
-   * @param location the Starlark location that the instrumentation specification was defined
    * @param ruleContext the rule context
    * @param sourceAttributes a list of attribute names which contain source files for the rule
    * @param dependencyAttributes a list of attribute names which contain dependencies that might
@@ -74,7 +70,6 @@ public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
    *     extensions listed in {@code extensions} will be used
    */
   public static InstrumentedFilesInfo createInstrumentedFilesInfo(
-      Location location,
       RuleContext ruleContext,
       List<String> sourceAttributes,
       List<String> dependencyAttributes,
@@ -93,16 +88,14 @@ public class CoverageCommon implements CoverageCommonApi<SkylarkRuleContext> {
         new InstrumentationSpec(fileTypeSet)
             .withSourceAttributes(sourceAttributes.toArray(new String[0]))
             .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
-    return InstrumentedFilesCollector.collect(
+    return InstrumentedFilesCollector.collectTransitive(
         ruleContext,
         instrumentationSpec,
-        InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-        /* rootFiles= */ ImmutableList.of(),
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<coverage_common>");
   }
 }

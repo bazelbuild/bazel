@@ -17,16 +17,18 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.StarlarkRuleTransitionProviderTest.DummyTestLoader;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkInfo.MapBackedSkylarkInfo;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
@@ -150,11 +152,11 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', dep = ':dep')",
         "simple_rule(name = 'dep')");
 
-    MapBackedSkylarkInfo splitAttr =
-        (MapBackedSkylarkInfo)
+    SkylarkInfo splitAttr =
+        (SkylarkInfo)
             getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test")).getValue("split_attr");
 
-    assertThat(splitAttr.hasField("dep")).isFalse();
+    assertThat(splitAttr.getValue("dep")).isNull();
     assertThat(splitAttr.getFieldNames()).isEmpty();
   }
 
@@ -1603,6 +1605,80 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertContainsEvent(
         "attempting to transition on '//test/skylark:the-answer' which "
             + "is not a build setting");
+  }
+
+  /**
+   * Regression test for b/147245129.
+   *
+   * <p>This tests that when exec transitions are applied from target configurations that are
+   * identical except for different Starlark flags, outputs do not conflict.
+   */
+  @Test
+  public void testBuildSettingTransitionsWorkWithExecTransitions() throws Exception {
+    writeWhitelistFile();
+    // This setup creates an int_flag_reading_rule whose output is the value of an int_flag (which
+    // guarantees actions in configurations with different Starlark flag values are different). It
+    // then makes this a genrule exec tool (so it applies after an exec transition). And finally
+    // creates a build_setting_changing_rule that changes the int_flag's value and depends on the
+    // genrule. So building the genrule at both the top-level and under the
+    // build_setting_changing_rule triggers the test scenario.
+    scratch.file(
+        "test/skylark/rules.bzl",
+        "BuildSettingInfo = provider(fields = ['value'])",
+        "def _impl(ctx):",
+        "  return [BuildSettingInfo(value = ctx.build_setting_value)]",
+        "int_flag = rule(implementation = _impl, build_setting = config.int())",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test/skylark:the-answer': 42}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test/skylark:the-answer'])",
+        "def _int_impl(ctx):",
+        "  value = ctx.attr._int_dep[BuildSettingInfo].value",
+        "  ctx.actions.write(ctx.outputs.out, str(value))",
+        "int_flag_reading_rule = rule(",
+        "  implementation = _int_impl,",
+        "  attrs = {",
+        "    '_int_dep': attr.label(default = '//test/skylark:the-answer'),",
+        "    'out': attr.output()",
+        "  })",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "build_setting_changing_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition, allow_single_file = True),",
+        "    '_whitelist_function_transition': attr.label(",
+        "      default = '//tools/whitelists/function_transition_whitelist'),",
+        "  })");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:rules.bzl', 'build_setting_changing_rule', 'int_flag',",
+        "  'int_flag_reading_rule')",
+        "int_flag(",
+        "    name = 'the-answer',",
+        "    build_setting_default = 0)",
+        "genrule(",
+        "    name = 'with_exec_tool',",
+        "    srcs = [],",
+        "    outs = ['with_exec_tool.out'],",
+        "    cmd = 'echo hi > $@',",
+        "    exec_tools = [':int_reader'])",
+        "int_flag_reading_rule(",
+        "    name = 'int_reader',",
+        "    out = 'int_reader.out')",
+        "build_setting_changing_rule(",
+        "    name = 'transitioner',",
+        "    dep = ':with_exec_tool')");
+    // Note: calling getConfiguredTarget for each target doesn't activate conflict detection.
+    update(
+        ImmutableList.of("//test/skylark:transitioner", "//test/skylark:with_exec_tool.out"),
+        /*keepGoing=*/ false,
+        LOADING_PHASE_THREADS,
+        /*doAnalysis=*/ true,
+        new EventBus());
+    assertNoEvents();
   }
 
   @Test

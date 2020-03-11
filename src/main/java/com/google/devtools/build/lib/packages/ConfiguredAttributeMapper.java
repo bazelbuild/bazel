@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -32,6 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * {@link AttributeMap} implementation that binds a rule's attribute as follows:
@@ -89,10 +89,11 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Variation of {@link #get} that throws an informative exception if the attribute
-   * can't be resolved due to intrinsic contradictions in the configuration.
+   * Variation of {@link #get} that throws an informative exception if the attribute can't be
+   * resolved due to intrinsic contradictions in the configuration.
    */
-  private <T> T getAndValidate(String attributeName, Type<T> type) throws EvalException  {
+  @SuppressWarnings("unchecked")
+  private <T> T getAndValidate(String attributeName, Type<T> type) throws EvalException {
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       // This is a normal attribute.
@@ -108,8 +109,16 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         // predicates ineligible for "None" values. But no user-facing attributes should
         // do that anyway, so that isn't a loss.
         Attribute attr = getAttributeDefinition(attributeName);
+        if (attr.isMandatory()) {
+          throw new EvalException(
+              rule.getLocation(),
+              String.format(
+                  "Mandatory attribute '%s' resolved to 'None' after evaluating 'select'"
+                      + " expression",
+                  attributeName));
+        }
         Verify.verify(attr.getCondition() == Predicates.<AttributeMap>alwaysTrue());
-        resolvedList.add((T) attr.getDefaultValue(null));
+        resolvedList.add((T) attr.getDefaultValue(null)); // unchecked cast
       } else {
         resolvedList.add(resolvedPath.value);
       }
@@ -118,17 +127,21 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   }
 
   private static class ConfigKeyAndValue<T> {
-    Label configKey;
-    T value;
-    ConfigKeyAndValue(Label key, T value) {
+    final Label configKey;
+    final T value;
+    /** If null, this means the default condition (doesn't correspond to a config_setting). * */
+    @Nullable final ConfigMatchingProvider provider;
+
+    ConfigKeyAndValue(Label key, T value, @Nullable ConfigMatchingProvider provider) {
       this.configKey = key;
       this.value = value;
+      this.provider = provider;
     }
   }
 
   private <T> ConfigKeyAndValue<T> resolveSelector(String attributeName, Selector<T> selector)
       throws EvalException {
-    Map<ConfigMatchingProvider, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
+    Map<Label, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
     Set<Label> conditionLabels = new LinkedHashSet<>();
     ConfigKeyAndValue<T> matchingResult = null;
 
@@ -145,7 +158,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         // This can happen if the rule is in error
         continue;
       }
-      conditionLabels.add(curCondition.label());
+      conditionLabels.add(selectorKey);
 
       if (curCondition.matches()) {
         // We keep track of all matches which are more precise than any we have found so far.
@@ -153,9 +166,10 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         // one, and only add this one if none of the previous matches are more precise.
         // It is an error if we do not end up with only one most-precise match.
         boolean suppressed = false;
-        Iterator<ConfigMatchingProvider> it = matchingConditions.keySet().iterator();
+        Iterator<Map.Entry<Label, ConfigKeyAndValue<T>>> it =
+            matchingConditions.entrySet().iterator();
         while (it.hasNext()) {
-          ConfigMatchingProvider existingMatch = it.next();
+          ConfigMatchingProvider existingMatch = it.next().getValue().provider;
           if (curCondition.refines(existingMatch)) {
             it.remove();
           } else if (existingMatch.refines(curCondition)) {
@@ -165,14 +179,14 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         }
         if (!suppressed) {
           matchingConditions.put(
-              curCondition, new ConfigKeyAndValue<>(selectorKey, entry.getValue()));
+              selectorKey, new ConfigKeyAndValue<>(selectorKey, entry.getValue(), curCondition));
         }
       }
     }
 
     if (matchingConditions.size() > 1) {
       throw new EvalException(
-          rule.getAttributeLocation(attributeName),
+          rule.getLocation(),
           "Illegal ambiguous match on configurable attribute \""
               + attributeName
               + "\" in "
@@ -195,11 +209,13 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
           noMatchMessage += " (would a default condition help?).\nConditions checked:\n "
               + Joiner.on("\n ").join(conditionLabels);
         }
-        throw new EvalException(rule.getAttributeLocation(attributeName), noMatchMessage);
+        throw new EvalException(rule.getLocation(), noMatchMessage);
       }
-      matchingResult = selector.hasDefault()
-          ? new ConfigKeyAndValue<>(Selector.DEFAULT_CONDITION_LABEL, selector.getDefault())
-          : null;
+      matchingResult =
+          selector.hasDefault()
+              ? new ConfigKeyAndValue<>(
+                  Selector.DEFAULT_CONDITION_LABEL, selector.getDefault(), null)
+              : null;
     }
 
     return matchingResult;

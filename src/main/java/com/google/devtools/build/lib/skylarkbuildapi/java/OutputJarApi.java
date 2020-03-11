@@ -18,30 +18,29 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A tuple of a java classes jar and its associated source and interface archives. */
 @SkylarkModule(
     name = "java_output",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Java classes jar, together with their associated source and interface archives.")
-public interface OutputJarApi<FileT extends FileApi> {
+public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
-    name = "class_jar",
-    doc = "A classes jar file.",
-    allowReturnNones = true,
-    structField = true
-  )
-  public FileT getClassJar();
+      name = "class_jar",
+      doc = "A classes jar file.",
+      allowReturnNones = true,
+      structField = true)
+  FileT getClassJar();
 
   @SkylarkCallable(
-    name = "ijar",
-    doc = "A interface jar file.",
-    allowReturnNones = true,
-    structField = true
-  )
-  public FileT getIJar();
+      name = "ijar",
+      doc = "A interface jar file.",
+      allowReturnNones = true,
+      structField = true)
+  FileT getIJar();
 
   @SkylarkCallable(
       name = "manifest_proto",
@@ -50,23 +49,22 @@ public interface OutputJarApi<FileT extends FileApi> {
               + "JavaBuilder.",
       allowReturnNones = true,
       structField = true)
-  public FileT getManifestProto();
+  FileT getManifestProto();
 
   @SkylarkCallable(
-    name = "source_jar",
-    doc = "A sources archive file. Deprecated. Kept for migration reasons. "
-        + "Please use source_jars instead.",
-    allowReturnNones = true,
-    structField = true
-  )
+      name = "source_jar",
+      doc =
+          "A sources archive file. Deprecated. Kept for migration reasons. "
+              + "Please use source_jars instead.",
+      allowReturnNones = true,
+      structField = true)
   @Deprecated
-  public FileT getSrcJar();
+  FileT getSrcJar();
 
   @SkylarkCallable(
-    name = "source_jars",
-    doc = "A list of sources archive files.",
-    allowReturnNones = true,
-    structField = true
-  )
-  public SkylarkList<FileT> getSrcJarsSkylark();
+      name = "source_jars",
+      doc = "A list of sources archive files.",
+      allowReturnNones = true,
+      structField = true)
+  Sequence<FileT> getSrcJarsSkylark();
 }

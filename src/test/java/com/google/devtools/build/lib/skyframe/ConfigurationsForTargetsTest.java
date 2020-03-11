@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -230,6 +232,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     Object evalResult = SkyframeExecutorTestUtils.evaluate(
         skyframeExecutor, key, /*keepGoing=*/false, reporter);
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(false);
+    @SuppressWarnings("unchecked")
     SkyValue value = ((EvaluationResult<ComputeDependenciesFunction.Value>) evalResult).get(key);
     return ((ComputeDependenciesFunction.Value) value).depMap;
   }
@@ -364,5 +367,74 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 Dependency.withConfiguration(dep1.getLabel(), getConfiguration(dep1)),
                 Dependency.withConfiguration(dep2.getLabel(), getConfiguration(dep2))))
         .isLessThan(0);
+  }
+
+  /**
+   * {@link ConfigurationResolver#resolveConfigurations} caches the transitions applied to deps. In
+   * other words, if a parent rule has 100 deps that all set { compilation_mode=dbg }, there's no
+   * need to compute that transition and request the resulting dep configuration from Skyframe 100
+   * times.
+   *
+   * <p>But we do need to make sure <bold>different</bold> transitions don't trigger false cache
+   * hits. This test checks a subtle version of that: if the same Starlark transition applies to two
+   * deps, but that transition reads their attributes and their attribute values are different, we
+   * need to make sure they're distinctly computed.
+   */
+  @Test
+  public void sameTransitionDifferentParameters() throws Exception {
+    scratch.file(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//a/...',",
+        "    ],",
+        ")");
+    scratch.file(
+        "a/defs.bzl",
+        "def _transition_impl(settings, attr):",
+        "    return {'//command_line_option:compilation_mode': attr.myattr}",
+        "my_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:compilation_mode'])",
+        "def _parent_rule_impl(ctx):",
+        "    pass",
+        "parent_rule = rule(",
+        "    implementation = _parent_rule_impl,",
+        "    attrs = {",
+        "        'dep1': attr.label(),",
+        "        'dep2': attr.label(),",
+        "    })",
+        "def _child_rule_impl(ctx):",
+        "    pass",
+        "child_rule = rule(",
+        "    implementation = _child_rule_impl,",
+        "    cfg = my_transition,",
+        "    attrs = {",
+        "        'myattr': attr.string(),",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/whitelists/function_transition_whitelist')",
+        "    }",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load('//a:defs.bzl', 'parent_rule', 'child_rule')",
+        "child_rule(",
+        "    name = 'child1',",
+        "    myattr = 'dbg')", // For this dep, my_transition reads myattr="dbg".
+        "child_rule(",
+        "    name = 'child2',",
+        "    myattr = 'opt')", // For this dep, my_transition reads myattr="opt".
+        "parent_rule(",
+        "    name = 'buildme',",
+        "    dep1 = ':child1',",
+        "    dep2 = ':child2')");
+
+    ConfiguredTarget child1 = Iterables.getOnlyElement(getConfiguredDeps("//a:buildme", "dep1"));
+    ConfiguredTarget child2 = Iterables.getOnlyElement(getConfiguredDeps("//a:buildme", "dep2"));
+    // Check that each dep ends up with a distinct compilation_mode value.
+    assertThat(getConfiguration(child1).getCompilationMode()).isEqualTo(CompilationMode.DBG);
+    assertThat(getConfiguration(child2).getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
 }

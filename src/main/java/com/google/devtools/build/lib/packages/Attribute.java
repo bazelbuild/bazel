@@ -35,18 +35,16 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -667,10 +665,6 @@ public final class Attribute implements Comparable<Attribute> {
       return defaultValue(defaultValue, null, null);
     }
 
-    public boolean isValueSet() {
-      return valueSet;
-    }
-
     /**
      * Sets the attribute default value to a computed default value - use this when the default
      * value is a function of other attributes of the Rule. The type of the computed default value
@@ -1043,13 +1037,11 @@ public final class Attribute implements Comparable<Attribute> {
     @AutoCodec @AutoCodec.VisibleForSerialization
     static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
-    public Builder<TYPE> aspect(SkylarkDefinedAspect skylarkAspect, Location location)
-        throws EvalException {
+    public Builder<TYPE> aspect(SkylarkDefinedAspect skylarkAspect) throws EvalException {
       SkylarkRuleAspect skylarkRuleAspect = new SkylarkRuleAspect(skylarkAspect);
       RuleAspect<?> oldAspect = this.aspects.put(skylarkAspect.getName(), skylarkRuleAspect);
       if (oldAspect != null) {
-        throw new EvalException(
-            location, String.format("aspect %s added more than once", skylarkAspect.getName()));
+        throw Starlark.errorf("aspect %s added more than once", skylarkAspect.getName());
       }
       return this;
     }
@@ -1289,8 +1281,8 @@ public final class Attribute implements Comparable<Attribute> {
    * must be true:
    *
    * <ol>
-   * <li>The other attribute must be declared in the computed default's constructor
-   * <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable}
+   *   <li>The other attribute must be declared in the computed default's constructor
+   *   <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable}
    * </ol>
    *
    * <p>The reason for enforced declarations is that, since attribute values might be configurable,
@@ -1302,7 +1294,7 @@ public final class Attribute implements Comparable<Attribute> {
    *
    * <p>Implementations of this interface must be immutable.
    */
-  public abstract static class ComputedDefault {
+  public abstract static class ComputedDefault implements StarlarkValue {
     private final ImmutableList<String> dependencies;
 
     /**
@@ -1384,8 +1376,7 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public static final class SkylarkComputedDefaultTemplate {
     private final Type<?> type;
-    private final SkylarkCallbackFunction callback;
-    private final Location location;
+    private final StarlarkCallbackHelper callback;
     private final ImmutableList<String> dependencies;
 
     /**
@@ -1396,19 +1387,14 @@ public final class Attribute implements Comparable<Attribute> {
      * @param dependencies A list of all names of other attributes that are accessed by this
      *     attribute.
      * @param callback A function to compute the actual attribute value.
-     * @param location The location of the Skylark function.
      */
     public SkylarkComputedDefaultTemplate(
-        Type<?> type,
-        ImmutableList<String> dependencies,
-        SkylarkCallbackFunction callback,
-        Location location) {
+        Type<?> type, ImmutableList<String> dependencies, StarlarkCallbackHelper callback) {
       this.type = Preconditions.checkNotNull(type);
       // Order is important for #createDependencyAssignmentTuple.
       this.dependencies =
           Ordering.natural().immutableSortedCopy(Preconditions.checkNotNull(dependencies));
       this.callback = Preconditions.checkNotNull(callback);
-      this.location = Preconditions.checkNotNull(location);
     }
 
     /**
@@ -1481,7 +1467,9 @@ public final class Attribute implements Comparable<Attribute> {
         if (!attr.hasComputedDefault()) {
           Object value = rule.get(attrName, attr.getType());
           if (!EvalUtils.isNullOrNone(value)) {
-            attrValues.put(attr.getName(), value);
+            // Some attribute values are not valid Starlark values:
+            // visibility is an ImmutableList, for example.
+            attrValues.put(attr.getName(), Starlark.fromJava(value, /*mutability=*/ null));
           }
         }
       }
@@ -1495,12 +1483,10 @@ public final class Attribute implements Comparable<Attribute> {
               attrValues, "No such regular (non computed) attribute '%s'.");
       Object result = callback.call(eventHandler, attrs);
       try {
-        return type.cast((result == Runtime.NONE) ? type.getDefaultValue() : result);
+        return type.cast((result == Starlark.NONE) ? type.getDefaultValue() : result);
       } catch (ClassCastException ex) {
-        throw new EvalException(
-            location,
-            String.format(
-                "expected '%s', but got '%s'", type, EvalUtils.getDataTypeName(result, true)));
+        throw Starlark.errorf(
+            "expected '%s', but got '%s'", type, EvalUtils.getDataTypeName(result, true));
       }
     }
 
@@ -1612,7 +1598,7 @@ public final class Attribute implements Comparable<Attribute> {
    *     Label}, or a {@link List} of {@link Label} objects.
    */
   @Immutable
-  public abstract static class LateBoundDefault<FragmentT, ValueT> {
+  public abstract static class LateBoundDefault<FragmentT, ValueT> implements StarlarkValue {
     /**
      * Functional interface for computing the value of a late-bound attribute.
      *
@@ -2163,16 +2149,6 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns a predicate that evaluates to true for rule classes that are allowed labels in this
-   * attribute. If this is not a label or label-list attribute, the returned predicate always
-   * evaluates to true.
-   */
-  // TODO(b/69917891): Remove these methods once checkbuilddeps no longer depends on them.
-  public Predicate<String> getAllowedRuleClassNamesPredicate() {
-    return allowedRuleClassesForLabels.asPredicateOfRuleClassName();
-  }
-
-  /**
    * Returns a predicate that evaluates to true for rule classes that are
    * allowed labels in this attribute with warning. If this is not a label or label-list
    * attribute, the returned predicate always evaluates to true.
@@ -2201,12 +2177,19 @@ public final class Attribute implements Comparable<Attribute> {
     return allowedValues;
   }
 
+  public boolean hasAspects() {
+    return !aspects.isEmpty();
+  }
+
   /**
    * Returns the list of aspects required for dependencies through this attribute.
    */
   public ImmutableList<Aspect> getAspects(Rule rule) {
+    if (aspects.isEmpty()) {
+      return ImmutableList.of();
+    }
     ImmutableList.Builder<Aspect> builder = null;
-    for (RuleAspect aspect : aspects) {
+    for (RuleAspect<?> aspect : aspects) {
       Aspect a = aspect.getAspect(rule);
       if (a != null) {
         if (builder == null) {

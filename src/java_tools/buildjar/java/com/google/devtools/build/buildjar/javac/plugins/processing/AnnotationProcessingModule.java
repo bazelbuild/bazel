@@ -15,7 +15,6 @@
 package com.google.devtools.build.buildjar.javac.plugins.processing;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
@@ -23,13 +22,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** A module for information about the compilation's annotation processing. */
 public class AnnotationProcessingModule {
@@ -38,36 +35,11 @@ public class AnnotationProcessingModule {
   public static class Builder {
     private Path sourceGenDir;
     private Path manifestProto;
-    private final ImmutableSet.Builder<Path> sourceRoots = ImmutableSet.builder();
 
     private Builder() {}
 
     public AnnotationProcessingModule build() {
-      return new AnnotationProcessingModule(
-          sourceGenDir, manifestProto, validateSourceRoots(sourceRoots.build()));
-    }
-
-    /**
-     * Verify that source roots do not contain other source roots.
-     *
-     * <p>If one source root is an ancestor of another, the source path to use in the manifest will
-     * be ambiguous.
-     */
-    private ImmutableSet<Path> validateSourceRoots(ImmutableSet<Path> roots) {
-      // It's sad that this is quadratic, but the number of source roots
-      // should be <= 2.
-      for (Path a : roots) {
-        for (Path b : roots) {
-          if (a.equals(b) || b.getNameCount() == 0) {
-            continue;
-          }
-          if (a.startsWith(b)) {
-            throw new IllegalArgumentException(
-                String.format("Source root %s is a parent of %s", b, a));
-          }
-        }
-      }
-      return roots;
+      return new AnnotationProcessingModule(sourceGenDir, manifestProto);
     }
 
     public void setSourceGenDir(Path sourceGenDir) {
@@ -77,40 +49,23 @@ public class AnnotationProcessingModule {
     public void setManifestProtoPath(Path manifestProto) {
       this.manifestProto = manifestProto.toAbsolutePath();
     }
-
-    public void addAllSourceRoots(Set<String> sourceRoots) {
-      for (String root : sourceRoots) {
-        this.sourceRoots.add(Paths.get(root));
-      }
-    }
   }
 
   private final boolean enabled;
   private final Path sourceGenDir;
   private final Path manifestProto;
-  private final ImmutableSet<Path> sourceRoots;
 
   public boolean isGenerated(Path path) {
     return path.startsWith(sourceGenDir);
   }
 
   public Path stripSourceRoot(Path path) {
-    if (path.startsWith(sourceGenDir)) {
-      return sourceGenDir.relativize(path);
-    }
-    for (Path sourceRoot : sourceRoots) {
-      if (path.startsWith(sourceRoot)) {
-        return sourceRoot.relativize(path);
-      }
-    }
-    return path;
+    return path.startsWith(sourceGenDir) ? sourceGenDir.relativize(path) : path;
   }
 
-  private AnnotationProcessingModule(
-      Path sourceGenDir, Path manifestProto, ImmutableSet<Path> sourceRoots) {
+  private AnnotationProcessingModule(Path sourceGenDir, Path manifestProto) {
     this.sourceGenDir = sourceGenDir;
     this.manifestProto = manifestProto;
-    this.sourceRoots = sourceRoots;
     this.enabled = sourceGenDir != null && manifestProto != null;
   }
 

@@ -150,7 +150,7 @@ public class RClassGeneratorAction {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class)
+            .optionsClasses(Options.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
@@ -189,7 +189,7 @@ public class RClassGeneratorAction {
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         // For now, assuming not used for libraries and setting final access for fields.
-        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, options.finalFields);
+        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, true);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else {

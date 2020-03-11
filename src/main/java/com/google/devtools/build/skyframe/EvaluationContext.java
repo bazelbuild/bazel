@@ -32,19 +32,22 @@ public class EvaluationContext {
   private final boolean keepGoing;
   private final ExtendedEventHandler eventHandler;
   private final boolean useForkJoinPool;
+  private final boolean isExecutionPhase;
 
   protected EvaluationContext(
       int numThreads,
       @Nullable Supplier<ExecutorService> executorServiceSupplier,
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
-      boolean useForkJoinPool) {
+      boolean useForkJoinPool,
+      boolean isExecutionPhase) {
     Preconditions.checkArgument(0 < numThreads, "numThreads must be positive");
     this.numThreads = numThreads;
     this.executorServiceSupplier = executorServiceSupplier;
     this.keepGoing = keepGoing;
     this.eventHandler = Preconditions.checkNotNull(eventHandler);
     this.useForkJoinPool = useForkJoinPool;
+    this.isExecutionPhase = isExecutionPhase;
   }
 
   public int getParallelism() {
@@ -72,12 +75,17 @@ public class EvaluationContext {
           this.executorServiceSupplier,
           keepGoing,
           this.eventHandler,
-          this.useForkJoinPool);
+          this.useForkJoinPool,
+          this.isExecutionPhase);
     }
   }
 
   public boolean getUseForkJoinPool() {
     return useForkJoinPool;
+  }
+
+  public boolean isExecutionPhase() {
+    return isExecutionPhase;
   }
 
   public static Builder newBuilder() {
@@ -91,6 +99,7 @@ public class EvaluationContext {
     private boolean keepGoing;
     private ExtendedEventHandler eventHandler;
     private boolean useForkJoinPool;
+    private boolean isExecutionPhase = false;
 
     private Builder() {}
 
@@ -127,9 +136,19 @@ public class EvaluationContext {
       return this;
     }
 
+    public Builder setExecutionPhase() {
+      isExecutionPhase = true;
+      return this;
+    }
+
     public EvaluationContext build() {
       return new EvaluationContext(
-          numThreads, executorServiceSupplier, keepGoing, eventHandler, useForkJoinPool);
+          numThreads,
+          executorServiceSupplier,
+          keepGoing,
+          eventHandler,
+          useForkJoinPool,
+          isExecutionPhase);
     }
   }
 }

@@ -16,18 +16,18 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Test case which verifies a struct field method cannot specify extraArgs. */
-public class StructFieldWithExtraArgs {
+public class StructFieldWithExtraArgs implements StarlarkValue {
 
   @SkylarkCallable(
-    name = "struct_field_method_with_extra_args",
-    documented = false,
-    structField = true,
-    extraPositionals = @Param(name = "args")
-  )
-  public String structFieldMethodWithExtraArgs(SkylarkList<?> args) {
+      name = "struct_field_method_with_extra_args",
+      documented = false,
+      structField = true,
+      extraPositionals = @Param(name = "args"))
+  public String structFieldMethodWithExtraArgs(Sequence<?> args) {
     return "Cat.";
   }
 }

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -125,5 +126,37 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
     for (int i = 1; i < allLists.size(); i++) {
       assertThat(allLists.get(i).get(0)).isSameInstanceAs(firstList.get(0));
     }
+  }
+
+  @Test
+  public void testSuiteImplicitTestsAttributeValueIsSortedByTargetName() throws Exception {
+    // When we have a BUILD file that instantiates some test targets
+    scratch.file(
+        "foo/BUILD",
+        // (in an order that is not target-name-order),
+        "sh_test(name = 'bTest', srcs = ['test.sh'])",
+        "sh_test(name = 'cTest', srcs = ['test.sh'])",
+        "sh_test(name = 'aTest', srcs = ['test.sh'])",
+        // And also a `test_suite` target, without setting the `test_suite.tests` attribute,
+        "test_suite(name = 'suite')");
+
+    // Then when we load the package,
+    PackageIdentifier fooPkgId = PackageIdentifier.createInMainRepo("foo");
+    Package fooPkg = getPackageManager().getPackage(NullEventHandler.INSTANCE, fooPkgId);
+
+    // And we get the Rule instance for the `test_suite` target,
+    Rule testSuiteRuleInstance = (Rule) fooPkg.getTarget("suite");
+    assertThat(testSuiteRuleInstance.getTargetKind()).isEqualTo("test_suite rule");
+    @SuppressWarnings("unchecked")
+    Collection<Label> implicitTestsAttributeValue =
+        (Collection<Label>)
+            testSuiteRuleInstance.getAttributeContainer().getAttr("$implicit_tests");
+    // The $implicit_tests attribute's value is ordered by target-name.
+    assertThat(implicitTestsAttributeValue)
+        .containsExactly(
+            Label.create(fooPkgId, "aTest"),
+            Label.create(fooPkgId, "bTest"),
+            Label.create(fooPkgId, "cTest"))
+        .inOrder();
   }
 }

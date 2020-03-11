@@ -238,12 +238,12 @@ public final class ThrowableExtension {
         throw new NullPointerException("The suppressed exception cannot be null.");
       }
       // The returned list is a synchrnozed list.
-      map.get(receiver, /*createOnAbsence=*/true).add(suppressed);
+      map.get(receiver, /*createOnAbsence=*/ true).add(suppressed);
     }
 
     @Override
     public Throwable[] getSuppressed(Throwable receiver) {
-      List<Throwable> list = map.get(receiver, /*createOnAbsence=*/false);
+      List<Throwable> list = map.get(receiver, /*createOnAbsence=*/ false);
       if (list == null || list.isEmpty()) {
         return EMPTY_THROWABLE_ARRAY;
       }
@@ -260,7 +260,7 @@ public final class ThrowableExtension {
     @Override
     public void printStackTrace(Throwable receiver) {
       receiver.printStackTrace();
-      List<Throwable> suppressedList = map.get(receiver, /*createOnAbsence=*/false);
+      List<Throwable> suppressedList = map.get(receiver, /*createOnAbsence=*/ false);
       if (suppressedList == null) {
         return;
       }
@@ -275,7 +275,7 @@ public final class ThrowableExtension {
     @Override
     public void printStackTrace(Throwable receiver, PrintStream stream) {
       receiver.printStackTrace(stream);
-      List<Throwable> suppressedList = map.get(receiver, /*createOnAbsence=*/false);
+      List<Throwable> suppressedList = map.get(receiver, /*createOnAbsence=*/ false);
       if (suppressedList == null) {
         return;
       }
@@ -290,7 +290,7 @@ public final class ThrowableExtension {
     @Override
     public void printStackTrace(Throwable receiver, PrintWriter writer) {
       receiver.printStackTrace(writer);
-      List<Throwable> suppressedList = map.get(receiver, /*createOnAbsence=*/false);
+      List<Throwable> suppressedList = map.get(receiver, /*createOnAbsence=*/ false);
       if (suppressedList == null) {
         return;
       }

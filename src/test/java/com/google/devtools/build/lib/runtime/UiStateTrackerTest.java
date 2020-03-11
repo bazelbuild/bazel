@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
@@ -530,6 +531,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             "fedcba",
             null,
             null,
+            ImmutableMap.of(),
             null);
     when(action.getOwner()).thenReturn(owner);
 
@@ -956,6 +958,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             "abcdef",
             null,
             null,
+            ImmutableMap.of(),
             null);
 
     Label labelBarTest = Label.parseAbsolute("//baz:bartest", ImmutableMap.of());
@@ -974,6 +977,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             "fedcba",
             null,
             null,
+            ImmutableMap.of(),
             null);
 
     stateTracker.testFilteringComplete(filteringComplete);
@@ -1125,7 +1129,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport2");
     BuildEventTransport transport3 = newBepTransport("BuildEventTransport3");
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setExitCondition(ExitCode.SUCCESS);
+    buildResult.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.SUCCESS));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     buildResult.setStopTime(clock.currentTimeMillis());
 
@@ -1195,7 +1199,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildEventTransport transport1 = newBepTransport(Strings.repeat("A", 61));
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport");
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setExitCondition(ExitCode.SUCCESS);
+    buildResult.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.SUCCESS));
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
     UiStateTracker stateTracker = new UiStateTracker(clock, 60);
     stateTracker.buildStarted(null);

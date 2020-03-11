@@ -19,13 +19,12 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import java.util.List;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -45,12 +44,12 @@ public class FakeStructApi implements StructApi, ClassObject {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
@@ -69,17 +68,10 @@ public class FakeStructApi implements StructApi, ClassObject {
 
   /** Converts the object to string using Starlark syntax. */
   @Override
-  public void repr(SkylarkPrinter printer) {
-    List<String> fieldNames;
-    try {
-      fieldNames = Ordering.natural().sortedCopy(getFieldNames());
-    } catch (EvalException e) {
-      throw new IllegalStateException("getValue should not throw an exception", e);
-    }
-
+  public void repr(Printer printer) {
     boolean first = true;
     printer.append("struct(");
-    for (String fieldName : fieldNames) {
+    for (String fieldName : Ordering.natural().sortedCopy(getFieldNames())) {
       if (!first) {
         printer.append(", ");
       }
@@ -99,7 +91,7 @@ public class FakeStructApi implements StructApi, ClassObject {
   }
 
   @Override
-  public ImmutableCollection<String> getFieldNames() throws EvalException {
+  public ImmutableCollection<String> getFieldNames() {
     return ImmutableList.copyOf(objects.keySet());
   }
 
@@ -115,12 +107,11 @@ public class FakeStructApi implements StructApi, ClassObject {
   public static class FakeStructProviderApi implements StructProviderApi {
 
     @Override
-    public StructApi createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException {
-      return new FakeStructApi(kwargs.getContents(String.class, Object.class, "kwargs"));
+    public StructApi createStruct(Dict<String, Object> kwargs, StarlarkThread thread) {
+      return new FakeStructApi(kwargs);
     }
 
     @Override
-    public void repr(SkylarkPrinter printer) {}
+    public void repr(Printer printer) {}
   }
 }
-

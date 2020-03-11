@@ -18,27 +18,26 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * The interface for files in Skylark.
- */
+/** The interface for files in Skylark. */
 @SkylarkModule(
-  name = "File",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "This object is created during the analysis phase to represent a file or directory that "
-          + "will be read or written during the execution phase. It is not an open file handle, "
-          + "and cannot be used to directly read or write file contents. Rather, you use it to "
-          + "construct the action graph in a rule implementation function by passing it to "
-          + "action-creating functions. See the "
-          + "<a href='../rules.$DOC_EXT#files'>Rules page</a> for more information."
-          + ""
-          + "<p>When a <code>File</code> is passed to an <a href='Args.html'><code>Args</code></a> "
-          + "object without using a <code>map_each</code> function, it is converted to a string by "
-          + "taking the value of its <code>path</code> field."
-)
-public interface FileApi extends SkylarkValue {
+    name = "File",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "This object is created during the analysis phase to represent a file or directory that "
+            + "will be read or written during the execution phase. It is not an open file"
+            + " handle, "
+            + "and cannot be used to directly read or write file contents. Rather, you use it to "
+            + "construct the action graph in a rule implementation function by passing it to "
+            + "action-creating functions. See the "
+            + "<a href='../rules.$DOC_EXT#files'>Rules page</a> for more information."
+            + "" // curse google-java-format b/145078219
+            + "<p>When a <code>File</code> is passed to an <a"
+            + " href='Args.html'><code>Args</code></a> object without using a"
+            + " <code>map_each</code> function, it is converted to a string by taking the value of"
+            + " its <code>path</code> field.")
+public interface FileApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "dirname",

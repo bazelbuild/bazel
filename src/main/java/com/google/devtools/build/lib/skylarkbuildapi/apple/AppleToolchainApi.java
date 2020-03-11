@@ -17,40 +17,35 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * Interface for a utility module involving the Apple toolchain.
- */
+/** Interface for a utility module involving the Apple toolchain. */
 @SkylarkModule(
     name = "apple_toolchain",
-    doc = "Utilities for resolving items from the Apple toolchain."
-)
-public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigurationApi<?>> {
+    doc = "Utilities for resolving items from the Apple toolchain.")
+public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigurationApi<?>>
+    extends StarlarkValue {
 
   @SkylarkCallable(
-    name = "sdk_dir",
-    doc = "Returns the platform directory inside of Xcode for a given configuration."
-  )
-  public String sdkDirConstant();
+      name = "sdk_dir",
+      doc = "Returns the platform directory inside of Xcode for a given configuration.")
+  String sdkDirConstant();
 
   @SkylarkCallable(
-    name = "developer_dir",
-    doc = "Returns the Developer directory inside of Xcode for a given configuration."
-  )
-  public String developerDirConstant();
+      name = "developer_dir",
+      doc = "Returns the Developer directory inside of Xcode for a given configuration.")
+  String developerDirConstant();
 
   @SkylarkCallable(
-    name = "platform_developer_framework_dir",
-    doc = "Returns the platform frameworks directory inside of Xcode for a given configuration.",
-    parameters = {
-      @Param(
-          name = "configuration",
-          positional = true,
-          named = false,
-          type = AppleConfigurationApi.class,
-          doc = "The apple configuration fragment."
-      )
-    }
-  )
-  public String platformFrameworkDirFromConfig(AppleConfigurationApiT configuration);
+      name = "platform_developer_framework_dir",
+      doc = "Returns the platform frameworks directory inside of Xcode for a given configuration.",
+      parameters = {
+        @Param(
+            name = "configuration",
+            positional = true,
+            named = false,
+            type = AppleConfigurationApi.class,
+            doc = "The apple configuration fragment.")
+      })
+  String platformFrameworkDirFromConfig(AppleConfigurationApiT configuration);
 }

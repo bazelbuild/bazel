@@ -1,10 +1,10 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
 # Description:
 #   The Bazel launcher.
 package(
     default_visibility = ["//visibility:public"],
 )
-
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
 WIN_LINK_OPTS = [
     "-DEFAULTLIB:advapi32.lib",  # GetUserNameW
@@ -29,7 +29,11 @@ cc_library(
             "blaze_util_posix.cc",
         ],
         "//src/conditions:freebsd": [
-            "blaze_util_freebsd.cc",
+            "blaze_util_bsd.cc",
+            "blaze_util_posix.cc",
+        ],
+        "//src/conditions:openbsd": [
+            "blaze_util_bsd.cc",
             "blaze_util_posix.cc",
         ],
         "//src/conditions:windows": [
@@ -52,6 +56,8 @@ cc_library(
             "-framework CoreFoundation",
         ],
         "//src/conditions:freebsd": [
+        ],
+        "//src/conditions:openbsd": [
         ],
         "//src/conditions:windows": WIN_LINK_OPTS,
         "//conditions:default": [
@@ -114,6 +120,8 @@ cc_binary(
             "-lprocstat",
             "-lm",
         ],
+        "//src/conditions:openbsd": [
+        ],
         "//src/conditions:windows": [
         ],
         "//conditions:default": [
@@ -134,6 +142,7 @@ cc_binary(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:strings",
+        "//src/main/protobuf:command_server_cc_grpc",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
     ],

@@ -23,13 +23,14 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -143,37 +144,6 @@ public final class SandboxModule extends BlazeModule {
   }
 
   /**
-   * Returns true if sandboxfs should be used for this build.
-   *
-   * <p>Returns true if requested in ["auto", "yes"] and binary is valid. Throws an error if state
-   * is "yes" and binary is not valid.
-   *
-   * @param requested whether sandboxfs use was requested or not
-   * @param binary path of the sandboxfs binary to use, can be absolute or relative path
-   * @return true if sandboxfs can and should be used; false otherwise
-   * @throws IOException if there are problems trying to determine the status of sandboxfs
-   */
-  private boolean shouldUseSandboxfs(TriState requested, PathFragment binary) throws IOException {
-    switch (requested) {
-      case AUTO:
-        return RealSandboxfsProcess.isAvailable(binary);
-
-      case NO:
-        return false;
-
-      case YES:
-        if (!RealSandboxfsProcess.isAvailable(binary)) {
-          throw new IOException(
-              "sandboxfs explicitly requested but \""
-                  + binary
-                  + "\" could not be found or is not valid");
-        }
-        return true;
-    }
-    throw new IllegalStateException("Not reachable");
-  }
-
-  /**
    * Returns true if windows-sandbox should be used for this build.
    *
    * <p>Returns true if requested in ["auto", "yes"] and binary is valid. Throws an error if state
@@ -253,12 +223,8 @@ public final class SandboxModule extends BlazeModule {
     firstBuild = false;
 
     PathFragment sandboxfsPath = PathFragment.create(options.sandboxfsPath);
-    boolean useSandboxfs;
-    try (SilentCloseable c = Profiler.instance().profile("shouldUseSandboxfs")) {
-      useSandboxfs = shouldUseSandboxfs(options.useSandboxfs, sandboxfsPath);
-    }
     sandboxBase.createDirectoryAndParents();
-    if (useSandboxfs) {
+    if (options.useSandboxfs != TriState.NO) {
       mountPoint.createDirectory();
       Path logFile = sandboxBase.getRelative("sandboxfs.log");
 
@@ -266,7 +232,19 @@ public final class SandboxModule extends BlazeModule {
         if (options.sandboxDebug) {
           env.getReporter().handle(Event.info("Mounting sandboxfs instance on " + mountPoint));
         }
-        sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
+        try (SilentCloseable c = Profiler.instance().profile("mountSandboxfs")) {
+          sandboxfsProcess = RealSandboxfsProcess.mount(sandboxfsPath, mountPoint, logFile);
+        } catch (IOException e) {
+          if (options.sandboxDebug) {
+            env.getReporter()
+                .handle(
+                    Event.info(
+                        "sandboxfs failed to mount due to " + e.getMessage() + "; ignoring"));
+          }
+          if (options.useSandboxfs == TriState.YES) {
+            throw e;
+          }
+        }
       }
     }
 
@@ -293,12 +271,16 @@ public final class SandboxModule extends BlazeModule {
               new ProcessWrapperSandboxedSpawnRunner(
                   cmdEnv,
                   sandboxBase,
-                  cmdEnv.getRuntime().getProductName(),
                   timeoutKillDelay,
+                  sandboxfsProcess,
+                  options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.addActionContext(
-          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+          SpawnStrategy.class,
+          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          "sandboxed",
+          "processwrapper-sandbox");
     }
 
     if (options.enableDockerSandbox) {
@@ -323,7 +305,9 @@ public final class SandboxModule extends BlazeModule {
                     treeDeleter));
         spawnRunners.add(spawnRunner);
         builder.addActionContext(
-            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+            SpawnStrategy.class,
+            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+            "docker");
       }
     } else if (options.dockerVerbose) {
       cmdEnv.getReporter().handle(Event.info(
@@ -344,7 +328,11 @@ public final class SandboxModule extends BlazeModule {
                   options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+      builder.addActionContext(
+          SpawnStrategy.class,
+          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          "sandboxed",
+          "linux-sandbox");
     }
 
     // This is the preferred sandboxing strategy on macOS.
@@ -360,7 +348,11 @@ public final class SandboxModule extends BlazeModule {
                   options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+      builder.addActionContext(
+          SpawnStrategy.class,
+          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          "sandboxed",
+          "darwin-sandbox");
     }
 
     if (windowsSandboxSupported) {
@@ -369,7 +361,11 @@ public final class SandboxModule extends BlazeModule {
               cmdEnv,
               new WindowsSandboxedSpawnRunner(cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+      builder.addActionContext(
+          SpawnStrategy.class,
+          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          "sandboxed",
+          "windows-sandbox");
     }
 
     if (processWrapperSupported
@@ -378,7 +374,7 @@ public final class SandboxModule extends BlazeModule {
         || windowsSandboxSupported) {
       // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
       // but it is not necessarily the default.
-      builder.addStrategyByContext(SpawnActionContext.class, "sandboxed");
+      builder.addStrategyByContext(SpawnStrategy.class, "sandboxed");
 
       // This makes the "sandboxed" strategy the default Spawn strategy, unless it is
       // overridden by a later BlazeModule.
@@ -426,7 +422,9 @@ public final class SandboxModule extends BlazeModule {
         localExecutionOptions,
         env.getLocalResourceManager(),
         LocalEnvProvider.forCurrentOs(env.getClientEnv()),
-        env.getBlazeWorkspace().getBinTools());
+        env.getBlazeWorkspace().getBinTools(),
+        // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
+        RunfilesTreeUpdater.INSTANCE);
   }
 
   private static final class SandboxFallbackSpawnRunner implements SpawnRunner {
@@ -506,7 +504,7 @@ public final class SandboxModule extends BlazeModule {
 
     SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
     int asyncTreeDeleteThreads = options != null ? options.asyncTreeDeleteIdleThreads : 0;
-    if (asyncTreeDeleteThreads > 0) {
+    if (treeDeleter != null && asyncTreeDeleteThreads > 0) {
       // If asynchronous deletions were requested, they may still be ongoing so let them be: trying
       // to delete the base tree synchronously could fail as we can race with those other deletions,
       // and scheduling an asynchronous deletion could race with future builds.

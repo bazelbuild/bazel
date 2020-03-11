@@ -21,7 +21,7 @@
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/workspace_layout.h"
 
-int main(int argc, const char *argv[]) {
+int main(int argc, char **argv) {
   uint64_t start_time = blaze::GetMillisecondsMonotonic();
   std::unique_ptr<blaze::WorkspaceLayout> workspace_layout(
       new blaze::WorkspaceLayout());
