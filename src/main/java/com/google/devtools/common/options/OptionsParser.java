@@ -160,7 +160,8 @@ public class OptionsParser implements OptionsParsingResult {
     /**
      * Sets the {@link OptionsData} used by this parser, based on the given {@code optionsClasses}.
      */
-    public Builder optionsClasses(Class<? extends OptionsBase>... optionsClasses) {
+    @SafeVarargs
+    public final Builder optionsClasses(Class<? extends OptionsBase>... optionsClasses) {
       return this.optionsData(
           (OpaqueOptionsData) getOptionsDataInternal(ImmutableList.copyOf(optionsClasses)));
     }
