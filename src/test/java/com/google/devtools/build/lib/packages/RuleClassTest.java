@@ -1163,4 +1163,22 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     assertThat(stringSetting.hasAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isFalse();
   }
+
+  @Test
+  public void testBuildTooManyAttributesRejected() {
+    RuleClass.Builder builder =
+        new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST));
+    for (int i = 0; i < 150; i++) {
+      builder.add(attr("attr" + i, STRING));
+    }
+
+    IllegalArgumentException expected =
+        assertThrows(IllegalArgumentException.class, builder::build);
+
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo("Rule class myclass declared too many attributes (151 > 150)");
+  }
 }

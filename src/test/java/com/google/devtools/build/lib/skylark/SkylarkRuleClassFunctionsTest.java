@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions.SkylarkRuleFunction;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -207,6 +209,27 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     ev.setFailFast(false);
     evalAndExport("def impl(ctx): return", "r = rule(impl, attrs = {'2_foo': attr.int()})");
     ev.assertContainsError("attribute name `2_foo` is not a valid identifier");
+  }
+
+  @Test
+  public void testRuleClassTooManyAttributes() throws Exception {
+    ev.setFailFast(false);
+
+    ImmutableList.Builder<String> linesBuilder =
+        ImmutableList.<String>builder()
+            .add("def impl(ctx): return")
+            .add("r = rule(impl, attrs = {");
+    for (int i = 0; i < 150; i++) {
+      linesBuilder.add("    'attr" + i + "': attr.int(),");
+    }
+    linesBuilder.add("})");
+
+    evalAndExport(linesBuilder.build().toArray(new String[0]));
+
+    assertThat(ev.getEventCollector()).hasSize(1);
+    Event event = ev.getEventCollector().iterator().next();
+    assertThat(event.getKind()).isEqualTo(EventKind.ERROR);
+    assertThat(event.getMessage()).contains("Rule class r declared too many attributes");
   }
 
   @Test

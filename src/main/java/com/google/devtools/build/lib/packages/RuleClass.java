@@ -123,6 +123,13 @@ import javax.annotation.concurrent.Immutable;
 @AutoCodec
 public class RuleClass {
 
+  /**
+   * Maximum attributes per RuleClass. Current value was chosen high enough to be considered a
+   * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
+   * headroom before hitting {@link AttributeContainer}'s limits.
+   */
+  private static final int MAX_ATTRIBUTES = 150;
+
   @AutoCodec
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
       Functions.<Map<String, Label>>constant(ImmutableMap.<String, Label>of());
@@ -775,6 +782,14 @@ public class RuleClass {
     public RuleClass build(String name, String key) {
       Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
       type.checkName(name);
+
+      Preconditions.checkArgument(
+          attributes.size() <= MAX_ATTRIBUTES,
+          "Rule class %s declared too many attributes (%s > %s)",
+          name,
+          attributes.size(),
+          MAX_ATTRIBUTES);
+
       type.checkAttributes(attributes);
       Preconditions.checkState(
           (type == RuleClassType.ABSTRACT)
@@ -1123,10 +1138,10 @@ public class RuleClass {
     }
 
     /**
-     * Builds attribute from the attribute builder and adds it to this rule
-     * class.
+     * Builds provided attribute and attaches it to this rule class.
      *
-     * @param attr attribute builder
+     * <p>Typically rule classes should only declare a handful of attributes - this expectation is
+     * enforced when the instance is built.
      */
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       addAttribute(attr.build());
