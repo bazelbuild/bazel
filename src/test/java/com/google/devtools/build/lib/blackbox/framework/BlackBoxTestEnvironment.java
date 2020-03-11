@@ -99,7 +99,7 @@ public abstract class BlackBoxTestEnvironment {
             "   ],",
             ")",
             "load(\"@rules_pkg//:deps.bzl\", \"rules_pkg_dependencies\")",
-            "rules_pkg_dependencies()"
+            "rules_pkg_dependencies()",
             "http_archive(",
             "    name = 'rules_proto',",
             "    sha256 = '602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208',",
