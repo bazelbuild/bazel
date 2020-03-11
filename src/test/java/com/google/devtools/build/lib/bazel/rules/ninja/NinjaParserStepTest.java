@@ -189,9 +189,9 @@ public class NinjaParserStepTest {
                 + "    rule");
     NinjaRule ninjaRule = parser.parseNinjaRule();
     assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
-        .isEqualTo("something && $\n    something_else");
+        .isEqualTo("something && \n    something_else");
     assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
-        .isEqualTo("Test $\n    rule");
+        .isEqualTo("Test \n    rule");
   }
 
   @Test
@@ -205,9 +205,9 @@ public class NinjaParserStepTest {
                 + "    rule");
     NinjaRule ninjaRule = parser.parseNinjaRule();
     assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
-        .isEqualTo("something &&$\n    something_else");
+        .isEqualTo("something &&\n    something_else");
     assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
-        .isEqualTo("Test$\n    rule");
+        .isEqualTo("Test\n    rule");
   }
 
   @Test
