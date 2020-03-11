@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: Configuratios
+title: Configurations
 ---
 
 # Configurations
