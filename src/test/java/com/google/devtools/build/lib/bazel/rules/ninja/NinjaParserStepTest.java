@@ -188,10 +188,12 @@ public class NinjaParserStepTest {
                 + "  description = Test $\n"
                 + "    rule");
     NinjaRule ninjaRule = parser.parseNinjaRule();
+    // Ensure that the dollar sign doesn't exist in the parsed command variable value.
+    // Deliberately omit them because it could cause problems in multiline shell commands.
     assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
-        .isEqualTo("something && $\n    something_else");
+        .isEqualTo("something && \n    something_else");
     assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
-        .isEqualTo("Test $\n    rule");
+        .isEqualTo("Test \n    rule");
   }
 
   @Test
@@ -204,10 +206,12 @@ public class NinjaParserStepTest {
                 + "  description = Test$\n"
                 + "    rule");
     NinjaRule ninjaRule = parser.parseNinjaRule();
+    // Ensure that the dollar sign doesn't exist in the parsed command variable value.
+    // Deliberately omit them because it could cause problems in multiline shell commands.
     assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
-        .isEqualTo("something &&$\n    something_else");
+        .isEqualTo("something &&\n    something_else");
     assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
-        .isEqualTo("Test$\n    rule");
+        .isEqualTo("Test\n    rule");
   }
 
   @Test
