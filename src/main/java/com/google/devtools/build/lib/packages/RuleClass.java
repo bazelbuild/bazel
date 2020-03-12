@@ -129,7 +129,7 @@ public class RuleClass {
    * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
    * headroom before hitting {@link AttributeContainer}'s limits.
    */
-  private static final int MAX_ATTRIBUTES = 150;
+  private static final int MAX_ATTRIBUTES = 200;
 
   @AutoCodec
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =

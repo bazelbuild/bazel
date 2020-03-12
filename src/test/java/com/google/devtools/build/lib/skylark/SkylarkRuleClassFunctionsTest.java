@@ -219,7 +219,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         ImmutableList.<String>builder()
             .add("def impl(ctx): return")
             .add("r = rule(impl, attrs = {");
-    for (int i = 0; i < 150; i++) {
+    for (int i = 0; i < 200; i++) {
       linesBuilder.add("    'attr" + i + "': attr.int(),");
     }
     linesBuilder.add("})");

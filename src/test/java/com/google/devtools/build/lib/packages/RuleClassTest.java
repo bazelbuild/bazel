@@ -1178,7 +1178,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST));
-    for (int i = 0; i < 150; i++) {
+    for (int i = 0; i < 200; i++) {
       builder.add(attr("attr" + i, STRING));
     }
 
@@ -1187,6 +1187,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     assertThat(expected)
         .hasMessageThat()
-        .isEqualTo("Rule class myclass declared too many attributes (151 > 150)");
+        .isEqualTo("Rule class myclass declared too many attributes (201 > 200)");
   }
 }
