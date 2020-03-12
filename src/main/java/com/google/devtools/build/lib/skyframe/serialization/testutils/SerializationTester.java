@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -213,6 +213,6 @@ public class SerializationTester {
         return;
       }
     }
-    assert_().fail("all junk was parsed successfully");
+    assertWithMessage("all junk was parsed successfully").fail();
   }
 }
