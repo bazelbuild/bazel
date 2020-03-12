@@ -112,7 +112,6 @@ public class SerializationTester {
     return this;
   }
 
-  @SuppressWarnings("rawtypes")
   public <T> SerializationTester setVerificationFunction(
       VerificationFunction<T> verificationFunction) {
     this.verificationFunction = verificationFunction;
