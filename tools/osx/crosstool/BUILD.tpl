@@ -87,6 +87,7 @@ cc_toolchain_suite(
         compiler = "compiler",
         cpu = arch,
         cxx_builtin_include_directories = [%{cxx_builtin_include_directories}],
+        tool_paths_overrides = {%{tool_paths_overrides}},
     )
     for arch in OSX_TOOLS_ARCHS
 ]
