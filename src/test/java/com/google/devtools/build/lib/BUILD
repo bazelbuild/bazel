@@ -388,7 +388,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:mockito",
-        "//third_party:truth8",
+        "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -657,7 +657,7 @@ java_test(
         "//src/main/protobuf:action_cache_java_proto",
         "//third_party:jsr305",
         "//third_party:mockito",
-        "//third_party:truth8",
+        "//third_party:truth",
     ],
 )
 
@@ -1482,7 +1482,7 @@ java_test(
         "//src/main/tools:process-wrapper",
         "//src/test/shell/integration:spend_cpu_time",
         "//third_party:mockito",
-        "//third_party:truth8",
+        "//third_party:truth",
     ],
 )
 
