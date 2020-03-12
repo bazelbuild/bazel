@@ -235,8 +235,8 @@ public class DirectoryTreeTest {
     // Assert the lexicographical order as defined by the remote execution protocol
     tree.visit(
         (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
-          assertThat(files).isStrictlyOrdered();
-          assertThat(dirs).isStrictlyOrdered();
+          assertThat(files).isInStrictOrder();
+          assertThat(dirs).isInStrictOrder();
         });
   }
 
