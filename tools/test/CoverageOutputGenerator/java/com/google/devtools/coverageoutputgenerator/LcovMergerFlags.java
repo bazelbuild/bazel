@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 @Parameters(separators = "= ", optionPrefixes = "--")
 class LcovMergerFlags {
   private static final Logger logger = Logger.getLogger(LcovMergerFlags.class.getName());
+  private static final int DEFAULT_PARSE_FILE_PARALLELISM = 8;
 
   @Parameter(names = "--coverage_dir")
   private String coverageDir;
@@ -55,8 +56,8 @@ class LcovMergerFlags {
   @Parameter(names = "--sources_to_replace_file")
   private String sourcesToReplaceFile;
 
-  @Parameter(names = "--parse_sequentially")
-  private boolean parseSequentially;
+  @Parameter(names = "--parse_parallelism")
+  private Integer parseParallelism;
 
   public String coverageDir() {
     return coverageDir;
@@ -86,8 +87,8 @@ class LcovMergerFlags {
     return sourceFileManifest != null;
   }
 
-  boolean parseSequentially() {
-    return parseSequentially;
+  int parseParallelism() {
+    return parseParallelism == null ? DEFAULT_PARSE_FILE_PARALLELISM : parseParallelism;
   }
 
   static LcovMergerFlags parseFlags(String[] args) {
