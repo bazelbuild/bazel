@@ -70,7 +70,7 @@ import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
-import com.google.devtools.build.lib.remote.RemoteCache.DownloadException;
+import com.google.devtools.build.lib.remote.DownloadException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;

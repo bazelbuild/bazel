@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.RemoteCache.DownloadException;
+import com.google.devtools.build.lib.remote.DownloadException;
 import com.google.devtools.build.lib.remote.RemoteCache.OutputFilesLocker;
 import com.google.devtools.build.lib.remote.RemoteCache.UploadManifest;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
