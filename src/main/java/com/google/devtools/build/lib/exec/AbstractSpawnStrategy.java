@@ -107,9 +107,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     final Duration timeout = Spawns.getTimeout(spawn);
     SpawnExecutionContext context =
         new SpawnExecutionContextImpl(spawn, actionExecutionContext, stopConcurrentSpawns, timeout);
-    // TODO(ulfjack): Provide a way to disable the cache. We don't want the RemoteSpawnStrategy to
-    // check the cache twice. Right now that can't happen because this is hidden behind an
-    // experimental flag.
+
     SpawnCache cache = actionExecutionContext.getContext(SpawnCache.class);
     // In production, the getContext method guarantees that we never get null back. However, our
     // integration tests don't set it up correctly, so cache may be null in testing.

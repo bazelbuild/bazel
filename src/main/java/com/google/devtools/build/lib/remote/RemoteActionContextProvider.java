@@ -112,16 +112,11 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
   }
 
   /**
-   * Registers a spawn cache action context if this instance was created without an executor,
-   * otherwise does nothing.
+   * Registers a spawn cache action context
    *
    * @param registryBuilder builder with which to register the cache
    */
-  public void registerSpawnCacheIfApplicable(ModuleActionContextRegistry.Builder registryBuilder) {
-    if (executor != null) {
-      return; // No need to register cache if we're using a remote executor.
-    }
-
+  public void registerSpawnCache(ModuleActionContextRegistry.Builder registryBuilder) {
     RemoteSpawnCache spawnCache =
         new RemoteSpawnCache(
             env.getExecRoot(),
