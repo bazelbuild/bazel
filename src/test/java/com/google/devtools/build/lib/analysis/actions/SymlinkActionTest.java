@@ -98,7 +98,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 /*artifactExpander=*/ null,
                 /*actionFileSystem=*/ null,
                 /*skyframeDepsResult=*/ null,
-                NestedSetExpander.NO_CALLBACKS));
+                NestedSetExpander.DEFAULT));
     assertThat(actionResult.spawnResults()).isEmpty();
     assertThat(output.isSymbolicLink()).isTrue();
     assertThat(output.resolveSymbolicLinks()).isEqualTo(input);

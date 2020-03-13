@@ -804,7 +804,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             DUMMY_ARTIFACT_EXPANDER,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
-            NestedSetExpander.NO_CALLBACKS);
+            NestedSetExpander.DEFAULT);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
     moduleMapAction.newDeterministicWriter(dummyActionExecutionContext)
@@ -858,7 +858,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             DUMMY_ARTIFACT_EXPANDER,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
-            NestedSetExpander.NO_CALLBACKS);
+            NestedSetExpander.DEFAULT);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();

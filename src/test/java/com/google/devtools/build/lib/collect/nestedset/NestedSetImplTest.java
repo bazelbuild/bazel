@@ -311,4 +311,17 @@ public class NestedSetImplTest {
     future.set(new Object[] {"a", "b"});
     assertThat(result.get()).containsExactly("a", "b");
   }
+
+  @Test
+  public void isFromStorage_true() {
+    NestedSet<?> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    assertThat(deserializingNestedSet.isFromStorage()).isTrue();
+  }
+
+  @Test
+  public void isFromStorage_false() {
+    NestedSet<?> inMemoryNestedSet = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    assertThat(inMemoryNestedSet.isFromStorage()).isFalse();
+  }
 }

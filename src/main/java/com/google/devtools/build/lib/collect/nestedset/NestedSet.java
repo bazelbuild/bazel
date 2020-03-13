@@ -293,6 +293,11 @@ public final class NestedSet<E> {
     return !(children instanceof Object[] || children instanceof ListenableFuture);
   }
 
+  /** Returns true if this set depends on data from storage. */
+  public boolean isFromStorage() {
+    return children instanceof ListenableFuture;
+  }
+
   /** Returns the single element; only call this if {@link #isSingleton} returns true. */
   public E getSingleton() {
     Preconditions.checkState(isSingleton());
@@ -303,7 +308,7 @@ public final class NestedSet<E> {
    * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
    * but will propagate an {@code InterruptedException} if one is thrown.
    */
-  ImmutableList<E> toListInterruptibly() throws InterruptedException {
+  public ImmutableList<E> toListInterruptibly() throws InterruptedException {
     return actualChildrenToList(getChildrenInterruptibly());
   }
 

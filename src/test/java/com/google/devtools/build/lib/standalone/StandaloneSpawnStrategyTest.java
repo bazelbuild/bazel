@@ -209,7 +209,7 @@ public class StandaloneSpawnStrategyTest {
         SIMPLE_ARTIFACT_EXPANDER,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.NO_CALLBACKS);
+        NestedSetExpander.DEFAULT);
   }
 
   @Test

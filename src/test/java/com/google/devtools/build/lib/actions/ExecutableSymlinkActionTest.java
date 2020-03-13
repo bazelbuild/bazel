@@ -73,7 +73,7 @@ public class ExecutableSymlinkActionTest {
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.NO_CALLBACKS);
+        NestedSetExpander.DEFAULT);
   }
 
   @Test
