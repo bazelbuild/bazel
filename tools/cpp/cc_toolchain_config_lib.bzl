@@ -14,23 +14,31 @@
 
 """ A library of functions creating structs for CcToolchainConfigInfo."""
 
+def _check_is_none(obj, parameter_name, method_name):
+    if obj != None:
+        fail("{} parameter of {} should be None, found {}."
+            .format(parameter_name, method_name, type(obj)))
+
 def _check_is_none_or_right_type(obj, obj_of_right_type, parameter_name, method_name):
     if obj != None:
-        _check_right_type(obj, obj_of_right_type, parameter_name, method_name)
+        _check_same_type(obj, obj_of_right_type, parameter_name, method_name)
 
-def _check_right_type(obj, obj_of_right_type, parameter_name, method_name):
-    if type(obj) != type(obj_of_right_type):
+def _check_right_type(obj, expected_type, parameter_name, method_name):
+    if type(obj) != expected_type:
         fail("{} parameter of {} should be a {}, found {}."
-            .format(parameter_name, method_name, type(obj_of_right_type), type(obj)))
+            .format(parameter_name, method_name, expected_type, type(obj)))
+
+def _check_same_type(obj, obj_of_right_type, parameter_name, method_name):
+    _check_right_type(obj, type(obj_of_right_type), parameter_name, method_name)
 
 def _check_is_nonempty_string(obj, parameter_name, method_name):
-    _check_right_type(obj, "", parameter_name, method_name)
+    _check_same_type(obj, "", parameter_name, method_name)
     if obj == "":
         fail("{} parameter of {} must be a nonempty string."
             .format(parameter_name, method_name))
 
 def _check_is_nonempty_list(obj, parameter_name, method_name):
-    _check_right_type(obj, [], parameter_name, method_name)
+    _check_same_type(obj, [], parameter_name, method_name)
     if len(obj) == 0:
         fail("{} parameter of {} must be a nonempty list."
             .format(parameter_name, method_name))
@@ -107,7 +115,7 @@ def feature_set(features = []):
     Returns:
         A FeatureSetInfo provider.
     """
-    _check_right_type(features, [], "features", "feature_set")
+    _check_same_type(features, [], "features", "feature_set")
     return FeatureSetInfo(features = features, type_name = "feature_set")
 
 WithFeatureSetInfo = provider(fields = ["features", "not_features", "type_name"])
@@ -125,8 +133,8 @@ def with_feature_set(features = [], not_features = []):
     Returns:
         A WithFeatureSetInfo provider.
     """
-    _check_right_type(features, [], "features", "with_feature_set")
-    _check_right_type(not_features, [], "not_features", "with_feature_set")
+    _check_same_type(features, [], "features", "with_feature_set")
+    _check_same_type(not_features, [], "not_features", "with_feature_set")
     return WithFeatureSetInfo(
         features = features,
         not_features = not_features,
@@ -157,8 +165,8 @@ def env_set(actions, env_entries = [], with_features = []):
         An EnvSetInfo provider.
     """
     _check_is_nonempty_list(actions, "actions", "env_set")
-    _check_right_type(env_entries, [], "env_entries", "env_set")
-    _check_right_type(with_features, [], "with_features", "env_set")
+    _check_same_type(env_entries, [], "env_entries", "env_set")
+    _check_same_type(with_features, [], "with_features", "env_set")
     return EnvSetInfo(
         actions = actions,
         env_entries = env_entries,
@@ -256,8 +264,8 @@ def flag_group(
         A FlagGroupInfo provider.
     """
 
-    _check_right_type(flags, [], "flags", "flag_group")
-    _check_right_type(flag_groups, [], "flag_groups", "flag_group")
+    _check_same_type(flags, [], "flags", "flag_group")
+    _check_same_type(flag_groups, [], "flag_groups", "flag_group")
     if len(flags) > 0 and len(flag_groups) > 0:
         fail("flag_group must not contain both a flag and another flag_group.")
     if len(flags) == 0 and len(flag_groups) == 0:
@@ -312,9 +320,9 @@ def flag_set(
     Returns:
         A FlagSetInfo provider.
     """
-    _check_right_type(actions, [], "actions", "flag_set")
-    _check_right_type(with_features, [], "with_features", "flag_set")
-    _check_right_type(flag_groups, [], "flag_groups", "flag_set")
+    _check_same_type(actions, [], "actions", "flag_set")
+    _check_same_type(with_features, [], "with_features", "flag_set")
+    _check_same_type(flag_groups, [], "flag_groups", "flag_set")
     return FlagSetInfo(
         actions = actions,
         with_features = with_features,
@@ -378,12 +386,12 @@ def feature(
     Returns:
         A FeatureInfo provider.
     """
-    _check_right_type(enabled, True, "enabled", "feature")
-    _check_right_type(flag_sets, [], "flag_sets", "feature")
-    _check_right_type(env_sets, [], "env_sets", "feature")
-    _check_right_type(requires, [], "requires", "feature")
-    _check_right_type(provides, [], "provides", "feature")
-    _check_right_type(implies, [], "implies", "feature")
+    _check_same_type(enabled, True, "enabled", "feature")
+    _check_same_type(flag_sets, [], "flag_sets", "feature")
+    _check_same_type(env_sets, [], "env_sets", "feature")
+    _check_same_type(requires, [], "requires", "feature")
+    _check_same_type(provides, [], "provides", "feature")
+    _check_same_type(implies, [], "implies", "feature")
     return FeatureInfo(
         name = name,
         enabled = enabled,
@@ -416,14 +424,23 @@ def tool_path(name, path):
     _check_is_nonempty_string(path, "path", "tool_path")
     return ToolPathInfo(name = name, path = path, type_name = "tool_path")
 
-ToolInfo = provider(fields = ["path", "with_features", "execution_requirements", "type_name"])
+ToolInfo = provider(fields = [
+    "path",
+    "tool",
+    "with_features",
+    "execution_requirements",
+    "type_name",
+])
 
-def tool(path, with_features = [], execution_requirements = []):
+def tool(path = None, with_features = [], execution_requirements = [], tool = None):
     """ Describes a tool associated with a crosstool action config.
 
     Args:
         path: Location of the tool; Can be absolute path (in case of non hermetic
-            toolchain), or path relative to the cc_toolchain's package.
+            toolchain), or path relative to the cc_toolchain's package. If this
+            parameter is set, tool must not be set.
+        tool: The built-artifact that should be used as this tool. If this is
+            set, path must not be set.
         with_features: A list of feature sets defining when this tool is
             applicable. The tool will used when any one of the feature sets
             evaluate to true. (That is, when when every 'feature' is enabled,
@@ -438,11 +455,21 @@ def tool(path, with_features = [], execution_requirements = []):
     Returns:
         A ToolInfo provider.
     """
-    _check_is_nonempty_string(path, "path", "tool")
-    _check_right_type(with_features, [], "with_features", "tool")
-    _check_right_type(execution_requirements, [], "execution_requirements", "tool")
+    if path == None and tool == None:
+        fail("Parameter path or parameter tool of tool should not be None.")
+
+    if path != None:
+        _check_is_nonempty_string(path, "path", "tool")
+        _check_is_none(tool, "tool", "tool")
+    if tool != None:
+        _check_is_none(path, "path", "tool")
+        _check_right_type(tool, "File", "tool", "tool")
+
+    _check_same_type(with_features, [], "with_features", "tool")
+    _check_same_type(execution_requirements, [], "execution_requirements", "tool")
     return ToolInfo(
         path = path,
+        tool = tool,
         with_features = with_features,
         execution_requirements = execution_requirements,
         type_name = "tool",
@@ -493,10 +520,10 @@ def action_config(
         An ActionConfigInfo provider.
     """
     _check_is_nonempty_string(action_name, "name", "action_config")
-    _check_right_type(enabled, True, "enabled", "action_config")
-    _check_right_type(tools, [], "tools", "action_config")
-    _check_right_type(flag_sets, [], "flag_sets", "action_config")
-    _check_right_type(implies, [], "implies", "action_config")
+    _check_same_type(enabled, True, "enabled", "action_config")
+    _check_same_type(tools, [], "tools", "action_config")
+    _check_same_type(flag_sets, [], "flag_sets", "action_config")
+    _check_same_type(implies, [], "implies", "action_config")
     return ActionConfigInfo(
         action_name = action_name,
         enabled = enabled,

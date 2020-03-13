@@ -70,6 +70,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -3102,6 +3103,44 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  @Ignore("Requires change in @rules_cc")
+  public void testTool_toolOrPathMustBeSet() throws Exception {
+    scratch.file(
+        "one/foo.bzl",
+        "load('//tools/cpp:cc_toolchain_config_lib.bzl', 'tool')",
+        "def _impl(ctx):",
+        "   tool()",
+        "crule = rule(implementation = _impl)");
+    scratch.file(
+        "one/BUILD",
+        "load(':foo.bzl', 'crule')",
+        "crule(name = 'a')");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//one:a"));
+    assertThat(e).hasMessageThat().contains("path or parameter tool of tool should not be None");
+  }
+
+  @Test
+  @Ignore("Requires change in @rules_cc")
+  public void testTool_tool_mustBeFile() throws Exception {
+    loadCcToolchainConfigLib();
+
+    scratch.file(
+        "one/foo.bzl",
+        "load('//tools/cpp:cc_toolchain_config_lib.bzl', 'tool')",
+        "def _impl(ctx):",
+        "   tool(tool = 123)",
+        "crule = rule(implementation = _impl)");
+    scratch.file(
+        "one/BUILD",
+        "load(':foo.bzl', 'crule')",
+        "crule(name = 'a')");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//one:a"));
+    assertThat(e).hasMessageThat().contains("tool parameter of tool must be a File");
+  }
+
+  @Test
   public void testTool_withFeatures_mustBeList() throws Exception {
     loadCcToolchainConfigLib();
     createToolRule("two", /* path= */ "'a'", /* withFeatures= */ "None", /* requirements= */ "[]");
@@ -3187,13 +3226,81 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         pkg + "/foo.bzl",
         "load('//tools/cpp:cc_toolchain_config_lib.bzl', 'with_feature_set', 'tool')",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
+        "def _path_rule_impl(ctx):",
         "   return [MyInfo(tool = tool(",
         "       path = " + path + ",",
         "       with_features = " + withFeatures + ",",
         "       execution_requirements = " + requirements + "))]",
-        "crule = rule(implementation = _impl)");
-    scratch.file(pkg + "/BUILD", "load(':foo.bzl', 'crule')", "crule(name = 'a')");
+        "path_rule = rule(implementation = _path_rule_impl)",
+        "def _tool_rule_impl(ctx):",
+        "   return [MyInfo(tool = tool(",
+        "       tool = ctx.executable.tool,",
+        "   ))]",
+        "tool_rule = rule(",
+        "    implementation = _tool_rule_impl,",
+        "    attrs = {",
+        "        'tool': attr.label(",
+        "            executable = True,",
+        "            cfg = 'exec',",
+        "        ),",
+        "    },",
+        ")");
+    scratch.file(
+        pkg + "/BUILD",
+        "load(':foo.bzl', 'path_rule', 'tool_rule')",
+        "path_rule(name = 'a')",
+        "cc_binary(name = 'tool')",
+        "tool_rule(",
+        "    name = 'b',",
+        "    tool = ':tool',",
+        ")");
+  }
+
+  @Test
+  @Ignore("Requires change in @rules_cc")
+  public void testCustomTool_tool() throws Exception {
+    loadCcToolchainConfigLib();
+    createToolRule("six", /* path= */ "'c'", /* withFeatures= */ "[]", /* requirements= */ "[]");
+
+    ConfiguredTarget t = getConfiguredTarget("//six:b");
+    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    Tool tool = CcModule.toolFromSkylark(toolStruct);
+    assertThat(tool.getToolPathString(PathFragment.EMPTY_FRAGMENT)).endsWith("one/tool");
+    assertThat(tool.getToolPathString(PathFragment.create("a/b"))).endsWith("one/tool");
+    assertThat(tool.getToolPathString(PathFragment.create("a/b"))).doesNotContain("a/b/one/tool");
+    assertThat(tool.getToolPathOrigin()).isEqualTo(CToolchain.Tool.PathOrigin.WORKSPACE_ROOT);
+  }
+
+  @Test
+  public void testCustomTool_path_absolute() throws Exception {
+    loadCcToolchainConfigLib();
+    createToolRule(
+        "six",
+        /* path= */ "'/a/b/c'",
+        /* withFeatures= */ "[with_feature_set(features = ['a'])]",
+        /* requirements= */ "['a', 'b']");
+
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
+    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    Tool tool = CcModule.toolFromSkylark(toolStruct);
+    assertThat(tool.getToolPathString(PathFragment.EMPTY_FRAGMENT)).isEqualTo("/a/b/c");
+    assertThat(tool.getToolPathOrigin()).isEqualTo(CToolchain.Tool.PathOrigin.FILESYSTEM_ROOT);
+  }
+
+  @Test
+  public void testCustomTool_path_relative() throws Exception {
+    loadCcToolchainConfigLib();
+    createToolRule("six", /* path= */ "'c'", /* withFeatures= */ "[]", /* requirements= */ "[]");
+
+    ConfiguredTarget t = getConfiguredTarget("//six:a");
+    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    Tool tool = CcModule.toolFromSkylark(toolStruct);
+    assertThat(tool.getToolPathString(PathFragment.EMPTY_FRAGMENT)).isEqualTo("c");
+    assertThat(tool.getToolPathString(PathFragment.create("a/b"))).isEqualTo("a/b/c");
+    assertThat(tool.getToolPathOrigin()).isEqualTo(CToolchain.Tool.PathOrigin.CROSSTOOL_PACKAGE);
   }
 
   @Test
