@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -61,7 +62,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @AutoCodec
-public final class CcCompilationContext implements CcCompilationContextApi {
+public final class CcCompilationContext implements CcCompilationContextApi<Artifact> {
   /** An empty {@code CcCompilationContext}. */
   public static final CcCompilationContext EMPTY =
       builder(/* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
@@ -152,6 +153,16 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   @Override
   public Depset getSkylarkHeaders() {
     return Depset.of(Artifact.TYPE, getDeclaredIncludeSrcs());
+  }
+
+  @Override
+  public StarlarkList<Artifact> getSkylarkDirectModularHeaders() {
+    return StarlarkList.immutableCopyOf(getDirectHdrs());
+  }
+
+  @Override
+  public StarlarkList<Artifact> getSkylarkDirectTextualHeaders() {
+    return StarlarkList.immutableCopyOf(getTextualHdrs());
   }
 
   @Override
@@ -280,8 +291,13 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   /** Returns headers given as textual_hdrs in this target. */
-  public Iterable<Artifact> getTextualHdrs() {
+  public ImmutableList<Artifact> getTextualHdrs() {
     return headerInfo.textualHeaders;
+  }
+
+  /** Returns headers given as textual_hdrs in this target. */
+  public ImmutableList<Artifact> getDirectHdrs() {
+    return headerInfo.modularHeaders;
   }
 
   public ImmutableList<HeaderInfo> getTransitiveHeaderInfos() {

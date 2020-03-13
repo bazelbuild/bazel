@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -34,14 +35,14 @@ import com.google.devtools.build.lib.syntax.NoneType;
             + "is also a marking provider telling C++ rules that they can depend on the rule "
             + "with this provider. If it is not intended for the rule to be depended on by C++, "
             + "the rule should wrap the CcInfo in some other provider.")
-public interface CcInfoApi extends StructApi {
+public interface CcInfoApi<FileT extends FileApi> extends StructApi {
   String NAME = "CcInfo";
 
   @SkylarkCallable(
       name = "compilation_context",
       doc = "Returns the <code>CompilationContext</code>",
       structField = true)
-  CcCompilationContextApi getCcCompilationContext();
+  CcCompilationContextApi<FileT> getCcCompilationContext();
 
   @SkylarkCallable(
       name = "linking_context",
@@ -56,7 +57,7 @@ public interface CcInfoApi extends StructApi {
       // This object is documented via the CcInfo documentation and the docuemntation of its
       // callable function.
       documented = false)
-  interface Provider extends ProviderApi {
+  interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -87,6 +88,7 @@ public interface CcInfoApi extends StructApi {
         },
         selfCall = true)
     @SkylarkConstructor(objectType = CcInfoApi.class, receiverNameForDoc = NAME)
-    CcInfoApi createInfo(Object ccCompilationContext, Object ccLinkingInfo) throws EvalException;
+    CcInfoApi<FileT> createInfo(Object ccCompilationContext, Object ccLinkingInfo)
+        throws EvalException;
   }
 }
