@@ -2114,6 +2114,11 @@ unsigned int BlazeServer::Communicate(
     ExecuteRunRequest(blaze_util::Path(request.argv(0)), argv);
   }
 
+  if (final_response.has_failure_detail()) {
+    BAZEL_LOG(INFO)
+        << "failure_detail: " << final_response.failure_detail().DebugString();
+  }
+
   // We'll exit with exit code SIGPIPE on Unixes due to PropagateSignalOnExit()
   return pipe_broken
       ? blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR
