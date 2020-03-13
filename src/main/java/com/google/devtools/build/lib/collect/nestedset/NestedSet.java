@@ -298,6 +298,16 @@ public final class NestedSet<E> {
     return children instanceof ListenableFuture;
   }
 
+  /**
+   * Returns true if the contents of this set are currently available in memory.
+   *
+   * <p>Only returns false if this set {@link #isFromStorage} and the contents are not fully
+   * deserialized.
+   */
+  public boolean isReady() {
+    return !isFromStorage() || ((ListenableFuture<Object[]>) children).isDone();
+  }
+
   /** Returns the single element; only call this if {@link #isSingleton} returns true. */
   public E getSingleton() {
     Preconditions.checkState(isSingleton());

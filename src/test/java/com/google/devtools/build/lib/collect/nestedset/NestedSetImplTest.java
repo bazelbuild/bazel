@@ -324,4 +324,19 @@ public class NestedSetImplTest {
     NestedSet<?> inMemoryNestedSet = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
     assertThat(inMemoryNestedSet.isFromStorage()).isFalse();
   }
+
+  @Test
+  public void isReady_inMemory() {
+    NestedSet<?> inMemoryNestedSet = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    assertThat(inMemoryNestedSet.isReady()).isTrue();
+  }
+
+  @Test
+  public void isReady_fromStorage() {
+    SettableFuture<Object[]> future = SettableFuture.create();
+    NestedSet<?> deserializingNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, future);
+    assertThat(deserializingNestedSet.isReady()).isFalse();
+    future.set(new Object[] {"a", "b"});
+    assertThat(deserializingNestedSet.isReady()).isTrue();
+  }
 }
