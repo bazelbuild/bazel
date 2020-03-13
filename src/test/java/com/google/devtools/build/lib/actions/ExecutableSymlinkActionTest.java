@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -137,6 +138,9 @@ public class ExecutableSymlinkActionTest {
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
     new SerializationTester(action)
         .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(
+            Root.RootCodecDependencies.class,
+            new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
         .setVerificationFunction(
             (in, out) -> {
               SymlinkAction inAction = (SymlinkAction) in;

@@ -263,6 +263,8 @@ public class ArtifactTest {
     anotherArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     new SerializationTester(artifact, anotherArtifact)
         .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(
+            Root.RootCodecDependencies.class, new Root.RootCodecDependencies(anotherRoot.getRoot()))
         .runTests();
   }
 
@@ -282,9 +284,13 @@ public class ArtifactTest {
                 .addReferenceConstant(scratch.getFileSystem())
                 .setAllowDefaultCodec(true)
                 .build(),
-            ImmutableMap.of(
-                FileSystem.class, scratch.getFileSystem(),
-                ArtifactResolverSupplier.class, artifactResolverSupplierForTest));
+            ImmutableMap.<Class<?>, Object>builder()
+                .put(FileSystem.class, scratch.getFileSystem())
+                .put(ArtifactResolverSupplier.class, artifactResolverSupplierForTest)
+                .put(
+                    Root.RootCodecDependencies.class,
+                    new Root.RootCodecDependencies(artifactRoot.getRoot()))
+                .build());
 
     PathFragment pathFragment = PathFragment.create("src/foo.cc");
     ArtifactOwner owner = new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"));
