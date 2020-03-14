@@ -22,22 +22,51 @@ namespace blaze {
 // but also that they are parsed. StartupOptions* options would need to be
 // non-const to call ProcessArgs and test that the value is recognized by the
 // command line.
-void ExpectIsNullaryOption(const StartupOptions* options,
-                           const std::string& flag_name) {
-  EXPECT_TRUE(options->IsNullary("--" + flag_name));
-  EXPECT_TRUE(options->IsNullary("--no" + flag_name));
+void ExpectValidNullaryOption(const StartupOptions* options,
+                              const std::string& flag_name) {
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(
+        options->MaybeCheckValidNullary("--" + flag_name, &result, &error));
+    EXPECT_TRUE(result);
+  }
 
-  EXPECT_FALSE(options->IsNullary("--" + flag_name + "__invalid"));
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(
+        options->MaybeCheckValidNullary("--no" + flag_name, &result, &error));
+    EXPECT_TRUE(result);
+  }
 
-  EXPECT_DEATH(options->IsNullary("--" + flag_name + "=foo"),
-               ("In argument '--" + flag_name + "=foo': option '--" +
-                flag_name + "' does not take a value")
-                   .c_str());
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(options->MaybeCheckValidNullary("--" + flag_name + "__invalid",
+                                                &result, &error));
+    EXPECT_FALSE(result);
+  }
 
-  EXPECT_DEATH(options->IsNullary("--no" + flag_name + "=foo"),
-               ("In argument '--no" + flag_name + "=foo': option '--no" +
-                flag_name + "' does not take a value")
-                   .c_str());
+  {
+    bool result;
+    std::string error;
+    EXPECT_FALSE(options->MaybeCheckValidNullary("--" + flag_name + "=foo",
+                                                 &result, &error));
+    EXPECT_EQ("In argument '--" + flag_name + "=foo': option '--" + flag_name +
+                  "' does not take a value.",
+              error);
+  }
+
+  {
+    bool result;
+    std::string error;
+    EXPECT_FALSE(options->MaybeCheckValidNullary("--no" + flag_name + "=foo",
+                                                 &result, &error));
+    EXPECT_EQ("In argument '--no" + flag_name + "=foo': option '--no" +
+                  flag_name + "' does not take a value.",
+              error);
+  }
 
   EXPECT_FALSE(options->IsUnary("--" + flag_name));
   EXPECT_FALSE(options->IsUnary("--no" + flag_name));
@@ -50,8 +79,22 @@ void ExpectIsUnaryOption(const StartupOptions* options,
   EXPECT_TRUE(options->IsUnary("--" + flag_name + "=foo"));
 
   EXPECT_FALSE(options->IsUnary("--" + flag_name + "__invalid"));
-  EXPECT_FALSE(options->IsNullary("--" + flag_name));
-  EXPECT_FALSE(options->IsNullary("--no" + flag_name));
+
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(
+        options->MaybeCheckValidNullary("--" + flag_name, &result, &error));
+    EXPECT_FALSE(result);
+  }
+
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(
+        options->MaybeCheckValidNullary("--no" + flag_name, &result, &error));
+    EXPECT_FALSE(result);
+  }
 }
 
 void ParseStartupOptionsAndExpectWarning(
