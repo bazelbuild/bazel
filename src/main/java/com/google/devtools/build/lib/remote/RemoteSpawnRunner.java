@@ -247,7 +247,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                   cachedResult, /* cacheHit= */ true, spawn, context, remoteOutputsMode);
             } catch (DownloadException e) {
               if (!e.onlyCausedByCacheNotFoundException()) {
-                throw new IOException(e);
+                throw e;
               }
               // No cache hit, so we fall through to local or remote execution.
               // We set acceptCachedResult to false in order to force the action re-execution.
@@ -314,7 +314,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                   // cached results, it must be reexecuted
                   requestBuilder.setSkipCacheLookup(true);
                 }
-                throw new IOException(e);
+                throw e;
               }
             });
       } catch (IOException e) {
