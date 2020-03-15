@@ -35,6 +35,13 @@ class DownloadException extends IOException {
     add(e);
   }
 
+  /**
+   * Add an IOException to the suppressed list.
+   *
+   * The Java standard addSuppressed is final and this method stands in
+   * its place to selectively filter and record whether all suppressed
+   * exceptions are CacheNotFoundExceptions
+   */
   void add(IOException e) {
     if (allCacheNotFoundException) {
       allCacheNotFoundException = e instanceof CacheNotFoundException;
