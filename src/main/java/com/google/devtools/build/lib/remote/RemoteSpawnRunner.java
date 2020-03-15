@@ -103,9 +103,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private static final String VIOLATION_TYPE_MISSING = "MISSING";
 
   private static boolean retriableExecErrors(Exception e) {
-    if (e.getCause() instanceof DownloadException) {
-      DownloadException downloadException = (DownloadException) e.getCause();
-      return downloadException.onlyCausedByCacheNotFoundException();
+    if (e.getCause() instanceof BulkTransferException) {
+      BulkTransferException bulkTransferException = (BulkTransferException) e.getCause();
+      return bulkTransferException.onlyCausedByCacheNotFoundException();
     }
     if (!RemoteRetrierUtils.causedByStatus(e, Code.FAILED_PRECONDITION)) {
       return false;
@@ -245,7 +245,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             try {
               return downloadAndFinalizeSpawnResult(
                   cachedResult, /* cacheHit= */ true, spawn, context, remoteOutputsMode);
-            } catch (DownloadException e) {
+            } catch (BulkTransferException e) {
               if (!e.onlyCausedByCacheNotFoundException()) {
                 throw e;
               }
@@ -308,7 +308,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
               try {
                 return downloadAndFinalizeSpawnResult(
                     actionResult, reply.getCachedResult(), spawn, context, remoteOutputsMode);
-              } catch (DownloadException e) {
+              } catch (BulkTransferException e) {
                 if (e.onlyCausedByCacheNotFoundException()) {
                   // No cache hit, so if we retry this execution, we must no longer accept
                   // cached results, it must be reexecuted
@@ -332,7 +332,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionContext context,
       RemoteOutputsMode remoteOutputsMode)
-      throws DownloadException, ExecException, IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     boolean downloadOutputs =
         shouldDownloadAllSpawnOutputs(
             remoteOutputsMode,
@@ -460,8 +460,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
           try {
             // We try to download all (partial) results even on server error, for debuggability.
             remoteCache.download(resp.getResult(), execRoot, outErr, context::lockOutputFiles);
-          } catch (DownloadException downloadEx) {
-            exception.addSuppressed(downloadEx);
+          } catch (BulkTransferException bulkTransferEx) {
+            exception.addSuppressed(bulkTransferEx);
           }
         }
       }
@@ -472,8 +472,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
             .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
             .build();
       }
-    } else if (exception.getCause() instanceof DownloadException) {
-      DownloadException e = (DownloadException) exception.getCause();
+    } else if (exception.getCause() instanceof BulkTransferException) {
+      BulkTransferException e = (BulkTransferException) exception.getCause();
       remoteCacheFailed = e.onlyCausedByCacheNotFoundException();
     }
     final Status status;

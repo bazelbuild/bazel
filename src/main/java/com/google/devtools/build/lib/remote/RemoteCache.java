@@ -277,12 +277,12 @@ public class RemoteCache implements AutoCloseable {
       Path execRoot,
       FileOutErr origOutErr,
       OutputFilesLocker outputFilesLocker)
-      throws ExecException, DownloadException, IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     ActionResultMetadata metadata;
     try {
       metadata = parseActionResultMetadata(result, execRoot);
     } catch (IOException e) {
-      throw new DownloadException(e);
+      throw new BulkTransferException(e);
     }
 
     List<ListenableFuture<FileMetadata>> downloads =
@@ -306,7 +306,7 @@ public class RemoteCache implements AutoCloseable {
     // one failed. That's so that when exiting this method we can be sure that all downloads have
     // finished and don't race with the cleanup routine.
 
-    DownloadException downloadException = null;
+    BulkTransferException bulkTransferException = null;
     InterruptedException interruptedException = null;
     FileOutErr tmpOutErr = null;
     try {
@@ -315,8 +315,8 @@ public class RemoteCache implements AutoCloseable {
       }
       downloads.addAll(downloadOutErr(result, tmpOutErr));
     } catch (IOException e) {
-      downloadException = new DownloadException();
-      downloadException.add(e);
+      bulkTransferException = new BulkTransferException();
+      bulkTransferException.add(e);
     }
 
     boolean cancelling = false;
@@ -330,10 +330,10 @@ public class RemoteCache implements AutoCloseable {
           download.cancel(true);
         }
       } catch (IOException e) {
-        if (downloadException == null) {
-          downloadException = new DownloadException();
+        if (bulkTransferException == null) {
+          bulkTransferException = new BulkTransferException();
         }
-        downloadException.add(e);
+        bulkTransferException.add(e);
       } catch (InterruptedException e) {
         interrupted = Thread.interrupted() || interrupted;
         interruptedException = e;
@@ -341,7 +341,7 @@ public class RemoteCache implements AutoCloseable {
       }
     }
 
-    if (downloadException != null || interruptedException != null) {
+    if (bulkTransferException != null || interruptedException != null) {
       try {
         // Delete any (partially) downloaded output files.
         for (OutputFile file : result.getOutputFilesList()) {
@@ -357,8 +357,8 @@ public class RemoteCache implements AutoCloseable {
           tmpOutErr.clearErr();
         }
       } catch (IOException e) {
-        if (downloadException != null) {
-          e.addSuppressed(downloadException);
+        if (bulkTransferException != null) {
+          e.addSuppressed(bulkTransferException);
         }
         if (interruptedException != null) {
           e.addSuppressed(interruptedException);
@@ -372,14 +372,14 @@ public class RemoteCache implements AutoCloseable {
     }
 
     if (interruptedException != null) {
-      if (downloadException != null) {
-        interruptedException.addSuppressed(downloadException);
+      if (bulkTransferException != null) {
+        interruptedException.addSuppressed(bulkTransferException);
       }
       throw interruptedException;
     }
 
-    if (downloadException != null) {
-      throw downloadException;
+    if (bulkTransferException != null) {
+      throw bulkTransferException;
     }
 
     if (tmpOutErr != null) {

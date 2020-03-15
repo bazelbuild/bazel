@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.DownloadException;
+import com.google.devtools.build.lib.remote.BulkTransferException;
 import com.google.devtools.build.lib.remote.RemoteCache.OutputFilesLocker;
 import com.google.devtools.build.lib.remote.RemoteCache.UploadManifest;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
@@ -644,7 +644,7 @@ public class RemoteCacheTests {
         OutputFile.newBuilder().setPath("outputdir/outputfile").setDigest(outputFileDigest));
     result.addOutputFiles(OutputFile.newBuilder().setPath("otherfile").setDigest(otherFileDigest));
     assertThrows(
-        DownloadException.class, () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
+        BulkTransferException.class, () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
     assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
     assertThat(execRoot.getRelative("outputdir").exists()).isTrue();
     assertThat(execRoot.getRelative("outputdir/outputfile").exists()).isFalse();
@@ -673,9 +673,9 @@ public class RemoteCacheTests {
             .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
             .build();
-    DownloadException downloadException =
+    BulkTransferException downloadException =
         assertThrows(
-            DownloadException.class,
+            BulkTransferException.class,
             () ->
                 cache.download(
                     result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
@@ -705,9 +705,9 @@ public class RemoteCacheTests {
             .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
             .build();
-    DownloadException e =
+    BulkTransferException e =
         assertThrows(
-            DownloadException.class,
+            BulkTransferException.class,
             () ->
                 cache.download(
                     result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
@@ -737,9 +737,9 @@ public class RemoteCacheTests {
             .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
             .build();
-    DownloadException downloadException =
+    BulkTransferException downloadException =
         assertThrows(
-            DownloadException.class,
+            BulkTransferException.class,
             () ->
                 cache.download(
                     result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
@@ -845,7 +845,7 @@ public class RemoteCacheTests {
             .setStderrDigest(digestStderr)
             .build();
     assertThrows(
-        DownloadException.class, () -> cache.download(result, execRoot, spyOutErr, outputFilesLocker));
+        BulkTransferException.class, () -> cache.download(result, execRoot, spyOutErr, outputFilesLocker));
     verify(spyOutErr, Mockito.times(2)).childOutErr();
     verify(spyChildOutErr).clearOut();
     verify(spyChildOutErr).clearErr();

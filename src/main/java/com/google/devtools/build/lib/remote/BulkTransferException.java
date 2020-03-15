@@ -21,17 +21,17 @@ import java.io.IOException;
  * Exception which represents a collection of IOExceptions for the purpose
  * of distinguishing remote communication exceptions from those which occur
  * on filesystems locally. This exception serves as a trace point for the actual
- * download, so that the intented operation can be observed in a stack, with all
+ * transfer, so that the intended operation can be observed in a stack, with all
  * constituent exceptions available for observation.
  */
-class DownloadException extends IOException {
-  // true since no empty DownloadException is ever thrown
+class BulkTransferException extends IOException {
+  // true since no empty BulkTransferException is ever thrown
   private boolean allCacheNotFoundException = true;
 
-  DownloadException() {
+  BulkTransferException() {
   }
 
-  DownloadException(IOException e) {
+  BulkTransferException(IOException e) {
     add(e);
   }
 

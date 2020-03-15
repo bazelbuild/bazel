@@ -57,20 +57,40 @@ public class RemoteExecutionCache extends RemoteCache {
       uploads.add(cacheProtocol.uploadBlob(entry.getKey(), entry.getValue()));
     }
 
-    try {
-      for (ListenableFuture<Void> upload : uploads) {
-        upload.get();
-      }
-    } catch (ExecutionException e) {
-      // Cancel remaining uploads.
-      for (ListenableFuture<Void> upload : uploads) {
-        upload.cancel(/* mayInterruptIfRunning= */ true);
-      }
+    InterruptedException interruptedException = null;
 
-      Throwable cause = e.getCause();
-      Throwables.propagateIfPossible(cause, IOException.class);
-      Throwables.propagateIfPossible(cause, InterruptedException.class);
-      throw new IOException(cause);
+    BulkTransferException bulkTransferException = null;
+    boolean interrupted = Thread.currentThread().isInterrupted();
+    for (ListenableFuture<Void> upload : uploads) {
+      try {
+        upload.get();
+      } catch (ExecutionException e) {
+        if (bulkTransferException != null) {
+          bulkTransferException = new BulkTransferException();
+        }
+        Throwable cause = e.getCause();
+        IOException ioEx;
+        if (cause instanceof IOException) {
+          ioEx = new IOException(cause);
+        } else {
+          ioEx = (IOException) cause;
+        }
+        bulkTransferException.add(ioEx);
+      } catch (InterruptedException e) {
+        interrupted = Thread.interrupted() || interrupted;
+        interruptedException = e;
+      }
+    }
+
+    if (interruptedException != null) {
+      if (bulkTransferException != null) {
+        interruptedException.addSuppressed(bulkTransferException);
+      }
+      throw interruptedException;
+    }
+
+    if (bulkTransferException != null) {
+      throw bulkTransferException;
     }
   }
 
