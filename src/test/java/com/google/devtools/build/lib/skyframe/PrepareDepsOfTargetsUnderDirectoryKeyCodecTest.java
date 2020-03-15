@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfTargetsUnderDirectoryValue.PrepareDepsOfTargetsUnderDirectoryKey;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,14 +29,16 @@ public final class PrepareDepsOfTargetsUnderDirectoryKeyCodecTest {
 
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester(
+    SerializationTester serializationTester =
+        new SerializationTester(
             PrepareDepsOfTargetsUnderDirectoryKey.create(
                 new RecursivePkgKey(
                     RepositoryName.MAIN,
-                    FsUtils.TEST_ROOT,
+                    FsUtils.TEST_ROOTED_PATH,
                     ImmutableSet.of(FsUtils.rootPathRelative("here"))),
-                FilteringPolicies.and(FilteringPolicies.NO_FILTER, FilteringPolicies.FILTER_TESTS)))
-        .addDependency(FileSystem.class, FsUtils.TEST_FILESYSTEM)
-        .runTests();
+                FilteringPolicies.and(
+                    FilteringPolicies.NO_FILTER, FilteringPolicies.FILTER_TESTS)));
+    FsUtils.addDependencies(serializationTester);
+    serializationTester.runTests();
   }
 }

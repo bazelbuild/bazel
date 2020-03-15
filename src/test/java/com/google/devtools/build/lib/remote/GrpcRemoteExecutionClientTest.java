@@ -97,12 +97,11 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -129,7 +128,7 @@ public class GrpcRemoteExecutionClientTest {
   private RemoteSpawnRunner client;
   private FileOutErr outErr;
   private Server fakeServer;
-  private static ListeningScheduledExecutorService retryService;
+  private ListeningScheduledExecutorService retryService;
 
   private static final OutputFile DUMMY_OUTPUT =
       OutputFile.newBuilder()
@@ -140,11 +139,6 @@ public class GrpcRemoteExecutionClientTest {
                   .setSizeBytes(0)
                   .build())
           .build();
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
 
   @Before
   public final void setUp() throws Exception {
@@ -226,6 +220,7 @@ public class GrpcRemoteExecutionClientTest {
             Maps.immutableEntry("CacheKey1", "CacheValue1"),
             Maps.immutableEntry("CacheKey2", "CacheValue2"));
 
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
@@ -282,13 +277,12 @@ public class GrpcRemoteExecutionClientTest {
 
   @After
   public void tearDown() throws Exception {
+    retryService.shutdownNow();
+    retryService.awaitTermination(
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
-  }
-
-  @AfterClass
-  public static void afterEverything() {
-    retryService.shutdownNow();
   }
 
   @Test

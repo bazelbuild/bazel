@@ -16,14 +16,15 @@
 
 package com.google.devtools.build.android.desugar.nest;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
+import com.google.devtools.build.android.desugar.testing.junit.DesugarTestHelpers;
 import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
 import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
 import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
@@ -40,10 +41,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
 /** Tests for accessing private methods from another class within a nest. */
@@ -214,18 +212,20 @@ public final class NestDesugaringMethodAccessTest {
   public void invokeVirtualOnPrivateMethod_beforeDesugaring(
       @AsmNode(className = "NonNest", memberName = "invokeTwoSum", round = 0)
           MethodNode invokeTwoSum) {
-    MethodInsnNode twoSumInvocation =
-        Iterables.getOnlyElement(findMethodInvocations(invokeTwoSum, "twoSum"));
-    assertThat(twoSumInvocation.getOpcode()).isEqualTo(Opcodes.INVOKEVIRTUAL);
+    MethodInvocationSite twoSumInvocation =
+        Iterables.getOnlyElement(
+            DesugarTestHelpers.findMethodInvocationSites(invokeTwoSum, "NonNest", "twoSum", ".*"));
+    assertThat(twoSumInvocation.invocationKind()).isEqualTo(MemberUseKind.INVOKEVIRTUAL);
   }
 
   @Test
   public void invokeSpecialOnPrivateMethod_afterDesugaring(
       @AsmNode(className = "NonNest", memberName = "invokeTwoSum", round = 1)
           MethodNode invokeTwoSum) {
-    MethodInsnNode twoSumInvocation =
-        Iterables.getOnlyElement(findMethodInvocations(invokeTwoSum, "twoSum"));
-    assertThat(twoSumInvocation.getOpcode()).isEqualTo(Opcodes.INVOKESPECIAL);
+    MethodInvocationSite twoSumInvocation =
+        Iterables.getOnlyElement(
+            DesugarTestHelpers.findMethodInvocationSites(invokeTwoSum, "NonNest", "twoSum", ".*"));
+    assertThat(twoSumInvocation.invocationKind()).isEqualTo(MemberUseKind.INVOKESPECIAL);
   }
 
   @Test
@@ -237,13 +237,4 @@ public final class NestDesugaringMethodAccessTest {
     assertThat(result).isEqualTo(1005L);
   }
 
-  private static ImmutableList<MethodInsnNode> findMethodInvocations(
-      MethodNode enclosingMethod, String invokedMethodName) {
-    AbstractInsnNode[] instructions = enclosingMethod.instructions.toArray();
-    return Arrays.stream(instructions)
-        .filter(node -> node.getType() == AbstractInsnNode.METHOD_INSN)
-        .map(node -> (MethodInsnNode) node)
-        .filter(node -> invokedMethodName.equals(node.name))
-        .collect(toImmutableList());
-  }
 }

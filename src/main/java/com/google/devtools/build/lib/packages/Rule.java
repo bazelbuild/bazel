@@ -78,6 +78,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   private final Location location;
 
+  private final CallStack callstack;
+
   private final ImplicitOutputsFunction implicitOutputsFunction;
 
   // Initialized in the call to populateOutputFiles.
@@ -89,12 +91,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       Label label,
       RuleClass ruleClass,
       Location location,
+      CallStack callstack,
       AttributeContainer attributeContainer) {
     this(
         pkg,
         label,
         ruleClass,
         location,
+        callstack,
         attributeContainer,
         ruleClass.getDefaultImplicitOutputsFunction());
   }
@@ -104,12 +108,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       Label label,
       RuleClass ruleClass,
       Location location,
+      CallStack callstack,
       AttributeContainer attributeContainer,
       ImplicitOutputsFunction implicitOutputsFunction) {
     this.pkg = Preconditions.checkNotNull(pkg);
     this.label = label;
     this.ruleClass = Preconditions.checkNotNull(ruleClass);
     this.location = Preconditions.checkNotNull(location);
+    this.callstack = Preconditions.checkNotNull(callstack);
     this.attributes = attributeContainer;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.containsErrors = false;
@@ -268,6 +274,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   @Override
   public Location getLocation() {
     return location;
+  }
+
+  /** Returns the stack of function calls active when this rule was instantiated. */
+  public CallStack getCallStack() {
+    return callstack;
   }
 
   public String getDefinitionInformation() {
@@ -611,7 +622,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public Set<DistributionType> getDistributions() {
     if (isAttrDefined("distribs", BuildType.DISTRIBUTIONS)
         && isAttributeValueExplicitlySpecified("distribs")) {

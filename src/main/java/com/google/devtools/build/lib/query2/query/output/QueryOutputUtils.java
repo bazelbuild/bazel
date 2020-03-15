@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutpu
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Static utility methods for outputting a query. */
 public class QueryOutputUtils {
@@ -45,7 +46,7 @@ public class QueryOutputUtils {
       OutputFormatter formatter,
       OutputStream outputStream,
       AspectResolver aspectResolver,
-      EventHandler eventHandler)
+      @Nullable EventHandler eventHandler)
       throws IOException, InterruptedException {
     /*
      * This is not really streaming, but we are using the streaming interface for writing into the
@@ -55,6 +56,7 @@ public class QueryOutputUtils {
     if (shouldStreamResults(queryOptions, formatter)) {
       StreamedFormatter streamedFormatter = (StreamedFormatter) formatter;
       streamedFormatter.setOptions(queryOptions, aspectResolver);
+      streamedFormatter.setEventHandler(eventHandler);
       OutputFormatterCallback.processAllTargets(
           streamedFormatter.createPostFactoStreamCallback(outputStream, queryOptions),
           targetsResult);

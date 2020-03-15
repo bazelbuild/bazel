@@ -245,6 +245,6 @@ public final class License implements LicenseApi {
 
   @Override
   public void repr(Printer printer) {
-    printer.append("<license object>");
+    printer.append(this.toString());
   }
 }

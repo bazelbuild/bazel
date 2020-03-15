@@ -36,6 +36,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class MainTest {
 
+  private static final int TEST_PARSE_PARALLELISM = 8;
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
   @Rule public TestName testName = new TestName();
   private Path coverageDir;
@@ -64,17 +65,17 @@ public class MainTest {
   }
 
   @Test
-  public void testParallelParse_1KLoC_1KLcovFiles() throws IOException {
+  public void testParallelParse_1KLoC_1KLcovFiles() throws Exception {
     assertParallelParse(1024, 4, 256);
   }
 
   @Test
-  public void testParallelParse_1MLoC_4LcovFiles() throws IOException {
+  public void testParallelParse_1MLoC_4LcovFiles() throws Exception {
     assertParallelParse(4, 1024, 1024);
   }
 
   @Test
-  public void testEmptyInputProducesEmptyOutput() throws IOException {
+  public void testEmptyInputProducesEmptyOutput() throws Exception {
     Path output =
         Paths.get(
             temporaryFolder.getRoot().getAbsolutePath(),
@@ -89,7 +90,7 @@ public class MainTest {
   }
 
   @Test
-  public void testNonEmptyInputProducesNonEmptyOutput() throws IOException {
+  public void testNonEmptyInputProducesNonEmptyOutput() throws Exception {
     LcovMergerTestUtils.generateLcovFiles("test_data/simple_test", 8, 8, 8, coverageDir);
     Path output =
         Paths.get(
@@ -105,7 +106,7 @@ public class MainTest {
   }
 
   private void assertParallelParse(int numLcovFiles, int numSourceFiles, int numLinesPerSourceFile)
-      throws IOException {
+      throws Exception {
 
     ByteArrayOutputStream sequentialOutput = new ByteArrayOutputStream();
     ByteArrayOutputStream parallelOutput = new ByteArrayOutputStream();
@@ -118,7 +119,8 @@ public class MainTest {
     Coverage sequentialCoverage = Main.parseFilesSequentially(coverageFiles, LcovParser::parse);
     LcovPrinter.print(sequentialOutput, sequentialCoverage);
 
-    Coverage parallelCoverage = Main.parseFilesInParallel(coverageFiles, LcovParser::parse);
+    Coverage parallelCoverage =
+        Main.parseFilesInParallel(coverageFiles, LcovParser::parse, TEST_PARSE_PARALLELISM);
     LcovPrinter.print(parallelOutput, parallelCoverage);
 
     assertThat(parallelOutput.toString()).isEqualTo(sequentialOutput.toString());

@@ -170,7 +170,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     SandboxInputs inputFiles =
         SandboxHelpers.processInputFiles(
-            spawn, context, execRoot, sandboxUsesExpandedTreeArtifactsInRunfiles);
+            context.getInputMapping(sandboxUsesExpandedTreeArtifactsInRunfiles),
+            spawn,
+            context.getArtifactExpander(),
+            execRoot);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     WorkerKey key =

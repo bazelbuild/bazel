@@ -5936,20 +5936,21 @@ def _impl(ctx):
         ),
     ]
 
+    tool_paths = dict()
     if (ctx.attr.cpu == "armeabi-v7a"):
-        tool_paths = [
-            tool_path(name = "ar", path = "/bin/false"),
-            tool_path(name = "compat-ld", path = "/bin/false"),
-            tool_path(name = "cpp", path = "/bin/false"),
-            tool_path(name = "dwp", path = "/bin/false"),
-            tool_path(name = "gcc", path = "/bin/false"),
-            tool_path(name = "gcov", path = "/bin/false"),
-            tool_path(name = "ld", path = "/bin/false"),
-            tool_path(name = "nm", path = "/bin/false"),
-            tool_path(name = "objcopy", path = "/bin/false"),
-            tool_path(name = "objdump", path = "/bin/false"),
-            tool_path(name = "strip", path = "/bin/false"),
-        ]
+        tool_paths = {
+            "ar": "/bin/false",
+            "compat-ld": "/bin/false",
+            "cpp": "/bin/false",
+            "dwp": "/bin/false",
+            "gcc": "/bin/false",
+            "gcov": "/bin/false",
+            "ld": "/bin/false",
+            "nm": "/bin/false",
+            "objcopy": "/bin/false",
+            "objdump": "/bin/false",
+            "strip": "/bin/false",
+        }
     elif (ctx.attr.cpu == "darwin_x86_64" or
           ctx.attr.cpu == "ios_arm64" or
           ctx.attr.cpu == "ios_arm64e" or
@@ -5962,21 +5963,23 @@ def _impl(ctx):
           ctx.attr.cpu == "watchos_armv7k" or
           ctx.attr.cpu == "watchos_i386" or
           ctx.attr.cpu == "watchos_x86_64"):
-        tool_paths = [
-            tool_path(name = "ar", path = "libtool"),
-            tool_path(name = "compat-ld", path = "/usr/bin/ld"),
-            tool_path(name = "cpp", path = "/usr/bin/cpp"),
-            tool_path(name = "dwp", path = "/usr/bin/dwp"),
-            tool_path(name = "gcc", path = "cc_wrapper.sh"),
-            tool_path(name = "gcov", path = "/usr/bin/gcov"),
-            tool_path(name = "ld", path = "/usr/bin/ld"),
-            tool_path(name = "nm", path = "/usr/bin/nm"),
-            tool_path(name = "objcopy", path = "/usr/bin/objcopy"),
-            tool_path(name = "objdump", path = "/usr/bin/objdump"),
-            tool_path(name = "strip", path = "/usr/bin/strip"),
-        ]
+        tool_paths = {
+            "ar": "libtool",
+            "compat-ld": "/usr/bin/ld",
+            "cpp": "/usr/bin/cpp",
+            "dwp": "/usr/bin/dwp",
+            "gcc": "cc_wrapper.sh",
+            "gcov": "/usr/bin/gcov",
+            "ld": "/usr/bin/ld",
+            "nm": "/usr/bin/nm",
+            "objcopy": "/usr/bin/objcopy",
+            "objdump": "/usr/bin/objdump",
+            "strip": "/usr/bin/strip",
+        }
     else:
         fail("Unreachable")
+
+    tool_paths.update(ctx.attr.tool_paths_overrides)
 
     out = ctx.actions.declare_file(ctx.label.name)
     ctx.actions.write(out, "Fake executable")
@@ -5995,7 +5998,7 @@ def _impl(ctx):
             compiler = compiler,
             abi_version = abi_version,
             abi_libc_version = abi_libc_version,
-            tool_paths = tool_paths,
+            tool_paths = [tool_path(name = name, path = path) for (name, path) in tool_paths.items()],
             make_variables = make_variables,
             builtin_sysroot = builtin_sysroot,
             cc_target_os = cc_target_os,
@@ -6011,6 +6014,7 @@ cc_toolchain_config = rule(
         "cpu": attr.string(mandatory = True),
         "compiler": attr.string(),
         "cxx_builtin_include_directories": attr.string_list(),
+        "tool_paths_overrides": attr.string_dict(),
         "_xcode_config": attr.label(default = configuration_field(
             fragment = "apple",
             name = "xcode_config_label",

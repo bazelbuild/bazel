@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -462,5 +463,89 @@ public class NinjaBuildTest extends BuildViewTestCase {
     assertThat(commandLines).hasSize(1);
     assertThat(commandLines.get(0).commandLine.toString())
         .endsWith("cd build_config && ln -s fictive-file dangling_symlink");
+  }
+
+  @Test
+  public void testOutputRootInputsWithConflictingNinjaActionOutput() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+
+    scratch.file("build_config/hello.txt", "hello");
+    scratch.file(
+        "build_config/build.ninja",
+        "rule hello_world",
+        "  command = echo \"Hello World!\" > ${out}",
+        "build build_config/hello.txt: hello_world",
+        "rule echo",
+        "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
+        "build build_config/out.txt: echo build_config/hello.txt");
+
+    // Working directory is workspace root.
+    ConfiguredTarget configuredTarget =
+        scratchConfiguredTarget(
+            "",
+            "ninja_target",
+            "ninja_graph(name = 'graph', output_root = 'build_config',",
+            " main = 'build_config/build.ninja',",
+            // hello.txt will be symlinked using a symlink action, but will also be an output of
+            // the NinjaAction created from the ninja rule above.
+            " output_root_inputs = ['hello.txt'])",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " output_groups= {'main': ['build_config/out.txt']})");
+
+    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
+    // The build.ninja file has rules for two actions, but only one of them should have been
+    // registered. Normally this would produce an ActionsConflictException, but we skip the action.
+    assertThat(actions).hasSize(1);
+    assertThat(actions.get(0).getOutputs().asList().get(0).getExecPathString())
+        .isEqualTo("build_config/out.txt");
+  }
+
+  @Test
+  public void testOutputRootInputsWithConflictingNinjaActionOutputThrowsErrorOnNonSymlinkOutput()
+      throws Exception {
+
+    rewriteWorkspace(
+        "workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+
+    scratch.file("build_config/hello.txt", "hello");
+    scratch.file(
+        "build_config/build.ninja",
+        "rule hello_world",
+        "  command = echo \"Hello World!\" > ${out}",
+        "build build_config/hello.txt build_config/not_an_input_symlink.txt: hello_world",
+        "rule echo",
+        "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
+        "build build_config/out.txt: echo build_config/hello.txt");
+
+    String message =
+        "in ninja_build rule //:ninja_target: Ninja target hello_world has outputs in "
+            + "output_root_inputs and other outputs not in output_root_inputs:\n"
+            + "Outputs in output_root_inputs:\n"
+            + "  build_config/hello.txt\n"
+            + "Outputs not in output_root_inputs:\n"
+            + "  build_config/not_an_input_symlink.txt";
+
+    // A GenericParsingException is what's actually created, however the rule code and the
+    // testing framework only relays the exception's messasge wrapped in an AssertionError.
+    Throwable throwable =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                scratchConfiguredTarget(
+                    "",
+                    "ninja_target",
+                    "ninja_graph(name = 'graph', output_root = 'build_config',",
+                    " main = 'build_config/build.ninja',",
+                    // hello.txt will be symlinked using a symlink action, but will also be an
+                    // output of
+                    // the NinjaAction created from the ninja rule above.
+                    " output_root_inputs = ['hello.txt'])",
+                    "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+                    " output_groups= {'main': ['build_config/out.txt']})"));
+    assertThat(throwable).hasMessageThat().contains(message);
   }
 }

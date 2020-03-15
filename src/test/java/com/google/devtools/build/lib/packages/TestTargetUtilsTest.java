@@ -110,7 +110,13 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     Package pkg = Mockito.mock(Package.class);
     RuleClass ruleClass = Mockito.mock(RuleClass.class);
     Rule mockRule =
-        new Rule(pkg, null, ruleClass, Location.fromFile(""), new AttributeContainer(ruleClass));
+        new Rule(
+            pkg,
+            null,
+            ruleClass,
+            Location.fromFile(""),
+            CallStack.EMPTY,
+            new AttributeContainer(ruleClass));
     Mockito.when(ruleClass.getName()).thenReturn("existent_library");
     assertThat(filter.apply(mockRule)).isTrue();
     Mockito.when(ruleClass.getName()).thenReturn("exist_library");

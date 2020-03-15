@@ -25,15 +25,23 @@ public class FsUtils {
 
   public static final FileSystem TEST_FILESYSTEM = new InMemoryFileSystem();
 
-  public static final RootedPath TEST_ROOT =
-      RootedPath.toRootedPath(
-          Root.fromPath(TEST_FILESYSTEM.getPath(PathFragment.create("/anywhere/at/all"))),
-          PathFragment.create("all/at/anywhere"));
+  private static final Root TEST_ROOT =
+      Root.fromPath(TEST_FILESYSTEM.getPath(PathFragment.create("/anywhere/at/all")));
+
+  public static final RootedPath TEST_ROOTED_PATH =
+      RootedPath.toRootedPath(TEST_ROOT, PathFragment.create("all/at/anywhere"));
 
   private FsUtils() {}
 
-  /** Returns path relative to {@link #TEST_ROOT}. */
+  /** Returns path relative to {@link #TEST_ROOTED_PATH}. */
   public static PathFragment rootPathRelative(String path) {
-    return TEST_ROOT.getRootRelativePath().getRelative(path);
+    return TEST_ROOTED_PATH.getRootRelativePath().getRelative(path);
+  }
+
+  public static void addDependencies(SerializationTester tester) {
+    tester.addDependency(FileSystem.class, TEST_FILESYSTEM);
+    tester.addDependency(
+        Root.RootCodecDependencies.class,
+        new Root.RootCodecDependencies(/*likelyPopularRoot=*/ TEST_ROOT));
   }
 }

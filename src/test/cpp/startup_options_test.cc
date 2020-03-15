@@ -84,7 +84,7 @@ TEST_F(StartupOptionsTest, ProductName) {
 
 TEST_F(StartupOptionsTest, JavaLoggingOptions) {
   ASSERT_EQ("com.google.devtools.build.lib.util.SingleLineFormatter",
-      startup_options_->java_logging_formatter);
+            startup_options_->java_logging_formatter);
 }
 
 // TODO(bazel-team): remove the ifdef guard once the implementation of
@@ -108,8 +108,21 @@ TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
 #endif  // __linux
 
 TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
-  EXPECT_FALSE(startup_options_->IsNullary(""));
-  EXPECT_FALSE(startup_options_->IsNullary("--"));
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(startup_options_->MaybeCheckValidNullary("", &result, &error));
+    EXPECT_FALSE(result);
+  }
+
+  {
+    bool result;
+    std::string error;
+    EXPECT_TRUE(
+        startup_options_->MaybeCheckValidNullary("--", &result, &error));
+    EXPECT_FALSE(result);
+  }
+
   EXPECT_FALSE(startup_options_->IsUnary(""));
   EXPECT_FALSE(startup_options_->IsUnary("--"));
 }

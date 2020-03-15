@@ -19,9 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
-import java.util.List;
 
 /** The platform configuration. */
 @SkylarkModule(
@@ -43,11 +41,4 @@ public interface PlatformConfigurationApi extends StarlarkValue {
       documented = false)
   @Deprecated
   ImmutableList<Label> getTargetPlatforms();
-
-  @SkylarkCallable(
-      name = "enabled_toolchain_types",
-      structField = true,
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES,
-      doc = "The set of toolchain types enabled for platform-based toolchain selection.")
-  List<Label> getEnabledToolchainTypes();
 }

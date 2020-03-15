@@ -64,10 +64,11 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs readablePaths =
         SandboxHelpers.processInputFiles(
+            context.getInputMapping(
+                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
             spawn,
-            context,
-            execRoot,
-            getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree);
+            context.getArtifactExpander(),
+            execRoot);
 
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
     writablePaths.addAll(getWritableDirs(execRoot, environment));

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skyframe.CollectPackagesUnderDirectoryValue
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -34,7 +33,8 @@ public final class CollectPackagesUnderDirectoryCodecTest {
 
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester(
+    SerializationTester serializationTester =
+        new SerializationTester(
             NoErrorCollectPackagesUnderDirectoryValue.EMPTY,
             CollectPackagesUnderDirectoryValue.ofNoError(
                 true,
@@ -50,9 +50,9 @@ public final class CollectPackagesUnderDirectoryCodecTest {
                 "my error message",
                 ImmutableMap.of(
                     rootedPath("/a", "b"), false,
-                    rootedPath("/c", "d"), true)))
-        .addDependency(FileSystem.class, FsUtils.TEST_FILESYSTEM)
-        .runTests();
+                    rootedPath("/c", "d"), true)));
+    FsUtils.addDependencies(serializationTester);
+    serializationTester.runTests();
   }
 
   @Test

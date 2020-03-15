@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -92,10 +93,10 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
-import org.junit.AfterClass;
+import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -110,7 +111,7 @@ public class RemoteSpawnRunnerTest {
 
   private static final ImmutableMap<String, String> NO_CACHE =
       ImmutableMap.of(ExecutionRequirements.NO_CACHE, "");
-  private static ListeningScheduledExecutorService retryService;
+  private ListeningScheduledExecutorService retryService;
 
   private Path execRoot;
   private Path logDir;
@@ -130,11 +131,6 @@ public class RemoteSpawnRunnerTest {
   private final String simpleActionId =
       "eb45b20cc979d504f96b9efc9a08c48103c6f017afa09c0df5c70a5f92a98ea8";
 
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
-
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
@@ -152,11 +148,14 @@ public class RemoteSpawnRunnerTest {
     outErr = new FileOutErr(stdout, stderr);
 
     remoteOptions = Options.getDefaults(RemoteOptions.class);
+
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }
 
-  @AfterClass
-  public static void afterEverything() {
+  @After
+  public void afterEverything() throws InterruptedException {
     retryService.shutdownNow();
+    retryService.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
   }
 
   @Test

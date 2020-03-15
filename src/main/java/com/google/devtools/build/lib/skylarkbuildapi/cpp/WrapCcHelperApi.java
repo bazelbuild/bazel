@@ -41,9 +41,9 @@ public interface WrapCcHelperApi<
         ConstraintValueT extends ConstraintValueInfoApi,
         SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
-        CompilationInfoT extends CompilationInfoApi,
+        CompilationInfoT extends CompilationInfoApi<FileT>,
         FileT extends FileApi,
-        CcCompilationContextT extends CcCompilationContextApi,
+        CcCompilationContextT extends CcCompilationContextApi<FileT>,
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
     extends StarlarkValue {
 

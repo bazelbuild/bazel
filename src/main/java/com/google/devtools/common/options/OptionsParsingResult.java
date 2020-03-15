@@ -58,6 +58,7 @@ public interface OptionsParsingResult extends OptionsProvider {
    * and the options it expanded to, and so blindly using this list for a new invocation will cause
    * double-application of these options.
    */
+  // TODO(b/150222792): make this aware of starlark options.
   List<ParsedOptionDescription> asCompleteListOfParsedOptions();
 
   /**
@@ -68,6 +69,8 @@ public interface OptionsParsingResult extends OptionsProvider {
    *
    * <p>The list includes undocumented options.
    */
+  // TODO(b/150222792): make this aware of Starlark options. This might be tricky because we don't
+  // store Starlark option values that are explicitly specified to the same value as the default.
   List<ParsedOptionDescription> asListOfExplicitOptions();
 
   /**
@@ -78,12 +81,14 @@ public interface OptionsParsingResult extends OptionsProvider {
    *
    * <p>The list includes undocumented options.
    */
+  // TODO(b/150222792): make this aware of Starlark options.
   List<ParsedOptionDescription> asListOfCanonicalOptions();
 
   /**
    * Returns a list of all options, including undocumented ones, and their effective values. There
    * is no guaranteed ordering for the result.
    */
+  // TODO(b/150222792): make this aware of Starlark options
   List<OptionValueDescription> asListOfOptionValues();
 
   /**
@@ -95,5 +100,7 @@ public interface OptionsParsingResult extends OptionsProvider {
    * is unique, since some flags may have effects unknown to the parser (--config, for Bazel), so we
    * do not reorder flags to further simplify the list.
    */
+  // TODO(b/150222792): make this aware of Starlark options. Note - `blaze canonicalize-flags`
+  // already emits Starlark options by doing some extra work on top of calling this method.
   List<String> canonicalize();
 }

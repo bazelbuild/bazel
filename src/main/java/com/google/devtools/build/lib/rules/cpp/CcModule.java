@@ -1617,8 +1617,8 @@ public abstract class CcModule
     validateExtensions(
         "srcs",
         sources,
-        CppFileTypes.ALL_C_CLASS_SOURCE,
-        FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE));
+        CppFileTypes.ALL_C_CLASS_SOURCE.including(CppFileTypes.ASSEMBLER),
+        FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE, CppFileTypes.ASSEMBLER));
     validateExtensions(
         "public_hdrs",
         publicHeaders,

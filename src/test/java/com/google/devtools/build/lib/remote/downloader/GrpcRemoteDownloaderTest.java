@@ -63,10 +63,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -82,12 +81,7 @@ public class GrpcRemoteDownloaderTest {
   private Server fakeServer;
   private Context withEmptyMetadata;
   private Context prevContext;
-  private static ListeningScheduledExecutorService retryService;
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
+  private ListeningScheduledExecutorService retryService;
 
   @Before
   public final void setUp() throws Exception {
@@ -101,19 +95,22 @@ public class GrpcRemoteDownloaderTest {
     withEmptyMetadata =
         TracingMetadataUtils.contextWithMetadata(
             "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
+
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
     prevContext = withEmptyMetadata.attach();
   }
 
   @After
   public void tearDown() throws Exception {
     withEmptyMetadata.detach(prevContext);
+
+    retryService.shutdownNow();
+    retryService.awaitTermination(
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
-  }
-
-  @AfterClass
-  public static void afterEverything() {
-    retryService.shutdownNow();
   }
 
   private GrpcRemoteDownloader newDownloader(RemoteCacheClient cacheClient) throws IOException {

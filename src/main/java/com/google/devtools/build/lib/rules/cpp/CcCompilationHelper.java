@@ -198,7 +198,7 @@ public final class CcCompilationHelper {
   // TODO(plf): Rename so that it's not confused with CcCompilationContext and also consider
   // merging
   // this class with {@code CcCompilationOutputs}.
-  public static final class CompilationInfo implements CompilationInfoApi {
+  public static final class CompilationInfo implements CompilationInfoApi<Artifact> {
     private final CcCompilationContext ccCompilationContext;
     private final CcCompilationOutputs compilationOutputs;
 
