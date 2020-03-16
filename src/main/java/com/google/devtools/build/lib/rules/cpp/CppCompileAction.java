@@ -485,7 +485,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         continue;
       }
       if (declaredIncludeDirs == null) {
-        declaredIncludeDirs = ccCompilationContext.getDeclaredIncludeDirs().toSet();
+        declaredIncludeDirs = ccCompilationContext.getLooseHdrsDirs().toSet();
       }
       if (!isDeclaredIn(cppConfiguration, actionExecutionContext, header, declaredIncludeDirs)) {
         missing.add(header);
@@ -929,7 +929,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     // Copy the nested sets to hash sets for fast contains checking, but do so lazily.
     // Avoid immutable sets here to limit memory churn.
-    Set<PathFragment> declaredIncludeDirs = null;
+    Set<PathFragment> looseHdrsDirs = null;
     for (Artifact input : inputsForValidation.toList()) {
       // Only declared modules are added to an action and so they are always valid.
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
@@ -947,11 +947,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (FileSystemUtils.startsWithAny(input.getExecPath(), ignoreDirs)) {
         continue;
       }
-      if (declaredIncludeDirs == null) {
-        declaredIncludeDirs =
-            Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs().toList());
+      if (looseHdrsDirs == null) {
+        looseHdrsDirs = Sets.newHashSet(ccCompilationContext.getLooseHdrsDirs().toList());
       }
-      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, declaredIncludeDirs)) {
+      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, looseHdrsDirs)) {
         errors.add(input.getExecPath().toString());
       }
     }
@@ -967,9 +966,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs().toList()) {
             System.err.println("  '" + a.toDetailString() + "'");
           }
-          System.err.println(" or under declared dirs:");
-          for (PathFragment f :
-              Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeDirs().toList())) {
+          System.err.println(" or under loose headers dirs:");
+          for (PathFragment f : Sets.newTreeSet(ccCompilationContext.getLooseHdrsDirs().toList())) {
             System.err.println("  '" + f + "'");
           }
           System.err.println(" with prefixes:");
@@ -1191,7 +1189,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * listed in {@code declaredIncludeSrcs}).
    */
   public NestedSet<PathFragment> getDeclaredIncludeDirs() {
-    return ccCompilationContext.getDeclaredIncludeDirs();
+    return ccCompilationContext.getLooseHdrsDirs();
   }
 
   /** Return explicitly listed header files. */
@@ -1227,7 +1225,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         ccCompilationContext.getDeclaredIncludeSrcs(),
         getMandatoryInputs(),
         additionalPrunableHeaders,
-        ccCompilationContext.getDeclaredIncludeDirs(),
+        ccCompilationContext.getLooseHdrsDirs(),
         builtInIncludeDirectories,
         inputsForInvalidation,
         cppConfiguration.validateTopLevelHeaderInclusions());
@@ -1619,7 +1617,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       message.append('\n');
     }
 
-    for (PathFragment path : ccCompilationContext.getDeclaredIncludeDirs().toList()) {
+    for (PathFragment path : ccCompilationContext.getLooseHdrsDirs().toList()) {
       message.append("  Declared include directory: ");
       message.append(ShellEscaper.escapeString(path.getPathString()));
       message.append('\n');
