@@ -16,9 +16,13 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -30,6 +34,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 
 /**
@@ -42,12 +49,13 @@ import javax.annotation.Nullable;
  *
  * <p>This implementation only supports creating local action outputs.
  */
-class RemoteActionFileSystem extends DelegateFileSystem {
+class RemoteActionFileSystem extends DelegateFileSystem implements MetadataInjector {
 
   private final Path execRoot;
   private final Path outputBase;
   private final ActionInputMap inputArtifactData;
   private final RemoteActionInputFetcher inputFetcher;
+  private final ConcurrentMap<String, RemoteFileArtifactValue> injectedMetadata = new ConcurrentHashMap<>();
 
   RemoteActionFileSystem(
       FileSystem localDelegate,
@@ -339,7 +347,7 @@ class RemoteActionFileSystem extends DelegateFileSystem {
     if (m != null && m.isRemote()) {
       return (RemoteFileArtifactValue) m;
     }
-    return null;
+    return injectedMetadata.get(execPathString);
   }
 
   private void downloadFileIfRemote(Path path) throws IOException {
@@ -382,5 +390,34 @@ class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   protected void createHardLink(Path linkPath, Path originalPath) throws IOException {
     super.createHardLink(linkPath, originalPath);
+  }
+
+  // MetadataInjector interface
+  @Override
+  public void addExpandedTreeOutput(TreeFileArtifact output) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
+    RemoteFileArtifactValue m = new FileArtifactValue.RemoteFileArtifactValue(digest, size, locationIndex);
+    Path transformedPath = getPath(output.getPath().getPathString());
+    injectedMetadata.put(execPathString(transformedPath), m);
+  }
+
+  @Override
+  public void injectRemoteDirectory(
+      Artifact.SpecialArtifact treeArtifact, Map<PathFragment, RemoteFileArtifactValue> children) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void markOmitted(ActionInput output) {
+    throw new UnsupportedOperationException();
   }
 }

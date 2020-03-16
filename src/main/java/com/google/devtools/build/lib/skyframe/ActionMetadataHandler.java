@@ -37,12 +37,14 @@ import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBeha
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -551,6 +553,13 @@ public final class ActionMetadataHandler implements MetadataHandler {
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution", output);
     store.injectRemoteFile(output, digest, size, locationIndex);
+
+    // Ensure that this artifact is also known to the remote filesystem that
+    // artifactPathResolver resolves to.
+    FileSystem fs = artifactPathResolver.toPath(output).getFileSystem();
+    if (fs instanceof MetadataInjector) {
+      ((MetadataInjector) fs).injectRemoteFile(output, digest, size, locationIndex);
+    }
   }
 
   @Override
