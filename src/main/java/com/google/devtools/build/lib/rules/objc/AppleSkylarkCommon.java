@@ -63,8 +63,9 @@ public class AppleSkylarkCommon
         ApplePlatform> {
 
   @VisibleForTesting
-  public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
-      + " or 'direct_dep_providers'.";
+  public static final String BAD_KEY_ERROR =
+      "Argument %s not a recognized key,"
+          + " 'strict_include', 'providers', or 'direct_dep_providers'.";
 
   @VisibleForTesting
   public static final String BAD_SET_TYPE_ERROR =
@@ -200,6 +201,8 @@ public class AppleSkylarkCommon
       Key<?> key = ObjcProvider.getSkylarkKeyForString((String) entry.getKey());
       if (key != null) {
         resultBuilder.addElementsFromSkylark(key, entry.getValue());
+      } else if (entry.getKey().equals("strict_include")) {
+        resultBuilder.addStrictIncludeFromSkylark(entry.getValue());
       } else if (entry.getKey().equals("providers")) {
         resultBuilder.addProvidersFromSkylark(entry.getValue());
       } else if (entry.getKey().equals("direct_dep_providers")) {
