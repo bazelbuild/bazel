@@ -95,7 +95,8 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
                 apkBuilder,
                 apkSigner,
                 proguard,
-                zipalign))
+                zipalign,
+                /* system= */ null))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
         .build();

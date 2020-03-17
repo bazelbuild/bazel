@@ -82,7 +82,7 @@ public class TargetPatternsHelperTest {
   @Test
   public void testNoTargetPatternFile() throws TargetPatternsHelperException {
     ImmutableList<String> patterns = ImmutableList.of("//some/...", "//patterns");
-    options.setResidue(patterns);
+    options.setResidue(patterns, ImmutableList.of());
 
     assertThat(TargetPatternsHelper.readFrom(env, options)).isEqualTo(patterns);
   }
@@ -90,7 +90,7 @@ public class TargetPatternsHelperTest {
   @Test
   public void testSpecifyPatternAndFileThrows() throws OptionsParsingException {
     options.parse("--target_pattern_file=patterns.txt");
-    options.setResidue(ImmutableList.of("//some:pattern"));
+    options.setResidue(ImmutableList.of("//some:pattern"), ImmutableList.of());
 
     TargetPatternsHelperException expected =
         assertThrows(

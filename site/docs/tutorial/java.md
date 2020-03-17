@@ -113,7 +113,7 @@ targets.
 
 Take a look at the `java-tutorial/BUILD` file:
 
-```
+```python
 java_binary(
     name = "ProjectRunner",
     srcs = glob(["src/main/java/com/example/*.java"]),
@@ -205,7 +205,7 @@ building multiple parts of a project at once.
 Let's split our sample project build into two targets. Replace the contents of
 the `java-tutorial/BUILD` file with the following:
 
-```
+```python
 java_binary(
     name = "ProjectRunner",
     srcs = ["src/main/java/com/example/ProjectRunner.java"],
@@ -268,12 +268,12 @@ there is a `BUILD` file at the root of the workspace).
 
 Take a look at the `src/main/java/com/example/cmdline/BUILD` file:
 
-```
+```python
 java_binary(
     name = "runner",
     srcs = ["Runner.java"],
     main_class = "com.example.cmdline.Runner",
-    deps = ["//:greeter"]
+    deps = ["//:greeter"],
 )
 ```
 
@@ -293,12 +293,12 @@ leaking into public APIs.)
 To do this, add the `visibility` attribute to the `greeter` target in
 `java-tutorial/BUILD` as shown below:
 
-```
+```python
 java_library(
     name = "greeter",
     srcs = ["src/main/java/com/example/Greeting.java"],
     visibility = ["//src/main/java/com/example/cmdline:__pkg__"],
-    )
+)
 ```
 
 Let's now build the new package. Run the following command at the root of the

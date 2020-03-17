@@ -87,6 +87,8 @@ public abstract class StarlarkSemantics {
         "incompatible_require_linker_input_cc_api";
     public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
         "incompatible_linkopts_to_linklibs";
+    public static final String RECORD_RULE_INSTANTIATION_CALLSTACK =
+        "record_rule_instantiation_callstack";
   }
 
   // TODO(adonovan): replace the fields of StarlarkSemantics
@@ -139,6 +141,8 @@ public abstract class StarlarkSemantics {
         return incompatibleRequireLinkerInputCcApi();
       case FlagIdentifier.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS:
         return incompatibleLinkoptsToLinkLibs();
+      case FlagIdentifier.RECORD_RULE_INSTANTIATION_CALLSTACK:
+        return recordRuleInstantiationCallstack();
       default:
         throw new IllegalArgumentException(flag);
     }
@@ -268,6 +272,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleLinkoptsToLinkLibs();
 
+  public abstract boolean recordRuleInstantiationCallstack();
+
   @Memoized
   @Override
   public abstract int hashCode();
@@ -345,6 +351,7 @@ public abstract class StarlarkSemantics {
           .incompatibleRestrictStringEscapes(false)
           .incompatibleUseCcConfigureFromRulesCc(false)
           .incompatibleLinkoptsToLinkLibs(false)
+          .recordRuleInstantiationCallstack(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -439,6 +446,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleUseCcConfigureFromRulesCc(boolean value);
 
     public abstract Builder incompatibleLinkoptsToLinkLibs(boolean value);
+
+    public abstract Builder recordRuleInstantiationCallstack(boolean value);
 
     public abstract StarlarkSemantics build();
   }

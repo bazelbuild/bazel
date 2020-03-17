@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.CommandCompleteEvent;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -216,7 +217,15 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            context.getInputMapping(
+                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+            spawn,
+            context.getArtifactExpander(),
+            execRoot);
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
+
     Duration timeout = context.getTimeout();
 
     UUID uuid = UUID.randomUUID();
@@ -276,11 +285,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         sandboxExecRoot,
         cmdLine.build(),
         cmdEnv.getClientEnv(),
-        SandboxHelpers.processInputFiles(
-            spawn,
-            context,
-            execRoot,
-            getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+        inputs,
         outputs,
         ImmutableSet.of(),
         treeDeleter,

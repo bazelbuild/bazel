@@ -2290,7 +2290,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           artifactExpander,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult*/ null,
-          NestedSetExpander.NO_CALLBACKS);
+          NestedSetExpander.DEFAULT);
     }
   }
 }

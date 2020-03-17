@@ -1124,7 +1124,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       return this;
     }
 
-    Builder addStrictDependencyIncludes(Iterable<PathFragment> includes) {
+    protected Builder addStrictDependencyIncludes(Iterable<PathFragment> includes) {
       strictDependencyIncludes.addAll(includes);
       return this;
     }
@@ -1293,6 +1293,19 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           }
         }
       }
+    }
+
+    /**
+     * Adds the given strict include paths from skylark. An error is thrown if skylarkToAdd is not
+     * an appropriate Depset.
+     */
+    @SuppressWarnings("unchecked")
+    void addStrictIncludeFromSkylark(Object skylarkToAdd) throws EvalException {
+      NestedSet<PathFragment> toAdd =
+          (NestedSet<PathFragment>)
+              ObjcProviderSkylarkConverters.convertToJava(INCLUDE, skylarkToAdd);
+
+      addStrictDependencyIncludes(toAdd.toList());
     }
 
     @Override

@@ -112,7 +112,7 @@ targets.
 
 Take a look at the `BUILD` file in the `cpp-tutorial/stage1/main` directory:
 
-```
+```python
 cc_binary(
     name = "hello-world",
     srcs = ["hello-world.cc"],
@@ -217,7 +217,7 @@ building multiple parts of a project at once.
 Let's split our sample project build into two targets. Take a look at the
 `BUILD` file in the `cpp-tutorial/stage2/main` directory:
 
-```
+```python
 cc_library(
     name = "hello-greet",
     srcs = ["hello-greet.cc"],

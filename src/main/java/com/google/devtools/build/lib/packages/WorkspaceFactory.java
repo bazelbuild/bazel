@@ -240,11 +240,13 @@ public class WorkspaceFactory {
       try {
         // The old rule references another Package instance and we wan't to keep the invariant that
         // every Rule references the Package it is contained within
-        Rule newRule = builder.createRule(
-            rule.getLabel(),
-            rule.getRuleClassObject(),
-            rule.getLocation(),
-            rule.getAttributeContainer());
+        Rule newRule =
+            builder.createRule(
+                rule.getLabel(),
+                rule.getRuleClassObject(),
+                rule.getLocation(),
+                rule.getCallStack().toList(),
+                rule.getAttributeContainer());
         newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder);
         if (rule.containsErrors()) {
           newRule.setContainsErrors();

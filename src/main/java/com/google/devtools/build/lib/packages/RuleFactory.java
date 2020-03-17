@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTe
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -106,11 +106,22 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
-    // TODO(adonovan): record thread.getCallStack() in the rule,
-    // and make 'bazel query --output=build' display it (b/36593041).
+    ImmutableList<StarlarkThread.CallStackEntry> callstack =
+        thread != null ? thread.getCallStack() : ImmutableList.of();
 
     AttributesAndLocation generator =
-        generatorAttributesForMacros(pkgBuilder, attributeValues, thread, location, label);
+        generatorAttributesForMacros(pkgBuilder, attributeValues, callstack, location, label);
+
+    if (thread != null) {
+      // The raw stack is of the form [<toplevel>@BUILD:1, macro@lib.bzl:1, cc_library@<builtin>].
+      // If we're recording it (--record_rule_instantiation_callstack),
+      // pop the innermost frame for the rule, since it's obvious.
+      callstack =
+          thread.getSemantics().recordRuleInstantiationCallstack()
+              ? callstack.subList(0, callstack.size() - 1) // pop
+              : ImmutableList.of(); // save space
+    }
+
     try {
       // Examines --incompatible_disable_third_party_license_checking to see if we should check
       // third party targets for license existence.
@@ -126,6 +137,7 @@ public class RuleFactory {
           generator.attributes,
           eventHandler,
           generator.location,
+          callstack,
           attributeContainer,
           checkThirdPartyLicenses);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
@@ -306,14 +318,9 @@ public class RuleFactory {
   private static AttributesAndLocation generatorAttributesForMacros(
       Package.Builder pkgBuilder,
       BuildLangTypedAttributeValuesMap args,
-      @Nullable StarlarkThread thread,
+      ImmutableList<StarlarkThread.CallStackEntry> stack,
       Location location,
       Label label) {
-    // Returns the original arguments if a) there is only the rule itself on the stack
-    // trace (=> no macro) or b) the attributes have already been set by Python pre-processing.
-    if (thread == null) {
-      return new AttributesAndLocation(args, location);
-    }
     boolean hasName = args.containsAttributeNamed("generator_name");
     boolean hasFunc = args.containsAttributeNamed("generator_function");
     // TODO(bazel-team): resolve cases in our code where hasName && !hasFunc, or hasFunc && !hasName
@@ -326,7 +333,6 @@ public class RuleFactory {
     // The stack must contain at least two entries:
     // 0: the outermost function (e.g. a BUILD file),
     // 1: the function called by it (e.g. a "macro" in a .bzl file).
-    List<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
     if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
       return new AttributesAndLocation(args, location); // macro is not a Starlark function
     }
@@ -368,6 +374,7 @@ public class RuleFactory {
    *
    * @return The workspace-relative path of the given location, or null if it could not be computed.
    */
+  // TODO(b/151151653): make Starlark file Locations relative from the outset.
   @Nullable
   private static String maybeGetRelativeLocation(@Nullable Location location, Label label) {
     if (location == null) {
@@ -379,6 +386,9 @@ public class RuleFactory {
     // rules created from function calls in a subincluded file, even if both files share a path
     // prefix (for example, when //a/package:BUILD subincludes //a/package/with/a/subpackage:BUILD).
     // We can revert to that approach once subincludes aren't supported anymore.
+    //
+    // TODO(b/151165647): this logic has always been wrong:
+    // it spuriously matches occurrences of the package name earlier in the path.
     String absolutePath = location.toString();
     int pos = absolutePath.indexOf(label.getPackageName());
     return (pos < 0) ? null : absolutePath.substring(pos);

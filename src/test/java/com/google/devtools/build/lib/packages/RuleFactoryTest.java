@@ -264,6 +264,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
               Label.create(pkg.getPackageIdentifier(), "myrule"),
               ruleClass,
               Location.fromFile(myPkgPath.toString()),
+              CallStack.EMPTY,
               new AttributeContainer(ruleClass));
       if (TargetUtils.isTestRule(rule)) {
         assertAttr(ruleClass, "tags", Type.STRING_LIST);

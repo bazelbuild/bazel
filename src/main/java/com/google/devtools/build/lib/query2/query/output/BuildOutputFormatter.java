@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputF
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
@@ -93,6 +94,11 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
     /** Outputs a given rule in BUILD-style syntax. */
     private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
         throws IOException {
+      // TODO(b/151151653): display the filenames in root-relative form.
+      // This is an incompatible change, but Blaze users (and their editors)
+      // must already be equipped to handle relative paths as all compiler
+      // error messages are execroot-relative.
+
       writer.append("# ").append(rule.getLocation().toString()).append(lineTerm);
       writer.append(rule.getRuleClass()).append("(").append(lineTerm);
       writer.append("  name = \"").append(rule.getName()).append("\",").append(lineTerm);
@@ -130,7 +136,33 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
             .append(",")
             .append(lineTerm);
       }
-      writer.append(")\n").append(lineTerm);
+      writer.append(")").append(lineTerm);
+
+      // Display the instantiation stack, if any.
+      // For readability, ensure columns line up.
+      int maxLocLen = 0;
+      List<StarlarkThread.CallStackEntry> stack = rule.getCallStack().toList().reverse();
+      for (StarlarkThread.CallStackEntry fr : stack) {
+        maxLocLen = Math.max(maxLocLen, fr.location.toString().length());
+      }
+      if (maxLocLen > 0) {
+        writer.append("# Instantiation stack:\n");
+        for (StarlarkThread.CallStackEntry fr : stack) {
+          String loc = fr.location.toString(); // TODO(b/151151653): display root-relative
+          // Java's String.format doesn't support
+          // right-padding with %*s, so we must loop.
+          writer.append("#   ").append(loc);
+          for (int i = loc.length(); i < maxLocLen; i++) {
+            writer.append(' ');
+          }
+          writer.append(" called from ").append(fr.name).append("\n");
+        }
+      }
+
+      // TODO(adonovan): also record and show creation stack for rule.getRuleClassObject(),
+      // and list inputs and outputs of the rule.
+
+      writer.append(lineTerm);
     }
 
     /** Outputs the given attribute value BUILD-style. Does not support selects. */

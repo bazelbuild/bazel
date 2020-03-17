@@ -296,7 +296,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
-  private final SkyframeActionExecutor skyframeActionExecutor;
+  protected final SkyframeActionExecutor skyframeActionExecutor;
   private ActionExecutionFunction actionExecutionFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private final AtomicReference<CyclesReporter> cyclesReporter = new AtomicReference<>();
@@ -398,8 +398,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       MutableArtifactFactorySupplier artifactResolverSupplier,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
       @Nullable NonexistentFileReceiver nonexistentFileReceiver,
-      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
-      NestedSetExpander nestedSetExpander) {
+      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
@@ -429,11 +428,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.defaultBuildOptions = defaultBuildOptions;
     this.skyframeActionExecutor =
         new SkyframeActionExecutor(
-            actionKeyContext,
-            statusReporterRef,
-            this::getPathEntries,
-            this::createSourceArtifact,
-            nestedSetExpander);
+            actionKeyContext, statusReporterRef, this::getPathEntries, this::createSourceArtifact);
     this.skyframeBuildView =
         new SkyframeBuildView(
             directories,
@@ -678,7 +673,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public void configureActionExecutor(
       MetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
-    this.skyframeActionExecutor.configure(fileCache, actionInputPrefetcher);
+    skyframeActionExecutor.configure(fileCache, actionInputPrefetcher, NestedSetExpander.DEFAULT);
   }
 
   public void dump(boolean summarize, PrintStream out) {

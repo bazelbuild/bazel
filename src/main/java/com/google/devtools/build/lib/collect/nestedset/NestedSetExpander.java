@@ -13,58 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
-import java.time.Duration;
+import java.util.concurrent.TimeoutException;
 
 /**
- * Helper class to expand {@link NestedSet} instances which allows to plug in an extra callbacks for
- * expansions waiting for a {@link ListenableFuture}.
+ * Helper class to expand {@link NestedSet} instances.
+ *
+ * <p>Implementations besides {@link #DEFAULT} may wish to implement callbacks or timeouts for
+ * dealing with expansions of sets from storage.
  */
-public class NestedSetExpander {
-  public static final NestedSetExpander NO_CALLBACKS =
-      new NestedSetExpander(
-          new ExpansionWithFutureCallbacks() {
-            @Override
-            public void onSuccessfulExpansion(Duration time, int size) {}
+public interface NestedSetExpander {
 
-            @Override
-            public void onInterruptedExpansion(Duration timeUntilInterrupted) {}
-          });
+  <T> ImmutableList<? extends T> toListInterruptibly(NestedSet<? extends T> nestedSet)
+      throws InterruptedException, TimeoutException;
 
-  private final ExpansionWithFutureCallbacks expansionWithFutureCallbacks;
-
-  /** Callbacks invoked if we expand a {@link NestedSet} backed by a {@link ListenableFuture}. */
-  public interface ExpansionWithFutureCallbacks {
-    void onSuccessfulExpansion(Duration time, int size);
-
-    void onInterruptedExpansion(Duration timeUntilInterrupted);
-  }
-
-  public NestedSetExpander(ExpansionWithFutureCallbacks expansionWithFutureCallbacks) {
-    this.expansionWithFutureCallbacks = expansionWithFutureCallbacks;
-  }
-
-  /**
-   * Returns an immutable list of all unique elements of the the provided set, similar to {@link
-   * NestedSet#toList()}, but will propagate an {@code InterruptedException} if one is thrown.
-   */
-  public final <T> ImmutableList<? extends T> toListInterruptibly(NestedSet<? extends T> nestedSet)
-      throws InterruptedException {
-    if (!(nestedSet.rawChildren() instanceof ListenableFuture)) {
-      return nestedSet.toListInterruptibly();
-    }
-
-    Stopwatch stopwatch = Stopwatch.createStarted();
-    ImmutableList<? extends T> result;
-    try {
-      result = nestedSet.toListInterruptibly();
-    } catch (InterruptedException e) {
-      expansionWithFutureCallbacks.onInterruptedExpansion(stopwatch.elapsed());
-      throw e;
-    }
-    expansionWithFutureCallbacks.onSuccessfulExpansion(stopwatch.elapsed(), result.size());
-    return result;
-  }
+  /** Simply delegates to {@link NestedSet#toListInterruptibly} without doing anything special. */
+  NestedSetExpander DEFAULT = NestedSet::toListInterruptibly;
 }

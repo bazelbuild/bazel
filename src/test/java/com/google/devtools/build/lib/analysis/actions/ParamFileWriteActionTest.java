@@ -217,7 +217,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         artifactExpander,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.NO_CALLBACKS);
+        NestedSetExpander.DEFAULT);
   }
 
   private enum KeyAttributes {

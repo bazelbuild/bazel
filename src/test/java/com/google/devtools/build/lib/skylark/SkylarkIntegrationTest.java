@@ -2882,7 +2882,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test:test");
 
-    assertContainsEvent("<license object>");
+    assertContainsEvent("[none]");
   }
 
   @Test
