@@ -225,19 +225,17 @@ public final class SkyframeActionExecutor {
 
   private boolean bazelRemoteExecutionEnabled;
 
-  private final NestedSetExpander nestedSetExpander;
+  private NestedSetExpander nestedSetExpander;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
-      Function<PathFragment, SourceArtifact> sourceArtifactFactory,
-      NestedSetExpander nestedSetExpander) {
+      Function<PathFragment, SourceArtifact> sourceArtifactFactory) {
     this.actionKeyContext = actionKeyContext;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
     this.sourceArtifactFactory = sourceArtifactFactory;
-    this.nestedSetExpander = nestedSetExpander;
   }
 
   /**
@@ -924,9 +922,13 @@ public final class SkyframeActionExecutor {
     return hadExecutionError && !options.getOptions(KeepGoingOption.class).keepGoing;
   }
 
-  void configure(MetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
+  public void configure(
+      MetadataProvider fileCache,
+      ActionInputPrefetcher actionInputPrefetcher,
+      NestedSetExpander nestedSetExpander) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.nestedSetExpander = nestedSetExpander;
   }
 
   /**

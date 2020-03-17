@@ -220,8 +220,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             actionKeyContext,
             new AtomicReference<>(statusReporter),
             /*sourceRootSupplier=*/ () -> ImmutableList.of(),
-            /*sourceArtifactFactory=*/ unused -> null,
-            NestedSetExpander.DEFAULT);
+            /*sourceArtifactFactory=*/ unused -> null);
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
@@ -229,7 +228,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     MetadataProvider cache =
         new SingleBuildFileCache(rootDirectory.getPathString(), scratch.getFileSystem());
-    skyframeActionExecutor.configure(cache, ActionInputPrefetcher.NONE);
+    skyframeActionExecutor.configure(cache, ActionInputPrefetcher.NONE, NestedSetExpander.DEFAULT);
 
     final InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(

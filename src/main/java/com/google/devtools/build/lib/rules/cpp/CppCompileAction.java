@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -98,6 +100,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
 /** Action that represents some kind of C++ compilation step. */
@@ -584,7 +587,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // used modules. Combining the NestedSets of transitive deps of the top-level modules also
     // gives us an effective way to compute and store discoveredModules.
     Set<Artifact> topLevel = new LinkedHashSet<>(usedModules);
-    for (NestedSet<? extends Artifact> transitive : transitivelyUsedModules.values()) {
+
+    Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> iterator =
+        transitivelyUsedModules.entrySet().iterator();
+    while (iterator.hasNext()) {
       // It is better to iterate over each nested set here instead of creating a joint one and
       // iterating over it, as this makes use of NestedSet's memoization (each of them has likely
       // been iterated over before). Don't use Set.removeAll() here as that iterates over the
@@ -592,8 +598,17 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // (transitive, which is a linear scan).
       // We get a collection view of the NestedSet in a way that can throw an InterruptedException
       // because a NestedSet may contain a future.
-      for (Artifact module :
-          actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive)) {
+      Map.Entry<Artifact, NestedSet<? extends Artifact>> entry = iterator.next();
+      NestedSet<? extends Artifact> transitive = entry.getValue();
+
+      List<? extends Artifact> modules;
+      try {
+        modules = actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive);
+      } catch (TimeoutException e) {
+        throw handleTimedOutNestedSetExpansion(entry.getKey(), iterator, e);
+      }
+
+      for (Artifact module : modules) {
         topLevel.remove(module);
       }
     }
@@ -614,6 +629,45 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     usedModules = null;
     return additionalInputs;
+  }
+
+  /**
+   * Handles a timeout during expansion of transitively used modules.
+   *
+   * <p>A timeout may occur if a nested set of transitively used modules {@linkplain
+   * NestedSet#isFromStorage} but is not {@linkplain NestedSet#isReady ready}. The timeout is
+   * handled by throwing {@link LostInputsActionExecutionException} so that rewinding kicks in and
+   * rebuilds the nodes with the unavailable nested sets.
+   *
+   * <p>As soon as one timeout is seen, any other nested sets of modules which are not ready are
+   * also treated as lost inputs.
+   *
+   * <p>Although the output {@link Artifact} (.pcm file) of dependent modules is not technically
+   * lost, it is treated as a lost input because rewinding will rebuild the corresponding action,
+   * thus reconstituting its nested set of transitively used modules. In lieu of an actual digest,
+   * we use the .pcm file's exec path since rewinding only uses the digest to detect multiple
+   * rewinds of the same input.
+   */
+  private LostInputsActionExecutionException handleTimedOutNestedSetExpansion(
+      Artifact timedOut,
+      Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> remainingModules,
+      TimeoutException e) {
+    ImmutableMap.Builder<String, ActionInput> lostInputsBuilder = ImmutableMap.builder();
+    lostInputsBuilder.put(timedOut.getExecPathString(), timedOut);
+    remainingModules.forEachRemaining(
+        entry -> {
+          if (!entry.getValue().isReady()) {
+            Artifact alsoTimedOut = entry.getKey();
+            lostInputsBuilder.put(alsoTimedOut.getExecPathString(), alsoTimedOut);
+          }
+        });
+    ImmutableMap<String, ActionInput> lostInputs = lostInputsBuilder.build();
+    return new LostInputsActionExecutionException(
+        "Timed out expanding modules",
+        lostInputs,
+        new ActionInputDepOwnerMap(ImmutableList.copyOf(lostInputs.values())),
+        this,
+        e);
   }
 
   @Override
