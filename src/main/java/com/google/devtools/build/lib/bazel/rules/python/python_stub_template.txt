@@ -275,6 +275,8 @@ def Main():
   python_path_entries = CreatePythonPathEntries(python_imports, module_space)
   python_path_entries += GetRepositoriesImports(module_space, %import_all%)
 
+  # Remove any duplicates to reduce path length
+  python_path_entries = set(python_path_entries)
   python_path_entries = [GetWindowsPathWithUNCPrefix(d) for d in python_path_entries]
 
   old_python_path = os.environ.get('PYTHONPATH')
