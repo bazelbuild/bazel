@@ -114,6 +114,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     if (cache == null) {
       cache = SpawnCache.NO_CACHE;
     }
+    // If we are using the RemoteSpawnRunner, it handles caching internally so avoid caching logic here.
+    if (spawnRunner.getName().equals("remote")) {
+      cache = SpawnCache.NO_CACHE;
+    }
     SpawnResult spawnResult;
     ExecException ex = null;
     try (CacheHandle cacheHandle = cache.lookup(spawn, context)) {
