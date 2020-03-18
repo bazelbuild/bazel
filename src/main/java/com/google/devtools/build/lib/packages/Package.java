@@ -779,8 +779,8 @@ public class Package {
       Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix);
 
       /**
-       * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} is completely
-       * done loading the given {@link Package}.
+       * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} has
+       * successfully loaded the given {@link Package}.
        *
        * @param pkg the loaded {@link Package}
        * @param starlarkSemantics are the semantics used to load the package
@@ -790,7 +790,8 @@ public class Package {
        *     and parse the package's BUILD file, nor the time to read, parse, or evaluate any of the
        *     transitively loaded .bzl files.
        */
-      void onLoadingComplete(Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
+      void onLoadingCompleteAndSuccessful(
+          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
     }
 
     /** {@link Helper} that simply calls the {@link Package} constructor. */
@@ -806,7 +807,7 @@ public class Package {
       }
 
       @Override
-      public void onLoadingComplete(
+      public void onLoadingCompleteAndSuccessful(
           Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeMs) {}
     }
 

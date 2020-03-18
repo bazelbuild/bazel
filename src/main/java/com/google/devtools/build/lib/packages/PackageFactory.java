@@ -664,8 +664,8 @@ public final class PackageFactory {
       long loadTimeNanos,
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
-    packageBuilderHelper.onLoadingComplete(pkg, starlarkSemantics, loadTimeNanos);
     packageValidator.validate(pkg, eventHandler);
+    packageBuilderHelper.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
   }
 
   /**
