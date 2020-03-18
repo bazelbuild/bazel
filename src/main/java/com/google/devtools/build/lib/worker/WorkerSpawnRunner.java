@@ -30,11 +30,12 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -52,6 +53,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
@@ -76,7 +78,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final Path execRoot;
   private final WorkerPool workers;
   private final Multimap<String, String> extraFlags;
-  private final EventHandler reporter;
+  private final ExtendedEventHandler reporter;
   private final SpawnRunner fallbackRunner;
   private final LocalEnvProvider localEnvProvider;
   private final boolean sandboxUsesExpandedTreeArtifactsInRunfiles;
@@ -88,7 +90,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Path execRoot,
       WorkerPool workers,
       Multimap<String, String> extraFlags,
-      EventHandler reporter,
+      ExtendedEventHandler reporter,
       SpawnRunner fallbackRunner,
       LocalEnvProvider localEnvProvider,
       boolean sandboxUsesExpandedTreeArtifactsInRunfiles,
@@ -187,21 +189,25 @@ final class WorkerSpawnRunner implements SpawnRunner {
             context.speculating(),
             Spawns.supportsMultiplexWorkers(spawn));
 
-    long startTime = System.currentTimeMillis();
+    Instant startTime = Instant.now();
     WorkResponse response =
         execInWorker(spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache);
-    Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
+    Duration wallTime = Duration.between(Instant.now(), startTime);
 
     FileOutErr outErr = context.getFileOutErr();
     response.getOutputBytes().writeTo(outErr.getErrorStream());
 
     int exitCode = response.getExitCode();
-    return new SpawnResult.Builder()
-        .setRunnerName(getName())
-        .setExitCode(exitCode)
-        .setStatus(exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
-        .setWallTime(wallTime)
-        .build();
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setRunnerName(getName())
+            .setExitCode(exitCode)
+            .setStatus(
+                exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
+            .setWallTime(wallTime)
+            .build();
+    reporter.post(new SpawnExecutedEvent(spawn, result, startTime));
+    return result;
   }
 
   /**
