@@ -206,6 +206,13 @@ public class Package {
   private ImmutableList<String> registeredExecutionPlatforms;
   private ImmutableList<String> registeredToolchains;
 
+  private long computationSteps;
+
+  /** Returns the number of Starlark computation steps executed by this BUILD file. */
+  public long getComputationSteps() {
+    return computationSteps;
+  }
+
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
    * given name.
@@ -788,7 +795,8 @@ public class Package {
        *     precisely, this is the wall time of the call to {@link
        *     PackageFactory#createPackageFromAst}. Notably, this does not include the time to read
        *     and parse the package's BUILD file, nor the time to read, parse, or evaluate any of the
-       *     transitively loaded .bzl files.
+       *     transitively loaded .bzl files, and it includes time the OS thread is runnable but not
+       *     running.
        */
       void onLoadingCompleteAndSuccessful(
           Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
@@ -808,7 +816,7 @@ public class Package {
 
       @Override
       public void onLoadingCompleteAndSuccessful(
-          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeMs) {}
+          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {}
     }
 
     /**
@@ -1101,6 +1109,11 @@ public class Package {
 
     void setPackageFunctionUsed() {
       packageFunctionUsed = true;
+    }
+
+    /** Sets the number of Starlark computation steps executed by this BUILD file. */
+    void setComputationSteps(long n) {
+      pkg.computationSteps = n;
     }
 
     /**

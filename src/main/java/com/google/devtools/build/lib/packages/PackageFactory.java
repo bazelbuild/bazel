@@ -665,6 +665,18 @@ public final class PackageFactory {
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
     packageValidator.validate(pkg, eventHandler);
+
+    // Enforce limit on number of compute steps in BUILD file (b/151622307).
+    long maxSteps = starlarkSemantics.maxComputationSteps();
+    long steps = pkg.getComputationSteps();
+    if (maxSteps > 0 && steps > maxSteps) {
+      throw new InvalidPackageException(
+          pkg.getPackageIdentifier(),
+          String.format(
+              "BUILD file computation took %d steps, but --max_computation_steps=%d",
+              steps, maxSteps));
+    }
+
     packageBuilderHelper.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
   }
 
@@ -829,6 +841,8 @@ public final class PackageFactory {
         pkgContext.eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
         return false;
       }
+
+      pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
 
     return true; // success

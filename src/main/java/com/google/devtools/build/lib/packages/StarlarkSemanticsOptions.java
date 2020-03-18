@@ -655,6 +655,16 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleLinkoptsToLinkLibs;
 
   @Option(
+      name = "max_computation_steps",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "The maximum number of Starlark computation steps that may be executed by a BUILD file"
+              + " (zero means no limit).")
+  public long maxComputationSteps;
+
+  @Option(
       name = "record_rule_instantiation_callstack",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -724,6 +734,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleRequireLinkerInputCcApi(incompatibleRequireLinkerInputCcApi)
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
             .incompatibleLinkoptsToLinkLibs(incompatibleLinkoptsToLinkLibs)
+            .maxComputationSteps(maxComputationSteps)
             .recordRuleInstantiationCallstack(recordRuleInstantiationCallstack)
             .build();
     return INTERNER.intern(semantics);
