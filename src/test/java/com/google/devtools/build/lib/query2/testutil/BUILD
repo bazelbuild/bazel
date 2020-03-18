@@ -2,12 +2,8 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_testonly = 1,
-    default_visibility = [
-        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
-    ],
+    default_visibility = ["//src:__subpackages__"],
 )
-
-licenses(["notice"])  # Apache 2.0
 
 filegroup(
     name = "srcs",
@@ -33,8 +29,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-implicit-attributes",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -42,11 +36,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
-        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],

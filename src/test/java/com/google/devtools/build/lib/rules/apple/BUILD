@@ -22,9 +22,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
@@ -39,7 +40,8 @@ java_test(
     runtime_deps = [
         ":AppleRulesTests_lib",
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
     ],
 )
 
