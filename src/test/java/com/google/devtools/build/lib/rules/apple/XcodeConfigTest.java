@@ -19,8 +19,10 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.XcodeConfigEvent;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
@@ -30,8 +32,12 @@ import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeConfigRuleInfo;
+import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeConfigRuleInfo.Availability;
+import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeVersionInfo;
 import java.util.List;
 import java.util.Map;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,6 +47,22 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class XcodeConfigTest extends BuildViewTestCase {
+  private static class EventRecorder {
+    public XcodeConfigEvent xcodeConfigEvent;
+
+    @Subscribe
+    public synchronized void setXcodeConfigInfo(XcodeConfigEvent xcodeConfigEvent) {
+      // We only care about the top level xcode_config, so drop earlier events.
+      this.xcodeConfigEvent = xcodeConfigEvent;
+    }
+  }
+
+  private final EventRecorder eventRecorder = new EventRecorder();
+
+  @Before
+  public void setUp() {
+    eventBus.register(eventRecorder);
+  }
 
   @Test
   public void testEmptyConfig_noVersionFlag() throws Exception {
@@ -1668,6 +1690,181 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version_config=//x:config2");
     assertXcodeVersion("2.0", "//x:provider_grabber");
+  }
+
+  @Test
+  public void testExplicitXcodesModeNoFlag() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    default = ':version512',",
+        "    versions = [':version512', ':version64'],",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version64',",
+        "    version = '6.4',",
+        "    aliases = ['6.0', 'foo', '6'],",
+        ")");
+    getConfiguredTarget("//xcode:foo");
+    XcodeConfigRuleInfo expected =
+        XcodeConfigRuleInfo.newBuilder()
+            .setSelectedVersion("5.1.2")
+            .setDefaultVersion("5.1.2")
+            .setSelectedVersionAvailability(Availability.UNKNOWN)
+            .addExplicitVersions(
+                XcodeVersionInfo.newBuilder()
+                    .setVersion("5.1.2")
+                    .addAllAliases(ImmutableList.of("5", "5.1")))
+            .addExplicitVersions(
+                XcodeVersionInfo.newBuilder()
+                    .setVersion("6.4")
+                    .addAllAliases(ImmutableList.of("6.0", "foo", "6")))
+            .build();
+    assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+  }
+
+  @Test
+  public void testExplicitXcodesModeWithFlag() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    default = ':version512',",
+        "    versions = [':version512', ':version64'],",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version64',",
+        "    version = '6.4',",
+        "    aliases = ['6.0', 'foo', '6'],",
+        ")");
+    useConfiguration("--xcode_version=6.4");
+    getConfiguredTarget("//xcode:foo");
+    XcodeConfigRuleInfo expected =
+        XcodeConfigRuleInfo.newBuilder()
+            .setSelectedVersion("6.4")
+            .setDefaultVersion("5.1.2")
+            .setSelectedVersionAvailability(Availability.UNKNOWN)
+            .addExplicitVersions(
+                XcodeVersionInfo.newBuilder()
+                    .setVersion("5.1.2")
+                    .addAllAliases(ImmutableList.of("5", "5.1")))
+            .addExplicitVersions(
+                XcodeVersionInfo.newBuilder()
+                    .setVersion("6.4")
+                    .addAllAliases(ImmutableList.of("6.0", "foo", "6")))
+            .setXcodeVersionFlag("6.4")
+            .build();
+    assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+  }
+
+  @Test
+  public void testAvailableXcodesModeNoFlag() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512', ':version84'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")");
+    useConfiguration("--xcode_version_config=//xcode:foo");
+    getConfiguredTarget("//xcode:foo");
+    XcodeConfigRuleInfo expected =
+        XcodeConfigRuleInfo.newBuilder()
+            .setSelectedVersion("8.4")
+            .setDefaultVersion("8.4")
+            .setSelectedVersionAvailability(Availability.BOTH)
+            .addRemoteVersions(
+                XcodeVersionInfo.newBuilder()
+                    .setVersion("5.1.2")
+                    .addAllAliases(ImmutableList.of("5", "5.1")))
+            .addRemoteVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
+            .addLocalVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
+            .addMutualVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
+            .build();
+    assertThat(eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
+  }
+
+  @Test
+  public void testAvailableXcodesModeWithFlag() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512', ':version84'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84',],",
+        "    default = ':version84',",
+        ")");
+    useConfiguration("--xcode_version=5");
+    getConfiguredTarget("//xcode:foo");
+    XcodeConfigRuleInfo expected =
+        XcodeConfigRuleInfo.newBuilder()
+            .setSelectedVersion("5.1.2")
+            .setDefaultVersion("8.4")
+            .setSelectedVersionAvailability(Availability.REMOTE)
+            .addRemoteVersions(
+                XcodeVersionInfo.newBuilder()
+                    .setVersion("5.1.2")
+                    .addAllAliases(ImmutableList.of("5", "5.1")))
+            .addRemoteVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
+            .addLocalVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
+            .addMutualVersions(XcodeVersionInfo.newBuilder().setVersion("8.4"))
+            .setXcodeVersionFlag("5")
+            .build();
+    assertThat(this.eventRecorder.xcodeConfigEvent.xcodeConfigInfo).isEqualTo(expected);
   }
 
   private DottedVersion getSdkVersionForPlatform(ApplePlatform platform) throws Exception {

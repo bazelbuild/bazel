@@ -577,6 +577,7 @@ java_library(
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:spawn_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//src/main/protobuf:xcode_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
