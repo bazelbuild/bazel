@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaAction;
@@ -279,17 +280,24 @@ public class NinjaBuildTest extends BuildViewTestCase {
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
-    assertThat(actions).hasSize(1);
+    assertThat(actions).hasSize(2);
 
-    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
+    ActionAnalysisMetadata symlinkAction = actions.get(0);
+    assertThat(symlinkAction).isInstanceOf(SymlinkAction.class);
+    assertThat(symlinkAction.getPrimaryInput().getExecPathString()).isEqualTo("input.txt");
+    assertThat(symlinkAction.getPrimaryOutput().getExecPathString())
+        .isEqualTo("build_config/placeholder");
+
+    ActionAnalysisMetadata action = actions.get(1);
     assertThat(action).isInstanceOf(NinjaAction.class);
     NinjaAction ninjaAction = (NinjaAction) action;
     List<CommandLineAndParamFileInfo> commandLines =
         ninjaAction.getCommandLines().getCommandLines();
     assertThat(commandLines).hasSize(1);
     assertThat(commandLines.get(0).commandLine.toString())
-        .endsWith("cd build_config && echo \"Hello $(cat /workspace/input.txt)!\" > hello.txt");
-    assertThat(ninjaAction.getPrimaryInput().getExecPathString()).isEqualTo("input.txt");
+        .endsWith("cd build_config && echo \"Hello $(cat placeholder)!\" > hello.txt");
+    assertThat(ninjaAction.getPrimaryInput().getExecPathString())
+        .isEqualTo("build_config/placeholder");
     assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
         .isEqualTo("build_config/hello.txt");
   }

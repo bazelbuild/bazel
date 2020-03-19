@@ -288,7 +288,7 @@ public class NinjaActionsHelper {
         .forEach((key, value) -> builder.put(key, ImmutableList.of(Pair.of(0L, value))));
     String inNewline =
         target.getUsualInputs().stream()
-            .map(this::getInputPathWithDepsMappingReplacement)
+            .map(PathFragment::getPathString)
             .collect(Collectors.joining("\n"));
     String out =
         target.getOutputs().stream()
@@ -319,13 +319,5 @@ public class NinjaActionsHelper {
     Preconditions.checkNotNull(ruleContext.getConfiguration())
         .modifyExecutionInfo(map, "NinjaRule");
     return map;
-  }
-
-  private String getInputPathWithDepsMappingReplacement(PathFragment fragment) {
-    Artifact bazelArtifact = artifactsHelper.getDepsMappingArtifact(fragment);
-    if (bazelArtifact != null) {
-      return bazelArtifact.getPath().getPathString();
-    }
-    return fragment.getPathString();
   }
 }

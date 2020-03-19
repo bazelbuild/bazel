@@ -103,7 +103,6 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
             outputRoot,
             workingDirectory,
             ImmutableSortedMap.of(),
-            ImmutableSortedMap.of(),
             ImmutableSortedSet.of());
     if (ruleContext.hasErrors()) {
       return null;
