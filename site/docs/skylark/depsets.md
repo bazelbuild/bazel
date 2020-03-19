@@ -258,7 +258,7 @@ duplicate elements in different nodes of the DAG.
 def create(order):
   cd = depset(["c", "d"], order = order)
   gh = depset(["g", "h"], order = order)
-  return depset(["a", "b", "e", "f"], transitive = [cd, gh])
+  return depset(["a", "b", "e", "f"], transitive = [cd, gh], order = order)
 
 print(create("postorder").to_list())  # ["c", "d", "g", "h", "a", "b", "e", "f"]
 print(create("preorder").to_list())   # ["a", "b", "e", "f", "c", "d", "g", "h"]
