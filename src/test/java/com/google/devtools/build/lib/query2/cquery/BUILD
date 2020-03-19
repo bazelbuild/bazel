@@ -13,6 +13,7 @@ java_test(
     name = "BuildOutputFormatterCallbackTest",
     size = "large",
     srcs = ["BuildOutputFormatterCallbackTest.java"],
+    shard_count = 2,
     deps = [
         ":configured_target_query_helper",
         ":configured_target_query_test",
