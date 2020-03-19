@@ -50,9 +50,9 @@ public class ParallelFileProcessing {
   /**
    * Processes file in parallel: {@link java.nio.channels.FileChannel} is used to read contents into
    * a sequence of buffers. Each buffer is split into chunks, which are tokenized in parallel by
-   * {@link BufferSplitter}, using the <code>predicate</code>. Fragments of tokens (on the bounds of
-   * buffer fragments) are assembled by {@link DeclarationAssembler}. The resulting tokens (each can
-   * be further parsed independently) are passed to {@link DeclarationConsumer}.
+   * {@link FileFragmentSplitter}, using the <code>predicate</code>. Fragments of tokens (on the
+   * bounds of buffer fragments) are assembled by {@link DeclarationAssembler}. The resulting tokens
+   * (each can be further parsed independently) are passed to {@link DeclarationConsumer}.
    *
    * <p>The main ideas behind this implementation are:
    *
@@ -105,9 +105,9 @@ public class ParallelFileProcessing {
     DeclarationAssembler assembler =
         new DeclarationAssembler(tokenConsumerFactory.get(), predicate);
 
-    CollectingListFuture<List<ByteFragmentAtOffset>, GenericParsingException> future =
+    CollectingListFuture<List<FileFragment>, GenericParsingException> future =
         new CollectingListFuture<>(GenericParsingException.class);
-    List<List<ByteFragmentAtOffset>> listOfLists;
+    List<List<FileFragment>> listOfLists;
     int offset = 0;
     boolean keepReading = true;
     while (keepReading) {
@@ -120,7 +120,7 @@ public class ParallelFileProcessing {
       }
     }
     listOfLists = future.getResult();
-    List<ByteFragmentAtOffset> fragments =
+    List<FileFragment> fragments =
         listOfLists.stream().flatMap(List::stream).collect(Collectors.toList());
 
     assembler.wrapUp(fragments);
@@ -140,7 +140,7 @@ public class ParallelFileProcessing {
   private void tokenizeFragments(
       ByteBuffer bb,
       int offset,
-      CollectingListFuture<List<ByteFragmentAtOffset>, GenericParsingException> future) {
+      CollectingListFuture<List<FileFragment>, GenericParsingException> future) {
     int from = 0;
     int blockSize = parameters.getTokenizeBlockSize();
     while (from < bb.limit()) {
@@ -150,8 +150,8 @@ public class ParallelFileProcessing {
         to = bb.limit();
       }
       DeclarationConsumer consumer = tokenConsumerFactory.get();
-      ByteBufferFragment fragment = new ByteBufferFragment(bb, from, to);
-      BufferSplitter tokenizer = new BufferSplitter(fragment, consumer, predicate, offset);
+      FileFragment fragment = new FileFragment(bb, offset, from, to);
+      FileFragmentSplitter tokenizer = new FileFragmentSplitter(fragment, consumer, predicate);
       future.add(executorService.submit(tokenizer));
       from = to;
     }

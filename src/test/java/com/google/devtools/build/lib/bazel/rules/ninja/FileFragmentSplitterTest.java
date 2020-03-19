@@ -20,10 +20,9 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.BufferSplitter;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationConsumer;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragmentSplitter;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -33,9 +32,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link BufferSplitter} */
+/** Tests for {@link FileFragmentSplitter} */
 @RunWith(JUnit4.class)
-public class BufferSplitterTest {
+public class FileFragmentSplitterTest {
   @Test
   public void testTokenizeSimple() throws Exception {
     List<String> list = ImmutableList.of("one", "two", "three");
@@ -43,20 +42,21 @@ public class BufferSplitterTest {
     List<String> result = Lists.newArrayList();
     int offsetValue = 123;
     DeclarationConsumer consumer =
-        (byteFragmentAtOffset) -> {
-          result.add(byteFragmentAtOffset.getFragment().toString());
-          assertThat(byteFragmentAtOffset.getBufferOffset()).isEqualTo(offsetValue);
+        fragment -> {
+          result.add(fragment.toString());
+          assertThat(fragment.getFileOffset()).isEqualTo(offsetValue);
         };
 
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
-    ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
-    BufferSplitter tokenizer =
-        new BufferSplitter(fragment, consumer, NinjaSeparatorFinder.INSTANCE, offsetValue);
-    List<ByteFragmentAtOffset> edges = tokenizer.call();
+    ByteBuffer buffer = ByteBuffer.wrap(chars);
+    FileFragment fragment = new FileFragment(buffer, offsetValue, 0, chars.length);
+    FileFragmentSplitter tokenizer =
+        new FileFragmentSplitter(fragment, consumer, NinjaSeparatorFinder.INSTANCE);
+    List<FileFragment> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n");
     assertThat(
             edges.stream()
-                .map(pair -> Preconditions.checkNotNull(pair.getFragment()).toString())
+                .map(pair -> Preconditions.checkNotNull(pair).toString())
                 .collect(Collectors.toList()))
         .containsExactly("one\n", "three")
         .inOrder();
@@ -67,19 +67,19 @@ public class BufferSplitterTest {
     List<String> list =
         ImmutableList.of("one", " one-detail", "two", "\ttwo-detail", "three", " three-detail");
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
+    ByteBuffer bytes = ByteBuffer.wrap(chars);
 
     List<String> result = Lists.newArrayList();
-    DeclarationConsumer consumer =
-        (byteFragmentAtOffset) -> result.add(byteFragmentAtOffset.getFragment().toString());
+    DeclarationConsumer consumer = fragment -> result.add(fragment.toString());
 
-    ByteBufferFragment fragment = new ByteBufferFragment(ByteBuffer.wrap(chars), 0, chars.length);
-    BufferSplitter tokenizer =
-        new BufferSplitter(fragment, consumer, NinjaSeparatorFinder.INSTANCE, 0);
-    List<ByteFragmentAtOffset> edges = tokenizer.call();
+    FileFragment fragment = new FileFragment(bytes, 0, 0, chars.length);
+    FileFragmentSplitter tokenizer =
+        new FileFragmentSplitter(fragment, consumer, NinjaSeparatorFinder.INSTANCE);
+    List<FileFragment> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n\ttwo-detail\n");
     assertThat(
             edges.stream()
-                .map(pair -> Preconditions.checkNotNull(pair.getFragment()).toString())
+                .map(pair -> Preconditions.checkNotNull(pair).toString())
                 .collect(Collectors.toList()))
         .containsExactly("one\n one-detail\n", "three\n three-detail")
         .inOrder();

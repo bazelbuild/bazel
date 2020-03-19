@@ -14,9 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationConsumer;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
@@ -44,10 +43,8 @@ public class NinjaParser implements DeclarationConsumer {
   }
 
   @Override
-  public void declaration(ByteFragmentAtOffset byteFragmentAtOffset)
-      throws GenericParsingException, IOException {
-    ByteBufferFragment fragment = byteFragmentAtOffset.getFragment();
-    long offset = byteFragmentAtOffset.getFragmentOffset();
+  public void declaration(FileFragment fragment) throws GenericParsingException, IOException {
+    long offset = fragment.getFragmentOffset();
 
     NinjaLexer lexer = new NinjaLexer(fragment);
     if (!lexer.hasNextToken()) {
@@ -93,16 +90,16 @@ public class NinjaParser implements DeclarationConsumer {
         parseResult.addSubNinjaScope(declarationStart, subNinjaFuture);
         break;
       case BUILD:
-        ByteFragmentAtOffset targetFragment;
+        FileFragment targetFragment;
         if (declarationStart == offset) {
-          targetFragment = byteFragmentAtOffset;
+          targetFragment = fragment;
         } else {
           // Method subFragment accepts only the offset *inside fragment*.
           // So we should subtract the offset of fragment's buffer in file
-          // (byteFragmentAtOffset.getOffset()),
+          // (fragment.getFileOffset()),
           // and start of fragment inside buffer (fragment.getStartIncl()).
           long fragmentStart =
-              declarationStart - byteFragmentAtOffset.getBufferOffset() - fragment.getStartIncl();
+              declarationStart - fragment.getFileOffset() - fragment.getStartIncl();
 
           // While the absolute offset is typed as long (because of larger ninja files), the
           // fragments are only at most Integer.MAX_VALUE long, so fragmentStart cannot be
@@ -114,10 +111,7 @@ public class NinjaParser implements DeclarationConsumer {
                         + "since each fragment is at most max-int long.",
                     fragmentStart));
           }
-          targetFragment =
-              new ByteFragmentAtOffset(
-                  byteFragmentAtOffset.getBufferOffset(),
-                  fragment.subFragment((int) fragmentStart, fragment.length()));
+          targetFragment = fragment.subFragment((int) fragmentStart, fragment.length());
         }
         parseResult.addTarget(targetFragment);
         break;

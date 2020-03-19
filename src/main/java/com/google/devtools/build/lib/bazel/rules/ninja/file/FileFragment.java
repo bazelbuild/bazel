@@ -24,28 +24,51 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /** Represents the fragment of immutable {@link ByteBuffer} for parallel processing. */
-public class ByteBufferFragment {
+public class FileFragment {
+  /** The backing {@link ByteBuffer}. May be shared with other {@link FileFragment} instances. */
   private final ByteBuffer buffer;
 
-  /** The start of this fragment in the backing {@link ByteBuffer}. */
+  /** The offset in the file the backing {@link ByteBuffer} starts at. */
+  private final long fileOffset;
+
+  /**
+   * The start of this fragment in the backing {@link ByteBuffer}.
+   *
+   * <p>The file offset of the fragment is the sum of this value and the offset of the backing
+   * buffer ({@code fileOffset}).
+   */
   private final int startIncl;
 
   /** The end of this fragment in the backing {@link ByteBuffer}. */
   private final int endExcl;
 
-  public ByteBufferFragment(ByteBuffer buffer, int startIncl, int endExcl) {
+  public FileFragment(ByteBuffer buffer, long fileOffset, int startIncl, int endExcl) {
     if (endExcl < startIncl) {
       throw new IndexOutOfBoundsException();
     }
     this.buffer = buffer;
+    this.fileOffset = fileOffset;
     this.startIncl = startIncl;
     this.endExcl = endExcl;
   }
 
-  /** Returns the start of this fragment in the backing {@link ByteBuffer}. */
+  /**
+   * Returns the start of this fragment in the backing {@link ByteBuffer}, that is, relative to the
+   * {@code fileOffset} in the file.
+   */
   @VisibleForTesting
   public int getStartIncl() {
     return startIncl;
+  }
+
+  /** The byte offset in the file the backing {@link ByteBuffer} starts at. */
+  public long getFileOffset() {
+    return fileOffset;
+  }
+
+  /** The offset in the file this fragment starts at. */
+  public long getFragmentOffset() {
+    return fileOffset + startIncl;
   }
 
   /** Returns the length of fragment. */
@@ -59,9 +82,9 @@ public class ByteBufferFragment {
    * @param from start index, inclusive
    * @param to end index, exclusive, or the size of the buffer, if the last symbol is included
    */
-  public ByteBufferFragment subFragment(int from, int to) {
+  public FileFragment subFragment(int from, int to) {
     checkSubBounds(from, to);
-    return new ByteBufferFragment(buffer, startIncl + from, startIncl + to);
+    return new FileFragment(buffer, fileOffset, startIncl + from, startIncl + to);
   }
 
   public byte byteAt(int index) {
@@ -86,16 +109,6 @@ public class ByteBufferFragment {
     }
   }
 
-  public byte[] getBytes(int from, int to) {
-    checkSubBounds(from, to);
-    int length = to - from;
-    byte[] bytes = new byte[length];
-    ByteBuffer copy = buffer.duplicate();
-    copy.position(startIncl + from);
-    copy.get(bytes, 0, length);
-    return bytes;
-  }
-
   /**
    * Helper method for forming error messages with text fragment around a place with a problem.
    *
@@ -109,6 +122,16 @@ public class ByteBufferFragment {
     }
     byte[] bytes = getBytes(Math.max(0, index - 200), Math.min(length(), index + 200));
     return new String(bytes, StandardCharsets.ISO_8859_1);
+  }
+
+  public byte[] getBytes(int from, int to) {
+    checkSubBounds(from, to);
+    int length = to - from;
+    byte[] bytes = new byte[length];
+    ByteBuffer copy = buffer.duplicate();
+    copy.position(startIncl + from);
+    copy.get(bytes, 0, length);
+    return bytes;
   }
 
   private void getBytes(byte[] dst, int offset) {
@@ -139,39 +162,43 @@ public class ByteBufferFragment {
   }
 
   /**
-   * Merges passed buffer fragments into the new buffer fragment. If the list contains only one
-   * fragment, returns that fragment. Otherwise, creates the new buffer and copies the contents of
-   * passed buffer fragments into it.
+   * Merges multiple file fragments into a single one.
    *
-   * @param list non-empty list of buffer fragments
-   * @return buffer fragment with the contents, merged from all passed buffers. If only one buffer
-   *     fragment was passed, returns it.
+   * <p>If needed, also creates a new backing {@link ByteBuffer} (if the fragments on the input were
+   * not contiguous in a single buffer)
+   *
+   * @param list non-empty list of file fragments
+   * @return the merged file fragment
    */
   @SuppressWarnings("ReferenceEquality")
-  public static ByteBufferFragment merge(List<ByteBufferFragment> list) {
+  public static FileFragment merge(List<FileFragment> list) {
     Preconditions.checkState(!list.isEmpty());
     if (list.size() == 1) {
       return list.get(0);
     }
     ByteBuffer first = list.get(0).buffer;
-    // We compare contained buffers to be exactly same objects here, i.e. changing to use
+    long firstOffset = list.get(0).fileOffset;
+
+    // We compare contained fragments to be exactly same objects here, i.e. changing to use
     // of equals() is not needed. (Warning suppressed.)
-    List<ByteBufferFragment> tail = list.subList(1, list.size());
+    List<FileFragment> tail = list.subList(1, list.size());
     if (tail.stream().allMatch(el -> el.buffer == first)) {
       int previousEnd = list.get(0).endExcl;
-      for (ByteBufferFragment fragment : tail) {
+      for (FileFragment fragment : tail) {
         Preconditions.checkState(fragment.startIncl == previousEnd);
         previousEnd = fragment.endExcl;
       }
-      return new ByteBufferFragment(first, list.get(0).startIncl, Iterables.getLast(list).endExcl);
+      return new FileFragment(
+          first, firstOffset, list.get(0).startIncl, Iterables.getLast(list).endExcl);
     }
-    int len = list.stream().mapToInt(ByteBufferFragment::length).sum();
+    int len = list.stream().mapToInt(FileFragment::length).sum();
     byte[] bytes = new byte[len];
     int position = 0;
-    for (ByteBufferFragment current : list) {
+    for (FileFragment current : list) {
       current.getBytes(bytes, position);
       position += current.length();
     }
-    return new ByteBufferFragment(ByteBuffer.wrap(bytes), 0, len);
+    return new FileFragment(
+        ByteBuffer.wrap(bytes), firstOffset + list.get(0).getStartIncl(), 0, len);
   }
 }
