@@ -108,7 +108,7 @@ public class ParallelFileProcessing {
     CollectingListFuture<List<FileFragment>, GenericParsingException> future =
         new CollectingListFuture<>(GenericParsingException.class);
     List<List<FileFragment>> listOfLists;
-    int offset = 0;
+    long offset = 0;
     boolean keepReading = true;
     while (keepReading) {
       ByteBuffer bb = ByteBuffer.allocateDirect(parameters.getReadBlockSize());
@@ -139,7 +139,7 @@ public class ParallelFileProcessing {
 
   private void tokenizeFragments(
       ByteBuffer bb,
-      int offset,
+      long offset,
       CollectingListFuture<List<FileFragment>, GenericParsingException> future) {
     int from = 0;
     int blockSize = parameters.getTokenizeBlockSize();
