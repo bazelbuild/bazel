@@ -322,6 +322,17 @@ final class WorkerSpawnRunner implements SpawnRunner {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     try {
       try {
+        inputFiles.materializeVirtualInputs(execRoot);
+      } catch (IOException e) {
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message("IOException while materializing virtual inputs:")
+                .exception(e)
+                .build()
+                .toString());
+      }
+
+      try {
         worker = workers.borrowObject(key);
         request =
             createWorkRequest(spawn, context, flagFiles, inputFileCache, worker.getWorkerId());

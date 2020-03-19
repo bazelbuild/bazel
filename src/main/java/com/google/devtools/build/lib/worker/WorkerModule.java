@@ -140,21 +140,20 @@ public class WorkerModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     Preconditions.checkNotNull(workerPool);
+    SandboxOptions sandboxOptions = env.getOptions().getOptions(SandboxOptions.class);
     ImmutableMultimap<String, String> extraFlags =
         ImmutableMultimap.copyOf(env.getOptions().getOptions(WorkerOptions.class).workerExtraFlags);
     LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(),
+            new SandboxHelpers(sandboxOptions.delayVirtualInputMaterialization),
             env.getExecRoot(),
             workerPool,
             extraFlags,
             env.getReporter(),
             createFallbackRunner(env, localEnvProvider),
             localEnvProvider,
-            env.getOptions()
-                .getOptions(SandboxOptions.class)
-                .symlinkedSandboxExpandsTreeArtifactsInRunfilesTree,
+            sandboxOptions.symlinkedSandboxExpandsTreeArtifactsInRunfilesTree,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater

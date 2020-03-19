@@ -355,6 +355,17 @@ public class SandboxOptions extends OptionsBase {
               + " grows to the size specified by this flag when the server is idle.")
   public int asyncTreeDeleteIdleThreads;
 
+  @Option(
+      name = "experimental_delay_virtual_input_materialization",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set to true, creates virtual inputs (like params files) only inside the sandbox, "
+              + "not in the execroot, which fixes a race condition when using the dynamic "
+              + "scheduler. This flag exists purely to support rolling this bug fix out.")
+  public boolean delayVirtualInputMaterialization;
+
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter {
     public AsyncTreeDeletesConverter() {
