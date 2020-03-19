@@ -126,12 +126,6 @@ public class TestConstants {
   public static final String GENRULE_SETUP_PATH = "genrule-setup.sh";
 
   /**
-   * A list of flags required to support use of the crosstool on OSX.
-   */
-  public static final ImmutableList<String> OSX_CROSSTOOL_FLAGS =
-      ImmutableList.of();
-
-  /**
    * Flags that must be set for Bazel to work properly, if the default values are unusable for some
    * reason.
    */
