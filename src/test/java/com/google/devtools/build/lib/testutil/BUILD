@@ -40,7 +40,6 @@ java_library(
         "TimestampGranularityUtils.java",
         "UnknownRuleConfiguredTarget.java",
     ],
-    tags = ["avoid_dep"],
     runtime_deps = ["//src/main/java/com/google/devtools/build/lib/unix"],
     deps = [
         ":JunitUtils",

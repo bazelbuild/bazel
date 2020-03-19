@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["*"]),
 )
 
 test_suite(
@@ -98,6 +98,7 @@ java_library(
 java_test(
     name = "PyBinaryConfiguredTargetTest",
     srcs = ["PyBinaryConfiguredTargetTest.java"],
+    tags = ["no_windows"],
     deps = [
         ":PyExecutableTestBase",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -278,5 +279,20 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
     ],
 )

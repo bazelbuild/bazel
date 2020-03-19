@@ -12,33 +12,22 @@ filegroup(
 )
 
 java_library(
-    name = "AppleRulesTests_lib",
+    name = "TestRulesTests_lib",
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple",
-        "//src/main/protobuf:xcode_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],
 )
 
 java_test(
-    name = "AppleRulesTests",
+    name = "TestRulesTests",
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        ":AppleRulesTests_lib",
+        ":TestRulesTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )
