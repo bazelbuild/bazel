@@ -239,17 +239,17 @@ public class PatchUtil {
 
   private static boolean getReadPermission(int permission) {
     // Parse read permission from posix file permission notation
-    return permission / 4 % 2 == 1;
+    return (permission & 4) == 4;
   }
 
   private static boolean getWritePermission(int permission) {
     // Parse write permission from posix file permission notation
-    return permission / 2 % 2 == 1;
+    return (permission & 2) == 2;
   }
 
   private static boolean getExecutablePermission(int permission) {
     // Parse executable permission from posix file permission notation
-    return permission % 2 == 1;
+    return (permission & 1) == 1;
   }
 
   private static int getFilePermissionValue(Path file) throws IOException {
