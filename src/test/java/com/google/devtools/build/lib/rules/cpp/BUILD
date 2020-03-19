@@ -31,6 +31,9 @@ java_test(
     shard_count = 5,
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
     deps = [
         ":CcImportBaseConfiguredTargetTest",
         ":SkylarkCcCommonTestHelper",
@@ -64,11 +67,11 @@ java_test(
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
-        "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/syntax/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",

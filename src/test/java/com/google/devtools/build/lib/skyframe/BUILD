@@ -77,6 +77,9 @@ java_test(
     shard_count = 20,
     tags = ["skyframe"],
     test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
