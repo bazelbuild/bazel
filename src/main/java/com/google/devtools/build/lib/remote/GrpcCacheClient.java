@@ -232,11 +232,13 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
+  public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey, boolean inlineOutErr) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
             .setActionDigest(actionKey.getDigest())
+            .setInlineStderr(inlineOutErr)
+            .setInlineStdout(inlineOutErr)
             .build();
     Context ctx = Context.current();
     return retrier.executeAsync(

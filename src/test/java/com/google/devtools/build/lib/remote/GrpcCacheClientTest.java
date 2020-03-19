@@ -755,7 +755,7 @@ public class GrpcCacheClientTest {
 
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
-    remoteCache.downloadActionResult(DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")));
+    remoteCache.downloadActionResult(DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")), /* inlineOutErr= */ false);
   }
 
   @Test
@@ -1046,7 +1046,7 @@ public class GrpcCacheClientTest {
                 (numErrors-- <= 0 ? Status.NOT_FOUND : Status.UNAVAILABLE).asRuntimeException());
           }
         });
-    assertThat(getFromFuture(client.downloadActionResult(actionKey))).isNull();
+    assertThat(getFromFuture(client.downloadActionResult(actionKey, /* inlineOutErr= */ false))).isNull();
   }
 
   @Test
