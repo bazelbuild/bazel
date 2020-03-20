@@ -173,24 +173,18 @@ public class WorkspaceFactoryTest {
   }
 
   @Test
-  public void testMappingsNotAMap() throws Exception {
-    helper.parse(
-        "local_repository(",
-        "    name = 'foo',",
-        "    path = '/foo',",
-        "    repo_mapping = 1",
-        ")");
+  public void testRepoMappingNotAStringStringDict() throws Exception {
+    helper.parse("local_repository(name='foo', path='/foo', repo_mapping=1)");
     assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': '1'. Value must be a dict.");
+        .contains("expected a dictionary for 'repo_mapping' but got 'int' instead");
 
-    helper.parse(
-        "local_repository(",
-        "    name = 'foo',",
-        "    path = '/foo',",
-        "    repo_mapping = 'hello'",
-        ")");
+    helper.parse("local_repository(name='foo', path='/foo', repo_mapping='hello')");
     assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': 'hello'. Value must be a dict.");
+        .contains("expected a dictionary for 'repo_mapping' but got 'string' instead");
+
+    helper.parse("local_repository(name='foo', path='/foo', repo_mapping={1: 1})");
+    assertThat(helper.getParserError())
+        .contains("expected <String, String> type for 'repo_mapping' but got <int, int> instead");
   }
 
   @Test

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -289,19 +288,16 @@ public class WorkspaceFactory {
           if (!allowOverride
               && externalRepoName != null
               && builder.getTarget(externalRepoName) != null) {
-            throw new EvalException(
-                null,
-                "Cannot redefine repository after any load statement in the WORKSPACE file"
-                    + " (for repository '"
-                    + kwargs.get("name")
-                    + "')");
+            throw Starlark.errorf(
+                "Cannot redefine repository after any load statement in the WORKSPACE file (for"
+                    + " repository '%s')",
+                externalRepoName);
           }
           // Add an entry in every repository from @<mainRepoName> to "@" to avoid treating
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, thread.getSemantics());
-          Location loc = thread.getCallerLocation();
-          WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName, loc);
+          WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName);
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
@@ -310,7 +306,8 @@ public class WorkspaceFactory {
                   ruleClass,
                   bindRuleClass,
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
-                  loc);
+                  thread.getSemantics(),
+                  thread.getCallStack());
           if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
                 null,

@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -45,7 +47,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   private ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
   private final RuleFactory ruleFactory = new RuleFactory(provider);
 
-  private static final Location DUMMY_LOCATION = Location.fromFileLineColumn("dummy", 42, 1);
+  private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
+      ImmutableList.of(
+          new StarlarkThread.CallStackEntry(
+              "<toplevel>", Location.fromFileLineColumn("BUILD", 42, 1)),
+          new StarlarkThread.CallStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 10, 1)),
+          new StarlarkThread.CallStackEntry(
+              "myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
 
   @Test
   public void testCreateRule() throws Exception {
@@ -69,8 +77,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            DUMMY_LOCATION,
-            /*thread=*/ null,
+            StarlarkSemantics.DEFAULT_SEMANTICS,
+            DUMMY_STACK,
             new AttributeContainer(ruleClass));
 
     assertThat(rule.getAssociatedRule()).isSameInstanceAs(rule);
@@ -87,6 +95,11 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     assertThat(rule.getRuleClass()).isEqualTo("cc_library");
     assertThat(rule.getTargetKind()).isEqualTo("cc_library rule");
+    // The rule reports the location of the outermost call (aka generator), in the BUILD file.
+    // Thie behavior was added to fix b/23974287, but it loses informtion and is redundant
+    // w.r.t. generator_location. A better fix to that issue would be to keep rule.location as
+    // the innermost call, and to report the entire call stack at the first error for the rule.
+    assertThat(rule.getLocation().file()).isEqualTo("BUILD");
     assertThat(rule.getLocation().line()).isEqualTo(42);
     assertThat(rule.getLocation().column()).isEqualTo(1);
     assertThat(rule.containsErrors()).isFalse();
@@ -124,8 +137,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            Location.fromFile(myPkgPath.toString()),
-            /*thread=*/ null,
+            StarlarkSemantics.DEFAULT_SEMANTICS,
+            DUMMY_STACK,
             new AttributeContainer(ruleClass));
     assertThat(rule.containsErrors()).isFalse();
   }
@@ -155,8 +168,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    DUMMY_LOCATION,
-                    /*thread=*/ null,
+                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    DUMMY_STACK,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
   }
@@ -186,8 +199,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    Location.fromFileLineColumn(myPkgPath.toString(), 42, 1),
-                    /*thread=*/ null,
+                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    DUMMY_STACK,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
@@ -229,8 +242,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    Location.fromFileLineColumn(myPkgPath.toString(), 42, 1),
-                    /*thread=*/ null,
+                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    DUMMY_STACK,
                     new AttributeContainer(ruleClass)));
     assertWithMessage(e.getMessage())
         .that(e.getMessage().contains("output file name can't be equal '.'"))

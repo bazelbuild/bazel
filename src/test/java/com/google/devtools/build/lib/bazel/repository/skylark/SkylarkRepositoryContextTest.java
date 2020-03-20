@@ -113,6 +113,15 @@ public final class SkylarkRepositoryContextTest {
     }
   }
 
+  private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
+      ImmutableList.of(
+          new StarlarkThread.CallStackEntry( //
+              "<toplevel>", Location.fromFileLineColumn("BUILD", 10, 1)),
+          new StarlarkThread.CallStackEntry( //
+              "foo", Location.fromFileLineColumn("foo.bzl", 42, 1)),
+          new StarlarkThread.CallStackEntry( //
+              "myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
+
   protected void setUpContextForRule(
       Map<String, Object> kwargs,
       ImmutableSet<PathFragment> ignoredPathFragments,
@@ -129,7 +138,12 @@ public final class SkylarkRepositoryContextTest {
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            packageBuilder, buildRuleClass(attributes), null, kwargs, Location.BUILTIN);
+            packageBuilder,
+            buildRuleClass(attributes),
+            null,
+            kwargs,
+            starlarkSemantics,
+            DUMMY_STACK);
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);

@@ -641,6 +641,7 @@ public class RuleClass {
             attr("local", Type.BOOLEAN).build());
 
     private String name;
+    private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
     private final boolean skylark;
     private boolean skylarkTestable = false;
@@ -830,6 +831,7 @@ public class RuleClass {
 
       return new RuleClass(
           name,
+          callstack,
           key,
           type,
           skylark,
@@ -953,6 +955,12 @@ public class RuleClass {
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
           configurationFragmentNames);
+      return this;
+    }
+
+    /** Sets the Starlark call stack associated with this rule class's creation. */
+    public Builder setCallStack(ImmutableList<StarlarkThread.CallStackEntry> callstack) {
+      this.callstack = callstack;
       return this;
     }
 
@@ -1398,6 +1406,7 @@ public class RuleClass {
   }
 
   private final String name; // e.g. "cc_library"
+  private final ImmutableList<StarlarkThread.CallStackEntry> callstack; // of call to 'rule'
 
   private final String key; // Just the name for native, label + name for skylark
 
@@ -1539,6 +1548,7 @@ public class RuleClass {
   @VisibleForTesting
   RuleClass(
       String name,
+      ImmutableList<StarlarkThread.CallStackEntry> callstack,
       String key,
       RuleClassType type,
       boolean isSkylark,
@@ -1573,6 +1583,7 @@ public class RuleClass {
       Collection<Attribute> attributes,
       @Nullable BuildSetting buildSetting) {
     this.name = name;
+    this.callstack = callstack;
     this.key = key;
     this.type = type;
     this.isSkylark = isSkylark;
@@ -1676,6 +1687,15 @@ public class RuleClass {
    */
   public String getName() {
     return name;
+  }
+
+  /**
+   * Returns the stack of Starlark active function calls at the moment this rule class was created.
+   * Entries appear outermost first, and exclude the built-in itself ('rule' or 'repository_rule').
+   * Empty for non-Starlark rules.
+   */
+  public ImmutableList<StarlarkThread.CallStackEntry> getCallStack() {
+    return callstack;
   }
 
   /** Returns the type of rule that this RuleClass represents. Only for use during serialization. */

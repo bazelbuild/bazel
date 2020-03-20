@@ -92,6 +92,13 @@ public class RuleClassTest extends PackageLoadingTestCase {
             }
           };
 
+  private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
+      ImmutableList.of(
+          new StarlarkThread.CallStackEntry(
+              "<toplevel>", Location.fromFileLineColumn("BUILD", 10, 1)),
+          new StarlarkThread.CallStackEntry("bar", Location.fromFileLineColumn("bar.bzl", 42, 1)),
+          new StarlarkThread.CallStackEntry("rule", Location.BUILTIN));
+
   private static final class DummyFragment extends BuildConfiguration.Fragment {}
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> NO_STACK = ImmutableList.of();
@@ -896,7 +903,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
             : ruleDefinitionStarlarkThread.getTransitiveContentHashCode();
     return new RuleClass(
         name,
-        name,
+        DUMMY_STACK,
+        /*key=*/ name,
         RuleClassType.NORMAL,
         /*isSkylark=*/ skylarkExecutable,
         /*skylarkTestable=*/ false,

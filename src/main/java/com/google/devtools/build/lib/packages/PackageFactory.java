@@ -365,25 +365,17 @@ public final class PackageFactory {
       }
       BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
-        addRule(getContext(thread), kwargs, thread);
+        RuleFactory.createAndAddRule(
+            getContext(thread),
+            ruleClass,
+            new BuildLangTypedAttributeValuesMap(kwargs),
+            thread.getSemantics(),
+            thread.getCallStack(),
+            new AttributeContainer(ruleClass));
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(null, e.getMessage());
       }
       return Starlark.NONE;
-    }
-
-    private void addRule(PackageContext context, Map<String, Object> kwargs, StarlarkThread thread)
-        throws RuleFactory.InvalidRuleException, Package.NameConflictException,
-            InterruptedException {
-      BuildLangTypedAttributeValuesMap attributeValues =
-          new BuildLangTypedAttributeValuesMap(kwargs);
-      RuleFactory.createAndAddRule(
-          context,
-          ruleClass,
-          attributeValues,
-          thread.getCallerLocation(),
-          thread,
-          new AttributeContainer(ruleClass));
     }
 
     @Override
