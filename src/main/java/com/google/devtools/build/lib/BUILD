@@ -203,6 +203,7 @@ java_library(
     srcs = glob(
         ["util/*.java"],
         exclude = COMMAND_UTILS_SRCS + RESOURCE_UTILS_SRCS + [
+            "util/AbruptExitException.java",
             "util/BlazeClock.java",
             "util/Clock.java",
             "util/ExitCode.java",
@@ -227,7 +228,6 @@ java_library(
     ),
     exports = [
         ":base-util",
-        ":exitcode-external",
         ":filetype",
         ":os_util",
         ":resource_usage",
@@ -300,6 +300,15 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "abrupt_exit_exception",
+    srcs = ["util/AbruptExitException.java"],
+    deps = [
+        ":detailed_exit_code",
+        ":exitcode-external",
     ],
 )
 
@@ -510,6 +519,7 @@ java_library(
         ":transitive-info-provider",
     ],
     deps = [
+        ":abrupt_exit_exception",
         ":bug-report",
         ":build-request-options",
         ":command-utils",
@@ -630,6 +640,7 @@ java_library(
         ],
     ),
     deps = [
+        ":abrupt_exit_exception",
         ":android-rules",
         ":bazel",
         ":bazel-repository",
@@ -638,6 +649,7 @@ java_library(
         ":core-rules",
         ":core-workspace-rules",
         ":events",
+        ":exitcode-external",
         ":proto-rules",
         ":python-rules",
         ":shell_escaper",
@@ -687,13 +699,14 @@ java_library(
     name = "bazel/BazelRepositoryModule",
     srcs = ["bazel/BazelRepositoryModule.java"],
     deps = [
+        ":abrupt_exit_exception",
         ":bazel-commands",
         ":bazel-repository",
         ":bazel-rules",
         ":build-base",
         ":events",
+        ":exitcode-external",
         ":runtime",
-        ":util",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -752,6 +765,7 @@ java_library(
         ],
     ),
     deps = [
+        ":abrupt_exit_exception",
         ":build-base",
         ":build-info",
         ":command-utils",
@@ -781,6 +795,7 @@ java_library(
         "bazel/commands/sync.txt",
     ],
     deps = [
+        ":abrupt_exit_exception",
         ":bazel-repository",
         ":build-base",
         ":events",
@@ -788,7 +803,6 @@ java_library(
         ":keep-going-option",
         ":loading-phase-threads-option",
         ":runtime",
-        ":util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -1189,6 +1203,7 @@ java_library(
         "server/signal/InterruptSignalHandler.java",
     ],
     deps = [
+        ":abrupt_exit_exception",
         ":bug-report",
         ":build-base",
         ":build-request-options",

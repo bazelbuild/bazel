@@ -40,6 +40,7 @@ java_test(
     ) + NATIVE_SSL_TEST_MAYBE,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",

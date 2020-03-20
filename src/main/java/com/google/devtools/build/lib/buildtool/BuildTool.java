@@ -334,7 +334,7 @@ public class BuildTool {
       // target(s) that triggered them.
       result.setCatastrophe();
     } catch (AbruptExitException e) {
-      detailedExitCode = DetailedExitCode.justExitCode(e.getExitCode());
+      detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
       result.setCatastrophe();
     } catch (Throwable throwable) {
