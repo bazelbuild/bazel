@@ -309,7 +309,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           Set<AspectKey> builtAspects,
           OptionsProvider options,
           Range<Long> lastExecutionTimeRange,
-          TopLevelArtifactContext topLevelArtifactContext)
+          TopLevelArtifactContext topLevelArtifactContext,
+          boolean trustRemoteArtifacts)
           throws BuildFailedException, AbruptExitException, InterruptedException,
               TestExecException {
         skyframeActionExecutor.prepareForExecution(
@@ -473,7 +474,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           builtAspects,
           options,
           null,
-          null);
+          null,
+          /* trustRemoteArtifacts= */ false);
     } finally {
       tsgm.waitForTimestampGranularity(reporter.getOutErr());
     }

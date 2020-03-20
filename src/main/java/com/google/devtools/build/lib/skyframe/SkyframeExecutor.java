@@ -2816,7 +2816,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   public abstract void detectModifiedOutputFiles(
-      ModifiedFileSet modifiedOutputFiles, @Nullable Range<Long> lastExecutionTimeRange)
+      ModifiedFileSet modifiedOutputFiles,
+      @Nullable Range<Long> lastExecutionTimeRange,
+      boolean trustRemoteArtifacts)
       throws AbruptExitException, InterruptedException;
 
   /**

@@ -438,7 +438,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
 
     // Sanity check that our invalidation receiver is working correctly. We'll rely on it again.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -467,7 +468,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
 
     if (expectActionIs.dirtied()) {
       assertThat(progressReceiver.wasInvalidated(actionKey)).isTrue();
@@ -880,6 +882,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
   }
 }

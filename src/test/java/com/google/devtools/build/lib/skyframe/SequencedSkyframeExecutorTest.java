@@ -449,10 +449,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   private Collection<SkyKey> dirtyValues() throws InterruptedException {
     Diff diff =
-        new FilesystemValueChecker(
-                new TimestampGranularityMonitor(BlazeClock.instance()),
-                null)
-            .getDirtyKeys(skyframeExecutor.getEvaluatorForTesting().getValues(),
+        new FilesystemValueChecker(new TimestampGranularityMonitor(BlazeClock.instance()), null)
+            .getDirtyKeys(
+                skyframeExecutor.getEvaluatorForTesting().getValues(),
                 new BasicFilesystemDirtinessChecker());
     return ImmutableList.<SkyKey>builder()
         .addAll(diff.changedKeysWithoutNewValues())
@@ -1584,7 +1583,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
     assertThat(e.getDetailedExitCode().getExitCode())
@@ -1718,7 +1718,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
     assertThat(e.getDetailedExitCode().getExitCode())
@@ -1849,7 +1850,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     new TopLevelArtifactContext(
                         /*runTestsExclusively=*/ false,
                         false,
-                        OutputGroupInfo.determineOutputGroups(ImmutableList.of(), true))));
+                        OutputGroupInfo.determineOutputGroups(ImmutableList.of(), true)),
+                    /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
     assertThat(e.getDetailedExitCode().getExitCode())
@@ -1957,7 +1959,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
     assertThat(e.getDetailedExitCode().getExitCode())
@@ -2070,7 +2073,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(USER_EXIT_CODE);
@@ -2167,7 +2171,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(INFRA_EXIT_CODE);
@@ -2242,7 +2247,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         ImmutableSet.of(),
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
     assertContainsEventRegex(eventCollector, ".*during scanning.*\n.*Scanning.*\n.*Test dir/top.*");
     assertNotContainsEventRegex(
         eventCollector, ".*after scanning.*\n.*Scanning.*\n.*Test dir/top.*");
