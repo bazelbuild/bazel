@@ -428,13 +428,16 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // Note that we always use the --flag=ARG form (instead of the --flag ARG one)
   // so that BlazeRuntime#splitStartupOptions has an easy job.
 
-  // TODO(lberki): Test that whatever the list constructed after this line is
-  // actually a list of parseable startup options.
+  // TODO(b/152047869): Test that whatever the list constructed after this line
+  // is actually a list of parseable startup options.
   if (!startup_options.batch) {
     result.push_back("--max_idle_secs=" +
                      ToString(startup_options.max_idle_secs));
-    result.push_back("--shutdown_on_low_sys_mem=" +
-                     ToString(startup_options.shutdown_on_low_sys_mem));
+    if (startup_options.shutdown_on_low_sys_mem) {
+      result.push_back("--shutdown_on_low_sys_mem");
+    } else {
+      result.push_back("--noshutdown_on_low_sys_mem");
+    }
   } else {
     // --batch must come first in the arguments to Java main() because
     // the code expects it to be at args[0] if it's been set.
