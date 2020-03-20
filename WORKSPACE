@@ -628,7 +628,7 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361", # ANDROID_TOOLS_UPDATE_MARKER_DO_NOT_REMOVE
+    sha256 = "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361", # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
     url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.16.0.tar.gz",
 )
 
