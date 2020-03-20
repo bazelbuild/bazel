@@ -16,6 +16,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/remote/options:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/util:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

@@ -14,6 +14,7 @@ filegroup(
     ]) + [
         "//src/test/java/com/google/devtools/build/lib/actions/util:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

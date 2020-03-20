@@ -11,6 +11,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/buildtool/util:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(

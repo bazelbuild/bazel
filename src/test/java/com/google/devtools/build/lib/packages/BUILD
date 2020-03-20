@@ -13,6 +13,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

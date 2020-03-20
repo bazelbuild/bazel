@@ -69,4 +69,5 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )

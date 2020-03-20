@@ -11,6 +11,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/query2/query/output:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 test_suite(

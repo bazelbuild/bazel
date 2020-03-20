@@ -12,6 +12,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/exec/local:srcs",
         "//src/test/java/com/google/devtools/build/lib/exec/util:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

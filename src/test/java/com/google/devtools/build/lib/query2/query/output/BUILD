@@ -9,6 +9,7 @@ licenses(["notice"])
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(

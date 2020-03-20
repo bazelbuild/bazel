@@ -9,6 +9,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 # Redirection for util lib to allow exporting both ":util_internal" and the

@@ -11,6 +11,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/vfs/util:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 # Tests for Windows-specific functionality that can run cross-platform.
@@ -78,6 +79,7 @@ java_library(
 java_test(
     name = "VfsTests",
     size = "medium",
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":VfsTests_lib",
@@ -132,5 +134,20 @@ java_library(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
     ],
 )

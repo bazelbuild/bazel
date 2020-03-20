@@ -15,6 +15,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/analysis/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
