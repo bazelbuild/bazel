@@ -154,11 +154,20 @@ java_library(
         "TestConstants.java",
     ],
     deps = [
-        ":PackageFactoryBuilderFactoryForBazelUnitTests",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib/packages:builder_factory_for_testing",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "TestPackageFactoryBuilderFactory",
+    srcs = [
+        "TestPackageFactoryBuilderFactory.java",
+    ],
+    deps = [
+        ":PackageFactoryBuilderFactoryForBazelUnitTests",
+        "//src/main/java/com/google/devtools/build/lib/packages:builder_factory_for_testing",
     ],
 )
 
