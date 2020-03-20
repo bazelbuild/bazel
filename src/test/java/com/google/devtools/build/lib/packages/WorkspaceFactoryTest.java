@@ -175,16 +175,14 @@ public class WorkspaceFactoryTest {
   @Test
   public void testRepoMappingNotAStringStringDict() throws Exception {
     helper.parse("local_repository(name='foo', path='/foo', repo_mapping=1)");
-    assertThat(helper.getParserError())
-        .contains("expected a dictionary for 'repo_mapping' but got 'int' instead");
+    assertThat(helper.getParserError()).contains("got 'int' for 'repo_mapping', want 'dict'");
 
     helper.parse("local_repository(name='foo', path='/foo', repo_mapping='hello')");
-    assertThat(helper.getParserError())
-        .contains("expected a dictionary for 'repo_mapping' but got 'string' instead");
+    assertThat(helper.getParserError()).contains("got 'string' for 'repo_mapping', want 'dict'");
 
     helper.parse("local_repository(name='foo', path='/foo', repo_mapping={1: 1})");
     assertThat(helper.getParserError())
-        .contains("expected <String, String> type for 'repo_mapping' but got <int, int> instead");
+        .contains("got dict<int, int> for 'repo_mapping', want dict<string, string>");
   }
 
   @Test
