@@ -151,6 +151,7 @@ genrule(
         --sources  $(location @bazel_tools//tools/jdk:platformclasspath) \
         --include_prefixes "java/lang/invoke/" \
         --include_prefixes "java/lang/annotation/" \
+        -- normalize \
         --output $@""",
     tools = ["@bazel_tools//tools/jdk:singlejar"],
     visibility = ["//visibility:private"],
