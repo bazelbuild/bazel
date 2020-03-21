@@ -848,7 +848,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // long enough can lead to a flaky pass.
 
     Thread mainThread = Thread.currentThread();
-
+    CountDownLatch cStarted = new CountDownLatch(1);
     skyframeExecutor
         .getEvaluatorForTesting()
         .injectGraphTransformerForTesting(
@@ -860,6 +860,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
                         actionAStartedSoOthersCanProceed, "primary didn't start");
                     if (key.equals(lcC)) {
+                      cStarted.countDown();
                       // Wait until interrupted.
                       try {
                         Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
@@ -879,6 +880,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       && key.equals(lcB)
                       && order == NotifyingHelper.Order.BEFORE
                       && context != null) {
+                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(cStarted, "c missing");
                     // B thread has finished its run. Interrupt build!
                     mainThread.interrupt();
                   } else if (type == EventType.ADD_REVERSE_DEP
