@@ -25,18 +25,16 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.StarlarkRuleTransitionProviderTest.DummyTestLoader;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -117,7 +115,53 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStarlarkSplitTransitionSplitAttr() throws Exception {
+  public void testSplitAttrDoesNotIncludeStarlarkSplit() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    writeWhitelistFile();
+    scratch.file(
+        "test/skylark/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def transition_func(settings, attr):",
+        "  return {",
+        "      'amsterdam': {'//command_line_option:test_arg': ['stroopwafel']},",
+        "      'paris': {'//command_line_option:test_arg': ['crepe']},",
+        "  }",
+        "my_transition = transition(",
+        "  implementation = transition_func,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:test_arg']",
+        ")",
+        "def _impl(ctx): ",
+        "  return MyInfo(split_attr = ctx.split_attr)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  }",
+        ")",
+        "def _s_impl_e(ctx):",
+        "  return []",
+        "simple_rule = rule(_s_impl_e)");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:rules.bzl', 'simple_rule', 'my_rule')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "simple_rule(name = 'dep')");
+
+    SkylarkInfo splitAttr =
+        (SkylarkInfo)
+            getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test")).getValue("split_attr");
+
+    assertThat(splitAttr.getValue("dep")).isNull();
+    assertThat(splitAttr.getFieldNames()).isEmpty();
+  }
+
+  @Test
+  public void testAccessStarlarkSplitThrowsError() throws Exception {
     setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
@@ -154,125 +198,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', dep = ':dep')",
         "simple_rule(name = 'dep')");
 
-    @SuppressWarnings("unchecked")
-    Map<Object, ConfiguredTarget> splitAttr =
-        (Map<Object, ConfiguredTarget>)
-            getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test"))
-                .getValue("split_attr_dep");
-    assertThat(splitAttr.keySet()).containsExactly("amsterdam", "paris");
-    assertThat(
-            getConfiguration(splitAttr.get("amsterdam"))
-                .getOptions()
-                .get(TestOptions.class)
-                .testArguments)
-        .containsExactly("stroopwafel");
-    assertThat(
-            getConfiguration(splitAttr.get("paris"))
-                .getOptions()
-                .get(TestOptions.class)
-                .testArguments)
-        .containsExactly("crepe");
-  }
-
-  @Test
-  public void testStarlarkListSplitTransitionSplitAttr() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
-    scratch.file(
-        "test/skylark/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def transition_func(settings, attr):",
-        "  return [",
-        "      {'//command_line_option:test_arg': ['stroopwafel']},",
-        "      {'//command_line_option:test_arg': ['crepe']},",
-        "  ]",
-        "my_transition = transition(",
-        "  implementation = transition_func,",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:test_arg']",
-        ")",
-        "def _impl(ctx): ",
-        "  return MyInfo(split_attr_dep = ctx.split_attr.dep)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
-        "    ),",
-        "  }",
-        ")",
-        "def _s_impl_e(ctx):",
-        "  return []",
-        "simple_rule = rule(_s_impl_e)");
-
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'simple_rule', 'my_rule')",
-        "my_rule(name = 'test', dep = ':dep')",
-        "simple_rule(name = 'dep')");
-
-    @SuppressWarnings("unchecked")
-    Map<Object, ConfiguredTarget> splitAttr =
-        (Map<Object, ConfiguredTarget>)
-            getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test"))
-                .getValue("split_attr_dep");
-    assertThat(splitAttr.keySet()).containsExactly("0", "1");
-    assertThat(
-            getConfiguration(splitAttr.get("0")).getOptions().get(TestOptions.class).testArguments)
-        .containsExactly("stroopwafel");
-    assertThat(
-            getConfiguration(splitAttr.get("1")).getOptions().get(TestOptions.class).testArguments)
-        .containsExactly("crepe");
-  }
-
-  @Test
-  public void testStarlarkPatchTransitionSplitAttr() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
-    scratch.file(
-        "test/skylark/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def transition_func(settings, attr):",
-        "  return {'//command_line_option:test_arg': ['stroopwafel']}",
-        "my_transition = transition(",
-        "  implementation = transition_func,",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:test_arg']",
-        ")",
-        "def _impl(ctx): ",
-        "  return MyInfo(split_attr_dep = ctx.split_attr.dep)",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
-        "    ),",
-        "  }",
-        ")",
-        "def _s_impl_e(ctx):",
-        "  return []",
-        "simple_rule = rule(_s_impl_e)");
-
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'simple_rule', 'my_rule')",
-        "my_rule(name = 'test', dep = ':dep')",
-        "simple_rule(name = 'dep')");
-
-    @SuppressWarnings("unchecked")
-    Map<Object, ConfiguredTarget> splitAttr =
-        (Map<Object, ConfiguredTarget>)
-            getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test"))
-                .getValue("split_attr_dep");
-    assertThat(splitAttr.keySet()).containsExactly(Starlark.NONE);
-    assertThat(
-            getConfiguration(splitAttr.get(Starlark.NONE))
-                .getOptions()
-                .get(TestOptions.class)
-                .testArguments)
-        .containsExactly("stroopwafel");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test");
+    assertContainsEvent(
+        "No attribute 'dep' in split_attr. This attribute is either not defined with a split"
+            + " configuration OR is defined with a Starlark split transition, the results of which"
+            + " cannot be accessed from split_attr.");
   }
 
   @Test
