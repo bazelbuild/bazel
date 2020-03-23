@@ -125,7 +125,7 @@ public class RuleFactory {
       // This flag is overridable by RuleClass.ThirdPartyLicenseEnforcementPolicy (which is checked
       // in RuleClass). This lets Bazel and Blaze migrate away from license logic on independent
       // timelines. See --incompatible_disable_third_party_license_checking comments for details.
-      boolean checkThirdPartyLicenses = semantics.incompatibleDisableThirdPartyLicenseChecking();
+      boolean checkThirdPartyLicenses = !semantics.incompatibleDisableThirdPartyLicenseChecking();
       return ruleClass.createRule(
           pkgBuilder,
           label,
