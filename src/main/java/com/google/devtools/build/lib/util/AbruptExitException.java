@@ -42,18 +42,13 @@ public class AbruptExitException extends Exception {
     this.detailedExitCode = DetailedExitCode.justExitCode(exitCode);
   }
 
-  public AbruptExitException(String message, DetailedExitCode detailedExitCode) {
-    super(message);
-    this.detailedExitCode = detailedExitCode;
-  }
-
-  public AbruptExitException(String message, DetailedExitCode detailedExitCode, Throwable cause) {
-    super(message, cause);
+  public AbruptExitException(DetailedExitCode detailedExitCode) {
+    super(detailedExitCode.getFailureDetail().getMessage());
     this.detailedExitCode = detailedExitCode;
   }
 
   public AbruptExitException(DetailedExitCode detailedExitCode, Throwable cause) {
-    super(cause);
+    super(detailedExitCode.getFailureDetail().getMessage(), cause);
     this.detailedExitCode = detailedExitCode;
   }
 
