@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandProtos.ServerInfo;
 import com.google.devtools.build.lib.server.CommandProtos.StartupOption;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted.InterruptedCode;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FailureDetailUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -615,7 +615,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.failureDetail(
-              FailureDetailUtil.interrupted(InterruptedCode.INTERRUPTED_UNSPECIFIED));
+              FailureDetailUtil.interrupted(Interrupted.Code.INTERRUPTED_UNSPECIFIED));
       commandId = ""; // The default value, the client will ignore it
     }
 

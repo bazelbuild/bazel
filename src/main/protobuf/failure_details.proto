@@ -94,12 +94,12 @@ message FailureDetail {
 }
 
 message Interrupted {
-  enum InterruptedCode {
+  enum Code {
     // Interrupted at an unspecified time.
     INTERRUPTED_UNSPECIFIED = 0 [(metadata) = { exit_code: 8 }];
     // TODO(mschaller): Add subcategories that specify what was happening at the
     //  time of interruption.
   }
 
-  InterruptedCode code = 1;
+  Code code = 1;
 }

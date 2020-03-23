@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted.InterruptedCode;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,7 +29,7 @@ public class FailureDetailUtilTest {
   public void testGetInterruptedExitCode() {
     assertThat(
             FailureDetailUtil.getExitCode(
-                FailureDetailUtil.interrupted(InterruptedCode.INTERRUPTED_UNSPECIFIED)))
+                FailureDetailUtil.interrupted(Interrupted.Code.INTERRUPTED_UNSPECIFIED)))
         .isEqualTo(ExitCode.INTERRUPTED);
   }
 }
