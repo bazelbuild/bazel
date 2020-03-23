@@ -150,7 +150,7 @@ final class RemoteSpawnCache implements SpawnCache {
       try {
         ActionResult result;
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-          result = remoteCache.downloadActionResult(actionKey);
+          result = remoteCache.downloadActionResult(actionKey, /* inlineOutErr= */ false);
         }
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a
         // cache miss
