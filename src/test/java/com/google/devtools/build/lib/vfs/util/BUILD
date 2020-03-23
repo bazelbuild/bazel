@@ -20,7 +20,7 @@ java_library(
     exports = [
         ":util_internal",
     ],
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib:bazel-rules"],
+    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/unix"],
 )
 
 java_library(
@@ -34,7 +34,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib/windows",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
     ],
