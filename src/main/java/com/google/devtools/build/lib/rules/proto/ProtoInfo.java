@@ -37,13 +37,13 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact> {
   /** Provider class for {@link ProtoInfo} objects. */
-  public static class Provider extends BuiltinProvider<ProtoInfo> implements ProtoInfoApi.Provider {
-    public Provider() {
+  public static class ProtoInfoProvider extends BuiltinProvider<ProtoInfo>
+      implements ProtoInfoProviderApi {
+    public ProtoInfoProvider() {
       super(ProtoBootstrap.PROTO_INFO_STARLARK_NAME, ProtoInfo.class);
     }
   }
-
-  public static final Provider PROVIDER = new Provider();
+  public static final ProtoInfoProvider PROVIDER = new ProtoInfoProvider();
 
   private final ImmutableList<Artifact> directProtoSources;
   private final ImmutableList<Artifact> originalDirectProtoSources;

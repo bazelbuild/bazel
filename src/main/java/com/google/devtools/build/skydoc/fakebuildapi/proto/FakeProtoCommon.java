@@ -12,13 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.proto;
+package com.google.devtools.build.skydoc.fakebuildapi.proto;
 
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoModuleApi;
+import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoCommonApi;
 
-/** Protocol buffers support for Starlark. */
-public class BazelProtoModule implements ProtoModuleApi {
-  public static final BazelProtoModule INSTANCE = new BazelProtoModule();
-
-  private BazelProtoModule() {}
-}
+/** Fake implementation of {@link ProtoCommonApi}. */
+public class FakeProtoCommon implements ProtoCommonApi {}
