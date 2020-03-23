@@ -265,20 +265,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalSiblingRepositoryLayout;
 
   @Option(
-      name = "incompatible_bzl_disallow_load_after_statement",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, all `load` must be called at the top of .bzl files, before any other "
-              + "statement.")
-  public boolean incompatibleBzlDisallowLoadAfterStatement;
-
-  @Option(
       name = "experimental_allow_tags_propagation",
       oldName = "incompatible_allow_tags_propagation",
       defaultValue = "false",
@@ -706,7 +692,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalDisableExternalPackage(experimentalDisableExternalPackage)
             .experimentalSiblingRepositoryLayout(experimentalSiblingRepositoryLayout)
             .incompatibleApplicableLicenses(incompatibleApplicableLicenses)
-            .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
             .incompatibleDepsetUnion(incompatibleDepsetUnion)
             .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)
             .incompatibleDisableThirdPartyLicenseChecking(

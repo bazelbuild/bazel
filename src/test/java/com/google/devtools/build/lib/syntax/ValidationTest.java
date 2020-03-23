@@ -90,18 +90,9 @@ public class ValidationTest {
 
   @Test
   public void testLoadAfterStatement() throws Exception {
-    setSemantics("--incompatible_bzl_disallow_load_after_statement=true");
     assertInvalid(
         "load() statements must be called before any other statement", //
         "a = 5",
-        "load(':b.bzl', 'c')");
-  }
-
-  @Test
-  public void testAllowLoadAfterStatement() throws Exception {
-    setSemantics("--incompatible_bzl_disallow_load_after_statement=false");
-    assertValid(
-        "a = 5", //
         "load(':b.bzl', 'c')");
   }
 
