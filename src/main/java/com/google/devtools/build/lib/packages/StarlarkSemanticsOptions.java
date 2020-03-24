@@ -483,20 +483,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleNoImplicitFileExport;
 
   @Option(
-      name = "incompatible_no_output_attr_default",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, disables the `default` parameter of the `attr.output` and "
-              + "`attr.output_list` attribute definition functions.")
-  public boolean incompatibleNoOutputAttrDefault;
-
-  @Option(
       name = "incompatible_no_rule_outputs_param",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -704,7 +690,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleNewActionsApi(incompatibleNewActionsApi)
             .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
             .incompatibleNoImplicitFileExport(incompatibleNoImplicitFileExport)
-            .incompatibleNoOutputAttrDefault(incompatibleNoOutputAttrDefault)
             .incompatibleNoRuleOutputsParam(incompatibleNoRuleOutputsParam)
             .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
             .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)

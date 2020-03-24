@@ -154,7 +154,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
         "--incompatible_no_implicit_file_export=" + rand.nextBoolean(),
-        "--incompatible_no_output_attr_default=" + rand.nextBoolean(),
         "--incompatible_no_rule_outputs_param=" + rand.nextBoolean(),
         "--incompatible_no_support_tools_in_action_inputs=" + rand.nextBoolean(),
         "--incompatible_no_target_output_group=" + rand.nextBoolean(),
@@ -209,7 +208,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleNewActionsApi(rand.nextBoolean())
         .incompatibleNoAttrLicense(rand.nextBoolean())
         .incompatibleNoImplicitFileExport(rand.nextBoolean())
-        .incompatibleNoOutputAttrDefault(rand.nextBoolean())
         .incompatibleNoRuleOutputsParam(rand.nextBoolean())
         .incompatibleNoSupportToolsInActionInputs(rand.nextBoolean())
         .incompatibleNoTargetOutputGroup(rand.nextBoolean())

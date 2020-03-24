@@ -74,8 +74,6 @@ public abstract class StarlarkSemantics {
         "incompatible_applicable_licenses";
     public static final String INCOMPATIBLE_DISABLE_DEPSET_INPUTS =
         "incompatible_disable_depset_inputs";
-    public static final String INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT =
-        "incompatible_no_output_attr_default";
     public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
         "incompatible_no_rule_outputs_param";
     public static final String INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP =
@@ -127,8 +125,6 @@ public abstract class StarlarkSemantics {
         return incompatibleApplicableLicenses();
       case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS:
         return incompatibleDisableDepsetItems();
-      case FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT:
-        return incompatibleNoOutputAttrDefault();
       case FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM:
         return incompatibleNoRuleOutputsParam();
       case FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP:
@@ -240,8 +236,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoImplicitFileExport();
 
-  public abstract boolean incompatibleNoOutputAttrDefault();
-
   public abstract boolean incompatibleNoRuleOutputsParam();
 
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
@@ -336,7 +330,6 @@ public abstract class StarlarkSemantics {
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
           .incompatibleNoImplicitFileExport(false)
-          .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(true)
@@ -416,8 +409,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoAttrLicense(boolean value);
 
     public abstract Builder incompatibleNoImplicitFileExport(boolean value);
-
-    public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
 
     public abstract Builder incompatibleNoRuleOutputsParam(boolean value);
 
