@@ -22,17 +22,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import java.io.IOException;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
 
 /** Unit tests for {@code CcToolchainProviderHelper} */
 @RunWith(JUnit4.class)
 public class CcToolchainProviderHelperTest extends BuildViewTestCase {
-  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   @Before
   public void createFooFooCcLibraryForRuleContext() throws IOException {
