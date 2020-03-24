@@ -88,8 +88,6 @@ public class TestConstants {
       "com.google.devtools.build.lib.bazel.rules.BazelStrategyModule";
   public static final String TEST_REAL_UNIX_FILE_SYSTEM =
       "com.google.devtools.build.lib.unix.UnixFileSystem";
-  public static final String TEST_WORKSPACE_STATUS_MODULE =
-      "com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule";
 
   public static void processSkyframeExecutorForTesting(SkyframeExecutor skyframeExecutor) {}
 

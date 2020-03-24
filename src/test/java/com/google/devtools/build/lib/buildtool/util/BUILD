@@ -13,8 +13,7 @@ filegroup(
 )
 
 # Redirection for util lib to allow exporting both ":util_internal" and the
-# implementation of RulesModule, StrategyModule and WorkspaceStatuusModule
-# as named in
+# implementation of RulesModule and WorkspaceStatuusModule as named in
 # src/test/java/com/google/devtools/build/lib/testutil/TestConstants.java
 java_library(
     name = "util",
@@ -70,7 +69,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//src/test/java/com/google/devtools/build/lib/vfs:testutil",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:guava",
         "//third_party:junit4",
