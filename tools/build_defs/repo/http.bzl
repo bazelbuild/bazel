@@ -218,6 +218,7 @@ http_jar(
         "storage.cloudprovider.com": "Bearer <password>"
     }
 )
+```
 
 netrc:
 
