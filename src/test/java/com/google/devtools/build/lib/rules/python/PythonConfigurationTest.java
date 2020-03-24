@@ -38,26 +38,15 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   @Test
   public void invalidTargetPythonValue_NotATargetValue() {
     OptionsParsingException expected =
-        assertThrows(OptionsParsingException.class, () -> create("--force_python=PY2AND3"));
+        assertThrows(OptionsParsingException.class, () -> create("--python_version=PY2AND3"));
     assertThat(expected).hasMessageThat().contains("Not a valid Python major version");
   }
 
   @Test
   public void invalidTargetPythonValue_UnknownValue() {
     OptionsParsingException expected =
-        assertThrows(
-            OptionsParsingException.class,
-            () -> create("--force_python=BEETLEJUICE"));
+        assertThrows(OptionsParsingException.class, () -> create("--python_version=BEETLEJUICE"));
     assertThat(expected).hasMessageThat().contains("Not a valid Python major version");
-  }
-
-  @Test
-  public void oldVersionFlagGatedByIncompatibleFlag() throws Exception {
-    create("--incompatible_remove_old_python_version_api=false", "--force_python=PY2");
-    checkError(
-        "`--force_python` is disabled by `--incompatible_remove_old_python_version_api`",
-        "--incompatible_remove_old_python_version_api=true",
-        "--force_python=PY2");
   }
 
   @Test
@@ -102,28 +91,6 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void getPythonVersion_NewFlagTakesPrecedence() throws Exception {
-    assumesDefaultIsPY2();
-    // --force_python is superseded by --python_version.
-    PythonOptions opts =
-        parsePythonOptions(
-            "--incompatible_remove_old_python_version_api=false",
-            "--force_python=PY2",
-            "--python_version=PY3");
-    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-  }
-
-  @Test
-  public void getPythonVersion_FallBackOnOldFlag() throws Exception {
-    assumesDefaultIsPY2();
-    // --force_python is used because --python_version is absent.
-    PythonOptions opts =
-        parsePythonOptions(
-            "--incompatible_remove_old_python_version_api=false", "--force_python=PY3");
-    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-  }
-
-  @Test
   public void canTransitionPythonVersion_OldSemantics_Yes() throws Exception {
     assumesDefaultIsPY2();
     PythonOptions opts =
@@ -134,16 +101,10 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   @Test
   public void canTransitionPythonVersion_OldSemantics_NoBecauseAlreadySet() throws Exception {
     assumesDefaultIsPY2();
-    PythonOptions optsWithOldFlag =
-        parsePythonOptions(
-            "--incompatible_allow_python_version_transitions=false",
-            "--incompatible_remove_old_python_version_api=false",
-            "--force_python=PY2");
-    PythonOptions optsWithNewFlag =
+    PythonOptions opts =
         parsePythonOptions(
             "--incompatible_allow_python_version_transitions=false", "--python_version=PY2");
-    assertThat(optsWithOldFlag.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
-    assertThat(optsWithNewFlag.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
+    assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
   }
 
   @Test
@@ -168,23 +129,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     PythonOptions opts =
         parsePythonOptions(
             "--incompatible_allow_python_version_transitions=true",
-            // Set --force_python too, or else we fall into the "make --force_python consistent"
-            // case.
             "--incompatible_remove_old_python_version_api=false",
-            "--force_python=PY3",
-            "--python_version=PY3");
-    assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
-  }
-
-  @Test
-  public void canTransitionPythonVersion_NewApi_NoEvenWhenForcePythonDisagrees() throws Exception {
-    PythonOptions opts =
-        parsePythonOptions(
-            "--incompatible_allow_python_version_transitions=true",
-            "--incompatible_remove_old_python_version_api=false",
-            // Test that even though --force_python's value isn't in sync, we don't transition
-            // because getPythonVersion() would be unaffected by the transition.
-            "--force_python=PY2",
             "--python_version=PY3");
     assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
   }
@@ -194,10 +139,8 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     PythonOptions opts =
         parsePythonOptions(
             "--incompatible_remove_old_python_version_api=false",
-            "--force_python=PY2",
             "--python_version=PY2");
     opts.setPythonVersion(PythonVersion.PY3);
-    assertThat(opts.forcePython).isEqualTo(PythonVersion.PY3);
     assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
 
@@ -207,7 +150,6 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
         parsePythonOptions(
             "--incompatible_remove_old_python_version_api=true", "--python_version=PY2");
     opts.setPythonVersion(PythonVersion.PY3);
-    assertThat(opts.forcePython).isNull();
     assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
 
@@ -235,11 +177,6 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   @Test
   public void getHost_AppliesHostForcePython() throws Exception {
     assumesDefaultIsPY2();
-    PythonOptions optsWithForcePythonFlag =
-        parsePythonOptions(
-            "--incompatible_remove_old_python_version_api=false",
-            "--force_python=PY2",
-            "--host_force_python=PY3");
     PythonOptions optsWithPythonVersionFlag =
         parsePythonOptions("--python_version=PY2", "--host_force_python=PY3");
     PythonOptions optsWithPy3IsDefaultFlag =
@@ -250,11 +187,9 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             // It's more interesting to set the incompatible flag true and force host to PY2, than
             // it is to set the flag false and force host to PY3.
             "--host_force_python=PY2");
-    PythonOptions hostOptsWithForcePythonFlag = (PythonOptions) optsWithForcePythonFlag.getHost();
     PythonOptions hostOptsWithPythonVersionFlag =
         (PythonOptions) optsWithPythonVersionFlag.getHost();
     PythonOptions hostOptsWithPy3IsDefaultFlag = (PythonOptions) optsWithPy3IsDefaultFlag.getHost();
-    assertThat(hostOptsWithForcePythonFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
     assertThat(hostOptsWithPythonVersionFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
     assertThat(hostOptsWithPy3IsDefaultFlag.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }

@@ -79,7 +79,7 @@ public class PythonOptions extends FragmentOptions {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If true, disables use of the `--force_python` flag and the `default_python_version` "
+          "If true, disables use of the `default_python_version` "
               + "attribute for `py_binary` and `py_test`. Use the `--python_version` flag and "
               + "`python_version` attribute instead, which have exactly the same meaning. This "
               + "flag also disables `select()`-ing over `--host_force_python`.")
@@ -169,25 +169,17 @@ public class PythonOptions extends FragmentOptions {
       OptionsParser.getOptionDefinitionByName(PythonOptions.class, "python_version");
 
   /**
-   * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
-   * PythonVersion} values do not represent distinct Python versions and are not allowed.
+   * Deprecated machinery for setting the Python version; will be removed soon.
    *
-   * <p>This flag is not accessible to the user when {@link #incompatibleRemoveOldPythonVersionApi}
-   * is true.
-   *
-   * <p>Native rule logic should call {@link #getPythonVersion} / {@link #setPythonVersion} instead
-   * of accessing this option directly. BUILD/.bzl code should {@code select()} on {@code <tools
-   * repo>//tools/python:python_version} rather than on this option directly.
+   * <p>Not in GraveyardOptions because we still want to prohibit users from select()ing on it.
    */
   @Option(
       name = "force_python",
       defaultValue = "null",
       converter = TargetPythonVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Deprecated alias for `--python_version`. Disabled by "
-              + "`--incompatible_remove_old_python_version_api`.")
+      help = "No-op, will be removed soon.")
   public PythonVersion forcePython;
 
   private static final OptionDefinition FORCE_PYTHON_DEFINITION =
@@ -322,14 +314,12 @@ public class PythonOptions extends FragmentOptions {
   /**
    * Returns the Python major version ({@code PY2} or {@code PY3}) that targets should be built for.
    *
-   * <p>The version is taken as the value of {@code --python_version} if not null, otherwise {@code
-   * --force_python} if not null, otherwise {@link #getDefaultPythonVersion}.
+   * <p>The version is taken as the value of {@code --python_version} if not null, otherwise {@link
+   * #getDefaultPythonVersion}.
    */
   public PythonVersion getPythonVersion() {
     if (pythonVersion != null) {
       return pythonVersion;
-    } else if (forcePython != null) {
-      return forcePython;
     } else {
       return getDefaultPythonVersion();
     }
@@ -343,10 +333,10 @@ public class PythonOptions extends FragmentOptions {
    * different from the existing one.
    *
    * <p>Under the old semantics ({@link #incompatibleAllowPythonVersionTransitions} is false),
-   * version transitions are not allowed once the version has already been set ({@link #forcePython}
-   * or {@link #pythonVersion} is non-null). Due to a historical bug, it is also not allowed to
-   * transition the version to the hard-coded default value. Under these constraints, there is only
-   * one transition possible, from null to the non-default value, and it is never a no-op.
+   * version transitions are not allowed once the version has already been set ({@link
+   * #pythonVersion} is non-null). Due to a historical bug, it is also not allowed to transition the
+   * version to the hard-coded default value. Under these constraints, there is only one transition
+   * possible, from null to the non-default value, and it is never a no-op.
    *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
@@ -355,7 +345,7 @@ public class PythonOptions extends FragmentOptions {
     if (incompatibleAllowPythonVersionTransitions) {
       return !version.equals(getPythonVersion());
     } else {
-      boolean currentlyUnset = forcePython == null && pythonVersion == null;
+      boolean currentlyUnset = pythonVersion == null;
       boolean transitioningToNonDefault = !version.equals(getDefaultPythonVersion());
       return currentlyUnset && transitioningToNonDefault;
     }
@@ -372,22 +362,11 @@ public class PythonOptions extends FragmentOptions {
    * <p>If the old semantics are in effect ({@link #incompatibleAllowPythonVersionTransitions} is
    * false), after this method is called {@link #canTransitionPythonVersion} will return false.
    *
-   * <p>To help avoid breaking old-API {@code select()} expressions that check the value of {@code
-   * "force_python"}, both the old and new flags are updated even though {@code --python_version}
-   * takes precedence over {@code --force_python}.
-   *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
   public void setPythonVersion(PythonVersion version) {
     Preconditions.checkArgument(version.isTargetValue());
     this.pythonVersion = version;
-    // If the old version API is enabled, update forcePython for consistency. If the old API is
-    // disabled, don't update it because 1) no one can read it anyway, and 2) updating it during
-    // normalization would cause analysis-time validation of the flag to spuriously fail (it'd think
-    // the user set the flag).
-    if (!incompatibleRemoveOldPythonVersionApi) {
-      this.forcePython = version;
-    }
   }
 
   @Override
@@ -416,7 +395,7 @@ public class PythonOptions extends FragmentOptions {
   public FragmentOptions getNormalized() {
     // Under the new version semantics, we want to ensure that options with "null" physical default
     // values are normalized, to avoid #7808. We don't want to normalize with the old version
-    // semantics because that breaks backwards compatibility (--force_python would always be on).
+    // semantics because that breaks backwards compatibility.
     PythonOptions newOptions = (PythonOptions) clone();
     if (incompatibleAllowPythonVersionTransitions) {
       newOptions.setPythonVersion(newOptions.getPythonVersion());

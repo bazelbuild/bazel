@@ -72,6 +72,8 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
   public void canSelectOnForcePythonFlagsUnderOldApi() throws Exception {
     // For backwards compatibility purposes, select()-ing on --force_python and --host_force_python
     // is allowed while the old API is still enabled.
+    // TODO(brandjon): Although --force_python is a no-op, this test is still present because the
+    // behavior belongs to the remove-old-api flag. Delete the test when we no-op that flag too.
     useConfiguration("--incompatible_remove_old_python_version_api=false");
     scratch.file("fp/BUILD", makeFooThatSelectsOnFlag("force_python", "PY2"));
     scratch.file("hfp/BUILD", makeFooThatSelectsOnFlag("host_force_python", "PY2"));
@@ -119,7 +121,7 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
         "    }),",
         ")");
 
-    // Neither --python_version nor --force_python, use default value.
+    // No --python_version, use default value.
     doTestSelectOnPythonVersionTarget(py2, "--incompatible_py3_is_default=false");
     doTestSelectOnPythonVersionTarget(
         py3,
@@ -128,17 +130,9 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
         // enabled before we're allowed to set the default to PY3.
         "--incompatible_allow_python_version_transitions=true");
 
-    // No --python_version, trust --force_python.
-    doTestSelectOnPythonVersionTarget(py2, "--force_python=PY2");
-    doTestSelectOnPythonVersionTarget(py3, "--force_python=PY3");
-
-    // --python_version overrides --force_python.
+    // --python_version is given, use it.
     doTestSelectOnPythonVersionTarget(py2, "--python_version=PY2");
-    doTestSelectOnPythonVersionTarget(py2, "--python_version=PY2", "--force_python=PY2");
-    doTestSelectOnPythonVersionTarget(py2, "--python_version=PY2", "--force_python=PY3");
     doTestSelectOnPythonVersionTarget(py3, "--python_version=PY3");
-    doTestSelectOnPythonVersionTarget(py3, "--python_version=PY3", "--force_python=PY2");
-    doTestSelectOnPythonVersionTarget(py3, "--python_version=PY3", "--force_python=PY3");
   }
 
   private void doTestSelectOnPythonVersionTarget(Artifact expected, String... flags)

@@ -90,8 +90,7 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
    * Returns the Python version to use.
    *
    * <p>Specified using either the {@code --python_version} flag and {@code python_version} rule
-   * attribute (new API), or the {@code --force_python} flag and {@code default_python_version} rule
-   * attribute (old API).
+   * attribute (new API), or the {@code default_python_version} rule attribute (old API).
    */
   public PythonVersion getPythonVersion() {
     return version;
@@ -135,11 +134,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     PythonOptions opts = buildOptions.get(PythonOptions.class);
-    if (opts.forcePython != null && opts.incompatibleRemoveOldPythonVersionApi) {
-      reporter.handle(
-          Event.error(
-              "`--force_python` is disabled by `--incompatible_remove_old_python_version_api`"));
-    }
     if (opts.incompatiblePy3IsDefault && !opts.incompatibleAllowPythonVersionTransitions) {
       reporter.handle(
           Event.error(
@@ -168,10 +162,7 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
     return buildTransitiveRunfilesTrees;
   }
 
-  /**
-   * Returns whether use of {@code --force_python} flag and {@code default_python_version} attribute
-   * is allowed.
-   */
+  /** Returns whether use of the {@code default_python_version} attribute is allowed. */
   public boolean oldPyVersionApiAllowed() {
     return oldPyVersionApiAllowed;
   }

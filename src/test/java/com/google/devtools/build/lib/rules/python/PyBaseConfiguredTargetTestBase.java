@@ -102,7 +102,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void versionIs3IfForcedByFlagUnderOldSemantics() throws Exception {
-    // Under the old version semantics, --force_python takes precedence over the rule's own
+    // Under the old version semantics, --python_version takes precedence over the rule's own
     // default_python_version attribute, so this test case applies equally well to py_library,
     // py_binary, and py_test. Under the new semantics the rule attribute takes precedence, so this
     // would only make sense for py_library; see PyLibraryConfiguredTargetTest for the analogous

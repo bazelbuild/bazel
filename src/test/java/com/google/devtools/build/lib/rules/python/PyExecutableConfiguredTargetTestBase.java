@@ -359,18 +359,11 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assumesDefaultIsPY2();
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
 
-    // Test against both flags.
-    assertPythonVersionIs_UnderNewConfigs(
+    assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
         PythonVersion.PY3,
-        new String[] {
-          "--incompatible_allow_python_version_transitions=true",
-          "--incompatible_remove_old_python_version_api=false",
-          "--force_python=PY2"
-        },
-        new String[] {
-          "--incompatible_allow_python_version_transitions=true", "--python_version=PY2"
-        });
+        "--incompatible_allow_python_version_transitions=true",
+        "--python_version=PY2");
   }
 
   @Test
@@ -378,18 +371,11 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assumesDefaultIsPY2();
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
 
-    // Test against both flags.
-    assertPythonVersionIs_UnderNewConfigs(
+    assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
         PythonVersion.PY2,
-        new String[] {
-          "--incompatible_allow_python_version_transitions=true",
-          "--incompatible_remove_old_python_version_api=false",
-          "--force_python=PY3"
-        },
-        new String[] {
-          "--incompatible_allow_python_version_transitions=true", "--python_version=PY3"
-        });
+        "--incompatible_allow_python_version_transitions=true",
+        "--python_version=PY3");
   }
 
   @Test
