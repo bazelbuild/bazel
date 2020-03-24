@@ -1675,7 +1675,7 @@ function test_repo_remote_exec() {
 def _impl(ctx):
   res = ctx.execute(["/bin/bash", "-c", "echo -n $BAZEL_REMOTE_PLATFORM"])
   if res.return_code != 0:
-    fail("Return code 0 expected, but was " + res.exit_code)
+    fail("Return code 0 expected, but was " + res.return_code)
 
   entries = res.stdout.split(",")
   if len(entries) != 2:
@@ -1744,8 +1744,7 @@ EOF
     --experimental_repo_remote_exec \
     @default_foo//:all  >& $TEST_log && fail "Should fail" || true
 
-  expect_log "/input.txt"
-  expect_log "Paths are not supported for repository rules marked as remotable."
+  expect_log "Argument 1 of execute is neither a label nor a string"
 }
 
 function test_repo_remote_exec_timeout() {
@@ -1779,6 +1778,67 @@ EOF
     @default_foo//:all >& $TEST_log && fail "Should fail" || true
 
   expect_log "exceeded deadline"
+}
+
+function test_repo_remote_exec_file_upload() {
+  # Test that repository_ctx.execute accepts arguments of type label and can upload files and
+  # execute them remotely.
+
+cat > BUILD <<'EOF'
+  exports_files(["cmd.sh", "hello.txt"])
+EOF
+
+  cat > cmd.sh <<'EOF'
+#!/bin/sh
+cat $1
+EOF
+
+  chmod +x cmd.sh
+
+  echo "hello world" > hello.txt
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  script = Label("//:cmd.sh")
+  file = Label("//:hello.txt")
+
+  res = ctx.execute([script, file])
+
+  if res.return_code != 0:
+    fail("Return code 0 expected, but was " + res.return_code)
+
+  if res.stdout.strip() != "hello world":
+    fail("Stdout 'hello world' expected, but was '" + res.stdout + "'");
+
+  ctx.file("BUILD")
+
+foo_configure = repository_rule(
+  implementation = _impl,
+  remotable = True,
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:test.bzl", "foo_configure")
+
+foo_configure(
+  name = "default_foo",
+)
+EOF
+
+  bazel fetch \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_repo_remote_exec \
+    @default_foo//:all
+
+  # This is indeed necessary in oder to ensure that the repository is re-executed.
+  bazel clean --expunge
+
+  # Run on the host machine to test that the rule works for both local and remote execution.
+  # In particular, that arguments of type label are accepted when doing local execution.
+  bazel fetch \
+    --experimental_repo_remote_exec \
+    @default_foo//:all
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker
