@@ -200,10 +200,10 @@ public class ResourceProcessorBusyBox {
           ps.flush();
 
           WorkResponse.newBuilder()
-                  .setExitCode(exitCode)
-                  .setOutput(buf.toString())
-                  .build()
-                  .writeDelimitedTo(realStdOut);
+              .setExitCode(exitCode)
+              .setOutput(buf.toString())
+              .build()
+              .writeDelimitedTo(realStdOut);
 
           realStdOut.flush();
           buf.reset();
@@ -212,6 +212,7 @@ public class ResourceProcessorBusyBox {
           e.printStackTrace(realStdErr);
           return 1;
         }
+      }
     } finally {
       System.setOut(realStdOut);
       System.setErr(realStdErr);
