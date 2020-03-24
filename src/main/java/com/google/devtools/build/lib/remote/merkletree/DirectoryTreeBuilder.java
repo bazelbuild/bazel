@@ -37,6 +37,21 @@ import java.util.TreeMap;
 /** Builder for directory trees. */
 class DirectoryTreeBuilder {
 
+  private interface FileNodeVisitor<T> {
+
+    /**
+     * Visits an {@code input} and adds {@link FileNode}s to {@code currDir}.
+     *
+     * <p>This method mutates its parameter {@code currDir}.
+     *
+     * @param input the file or directory to add to {@code currDir}.
+     * @param path the path of {@code input} in the merkle tree.
+     * @param currDir the directory node representing {@code path} in the merkle tree.
+     * @return Returns the number of {@link FileNode}s added to {@code currDir}.
+     */
+    int visit(T input, PathFragment path, DirectoryNode currDir) throws IOException;
+  }
+
   static DirectoryTree fromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
       MetadataProvider metadataProvider,
@@ -44,43 +59,52 @@ class DirectoryTreeBuilder {
       DigestUtil digestUtil)
       throws IOException {
     Map<PathFragment, DirectoryNode> tree = new HashMap<>();
-    int numFiles = fromActionInputs(inputs, metadataProvider, execRoot, digestUtil, tree);
+    int numFiles = buildFromActionInputs(inputs, metadataProvider, execRoot, digestUtil, tree);
     return new DirectoryTree(tree, numFiles);
   }
 
-  private static int fromActionInputs(
+  /**
+   * Creates a tree of files and directories from a list of files.
+   *
+   * <p>This method retrieves file metadata from the filesystem. It does not use Bazel's caches.
+   * Thus, don't use this method during the execution phase. Use {@link #fromActionInputs} instead.
+   *
+   * @param inputFiles map of paths to files. The key determines the path at which the file should
+   *                   be mounted in the tree.
+   */
+  static DirectoryTree fromPaths(
+      SortedMap<PathFragment, Path> inputFiles,
+      DigestUtil digestUtil) throws IOException {
+    Map<PathFragment, DirectoryNode> tree = new HashMap<>();
+    int numFiles = buildFromPaths(inputFiles, digestUtil, tree);
+    return new DirectoryTree(tree, numFiles);
+  }
+
+  private static int buildFromPaths(SortedMap<PathFragment, Path> inputs,
+      DigestUtil digestUtil,
+      Map<PathFragment, DirectoryNode> tree) throws IOException {
+    return build(inputs, tree, (input, path, currDir) -> {
+      if (!input.isFile(Symlinks.FOLLOW))  {
+        throw new IOException(String.format("Input '%s' is not a file.", input.toString()));
+      }
+      Digest d = digestUtil.compute(input);
+      currDir.addChild(new FileNode(path.getBaseName(), input, d));
+      return 1;
+    });
+  }
+
+  private static int buildFromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
       MetadataProvider metadataProvider,
       Path execRoot,
       DigestUtil digestUtil,
-      Map<PathFragment, DirectoryNode> tree)
-      throws IOException {
-    if (inputs.isEmpty()) {
-      return 0;
-    }
-
-    PathFragment dirname = null;
-    DirectoryNode dir = null;
-    int numFiles = inputs.size();
-    for (Map.Entry<PathFragment, ActionInput> e : inputs.entrySet()) {
-      // Path relative to the exec root
-      PathFragment path = e.getKey();
-      ActionInput input = e.getValue();
-      if (dirname == null || !path.getParentDirectory().equals(dirname)) {
-        dirname = path.getParentDirectory();
-        dir = tree.get(dirname);
-        if (dir == null) {
-          dir = new DirectoryNode(dirname.getBaseName());
-          tree.put(dirname, dir);
-          createParentDirectoriesIfNotExist(dirname, dir, tree);
-        }
-      }
-
+      Map<PathFragment, DirectoryNode> tree) throws IOException {
+    return build(inputs, tree, (input, path, currDir) -> {
       if (input instanceof VirtualActionInput) {
         VirtualActionInput virtualActionInput = (VirtualActionInput) input;
         Digest d = digestUtil.compute(virtualActionInput);
-        dir.addChild(new FileNode(path.getBaseName(), virtualActionInput.getBytes(), d));
-        continue;
+        currDir.addChild(new FileNode(path.getBaseName(), virtualActionInput.getBytes(), d));
+        return 1;
       }
 
       FileArtifactValue metadata =
@@ -91,15 +115,13 @@ class DirectoryTreeBuilder {
       switch (metadata.getType()) {
         case REGULAR_FILE:
           Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-          dir.addChild(
+          currDir.addChild(
               new FileNode(path.getBaseName(), ActionInputHelper.toInputPath(input, execRoot), d));
-          break;
+          return 1;
 
         case DIRECTORY:
           SortedMap<PathFragment, ActionInput> directoryInputs = explodeDirectory(path, execRoot);
-          numFiles +=
-              fromActionInputs(directoryInputs, metadataProvider, execRoot, digestUtil, tree);
-          break;
+          return buildFromActionInputs(directoryInputs, metadataProvider, execRoot, digestUtil, tree);
 
         case SYMLINK:
           throw new IllegalStateException(
@@ -118,7 +140,38 @@ class DirectoryTreeBuilder {
         case NONEXISTENT:
           throw new IOException(String.format("The file type of '%s' is not supported.", path));
       }
+
+      return 0;
+    });
+  }
+
+  private static <T> int build(SortedMap<PathFragment, T> inputs,
+      Map<PathFragment, DirectoryNode> tree,
+      FileNodeVisitor<T> fileNodeVisitor) throws IOException {
+    if (inputs.isEmpty()) {
+      return 0;
     }
+
+    PathFragment dirname = null;
+    DirectoryNode dir = null;
+    int numFiles = 0;
+    for (Map.Entry<PathFragment, T> e : inputs.entrySet()) {
+      // Path relative to the exec root
+      PathFragment path = e.getKey();
+      T input = e.getValue();
+      if (dirname == null || !path.getParentDirectory().equals(dirname)) {
+        dirname = path.getParentDirectory();
+        dir = tree.get(dirname);
+        if (dir == null) {
+          dir = new DirectoryNode(dirname.getBaseName());
+          tree.put(dirname, dir);
+          createParentDirectoriesIfNotExist(dirname, dir, tree);
+        }
+      }
+
+      numFiles += fileNodeVisitor.visit(input, path, dir);
+    }
+
     return numFiles;
   }
 
