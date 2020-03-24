@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.ForStatement;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
@@ -396,12 +397,24 @@ public final class PackageFactory {
 
   // Exposed to skyframe.PackageFunction.
   public static StarlarkFile parseBuildFile(
-      PackageIdentifier packageId, ParserInput input, List<Statement> preludeStatements) {
+      PackageIdentifier packageId,
+      ParserInput input,
+      List<Statement> preludeStatements,
+      StarlarkSemantics semantics) {
+    // Options for processing BUILD files.
+    FileOptions options =
+        FileOptions.builder()
+            .recordScope(false) // don't mutate BUILD syntax trees due to shared prelude
+            .requireLoadStatementsFirst(false)
+            .allowToplevelRebinding(true)
+            .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
+            .build();
+
     // Log messages are expected as signs of progress by a single very old test:
     // testCreatePackageIsolatedFromOuterErrors, see CL 6198296.
     // Removing them will cause it to time out. TODO(adonovan): clean this up.
     logger.fine("Starting to parse " + packageId);
-    StarlarkFile file = StarlarkFile.parseWithPrelude(input, preludeStatements);
+    StarlarkFile file = StarlarkFile.parseWithPrelude(input, preludeStatements, options);
     logger.fine("Finished parsing of " + packageId);
     return file;
   }
@@ -511,7 +524,8 @@ public final class PackageFactory {
         ParserInput.create(
             FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().toString());
     StarlarkFile file =
-        parseBuildFile(packageId, input, /*preludeStatements=*/ ImmutableList.<Statement>of());
+        parseBuildFile(
+            packageId, input, /*preludeStatements=*/ ImmutableList.<Statement>of(), semantics);
     Package result =
         createPackageFromAst(
                 externalPkg.getWorkspaceName(),
@@ -773,7 +787,7 @@ public final class PackageFactory {
       Module module = thread.getGlobals();
 
       // Validate.
-      ValidationEnvironment.validateFile(file, module, semantics, /*isBuildFile=*/ true);
+      ValidationEnvironment.validateFile(file, module);
       if (!file.ok()) {
         Event.replayEventsOn(pkgContext.eventHandler, file.errors());
         return false;

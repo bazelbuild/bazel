@@ -118,7 +118,8 @@ public class WorkspaceFactory {
     if (localReporter == null) {
       localReporter = new StoredEventHandler();
     }
-    StarlarkFile file = StarlarkFile.parse(source);
+
+    StarlarkFile file = StarlarkFile.parse(source); // use default options in tests
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
       throw new BuildFileContainsErrorsException(
@@ -185,9 +186,7 @@ public class WorkspaceFactory {
             /* analysisRuleLabel= */ null)
         .storeInThread(thread);
 
-    // Validate the file, apply BUILD dialect checks, then execute.
-    ValidationEnvironment.validateFile(
-        file, thread.getGlobals(), this.starlarkSemantics, /*isBuildFile=*/ true);
+    ValidationEnvironment.validateFile(file, thread.getGlobals());
     List<String> globs = new ArrayList<>(); // unused
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());

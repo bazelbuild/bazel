@@ -53,6 +53,8 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FileOptions;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -729,12 +731,11 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
   }
 
-  // TODO(adonovan): rename execAndExport
   private void evalAndExport(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkThread thread = ev.getStarlarkThread();
-    StarlarkFile file =
-        EvalUtils.parseAndValidate(input, thread.getGlobals(), thread.getSemantics());
+    Module module = thread.getGlobals();
+    StarlarkFile file = EvalUtils.parseAndValidate(input, FileOptions.DEFAULT, module);
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }

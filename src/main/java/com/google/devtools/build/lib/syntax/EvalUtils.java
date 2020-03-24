@@ -745,28 +745,25 @@ public final class EvalUtils {
   }
 
   /**
-   * Parses the input as a file, validates it in the module environment using options defined by
-   * {@code thread.getSemantics}, and returns the syntax tree. It uses Starlark (not BUILD)
-   * validation semantics.
-   *
-   * <p>The thread is primarily used for its Module. Scan/parse/validate errors are recorded in the
-   * StarlarkFile. It is the caller's responsibility to inspect them.
+   * Parses the input as a file, validates it in the module environment using the specified options
+   * and returns the syntax tree. Scan/parse/validate errors are recorded in the StarlarkFile. It is
+   * the caller's responsibility to inspect them.
    */
   public static StarlarkFile parseAndValidate(
-      ParserInput input, Module module, StarlarkSemantics semantics) {
-    StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(file, module, semantics, /*isBuildFile=*/ false);
+      ParserInput input, FileOptions options, Module module) {
+    StarlarkFile file = StarlarkFile.parse(input, options);
+    ValidationEnvironment.validateFile(file, module);
     return file;
   }
 
   /**
-   * Parses the input as a file, validates it in the module environment using options defined by
-   * {@code thread.getSemantics}, and executes it. It uses Starlark (not BUILD) validation
-   * semantics.
+   * Parses the input as a file, validates it in the module environment using the specified options
+   * and executes it.
    */
-  public static void exec(ParserInput input, Module module, StarlarkThread thread)
+  public static void exec(
+      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError, EvalException, InterruptedException {
-    StarlarkFile file = parseAndValidate(input, module, thread.getSemantics());
+    StarlarkFile file = parseAndValidate(input, options, module);
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }
@@ -791,14 +788,14 @@ public final class EvalUtils {
   }
 
   /**
-   * Parses the input as an expression, validates it in the module environment using options defined
-   * by {@code thread.getSemantics}, and evaluates it. It uses Starlark (not BUILD) validation
-   * semantics.
+   * Parses the input as an expression, validates it in the module environment using the specified
+   * options, and evaluates it.
    */
-  public static Object eval(ParserInput input, Module module, StarlarkThread thread)
+  public static Object eval(
+      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError, EvalException, InterruptedException {
-    Expression expr = Expression.parse(input);
-    ValidationEnvironment.validateExpr(expr, module, thread.getSemantics());
+    Expression expr = Expression.parse(input, options);
+    ValidationEnvironment.validateExpr(expr, module, options);
 
     // Turn expression into a no-arg StarlarkFunction and call it.
     StarlarkFunction fn =
@@ -825,10 +822,10 @@ public final class EvalUtils {
    */
   @Nullable
   public static Object execAndEvalOptionalFinalExpression(
-      ParserInput input, Module module, StarlarkThread thread)
+      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError, EvalException, InterruptedException {
-    StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(file, module, thread.getSemantics(), /*isBuildFile=*/ false);
+    StarlarkFile file = StarlarkFile.parse(input, options);
+    ValidationEnvironment.validateFile(file, module);
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }

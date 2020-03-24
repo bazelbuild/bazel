@@ -51,6 +51,8 @@ final class Lexer {
   private final char[] buffer;
   private int pos;
 
+  private final FileOptions options;
+
   private final LineNumberTable lnt; // maps offsets to Locations
 
   // The stack of enclosing indentation levels; always contains '0' at the
@@ -81,17 +83,10 @@ final class Lexer {
 
   private int dents; // number of saved INDENT (>0) or OUTDENT (<0) tokens to return
 
-  /**
-   * StringEscapeEvents contains the errors related to invalid escape sequences like "\a". This is
-   * not handled by the normal eventHandler. Instead, it is passed to the parser and then the AST.
-   * During the evaluation, we can decide to show the events based on a flag in StarlarkSemantics.
-   * This code is temporary, during the migration.
-   */
-  private final List<Event> stringEscapeEvents = new ArrayList<>();
-
   /** Constructs a lexer which tokenizes the parser input. Errors are appended to {@code errors}. */
-  Lexer(ParserInput input, List<Event> errors) {
+  Lexer(ParserInput input, FileOptions options, List<Event> errors) {
     this.lnt = LineNumberTable.create(input.getContent(), input.getFile());
+    this.options = options;
     this.buffer = input.getContent();
     this.pos = 0;
     this.errors = errors;
@@ -105,10 +100,6 @@ final class Lexer {
 
   List<Comment> getComments() {
     return comments;
-  }
-
-  List<Event> getStringEscapeEvents() {
-    return stringEscapeEvents;
   }
 
   /** Returns the apparent name of the lexer's input file. */
@@ -424,14 +415,15 @@ final class Lexer {
               break;
             default:
               // unknown char escape => "\literal"
-              stringEscapeEvents.add(
-                  Event.error(
-                      createLocation(pos - 1, pos),
-                      "invalid escape sequence: \\"
-                          + c
-                          + ". You can enable unknown escape sequences by passing the flag "
-                          + "--incompatible_restrict_string_escapes=false"));
-
+              if (options.restrictStringEscapes()) {
+                errors.add(
+                    Event.error(
+                        createLocation(pos - 1, pos),
+                        "invalid escape sequence: \\"
+                            + c
+                            + ". You can enable unknown escape sequences by passing the flag "
+                            + "--incompatible_restrict_string_escapes=false"));
+              }
               literal.append('\\');
               literal.append(c);
               break;

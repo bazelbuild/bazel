@@ -53,21 +53,18 @@ final class Parser {
     // Errors encountered during scanning or parsing.
     // These lists are ultimately owned by StarlarkFile.
     final List<Event> errors;
-    final List<Event> stringEscapeEvents;
 
     ParseResult(
         List<Statement> statements,
         List<Comment> comments,
         Lexer.LexerLocation location,
-        List<Event> errors,
-        List<Event> stringEscapeEvents) {
+        List<Event> errors) {
       // No need to copy here; when the object is created, the parser instance is just about to go
       // out of scope and be garbage collected.
       this.statements = Preconditions.checkNotNull(statements);
       this.comments = Preconditions.checkNotNull(comments);
       this.location = location;
       this.errors = errors;
-      this.stringEscapeEvents = stringEscapeEvents;
     }
   }
 
@@ -181,9 +178,9 @@ final class Parser {
   }
 
   // Main entry point for parsing a file.
-  static ParseResult parseFile(ParserInput input) {
+  static ParseResult parseFile(ParserInput input, FileOptions options) {
     List<Event> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, errors);
+    Lexer lexer = new Lexer(input, options, errors);
     Parser parser = new Parser(lexer, errors);
     List<Statement> statements;
     try (SilentCloseable c =
@@ -191,11 +188,7 @@ final class Parser {
       statements = parser.parseFileInput();
     }
     return new ParseResult(
-        statements,
-        lexer.getComments(),
-        locationFromStatements(lexer, statements),
-        errors,
-        lexer.getStringEscapeEvents());
+        statements, lexer.getComments(), locationFromStatements(lexer, statements), errors);
   }
 
   // stmt ::= simple_stmt
@@ -215,9 +208,9 @@ final class Parser {
   }
 
   /** Parses an expression, possibly followed by newline tokens. */
-  static Expression parseExpression(ParserInput input) throws SyntaxError {
+  static Expression parseExpression(ParserInput input, FileOptions options) throws SyntaxError {
     List<Event> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, errors);
+    Lexer lexer = new Lexer(input, options, errors);
     Parser parser = new Parser(lexer, errors);
     Expression result = parser.parseExpression();
     while (parser.token.kind == TokenKind.NEWLINE) {

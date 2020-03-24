@@ -18,9 +18,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsE
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions; // TODO(adonovan): break!
-import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,18 +26,13 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ValidationTest {
 
-  private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+  private final FileOptions.Builder options = FileOptions.builder();
 
-  private void setSemantics(String... options) throws OptionsParsingException {
-    this.semantics =
-        Options.parse(StarlarkSemanticsOptions.class, options).getOptions().toSkylarkSemantics();
-  }
-
-  // Validates a file using the current semantics.
+  // Validates a file using the current options.
   private StarlarkFile validateFile(String... lines) throws SyntaxError {
     ParserInput input = ParserInput.fromLines(lines);
     Module module = Module.createForBuiltins(Starlark.UNIVERSE);
-    return EvalUtils.parseAndValidate(input, module, semantics);
+    return EvalUtils.parseAndValidate(input, options.build(), module);
   }
 
   // Assertions that parsing and validation succeeds.
@@ -90,9 +82,18 @@ public class ValidationTest {
 
   @Test
   public void testLoadAfterStatement() throws Exception {
+    options.requireLoadStatementsFirst(true);
     assertInvalid(
         "load() statements must be called before any other statement", //
         "a = 5",
+        "load(':b.bzl', 'c')");
+  }
+
+  @Test
+  public void testAllowLoadAfterStatement() throws Exception {
+    options.requireLoadStatementsFirst(false);
+    assertValid(
+        "a = 5", //
         "load(':b.bzl', 'c')");
   }
 

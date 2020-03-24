@@ -51,9 +51,14 @@ public abstract class Expression extends Node {
    */
   public abstract Kind kind();
 
-  /** Parses an expression. */
+  /** Parses an expression with the default options. */
   public static Expression parse(ParserInput input) throws SyntaxError {
-    return Parser.parseExpression(input);
+    return parse(input, FileOptions.DEFAULT);
+  }
+
+  /** Parses an expression. */
+  public static Expression parse(ParserInput input, FileOptions options) throws SyntaxError {
+    return Parser.parseExpression(input, options);
   }
 
 }

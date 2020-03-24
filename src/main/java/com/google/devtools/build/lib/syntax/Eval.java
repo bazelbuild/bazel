@@ -168,14 +168,6 @@ final class Eval {
 
   private static void execLoad(StarlarkThread.Frame fr, LoadStatement node) throws EvalException {
     for (LoadStatement.Binding binding : node.getBindings()) {
-      Identifier orig = binding.getOriginalName();
-
-      // TODO(adonovan): make this a static check.
-      if (orig.isPrivate() && !node.mayLoadInternalSymbols()) {
-        throw new EvalException(
-            orig.getStartLocation(),
-            "symbol '" + orig.getName() + "' is private and cannot be imported.");
-      }
 
       // Load module.
       String moduleName = node.getImport().getValue();
@@ -190,6 +182,7 @@ final class Eval {
       }
 
       // Extract symbol.
+      Identifier orig = binding.getOriginalName();
       Object value = module.getBindings().get(orig.getName());
       if (value == null) {
         throw new EvalException(

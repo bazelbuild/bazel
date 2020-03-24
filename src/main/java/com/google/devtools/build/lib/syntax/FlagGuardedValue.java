@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
-
 /**
  * Wrapper on a value that controls its accessibility in Starlark based on the value of a
  * semantic flag.
@@ -62,15 +60,9 @@ public class FlagGuardedValue {
 
   /**
    * Returns an error describing an attempt to access this guard's protected object when it should
-   * be inaccessible in the given semantics.
-   *
-   * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is true given the
-   *     semantics
+   * be inaccessible in the (contextually implied) semantics.
    */
-  String getErrorFromAttemptingAccess(StarlarkSemantics semantics, String name) {
-    Preconditions.checkArgument(!isObjectAccessibleUsingSemantics(semantics),
-        "getEvalExceptionFromAttemptingAccess should only be called if the underlying "
-            + "object is inaccessible given the semantics");
+  String getErrorFromAttemptingAccess(String name) {
     return flagType == FlagType.EXPERIMENTAL
         ? name
             + " is experimental and thus unavailable with the current flags. It may be enabled by"
@@ -85,20 +77,14 @@ public class FlagGuardedValue {
 
   /**
    * Returns this guard's underlying object. This should be called when appropriate validation has
-   * occurred to ensure that the object is accessible with the given semantics.
-   *
-   * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is false given
-   *     the semantics
+   * occurred to ensure that the object is accessible with the (implied) semantics.
    */
-  public Object getObject(StarlarkSemantics semantics) {
-    Preconditions.checkArgument(isObjectAccessibleUsingSemantics(semantics),
-        "getObject should only be called if the underlying object is accessible given the "
-            + "semantics");
+  public Object getObject() {
     return obj;
   }
 
   /** Returns true if this guard's underlying object is accessible under the given semantics. */
-  public boolean isObjectAccessibleUsingSemantics(StarlarkSemantics semantics) {
+  boolean isObjectAccessibleUsingSemantics(StarlarkSemantics semantics) {
     if (flagType == FlagType.EXPERIMENTAL) {
       return semantics.isFeatureEnabledBasedOnTogglingFlags(flag, "");
     } else {

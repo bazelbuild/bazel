@@ -42,7 +42,7 @@ public class LexerTest {
     ParserInput inputSource = ParserInput.create(input, "/some/path.txt");
     errors.clear();
     lastError = null;
-    return new Lexer(inputSource, errors);
+    return new Lexer(inputSource, FileOptions.DEFAULT, errors);
   }
 
   private ArrayList<Token> allTokens(Lexer lexer) {
