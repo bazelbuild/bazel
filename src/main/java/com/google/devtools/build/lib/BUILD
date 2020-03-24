@@ -1202,6 +1202,10 @@ java_library(
         "server/RPCServer.java",
         "server/signal/InterruptSignalHandler.java",
     ],
+    resources = glob([
+        "runtime/commands/*.txt",
+        "runtime/mobileinstall/*.txt",
+    ]),
     deps = [
         ":abrupt_exit_exception",
         ":bug-report",
@@ -1305,10 +1309,7 @@ merge_licenses(
 
 java_library(
     name = "bazel",
-    resources = glob([
-        "runtime/commands/*.txt",
-        "runtime/mobileinstall/*.txt",
-    ]) + [
+    resources = [
         ":runtime/commands/LICENSE",
     ],
     exports = [":runtime"],
