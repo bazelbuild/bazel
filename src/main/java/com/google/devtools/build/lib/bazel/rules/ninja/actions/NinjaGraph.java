@@ -146,7 +146,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
           new NinjaGraphProvider(
               outputRoot,
               workingDirectory,
-              targetsPreparer.getUsualTargets(),
+              targetsPreparer.getTargetsMap(),
               targetsPreparer.getPhonyTargetsMap(),
               outputRootSymlinksPathFragments,
               outputRootInputsSymlinksPathFragments);
@@ -205,11 +205,11 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
   }
 
   private static class TargetsPreparer {
-    private ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets;
+    private ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap;
     private ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargetsMap;
 
-    public ImmutableSortedMap<PathFragment, NinjaTarget> getUsualTargets() {
-      return usualTargets;
+    public ImmutableSortedMap<PathFragment, NinjaTarget> getTargetsMap() {
+      return targetsMap;
     }
 
     public ImmutableSortedMap<PathFragment, PhonyTarget> getPhonyTargetsMap() {
@@ -217,18 +217,18 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
     }
 
     void process(List<NinjaTarget> ninjaTargets) throws GenericParsingException {
-      ImmutableSortedMap.Builder<PathFragment, NinjaTarget> usualTargetsBuilder =
+      ImmutableSortedMap.Builder<PathFragment, NinjaTarget> targetsMapBuilder =
           ImmutableSortedMap.naturalOrder();
       ImmutableSortedMap.Builder<PathFragment, NinjaTarget> phonyTargetsBuilder =
           ImmutableSortedMap.naturalOrder();
-      separatePhonyTargets(ninjaTargets, usualTargetsBuilder, phonyTargetsBuilder);
-      usualTargets = usualTargetsBuilder.build();
+      separatePhonyTargets(ninjaTargets, targetsMapBuilder, phonyTargetsBuilder);
+      targetsMap = targetsMapBuilder.build();
       phonyTargetsMap = NinjaPhonyTargetsUtil.getPhonyPathsMap(phonyTargetsBuilder.build());
     }
 
     private static void separatePhonyTargets(
         List<NinjaTarget> ninjaTargets,
-        ImmutableSortedMap.Builder<PathFragment, NinjaTarget> usualTargetsBuilder,
+        ImmutableSortedMap.Builder<PathFragment, NinjaTarget> targetsBuilder,
         ImmutableSortedMap.Builder<PathFragment, NinjaTarget> phonyTargetsBuilder)
         throws GenericParsingException {
       for (NinjaTarget target : ninjaTargets) {
@@ -246,7 +246,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
           phonyTargetsBuilder.put(Iterables.getOnlyElement(target.getAllOutputs()), target);
         } else {
           for (PathFragment output : target.getAllOutputs()) {
-            usualTargetsBuilder.put(output, target);
+             targetsBuilder.put(output, target);
           }
         }
       }

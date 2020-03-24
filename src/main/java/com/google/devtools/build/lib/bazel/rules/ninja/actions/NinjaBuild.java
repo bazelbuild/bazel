@@ -92,7 +92,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
       new NinjaActionsHelper(
               ruleContext,
               artifactsHelper,
-              graphProvider.getUsualTargets(),
+              graphProvider.getTargetsMap(),
               graphProvider.getPhonyTargetsMap(),
               phonyTargetArtifacts,
               pathsToBuild,
