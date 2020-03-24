@@ -18,6 +18,7 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -138,6 +139,7 @@ public final class RemoteModule extends BlazeModule {
     try {
       capabilities = rsc.get(env.getCommandId().toString(), env.getBuildRequestId());
     } catch (IOException e) {
+      env.getReporter().handle(Event.error(Throwables.getStackTraceAsString(e)));
       throw new AbruptExitException(
           "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
           ExitCode.REMOTE_ERROR,
