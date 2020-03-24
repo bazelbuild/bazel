@@ -770,6 +770,15 @@ public final class SkyframeBuildView {
         do {
           path.add(currentKey);
           foundDep = false;
+
+          Map<SkyKey, Exception> missingMap =
+              walkableGraph.getMissingAndExceptions(ImmutableList.of(currentKey));
+          if (missingMap.containsKey(currentKey) && missingMap.get(currentKey) == null) {
+            // This can happen in a no-keep-going build, where we don't write the bubbled-up error
+            // nodes to the graph.
+            break;
+          }
+
           for (SkyKey dep : walkableGraph.getDirectDeps(currentKey)) {
             if (cause.equals(walkableGraph.getException(dep))) {
               currentKey = dep;
