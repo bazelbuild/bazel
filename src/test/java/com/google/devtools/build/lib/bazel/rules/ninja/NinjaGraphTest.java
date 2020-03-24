@@ -94,9 +94,9 @@ public class NinjaGraphTest extends BuildViewTestCase {
     assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
     assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
     assertThat(provider.getPhonyTargetsMap()).isEmpty();
-    assertThat(provider.getUsualTargets()).hasSize(1);
+    assertThat(provider.getTargetsMap()).hasSize(1);
 
-    NinjaTarget target = Iterables.getOnlyElement(provider.getUsualTargets().values());
+    NinjaTarget target = Iterables.getOnlyElement(provider.getTargetsMap().values());
     assertThat(target.getRuleName()).isEqualTo("echo");
     assertThat(target.getAllInputs())
         .containsExactly(PathFragment.create("build_config/input.txt"));
@@ -146,9 +146,9 @@ public class NinjaGraphTest extends BuildViewTestCase {
     assertThat(provider).isNotNull();
     assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
     assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.create("build_config"));
-    assertThat(provider.getUsualTargets()).hasSize(1);
+    assertThat(provider.getTargetsMap()).hasSize(1);
 
-    NinjaTarget target = Iterables.getOnlyElement(provider.getUsualTargets().values());
+    NinjaTarget target = Iterables.getOnlyElement(provider.getTargetsMap().values());
     assertThat(target.getRuleName()).isEqualTo("echo");
     assertThat(target.getAllInputs()).containsExactly(PathFragment.create("input.txt"));
     assertThat(target.getAllOutputs()).containsExactly(PathFragment.create("hello.txt"));
