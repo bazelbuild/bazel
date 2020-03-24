@@ -311,8 +311,7 @@ message Rule {
   // The rule's class's public by default value.
   optional bool public_by_default = 9;
 
-  // If this rule is of a skylark-defined RuleClass.
-  optional bool is_skylark = 10;
+  optional bool DEPRECATED_is_skylark = 10;
 
   // Hash encapsulating the behavior of this Skylark rule. Any change to this
   // rule's definition that could change its behavior will be reflected here.
