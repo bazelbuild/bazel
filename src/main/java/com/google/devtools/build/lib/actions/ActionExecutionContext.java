@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -70,6 +71,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable private ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
   private final ArtifactPathResolver pathResolver;
+  private final NestedSetExpander nestedSetExpander;
 
   private ActionExecutionContext(
       Executor executor,
@@ -85,7 +87,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable ArtifactExpander artifactExpander,
       @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult) {
+      @Nullable Object skyframeDepsResult,
+      NestedSetExpander nestedSetExpander) {
     this.actionInputFileCache = actionInputFileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -103,6 +106,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
+    this.nestedSetExpander = nestedSetExpander;
   }
 
   public ActionExecutionContext(
@@ -118,7 +122,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult) {
+      @Nullable Object skyframeDepsResult,
+      NestedSetExpander nestedSetExpander) {
     this(
         executor,
         actionInputFileCache,
@@ -133,7 +138,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         artifactExpander,
         /*env=*/ null,
         actionFileSystem,
-        skyframeDepsResult);
+        skyframeDepsResult,
+        nestedSetExpander);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -147,7 +153,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       Environment env,
-      @Nullable FileSystem actionFileSystem) {
+      @Nullable FileSystem actionFileSystem,
+      NestedSetExpander nestedSetExpander) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,
@@ -162,7 +169,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         /*artifactExpander=*/ null,
         env,
         actionFileSystem,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        nestedSetExpander);
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -325,6 +333,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return actionKeyContext;
   }
 
+  public NestedSetExpander getNestedSetExpander() {
+    return nestedSetExpander;
+  }
+
   @Override
   public void close() throws IOException {
     fileOutErr.close();
@@ -352,7 +364,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         artifactExpander,
         env,
         actionFileSystem,
-        skyframeDepsResult);
+        skyframeDepsResult,
+        nestedSetExpander);
   }
 
   /**

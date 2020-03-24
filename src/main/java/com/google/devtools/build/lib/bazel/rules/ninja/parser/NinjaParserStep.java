@@ -90,8 +90,7 @@ public class NinjaParserStep {
         // Add text together with the spaces between current and previous token.
         int start = previous >= 0 ? previous : lexer.getLastStart();
         String rawText = asString(lexer.getFragment().getBytes(start, lexer.getLastEnd()));
-        String text = NinjaToken.ESCAPED_TEXT.equals(token) ? unescapeText(rawText) : rawText;
-        varBuilder.addText(text);
+        varBuilder.addText(unescapeText(rawText));
       } else {
         lexer.undo();
         break;
@@ -130,8 +129,7 @@ public class NinjaParserStep {
         varBuilder.addVariable(normalizeVariableName(asString(lexer.getTokenBytes())));
       } else if (NinjaToken.TEXT.equals(token) || NinjaToken.ESCAPED_TEXT.equals(token)) {
         String rawText = asString(lexer.getTokenBytes());
-        String text = NinjaToken.ESCAPED_TEXT.equals(token) ? unescapeText(rawText) : rawText;
-        varBuilder.addText(text);
+        varBuilder.addText(unescapeText(rawText));
       } else {
         lexer.undo();
         break;
@@ -296,7 +294,7 @@ public class NinjaParserStep {
    * Parses Ninja target using {@link NinjaScope} of the file, where it is defined, to expand
    * variables.
    */
-  public NinjaTarget parseNinjaTarget(NinjaScope fileScope, int offset)
+  public NinjaTarget parseNinjaTarget(NinjaScope fileScope, long offset)
       throws GenericParsingException {
     NinjaTarget.Builder builder = NinjaTarget.builder(fileScope, offset);
     parseExpected(NinjaToken.BUILD);
@@ -314,8 +312,7 @@ public class NinjaParserStep {
               .map(
                   value ->
                       PATH_FRAGMENT_INTERNER.intern(
-                          PathFragment.create(
-                              targetScope.getExpandedValue(Integer.MAX_VALUE, value))))
+                          PathFragment.create(targetScope.getExpandedValue(Long.MAX_VALUE, value))))
               .collect(Collectors.toList());
       InputOutputKind inputOutputKind = entry.getKey();
       if (inputOutputKind instanceof InputKind) {
@@ -344,9 +341,9 @@ public class NinjaParserStep {
    * @return Ninja scope for expanding input and output paths of that statement
    */
   private NinjaScope parseTargetVariables(
-      int offset, NinjaScope fileScope, NinjaTarget.Builder builder)
+      long offset, NinjaScope fileScope, NinjaTarget.Builder builder)
       throws GenericParsingException {
-    Map<String, List<Pair<Integer, String>>> expandedVariables = Maps.newHashMap();
+    Map<String, List<Pair<Long, String>>> expandedVariables = Maps.newHashMap();
     lexer.interpretPoolAsVariable();
     while (parseIndentOrFinishDeclaration()) {
       Pair<String, NinjaVariableValue> pair = parseVariable();
@@ -355,7 +352,7 @@ public class NinjaParserStep {
       String expandedValue = fileScope.getExpandedValue(offset, value);
       expandedVariables
           .computeIfAbsent(name, k -> Lists.newArrayList())
-          .add(Pair.of(0, expandedValue));
+          .add(Pair.of(0L, expandedValue));
       builder.addVariable(name, expandedValue);
 
       if (lexer.hasNextToken()) {

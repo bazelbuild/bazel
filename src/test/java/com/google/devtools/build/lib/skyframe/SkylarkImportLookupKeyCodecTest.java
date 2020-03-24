@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,7 +28,8 @@ public final class SkylarkImportLookupKeyCodecTest {
 
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester(
+    SerializationTester serializationTester =
+        new SerializationTester(
             SkylarkImportLookupKey.create(
                 Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()), false, -1, null),
             SkylarkImportLookupKey.create(
@@ -40,8 +40,8 @@ public final class SkylarkImportLookupKeyCodecTest {
                 Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()),
                 true,
                 4,
-                FsUtils.TEST_ROOT))
-        .addDependency(FileSystem.class, FsUtils.TEST_FILESYSTEM)
-        .runTests();
+                FsUtils.TEST_ROOTED_PATH));
+    FsUtils.addDependencies(serializationTester);
+    serializationTester.runTests();
   }
 }

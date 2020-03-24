@@ -100,13 +100,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -130,12 +129,7 @@ public class GrpcCacheClientTest {
   private Server fakeServer;
   private Context withEmptyMetadata;
   private Context prevContext;
-  private static ListeningScheduledExecutorService retryService;
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
+  private ListeningScheduledExecutorService retryService;
 
   @Before
   public final void setUp() throws Exception {
@@ -160,19 +154,21 @@ public class GrpcCacheClientTest {
     withEmptyMetadata =
         TracingMetadataUtils.contextWithMetadata(
             "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
     prevContext = withEmptyMetadata.attach();
   }
 
   @After
   public void tearDown() throws Exception {
     withEmptyMetadata.detach(prevContext);
+
+    retryService.shutdownNow();
+    retryService.awaitTermination(
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
-  }
-
-  @AfterClass
-  public static void afterEverything() {
-    retryService.shutdownNow();
   }
 
   private static class CallCredentialsInterceptor implements ClientInterceptor {
@@ -218,6 +214,7 @@ public class GrpcCacheClientTest {
     try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
       creds = GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
     }
+
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             backoffSupplier, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
@@ -758,7 +755,8 @@ public class GrpcCacheClientTest {
 
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
-    remoteCache.downloadActionResult(DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")));
+    remoteCache.downloadActionResult(
+        DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")), /* inlineOutErr= */ false);
   }
 
   @Test
@@ -1049,7 +1047,8 @@ public class GrpcCacheClientTest {
                 (numErrors-- <= 0 ? Status.NOT_FOUND : Status.UNAVAILABLE).asRuntimeException());
           }
         });
-    assertThat(getFromFuture(client.downloadActionResult(actionKey))).isNull();
+    assertThat(getFromFuture(client.downloadActionResult(actionKey, /* inlineOutErr= */ false)))
+        .isNull();
   }
 
   @Test

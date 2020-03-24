@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinatio
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -97,7 +98,8 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             /*topLevelFilesets=*/ ImmutableMap.of(),
             /*artifactExpander=*/ null,
             /*actionFileSystem=*/ null,
-            /*skyframeDepsResult=*/ null);
+            /*skyframeDepsResult=*/ null,
+            NestedSetExpander.DEFAULT);
   }
 
   @Test

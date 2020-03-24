@@ -1003,4 +1003,41 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     getConfiguredTarget("//a");
   }
+
+  @Test
+  public void testNoExperimentalProtoDescriptorSetsIncludeSourceInfo() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(",
+        "    name = 'a_proto',",
+        "    srcs = ['a.proto'],",
+        ")");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a_proto"));
+    assertThat(commandLine).doesNotContain("--include_source_info");
+  }
+
+  @Test
+  public void testExperimentalProtoDescriptorSetsIncludeSourceInfo() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    useConfiguration("--experimental_proto_descriptor_sets_include_source_info");
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(",
+        "    name = 'a_proto',",
+        "    srcs = ['a.proto'],",
+        ")");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a_proto"));
+    assertThat(commandLine).contains("--include_source_info");
+  }
 }

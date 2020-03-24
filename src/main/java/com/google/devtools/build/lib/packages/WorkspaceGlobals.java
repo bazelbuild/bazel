@@ -72,40 +72,42 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       Dict<?, ?> managedDirectories, // <String, Object>
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    if (allowOverride) {
-      if (!isLegalWorkspaceName(name)) {
-        throw Starlark.errorf("%s is not a legal workspace name", name);
-      }
-      String errorMessage = LabelValidator.validateTargetName(name);
-      if (errorMessage != null) {
-        throw Starlark.errorf("%s", errorMessage);
-      }
-      PackageFactory.getContext(thread).pkgBuilder.setWorkspaceName(name);
-      Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
-      RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
-      RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
-      Map<String, Object> kwargs = ImmutableMap.<String, Object>of("name", name, "path", ".");
-      try {
-        // This effectively adds a "local_repository(name = "<ws>", path = ".")"
-        // definition to the WORKSPACE file.
-        WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            builder, localRepositoryRuleClass, bindRuleClass, kwargs, thread.getCallerLocation());
-      } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
-        throw Starlark.errorf("%s", e.getMessage());
-      }
-      // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
-      // treats references to @name as a separate external repo
-      builder.addRepositoryMappingEntry(
-          RepositoryName.MAIN,
-          RepositoryName.createFromValidStrippedName(name),
-          RepositoryName.MAIN);
-      parseManagedDirectories(
-          managedDirectories.getContents(String.class, Object.class, "managed_directories"));
-      return NONE;
-    } else {
+    if (!allowOverride) {
       throw Starlark.errorf(
           "workspace() function should be used only at the top of the WORKSPACE file");
     }
+    if (!isLegalWorkspaceName(name)) {
+      throw Starlark.errorf("%s is not a legal workspace name", name);
+    }
+    String errorMessage = LabelValidator.validateTargetName(name);
+    if (errorMessage != null) {
+      throw Starlark.errorf("%s", errorMessage);
+    }
+    PackageFactory.getContext(thread).pkgBuilder.setWorkspaceName(name);
+    Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
+    RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
+    RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
+    Map<String, Object> kwargs = ImmutableMap.<String, Object>of("name", name, "path", ".");
+    try {
+      // This effectively adds a "local_repository(name = "<ws>", path = ".")"
+      // definition to the WORKSPACE file.
+      WorkspaceFactoryHelper.createAndAddRepositoryRule(
+          builder,
+          localRepositoryRuleClass,
+          bindRuleClass,
+          kwargs,
+          thread.getSemantics(),
+          thread.getCallStack());
+    } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
+      throw Starlark.errorf("%s", e.getMessage());
+    }
+    // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
+    // treats references to @name as a separate external repo
+    builder.addRepositoryMappingEntry(
+        RepositoryName.MAIN, RepositoryName.createFromValidStrippedName(name), RepositoryName.MAIN);
+    parseManagedDirectories(
+        managedDirectories.getContents(String.class, Object.class, "managed_directories"));
+    return NONE;
   }
 
   @Override
@@ -281,11 +283,10 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
           ruleClass,
           nameLabel,
           actual == NONE ? null : Label.parseAbsolute((String) actual, ImmutableMap.of()),
-          thread.getCallerLocation(),
+          thread.getSemantics(),
+          thread.getCallStack(),
           new AttributeContainer(ruleClass));
-    } catch (RuleFactory.InvalidRuleException
-        | Package.NameConflictException
-        | LabelSyntaxException e) {
+    } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
 

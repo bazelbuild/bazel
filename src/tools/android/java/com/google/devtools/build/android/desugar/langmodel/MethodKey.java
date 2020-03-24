@@ -17,6 +17,7 @@
 package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +59,23 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
     return ImmutableList.copyOf(getArgumentTypeArray());
   }
 
+  /** The formal parameter type names of a method. */
+  public ImmutableList<ClassName> getArgumentTypeNames() {
+    return getArgumentTypes().stream().map(ClassName::create).collect(toImmutableList());
+  }
+
+  public MethodKey toArgumentTypeAdapter(boolean fromStaticOrigin) {
+    ClassName typeAdapterOwner = owner().typeAdapterOwner();
+    checkState(
+        !isConstructor(), "Argument type adapter for constructor is not supported: %s. ", this);
+
+    return MethodKey.create(
+            typeAdapterOwner,
+            name(),
+            fromStaticOrigin ? descriptor() : instanceMethodToStaticDescriptor())
+        .acceptTypeMapper(ClassName.DELIVERY_TYPE_MAPPER);
+  }
+
   /** The synthetic constructor for a private constructor. */
   public final MethodKey bridgeOfConstructor(ClassName nestCompanion) {
     checkState(isConstructor(), "Expect to use for a constructor but is %s", this);
@@ -79,7 +97,7 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
 
   /** The synthetic bridge method for a private instance method in a class. */
   public final MethodKey bridgeOfClassInstanceMethod() {
-    return create(owner(), nameWithSuffix("bridge"), instanceMethodToStaticDescriptor(this));
+    return create(owner(), nameWithSuffix("bridge"), this.instanceMethodToStaticDescriptor());
   }
 
   /** The substitute method for a private static method in an interface. */
@@ -90,20 +108,16 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
 
   /** The substitute method for a private instance method in an interface. */
   public final MethodKey substituteOfInterfaceInstanceMethod() {
-    return create(owner(), name(), instanceMethodToStaticDescriptor(this));
+    return create(owner(), name(), this.instanceMethodToStaticDescriptor());
   }
 
   /** The descriptor of the static version of a given instance method. */
-  private static String instanceMethodToStaticDescriptor(MethodKey methodKey) {
-    checkState(!methodKey.isConstructor(), "Expect a Non-constructor method: %s", methodKey);
-    ImmutableList<Type> argumentTypes = methodKey.getArgumentTypes();
+  private String instanceMethodToStaticDescriptor() {
+    checkState(!isConstructor(), "Expect a Non-constructor method: %s", this);
+    ImmutableList<Type> argumentTypes = getArgumentTypes();
     ImmutableList<Type> bridgeMethodArgTypes =
-        ImmutableList.<Type>builder()
-            .add(methodKey.ownerAsmObjectType())
-            .addAll(argumentTypes)
-            .build();
-    return Type.getMethodDescriptor(
-        methodKey.getReturnType(), bridgeMethodArgTypes.toArray(new Type[0]));
+        ImmutableList.<Type>builder().add(ownerAsmObjectType()).addAll(argumentTypes).build();
+    return Type.getMethodDescriptor(getReturnType(), bridgeMethodArgTypes.toArray(new Type[0]));
   }
 
   @Override

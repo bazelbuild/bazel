@@ -365,25 +365,17 @@ public final class PackageFactory {
       }
       BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
-        addRule(getContext(thread), kwargs, thread);
+        RuleFactory.createAndAddRule(
+            getContext(thread),
+            ruleClass,
+            new BuildLangTypedAttributeValuesMap(kwargs),
+            thread.getSemantics(),
+            thread.getCallStack(),
+            new AttributeContainer(ruleClass));
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(null, e.getMessage());
       }
       return Starlark.NONE;
-    }
-
-    private void addRule(PackageContext context, Map<String, Object> kwargs, StarlarkThread thread)
-        throws RuleFactory.InvalidRuleException, Package.NameConflictException,
-            InterruptedException {
-      BuildLangTypedAttributeValuesMap attributeValues =
-          new BuildLangTypedAttributeValuesMap(kwargs);
-      RuleFactory.createAndAddRule(
-          context,
-          ruleClass,
-          attributeValues,
-          thread.getCallerLocation(),
-          thread,
-          new AttributeContainer(ruleClass));
     }
 
     @Override
@@ -664,8 +656,20 @@ public final class PackageFactory {
       long loadTimeNanos,
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
-    packageBuilderHelper.onLoadingComplete(pkg, starlarkSemantics, loadTimeNanos);
     packageValidator.validate(pkg, eventHandler);
+
+    // Enforce limit on number of compute steps in BUILD file (b/151622307).
+    long maxSteps = starlarkSemantics.maxComputationSteps();
+    long steps = pkg.getComputationSteps();
+    if (maxSteps > 0 && steps > maxSteps) {
+      throw new InvalidPackageException(
+          pkg.getPackageIdentifier(),
+          String.format(
+              "BUILD file computation took %d steps, but --max_computation_steps=%d",
+              steps, maxSteps));
+    }
+
+    packageBuilderHelper.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
   }
 
   /**
@@ -829,6 +833,8 @@ public final class PackageFactory {
         pkgContext.eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
         return false;
       }
+
+      pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
 
     return true; // success

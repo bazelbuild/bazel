@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -80,6 +81,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +91,12 @@ import javax.annotation.Nullable;
 /** Skylark API for the repository_rule's context. */
 public class SkylarkRepositoryContext
     implements SkylarkRepositoryContextApi<RepositoryFunctionException> {
+  private static final ImmutableList<String> WHITELISTED_REPOS_FOR_FLAG_ENABLED =
+      ImmutableList.of("@rules_cc", "@bazel_tools");
+  private static final ImmutableList<String> WHITELISTED_PATHS_FOR_FLAG_ENABLED =
+      ImmutableList.of(
+          "rules_cc/cc/private/toolchain/unix_cc_configure.bzl",
+          "bazel_tools/tools/cpp/unix_cc_configure.bzl");
 
   private final Rule rule;
   private final PathPackageLocator packageLocator;
@@ -838,6 +846,21 @@ public class SkylarkRepositoryContext
     return downloadResult;
   }
 
+  @Override
+  public boolean flagEnabled(String flag, StarlarkThread starlarkThread) throws EvalException {
+    try {
+      if (WHITELISTED_PATHS_FOR_FLAG_ENABLED.stream()
+          .noneMatch(x -> !starlarkThread.getCallerLocation().toString().endsWith(x))) {
+        throw Starlark.errorf(
+            "flag_enabled() is restricted to: '%s'.",
+            Joiner.on(", ").join(WHITELISTED_REPOS_FOR_FLAG_ENABLED));
+      }
+      return starlarkSemantics.flagValue(flag);
+    } catch (IllegalArgumentException e) {
+      throw Starlark.errorf("Can't query value of '%s'.\n%s", flag, e.getMessage());
+    }
+  }
+
   private Checksum calculateChecksum(Optional<Checksum> originalChecksum, Path path)
       throws IOException, InterruptedException {
     if (originalChecksum.isPresent()) {
@@ -1080,6 +1103,37 @@ public class SkylarkRepositoryContext
                     "Basic "
                         + Base64.getEncoder()
                             .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
+          } else if ("pattern".equals(authMap.get("type"))) {
+            if (!authMap.containsKey("pattern")) {
+              throw new EvalException(
+                  null,
+                  "Found request to do pattern auth for "
+                      + entry.getKey()
+                      + " without a pattern being provided");
+            }
+
+            String result = (String) authMap.get("pattern");
+
+            for (String component : Arrays.asList("password", "login")) {
+              String demarcatedComponent = "<" + component + ">";
+
+              if (result.contains(demarcatedComponent)) {
+                if (!authMap.containsKey(component)) {
+                  throw new EvalException(
+                      null,
+                      "Auth pattern contains "
+                          + demarcatedComponent
+                          + " but it was not provided in auth dict.");
+                }
+              } else {
+                // component isn't in the pattern, ignore it
+                continue;
+              }
+
+              result = result.replaceAll(demarcatedComponent, (String) authMap.get(component));
+            }
+
+            headers.put(url.toURI(), ImmutableMap.<String, String>of("Authorization", result));
           }
         }
       } catch (MalformedURLException e) {

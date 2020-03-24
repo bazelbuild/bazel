@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Target;
@@ -24,17 +25,27 @@ import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 abstract class AbstractUnorderedFormatter extends OutputFormatter implements StreamedFormatter {
 
   @Override
   public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {}
 
+  /** Optionally sets a handler for reporting status output / errors. */
+  @Override
+  public void setEventHandler(@Nullable EventHandler eventHandler) {}
+
   @Override
   public void output(
-      QueryOptions options, Digraph<Target> result, OutputStream out, AspectResolver aspectResolver)
+      QueryOptions options,
+      Digraph<Target> result,
+      OutputStream out,
+      AspectResolver aspectResolver,
+      @Nullable EventHandler eventHandler)
       throws IOException, InterruptedException {
     setOptions(options, aspectResolver);
+    setEventHandler(eventHandler);
     OutputFormatterCallback.processAllTargets(
         createPostFactoStreamCallback(out, options), getOrderedTargets(result, options));
   }

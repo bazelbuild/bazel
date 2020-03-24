@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Target;
@@ -63,7 +64,11 @@ class MinrankOutputFormatter extends OutputFormatter {
 
   @Override
   public void output(
-      QueryOptions options, Digraph<Target> result, OutputStream out, AspectResolver aspectResolver)
+      QueryOptions options,
+      Digraph<Target> result,
+      OutputStream out,
+      AspectResolver aspectResolver,
+      EventHandler eventHandler)
       throws IOException {
     PrintStream printStream = new PrintStream(out);
     // getRoots() isn't defined for cyclic graphs, so in order to handle

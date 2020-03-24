@@ -582,4 +582,16 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String integrity,
       StarlarkThread thread)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
+
+  @SkylarkCallable(
+      name = "flag_enabled",
+      doc =
+          "This method is present temporarily for a migration. It can be used only by a few "
+              + "whitelisted bzl files embedded in Bazel.",
+      useStarlarkThread = true,
+      documented = false,
+      parameters = {
+        @Param(name = "flag", type = String.class, doc = "Flag to get the value for."),
+      })
+  boolean flagEnabled(String flag, StarlarkThread starlarkThread) throws EvalException;
 }

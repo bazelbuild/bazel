@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
@@ -176,6 +176,42 @@ public class NinjaParserStepTest {
     assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
         // Variables are wrapped with {} by print function, $$ escape sequence is unescaped.
         .isEqualTo("executable --flag ${TARGET} ${out} && sed -e 's/#.*$//' -e '/^$/d'");
+  }
+
+  @Test
+  public void testNinjaRuleWithDollarSign() throws Exception {
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + "  command = something && $\n"
+                + "    something_else\n"
+                + "  description = Test $\n"
+                + "    rule");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    // Ensure that the dollar sign doesn't exist in the parsed command variable value.
+    // Deliberately omit them because it could cause problems in multiline shell commands.
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
+        .isEqualTo("something && \n    something_else");
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
+        .isEqualTo("Test \n    rule");
+  }
+
+  @Test
+  public void testNinjaRuleWithStickyDollarSign() throws Exception {
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + "  command = something &&$\n"
+                + "    something_else\n"
+                + "  description = Test$\n"
+                + "    rule");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    // Ensure that the dollar sign doesn't exist in the parsed command variable value.
+    // Deliberately omit them because it could cause problems in multiline shell commands.
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
+        .isEqualTo("something &&\n    something_else");
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
+        .isEqualTo("Test\n    rule");
   }
 
   @Test
@@ -348,6 +384,20 @@ public class NinjaParserStepTest {
   }
 
   @Test
+  public void testNinjaTargetsPathWithEscapedNewline() throws Exception {
+    NinjaTarget target =
+        parseNinjaTarget(
+            "build $\n" + "  output : $\n" + "  command input$\n" + "  with$\n" + "  newline");
+    assertThat(target.getRuleName()).isEqualTo("command");
+    assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
+    assertThat(target.getUsualInputs())
+        .containsExactly(
+            PathFragment.create("input"),
+            PathFragment.create("with"),
+            PathFragment.create("newline"));
+  }
+
+  @Test
   public void testNinjaTargetWithScope() throws Exception {
     NinjaTarget target = parseNinjaTarget("build output : command input\n  pool = abc\n");
     assertThat(target.getRuleName()).isEqualTo("command");
@@ -408,7 +458,7 @@ public class NinjaParserStepTest {
 
   private static NinjaParserStep createParser(String text) {
     ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
-    NinjaLexer lexer = new NinjaLexer(new ByteBufferFragment(buffer, 0, buffer.limit()));
+    NinjaLexer lexer = new NinjaLexer(new FileFragment(buffer, 0, 0, buffer.limit()));
     return new NinjaParserStep(lexer);
   }
 

@@ -379,16 +379,22 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         "-std=c++0x",
         False,
     ), ":")
+
+    bazel_linkopts = "-lstdc++:-lm"
+    bazel_linklibs = ""
+    if repository_ctx.flag_enabled("incompatible_linkopts_to_linklibs"):
+        bazel_linkopts, bazel_linklibs = bazel_linklibs, bazel_linkopts
+
     link_opts = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_LINKOPTS",
-        "-lstdc++:-lm",
+        bazel_linkopts,
         False,
     ), ":")
     link_libs = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_LINKLIBS",
-        "",
+        bazel_linklibs,
         False,
     ), ":")
     gold_linker_path = _find_gold_linker_path(repository_ctx, cc)

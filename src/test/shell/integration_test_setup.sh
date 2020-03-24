@@ -42,3 +42,14 @@ else
   # Load the test environment
   source "$DIR/testenv.sh" || print_message_and_exit "testenv.sh not found!"
 fi
+
+# inplace-sed: a version of sed -i that actually works on Linux and Darwin.
+# https://unix.stackexchange.com/questions/92895
+# https://stackoverflow.com/questions/5694228
+function inplace-sed() {
+  if [ $(uname) = "Darwin" ]; then
+    sed -i "" "$@"
+  else
+    sed -i "$@"
+  fi
+}

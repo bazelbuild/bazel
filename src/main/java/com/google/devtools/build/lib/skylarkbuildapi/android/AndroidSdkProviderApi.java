@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /**
@@ -242,6 +243,14 @@ public interface AndroidSdkProviderApi<
               positional = true,
               named = false,
               type = FilesToRunProviderApi.class),
+          @Param(
+              name = "system",
+              doc = "",
+              noneable = true,
+              defaultValue = "None",
+              positional = true,
+              named = false,
+              type = StarlarkValue.class),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidSdkProviderApi.class)
@@ -262,7 +271,8 @@ public interface AndroidSdkProviderApi<
         /*noneable*/ Object apkBuilder,
         FilesToRunProviderT apkSigner,
         FilesToRunProviderT proguard,
-        FilesToRunProviderT zipalign)
+        FilesToRunProviderT zipalign,
+        /*noneable*/ Object system)
         throws EvalException;
   }
 }

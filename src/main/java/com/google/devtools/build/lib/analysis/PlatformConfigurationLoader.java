@@ -39,7 +39,6 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
         ImmutableList.copyOf(platformOptions.extraExecutionPlatforms),
         platformOptions.computeTargetPlatform(),
         ImmutableList.copyOf(platformOptions.extraToolchains),
-        ImmutableList.copyOf(platformOptions.enabledToolchainTypes),
         platformOptions.targetFilterToAdditionalExecConstraints);
   }
 

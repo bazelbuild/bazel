@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
@@ -97,8 +98,10 @@ public class BazelRepositoryModule extends BlazeModule {
   private final SkylarkRepositoryFunction skylarkRepositoryFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final HttpDownloader httpDownloader = new HttpDownloader();
+  private final DelegatingDownloader delegatingDownloader =
+      new DelegatingDownloader(httpDownloader);
   private final DownloadManager downloadManager =
-      new DownloadManager(repositoryCache, httpDownloader);
+      new DownloadManager(repositoryCache, delegatingDownloader);
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
@@ -334,6 +337,7 @@ public class BazelRepositoryModule extends BlazeModule {
         remoteExecutor = remoteExecutorFactory.create();
       }
       skylarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
+      delegatingDownloader.setDelegate(env.getRuntime().getDownloaderSupplier().get());
     }
   }
 

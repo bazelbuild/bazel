@@ -74,9 +74,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   private boolean containsErrors;
 
-  private String definitionInformation;
-
   private final Location location;
+
+  private final CallStack callstack;
 
   private final ImplicitOutputsFunction implicitOutputsFunction;
 
@@ -89,12 +89,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       Label label,
       RuleClass ruleClass,
       Location location,
+      CallStack callstack,
       AttributeContainer attributeContainer) {
     this(
         pkg,
         label,
         ruleClass,
         location,
+        callstack,
         attributeContainer,
         ruleClass.getDefaultImplicitOutputsFunction());
   }
@@ -104,12 +106,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       Label label,
       RuleClass ruleClass,
       Location location,
+      CallStack callstack,
       AttributeContainer attributeContainer,
       ImplicitOutputsFunction implicitOutputsFunction) {
     this.pkg = Preconditions.checkNotNull(pkg);
     this.label = label;
     this.ruleClass = Preconditions.checkNotNull(ruleClass);
     this.location = Preconditions.checkNotNull(location);
+    this.callstack = Preconditions.checkNotNull(callstack);
     this.attributes = attributeContainer;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.containsErrors = false;
@@ -117,10 +121,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   void setVisibility(RuleVisibility visibility) {
     this.visibility = visibility;
-  }
-
-  void setDefinitionInformation(String info) {
-    this.definitionInformation = info;
   }
 
   void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
@@ -270,8 +270,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return location;
   }
 
-  public String getDefinitionInformation() {
-    return definitionInformation;
+  /** Returns the stack of function calls active when this rule was instantiated. */
+  public CallStack getCallStack() {
+    return callstack;
   }
 
   public ImplicitOutputsFunction getImplicitOutputsFunction() {
@@ -611,7 +612,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public Set<DistributionType> getDistributions() {
     if (isAttrDefined("distribs", BuildType.DISTRIBUTIONS)
         && isAttributeValueExplicitlySpecified("distribs")) {

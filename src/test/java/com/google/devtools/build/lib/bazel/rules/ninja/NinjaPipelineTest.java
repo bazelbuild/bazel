@@ -310,9 +310,9 @@ public class NinjaPipelineTest {
     pipeline.setReadBlockSize(100);
     List<NinjaTarget> targets = pipeline.pipeline(path);
     assertThat(targets).hasSize(1);
-    Map<String, List<Pair<Integer, NinjaPool>>> pools = targets.get(0).getScope().getPools();
+    Map<String, List<Pair<Long, NinjaPool>>> pools = targets.get(0).getScope().getPools();
     assertThat(pools).hasSize(1);
-    Map<String, List<Pair<Integer, NinjaRule>>> rules = targets.get(0).getScope().getRules();
+    Map<String, List<Pair<Long, NinjaRule>>> rules = targets.get(0).getScope().getRules();
     assertThat(rules).hasSize(998);
     assertThat(rules.get("rule1")).hasSize(1);
     NinjaVariableValue expectedValue =

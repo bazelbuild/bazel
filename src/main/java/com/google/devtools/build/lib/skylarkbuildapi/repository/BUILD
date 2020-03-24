@@ -10,22 +10,21 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])  # Apache 2.0
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
     name = "repository",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:guava",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//third_party:guava",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
+        # TODO(cparsons): Remove dependency on Label implementation.
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
 )

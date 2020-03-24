@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -107,7 +108,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           /*topLevelFilesets=*/ ImmutableMap.of(),
           /*artifactExpander=*/ null,
           /*actionFileSystem=*/ null,
-          /*skyframeDepsResult=*/ null);
+          /*skyframeDepsResult=*/ null,
+          NestedSetExpander.DEFAULT);
       this.spawnActionContext = spawnActionContext;
     }
 

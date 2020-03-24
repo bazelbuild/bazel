@@ -134,7 +134,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "implicitly added and must not be specified. Attributes "
                     + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
                     + "<code>testonly</code>, and <code>features</code> are implicitly added and "
-                    + "cannot be overridden."),
+                    + "cannot be overridden. Most rules need only a handful of attributes. To "
+                    + "limit memory usage, the rule function imposes a cap on the size of attrs."),
         // TODO(bazel-team): need to give the types of these builtin attributes
         @Param(
             name = "outputs",

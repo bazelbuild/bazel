@@ -42,7 +42,7 @@ final class ActionCacheServer extends ActionCacheImplBase {
       GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
     try {
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
-      ActionResult result = cache.downloadActionResult(actionKey);
+      ActionResult result = cache.downloadActionResult(actionKey, /* inlineOutErr= */ false);
 
       if (result == null) {
         responseObserver.onError(StatusUtils.notFoundError(request.getActionDigest()));

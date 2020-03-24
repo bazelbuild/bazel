@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -204,6 +205,13 @@ public class Package {
 
   private ImmutableList<String> registeredExecutionPlatforms;
   private ImmutableList<String> registeredToolchains;
+
+  private long computationSteps;
+
+  /** Returns the number of Starlark computation steps executed by this BUILD file. */
+  public long getComputationSteps() {
+    return computationSteps;
+  }
 
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
@@ -759,12 +767,9 @@ public class Package {
       RootedPath workspacePath,
       String runfilesPrefix,
       StarlarkSemantics starlarkSemantics) {
-    Builder b =
-        new Builder(
-            helper.createFreshPackage(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix),
-            starlarkSemantics);
-    b.setFilename(workspacePath);
-    return b;
+    return new Builder(
+            helper, LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix, starlarkSemantics)
+        .setFilename(workspacePath);
   }
 
   /**
@@ -781,8 +786,8 @@ public class Package {
       Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix);
 
       /**
-       * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} is completely
-       * done loading the given {@link Package}.
+       * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} has
+       * successfully loaded the given {@link Package}.
        *
        * @param pkg the loaded {@link Package}
        * @param starlarkSemantics are the semantics used to load the package
@@ -790,9 +795,11 @@ public class Package {
        *     precisely, this is the wall time of the call to {@link
        *     PackageFactory#createPackageFromAst}. Notably, this does not include the time to read
        *     and parse the package's BUILD file, nor the time to read, parse, or evaluate any of the
-       *     transitively loaded .bzl files.
+       *     transitively loaded .bzl files, and it includes time the OS thread is runnable but not
+       *     running.
        */
-      void onLoadingComplete(Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
+      void onLoadingCompleteAndSuccessful(
+          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
     }
 
     /** {@link Helper} that simply calls the {@link Package} constructor. */
@@ -808,8 +815,8 @@ public class Package {
       }
 
       @Override
-      public void onLoadingComplete(
-          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeMs) {}
+      public void onLoadingCompleteAndSuccessful(
+          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {}
     }
 
     /**
@@ -821,6 +828,7 @@ public class Package {
     private final Package pkg;
 
     private final StarlarkSemantics starlarkSemantics;
+    private final CallStack.Builder callStackBuilder = new CallStack.Builder();
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
@@ -909,6 +917,7 @@ public class Package {
       }
     };
 
+    // low-level constructor
     Builder(Package pkg, StarlarkSemantics starlarkSemantics) {
       this.starlarkSemantics = starlarkSemantics;
       this.pkg = pkg;
@@ -917,6 +926,7 @@ public class Package {
       }
     }
 
+    // high-level constructor
     Builder(
         Helper helper,
         PackageIdentifier id,
@@ -1101,6 +1111,11 @@ public class Package {
       packageFunctionUsed = true;
     }
 
+    /** Sets the number of Starlark computation steps executed by this BUILD file. */
+    void setComputationSteps(long n) {
+      pkg.computationSteps = n;
+    }
+
     /**
      * Sets the default header checking mode.
      */
@@ -1245,24 +1260,22 @@ public class Package {
         Label label,
         RuleClass ruleClass,
         Location location,
+        List<StarlarkThread.CallStackEntry> callstack,
         AttributeContainer attributeContainer) {
       return new Rule(
-          pkg,
-          label,
-          ruleClass,
-          location,
-          attributeContainer);
+          pkg, label, ruleClass, location, callStackBuilder.of(callstack), attributeContainer);
     }
 
     /**
-     * Same as {@link #createRule(Label, RuleClass, Location, AttributeContainer)}, except
-     * allows specifying an {@link ImplicitOutputsFunction} override. Only use if you know what
-     * you're doing.
+     * Same as {@link #createRule(Label, RuleClass, Location, List<StarlarkThread.CallStackEntry>,
+     * AttributeContainer)}, except allows specifying an {@link ImplicitOutputsFunction} override.
+     * Only use if you know what you're doing.
      */
     Rule createRule(
         Label label,
         RuleClass ruleClass,
         Location location,
+        List<StarlarkThread.CallStackEntry> callstack,
         AttributeContainer attributeContainer,
         ImplicitOutputsFunction implicitOutputsFunction) {
       return new Rule(
@@ -1270,6 +1283,7 @@ public class Package {
           label,
           ruleClass,
           location,
+          callStackBuilder.of(callstack),
           attributeContainer,
           implicitOutputsFunction);
     }

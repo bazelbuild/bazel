@@ -17,8 +17,8 @@
 package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.android.desugar.testing.junit.DesugarTestHelpers.getRuntimePathsFromJvmFlag;
 
-import com.google.common.base.Splitter;
 import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
@@ -28,8 +28,6 @@ import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHand
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,7 +43,7 @@ public class NestDesugaringCoreLibTest {
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, lookup)
-          .addSourceInputs(getInputSourceFilesFromJvmOption("input_srcs"))
+          .addSourceInputs(getRuntimePathsFromJvmFlag("input_srcs"))
           .addJavacOptions("-source 11", "-target 11")
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .addCommandOptions("allow_empty_bootclasspath", "true")
@@ -53,12 +51,6 @@ public class NestDesugaringCoreLibTest {
           .addCommandOptions("desugar_supported_core_libs", "true")
           .addCommandOptions("rewrite_core_library_prefix", "javadesugar/testing/")
           .build();
-
-  private static Path[] getInputSourceFilesFromJvmOption(String jvmOptionKey) {
-    return Splitter.on(" ").trimResults().splitToList(System.getProperty(jvmOptionKey)).stream()
-        .map(Paths::get)
-        .toArray(Path[]::new);
-  }
 
   @Test
   public void inputClassFileMajorVersions(

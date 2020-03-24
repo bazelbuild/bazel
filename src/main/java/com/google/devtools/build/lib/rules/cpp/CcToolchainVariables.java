@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -451,9 +452,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
-  abstract Map<String, VariableValue> getVariablesMap();
-
-  abstract Map<String, String> getStringVariablesMap();
+  abstract Map<String, Object> getVariablesMap();
 
   @Nullable
   abstract VariableValue getNonStructuredVariable(String name);
@@ -1178,8 +1177,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   /** Builder for {@code Variables}. */
   // TODO(b/65472725): Forbid sequences with empty string in them.
   public static class Builder {
-    private final Map<String, VariableValue> variablesMap = new LinkedHashMap<>();
-    private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
+    private final Map<String, Object> variablesMap = new LinkedHashMap<>();
     private final CcToolchainVariables parent;
 
     private Builder(@Nullable CcToolchainVariables parent) {
@@ -1197,14 +1195,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addStringVariable(String name, String value) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
-      stringVariablesMap.put(name, value);
+      variablesMap.put(name, value);
       return this;
     }
 
     /** Overrides a variable to expands {@code name} to {@code value} instead. */
     public Builder overrideStringVariable(String name, String value) {
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
-      stringVariablesMap.put(name, value);
+      variablesMap.put(name, value);
       return this;
     }
 
@@ -1268,7 +1266,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       for (String name : variables.keySet()) {
         checkVariableNotPresentAlready(name);
       }
-      stringVariablesMap.putAll(variables);
+      variablesMap.putAll(variables);
       return this;
     }
 
@@ -1276,8 +1274,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       Preconditions.checkNotNull(name);
       Preconditions.checkArgument(
           !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-      Preconditions.checkArgument(
-          !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
     }
 
     /**
@@ -1287,30 +1283,21 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addAllNonTransitive(CcToolchainVariables variables) {
       SetView<String> intersection =
           Sets.intersection(variables.getVariablesMap().keySet(), variablesMap.keySet());
-      SetView<String> stringIntersection =
-          Sets.intersection(
-              variables.getStringVariablesMap().keySet(), stringVariablesMap.keySet());
       Preconditions.checkArgument(
           intersection.isEmpty(), "Cannot overwrite existing variables: %s", intersection);
-      Preconditions.checkArgument(
-          stringIntersection.isEmpty(),
-          "Cannot overwrite existing variables: %s",
-          stringIntersection);
       this.variablesMap.putAll(variables.getVariablesMap());
-      this.stringVariablesMap.putAll(variables.getStringVariablesMap());
       return this;
     }
 
     /** @return a new {@link CcToolchainVariables} object. */
     public CcToolchainVariables build() {
-      if (stringVariablesMap.isEmpty() && variablesMap.size() == 1) {
-        return new SingleVariables(
-            parent,
-            variablesMap.keySet().iterator().next(),
-            variablesMap.values().iterator().next());
+      if (variablesMap.size() == 1) {
+        Object o = variablesMap.values().iterator().next();
+        VariableValue variableValue =
+            o instanceof String ? new StringValue((String) o) : (VariableValue) o;
+        return new SingleVariables(parent, variablesMap.keySet().iterator().next(), variableValue);
       }
-      return new MapVariables(
-          parent, ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
+      return new MapVariables(parent, ImmutableSortedMap.copyOf(variablesMap));
     }
   }
 
@@ -1328,44 +1315,33 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     private static final Interner<MapVariables> INTERNER = BlazeInterners.newWeakInterner();
 
     @Nullable private final CcToolchainVariables parent;
-    private final ImmutableMap<String, VariableValue> variablesMap;
-    private final ImmutableMap<String, String> stringVariablesMap;
+    private final ImmutableMap<String, Object> variablesMap;
 
-    private MapVariables(
-        CcToolchainVariables parent,
-        ImmutableMap<String, VariableValue> variablesMap,
-        ImmutableMap<String, String> stringVariablesMap) {
+    private MapVariables(CcToolchainVariables parent, ImmutableMap<String, Object> variablesMap) {
       this.parent = parent;
       this.variablesMap = variablesMap;
-      this.stringVariablesMap = stringVariablesMap;
     }
 
     @AutoCodec.Instantiator
     @VisibleForSerialization
     static MapVariables create(
-        CcToolchainVariables parent,
-        ImmutableMap<String, VariableValue> variablesMap,
-        ImmutableMap<String, String> stringVariablesMap) {
-      return INTERNER.intern(new MapVariables(parent, variablesMap, stringVariablesMap));
+        CcToolchainVariables parent, ImmutableMap<String, Object> variablesMap) {
+      return INTERNER.intern(new MapVariables(parent, variablesMap));
     }
 
     @Override
-    Map<String, VariableValue> getVariablesMap() {
+    Map<String, Object> getVariablesMap() {
       return variablesMap;
-    }
-
-    @Override
-    Map<String, String> getStringVariablesMap() {
-      return stringVariablesMap;
     }
 
     @Override
     VariableValue getNonStructuredVariable(String name) {
       if (variablesMap.containsKey(name)) {
-        return variablesMap.get(name);
-      }
-      if (stringVariablesMap.containsKey(name)) {
-        return new StringValue(stringVariablesMap.get(name));
+        Object o = variablesMap.get(name);
+        if (o instanceof String) {
+          return new StringValue((String) o);
+        }
+        return (VariableValue) o;
       }
 
       if (parent != null) {
@@ -1397,13 +1373,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       if (this.parent != that.parent) {
         return false;
       }
-      return Objects.equals(this.variablesMap, that.variablesMap)
-          && Objects.equals(this.stringVariablesMap, that.stringVariablesMap);
+      return Objects.equals(this.variablesMap, that.variablesMap);
     }
 
     @Override
     public int hashCode() {
-      return 31 * Objects.hash(variablesMap, stringVariablesMap) + System.identityHashCode(parent);
+      return 31 * Objects.hashCode(variablesMap) + System.identityHashCode(parent);
     }
   }
 
@@ -1431,13 +1406,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    Map<String, VariableValue> getVariablesMap() {
+    Map<String, Object> getVariablesMap() {
       return ImmutableMap.of(name, variableValue);
-    }
-
-    @Override
-    Map<String, String> getStringVariablesMap() {
-      return ImmutableMap.of();
     }
 
     @Override

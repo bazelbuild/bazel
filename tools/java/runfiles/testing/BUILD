@@ -20,7 +20,8 @@ java_test(
     test_class = "com.google.devtools.build.runfiles.RunfilesTest",
     deps = [
         ":test_deps",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
     ],
 )
 
@@ -30,7 +31,8 @@ java_test(
     test_class = "com.google.devtools.build.runfiles.UtilTest",
     deps = [
         ":test_deps",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
     ],
 )
 

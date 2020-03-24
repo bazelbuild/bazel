@@ -100,7 +100,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   @Option(
       name = "experimental_aspect_output_propagation",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -263,20 +263,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + " $output_base/execution_root/__main__/external for the real top-level 'external' "
               + "directory.")
   public boolean experimentalSiblingRepositoryLayout;
-
-  @Option(
-      name = "incompatible_bzl_disallow_load_after_statement",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, all `load` must be called at the top of .bzl files, before any other "
-              + "statement.")
-  public boolean incompatibleBzlDisallowLoadAfterStatement;
 
   @Option(
       name = "experimental_allow_tags_propagation",
@@ -551,20 +537,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleNoTargetOutputGroup;
 
   @Option(
-      name = "incompatible_remove_enabled_toolchain_types",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, the platform configuration fragment cannot access the (deprecated) list"
-              + " of enabled toolchain types.")
-  public boolean incompatibleRemoveEnabledToolchainTypes;
-
-  @Option(
       name = "incompatible_run_shell_command_string",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -654,6 +626,40 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       help = "If set to true, unknown string escapes like `\\a` become rejected.")
   public boolean incompatibleRestrictStringEscapes;
 
+  @Option(
+      name = "incompatible_linkopts_to_linklibs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true the default linkopts in the default toolchain are passed as linklibs "
+              + "instead of linkopts to cc_toolchain_config")
+  public boolean incompatibleLinkoptsToLinkLibs;
+
+  @Option(
+      name = "max_computation_steps",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "The maximum number of Starlark computation steps that may be executed by a BUILD file"
+              + " (zero means no limit).")
+  public long maxComputationSteps;
+
+  @Option(
+      name = "record_rule_instantiation_callstack",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "Causes each rule to record the callstack at the moment of its instantiation, at a"
+              + " modest cost in memory. The stack is visible in some forms of query output.")
+  public boolean recordRuleInstantiationCallstack;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -686,7 +692,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalDisableExternalPackage(experimentalDisableExternalPackage)
             .experimentalSiblingRepositoryLayout(experimentalSiblingRepositoryLayout)
             .incompatibleApplicableLicenses(incompatibleApplicableLicenses)
-            .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
             .incompatibleDepsetUnion(incompatibleDepsetUnion)
             .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)
             .incompatibleDisableThirdPartyLicenseChecking(
@@ -703,7 +708,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleNoRuleOutputsParam(incompatibleNoRuleOutputsParam)
             .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
             .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
-            .incompatibleRemoveEnabledToolchainTypes(incompatibleRemoveEnabledToolchainTypes)
             .incompatibleRestrictNamedParams(incompatibleRestrictNamedParams)
             .incompatibleRunShellCommandString(incompatibleRunShellCommandString)
             .incompatibleVisibilityPrivateAttributesAtDefinition(
@@ -714,6 +718,9 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
             .incompatibleRequireLinkerInputCcApi(incompatibleRequireLinkerInputCcApi)
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
+            .incompatibleLinkoptsToLinkLibs(incompatibleLinkoptsToLinkLibs)
+            .maxComputationSteps(maxComputationSteps)
+            .recordRuleInstantiationCallstack(recordRuleInstantiationCallstack)
             .build();
     return INTERNER.intern(semantics);
   }

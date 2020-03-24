@@ -59,6 +59,7 @@ java_test(
     deps = [
         ":common_deps",
         "//src/main/java/com/google/devtools/build/lib:bazel-ninja",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
     ],
 )
 

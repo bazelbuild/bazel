@@ -74,6 +74,8 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
     // Finally, create anything that is still missing.
     createDirectories(dirsToCreate);
     createInputs(inputsToCreate);
+
+    inputs.materializeVirtualInputs(workDir);
   }
 
   /** Populates the provided sets with the inputs and directories than need to be created. */

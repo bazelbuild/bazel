@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -856,7 +855,7 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the prerequisites keyed by the CPU of their configurations. If the split transition
+   * Returns the prerequisites keyed by their configuration transition keys. If the split transition
    * is not active (e.g. split() returned an empty list), the key is an empty Optional.
    */
   public Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>>
@@ -891,8 +890,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the prerequisites keyed by the CPU of their configurations. If the split transition is
-   * not active (e.g. split() returned an empty list), the key is an empty Optional.
+   * Returns the prerequisites keyed by their transition keys. If the split transition is not active
+   * (e.g. split() returned an empty list), the key is an empty Optional.
    */
   public Map<Optional<String>, List<ConfiguredTargetAndData>>
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
@@ -913,28 +912,23 @@ public final class RuleContext extends TargetContext
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
 
     if (SplitTransition.equals(fromOptions, splitOptions.values())) {
-      // The split transition is not active. Defer the decision on which CPU to use.
+      // The split transition is not active.
       return ImmutableMap.of(Optional.<String>absent(), deps);
-    }
-
-    Set<String> cpus = new HashSet<>();
-    for (BuildOptions options : splitOptions.values()) {
-      // This method should only be called when the split config is enabled on the command line, in
-      // which case this cpu can't be null.
-      cpus.add(options.get(CoreOptions.class).cpu);
     }
 
     // Use an ImmutableListMultimap.Builder here to preserve ordering.
     ImmutableListMultimap.Builder<Optional<String>, ConfiguredTargetAndData> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData t : deps) {
-      if (t.getConfiguration() != null) {
-        result.put(Optional.of(t.getConfiguration().getCpu()), t);
-      } else {
-        // Source files don't have a configuration, so we add them to all architecture entries.
-        for (String cpu : cpus) {
-          result.put(Optional.of(cpu), t);
+      if (t.getTransitionKey() == null
+          || t.getTransitionKey().equals(ConfigurationTransition.PATCH_TRANSITION_KEY)) {
+        // The target doesn't have a specific transition key associated. This likely means it's a
+        // non-configurable target, e.g. files, package groups. Pan out to all available keys.
+        for (String key : splitOptions.keySet()) {
+          result.put(Optional.of(key), t);
         }
+      } else {
+        result.put(Optional.of(t.getTransitionKey()), t);
       }
     }
     return Multimaps.asMap(result.build());

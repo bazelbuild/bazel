@@ -111,8 +111,9 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
               commandHash, merkleTree.getRootDigest(), timeout, acceptCached);
       Digest actionDigest = digestUtil.compute(action);
       ActionKey actionKey = new ActionKey(actionDigest);
-      ActionResult actionResult = remoteCache.downloadActionResult(actionKey);
-      if (actionResult == null) {
+      ActionResult actionResult =
+          remoteCache.downloadActionResult(actionKey, /* inlineOutErr= */ true);
+      if (actionResult == null || actionResult.getExitCode() != 0) {
         Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
         additionalInputs.put(actionDigest, action);
         additionalInputs.put(commandHash, command);

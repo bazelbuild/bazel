@@ -4,13 +4,10 @@ load("@rules_java//java:defs.bzl", "java_plugin")
 #   A preprocessor for skylark annotations.
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])  # Apache 2.0
-
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["**"],
-    ),
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_plugin(
@@ -20,5 +17,6 @@ java_plugin(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations:annotations_internal",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//third_party:guava",
     ],
 )

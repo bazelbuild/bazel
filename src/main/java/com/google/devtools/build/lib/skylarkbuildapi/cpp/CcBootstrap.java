@@ -32,7 +32,7 @@ public class CcBootstrap implements Bootstrap {
           ? extends FileApi,
           ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
           ? extends FeatureConfigurationApi,
-          ? extends CcCompilationContextApi,
+          ? extends CcCompilationContextApi<? extends FileApi>,
           ? extends
               LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
           ? extends CcLinkingContextApi<? extends FileApi>,
@@ -44,7 +44,7 @@ public class CcBootstrap implements Bootstrap {
           ? extends CcCompilationOutputsApi<? extends FileApi>>
       ccModule;
 
-  private final CcInfoApi.Provider ccInfoProvider;
+  private final CcInfoApi.Provider<? extends FileApi> ccInfoProvider;
   private final CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider;
   private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
   private final GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper;
@@ -57,7 +57,7 @@ public class CcBootstrap implements Bootstrap {
               ? extends FileApi,
               ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
               ? extends FeatureConfigurationApi,
-              ? extends CcCompilationContextApi,
+              ? extends CcCompilationContextApi<? extends FileApi>,
               ? extends
                   LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
               ? extends CcLinkingContextApi<? extends FileApi>,
@@ -68,7 +68,7 @@ public class CcBootstrap implements Bootstrap {
               ? extends CcToolchainConfigInfoApi,
               ? extends CcCompilationOutputsApi<? extends FileApi>>
           ccModule,
-      CcInfoApi.Provider ccInfoProvider,
+      CcInfoApi.Provider<? extends FileApi> ccInfoProvider,
       CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider,
       PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
       GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper,

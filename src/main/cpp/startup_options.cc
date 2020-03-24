@@ -182,21 +182,24 @@ bool StartupOptions::IsUnary(const string &arg) const {
   }
 }
 
-bool StartupOptions::IsNullary(const string &arg) const {
+bool StartupOptions::MaybeCheckValidNullary(const string &arg, bool *result,
+                                            std::string *error) const {
   std::string::size_type i = arg.find_first_of('=');
   if (i == std::string::npos) {
-    return all_nullary_startup_flags_.find(arg) !=
-           all_nullary_startup_flags_.end();
-  } else {
-    std::string f = arg.substr(0, i);
-    if (all_nullary_startup_flags_.find(f) !=
-        all_nullary_startup_flags_.end()) {
-      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
-          << "In argument '" << arg << "': option '" << f
-          << "' does not take a value.";
-    }
-    return false;
+    *result = all_nullary_startup_flags_.find(arg) !=
+              all_nullary_startup_flags_.end();
+    return true;
   }
+  std::string f = arg.substr(0, i);
+  if (all_nullary_startup_flags_.find(f) == all_nullary_startup_flags_.end()) {
+    *result = false;
+    return true;
+  }
+
+  blaze_util::StringPrintf(
+      error, "In argument '%s': option '%s' does not take a value.",
+      arg.c_str(), f.c_str());
+  return false;
 }
 
 void StartupOptions::AddExtraOptions(vector<string> *result) const {
@@ -217,7 +220,13 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   const char* next_arg = next_argstr.empty() ? NULL : next_argstr.c_str();
   const char* value = NULL;
 
-  if (IsNullary(argstr)) {
+  bool is_nullary;
+  if (!MaybeCheckValidNullary(argstr, &is_nullary, error)) {
+    *is_space_separated = false;
+    return blaze_exit_code::BAD_ARGV;
+  }
+
+  if (is_nullary) {
     // 'enabled' is true if 'argstr' is "--foo", and false if it's "--nofoo".
     bool enabled = (argstr.compare(0, 4, "--no") != 0);
     if (no_rc_nullary_startup_flags_.find(argstr) !=

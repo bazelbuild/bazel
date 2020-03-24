@@ -8,6 +8,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

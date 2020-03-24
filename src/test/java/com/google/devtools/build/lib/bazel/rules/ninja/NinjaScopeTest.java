@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
@@ -50,7 +50,7 @@ public class NinjaScopeTest {
 
     parseResult.sortResults();
 
-    List<Integer> offsets =
+    List<Long> offsets =
         parseResult.getVariables().get("abc").stream()
             .map(Pair::getFirst)
             .collect(Collectors.toList());
@@ -69,7 +69,7 @@ public class NinjaScopeTest {
 
     parseResult.sortResults();
 
-    List<Integer> offsets =
+    List<Long> offsets =
         parseResult.getRules().get(rule.getName()).stream()
             .map(Pair::getFirst)
             .collect(Collectors.toList());
@@ -104,7 +104,7 @@ public class NinjaScopeTest {
     assertThat(result.getVariables()).containsKey("from2");
     assertThat(result.getVariables()).containsKey("abc");
 
-    List<Pair<Integer, NinjaVariableValue>> abc = result.getVariables().get("abc");
+    List<Pair<Long, NinjaVariableValue>> abc = result.getVariables().get("abc");
     assertThat(abc).hasSize(4);
     assertThat(abc.stream().map(Pair::getFirst).collect(Collectors.toList())).isInOrder();
   }
@@ -306,7 +306,7 @@ public class NinjaScopeTest {
 
   private static NinjaVariableValue parseValue(String text) throws Exception {
     ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
-    NinjaLexer lexer = new NinjaLexer(new ByteBufferFragment(bb, 0, bb.limit()));
+    NinjaLexer lexer = new NinjaLexer(new FileFragment(bb, 0, 0, bb.limit()));
     return new NinjaParserStep(lexer).parseVariableValue();
   }
 }

@@ -18,7 +18,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -27,9 +26,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-/**
- * Provides support for implementations for {@link BlazeCommand} to read target patterns from file.
- */
+/** Provides support for reading target patterns from a file or the command-line. */
 final class TargetPatternsHelper {
 
   private TargetPatternsHelper() {}
@@ -55,7 +52,7 @@ final class TargetPatternsHelper {
             Lists.newArrayList(FileSystemUtils.readLines(residuePath, StandardCharsets.UTF_8));
       } catch (IOException e) {
         throw new TargetPatternsHelperException(
-            "I/O error reading from " + residuePath.getPathString());
+            "I/O error reading from " + residuePath.getPathString() + ": " + e.getMessage());
       }
     } else {
       try (SilentCloseable closeable =

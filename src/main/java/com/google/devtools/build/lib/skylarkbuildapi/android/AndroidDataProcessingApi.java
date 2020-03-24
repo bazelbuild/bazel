@@ -613,7 +613,28 @@ public interface AndroidDataProcessingApi<
             type = Sequence.class,
             generic1 = String.class,
             named = true,
-            doc = "A list of file extensions to leave uncompressed in the resource apk.")
+            doc = "A list of file extensions to leave uncompressed in the resource apk."),
+        @Param(
+            name = "resource_configuration_filters",
+            positional = false,
+            defaultValue = "[]",
+            type = Sequence.class,
+            generic1 = String.class,
+            named = true,
+            doc =
+                "A list of resource configuration filters, such as 'en' that will limit the"
+                    + " resources in the apk to only the ones in the 'en' configuration."),
+        @Param(
+            name = "densities",
+            positional = false,
+            defaultValue = "[]",
+            type = Sequence.class,
+            generic1 = String.class,
+            named = true,
+            doc =
+                "Densities to filter for when building the apk. A corresponding compatible-screens"
+                    + " section will also be added to the manifest if it does not already contain a"
+                    + " superset listing."),
       },
       doc =
           "Processes resources, assets, and manifests for android_local_test and returns a dict"
@@ -629,7 +650,9 @@ public interface AndroidDataProcessingApi<
       String aaptVersionString,
       Dict<?, ?> manifestValues, // <String, String>
       Sequence<?> deps, // <TransitiveInfoCollectionT>
-      Sequence<?> noCompressExtensions) // <String>
+      Sequence<?> noCompressExtensions, // <String>
+      Sequence<?> resourceConfigurationFilters, // <String>
+      Sequence<?> densities) // <String>
       throws InterruptedException, EvalException;
 
   @SkylarkCallable(
@@ -659,7 +682,7 @@ public interface AndroidDataProcessingApi<
             generic1 = String.class,
             named = true,
             doc =
-                "A list of resource configuration filters, such 'en' that will limit the"
+                "A list of resource configuration filters, such as 'en' that will limit the"
                     + " resources in the apk to only the ones in the 'en' configuration."),
         @Param(
             name = "densities",
@@ -671,7 +694,7 @@ public interface AndroidDataProcessingApi<
             doc =
                 "Densities to filter for when building the apk. A corresponding compatible-screens"
                     + " section will also be added to the manifest if it does not already contain a"
-                    + " superset SkylarkListing."),
+                    + " superset listing."),
         @Param(
             name = "nocompress_extensions",
             positional = false,

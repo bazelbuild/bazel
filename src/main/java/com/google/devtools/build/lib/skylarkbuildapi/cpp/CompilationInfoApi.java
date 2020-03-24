@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -25,10 +26,10 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Helper class containing CC compilation providers.")
-public interface CompilationInfoApi extends StarlarkValue {
+public interface CompilationInfoApi<FileT extends FileApi> extends StarlarkValue {
   @SkylarkCallable(name = "cc_compilation_outputs", structField = true, documented = false)
   CcCompilationOutputsApi<?> getCcCompilationOutputs();
 
   @SkylarkCallable(name = "compilation_context", structField = true, documented = false)
-  CcCompilationContextApi getCcCompilationContext();
+  CcCompilationContextApi<FileT> getCcCompilationContext();
 }

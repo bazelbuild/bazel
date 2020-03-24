@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -122,6 +123,13 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 @AutoCodec
 public class RuleClass {
+
+  /**
+   * Maximum attributes per RuleClass. Current value was chosen high enough to be considered a
+   * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
+   * headroom before hitting {@link AttributeContainer}'s limits.
+   */
+  private static final int MAX_ATTRIBUTES = 200;
 
   @AutoCodec
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
@@ -633,6 +641,7 @@ public class RuleClass {
             attr("local", Type.BOOLEAN).build());
 
     private String name;
+    private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
     private final boolean skylark;
     private boolean skylarkTestable = false;
@@ -775,6 +784,14 @@ public class RuleClass {
     public RuleClass build(String name, String key) {
       Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
       type.checkName(name);
+
+      Preconditions.checkArgument(
+          attributes.size() <= MAX_ATTRIBUTES,
+          "Rule class %s declared too many attributes (%s > %s)",
+          name,
+          attributes.size(),
+          MAX_ATTRIBUTES);
+
       type.checkAttributes(attributes);
       Preconditions.checkState(
           (type == RuleClassType.ABSTRACT)
@@ -814,6 +831,7 @@ public class RuleClass {
 
       return new RuleClass(
           name,
+          callstack,
           key,
           type,
           skylark,
@@ -937,6 +955,12 @@ public class RuleClass {
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
           configurationFragmentNames);
+      return this;
+    }
+
+    /** Sets the Starlark call stack associated with this rule class's creation. */
+    public Builder setCallStack(ImmutableList<StarlarkThread.CallStackEntry> callstack) {
+      this.callstack = callstack;
       return this;
     }
 
@@ -1123,10 +1147,10 @@ public class RuleClass {
     }
 
     /**
-     * Builds attribute from the attribute builder and adds it to this rule
-     * class.
+     * Builds provided attribute and attaches it to this rule class.
      *
-     * @param attr attribute builder
+     * <p>Typically rule classes should only declare a handful of attributes - this expectation is
+     * enforced when the instance is built.
      */
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       addAttribute(attr.build());
@@ -1382,6 +1406,7 @@ public class RuleClass {
   }
 
   private final String name; // e.g. "cc_library"
+  private final ImmutableList<StarlarkThread.CallStackEntry> callstack; // of call to 'rule'
 
   private final String key; // Just the name for native, label + name for skylark
 
@@ -1523,6 +1548,7 @@ public class RuleClass {
   @VisibleForTesting
   RuleClass(
       String name,
+      ImmutableList<StarlarkThread.CallStackEntry> callstack,
       String key,
       RuleClassType type,
       boolean isSkylark,
@@ -1557,6 +1583,7 @@ public class RuleClass {
       Collection<Attribute> attributes,
       @Nullable BuildSetting buildSetting) {
     this.name = name;
+    this.callstack = callstack;
     this.key = key;
     this.type = type;
     this.isSkylark = isSkylark;
@@ -1660,6 +1687,15 @@ public class RuleClass {
    */
   public String getName() {
     return name;
+  }
+
+  /**
+   * Returns the stack of Starlark active function calls at the moment this rule class was created.
+   * Entries appear outermost first, and exclude the built-in itself ('rule' or 'repository_rule').
+   * Empty for non-Starlark rules.
+   */
+  public ImmutableList<StarlarkThread.CallStackEntry> getCallStack() {
+    return callstack;
   }
 
   /** Returns the type of rule that this RuleClass represents. Only for use during serialization. */
@@ -1818,10 +1854,11 @@ public class RuleClass {
       AttributeValues<T> attributeValues,
       EventHandler eventHandler,
       Location location,
+      List<StarlarkThread.CallStackEntry> callstack,
       AttributeContainer attributeContainer,
       boolean checkThirdPartyRulesHaveLicenses)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, attributeContainer);
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, callstack, attributeContainer);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
@@ -1855,15 +1892,13 @@ public class RuleClass {
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       Location location,
+      List<StarlarkThread.CallStackEntry> callstack,
       AttributeContainer attributeContainer,
       ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(
-        ruleLabel,
-        this,
-        location,
-        attributeContainer,
-        implicitOutputsFunction);
+    Rule rule =
+        pkgBuilder.createRule(
+            ruleLabel, this, location, callstack, attributeContainer, implicitOutputsFunction);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
     rule.populateOutputFilesUnchecked(NullEventHandler.INSTANCE, pkgBuilder);
     return rule;

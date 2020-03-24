@@ -74,9 +74,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -90,7 +88,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
-  private static ListeningScheduledExecutorService retryService;
+  private ListeningScheduledExecutorService retryService;
 
   private Server server;
   private ManagedChannel channel;
@@ -100,11 +98,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
   private final Path execRoot = fs.getPath("/execroot");
   private ArtifactRoot outputRoot;
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
 
   @Before
   public final void setUp() throws Exception {
@@ -126,6 +119,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out"));
     outputRoot.getRoot().asPath().createDirectoryAndParents();
+
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }
 
   @After
@@ -134,15 +129,14 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // on different threads than the tearDown.
     withEmptyMetadata.detach(prevContext);
 
+    retryService.shutdownNow();
+    retryService.awaitTermination(
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
     channel.shutdownNow();
     channel.awaitTermination(5, TimeUnit.SECONDS);
     server.shutdownNow();
     server.awaitTermination();
-  }
-
-  @AfterClass
-  public static void afterEverything() {
-    retryService.shutdownNow();
   }
 
   @Before

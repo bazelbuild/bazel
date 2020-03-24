@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.CommandCompleteEvent;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -136,6 +137,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private static final ConcurrentHashMap<String, String> imageMap = new ConcurrentHashMap<>();
 
+  private final SandboxHelpers helpers;
   private final Path execRoot;
   private final boolean allowNetwork;
   private final Path dockerClient;
@@ -156,6 +158,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
+   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param dockerClient path to the `docker` executable
    * @param sandboxBase path to the sandbox base directory
@@ -165,6 +168,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param treeDeleter scheduler for tree deletions
    */
   DockerSandboxedSpawnRunner(
+      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path dockerClient,
       Path sandboxBase,
@@ -173,8 +177,9 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       boolean useCustomizedImages,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
+    this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
-    this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
+    this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.dockerClient = dockerClient;
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.sandboxBase = sandboxBase;
@@ -216,7 +221,15 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
-    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
+    SandboxInputs inputs =
+        helpers.processInputFiles(
+            context.getInputMapping(
+                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+            spawn,
+            context.getArtifactExpander(),
+            execRoot);
+    SandboxOutputs outputs = helpers.getOutputs(spawn);
+
     Duration timeout = context.getTimeout();
 
     UUID uuid = UUID.randomUUID();
@@ -276,11 +289,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         sandboxExecRoot,
         cmdLine.build(),
         cmdEnv.getClientEnv(),
-        SandboxHelpers.processInputFiles(
-            spawn,
-            context,
-            execRoot,
-            getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+        inputs,
         outputs,
         ImmutableSet.of(),
         treeDeleter,

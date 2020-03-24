@@ -180,6 +180,8 @@ public final class SandboxModule extends BlazeModule {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
     sandboxBase = computeSandboxBase(options, env);
 
+    SandboxHelpers helpers = new SandboxHelpers(options.delayVirtualInputMaterialization);
+
     // Do not remove the sandbox base when --sandbox_debug was specified so that people can check
     // out the contents of the generated sandbox directories.
     shouldCleanupSandboxBase = !options.sandboxDebug;
@@ -269,10 +271,12 @@ public final class SandboxModule extends BlazeModule {
           withFallback(
               cmdEnv,
               new ProcessWrapperSandboxedSpawnRunner(
+                  helpers,
                   cmdEnv,
                   sandboxBase,
-                  cmdEnv.getRuntime().getProductName(),
                   timeoutKillDelay,
+                  sandboxfsProcess,
+                  options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.addActionContext(
@@ -295,6 +299,7 @@ public final class SandboxModule extends BlazeModule {
             withFallback(
                 cmdEnv,
                 new DockerSandboxedSpawnRunner(
+                    helpers,
                     cmdEnv,
                     pathToDocker,
                     sandboxBase,
@@ -320,6 +325,7 @@ public final class SandboxModule extends BlazeModule {
           withFallback(
               cmdEnv,
               LinuxSandboxedStrategy.create(
+                  helpers,
                   cmdEnv,
                   sandboxBase,
                   timeoutKillDelay,
@@ -340,6 +346,7 @@ public final class SandboxModule extends BlazeModule {
           withFallback(
               cmdEnv,
               new DarwinSandboxedSpawnRunner(
+                  helpers,
                   cmdEnv,
                   sandboxBase,
                   timeoutKillDelay,
@@ -358,7 +365,8 @@ public final class SandboxModule extends BlazeModule {
       SpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              new WindowsSandboxedSpawnRunner(cmdEnv, timeoutKillDelay, windowsSandboxPath));
+              new WindowsSandboxedSpawnRunner(
+                  helpers, cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
       builder.addActionContext(
           SpawnStrategy.class,

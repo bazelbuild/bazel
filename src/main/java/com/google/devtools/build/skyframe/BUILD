@@ -36,6 +36,7 @@ java_library(
     deps = [
         ":graph_inconsistency_java_proto",
         ":skyframe-objects",
+        "//src/main/java/com/google/devtools/build/lib:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",

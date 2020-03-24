@@ -5,7 +5,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -24,7 +24,6 @@ java_library(
         "StatRecorder.java",
         "TimeSeries.java",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -46,7 +45,6 @@ java_library(
     ],
 )
 
-# Profiler chart library.
 java_library(
     name = "profiler-output",
     srcs =
@@ -55,7 +53,6 @@ java_library(
             "TraceEvent.java",
         ] + glob([
             "analysis/*.java",
-            "chart/*.java",
             "output/*.java",
             "statistics/*.java",
         ]),
@@ -64,7 +61,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:auto_value",
         "//third_party:gson",

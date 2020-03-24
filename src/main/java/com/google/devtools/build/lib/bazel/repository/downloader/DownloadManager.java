@@ -187,7 +187,7 @@ public class DownloadManager {
 
     try {
       downloader.download(
-          urls, authHeaders, checksum, destination, eventHandler, clientEnv);
+          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv);
     } catch (InterruptedIOException e) {
       throw new InterruptedException(e.getMessage());
     }

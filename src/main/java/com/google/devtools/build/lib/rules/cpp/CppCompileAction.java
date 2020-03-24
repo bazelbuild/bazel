@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -88,7 +89,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -100,15 +100,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Logger;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
 /** Action that represents some kind of C++ compilation step. */
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction implements IncludeScannable, CommandAction {
 
-  private static final Logger logger = Logger.getLogger(CppCompileAction.class.getName());
-  private static final Duration BLOCKED_NESTED_SET_EXPANSION_THRESHOLD = Duration.ofSeconds(5);
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
   private static final boolean VALIDATION_DEBUG_WARN = false;
@@ -490,7 +488,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         continue;
       }
       if (declaredIncludeDirs == null) {
-        declaredIncludeDirs = ccCompilationContext.getDeclaredIncludeDirs().toSet();
+        declaredIncludeDirs = ccCompilationContext.getLooseHdrsDirs().toSet();
       }
       if (!isDeclaredIn(cppConfiguration, actionExecutionContext, header, declaredIncludeDirs)) {
         missing.add(header);
@@ -589,7 +587,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // used modules. Combining the NestedSets of transitive deps of the top-level modules also
     // gives us an effective way to compute and store discoveredModules.
     Set<Artifact> topLevel = new LinkedHashSet<>(usedModules);
-    for (NestedSet<? extends Artifact> transitive : transitivelyUsedModules.values()) {
+
+    Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> iterator =
+        transitivelyUsedModules.entrySet().iterator();
+    while (iterator.hasNext()) {
       // It is better to iterate over each nested set here instead of creating a joint one and
       // iterating over it, as this makes use of NestedSet's memoization (each of them has likely
       // been iterated over before). Don't use Set.removeAll() here as that iterates over the
@@ -597,7 +598,17 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // (transitive, which is a linear scan).
       // We get a collection view of the NestedSet in a way that can throw an InterruptedException
       // because a NestedSet may contain a future.
-      for (Artifact module : modulesToListInterruptibly(transitive)) {
+      Map.Entry<Artifact, NestedSet<? extends Artifact>> entry = iterator.next();
+      NestedSet<? extends Artifact> transitive = entry.getValue();
+
+      List<? extends Artifact> modules;
+      try {
+        modules = actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive);
+      } catch (TimeoutException e) {
+        throw handleTimedOutNestedSetExpansion(entry.getKey(), iterator, e);
+      }
+
+      for (Artifact module : modules) {
         topLevel.remove(module);
       }
     }
@@ -620,30 +631,43 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return additionalInputs;
   }
 
-  private static ImmutableList<? extends Artifact> modulesToListInterruptibly(
-      NestedSet<? extends Artifact> nestedSet) throws InterruptedException {
-    Stopwatch blockedStopwatch = Stopwatch.createStarted();
-    ImmutableList<? extends Artifact> modules;
-    try {
-      modules = nestedSet.toListInterruptibly();
-    } catch (InterruptedException e) {
-      Duration blockedDuration = blockedStopwatch.elapsed();
-      if (BLOCKED_NESTED_SET_EXPANSION_THRESHOLD.compareTo(blockedDuration) < 0) {
-        logger.info(
-            String.format(
-                "Spent %d milliseconds doing nested set expansion, interrupted",
-                blockedDuration.toMillis()));
-      }
-      throw e;
-    }
-    Duration blockedDuration = blockedStopwatch.elapsed();
-    if (BLOCKED_NESTED_SET_EXPANSION_THRESHOLD.compareTo(blockedDuration) < 0) {
-      logger.info(
-          String.format(
-              "Spent %d milliseconds doing nested set expansion, %d elements",
-              blockedDuration.toMillis(), modules.size()));
-    }
-    return modules;
+  /**
+   * Handles a timeout during expansion of transitively used modules.
+   *
+   * <p>A timeout may occur if a nested set of transitively used modules {@linkplain
+   * NestedSet#isFromStorage} but is not {@linkplain NestedSet#isReady ready}. The timeout is
+   * handled by throwing {@link LostInputsActionExecutionException} so that rewinding kicks in and
+   * rebuilds the nodes with the unavailable nested sets.
+   *
+   * <p>As soon as one timeout is seen, any other nested sets of modules which are not ready are
+   * also treated as lost inputs.
+   *
+   * <p>Although the output {@link Artifact} (.pcm file) of dependent modules is not technically
+   * lost, it is treated as a lost input because rewinding will rebuild the corresponding action,
+   * thus reconstituting its nested set of transitively used modules. In lieu of an actual digest,
+   * we use the .pcm file's exec path since rewinding only uses the digest to detect multiple
+   * rewinds of the same input.
+   */
+  private LostInputsActionExecutionException handleTimedOutNestedSetExpansion(
+      Artifact timedOut,
+      Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> remainingModules,
+      TimeoutException e) {
+    ImmutableMap.Builder<String, ActionInput> lostInputsBuilder = ImmutableMap.builder();
+    lostInputsBuilder.put(timedOut.getExecPathString(), timedOut);
+    remainingModules.forEachRemaining(
+        entry -> {
+          if (!entry.getValue().isReady()) {
+            Artifact alsoTimedOut = entry.getKey();
+            lostInputsBuilder.put(alsoTimedOut.getExecPathString(), alsoTimedOut);
+          }
+        });
+    ImmutableMap<String, ActionInput> lostInputs = lostInputsBuilder.build();
+    return new LostInputsActionExecutionException(
+        "Timed out expanding modules",
+        lostInputs,
+        new ActionInputDepOwnerMap(ImmutableList.copyOf(lostInputs.values())),
+        this,
+        e);
   }
 
   @Override
@@ -959,7 +983,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     // Copy the nested sets to hash sets for fast contains checking, but do so lazily.
     // Avoid immutable sets here to limit memory churn.
-    Set<PathFragment> declaredIncludeDirs = null;
+    Set<PathFragment> looseHdrsDirs = null;
     for (Artifact input : inputsForValidation.toList()) {
       // Only declared modules are added to an action and so they are always valid.
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
@@ -977,11 +1001,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (FileSystemUtils.startsWithAny(input.getExecPath(), ignoreDirs)) {
         continue;
       }
-      if (declaredIncludeDirs == null) {
-        declaredIncludeDirs =
-            Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs().toList());
+      if (looseHdrsDirs == null) {
+        looseHdrsDirs = Sets.newHashSet(ccCompilationContext.getLooseHdrsDirs().toList());
       }
-      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, declaredIncludeDirs)) {
+      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, looseHdrsDirs)) {
         errors.add(input.getExecPath().toString());
       }
     }
@@ -997,9 +1020,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs().toList()) {
             System.err.println("  '" + a.toDetailString() + "'");
           }
-          System.err.println(" or under declared dirs:");
-          for (PathFragment f :
-              Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeDirs().toList())) {
+          System.err.println(" or under loose headers dirs:");
+          for (PathFragment f : Sets.newTreeSet(ccCompilationContext.getLooseHdrsDirs().toList())) {
             System.err.println("  '" + f + "'");
           }
           System.err.println(" with prefixes:");
@@ -1221,7 +1243,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * listed in {@code declaredIncludeSrcs}).
    */
   public NestedSet<PathFragment> getDeclaredIncludeDirs() {
-    return ccCompilationContext.getDeclaredIncludeDirs();
+    return ccCompilationContext.getLooseHdrsDirs();
   }
 
   /** Return explicitly listed header files. */
@@ -1257,7 +1279,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         ccCompilationContext.getDeclaredIncludeSrcs(),
         getMandatoryInputs(),
         additionalPrunableHeaders,
-        ccCompilationContext.getDeclaredIncludeDirs(),
+        ccCompilationContext.getLooseHdrsDirs(),
         builtInIncludeDirectories,
         inputsForInvalidation,
         cppConfiguration.validateTopLevelHeaderInclusions());
@@ -1649,7 +1671,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       message.append('\n');
     }
 
-    for (PathFragment path : ccCompilationContext.getDeclaredIncludeDirs().toList()) {
+    for (PathFragment path : ccCompilationContext.getLooseHdrsDirs().toList()) {
       message.append("  Declared include directory: ");
       message.append(ShellEscaper.escapeString(path.getPathString()));
       message.append('\n');

@@ -673,8 +673,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
-      diff = new FilesystemValueChecker(tsgm, null).getDirtyKeys(memoizingEvaluator.getValues(),
-          new BasicFilesystemDirtinessChecker());
+      diff =
+          new FilesystemValueChecker(tsgm, null)
+              .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
       diff = getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry);
     }
@@ -693,7 +694,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void detectModifiedOutputFiles(
-      ModifiedFileSet modifiedOutputFiles, @Nullable Range<Long> lastExecutionTimeRange)
+      ModifiedFileSet modifiedOutputFiles,
+      @Nullable Range<Long> lastExecutionTimeRange,
+      boolean trustRemoteArtifacts)
       throws InterruptedException {
     long startTime = System.nanoTime();
     FilesystemValueChecker fsvc =
@@ -701,7 +704,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
     recordingDiffer.invalidate(
         fsvc.getDirtyActionValues(
-            memoizingEvaluator.getValues(), batchStatter, modifiedOutputFiles));
+            memoizingEvaluator.getValues(),
+            batchStatter,
+            modifiedOutputFiles,
+            trustRemoteArtifacts));
     modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
     outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
     modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
@@ -814,7 +820,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public void handleAnalysisInvalidatingChange() {
     super.handleAnalysisInvalidatingChange();
-    memoizingEvaluator.delete(ANALYSIS_KEY_PREDICATE);
+    memoizingEvaluator.delete(ANALYSIS_INVALIDATING_PREDICATE);
   }
 
   /**

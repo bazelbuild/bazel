@@ -2,11 +2,10 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])  # Apache 2.0
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 # Annotations to make Java classes and methods accessible from Starlark.
@@ -22,8 +21,5 @@ java_library(
 java_library(
     name = "annotations",
     srcs = glob(["*.java"]),
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:__pkg__",
-    ],
     deps = ["//third_party:jsr305"],
 )

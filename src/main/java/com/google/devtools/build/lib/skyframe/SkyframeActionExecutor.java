@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
@@ -223,6 +224,8 @@ public final class SkyframeActionExecutor {
   private final Function<PathFragment, SourceArtifact> sourceArtifactFactory;
 
   private boolean bazelRemoteExecutionEnabled;
+
+  private NestedSetExpander nestedSetExpander;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
@@ -672,7 +675,8 @@ public final class SkyframeActionExecutor {
         topLevelFilesets,
         new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
         actionFileSystem,
-        skyframeDepsResult);
+        skyframeDepsResult,
+        nestedSetExpander);
   }
 
   /**
@@ -832,7 +836,8 @@ public final class SkyframeActionExecutor {
             selectEventHandler(progressEventBehavior),
             clientEnv,
             env,
-            actionFileSystem);
+            actionFileSystem,
+            nestedSetExpander);
     if (actionFileSystem != null) {
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
@@ -917,9 +922,13 @@ public final class SkyframeActionExecutor {
     return hadExecutionError && !options.getOptions(KeepGoingOption.class).keepGoing;
   }
 
-  void configure(MetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
+  public void configure(
+      MetadataProvider fileCache,
+      ActionInputPrefetcher actionInputPrefetcher,
+      NestedSetExpander nestedSetExpander) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.nestedSetExpander = nestedSetExpander;
   }
 
   /**
