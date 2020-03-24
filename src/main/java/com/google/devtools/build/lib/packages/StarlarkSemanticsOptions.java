@@ -265,6 +265,17 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalSiblingRepositoryLayout;
 
   @Option(
+      name = "experimental_exec_groups",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to true, allows rule authors define and access multiple execution groups "
+              + "during rule definition. This work is ongoing.")
+  public boolean experimentalExecGroups;
+
+  @Option(
       name = "experimental_allow_tags_propagation",
       oldName = "incompatible_allow_tags_propagation",
       defaultValue = "false",
@@ -677,6 +688,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalRepoRemoteExec(experimentalRepoRemoteExec)
             .experimentalDisableExternalPackage(experimentalDisableExternalPackage)
             .experimentalSiblingRepositoryLayout(experimentalSiblingRepositoryLayout)
+            .experimentalExecGroups(experimentalExecGroups)
             .incompatibleApplicableLicenses(incompatibleApplicableLicenses)
             .incompatibleDepsetUnion(incompatibleDepsetUnion)
             .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)

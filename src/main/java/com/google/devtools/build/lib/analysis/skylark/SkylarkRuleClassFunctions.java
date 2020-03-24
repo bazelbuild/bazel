@@ -294,6 +294,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Object analysisTest,
       Object buildSetting,
       Object cfg,
+      Object execGroups,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);

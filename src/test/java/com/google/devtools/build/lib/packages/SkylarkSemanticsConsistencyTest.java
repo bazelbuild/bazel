@@ -139,6 +139,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_allow_tags_propagation=" + rand.nextBoolean(), // flag, Java names differ
         "--experimental_cc_shared_library=" + rand.nextBoolean(),
         "--experimental_repo_remote_exec=" + rand.nextBoolean(),
+        "--experimental_exec_groups=" + rand.nextBoolean(),
         "--incompatible_always_check_depset_elements=" + rand.nextBoolean(),
         "--incompatible_applicable_licenses=" + rand.nextBoolean(),
         "--incompatible_depset_for_libraries_to_link_getter=" + rand.nextBoolean(),
@@ -193,6 +194,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalAllowTagsPropagation(rand.nextBoolean())
         .experimentalCcSharedLibrary(rand.nextBoolean())
         .experimentalRepoRemoteExec(rand.nextBoolean())
+        .experimentalExecGroups(rand.nextBoolean())
         .incompatibleAlwaysCheckDepsetElements(rand.nextBoolean())
         .incompatibleApplicableLicenses(rand.nextBoolean())
         .incompatibleDepsetForLibrariesToLinkGetter(rand.nextBoolean())

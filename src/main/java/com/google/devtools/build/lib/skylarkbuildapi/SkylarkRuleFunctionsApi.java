@@ -328,7 +328,18 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             doc =
                 "If set, points to the configuration transition the rule will "
-                    + "apply to its own configuration before analysis.")
+                    + "apply to its own configuration before analysis."),
+        @Param(
+            name = "exec_groups",
+            type = Dict.class,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            positional = false,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+            valueWhenDisabled = "None",
+            // TODO(juliexxia): beef up this description when we actually hook up to something"
+            doc = "Dictionary to declare execution groups. DO NOT USE - not function yet.")
       },
       useStarlarkThread = true)
   BaseFunction rule(
@@ -348,6 +359,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object analysisTest,
       Object buildSetting,
       Object cfg,
+      Object execGroups,
       StarlarkThread thread)
       throws EvalException;
 

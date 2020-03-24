@@ -70,6 +70,7 @@ public abstract class StarlarkSemantics {
     public static final String EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST =
         "experimental_starlark_unused_inputs_list";
     public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "experimental_repo_remote_exec";
+    public static final String EXPERIMENTAL_EXEC_GROUPS = "experimental_exec_groups";
     public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
         "incompatible_applicable_licenses";
     public static final String INCOMPATIBLE_DISABLE_DEPSET_INPUTS =
@@ -121,6 +122,8 @@ public abstract class StarlarkSemantics {
         return experimentalStarlarkUnusedInputsList();
       case FlagIdentifier.EXPERIMENTAL_REPO_REMOTE_EXEC:
         return experimentalRepoRemoteExec();
+      case FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS:
+        return experimentalExecGroups();
       case FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES:
         return incompatibleApplicableLicenses();
       case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS:
@@ -211,6 +214,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean experimentalDisableExternalPackage();
 
   public abstract boolean experimentalSiblingRepositoryLayout();
+
+  public abstract boolean experimentalExecGroups();
 
   public abstract boolean incompatibleAlwaysCheckDepsetElements();
 
@@ -318,6 +323,7 @@ public abstract class StarlarkSemantics {
           .experimentalRepoRemoteExec(false)
           .experimentalDisableExternalPackage(false)
           .experimentalSiblingRepositoryLayout(false)
+          .experimentalExecGroups(false)
           .incompatibleAlwaysCheckDepsetElements(true)
           .incompatibleApplicableLicenses(false)
           .incompatibleDepsetUnion(true)
@@ -385,6 +391,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalDisableExternalPackage(boolean value);
 
     public abstract Builder experimentalSiblingRepositoryLayout(boolean value);
+
+    public abstract Builder experimentalExecGroups(boolean value);
 
     public abstract Builder incompatibleAlwaysCheckDepsetElements(boolean value);
 
