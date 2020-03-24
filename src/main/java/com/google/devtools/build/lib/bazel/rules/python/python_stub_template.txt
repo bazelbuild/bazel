@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
+import collections
 
 # Return True if running on Windows
 def IsWindows():
@@ -261,6 +262,10 @@ https://github.com/bazelbuild/bazel/issues/7899 for more information.
 ----------------""".format(diagnostic=diagnostic)
   print(message, file=sys.stderr)
 
+def Deduplicate(items):
+  """Efficiently filter out duplicates, keeping the first element only."""
+  return list(collections.OrderedDict((it, None) for it in items).keys())
+
 def Main():
   args = sys.argv[1:]
 
@@ -274,7 +279,9 @@ def Main():
   python_imports = '%imports%'
   python_path_entries = CreatePythonPathEntries(python_imports, module_space)
   python_path_entries += GetRepositoriesImports(module_space, %import_all%)
-
+  # Remove duplicates to avoid overly long PYTHONPATH (#10977). Preserve order,
+  # keep first occurrence only.
+  python_path_entries = Deduplicate(python_path_entries)
   python_path_entries = [GetWindowsPathWithUNCPrefix(d) for d in python_path_entries]
 
   old_python_path = os.environ.get('PYTHONPATH')
