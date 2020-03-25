@@ -37,6 +37,8 @@ import org.objectweb.asm.tree.MethodNode;
 /** Static utilities that facilities desugar testing. */
 public class DesugarTestHelpers {
 
+  private DesugarTestHelpers() {}
+
   /**
    * A helper method that reads file paths into an array from the JVM flag value associated with
    * {@param jvmFlagKey}.
@@ -61,9 +63,7 @@ public class DesugarTestHelpers {
     Predicate<String> methodOwnerPredicate = Pattern.compile(methodOwnerRegex).asPredicate();
     Predicate<String> methodNamePredicate = Pattern.compile(methodNameRegex).asPredicate();
     Predicate<String> methodDescPredicate = Pattern.compile(methodDescRegex).asPredicate();
-    AbstractInsnNode[] instructions = enclosingMethod.instructions.toArray();
-    return Arrays.stream(instructions)
-        .filter(node -> node.getType() == AbstractInsnNode.METHOD_INSN)
+    return filterInstructions(enclosingMethod, AbstractInsnNode.METHOD_INSN).stream()
         .map(node -> (MethodInsnNode) node)
         .filter(node -> methodOwnerPredicate.test(node.owner))
         .filter(node -> methodNamePredicate.test(node.name))
@@ -78,5 +78,10 @@ public class DesugarTestHelpers {
         .collect(toImmutableList());
   }
 
-  private DesugarTestHelpers() {}
+  public static ImmutableList<AbstractInsnNode> filterInstructions(
+      MethodNode enclosingMethod, int instructionType) {
+    return Arrays.stream(enclosingMethod.instructions.toArray())
+        .filter(node -> node.getType() == instructionType)
+        .collect(toImmutableList());
+  }
 }
