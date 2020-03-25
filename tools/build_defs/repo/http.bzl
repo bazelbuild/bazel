@@ -39,6 +39,40 @@ load(
     "workspace_and_buildfile",
 )
 
+# Shared between http_jar, http_file and http_archive.
+_AUTH_PATTERN_DOC = """An optional dict mapping host names to custom authorization patterns.
+
+If a URL's host name is present in this dict the value will be used as a pattern when
+generating the authorization header for the http request. This enables the use of custom
+authorization schemes used in a lot of common cloud storage providers.
+
+The pattern currently supports 2 tokens: <code>&lt;login&gt;</code> and
+<code>&lt;password&gt;</code>, which are replaced with their equivalent value
+in the netrc file for the same host name. After formatting, the result is set
+as the value for the <code>Authorization</code> field of the HTTP request.
+
+Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
+
+<pre>
+auth_patterns = {
+    "storage.cloudprovider.com": "Bearer &lt;password&gt;"
+}
+</pre>
+
+netrc:
+
+<pre>
+machine storage.cloudprovider.com
+        password RANDOM-TOKEN
+</pre>
+
+The final HTTP request would have the following header:
+
+<pre>
+Authorization: Bearer RANDOM-TOKEN
+</pre>
+"""
+
 def _get_auth(ctx, urls):
     """Given the list of URLs obtain the correct auth dict."""
     if ctx.attr.netrc:
@@ -196,44 +230,7 @@ easier but should be set before shipping.""",
         doc = "Location of the .netrc file to use for authentication",
     ),
     "auth_patterns": attr.string_dict(
-        doc = """An optional dict mapping host names to custom authorization patterns.
-
-If a URL's host name is present in this dict the value will be used as a pattern when
-generating the authorization header for the http request. This enables the use of custom
-authorization schemes used in a lot of common cloud storage providers.
-
-The pattern currently supports 2 tokens: `<login>` and `<password>`, which are replaced with
-their equivalent value in the netrc file for the same host name. After formatting, the result
-is set as the value for the `Authorization` field of the HTTP request.
-
-Example WORKSPACE and netrc for a http download to an oauth2 enabled API using a bearer token:
-
-```python
-http_jar(
-    name = "custom-artifact",
-    url = "https://storage.cloudprovider.com/custom-bucket/custom-artifact.jar",
-    sha256 = "...",
-    netrc = "/home/testuser/workspace/netrc",
-    auth_patterns = {
-        "storage.cloudprovider.com": "Bearer <password>"
-    }
-)
-```
-
-netrc:
-
-```
-machine storage.cloudprovider.com
-        password RANDOM-TOKEN
-```
-
-The final HTTP request would have the following header:
-
-```
-Authorization: Bearer RANDOM-TOKEN
-```
-
-""",
+        doc = _AUTH_PATTERN_DOC,
     ),
     "canonical_id": attr.string(
         doc = """A canonical id of the archive downloaded.
@@ -422,43 +419,7 @@ Authentication is not supported.""",
         doc = "Location of the .netrc file to use for authentication",
     ),
     "auth_patterns": attr.string_dict(
-        doc = """An optional dict mapping host names to custom authorization patterns.
-
-If a URL's host name is present in this dict the value will be used as a pattern when
-generating the authorization header for the http request. This enables the use of custom
-authorization schemes used in a lot of common cloud storage providers.
-
-The pattern currently supports 2 tokens: `<login>` and `<password>`, which are replaced with
-their equivalent value in the netrc file for the same host name. After formatting, the result
-is set as the value for the `Authorization` field of the HTTP request.
-
-Example WORKSPACE and netrc for a http download to an oauth2 enabled API using a bearer token:
-
-```python
-http_jar(
-    name = "custom-artifact",
-    url = "https://storage.cloudprovider.com/custom-bucket/custom-artifact.jar",
-    sha256 = "...",
-    netrc = "/home/testuser/workspace/netrc",
-    auth_patterns = {
-        "storage.cloudprovider.com": "Bearer <password>"
-    }
-)
-
-netrc:
-
-```
-machine storage.cloudprovider.com
-        password RANDOM-TOKEN
-```
-
-The final HTTP request would have the following header:
-
-```
-Authorization: Bearer RANDOM-TOKEN
-```
-
-""",
+        doc = _AUTH_PATTERN_DOC,
     ),
 }
 
@@ -512,42 +473,7 @@ unless it was added to the cache by a request with the same canonical id.
         doc = "Location of the .netrc file to use for authentication",
     ),
     "auth_patterns": attr.string_dict(
-        doc = """An optional dict mapping host names to custom authorization patterns.
-
-If a URL's host name is present in this dict the value will be used as a pattern when
-generating the authorization header for the http request. This enables the use of custom
-authorization schemes used in a lot of common cloud storage providers.
-
-The pattern currently supports 2 tokens: `<login>` and `<password>`, which are replaced with
-their equivalent value in the netrc file for the same host name. After formatting, the result
-is set as the value for the `Authorization` field of the HTTP request.
-
-Example WORKSPACE and netrc for a http download to an oauth2 enabled API using a bearer token:
-
-```python
-http_jar(
-    name = "custom-artifact",
-    url = "https://storage.cloudprovider.com/custom-bucket/custom-artifact.jar",
-    sha256 = "...",
-    netrc = "/home/testuser/workspace/netrc",
-    auth_patterns = {
-        "storage.cloudprovider.com": "Bearer <password>"
-    }
-)
-
-netrc:
-
-```
-machine storage.cloudprovider.com
-        password RANDOM-TOKEN
-```
-
-The final HTTP request would have the following header:
-
-```
-Authorization: Bearer RANDOM-TOKEN
-```
-""",
+        doc = _AUTH_PATTERN_DOC,
     ),
 }
 
