@@ -154,10 +154,17 @@ java_library(
         "TestConstants.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//third_party:guava",
     ],
+)
+
+java_library(
+    name = "SkyframeExecutorTestHelper",
+    srcs = [
+        "SkyframeExecutorTestHelper.java",
+    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib:build-base"],
 )
 
 java_library(
