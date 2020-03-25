@@ -78,7 +78,7 @@ java_library(
 
 java_test(
     name = "VfsTests",
-    size = "medium",
+    size = "large",
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
