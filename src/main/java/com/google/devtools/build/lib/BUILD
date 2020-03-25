@@ -704,8 +704,8 @@ java_library(
         ":bazel-repository",
         ":bazel-rules",
         ":build-base",
+        ":detailed_exit_code",
         ":events",
-        ":exitcode-external",
         ":runtime",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
@@ -716,6 +716,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
     ],
 )
