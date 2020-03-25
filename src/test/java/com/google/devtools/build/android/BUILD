@@ -7,6 +7,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/desugar:srcs",
         "//src/test/java/com/google/devtools/build/android/dexer:srcs",
         "//src/test/java/com/google/devtools/build/android/junctions:srcs",
+        "//src/test/java/com/google/devtools/build/android/r8:srcs",
         "//src/test/java/com/google/devtools/build/android/resources:srcs",
         "//src/test/java/com/google/devtools/build/android/testing/manifestmerge:srcs",
         "//src/test/java/com/google/devtools/build/android/xml:srcs",
