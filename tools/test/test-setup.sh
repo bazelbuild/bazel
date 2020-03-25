@@ -260,23 +260,14 @@ if [ ! -z "$TEST_SHORT_EXEC_PATH" ]; then
   TEST_PATH="${BASE}.exe"
 fi
 
-childPid="invalid"
-function signal_child {
-  local signal="${1-}"
-  if [ "${signal}" = "SIGTERM" ]; then
-    echo "-- Test timed out at $(date +"%F %T %Z") --"
-  fi
-  kill -s ${signal} $childPid
-}
-
 exitCode=0
 signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
 if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
-  for signal in $signals; do
-    # SIGCHLD is expected when a subprocess dies
-    [ "${signal}" = "SIGCHLD" ] && continue
-    trap "signal_child ${signal}" ${signal}
-  done
+  # If we trap here, then bash forwards the signal to the subprocess, at least
+  # for bash version 4.4.12(1) on Linux. If we don't trap here, then bash does
+  # not forward the signal. This seems to contradict the bash documentation, and
+  # also seems to contradict bug #7119, which reports the opposite behavior.
+  trap 'echo "-- Test timed out at $(date +"%F %T %Z") --"' SIGTERM
 else
   for signal in $signals; do
     # SIGCHLD is expected when a subprocess dies
@@ -294,19 +285,10 @@ tail -fq --pid $pid -s 0.001 /dev/null &> /dev/null || has_tail=false
 
 if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
   if [ -z "$COVERAGE_DIR" ]; then
-    ("${TEST_PATH}" "$@" 2>&1) <&0 &
-    childPid=$!
+    "${TEST_PATH}" "$@" 2>&1 || exitCode=$?
   else
-    ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
-    childPid=$!
+    "$1" "$TEST_PATH" "${@:3}" 2>&1 || exitCode=$?
   fi
-
-  wait $childPid
-  # If interrupted by a signal, use the signal as the exit code. But allow
-  # the child to actually finish from the signal we sent _it_ via signal_child.
-  # If it already exited, the second wait is a no-op.
-  exitCode=$?
-  wait $childPid
 elif [ "$has_tail" == true ] && [  -z "$no_echo" ]; then
   touch "${XML_OUTPUT_FILE}.log"
   if [ -z "$COVERAGE_DIR" ]; then
