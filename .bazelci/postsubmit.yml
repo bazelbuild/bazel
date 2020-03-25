@@ -5,6 +5,7 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -44,6 +45,7 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -79,6 +81,7 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -121,6 +124,7 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -144,6 +148,7 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
