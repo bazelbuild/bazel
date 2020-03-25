@@ -22,8 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -58,6 +55,7 @@ import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistry
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -523,6 +521,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             .addTransitive(attributes.getRuntimeClassPathForArchive())
             .build();
     Artifact jsa = ruleContext.getImplicitOutputArtifact(JavaSemantics.SHARED_ARCHIVE_ARTIFACT);
+    Artifact merged =
+        ruleContext.getDerivedArtifact(
+            jsa.getRootRelativePath()
+                .replaceName(
+                    FileSystemUtils.removeExtension(jsa.getRootRelativePath().getBaseName())
+                        + "-merged.jar"),
+            jsa.getRoot());
+    SingleJarActionBuilder.createSingleJarAction(ruleContext, classpath, merged);
     JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
     ruleContext.registerAction(
         new SpawnAction.Builder()
@@ -533,16 +539,12 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                     .addFormatted("-XX:SharedArchiveFile=%s", jsa.getExecPath())
                     .addFormatted("-XX:SharedClassListFile=%s", classlist.getExecPath())
                     .add("-cp")
+                    .addExecPath(merged)
                     .build())
-            .addCommandLine(
-                CustomCommandLine.builder()
-                    .addExecPaths(VectorArg.join(":").each(classpath))
-                    .build(),
-                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .addOutput(jsa)
             .addInput(classlist)
+            .addInput(merged)
             .addTransitiveInputs(javaRuntime.javaBaseInputsMiddleman())
-            .addTransitiveInputs(classpath)
             .build(ruleContext));
     return jsa;
   }
