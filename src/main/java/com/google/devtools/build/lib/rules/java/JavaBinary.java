@@ -530,22 +530,29 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             jsa.getRoot());
     SingleJarActionBuilder.createSingleJarAction(ruleContext, classpath, merged);
     JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
-    ruleContext.registerAction(
+    Artifact configFile = ruleContext.getPrerequisiteArtifact("cds_config_file", Mode.HOST);
+
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .add("-Xshare:dump")
+            .addFormatted("-XX:SharedArchiveFile=%s", jsa.getExecPath())
+            .addFormatted("-XX:SharedClassListFile=%s", classlist.getExecPath());
+    if (configFile != null) {
+      commandLine.addFormatted("-XX:SharedArchiveConfigFile=%s", configFile.getExecPath());
+    }
+    commandLine.add("-cp").addExecPath(merged);
+    SpawnAction.Builder spawnAction =
         new SpawnAction.Builder()
             .setExecutable(javaRuntime.javaBinaryExecPathFragment())
-            .addCommandLine(
-                CustomCommandLine.builder()
-                    .add("-Xshare:dump")
-                    .addFormatted("-XX:SharedArchiveFile=%s", jsa.getExecPath())
-                    .addFormatted("-XX:SharedClassListFile=%s", classlist.getExecPath())
-                    .add("-cp")
-                    .addExecPath(merged)
-                    .build())
+            .addCommandLine(commandLine.build())
             .addOutput(jsa)
             .addInput(classlist)
             .addInput(merged)
-            .addTransitiveInputs(javaRuntime.javaBaseInputsMiddleman())
-            .build(ruleContext));
+            .addTransitiveInputs(javaRuntime.javaBaseInputsMiddleman());
+    if (configFile != null) {
+      spawnAction.addInput(configFile);
+    }
+    ruleContext.registerAction(spawnAction.build(ruleContext));
     return jsa;
   }
 
