@@ -895,13 +895,10 @@ public final class PyCommon {
     return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), "");
   }
 
-  /**
-   * Adds a PyInfo or legacy "py" provider.
-   *
-   * <p>This is a public method because some rules just want a PyInfo provider without the other
-   * things py_library needs.
-   */
-  public void addPyInfoProvider(RuleConfiguredTargetBuilder builder) {
+  public void addCommonTransitiveInfoProviders(
+      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
+
+    // Add PyInfo and/or legacy "py" struct provider.
     boolean createLegacyPyProvider =
         !ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider();
     PyProviderUtils.builder(createLegacyPyProvider)
@@ -911,11 +908,6 @@ public final class PyCommon {
         .setHasPy2OnlySources(hasPy2OnlySources)
         .setHasPy3OnlySources(hasPy3OnlySources)
         .buildAndAddToTarget(builder);
-  }
-
-  public void addCommonTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
-    addPyInfoProvider(builder);
 
     // Add PyRuntimeInfo if this is an executable rule.
     if (runtimeFromToolchain != null) {
