@@ -433,6 +433,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  pass",
         "",
         "def http_file(**kwargs):",
+        "  pass",
+        "",
+        "def http_jar(**kwargs):",
         "  pass");
   }
 
