@@ -115,7 +115,8 @@ class TarFileWriter(object):
                name,
                compression='',
                root_directory='./',
-               default_mtime=None):
+               default_mtime=None,
+               preserve_tar_mtimes=False):
     """TarFileWriter wraps tarfile.open().
 
     Args:
@@ -125,6 +126,7 @@ class TarFileWriter(object):
       default_mtime: default mtime to use for elements in the archive.
           May be an integer or the value 'portable' to use the date
           2000-01-01, which is compatible with non *nix OSes'.
+      preserve_tar_mtimes: if true, keep file mtimes from input tar file.
     """
     if compression in ['bzip2', 'bz2']:
       mode = 'w:bz2'
@@ -135,6 +137,9 @@ class TarFileWriter(object):
     self.xz = compression in ['xz', 'lzma']
     self.name = name
     self.root_directory = six.ensure_str(root_directory).rstrip('/')
+
+    self.preserve_mtime = preserve_tar_mtimes
+
     if default_mtime is None:
       self.default_mtime = 0
     elif default_mtime == 'portable':
@@ -385,7 +390,8 @@ class TarFileWriter(object):
       intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
       if name_filter is None or name_filter(tarinfo.name):
-        tarinfo.mtime = self.default_mtime
+        if not self.preserve_mtime:
+          tarinfo.mtime = self.default_mtime
         if rootuid is not None and tarinfo.uid == rootuid:
           tarinfo.uid = 0
           tarinfo.uname = 'root'
