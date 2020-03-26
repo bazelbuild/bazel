@@ -1528,6 +1528,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return directories.getOutputPath(ruleClassProvider.getRunfilesPrefix());
   }
 
+  protected String getRelativeOutputPath() {
+    return directories.getRelativeOutputPath();
+  }
+
   /**
    * Verifies whether the rule checks the 'srcs' attribute validity.
    *

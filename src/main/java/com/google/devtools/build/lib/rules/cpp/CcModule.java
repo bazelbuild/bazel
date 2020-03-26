@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -1571,6 +1572,21 @@ public abstract class CcModule
     }
   }
 
+  private static boolean isStampingEnabled(int stamp, BuildConfiguration config)
+      throws EvalException {
+    if (stamp == 0) {
+      return false;
+    } else if (stamp == 1) {
+      return true;
+    } else if (stamp == -1) {
+      return config.stampBinaries();
+    } else {
+      throw Starlark.errorf(
+          "stamp value %d is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)",
+          stamp);
+    }
+  }
+
   protected Label getCallerLabel(SkylarkActionFactory actions, String name) throws EvalException {
     try {
       return Label.create(
@@ -1707,12 +1723,15 @@ public abstract class CcModule
       String language,
       String outputType,
       boolean linkDepsStatically,
+      int stamp,
       Sequence<?> additionalInputs,
       Object grepIncludes,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     validateLanguage(language);
     validateOutputType(outputType);
+    boolean isStampingEnabled =
+        isStampingEnabled(stamp, actions.getRuleContext().getConfiguration());
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
@@ -1759,6 +1778,7 @@ public abstract class CcModule
                     actions.getRuleContext().isAllowTagsPropagation()))
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
+            .setIsStampingEnabled(isStampingEnabled)
             .addNonCodeLinkerInputs(
                 additionalInputs.getContents(Artifact.class, "additional_inputs"))
             .setDynamicLinkType(dynamicLinkTargetType)

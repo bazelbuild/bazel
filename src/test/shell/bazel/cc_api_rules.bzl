@@ -141,6 +141,7 @@ def _cc_bin_impl(ctx):
         linking_contexts = linking_contexts,
         user_link_flags = user_link_flags,
         link_deps_statically = ctx.attr.linkstatic,
+        stamp = ctx.attr.stamp,
         additional_inputs = ctx.files.additional_linker_inputs,
         output_type = output_type,
     )
@@ -177,6 +178,7 @@ cc_bin = rule(
         "user_link_flags": attr.string_list(),
         "linkstatic": attr.bool(default = True),
         "linkshared": attr.bool(default = False),
+        "stamp": attr.int(default = -1),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
     fragments = ["cpp"],
