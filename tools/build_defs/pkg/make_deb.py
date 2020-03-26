@@ -179,9 +179,10 @@ def CreateDebControl(extrafiles=None, **kwargs):
       if extrafiles:
         for name, (data, mode) in extrafiles.items():
           tarinfo = tarfile.TarInfo(name)
-          tarinfo.size = len(data)
+          data_utf8 = six.ensure_binary(data, 'utf-8')
+          tarinfo.size = len(data_utf8)
           tarinfo.mode = mode
-          f.addfile(tarinfo, fileobj=BytesIO(six.ensure_binary(data, 'utf-8')))
+          f.addfile(tarinfo, fileobj=BytesIO(data_utf8))
   control = tar.getvalue()
   tar.close()
   return control
