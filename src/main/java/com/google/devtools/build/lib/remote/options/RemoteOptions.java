@@ -574,6 +574,16 @@ public final class RemoteOptions extends OptionsBase {
       help = "Maximum number of open files allowed during BEP artifact upload.")
   public int maximumOpenFiles;
 
+  @Option(
+      name = "experimental_remote_mark_tool_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will mark inputs as tool inputs for the remote executor. This "
+              + "can be used to implement remote persistent workers.")
+  public boolean markToolInputs;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 

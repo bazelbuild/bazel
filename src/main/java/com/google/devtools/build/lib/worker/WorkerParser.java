@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
  * persistent worker process (actions with equal keys are allowed to use the same worker process),
  * and a separate list of flag files. The result is encapsulated as a {@link WorkerConfig}.
  */
-class WorkerParser {
+public class WorkerParser {
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   public static final String REASON_NO_FLAGFILE =
