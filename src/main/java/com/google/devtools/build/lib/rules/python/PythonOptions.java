@@ -85,18 +85,22 @@ public class PythonOptions extends FragmentOptions {
               + "flag also disables `select()`-ing over `--host_force_python`.")
   public boolean incompatibleRemoveOldPythonVersionApi;
 
+  /**
+   * Deprecated machinery for setting the Python version; will be removed soon.
+   *
+   * <p>Not GraveyardOptions'd because we'll delete this alongside other soon-to-be-removed options
+   * in this file.
+   */
   @Option(
       name = "incompatible_allow_python_version_transitions",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help =
-          "If true, Python rules use the new PY2/PY3 version semantics. For more information, see "
-              + "the documentation for `py_binary`'s `python_version` attribute.")
+      help = "No-op, will be removed soon.")
   public boolean incompatibleAllowPythonVersionTransitions;
 
   /**
@@ -117,10 +121,9 @@ public class PythonOptions extends FragmentOptions {
       },
       help =
           "If true, `py_binary` and `py_test` targets that do not set their `python_version` (or "
-              + "`default_python_version`) attribute will default to PY3 rather than to PY2. It is "
-              + "an error to set this flag without also enabling "
-              + "`--incompatible_allow_python_version_transitions`. If you set this flag it is "
-              + "also recommended to set `--incompatible_py2_outputs_are_suffixed`.")
+              + "`default_python_version`) attribute will default to PY3 rather than to PY2. If "
+              + "you set this flag it is also recommended to set "
+              + "`--incompatible_py2_outputs_are_suffixed`.")
   public boolean incompatiblePy3IsDefault;
 
   @Option(
@@ -159,9 +162,8 @@ public class PythonOptions extends FragmentOptions {
         OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
       },
       help =
-          "The Python major version mode, either `PY2` or `PY3`. Note that under the new version "
-              + "semantics (`--incompatible_allow_python_version_transitions`) this is overridden "
-              + "by `py_binary` and `py_test` targets (even if they don't explicitly specify a "
+          "The Python major version mode, either `PY2` or `PY3`. Note that this is overridden by "
+              + "`py_binary` and `py_test` targets (even if they don't explicitly specify a "
               + "version) so there is usually not much reason to supply this flag.")
   public PythonVersion pythonVersion;
 
@@ -326,44 +328,24 @@ public class PythonOptions extends FragmentOptions {
   }
 
   /**
-   * Returns whether a Python version transition to {@code version} is allowed and not a no-op.
-   *
-   * <p>Under the new semantics ({@link #incompatibleAllowPythonVersionTransitions} is true),
-   * version transitions are always allowed, so this essentially returns whether the new version is
-   * different from the existing one.
-   *
-   * <p>Under the old semantics ({@link #incompatibleAllowPythonVersionTransitions} is false),
-   * version transitions are not allowed once the version has already been set ({@link
-   * #pythonVersion} is non-null). Due to a historical bug, it is also not allowed to transition the
-   * version to the hard-coded default value. Under these constraints, there is only one transition
-   * possible, from null to the non-default value, and it is never a no-op.
+   * Returns whether a Python version transition to {@code version} is not a no-op.
    *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
   public boolean canTransitionPythonVersion(PythonVersion version) {
     Preconditions.checkArgument(version.isTargetValue());
-    if (incompatibleAllowPythonVersionTransitions) {
-      return !version.equals(getPythonVersion());
-    } else {
-      boolean currentlyUnset = pythonVersion == null;
-      boolean transitioningToNonDefault = !version.equals(getDefaultPythonVersion());
-      return currentlyUnset && transitioningToNonDefault;
-    }
+    return !version.equals(getPythonVersion());
   }
 
   /**
-   * Manipulates the Python version fields so that {@link #getPythonVersion()} returns {@code
-   * version}.
+   * Sets the Python version to {@code version}.
    *
-   * <p>This method is a mutation on the current instance, so it should only be invoked on a newly
-   * constructed instance. The mutation does not depend on whether or not {@link
-   * #canTransitionPythonVersion} would return true.
-   *
-   * <p>If the old semantics are in effect ({@link #incompatibleAllowPythonVersionTransitions} is
-   * false), after this method is called {@link #canTransitionPythonVersion} will return false.
+   * <p>Since this is a mutation, it should only be called on a newly constructed instance.
    *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
+  // TODO(brandjon): Consider removing this mutator now that the various flags and semantics it
+  // used to consider are gone. We'd revert to just setting the public option field directly.
   public void setPythonVersion(PythonVersion version) {
     Preconditions.checkArgument(version.isTargetValue());
     this.pythonVersion = version;
@@ -373,8 +355,6 @@ public class PythonOptions extends FragmentOptions {
   public FragmentOptions getHost() {
     PythonOptions hostPythonOptions = (PythonOptions) getDefault();
     hostPythonOptions.incompatibleRemoveOldPythonVersionApi = incompatibleRemoveOldPythonVersionApi;
-    hostPythonOptions.incompatibleAllowPythonVersionTransitions =
-        incompatibleAllowPythonVersionTransitions;
     PythonVersion hostVersion =
         (hostForcePython != null) ? hostForcePython : getDefaultPythonVersion();
     hostPythonOptions.setPythonVersion(hostVersion);
@@ -393,13 +373,10 @@ public class PythonOptions extends FragmentOptions {
 
   @Override
   public FragmentOptions getNormalized() {
-    // Under the new version semantics, we want to ensure that options with "null" physical default
-    // values are normalized, to avoid #7808. We don't want to normalize with the old version
-    // semantics because that breaks backwards compatibility.
+    // We want to ensure that options with "null" physical default values are normalized, to avoid
+    // #7808.
     PythonOptions newOptions = (PythonOptions) clone();
-    if (incompatibleAllowPythonVersionTransitions) {
-      newOptions.setPythonVersion(newOptions.getPythonVersion());
-    }
+    newOptions.setPythonVersion(newOptions.getPythonVersion());
     return newOptions;
   }
 }

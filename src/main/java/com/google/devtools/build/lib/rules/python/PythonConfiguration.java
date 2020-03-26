@@ -17,10 +17,7 @@ package com.google.devtools.build.lib.rules.python;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -43,9 +40,8 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
 
-  // TODO(brandjon): Remove these once migration to the new version API is complete (#6583).
+  // TODO(brandjon): Remove this (#7797).
   private final boolean oldPyVersionApiAllowed;
-  private final boolean useNewPyVersionSemantics;
 
   // TODO(brandjon): Remove this once migration to PY3-as-default is complete.
   private final boolean py2OutputsAreSuffixed;
@@ -67,7 +63,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
       TriState buildPythonZip,
       boolean buildTransitiveRunfilesTrees,
       boolean oldPyVersionApiAllowed,
-      boolean useNewPyVersionSemantics,
       boolean py2OutputsAreSuffixed,
       boolean disallowLegacyPyProvider,
       boolean useToolchains,
@@ -78,7 +73,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
     this.oldPyVersionApiAllowed = oldPyVersionApiAllowed;
-    this.useNewPyVersionSemantics = useNewPyVersionSemantics;
     this.py2OutputsAreSuffixed = py2OutputsAreSuffixed;
     this.disallowLegacyPyProvider = disallowLegacyPyProvider;
     this.useToolchains = useToolchains;
@@ -131,17 +125,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
     }
   }
 
-  @Override
-  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    PythonOptions opts = buildOptions.get(PythonOptions.class);
-    if (opts.incompatiblePy3IsDefault && !opts.incompatibleAllowPythonVersionTransitions) {
-      reporter.handle(
-          Event.error(
-              "cannot enable `--incompatible_py3_is_default` without also enabling "
-                  + "`--incompatible_allow_python_version_transitions`"));
-    }
-  }
-
   /** Returns whether to build the executable zip file for Python binaries. */
   public boolean buildPythonZip() {
     switch (buildPythonZip) {
@@ -165,11 +148,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
   /** Returns whether use of the {@code default_python_version} attribute is allowed. */
   public boolean oldPyVersionApiAllowed() {
     return oldPyVersionApiAllowed;
-  }
-
-  /** Returns true if the new semantics should be used for transitions on the Python version. */
-  public boolean useNewPyVersionSemantics() {
-    return useNewPyVersionSemantics;
   }
 
   /**

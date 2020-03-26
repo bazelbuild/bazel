@@ -123,12 +123,7 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
 
     // No --python_version, use default value.
     doTestSelectOnPythonVersionTarget(py2, "--incompatible_py3_is_default=false");
-    doTestSelectOnPythonVersionTarget(
-        py3,
-        "--incompatible_py3_is_default=true",
-        // PythonConfiguration has a validation check requiring that the new transition semantics be
-        // enabled before we're allowed to set the default to PY3.
-        "--incompatible_allow_python_version_transitions=true");
+    doTestSelectOnPythonVersionTarget(py3, "--incompatible_py3_is_default=true");
 
     // --python_version is given, use it.
     doTestSelectOnPythonVersionTarget(py2, "--python_version=PY2");

@@ -216,7 +216,6 @@ public final class PyCommon {
     this.hasPy3OnlySources = initHasPy3OnlySources(ruleContext, this.sourcesVersion);
     this.runtimeFromToolchain = initRuntimeFromToolchain(ruleContext, this.version);
     this.convertedFiles = makeAndInitConvertedFiles(ruleContext, version, this.sourcesVersion);
-    maybeValidateVersionCompatibleWithOwnSourcesAttr();
     validateTargetPythonVersionAttr(DEFAULT_PYTHON_VERSION_ATTRIBUTE);
     validateTargetPythonVersionAttr(PYTHON_VERSION_ATTRIBUTE);
     validateOldVersionAttrNotUsedIfDisabled();
@@ -512,39 +511,6 @@ public final class PyCommon {
   }
 
   /**
-   * Under the old version semantics ({@code
-   * --incompatible_allow_python_version_transitions=false}), checks that the {@code srcs_version}
-   * attribute is compatible with the Python version as determined by the configuration.
-   *
-   * <p>A failure is reported as a rule error.
-   *
-   * <p>This check is local to the current target and intended to be enforced by each {@code
-   * py_library} up the dependency chain.
-   *
-   * <p>No-op under the new version semantics.
-   */
-  private void maybeValidateVersionCompatibleWithOwnSourcesAttr() {
-    if (ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
-      return;
-    }
-    // Treat PY3 as PY3ONLY: we'll never implement 3to2.
-    if ((version == PythonVersion.PY2 || version == PythonVersion.PY2AND3)
-        && (sourcesVersion == PythonVersion.PY3 || sourcesVersion == PythonVersion.PY3ONLY)) {
-      ruleContext.ruleError(
-          "Rule '"
-              + ruleContext.getLabel()
-              + "' can only be used with Python 3, and cannot be converted to Python 2");
-    }
-    if ((version == PythonVersion.PY3 || version == PythonVersion.PY2AND3)
-        && sourcesVersion == PythonVersion.PY2ONLY) {
-      ruleContext.ruleError(
-          "Rule '"
-              + ruleContext.getLabel()
-              + "' can only be used with Python 2, and cannot be converted to Python 3");
-    }
-  }
-
-  /**
    * Reports an attribute error if the given target Python version attribute ({@code
    * default_python_version} or {@code python_version}) cannot be parsed as {@code PY2}, {@code
    * PY3}, or the sentinel value.
@@ -645,25 +611,18 @@ public final class PyCommon {
   }
 
   /**
-   * Under the new version semantics ({@code --incompatible_allow_python_version_transitions=true}),
-   * if the Python version (as determined by the configuration) is inconsistent with {@link
+   * If the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
    * the executable.
-   *
-   * <p>If the version is consistent, or if we are using the old semantics, no such action is
-   * emitted.
    *
    * <p>We use a {@code FailAction} rather than a rule error because we want to defer the error
    * until the execution phase. This way, we still get a configured target that the user can query
    * over with an aspect to find the exact transitive dependency that introduced the offending
-   * version constraint.
+   * version constraint. (See {@code <tools repo>//tools/python/srcs_version.bzl%find_requirements})
    *
    * @return true if a {@link FailAction} was created
    */
   private boolean maybeCreateFailActionDueToTransitiveSourcesVersion() {
-    if (!ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
-      return false;
-    }
     String errorTemplate =
         ruleContext.getLabel()
             + ": "
