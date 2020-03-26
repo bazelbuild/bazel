@@ -195,7 +195,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     Instant startTime = Instant.now();
     WorkResponse response =
         execInWorker(spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache);
-    Duration wallTime = Duration.between(Instant.now(), startTime);
+    Duration wallTime = Duration.between(startTime, Instant.now());
 
     FileOutErr outErr = context.getFileOutErr();
     response.getOutputBytes().writeTo(outErr.getErrorStream());
