@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.Builder;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.Map;
 
 /**
  * Rule class definitions used by (almost) every rule.
@@ -345,10 +347,19 @@ public class BaseRuleClasses {
     return builder.add(attr("name", STRING).nonconfigurable("Rule name"));
   }
 
-  public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
+  /**
+   * Adds an {@code exec_properties} attribute of type {@code STRING_DICT} if the rule does not
+   * already have one.
+   */
+  public static void addOrOverrideExecPropertiesAttribute(RuleClass.Builder builder)
       throws ConversionException {
-    return builder.add(
-        attr(RuleClass.EXEC_PROPERTIES, STRING_DICT).defaultValue(ImmutableMap.of()));
+    Builder<Map<String, String>> attr =
+        attr(RuleClass.EXEC_PROPERTIES, STRING_DICT).defaultValue(ImmutableMap.of());
+    if (builder.contains(RuleClass.EXEC_PROPERTIES)) {
+      builder.override(attr);
+    } else {
+      builder.add(attr);
+    }
   }
 
   /**
