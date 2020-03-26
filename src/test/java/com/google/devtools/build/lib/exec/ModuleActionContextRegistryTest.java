@@ -30,7 +30,7 @@ public class ModuleActionContextRegistryTest {
   public void testRegistration() throws Exception {
     AC2 context = new AC2();
     ModuleActionContextRegistry contextRegistry =
-        new ModuleActionContextRegistry.Builder().register(IT1.class, context).build();
+        ModuleActionContextRegistry.builder().register(IT1.class, context).build();
     assertThat(contextRegistry.getContext(IT1.class)).isEqualTo(context);
   }
 
@@ -38,7 +38,7 @@ public class ModuleActionContextRegistryTest {
   public void testDoubleRegistration() throws Exception {
     AC2 context = new AC2();
     ModuleActionContextRegistry contextRegistry =
-        new ModuleActionContextRegistry.Builder()
+        ModuleActionContextRegistry.builder()
             .register(IT1.class, context)
             .register(IT1.class, context)
             .build();
@@ -50,7 +50,7 @@ public class ModuleActionContextRegistryTest {
     AC2 context1 = new AC2();
     AC2 context2 = new AC2();
     ModuleActionContextRegistry contextRegistry =
-        new ModuleActionContextRegistry.Builder()
+        ModuleActionContextRegistry.builder()
             .register(IT1.class, context1)
             .register(IT1.class, context2)
             .build();
@@ -61,7 +61,7 @@ public class ModuleActionContextRegistryTest {
   public void testSelfIdentifyingType() throws Exception {
     AC1 context = new AC1();
     ModuleActionContextRegistry contextRegistry =
-        new ModuleActionContextRegistry.Builder().register(AC1.class, context).build();
+        ModuleActionContextRegistry.builder().register(AC1.class, context).build();
     assertThat(contextRegistry.getContext(AC1.class)).isEqualTo(context);
   }
 
@@ -70,7 +70,7 @@ public class ModuleActionContextRegistryTest {
     AC2 general = new AC2();
     AC2 specific = new AC2();
     ModuleActionContextRegistry contextRegistry =
-        new ModuleActionContextRegistry.Builder()
+        ModuleActionContextRegistry.builder()
             .register(IT1.class, general)
             .register(IT1.class, specific, "specific", "foo")
             .register(IT1.class, general)
@@ -84,7 +84,7 @@ public class ModuleActionContextRegistryTest {
     AC2 context1 = new AC2();
     AC2 context2 = new AC2();
     ModuleActionContextRegistry contextRegistry =
-        new ModuleActionContextRegistry.Builder()
+        ModuleActionContextRegistry.builder()
             .register(IT1.class, context1, "foo")
             .register(IT1.class, context2, "foo")
             .restrictTo(IT1.class, "foo")
@@ -96,7 +96,7 @@ public class ModuleActionContextRegistryTest {
   public void testUsedNotification() throws Exception {
     RecordingContext context = new RecordingContext();
     ModuleActionContextRegistry contextRegistry =
-        new ModuleActionContextRegistry.Builder()
+        ModuleActionContextRegistry.builder()
             .register(RecordingContext.class, context)
             .register(RecordingContext.class, context)
             .build();
@@ -111,7 +111,7 @@ public class ModuleActionContextRegistryTest {
     AC2 general = new AC2();
     AC2 specific = new AC2();
     ModuleActionContextRegistry contextRegistry =
-        new ModuleActionContextRegistry.Builder()
+        ModuleActionContextRegistry.builder()
             .register(IT1.class, general)
             .register(IT1.class, specific, "specific", "foo")
             .register(IT1.class, general)
@@ -124,7 +124,7 @@ public class ModuleActionContextRegistryTest {
   @Test
   public void testNoMatch() throws Exception {
     ModuleActionContextRegistry contextRegistry =
-        new ModuleActionContextRegistry.Builder().register(AC1.class, new AC1()).build();
+        ModuleActionContextRegistry.builder().register(AC1.class, new AC1()).build();
 
     assertThat(contextRegistry.getContext(IT1.class)).isNull();
   }
@@ -134,7 +134,7 @@ public class ModuleActionContextRegistryTest {
     AC2 context1 = new AC2();
     AC2 context2 = new AC2();
     ModuleActionContextRegistry.Builder builder =
-        new ModuleActionContextRegistry.Builder()
+        ModuleActionContextRegistry.builder()
             .register(IT1.class, context1, "foo")
             .register(IT1.class, context2, "baz", "boz")
             .restrictTo(IT1.class, "bar");
