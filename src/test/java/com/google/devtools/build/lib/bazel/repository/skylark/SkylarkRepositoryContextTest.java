@@ -95,7 +95,7 @@ public final class SkylarkRepositoryContextTest {
     RuleClass.Builder ruleClassBuilder =
         new RuleClass.Builder("test", RuleClassType.WORKSPACE, true);
     for (Attribute attr : attributes) {
-      ruleClassBuilder.addOrOverrideAttribute(attr);
+      ruleClassBuilder.addAttribute(attr);
     }
     ruleClassBuilder.setWorkspaceOnly();
     ruleClassBuilder.setConfiguredTargetFunction(

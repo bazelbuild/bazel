@@ -436,8 +436,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   private static void addAttribute(RuleClass.Builder builder, Attribute attribute)
       throws EvalException {
     try {
-      builder.addOrOverrideAttribute(attribute);
-    } catch (IllegalArgumentException ex) {
+      builder.addAttribute(attribute);
+    } catch (IllegalStateException ex) {
       throw new EvalException(null, ex);
     }
   }

@@ -76,13 +76,13 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     builder.setCallStack(
         callstack.subList(0, callstack.size() - 1)); // pop 'repository_rule' itself
 
-    builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
-    builder.addOrOverrideAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
+    builder.addAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
+    builder.addAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
     if (thread.getSemantics().experimentalRepoRemoteExec()) {
-      builder.addOrOverrideAttribute(attr("$remotable", BOOLEAN).defaultValue(remotable).build());
+      builder.addAttribute(attr("$remotable", BOOLEAN).defaultValue(remotable).build());
       BaseRuleClasses.execPropertiesAttribute(builder);
     }
-    builder.addOrOverrideAttribute(
+    builder.addAttribute(
         attr("$environ", STRING_LIST).defaultValue(environ).build());
     BaseRuleClasses.nameAttribute(builder);
     BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
