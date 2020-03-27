@@ -120,23 +120,6 @@ public class SpawnStrategyRegistryTest {
   }
 
   @Test
-  public void testFilterNoMatch() throws Exception {
-    NoopStrategy strategy = new NoopStrategy("");
-    SpawnStrategyRegistry strategyRegistry =
-        SpawnStrategyRegistry.builder()
-            .registerStrategy(strategy, "foo")
-            .addMnemonicFilter("mnem", ImmutableList.of("foo"))
-            .setDefaultStrategies(ImmutableList.of())
-            .build();
-
-    assertThat(
-            strategyRegistry.getStrategies(
-                createSpawnWithMnemonicAndDescription("other", ""),
-                SpawnStrategyRegistryTest::noopEventHandler))
-        .isEmpty();
-  }
-
-  @Test
   public void testDescriptionHasPrecedenceOverMnemonic() throws Exception {
     NoopStrategy strategy1 = new NoopStrategy("1");
     NoopStrategy strategy2 = new NoopStrategy("2");
