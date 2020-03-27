@@ -278,12 +278,7 @@ public class RemoteCache implements AutoCloseable {
       FileOutErr origOutErr,
       OutputFilesLocker outputFilesLocker)
       throws ExecException, IOException, InterruptedException {
-    ActionResultMetadata metadata;
-    try {
-      metadata = parseActionResultMetadata(result, execRoot);
-    } catch (IOException e) {
-      throw new BulkTransferException(e);
-    }
+    ActionResultMetadata metadata = parseActionResultMetadata(result, execRoot);
 
     List<ListenableFuture<FileMetadata>> downloads =
         Stream.concat(
