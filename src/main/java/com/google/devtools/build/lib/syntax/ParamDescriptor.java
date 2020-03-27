@@ -85,8 +85,7 @@ final class ParamDescriptor {
         type,
         generic,
         noneable,
-        param.named()
-            || (param.legacyNamed() && !starlarkSemantics.incompatibleRestrictNamedParams()),
+        param.named(),
         param.positional(),
         getType(type, generic, param.allowedTypes(), noneable),
         disabledByFlag);
