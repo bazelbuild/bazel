@@ -54,8 +54,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/test/java/com/google/devtools/build/lib/skylark/util",
         "//src/test/java/com/google/devtools/build/lib/syntax/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

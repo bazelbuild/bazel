@@ -47,7 +47,6 @@ java_test(
         "//src/main/java/com/google/devtools/common/options/testing",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:flogger",
         "//third_party:guava",
