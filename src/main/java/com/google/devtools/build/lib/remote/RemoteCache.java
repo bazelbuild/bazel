@@ -494,12 +494,15 @@ public class RemoteCache implements AutoCloseable {
     return outerF;
   }
 
-  private List<ListenableFuture<FileMetadata>> downloadOutErr(ActionResult result, OutErr outErr)
-      throws IOException {
+  private List<ListenableFuture<FileMetadata>> downloadOutErr(ActionResult result, OutErr outErr) {
     List<ListenableFuture<FileMetadata>> downloads = new ArrayList<>();
     if (!result.getStdoutRaw().isEmpty()) {
-      result.getStdoutRaw().writeTo(outErr.getOutputStream());
-      outErr.getOutputStream().flush();
+      try {
+        result.getStdoutRaw().writeTo(outErr.getOutputStream());
+        outErr.getOutputStream().flush();
+      } catch (IOException e) {
+        downloads.add(Futures.immediateFailedFuture(e));
+      }
     } else if (result.hasStdoutDigest()) {
       downloads.add(
           Futures.transform(
@@ -508,8 +511,12 @@ public class RemoteCache implements AutoCloseable {
               directExecutor()));
     }
     if (!result.getStderrRaw().isEmpty()) {
-      result.getStderrRaw().writeTo(outErr.getErrorStream());
-      outErr.getErrorStream().flush();
+      try {
+        result.getStderrRaw().writeTo(outErr.getErrorStream());
+        outErr.getErrorStream().flush();
+      } catch (IOException e) {
+        downloads.add(Futures.immediateFailedFuture(e));
+      }
     } else if (result.hasStderrDigest()) {
       downloads.add(
           Futures.transform(
