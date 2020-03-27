@@ -432,7 +432,7 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // is actually a list of parseable startup options.
   if (!startup_options.batch) {
     result.push_back("--max_idle_secs=" +
-                     ToString(startup_options.max_idle_secs));
+                     blaze_util::ToString(startup_options.max_idle_secs));
     if (startup_options.shutdown_on_low_sys_mem) {
       result.push_back("--shutdown_on_low_sys_mem");
     } else {
@@ -446,11 +446,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 
   if (startup_options.command_port != 0) {
     result.push_back("--command_port=" +
-                     ToString(startup_options.command_port));
+                     blaze_util::ToString(startup_options.command_port));
   }
 
   result.push_back("--connect_timeout_secs=" +
-                   ToString(startup_options.connect_timeout_secs));
+                   blaze_util::ToString(startup_options.connect_timeout_secs));
 
   result.push_back("--output_user_root=" +
                    blaze_util::ConvertPath(startup_options.output_user_root));
@@ -494,7 +494,8 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("--noexperimental_oom_more_eagerly");
   }
   result.push_back("--experimental_oom_more_eagerly_threshold=" +
-                   ToString(startup_options.oom_more_eagerly_threshold));
+                   blaze_util::ToString(
+                       startup_options.oom_more_eagerly_threshold));
 
   if (startup_options.write_command_log) {
     result.push_back("--write_command_log");
@@ -582,20 +583,21 @@ static void AddLoggingArgs(const LoggingInfo &logging_info,
                            vector<string> *args) {
   // The time in ms the launcher spends before sending the request to the blaze
   // server.
-  args->push_back("--startup_time=" + ToString(client_startup_duration.millis));
+  args->push_back("--startup_time=" +
+                  blaze_util::ToString(client_startup_duration.millis));
 
   // The time in ms a command had to wait on a busy Blaze server process.
   // This is part of startup_time.
   if (command_wait_duration_ms.IsKnown()) {
     args->push_back("--command_wait_time=" +
-                    ToString(command_wait_duration_ms.millis));
+                    blaze_util::ToString(command_wait_duration_ms.millis));
   }
 
   // The time in ms spent on extracting the new blaze version.
   // This is part of startup_time.
   if (extract_data_duration.IsKnown()) {
     args->push_back("--extract_data_time=" +
-                    ToString(extract_data_duration.millis));
+                    blaze_util::ToString(extract_data_duration.millis));
   }
   if (logging_info.restart_reason != NO_RESTART) {
     args->push_back(string("--restart_reason=") +

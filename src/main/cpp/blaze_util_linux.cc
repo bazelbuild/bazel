@@ -119,7 +119,7 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
 std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
   char server_cwd[PATH_MAX] = {};
   if (readlink(
-          ("/proc/" + ToString(pid) + "/cwd").c_str(),
+          ("/proc/" + blaze_util::ToString(pid) + "/cwd").c_str(),
           server_cwd, sizeof(server_cwd)) < 0) {
     return nullptr;
   }
@@ -191,7 +191,7 @@ int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
 
 void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
                                           pid_t server_pid) {
-  string pid_string = ToString(server_pid);
+  string pid_string = blaze_util::ToString(server_pid);
 
   string start_time;
   if (!GetStartTime(pid_string, &start_time)) {
@@ -213,7 +213,7 @@ void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
 // than there are PIDs available within a single jiffy.
 bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
   string start_time;
-  if (!GetStartTime(ToString(pid), &start_time)) {
+  if (!GetStartTime(blaze_util::ToString(pid), &start_time)) {
     // Cannot read PID file from /proc . Process died meantime, all is good. No
     // stale server is present.
     return false;
