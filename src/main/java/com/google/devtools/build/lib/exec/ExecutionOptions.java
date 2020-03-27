@@ -88,7 +88,7 @@ public class ExecutionOptions extends OptionsBase {
       name = "strategy",
       allowMultiple = true,
       converter = Converters.StringToStringListConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -105,7 +105,7 @@ public class ExecutionOptions extends OptionsBase {
       converter = RegexFilterAssignmentConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "",
+      defaultValue = "null",
       help =
           "Override which spawn strategy should be used to execute spawn actions that have "
               + "descriptions matching a certain regex_filter. See --per_file_copt for details on"

@@ -86,7 +86,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "define",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
@@ -320,7 +320,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "test_env",
       converter = Converters.OptionalAssignmentConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.TEST_RUNNER},
       help =
@@ -338,7 +338,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "action_env",
       converter = Converters.OptionalAssignmentConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
@@ -354,7 +354,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "repo_env",
       converter = Converters.OptionalAssignmentConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
@@ -497,7 +497,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "experimental_action_listener",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       converter = LabelListConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.EXECUTION},
@@ -575,7 +575,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "features",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -590,7 +590,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "target_environment",
       converter = LabelListConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =

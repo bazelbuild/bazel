@@ -92,25 +92,23 @@ public class RemoteWorkerOptions extends OptionsBase {
   public boolean sandboxing;
 
   @Option(
-    name = "sandboxing_writable_path",
-    defaultValue = "",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    allowMultiple = true,
-    help = "When using sandboxing, allow running actions to write to this path."
-  )
+      name = "sandboxing_writable_path",
+      defaultValue = "null",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help = "When using sandboxing, allow running actions to write to this path.")
   public List<String> sandboxingWritablePaths;
 
   @Option(
-    name = "sandboxing_tmpfs_dir",
-    defaultValue = "",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    allowMultiple = true,
-    help = "When using sandboxing, mount an empty tmpfs onto this path for each running action."
-  )
+      name = "sandboxing_tmpfs_dir",
+      defaultValue = "null",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help = "When using sandboxing, mount an empty tmpfs onto this path for each running action.")
   public List<String> sandboxingTmpfsDirs;
 
   @Option(

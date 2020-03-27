@@ -73,14 +73,13 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   public static final class TestOptions extends OptionsBase {
     @Option(
-      name = "multi_cpu",
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "",
-      help = "Additional target CPUs."
-    )
+        name = "multi_cpu",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        help = "Additional target CPUs.")
     public List<String> multiCpus;
   }
 

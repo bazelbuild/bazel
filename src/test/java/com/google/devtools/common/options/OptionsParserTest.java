@@ -93,24 +93,22 @@ public class OptionsParserTest {
     public int bar;
 
     @Option(
-      name = "bing",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "",
-      allowMultiple = true
-    )
+        name = "bing",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
     public List<String> bing;
 
     @Option(
-      name = "bang",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "",
-      converter = StringConverter.class,
-      allowMultiple = true
-    )
+        name = "bang",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        converter = StringConverter.class,
+        allowMultiple = true)
     public List<String> bang;
 
     @Option(
