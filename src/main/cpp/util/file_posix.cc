@@ -128,8 +128,8 @@ static bool MakeDirectories(const string &path, mode_t mode, bool childmost) {
 string CreateTempDir(const std::string &prefix) {
   std::string parent = Dirname(prefix);
   // Need parent to exist first.
-  // TODO(b/150220877): Avoid trying to recreate a dir that already exists.
-  if (!blaze_util::MakeDirectories(parent, 0777)) {
+  if (!blaze_util::PathExists(parent) &&
+      !blaze_util::MakeDirectories(parent, 0777)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "couldn't create '" << parent << "': "
         << blaze_util::GetLastErrorString();
@@ -139,8 +139,8 @@ string CreateTempDir(const std::string &prefix) {
   if (mkdtemp(&result[0]) == nullptr) {
     std::string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "could not create temporary directory to extract install base"
-        << " (" << err << ")";
+        << "could not create temporary directory under " << parent
+        << " to extract install base into (" << err << ")";
   }
 
   // There's no better way to get the current umask than to set and reset it.
