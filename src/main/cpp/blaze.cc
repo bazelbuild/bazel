@@ -965,29 +965,7 @@ static DurationMillis ExtractData(const string &self_path,
   if (!blaze_util::PathExists(install_base)) {
     uint64_t st = GetMillisecondsMonotonic();
     // Work in a temp dir to avoid races.
-#if defined(_WIN32)
-    string tmp_install = install_base + ".tmp." + blaze::GetProcessIdAsString();
-#else
-    // On Linux, we can't use the PID as a unique identifier, because Bazel
-    // might run in a PID namespace and then all Bazel clients have the same
-    // PID, so we use mkdtemp instead.
-    if (!blaze_util::MakeDirectories(blaze_util::Dirname(install_base), 0777)) {
-      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-          << "couldn't create '" << blaze_util::Dirname(install_base)
-          << "': " << blaze_util::GetLastErrorString();
-    }
-    std::string tmp_install(install_base + ".tmp.XXXXXX");
-    if (mkdtemp(&tmp_install[0]) == nullptr) {
-      std::string err = GetLastErrorString();
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "could not create temporary directory to extract install base"
-          << " (" << err << ")";
-    }
-    // There's no better way to get the current umask than to set and reset it.
-    const mode_t um = umask(0);
-    umask(um);
-    chmod(tmp_install.c_str(), 0777 & ~um);
-#endif
+    string tmp_install = blaze_util::CreateTempDir(install_base + ".tmp.");
     ExtractArchiveOrDie(self_path, startup_options.product_name,
                         expected_install_md5, tmp_install);
     BlessFiles(tmp_install);

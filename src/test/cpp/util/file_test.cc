@@ -175,6 +175,28 @@ TEST(FileTest, TestMtimeHandling) {
   ASSERT_FALSE(mtime->IsUntampered(file));
 }
 
+TEST(FileTest, TestCreateTempDir) {
+  const char* tempdir_cstr = getenv("TEST_TMPDIR");
+  EXPECT_NE(tempdir_cstr, nullptr);
+  EXPECT_NE(tempdir_cstr[0], 0);
+  string tempdir(tempdir_cstr);
+  string tmpdir(tempdir_cstr);
+
+  string prefix_in_existing_dir(JoinPath(tempdir, "foo."));
+  string result_in_existing_dir(CreateTempDir(prefix_in_existing_dir));
+  ASSERT_NE(result_in_existing_dir, prefix_in_existing_dir);
+  ASSERT_EQ(0, result_in_existing_dir.find(prefix_in_existing_dir));
+  EXPECT_TRUE(PathExists(result_in_existing_dir));
+
+  string base_dir(JoinPath(tempdir, "doesntexistyet"));
+  ASSERT_FALSE(PathExists(base_dir));
+  string prefix_in_new_dir(JoinPath(base_dir, "foo."));
+  string result_in_new_dir(CreateTempDir(prefix_in_new_dir));
+  ASSERT_NE(result_in_new_dir, prefix_in_new_dir);
+  ASSERT_EQ(0, result_in_new_dir.find(prefix_in_new_dir));
+  EXPECT_TRUE(PathExists(result_in_new_dir));
+}
+
 TEST(FileTest, TestRenameDirectory) {
   const char* tempdir_cstr = getenv("TEST_TMPDIR");
   EXPECT_NE(tempdir_cstr, nullptr);
