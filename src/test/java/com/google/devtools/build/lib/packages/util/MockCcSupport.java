@@ -251,6 +251,17 @@ public abstract class MockCcSupport {
     config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
   }
 
+  protected static void createParseHeadersAndLayeringCheckWhitelist(MockToolsConfig config)
+      throws IOException {
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + "tools/build_defs/cc/whitelists/parse_headers_and_layering_check/BUILD",
+        "package_group(",
+        "    name = 'disabling_parse_headers_and_layering_check_allowed',",
+        "    packages = ['//...']",
+        ")");
+  }
+
   protected String getCrosstoolTopPathForConfig(MockToolsConfig config) {
     if (config.isRealFileSystem()) {
       return getRealFilesystemCrosstoolTopPath();

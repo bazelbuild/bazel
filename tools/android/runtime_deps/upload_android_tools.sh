@@ -31,7 +31,7 @@
 set -euo pipefail
 
 # The version of android_tools.tar.gz
-VERSION="0.15.1"
+VERSION="0.16.0"
 VERSIONED_FILENAME="android_tools_pkg-$VERSION.tar.gz"
 
 # Create a temp directory to hold the versioned tarball, and clean it up when the script exits.
@@ -59,7 +59,7 @@ echo
 
 cat <<EOF
 sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' WORKSPACE  && \\
-  sed -i 's/"[0-9a-fA-F]\{64\}", # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER/"$checksum", # ANDROID_TOOLS_UPDATE_MARKER_DO_NOT_REMOVE/g' WORKSPACE && \\
+  sed -i 's/"[0-9a-fA-F]\{64\}", # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER/"$checksum", # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER/g' WORKSPACE && \\
   sed -i 's/"android_tools_pkg.*[0-9a-FA-F]\{64\}",.*/"$VERSIONED_FILENAME": "$checksum",/g' WORKSPACE && \\
   sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE && \\
   sed -i 's/"[0-9a-fA-F]\{64\}",.*/"$checksum",/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE

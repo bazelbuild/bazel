@@ -285,13 +285,6 @@ argument is omitted, the depset has the special `default` order, in which case
 there are no guarantees about the order of any of its elements (except that it
 is deterministic).
 
-For safety, depsets with different orders cannot be merged with the `+` operator
-unless one of them uses the default order; the resulting depset’s order is the
-same as the left operand. Note that when two depsets of different order are
-merged in this way, the child may appear to have had its elements rearranged
-when it is traversed via the parent. **The `+` operator is deprecated, anyway;
-use the `transitive` argument instead.**
-
 ## Performance
 
 To see the motivation for using depsets, consider what would have happened if we

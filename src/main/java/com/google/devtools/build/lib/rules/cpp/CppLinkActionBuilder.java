@@ -1249,7 +1249,6 @@ public class CppLinkActionBuilder {
   /** Sets the C++ runtime library inputs for the action. */
   public CppLinkActionBuilder setRuntimeInputs(
       ArtifactCategory runtimeType, Artifact middleman, NestedSet<Artifact> inputs) {
-    Preconditions.checkArgument((middleman == null) == inputs.isEmpty());
     this.toolchainLibrariesType = runtimeType;
     this.runtimeMiddleman = middleman;
     this.toolchainLibrariesInputs = inputs;

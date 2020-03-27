@@ -203,6 +203,7 @@ java_library(
     srcs = glob(
         ["util/*.java"],
         exclude = COMMAND_UTILS_SRCS + RESOURCE_UTILS_SRCS + [
+            "util/AbruptExitException.java",
             "util/BlazeClock.java",
             "util/Clock.java",
             "util/ExitCode.java",
@@ -227,7 +228,6 @@ java_library(
     ),
     exports = [
         ":base-util",
-        ":exitcode-external",
         ":filetype",
         ":os_util",
         ":resource_usage",
@@ -300,6 +300,15 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "abrupt_exit_exception",
+    srcs = ["util/AbruptExitException.java"],
+    deps = [
+        ":detailed_exit_code",
+        ":exitcode-external",
     ],
 )
 
@@ -510,6 +519,7 @@ java_library(
         ":transitive-info-provider",
     ],
     deps = [
+        ":abrupt_exit_exception",
         ":bug-report",
         ":build-request-options",
         ":command-utils",
@@ -577,6 +587,7 @@ java_library(
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:spawn_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//src/main/protobuf:xcode_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
@@ -629,6 +640,7 @@ java_library(
         ],
     ),
     deps = [
+        ":abrupt_exit_exception",
         ":android-rules",
         ":bazel",
         ":bazel-repository",
@@ -637,6 +649,7 @@ java_library(
         ":core-rules",
         ":core-workspace-rules",
         ":events",
+        ":exitcode-external",
         ":proto-rules",
         ":python-rules",
         ":shell_escaper",
@@ -686,13 +699,14 @@ java_library(
     name = "bazel/BazelRepositoryModule",
     srcs = ["bazel/BazelRepositoryModule.java"],
     deps = [
+        ":abrupt_exit_exception",
         ":bazel-commands",
         ":bazel-repository",
         ":bazel-rules",
         ":build-base",
+        ":detailed_exit_code",
         ":events",
         ":runtime",
-        ":util",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -702,6 +716,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
     ],
 )
@@ -751,6 +766,7 @@ java_library(
         ],
     ),
     deps = [
+        ":abrupt_exit_exception",
         ":build-base",
         ":build-info",
         ":command-utils",
@@ -780,6 +796,7 @@ java_library(
         "bazel/commands/sync.txt",
     ],
     deps = [
+        ":abrupt_exit_exception",
         ":bazel-repository",
         ":build-base",
         ":events",
@@ -787,7 +804,6 @@ java_library(
         ":keep-going-option",
         ":loading-phase-threads-option",
         ":runtime",
-        ":util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -1187,7 +1203,12 @@ java_library(
         "server/RPCServer.java",
         "server/signal/InterruptSignalHandler.java",
     ],
+    resources = glob([
+        "runtime/commands/*.txt",
+        "runtime/mobileinstall/*.txt",
+    ]),
     deps = [
+        ":abrupt_exit_exception",
         ":bug-report",
         ":build-base",
         ":build-request-options",
@@ -1289,10 +1310,7 @@ merge_licenses(
 
 java_library(
     name = "bazel",
-    resources = glob([
-        "runtime/commands/*.txt",
-        "runtime/mobileinstall/*.txt",
-    ]) + [
+    resources = [
         ":runtime/commands/LICENSE",
     ],
     exports = [":runtime"],

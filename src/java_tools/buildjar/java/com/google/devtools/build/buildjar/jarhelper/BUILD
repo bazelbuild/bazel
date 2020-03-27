@@ -5,10 +5,7 @@ package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
-    visibility = [
-        "//src:__pkg__",
-        "//src/java_tools/buildjar:buildjar_package_group",
-    ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

@@ -29,8 +29,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -62,6 +62,5 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party:truth8",
     ],
 )

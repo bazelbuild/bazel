@@ -82,6 +82,12 @@ class TestWrapperTest(test_base.TestBase):
         '        "@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%",',
         '    ],',
         ')',
+        'bat_test(',
+        '    name = "print_arg0_test",',
+        '    content = [',
+        '        "@echo ARG0=%0",',
+        '    ],',
+        ')',
         'exe_test(',
         '    name = "testargs_test",',
         '    src = "testargs.exe",',
@@ -385,6 +391,50 @@ class TestWrapperTest(test_base.TestBase):
     if not good or bad:
       self._FailWithOutput(stderr + stdout)
 
+  def _AssertTestBinaryLocation(self, flags):
+    exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = bazel_bin[0].replace('/', '\\')
+
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:print_arg0_test',
+        '--test_output=all',
+    ] + flags)
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    arg0 = None
+    for line in stderr + stdout:
+      if line.startswith('ARG0='):
+        arg0 = line[len('ARG0='):]
+    # Get rid of the quotes if there is any
+    if arg0[0] == '"' and arg0[-1] == '"':
+      arg0 = arg0[1:-1]
+    # The test binary should located at the bazel bin folder
+    self.assertEqual(arg0, os.path.join(bazel_bin, 'foo\\print_arg0_test.bat'))
+
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:print_arg0_test',
+        '--test_output=all',
+        '--enable_runfiles',
+    ] + flags)
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    arg0 = None
+    for line in stderr + stdout:
+      if line.startswith('ARG0='):
+        arg0 = line[len('ARG0='):]
+    # Get rid of the quotes if there is any
+    if arg0[0] == '"' and arg0[-1] == '"':
+      arg0 = arg0[1:-1]
+    self.assertEqual(
+        arg0,
+        os.path.join(bazel_bin,
+                     'foo\\print_arg0_test.bat.runfiles\\'
+                     '__main__\\foo\\print_arg0_test.bat')
+    )
+
   def _AssertTestArgs(self, flags):
     exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -617,6 +667,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertRunfilesSymlinks(flags)
     self._AssertShardedTest(flags)
     self._AssertUnexportsEnvvars(flags)
+    self._AssertTestBinaryLocation(flags)
     self._AssertTestArgs(flags)
     self._AssertUndeclaredOutputs(flags)
     self._AssertUndeclaredOutputsAnnotations(flags)

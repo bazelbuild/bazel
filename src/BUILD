@@ -727,6 +727,7 @@ genrule(
 filegroup(
     name = "test_repos",
     srcs = [
+        "@android_gmaven_r8_for_testing//jar:file",
         "@android_tools_for_testing//:WORKSPACE",
         "@bazel_skylib//:WORKSPACE",
         "@bazel_toolchains//:WORKSPACE",

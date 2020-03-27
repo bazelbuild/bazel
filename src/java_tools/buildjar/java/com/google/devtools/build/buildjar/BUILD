@@ -16,6 +16,7 @@ filegroup(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

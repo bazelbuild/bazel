@@ -325,6 +325,10 @@ public class ExecutionTool {
       }
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
+      boolean shouldTrustRemoteArtifacts =
+          env.getOutputService() == null
+              ? false
+              : env.getOutputService().shouldTrustRemoteArtifacts();
       builder.buildArtifacts(
           env.getReporter(),
           analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
@@ -338,7 +342,8 @@ public class ExecutionTool {
           builtAspects,
           request,
           env.getBlazeWorkspace().getLastExecutionTimeRange(),
-          topLevelArtifactContext);
+          topLevelArtifactContext,
+          shouldTrustRemoteArtifacts);
       buildCompleted = true;
     } catch (BuildFailedException | TestExecException e) {
       buildCompleted = true;

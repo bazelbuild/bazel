@@ -45,6 +45,7 @@ import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
 import com.google.devtools.build.android.desugar.nest.NestDesugaring;
 import com.google.devtools.build.android.desugar.nest.NestDigest;
 import com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesugaring;
+import com.google.devtools.build.android.desugar.typeannotation.LocalTypeAnnotationUse;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.Option;
@@ -1066,6 +1067,8 @@ public class Desugar {
     }
 
     visitor = NioBufferRefConverter.create(visitor, rewriter.getPrefixer());
+
+    visitor = new LocalTypeAnnotationUse(visitor);
 
     return visitor;
   }

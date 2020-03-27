@@ -196,25 +196,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
     }
 
     @SkylarkCallable(
-      name = "legacy_method",
-      documented = false,
-      parameters = {
-        @Param(name = "pos", positional = true, type = Boolean.class),
-        @Param(name = "legacyNamed", type = Boolean.class, positional = true, named = false,
-            legacyNamed = true),
-        @Param(name = "named", type = Boolean.class, positional = false, named = true),
-      })
-    public String legacyMethod(Boolean pos, Boolean legacyNamed, Boolean named) {
-      return "legacy_method("
-          + pos
-          + ", "
-          + legacyNamed
-          + ", "
-          + named
-          + ")";
-    }
-
-    @SkylarkCallable(
         name = "with_params",
         documented = false,
         parameters = {
@@ -1093,32 +1074,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
         .testLookup("b", "with_params(1, true, false, true, false, a)");
   }
 
-  @Test
-  public void testLegacyNamed() throws Exception {
-    new Scenario("--incompatible_restrict_named_params=false")
-        .update("mock", new Mock())
-        .setUp("b = mock.legacy_method(True, legacyNamed=True, named=True)")
-        .testLookup("b", "legacy_method(true, true, true)");
-
-    new Scenario("--incompatible_restrict_named_params=false")
-        .update("mock", new Mock())
-        .setUp("b = mock.legacy_method(True, True, named=True)")
-        .testLookup("b", "legacy_method(true, true, true)");
-
-    // Verify legacyNamed also works with proxy method objects.
-    new Scenario("--incompatible_restrict_named_params=false")
-        .update("mock", new Mock())
-        .setUp(
-            "m = mock.proxy_methods_object()",
-            "b = m.legacy_method(True, legacyNamed=True, named=True)")
-        .testLookup("b", "legacy_method(true, true, true)");
-
-    new Scenario("--incompatible_restrict_named_params=false")
-        .update("mock", new Mock())
-        .setUp("m = mock.proxy_methods_object()", "b = m.legacy_method(True, True, named=True)")
-        .testLookup("b", "legacy_method(true, true, true)");
-  }
-
   /**
    * This test verifies an error is raised when a method parameter is set both positionally and
    * by name.
@@ -1472,14 +1427,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
         .update("mock", new MockClassObject())
         .setUp("v = mock.field")
         .testLookup("v", "a");
-  }
-
-  @Test
-  public void testUnionSet() throws Exception {
-    new Scenario("--incompatible_depset_union=false")
-        .testExpression("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
-        .testExpression("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
-        .testIfExactError("unsupported binary operation: int | bool", "2 | False");
   }
 
   @Test
@@ -1919,7 +1866,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "function",
             "interrupted_struct_field",
             "is_empty",
-            "legacy_method",
             "nullfunc_failing",
             "nullfunc_working",
             "proxy_methods_object",

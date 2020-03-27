@@ -7,6 +7,7 @@ filegroup(
     srcs = glob(
         ["**"],
     ),
+    visibility = ["//src:__subpackages__"],
 )
 
 # @AutoCodec annotation and plugin. Used by clients.

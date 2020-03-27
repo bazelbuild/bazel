@@ -11,6 +11,9 @@ sass:
 gems:
   - jekyll-paginate
   - jekyll-toc
+  - jekyll-sitemap
+
+url: "https://docs.bazel.build" # used by jekyll-sitemap
 
 # Update this to the newest release for the default docs.bazel.build version.
 version: "2.2.0"
@@ -52,6 +55,7 @@ defaults:
       path: ""
     values:
       toc: true
+      sitemap: true
 
 # jekyll-toc settings
 toc:

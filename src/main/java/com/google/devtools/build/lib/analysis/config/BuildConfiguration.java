@@ -845,6 +845,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.inprocessSymlinkCreation;
   }
 
+  public boolean enableAggregatingMiddleman() {
+    return options.enableAggregatingMiddleman;
+  }
+
   public boolean skipRunfilesManifests() {
     return options.skipRunfilesManifests;
   }

@@ -316,7 +316,7 @@ public class ApiExporter {
     for (com.google.devtools.build.lib.skylarkinterface.Param param : annot.parameters()) {
       // Implicit * or *args parameter separates transition from positional to named.
       // f (..., *, ... )  or  f(..., *args, ...)
-      if ((param.named() || param.legacyNamed()) && !param.positional() && !hasStar) {
+      if (param.named() && !param.positional() && !hasStar) {
         hasStar = true;
         if (!annot.extraPositionals().name().isEmpty()) {
           star = annot.extraPositionals().name();

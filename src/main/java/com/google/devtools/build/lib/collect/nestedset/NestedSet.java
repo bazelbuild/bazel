@@ -331,7 +331,7 @@ public final class NestedSet<E> {
    * <p>Note that the timeout only applies to blocking for the deserialization future to become
    * available. The actual list transformation is untimed.
    */
-  ImmutableList<E> toListWithTimeout(Duration timeout)
+  public ImmutableList<E> toListWithTimeout(Duration timeout)
       throws InterruptedException, TimeoutException {
     Object actualChildren;
     if (children instanceof ListenableFuture) {

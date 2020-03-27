@@ -84,6 +84,18 @@ public final class StarlarkThread {
 
   private boolean interruptible = true;
 
+  long steps; // count of logical computation steps executed so far
+
+  /**
+   * Returns the number of Starlark computation steps executed by this thread according to a
+   * small-step semantics. (Today, that means exec, eval, and assign operations executed by the
+   * tree-walking evaluator, but in future will mean byte code instructions; the two are not
+   * commensurable.)
+   */
+  public long getExecutedSteps() {
+    return steps;
+  }
+
   /**
    * Disables polling of the {@link java.lang.Thread#interrupted} flag during Starlark evaluation.
    */

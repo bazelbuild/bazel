@@ -294,6 +294,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Object analysisTest,
       Object buildSetting,
       Object cfg,
+      Object execGroups,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
@@ -307,6 +308,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
+
+    ImmutableList<StarlarkThread.CallStackEntry> callstack = thread.getCallStack();
+    builder.setCallStack(callstack.subList(0, callstack.size() - 1)); // pop 'rule' itself
+
     ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes =
         attrObjectToAttributesList(attrs);
 
@@ -661,8 +666,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             pkgContext,
             ruleClass,
             attributeValues,
-            thread.getCallerLocation(),
-            thread,
+            thread.getSemantics(),
+            thread.getCallStack(),
             new AttributeContainer(ruleClass));
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(null, e.getMessage());

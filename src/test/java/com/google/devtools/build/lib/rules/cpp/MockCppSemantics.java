@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -68,6 +69,9 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public void validateLayeringCheckFeatures(RuleContext ruleContext) {}
+  public void validateLayeringCheckFeatures(
+      RuleContext ruleContext,
+      CcToolchainProvider ccToolchain,
+      ImmutableSet<String> unsupportedFeatures) {}
   ;
 }

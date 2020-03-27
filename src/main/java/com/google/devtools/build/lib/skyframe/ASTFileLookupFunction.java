@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -39,7 +39,7 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
- * A SkyFunction for {@link ASTFileLookupValue}s.
+ * A Skyframe function that reads, parses and validates the .bzl file denoted by a Label.
  *
  * <p>Given a {@link Label} referencing a Skylark file, loads it as a syntax tree ({@link
  * StarlarkFile}). The Label must be absolute, and must not reference the special {@code external}
@@ -103,10 +103,16 @@ public class ASTFileLookupFunction implements SkyFunction {
     if (!fileValue.isFile()) {
       return ASTFileLookupValue.forBadFile(fileLabel);
     }
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
+    StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (semantics == null) {
       return null;
     }
+
+    // Options for scanning, parsing, and validating a .bzl file (including the prelude).
+    FileOptions options =
+        FileOptions.builder()
+            .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
+            .build();
 
     // Both the package and the file exist; load and parse the file.
     Path path = rootedPath.asPath();
@@ -114,16 +120,15 @@ public class ASTFileLookupFunction implements SkyFunction {
     try {
       byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
       ParserInput input = ParserInput.create(bytes, path.toString());
-      file = StarlarkFile.parseWithDigest(input, path.getDigest());
+      file = StarlarkFile.parseWithDigest(input, path.getDigest(), options);
     } catch (IOException e) {
       throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
           Transience.TRANSIENT);
     }
 
     // validate (and soon, compile)
-    ImmutableMap<String, Object> predeclared = ruleClassProvider.getEnvironment();
     ValidationEnvironment.validateFile(
-        file, Module.createForBuiltins(predeclared), starlarkSemantics, /*isBuildFile=*/ false);
+        file, Module.createForBuiltins(ruleClassProvider.getEnvironment()));
     Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
 
     return ASTFileLookupValue.withFile(file);

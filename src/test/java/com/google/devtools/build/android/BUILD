@@ -7,6 +7,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/desugar:srcs",
         "//src/test/java/com/google/devtools/build/android/dexer:srcs",
         "//src/test/java/com/google/devtools/build/android/junctions:srcs",
+        "//src/test/java/com/google/devtools/build/android/r8:srcs",
         "//src/test/java/com/google/devtools/build/android/resources:srcs",
         "//src/test/java/com/google/devtools/build/android/testing/manifestmerge:srcs",
         "//src/test/java/com/google/devtools/build/android/xml:srcs",
@@ -201,7 +202,8 @@ java_test(
     size = "small",
     srcs = ["DensitySpecificManifestProcessorTest.java"],
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:jimfs",
@@ -215,7 +217,8 @@ java_test(
     size = "small",
     srcs = ["DensitySpecificResourceFilterTest.java"],
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:junit4",
@@ -228,7 +231,8 @@ java_test(
     size = "small",
     srcs = ["DependencyAndroidDataTest.java"],
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:jimfs",
@@ -260,7 +264,8 @@ java_test(
     srcs = ["ParsedAndroidDataTest.java"],
     deps = [
         ":test_utils",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
         "//third_party:android_common_25_0_0",
@@ -291,7 +296,8 @@ java_test(
     size = "small",
     srcs = ["SerializedAndroidDataTest.java"],
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:jimfs",
@@ -305,7 +311,8 @@ java_test(
     size = "small",
     srcs = ["UnvalidatedAndroidDataTest.java"],
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:jimfs",

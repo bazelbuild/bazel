@@ -826,6 +826,15 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to make source manifest actions remotable")
   public boolean remotableSourceManifestActions;
 
+  @Option(
+      name = "experimental_enable_aggregating_middleman",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Whether to enable the use of AggregatingMiddleman in rules.")
+  public boolean enableAggregatingMiddleman;
+
   /** Ways configured targets may provide the {@link BuildConfiguration.Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     // Don't offer the provider at all. This is best for most builds, which don't use this
@@ -864,6 +873,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.cpu = hostCpu;
     host.inmemoryUnusedInputsList = inmemoryUnusedInputsList;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
+    host.enableAggregatingMiddleman = enableAggregatingMiddleman;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;

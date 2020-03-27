@@ -523,7 +523,7 @@ public class CommandEnvironment {
   private ExitCode finalizeExitCode() {
     // Set the pending exception so that further calls to exit(AbruptExitException) don't lead to
     // unwanted thread interrupts.
-    if (pendingException.compareAndSet(null, new AbruptExitException("", null))) {
+    if (pendingException.compareAndSet(null, new AbruptExitException("", ExitCode.RESERVED))) {
       return null;
     }
     if (Thread.currentThread() == commandThread) {

@@ -163,14 +163,15 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
+  public ListenableFuture<ActionResult> downloadActionResult(
+      ActionKey actionKey, boolean inlineOutErr) {
     if (diskCache.containsActionResult(actionKey)) {
-      return diskCache.downloadActionResult(actionKey);
+      return diskCache.downloadActionResult(actionKey, inlineOutErr);
     }
 
     if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteAcceptCached) {
       return Futures.transformAsync(
-          remoteCache.downloadActionResult(actionKey),
+          remoteCache.downloadActionResult(actionKey, inlineOutErr),
           (actionResult) -> {
             if (actionResult == null) {
               return Futures.immediateFuture(null);

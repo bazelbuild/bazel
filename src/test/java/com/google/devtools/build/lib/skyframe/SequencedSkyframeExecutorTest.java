@@ -449,10 +449,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   private Collection<SkyKey> dirtyValues() throws InterruptedException {
     Diff diff =
-        new FilesystemValueChecker(
-                new TimestampGranularityMonitor(BlazeClock.instance()),
-                null)
-            .getDirtyKeys(skyframeExecutor.getEvaluatorForTesting().getValues(),
+        new FilesystemValueChecker(new TimestampGranularityMonitor(BlazeClock.instance()), null)
+            .getDirtyKeys(
+                skyframeExecutor.getEvaluatorForTesting().getValues(),
                 new BasicFilesystemDirtinessChecker());
     return ImmutableList.<SkyKey>builder()
         .addAll(diff.changedKeysWithoutNewValues())
@@ -849,7 +848,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // long enough can lead to a flaky pass.
 
     Thread mainThread = Thread.currentThread();
-
+    CountDownLatch cStarted = new CountDownLatch(1);
     skyframeExecutor
         .getEvaluatorForTesting()
         .injectGraphTransformerForTesting(
@@ -861,6 +860,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
                         actionAStartedSoOthersCanProceed, "primary didn't start");
                     if (key.equals(lcC)) {
+                      cStarted.countDown();
                       // Wait until interrupted.
                       try {
                         Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
@@ -880,6 +880,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       && key.equals(lcB)
                       && order == NotifyingHelper.Order.BEFORE
                       && context != null) {
+                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(cStarted, "c missing");
                     // B thread has finished its run. Interrupt build!
                     mainThread.interrupt();
                   } else if (type == EventType.ADD_REVERSE_DEP
@@ -1584,7 +1585,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
     assertThat(e.getDetailedExitCode().getExitCode())
@@ -1718,7 +1720,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
     assertThat(e.getDetailedExitCode().getExitCode())
@@ -1849,7 +1852,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     new TopLevelArtifactContext(
                         /*runTestsExclusively=*/ false,
                         false,
-                        OutputGroupInfo.determineOutputGroups(ImmutableList.of(), true))));
+                        OutputGroupInfo.determineOutputGroups(ImmutableList.of(), true)),
+                    /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
     assertThat(e.getDetailedExitCode().getExitCode())
@@ -1957,7 +1961,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
     assertThat(e.getDetailedExitCode().getExitCode())
@@ -2070,7 +2075,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(USER_EXIT_CODE);
@@ -2167,7 +2173,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     builtAspects,
                     options,
                     null,
-                    null));
+                    null,
+                    /* trustRemoteArtifacts= */ false));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(INFRA_EXIT_CODE);
@@ -2242,7 +2249,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         ImmutableSet.of(),
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
     assertContainsEventRegex(eventCollector, ".*during scanning.*\n.*Scanning.*\n.*Test dir/top.*");
     assertNotContainsEventRegex(
         eventCollector, ".*after scanning.*\n.*Scanning.*\n.*Test dir/top.*");

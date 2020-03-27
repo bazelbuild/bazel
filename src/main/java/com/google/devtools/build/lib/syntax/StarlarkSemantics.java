@@ -22,15 +22,37 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 /**
- * Options that affect Starlark semantics.
+ * Options that affect the dynamic behavior of Starlark execution and operators.
  *
- * <p>For descriptions of what these options do, see {@link StarlarkSemanticsOptions}.
+ * <p>For descriptions of what these options do, see {@link packages.StarlarkSemanticsOptions}.
+ *
+ * <p>For options that affect the static behavior of the Starlark frontend (lexer, parser,
+ * validator, compiler), see FileOptions.
  */
 // TODO(brandjon): User error messages that reference options should maybe be substituted with the
 // option name outside of the core Starlark interpreter?
 // TODO(brandjon): Eventually these should be documented in full here, and StarlarkSemanticsOptions
 // should refer to this class for documentation. But this doesn't play nice with the options
 // parser's annotation mechanism.
+//
+// TODO(adonovan): nearly all of these options are Bazel-isms.
+// The only ones that affect the Starlark interpreter directly are are:
+// - incompatibleRestrictNamedParams, which affects calls to many built-ins,
+//   but is used only by copybara and will be deleted soon (CL 298871155);
+// - incompatibleRestrictStringEscapes, which affects the lexer and is thus
+//   properly one of the FileOptions, but piggybacks on the command-line flag
+//   plumbing of StarlarkSemantics; and
+// - internalSkylarkFlagTestCanary, which is used to test propagation of Bazel
+//   command-line flags to the 'print' built-in, but this could easily be
+//   achieved using some other Bazel-specific built-in.
+// Most of the rest are used generically to disable parameters to built-ins,
+// or to disable fields of modules, based on flags. In both of those cases,
+// a generic set-of-feature-strings representation would do.
+// A few could be expressed as Bazel-specific thread state,
+// though several are inspected by the implementations of operations
+// such as SkylarkIndexable, SkylarkQueryable, and SkylarkClassObject.
+// TODO(adonovan): move to lib.packages.BuildLanguageSemantics.
+//
 @AutoValue
 public abstract class StarlarkSemantics {
 
@@ -70,12 +92,11 @@ public abstract class StarlarkSemantics {
     public static final String EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST =
         "experimental_starlark_unused_inputs_list";
     public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "experimental_repo_remote_exec";
+    public static final String EXPERIMENTAL_EXEC_GROUPS = "experimental_exec_groups";
     public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
         "incompatible_applicable_licenses";
     public static final String INCOMPATIBLE_DISABLE_DEPSET_INPUTS =
         "incompatible_disable_depset_inputs";
-    public static final String INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT =
-        "incompatible_no_output_attr_default";
     public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
         "incompatible_no_rule_outputs_param";
     public static final String INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP =
@@ -123,12 +144,12 @@ public abstract class StarlarkSemantics {
         return experimentalStarlarkUnusedInputsList();
       case FlagIdentifier.EXPERIMENTAL_REPO_REMOTE_EXEC:
         return experimentalRepoRemoteExec();
+      case FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS:
+        return experimentalExecGroups();
       case FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES:
         return incompatibleApplicableLicenses();
       case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS:
         return incompatibleDisableDepsetItems();
-      case FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT:
-        return incompatibleNoOutputAttrDefault();
       case FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM:
         return incompatibleNoRuleOutputsParam();
       case FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP:
@@ -216,13 +237,11 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalSiblingRepositoryLayout();
 
+  public abstract boolean experimentalExecGroups();
+
   public abstract boolean incompatibleAlwaysCheckDepsetElements();
 
   public abstract boolean incompatibleApplicableLicenses();
-
-  public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
-
-  public abstract boolean incompatibleDepsetUnion();
 
   public abstract boolean incompatibleDisableTargetProviderFields();
 
@@ -242,15 +261,11 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoImplicitFileExport();
 
-  public abstract boolean incompatibleNoOutputAttrDefault();
-
   public abstract boolean incompatibleNoRuleOutputsParam();
 
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
   public abstract boolean incompatibleNoTargetOutputGroup();
-
-  public abstract boolean incompatibleRestrictNamedParams();
 
   public abstract boolean incompatibleRunShellCommandString();
 
@@ -271,6 +286,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleUseCcConfigureFromRulesCc();
 
   public abstract boolean incompatibleLinkoptsToLinkLibs();
+
+  public abstract long maxComputationSteps();
 
   public abstract boolean recordRuleInstantiationCallstack();
 
@@ -310,7 +327,7 @@ public abstract class StarlarkSemantics {
           .debugDepsetDepth(false)
           .experimentalActionArgs(false)
           .experimentalAllowTagsPropagation(false)
-          .experimentalAspectOutputPropagation(false)
+          .experimentalAspectOutputPropagation(true)
           .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalAllowIncrementalRepositoryUpdates(true)
@@ -324,10 +341,9 @@ public abstract class StarlarkSemantics {
           .experimentalRepoRemoteExec(false)
           .experimentalDisableExternalPackage(false)
           .experimentalSiblingRepositoryLayout(false)
+          .experimentalExecGroups(false)
           .incompatibleAlwaysCheckDepsetElements(true)
           .incompatibleApplicableLicenses(false)
-          .incompatibleBzlDisallowLoadAfterStatement(true)
-          .incompatibleDepsetUnion(true)
           .incompatibleDisableTargetProviderFields(false)
           .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(true)
@@ -337,12 +353,10 @@ public abstract class StarlarkSemantics {
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
           .incompatibleNoImplicitFileExport(false)
-          .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(true)
           .incompatibleRunShellCommandString(false)
-          .incompatibleRestrictNamedParams(true)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
@@ -351,6 +365,7 @@ public abstract class StarlarkSemantics {
           .incompatibleRestrictStringEscapes(false)
           .incompatibleUseCcConfigureFromRulesCc(false)
           .incompatibleLinkoptsToLinkLibs(false)
+          .maxComputationSteps(0)
           .recordRuleInstantiationCallstack(false)
           .build();
 
@@ -393,13 +408,11 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder experimentalSiblingRepositoryLayout(boolean value);
 
+    public abstract Builder experimentalExecGroups(boolean value);
+
     public abstract Builder incompatibleAlwaysCheckDepsetElements(boolean value);
 
     public abstract Builder incompatibleApplicableLicenses(boolean value);
-
-    public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
-
-    public abstract Builder incompatibleDepsetUnion(boolean value);
 
     public abstract Builder incompatibleDisableTargetProviderFields(boolean value);
 
@@ -419,15 +432,11 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleNoImplicitFileExport(boolean value);
 
-    public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
-
     public abstract Builder incompatibleNoRuleOutputsParam(boolean value);
 
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
-
-    public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
     public abstract Builder incompatibleRunShellCommandString(boolean value);
 
@@ -446,6 +455,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleUseCcConfigureFromRulesCc(boolean value);
 
     public abstract Builder incompatibleLinkoptsToLinkLibs(boolean value);
+
+    public abstract Builder maxComputationSteps(long value);
 
     public abstract Builder recordRuleInstantiationCallstack(boolean value);
 

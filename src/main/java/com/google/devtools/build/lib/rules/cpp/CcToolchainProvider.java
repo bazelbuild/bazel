@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -101,7 +102,8 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* abi= */ "",
           /* targetSystemName= */ "",
           /* additionalMakeVariables= */ ImmutableMap.of(),
-          /* legacyCcFlagsMakeVariable= */ "");
+          /* legacyCcFlagsMakeVariable= */ "",
+          /* whitelistForLayeringCheck= */ null);
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final PathFragment crosstoolTopPathFragment;
@@ -163,6 +165,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final FdoContext fdoContext;
 
   private final LicensesProvider licensesProvider;
+  private final PackageSpecificationProvider whitelistForLayeringCheck;
 
   public CcToolchainProvider(
       ImmutableMap<String, Object> values,
@@ -217,7 +220,8 @@ public final class CcToolchainProvider extends ToolchainInfo
       String abi,
       String targetSystemName,
       ImmutableMap<String, String> additionalMakeVariables,
-      String legacyCcFlagsMakeVariable) {
+      String legacyCcFlagsMakeVariable,
+      PackageSpecificationProvider whitelistForLayeringCheck) {
     super(values, Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
@@ -274,6 +278,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.targetSystemName = targetSystemName;
     this.additionalMakeVariables = additionalMakeVariables;
     this.legacyCcFlagsMakeVariable = legacyCcFlagsMakeVariable;
+    this.whitelistForLayeringCheck = whitelistForLayeringCheck;
   }
 
   /**
@@ -903,6 +908,10 @@ public final class CcToolchainProvider extends ToolchainInfo
   @VisibleForTesting
   NestedSet<Artifact> getDynamicRuntimeLibForTesting() {
     return dynamicRuntimeLinkInputs;
+  }
+
+  public PackageSpecificationProvider getWhitelistForLayeringCheck() {
+    return whitelistForLayeringCheck;
   }
 }
 

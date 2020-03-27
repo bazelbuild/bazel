@@ -22,7 +22,9 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:jsr330_inject",
@@ -58,6 +60,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 # BazelTestRunner integration tests

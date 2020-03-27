@@ -173,7 +173,8 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread.getGlobals(), thread);
+    EvalUtils.exec(
+        ParserInput.fromLines("True = 123"), FileOptions.DEFAULT, thread.getGlobals(), thread);
     assertThat(thread.getGlobals().lookup("True")).isEqualTo(123);
   }
 
@@ -187,6 +188,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
           ParserInput.fromLines(
               "def foo(x): x += global_var; global_var = 36; return x", //
               "foo(1)"),
+          FileOptions.DEFAULT,
           module,
           thread);
       throw new AssertionError("failed to fail");

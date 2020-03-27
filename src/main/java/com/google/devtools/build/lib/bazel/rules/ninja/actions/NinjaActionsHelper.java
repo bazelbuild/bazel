@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
  */
 public class NinjaActionsHelper {
   private final RuleContext ruleContext;
-  private final ImmutableSortedMap<PathFragment, NinjaTarget> allUsualTargets;
+  private final ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap;
   private final ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargets;
 
   private final NinjaGraphArtifactsHelper artifactsHelper;
@@ -71,7 +71,7 @@ public class NinjaActionsHelper {
    *
    * @param ruleContext parent NinjaGraphRule rule context
    * @param artifactsHelper helper object to create artifacts
-   * @param allUsualTargets mapping of outputs to all non-phony Ninja targets from Ninja file
+   * @param targetsMap mapping of outputs to all non-phony Ninja targets from Ninja file
    * @param phonyTargets mapping of names to all phony Ninja actions from Ninja file
    * @param phonyTargetArtifacts helper class for computing transitively included artifacts of phony
    *     targets
@@ -80,14 +80,14 @@ public class NinjaActionsHelper {
   NinjaActionsHelper(
       RuleContext ruleContext,
       NinjaGraphArtifactsHelper artifactsHelper,
-      ImmutableSortedMap<PathFragment, NinjaTarget> allUsualTargets,
+      ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap,
       ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargets,
       PhonyTargetArtifacts phonyTargetArtifacts,
       List<PathFragment> pathsToBuild,
       ImmutableSet<PathFragment> outputRootInputsSymlinks) {
     this.ruleContext = ruleContext;
     this.artifactsHelper = artifactsHelper;
-    this.allUsualTargets = allUsualTargets;
+    this.targetsMap = targetsMap;
     this.phonyTargets = phonyTargets;
     this.shellExecutable = ShToolchain.getPathOrError(ruleContext);
     this.executionInfo = createExecutionInfo(ruleContext);
@@ -113,7 +113,7 @@ public class NinjaActionsHelper {
         };
     while (!queue.isEmpty()) {
       PathFragment fragment = queue.remove();
-      NinjaTarget target = allUsualTargets.get(fragment);
+      NinjaTarget target = targetsMap.get(fragment);
       if (target != null) {
         // If the output is already created by a symlink action created from specifying that
         // file in output_root_inputs attribute of the ninja_graph rule, do not create other
@@ -150,7 +150,7 @@ public class NinjaActionsHelper {
         }
       } else {
         PhonyTarget phonyTarget = phonyTargets.get(fragment);
-        // Phony target can be null, if the path in neither usual or phony target,
+        // Phony target can be null, if the path in neither regular or phony target,
         // but the source file.
         if (phonyTarget != null) {
           phonyTarget.visitUsualInputs(phonyTargets, enqueuer::accept);
@@ -288,7 +288,7 @@ public class NinjaActionsHelper {
         .forEach((key, value) -> builder.put(key, ImmutableList.of(Pair.of(0L, value))));
     String inNewline =
         target.getUsualInputs().stream()
-            .map(this::getInputPathWithDepsMappingReplacement)
+            .map(PathFragment::getPathString)
             .collect(Collectors.joining("\n"));
     String out =
         target.getOutputs().stream()
@@ -319,13 +319,5 @@ public class NinjaActionsHelper {
     Preconditions.checkNotNull(ruleContext.getConfiguration())
         .modifyExecutionInfo(map, "NinjaRule");
     return map;
-  }
-
-  private String getInputPathWithDepsMappingReplacement(PathFragment fragment) {
-    Artifact bazelArtifact = artifactsHelper.getDepsMappingArtifact(fragment);
-    if (bazelArtifact != null) {
-      return bazelArtifact.getPath().getPathString();
-    }
-    return fragment.getPathString();
   }
 }

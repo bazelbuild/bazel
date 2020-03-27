@@ -25,7 +25,8 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 
-class GenQueryConfiguration extends BuildConfiguration.Fragment {
+/** {@link BuildConfiguration.Fragment} for {@link GenQuery}. */
+public class GenQueryConfiguration extends BuildConfiguration.Fragment {
 
   /** GenQuery-specific options. */
   public static class GenQueryOptions extends FragmentOptions {

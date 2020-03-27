@@ -55,16 +55,15 @@ public class PyRuleClasses {
    * Returns a rule transition factory for Python binary rules and other rules that may change the
    * Python version.
    *
-   * <p>The factory reads the version specified by the target's {@code python_version} attribute if
-   * given, falling back on the {@code default_python_version} attribute otherwise. Both attributes
-   * must exist on the rule class. If a value was read successfully, the factory returns a
-   * transition that sets the version to that value. Otherwise if neither attribute was set, the
-   * factory returns {@code defaultTransition} instead.
+   * <p>The factory reads the version specified by the target's {@code python_version} attribute (if
+   * given), which must exist on the rule class. If a value was read successfully, the factory
+   * returns a transition that sets the version to that value. Otherwise, the factory returns {@code
+   * defaultTransition} instead.
    *
-   * <p>If either attribute has an unparsable value on the target, then the factory returns {@code
-   * defaultTransition} and it is up to the rule's analysis phase ({@link
-   * PyCommon#validateTargetPythonVersionAttr}) to report an attribute error to the user. This case
-   * should be prevented by attribute validation if the rule class is defined correctly.
+   * <p>If the attribute has an unparsable value, then the factory returns {@code defaultTransition}
+   * and it is up to the rule's analysis phase ({@link PyCommon#validatePythonVersionAttr}) to
+   * report an attribute error to the user. This case should be prevented by attribute validation if
+   * the rule class is defined correctly.
    */
   public static TransitionFactory<Rule> makeVersionTransition(
       PythonVersionTransition defaultTransition) {
@@ -72,10 +71,9 @@ public class PyRuleClasses {
       AttributeMap attrs = RawAttributeMapper.of(rule);
       // Fail fast if we're used on an ill-defined rule class.
       Preconditions.checkArgument(
-          attrs.has(PyCommon.PYTHON_VERSION_ATTRIBUTE, Type.STRING)
-              && attrs.has(PyCommon.DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING),
-          "python version transitions require that the RuleClass define both "
-              + "'default_python_version' and 'python_version'");
+          attrs.has(PyCommon.PYTHON_VERSION_ATTRIBUTE, Type.STRING),
+          "python version transitions require that the RuleClass define a "
+              + "'python_version' attribute");
       // Attribute validation should enforce that the attribute string value is either a target
       // value ("PY2" or "PY3") or the sentinel value ("_INTERNAL_SENTINEL"). But just in case,
       // we'll, treat an invalid value as the default value rather than propagate an unchecked
@@ -83,11 +81,11 @@ public class PyRuleClasses {
       // instead of a crash.
       PythonVersionTransition transition;
       try {
-        PythonVersion versionFromAttributes = PyCommon.readPythonVersionFromAttributes(attrs);
-        if (versionFromAttributes == null) {
+        PythonVersion versionFromAttribute = PyCommon.readPythonVersionFromAttribute(attrs);
+        if (versionFromAttribute == null) {
           transition = defaultTransition;
         } else {
-          transition = PythonVersionTransition.toConstant(versionFromAttributes);
+          transition = PythonVersionTransition.toConstant(versionFromAttribute);
         }
       } catch (IllegalArgumentException ex) {
         transition = defaultTransition;
