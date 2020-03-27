@@ -196,25 +196,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
     }
 
     @SkylarkCallable(
-      name = "legacy_method",
-      documented = false,
-      parameters = {
-        @Param(name = "pos", positional = true, type = Boolean.class),
-        @Param(name = "legacyNamed", type = Boolean.class, positional = true, named = false,
-            legacyNamed = true),
-        @Param(name = "named", type = Boolean.class, positional = false, named = true),
-      })
-    public String legacyMethod(Boolean pos, Boolean legacyNamed, Boolean named) {
-      return "legacy_method("
-          + pos
-          + ", "
-          + legacyNamed
-          + ", "
-          + named
-          + ")";
-    }
-
-    @SkylarkCallable(
         name = "with_params",
         documented = false,
         parameters = {
@@ -1885,7 +1866,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "function",
             "interrupted_struct_field",
             "is_empty",
-            "legacy_method",
             "nullfunc_failing",
             "nullfunc_working",
             "proxy_methods_object",
