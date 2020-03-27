@@ -81,20 +81,8 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void setPythonVersion_OldApiEnabled() throws Exception {
-    PythonOptions opts =
-        parsePythonOptions(
-            "--incompatible_remove_old_python_version_api=false",
-            "--python_version=PY2");
-    opts.setPythonVersion(PythonVersion.PY3);
-    assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
-  }
-
-  @Test
-  public void setPythonVersion_OldApiDisabled() throws Exception {
-    PythonOptions opts =
-        parsePythonOptions(
-            "--incompatible_remove_old_python_version_api=true", "--python_version=PY2");
+  public void setPythonVersion() throws Exception {
+    PythonOptions opts = parsePythonOptions("--python_version=PY2");
     opts.setPythonVersion(PythonVersion.PY3);
     assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
@@ -103,14 +91,12 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   public void getHost_CopiesMostValues() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
-            "--incompatible_remove_old_python_version_api=true",
             "--incompatible_py3_is_default=true",
             "--incompatible_py2_outputs_are_suffixed=true",
             "--build_python_zip=true",
             "--incompatible_disallow_legacy_py_provider=true",
             "--incompatible_use_python_toolchains=true");
     PythonOptions hostOpts = (PythonOptions) opts.getHost();
-    assertThat(hostOpts.incompatibleRemoveOldPythonVersionApi).isTrue();
     assertThat(hostOpts.incompatiblePy3IsDefault).isTrue();
     assertThat(hostOpts.incompatiblePy2OutputsAreSuffixed).isTrue();
     assertThat(hostOpts.buildPythonZip).isEqualTo(TriState.YES);

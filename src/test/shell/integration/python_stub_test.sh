@@ -175,7 +175,6 @@ EOF
 
   # Build cc at the top level, along with the outer halves of both paths to cc.
   bazel build --nobuild //test:cc //test:path_A_outer //test:path_B_outer \
-      --incompatible_remove_old_python_version_api=true \
       &> $TEST_log || fail "bazel run failed"
 }
 

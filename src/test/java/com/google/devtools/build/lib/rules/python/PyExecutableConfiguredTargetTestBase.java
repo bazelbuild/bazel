@@ -116,15 +116,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     return String.join("\n", lines);
   }
 
-  private String ruleDeclWithDefaultPyVersionAttr(String name, String version) {
-    return join(
-        ruleName + "(",
-        "    name = '" + name + "',",
-        "    srcs = ['" + name + ".py'],",
-        "    default_python_version = '" + version + "',",
-        ")");
-  }
-
   private String ruleDeclWithPyVersionAttr(String name, String version) {
     return join(
         ruleName + "(",
@@ -147,20 +138,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
-  public void oldVersionAttr_UnknownValue() throws Exception {
-    useConfiguration("--incompatible_remove_old_python_version_api=false");
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "invalid value in 'default_python_version' attribute: "
-            + "has to be one of 'PY2' or 'PY3' instead of 'doesnotexist'",
-        // build file:
-        ruleDeclWithDefaultPyVersionAttr("foo", "doesnotexist"));
-  }
-
-  @Test
-  public void newVersionAttr_UnknownValue() throws Exception {
+  public void versionAttr_UnknownValue() throws Exception {
     checkError(
         "pkg",
         "foo",
@@ -172,20 +150,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
-  public void oldVersionAttr_BadValue() throws Exception {
-    useConfiguration("--incompatible_remove_old_python_version_api=false");
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "invalid value in 'default_python_version' attribute: "
-            + "has to be one of 'PY2' or 'PY3' instead of 'PY2AND3'",
-        // build file:
-        ruleDeclWithDefaultPyVersionAttr("foo", "PY2AND3"));
-  }
-
-  @Test
-  public void newVersionAttr_BadValue() throws Exception {
+  public void versionAttr_BadValue() throws Exception {
     checkError(
         "pkg",
         "foo",
@@ -197,66 +162,10 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
-  public void oldVersionAttr_GoodValue() throws Exception {
-    useConfiguration("--incompatible_remove_old_python_version_api=false");
-    scratch.file("pkg/BUILD", ruleDeclWithDefaultPyVersionAttr("foo", "PY2"));
-    getOkPyTarget("//pkg:foo");
-    assertNoEvents();
-  }
-
-  @Test
-  public void newVersionAttr_GoodValue() throws Exception {
+  public void versionAttr_GoodValue() throws Exception {
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
     getOkPyTarget("//pkg:foo");
     assertNoEvents();
-  }
-
-  @Test
-  public void cannotUseOldVersionAttrWithRemovalFlag() throws Exception {
-    useConfiguration("--incompatible_remove_old_python_version_api=true");
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "the 'default_python_version' attribute is disabled by the "
-            + "'--incompatible_remove_old_python_version_api' flag",
-        // build file:
-        ruleDeclWithDefaultPyVersionAttr("foo", "PY2"));
-  }
-
-  /**
-   * Regression test for #7071: Don't let prohibiting the old attribute get in the way of cloning a
-   * target using {@code native.existing_rules()}.
-   *
-   * <p>The use case of cloning a target is pretty dubious and brittle. But as long as it's possible
-   * and not proscribed, we won't let version attribute validation get in the way.
-   */
-  @Test
-  public void canCopyTargetWhenOldAttrDisallowed() throws Exception {
-    useConfiguration("--incompatible_remove_old_python_version_api=true");
-    scratch.file(
-        "pkg/rules.bzl",
-        "def copy_target(rulefunc, src, dest):",
-        "    t = native.existing_rule(src)",
-        "    t.pop('kind')",
-        "    t.pop('name')",
-        "    # Also remove these because they get in the way of creating the new target but aren't",
-        "    # related to the attribute under test.",
-        "    t.pop('restricted_to')",
-        "    t.pop('shard_count', default=None)",
-        "    rulefunc(name = dest, **t)");
-    scratch.file(
-        "pkg/BUILD",
-        "load(':rules.bzl', 'copy_target')",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    main = 'foo.py',",
-        "    python_version = 'PY2',",
-        ")",
-        "copy_target(" + ruleName + ", 'foo', 'bar')");
-    ConfiguredTarget target = getConfiguredTarget("//pkg:bar");
-    assertThat(target).isNotNull();
   }
 
   @Test
@@ -292,20 +201,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         // tools into PY3 for this test. (Doing so may require setting extra options to get it to
         // pass analysis.)
         "--host_force_python=PY2");
-  }
-
-  @Test
-  public void newVersionAttrTakesPrecedenceOverOld() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    default_python_version = 'PY2',",
-        "    python_version = 'PY3',",
-        ")");
-    assertPythonVersionIs_UnderNewConfig(
-        "//pkg:foo", PythonVersion.PY3, "--incompatible_remove_old_python_version_api=false");
   }
 
   @Test

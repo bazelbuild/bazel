@@ -69,20 +69,22 @@ public class PythonOptions extends FragmentOptions {
       help = "Build python executable zip; on on Windows, off on other platforms")
   public TriState buildPythonZip;
 
+  /**
+   * Deprecated machinery for setting the Python version; will be removed soon.
+   *
+   * <p>Not GraveyardOptions'd because we'll delete this alongside other soon-to-be-removed options
+   * in this file.
+   */
   @Option(
       name = "incompatible_remove_old_python_version_api",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help =
-          "If true, disables use of the `default_python_version` "
-              + "attribute for `py_binary` and `py_test`. Use the `--python_version` flag and "
-              + "`python_version` attribute instead, which have exactly the same meaning. This "
-              + "flag also disables `select()`-ing over `--host_force_python`.")
+      help = "No-op, will be removed soon.")
   public boolean incompatibleRemoveOldPythonVersionApi;
 
   /**
@@ -290,18 +292,16 @@ public class PythonOptions extends FragmentOptions {
         new SelectRestriction(
             /*visibleWithinToolsPackage=*/ true,
             "Use @bazel_tools//python/tools:python_version instead."));
-    if (incompatibleRemoveOldPythonVersionApi) {
-      restrictions.put(
-          FORCE_PYTHON_DEFINITION,
-          new SelectRestriction(
-              /*visibleWithinToolsPackage=*/ true,
-              "Use @bazel_tools//python/tools:python_version instead."));
-      restrictions.put(
-          HOST_FORCE_PYTHON_DEFINITION,
-          new SelectRestriction(
-              /*visibleWithinToolsPackage=*/ false,
-              "Use @bazel_tools//python/tools:python_version instead."));
-    }
+    restrictions.put(
+        FORCE_PYTHON_DEFINITION,
+        new SelectRestriction(
+            /*visibleWithinToolsPackage=*/ true,
+            "Use @bazel_tools//python/tools:python_version instead."));
+    restrictions.put(
+        HOST_FORCE_PYTHON_DEFINITION,
+        new SelectRestriction(
+            /*visibleWithinToolsPackage=*/ false,
+            "Use @bazel_tools//python/tools:python_version instead."));
     return restrictions.build();
   }
 
@@ -354,7 +354,6 @@ public class PythonOptions extends FragmentOptions {
   @Override
   public FragmentOptions getHost() {
     PythonOptions hostPythonOptions = (PythonOptions) getDefault();
-    hostPythonOptions.incompatibleRemoveOldPythonVersionApi = incompatibleRemoveOldPythonVersionApi;
     PythonVersion hostVersion =
         (hostForcePython != null) ? hostForcePython : getDefaultPythonVersion();
     hostPythonOptions.setPythonVersion(hostVersion);

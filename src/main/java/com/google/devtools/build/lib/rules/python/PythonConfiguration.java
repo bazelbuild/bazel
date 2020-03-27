@@ -40,9 +40,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
 
-  // TODO(brandjon): Remove this (#7797).
-  private final boolean oldPyVersionApiAllowed;
-
   // TODO(brandjon): Remove this once migration to PY3-as-default is complete.
   private final boolean py2OutputsAreSuffixed;
 
@@ -62,7 +59,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
       PythonVersion defaultVersion,
       TriState buildPythonZip,
       boolean buildTransitiveRunfilesTrees,
-      boolean oldPyVersionApiAllowed,
       boolean py2OutputsAreSuffixed,
       boolean disallowLegacyPyProvider,
       boolean useToolchains,
@@ -72,7 +68,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
     this.defaultVersion = defaultVersion;
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
-    this.oldPyVersionApiAllowed = oldPyVersionApiAllowed;
     this.py2OutputsAreSuffixed = py2OutputsAreSuffixed;
     this.disallowLegacyPyProvider = disallowLegacyPyProvider;
     this.useToolchains = useToolchains;
@@ -143,11 +138,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
    */
   public boolean buildTransitiveRunfilesTrees() {
     return buildTransitiveRunfilesTrees;
-  }
-
-  /** Returns whether use of the {@code default_python_version} attribute is allowed. */
-  public boolean oldPyVersionApiAllowed() {
-    return oldPyVersionApiAllowed;
   }
 
   /**

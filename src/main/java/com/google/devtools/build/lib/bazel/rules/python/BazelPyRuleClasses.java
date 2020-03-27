@@ -163,19 +163,6 @@ public final class BazelPyRuleClasses {
           match any filename in <code>srcs</code>, <code>main</code> must be specified.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main", LABEL).allowedFileTypes(PYTHON_SOURCE))
-          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(default_python_version) -->
-          A deprecated alias for <code>python_version</code>; use that instead. This attribute is
-          disabled under <code>--incompatible_remove_old_python_version_api</code>. For migration
-          purposes, if <code>python_version</code> is given then the value of
-          <code>default_python_version</code> is ignored.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(
-              attr(PyCommon.DEFAULT_PYTHON_VERSION_ATTRIBUTE, STRING)
-                  .value(PythonVersion._INTERNAL_SENTINEL.toString())
-                  .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET)
-                  .nonconfigurable(
-                      "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
-                          + " to the configuration"))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(python_version) -->
           Whether to build this target (and its transitive <code>deps</code>) for Python 2 or Python
           3. Valid values are <code>"PY2"</code> and <code>"PY3"</code> (the default).

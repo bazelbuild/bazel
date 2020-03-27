@@ -16,13 +16,11 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -68,22 +66,9 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
         makeFooThatSelectsOnFlag("python_version", "PY2"));
   }
 
+  // TODO(brandjon): Delete this test case when we delete these flags.
   @Test
-  public void canSelectOnForcePythonFlagsUnderOldApi() throws Exception {
-    // For backwards compatibility purposes, select()-ing on --force_python and --host_force_python
-    // is allowed while the old API is still enabled.
-    // TODO(brandjon): Although --force_python is a no-op, this test is still present because the
-    // behavior belongs to the remove-old-api flag. Delete the test when we no-op that flag too.
-    useConfiguration("--incompatible_remove_old_python_version_api=false");
-    scratch.file("fp/BUILD", makeFooThatSelectsOnFlag("force_python", "PY2"));
-    scratch.file("hfp/BUILD", makeFooThatSelectsOnFlag("host_force_python", "PY2"));
-    assertThat(getConfiguredTarget("//fp:foo")).isNotNull();
-    assertThat(getConfiguredTarget("//hfp:foo")).isNotNull();
-  }
-
-  @Test
-  public void cannotSelectOnForcePythonFlagsWithoutOldApi() throws Exception {
-    useConfiguration("--incompatible_remove_old_python_version_api=true");
+  public void cannotSelectOnForcePythonFlags() throws Exception {
     checkError(
         "fp",
         "foo",
@@ -132,12 +117,7 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
 
   private void doTestSelectOnPythonVersionTarget(Artifact expected, String... flags)
       throws Exception {
-    ImmutableList<String> modifiedFlags =
-        ImmutableList.<String>builder()
-            .addAll(Arrays.asList(flags))
-            .add("--incompatible_remove_old_python_version_api=false")
-            .build();
-    useConfiguration(modifiedFlags.toArray(new String[] {}));
+    useConfiguration(flags);
     NestedSet<Artifact> files =
         getConfiguredTarget("//pkg:foo").getProvider(FileProvider.class).getFilesToBuild();
     assertThat(files.toList()).contains(expected);

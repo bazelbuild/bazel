@@ -151,7 +151,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     String pythonBinary = getPythonBinary(ruleContext, common, bazelConfig);
 
     // Version information for host config diagnostic warning.
-    PythonVersion attrVersion = PyCommon.readPythonVersionFromAttributes(ruleContext.attributes());
+    PythonVersion attrVersion = PyCommon.readPythonVersionFromAttribute(ruleContext.attributes());
     boolean attrVersionSpecifiedExplicitly = attrVersion != null;
     if (!attrVersionSpecifiedExplicitly) {
       attrVersion = config.getDefaultPythonVersion();
