@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import java.lang.ref.WeakReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,7 +38,6 @@ import org.junit.runners.JUnit4;
  * express these in terms of the BuildTool than of the BuildView because the
  * latter's class interface is quite complex.)
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class MiscAnalysisTest extends GoogleBuildIntegrationTestCase {
 

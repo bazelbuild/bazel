@@ -19,8 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import org.junit.Test;
@@ -31,7 +29,6 @@ import org.junit.runners.JUnit4;
  * This test case tests that we handle things properly when a BUILD file is
  * modified.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ModifyBuildFileTest extends GoogleBuildIntegrationTestCase {
   private void writeBuildFileAndSetMtime(long mtime) throws IOException {
