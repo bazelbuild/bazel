@@ -43,9 +43,7 @@ class BulkTransferException extends IOException {
    * exceptions are CacheNotFoundExceptions
    */
   void add(IOException e) {
-    if (allCacheNotFoundException) {
-      allCacheNotFoundException = e instanceof CacheNotFoundException;
-    }
+    allCacheNotFoundException &= e instanceof CacheNotFoundException;
     super.addSuppressed(e);
   }
 
@@ -53,4 +51,3 @@ class BulkTransferException extends IOException {
     return allCacheNotFoundException;
   }
 }
-
