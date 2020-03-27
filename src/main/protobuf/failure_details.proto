@@ -121,6 +121,7 @@ message ExternalRepository {
 message BuildProgress {
   enum Code {
     BUILD_PROGRESS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    OUTPUT_INITIALIZATION = 3 [(metadata) = { exit_code: 36 }];
 
     reserved 1, 2; // For internal use
   }
