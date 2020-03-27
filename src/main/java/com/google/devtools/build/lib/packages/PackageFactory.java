@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -92,7 +93,10 @@ import javax.annotation.Nullable;
  */
 public final class PackageFactory {
 
+  // Used only for a single test (that looks long obsolete).
   private static final Logger logger = Logger.getLogger(PackageFactory.class.getName());
+
+  private static final GoogleLogger glogger = GoogleLogger.forEnclosingClass();
 
   /** An extension to the global namespace of the BUILD language. */
   // TODO(bazel-team): this is largely unrelated to syntax.StarlarkThread.Extension,
@@ -681,6 +685,12 @@ public final class PackageFactory {
           String.format(
               "BUILD file computation took %d steps, but --max_computation_steps=%d",
               steps, maxSteps));
+    }
+    // Write a log message for BUILD files with more than 1e6 steps
+    // (approximately the top 1% in Google's code base).
+    if (steps > 1_000_000) {
+      glogger.atInfo().log(
+          "%s: BUILD file computation took %d steps", pkg.getPackageIdentifier(), steps);
     }
 
     packageBuilderHelper.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
