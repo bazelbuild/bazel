@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -183,6 +184,9 @@ public class CcToolchainProviderHelper {
     ImmutableList<PathFragment> builtInIncludeDirectories =
         builtInIncludeDirectoriesBuilder.build();
 
+    PackageSpecificationProvider whitelistForLayeringCheck =
+        attributes.getWhitelistForLayeringCheck();
+
     return new CcToolchainProvider(
         getToolchainForSkylark(toolPaths),
         cppConfiguration,
@@ -244,7 +248,8 @@ public class CcToolchainProviderHelper {
         toolchainConfigInfo.getAbiVersion(),
         toolchainConfigInfo.getTargetSystemName(),
         computeAdditionalMakeVariables(toolchainConfigInfo),
-        computeLegacyCcFlagsMakeVariable(toolchainConfigInfo));
+        computeLegacyCcFlagsMakeVariable(toolchainConfigInfo),
+        whitelistForLayeringCheck);
   }
 
   @Nullable

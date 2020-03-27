@@ -159,12 +159,15 @@ public abstract class CcModule
     // flipped.
     BuildOptions buildOptions =
         ruleContext == null ? null : ruleContext.getConfiguration().getOptions();
-    getSemantics().validateLayeringCheckFeatures(ruleContext.getRuleContext());
+    ImmutableSet<String> unsupportedFeaturesSet =
+        ImmutableSet.copyOf(unsupportedFeatures.getContents(String.class, "unsupported_features"));
+    getSemantics()
+        .validateLayeringCheckFeatures(
+            ruleContext.getRuleContext(), toolchain, unsupportedFeaturesSet);
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.copyOf(requestedFeatures.getContents(String.class, "requested_features")),
-            ImmutableSet.copyOf(
-                unsupportedFeatures.getContents(String.class, "unsupported_features")),
+            unsupportedFeaturesSet,
             toolchain,
             cppConfiguration),
         cppConfiguration,
