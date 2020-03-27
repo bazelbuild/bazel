@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.lang.String.format;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -57,41 +58,7 @@ public class RemoteExecutionCache extends RemoteCache {
       uploads.add(cacheProtocol.uploadBlob(entry.getKey(), entry.getValue()));
     }
 
-    InterruptedException interruptedException = null;
-
-    BulkTransferException bulkTransferException = null;
-    boolean interrupted = Thread.currentThread().isInterrupted();
-    for (ListenableFuture<Void> upload : uploads) {
-      try {
-        upload.get();
-      } catch (ExecutionException e) {
-        if (bulkTransferException != null) {
-          bulkTransferException = new BulkTransferException();
-        }
-        Throwable cause = e.getCause();
-        IOException ioEx;
-        if (cause instanceof IOException) {
-          ioEx = new IOException(cause);
-        } else {
-          ioEx = (IOException) cause;
-        }
-        bulkTransferException.add(ioEx);
-      } catch (InterruptedException e) {
-        interrupted = Thread.interrupted() || interrupted;
-        interruptedException = e;
-      }
-    }
-
-    if (interruptedException != null) {
-      if (bulkTransferException != null) {
-        interruptedException.addSuppressed(bulkTransferException);
-      }
-      throw interruptedException;
-    }
-
-    if (bulkTransferException != null) {
-      throw bulkTransferException;
-    }
+    waitForBulkTransfer(uploads, /* cancelRemainingOnInterrupt=*/ false);
   }
 
   /**
@@ -111,7 +78,7 @@ public class RemoteExecutionCache extends RemoteCache {
     Iterable<Digest> allDigests =
         Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
     ImmutableSet<Digest> missingDigests =
-        Utils.getFromFuture(cacheProtocol.findMissingDigests(allDigests));
+        getFromFuture(cacheProtocol.findMissingDigests(allDigests));
     Map<Digest, Path> filesToUpload = new HashMap<>();
     Map<Digest, ByteString> blobsToUpload = new HashMap<>();
     for (Digest missingDigest : missingDigests) {
