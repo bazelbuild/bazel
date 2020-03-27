@@ -405,17 +405,6 @@ public final class EvalUtils {
             return StarlarkList.concat((StarlarkList<?>) x, (StarlarkList<?>) y, mu);
           }
 
-        } else if (x instanceof Depset) {
-          // depset + any
-          // TODO(bazel-team): Remove deprecated operator.
-          if (semantics.incompatibleDepsetUnion()) {
-            throw Starlark.errorf(
-                "`+` operator on a depset is forbidden. See "
-                    + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
-                    + "recommendations. Use --incompatible_depset_union=false "
-                    + "to temporarily disable this check.");
-          }
-          return Depset.unionOf((Depset) x, y);
         }
         break;
 
@@ -425,16 +414,6 @@ public final class EvalUtils {
             // int | int
             return ((Integer) x) | (Integer) y;
           }
-        } else if (x instanceof Depset) {
-          // depset | any
-          if (semantics.incompatibleDepsetUnion()) {
-            throw Starlark.errorf(
-                "`|` operator on a depset is forbidden. See "
-                    + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
-                    + "recommendations. Use --incompatible_depset_union=false "
-                    + "to temporarily disable this check.");
-          }
-          return Depset.unionOf((Depset) x, y);
         }
         break;
 

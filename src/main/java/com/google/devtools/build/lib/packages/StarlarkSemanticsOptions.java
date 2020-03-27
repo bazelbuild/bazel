@@ -291,20 +291,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalAllowTagsPropagation;
 
   @Option(
-      name = "incompatible_depset_union",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, depset union using `+`, `|` or `.union` are forbidden. "
-              + "Use the `depset` constructor instead.")
-  public boolean incompatibleDepsetUnion;
-
-  @Option(
       name = "incompatible_always_check_depset_elements",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -676,7 +662,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalSiblingRepositoryLayout(experimentalSiblingRepositoryLayout)
             .experimentalExecGroups(experimentalExecGroups)
             .incompatibleApplicableLicenses(incompatibleApplicableLicenses)
-            .incompatibleDepsetUnion(incompatibleDepsetUnion)
             .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)
             .incompatibleDisableThirdPartyLicenseChecking(
                 incompatibleDisableThirdPartyLicenseChecking)

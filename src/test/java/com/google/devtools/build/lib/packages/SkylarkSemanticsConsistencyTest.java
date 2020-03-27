@@ -143,7 +143,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_always_check_depset_elements=" + rand.nextBoolean(),
         "--incompatible_applicable_licenses=" + rand.nextBoolean(),
         "--incompatible_depset_for_libraries_to_link_getter=" + rand.nextBoolean(),
-        "--incompatible_depset_union=" + rand.nextBoolean(),
         "--incompatible_disable_target_provider_fields=" + rand.nextBoolean(),
         "--incompatible_disable_deprecated_attr_params=" + rand.nextBoolean(),
         "--incompatible_disable_depset_items=" + rand.nextBoolean(),
@@ -197,7 +196,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleAlwaysCheckDepsetElements(rand.nextBoolean())
         .incompatibleApplicableLicenses(rand.nextBoolean())
         .incompatibleDepsetForLibrariesToLinkGetter(rand.nextBoolean())
-        .incompatibleDepsetUnion(rand.nextBoolean())
         .incompatibleDisableTargetProviderFields(rand.nextBoolean())
         .incompatibleDisableDeprecatedAttrParams(rand.nextBoolean())
         .incompatibleDisableDepsetItems(rand.nextBoolean())

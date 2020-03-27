@@ -1449,14 +1449,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testUnionSet() throws Exception {
-    new Scenario("--incompatible_depset_union=false")
-        .testExpression("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
-        .testExpression("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
-        .testIfExactError("unsupported binary operation: int | bool", "2 | False");
-  }
-
-  @Test
   public void testSetIsNotIterable() throws Exception {
     new Scenario()
         .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
