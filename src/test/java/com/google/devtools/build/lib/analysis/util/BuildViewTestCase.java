@@ -250,9 +250,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         "  pass",
         "",
         "def http_file(**kwargs):",
-        "  pass",
-        "",
-        "def http_jar(**kwargs):",
         "  pass");
     initializeMockClient();
 
