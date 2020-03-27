@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.dynamic;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static junit.framework.TestCase.fail;
+import static org.junit.Assert.assertThrows;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;

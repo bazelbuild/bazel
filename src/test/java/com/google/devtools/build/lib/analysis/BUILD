@@ -99,8 +99,6 @@ java_test(
     srcs = ["AnalysisUtilsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:auto_value",
         "//third_party:junit4",
         "//third_party:truth",
@@ -199,8 +197,6 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:junit4",
     ],
 )

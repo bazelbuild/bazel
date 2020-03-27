@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.util.stream.Collectors.joining;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;

@@ -17,7 +17,6 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/supplier",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:guava-testlib",
         "//third_party:junit4",

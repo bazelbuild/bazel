@@ -20,8 +20,8 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEventRegex;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNotContainsEventRegex;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;

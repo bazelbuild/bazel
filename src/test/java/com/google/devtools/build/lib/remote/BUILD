@@ -76,6 +76,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:api_client",
         "//third_party:guava",
+        "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:netty",
         "//third_party:truth",

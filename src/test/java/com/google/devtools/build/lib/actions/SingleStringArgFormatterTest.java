@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.SingleStringArgFormatter.format;
 import static com.google.devtools.build.lib.actions.SingleStringArgFormatter.isValid;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

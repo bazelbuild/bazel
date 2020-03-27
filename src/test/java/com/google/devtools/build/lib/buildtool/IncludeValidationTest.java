@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;

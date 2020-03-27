@@ -47,6 +47,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestPackageFactoryBuilderFactory",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",

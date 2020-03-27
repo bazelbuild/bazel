@@ -56,7 +56,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
@@ -72,7 +71,6 @@ java_test(
     resources = ["ResourceFileLoaderTest.message"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:junit4",
         "//third_party:truth",
     ],

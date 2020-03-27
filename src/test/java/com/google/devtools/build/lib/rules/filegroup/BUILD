@@ -21,8 +21,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:junit4",
         "//third_party:truth",
     ],

@@ -46,7 +46,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:junit4",
     ],
 )
