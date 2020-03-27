@@ -41,7 +41,6 @@ java_test(
     srcs = ["LazyClassEntryStateTest.java"],
     deps = [
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:import_deps_checker",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -77,7 +76,6 @@ java_test(
     test_class = "com.google.devtools.build.importdeps.ClassCacheTest",
     deps = [
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:import_deps_checker",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -264,7 +262,6 @@ java_test(
     srcs = ["MainTest.java"],
     deps = [
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],

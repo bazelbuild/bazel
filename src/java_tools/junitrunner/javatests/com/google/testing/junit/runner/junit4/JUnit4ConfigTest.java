@@ -15,9 +15,9 @@
 package com.google.testing.junit.runner.junit4;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.testing.junit.runner.junit4.JUnit4Config.JUNIT_API_VERSION_PROPERTY;
 import static com.google.testing.junit.runner.junit4.JUnit4Config.SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY;
+import static org.junit.Assert.assertThrows;
 
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
 import java.util.Properties;
