@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestOnlyInNormalExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import org.junit.Before;
@@ -45,7 +44,6 @@ import org.junit.runners.JUnit4;
  * (ConfiguredTargetFunction is a Skyframe function). And the Skyframe library doesn't know anything
  * about latebound attributes. So we need to place these properly under the analysis package.
  */
-@TestOnlyInNormalExecutionMode // TODO(b/67651960): fix or justify disabling.
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {

@@ -35,7 +35,6 @@ java_library(
         "Scratch.java",
         "Suite.java",
         "TestFileOutErr.java",
-        "TestOnlyInNormalExecutionMode.java",
         "TestRuleClassProvider.java",
         "TestSpec.java",
         "TimestampGranularityUtils.java",
