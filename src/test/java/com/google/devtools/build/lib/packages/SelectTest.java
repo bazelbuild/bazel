@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -41,7 +42,7 @@ public class SelectTest {
             .useDefaultSemantics()
             .build();
     Module module = thread.getGlobals();
-    return EvalUtils.eval(input, module, thread);
+    return EvalUtils.eval(input, FileOptions.DEFAULT, module, thread);
   }
 
   private static void assertFails(String expr, String wantError) {

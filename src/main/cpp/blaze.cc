@@ -428,13 +428,16 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // Note that we always use the --flag=ARG form (instead of the --flag ARG one)
   // so that BlazeRuntime#splitStartupOptions has an easy job.
 
-  // TODO(lberki): Test that whatever the list constructed after this line is
-  // actually a list of parseable startup options.
+  // TODO(b/152047869): Test that whatever the list constructed after this line
+  // is actually a list of parseable startup options.
   if (!startup_options.batch) {
     result.push_back("--max_idle_secs=" +
-                     ToString(startup_options.max_idle_secs));
-    result.push_back("--shutdown_on_low_sys_mem=" +
-                     ToString(startup_options.shutdown_on_low_sys_mem));
+                     blaze_util::ToString(startup_options.max_idle_secs));
+    if (startup_options.shutdown_on_low_sys_mem) {
+      result.push_back("--shutdown_on_low_sys_mem");
+    } else {
+      result.push_back("--noshutdown_on_low_sys_mem");
+    }
   } else {
     // --batch must come first in the arguments to Java main() because
     // the code expects it to be at args[0] if it's been set.
@@ -443,11 +446,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 
   if (startup_options.command_port != 0) {
     result.push_back("--command_port=" +
-                     ToString(startup_options.command_port));
+                     blaze_util::ToString(startup_options.command_port));
   }
 
   result.push_back("--connect_timeout_secs=" +
-                   ToString(startup_options.connect_timeout_secs));
+                   blaze_util::ToString(startup_options.connect_timeout_secs));
 
   result.push_back("--output_user_root=" +
                    blaze_util::ConvertPath(startup_options.output_user_root));
@@ -491,7 +494,8 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("--noexperimental_oom_more_eagerly");
   }
   result.push_back("--experimental_oom_more_eagerly_threshold=" +
-                   ToString(startup_options.oom_more_eagerly_threshold));
+                   blaze_util::ToString(
+                       startup_options.oom_more_eagerly_threshold));
 
   if (startup_options.write_command_log) {
     result.push_back("--write_command_log");
@@ -579,20 +583,21 @@ static void AddLoggingArgs(const LoggingInfo &logging_info,
                            vector<string> *args) {
   // The time in ms the launcher spends before sending the request to the blaze
   // server.
-  args->push_back("--startup_time=" + ToString(client_startup_duration.millis));
+  args->push_back("--startup_time=" +
+                  blaze_util::ToString(client_startup_duration.millis));
 
   // The time in ms a command had to wait on a busy Blaze server process.
   // This is part of startup_time.
   if (command_wait_duration_ms.IsKnown()) {
     args->push_back("--command_wait_time=" +
-                    ToString(command_wait_duration_ms.millis));
+                    blaze_util::ToString(command_wait_duration_ms.millis));
   }
 
   // The time in ms spent on extracting the new blaze version.
   // This is part of startup_time.
   if (extract_data_duration.IsKnown()) {
     args->push_back("--extract_data_time=" +
-                    ToString(extract_data_duration.millis));
+                    blaze_util::ToString(extract_data_duration.millis));
   }
   if (logging_info.restart_reason != NO_RESTART) {
     args->push_back(string("--restart_reason=") +
@@ -960,29 +965,7 @@ static DurationMillis ExtractData(const string &self_path,
   if (!blaze_util::PathExists(install_base)) {
     uint64_t st = GetMillisecondsMonotonic();
     // Work in a temp dir to avoid races.
-#if defined(_WIN32)
-    string tmp_install = install_base + ".tmp." + blaze::GetProcessIdAsString();
-#else
-    // On Linux, we can't use the PID as a unique identifier, because Bazel
-    // might run in a PID namespace and then all Bazel clients have the same
-    // PID, so we use mkdtemp instead.
-    if (!blaze_util::MakeDirectories(blaze_util::Dirname(install_base), 0777)) {
-      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-          << "couldn't create '" << blaze_util::Dirname(install_base)
-          << "': " << blaze_util::GetLastErrorString();
-    }
-    std::string tmp_install(install_base + ".tmp.XXXXXX");
-    if (mkdtemp(&tmp_install[0]) == nullptr) {
-      std::string err = GetLastErrorString();
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "could not create temporary directory to extract install base"
-          << " (" << err << ")";
-    }
-    // There's no better way to get the current umask than to set and reset it.
-    const mode_t um = umask(0);
-    umask(um);
-    chmod(tmp_install.c_str(), 0777 & ~um);
-#endif
+    string tmp_install = blaze_util::CreateTempDir(install_base + ".tmp.");
     ExtractArchiveOrDie(self_path, startup_options.product_name,
                         expected_install_md5, tmp_install);
     BlessFiles(tmp_install);

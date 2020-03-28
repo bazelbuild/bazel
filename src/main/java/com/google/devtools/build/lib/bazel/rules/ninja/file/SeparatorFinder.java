@@ -27,6 +27,6 @@ public interface SeparatorFinder {
    * @param untilExcluded index to stop search before (excluded from search).
    * @throws IncorrectSeparatorException if the incorrect separator value (\r) is used
    */
-  int findNextSeparator(ByteBufferFragment fragment, int startingFrom, int untilExcluded)
+  int findNextSeparator(FileFragment fragment, int startingFrom, int untilExcluded)
       throws IncorrectSeparatorException;
 }

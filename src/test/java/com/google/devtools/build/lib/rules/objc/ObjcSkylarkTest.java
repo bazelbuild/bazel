@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -1223,6 +1223,32 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         getConfiguredTarget("//examples/objc_skylark2:direct_dep")
             .get(ObjcProvider.SKYLARK_CONSTRUCTOR);
     assertThat(skylarkProviderDirectDepender.include()).isEmpty();
+  }
+
+  @Test
+  public void testSkylarkCanCreateObjcProviderWithStrictDepsDirectly() throws Exception {
+    ConfiguredTarget skylarkTarget =
+        createObjcProviderSkylarkTarget(
+            "   strict_includes = depset(['path'])",
+            "   created_provider = apple_common.new_objc_provider\\",
+            "(strict_include=strict_includes)",
+            "   return [created_provider]");
+
+    ObjcProvider skylarkProvider = skylarkTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    assertThat(skylarkProvider.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("path"));
+
+    scratch.file(
+        "examples/objc_skylark2/BUILD",
+        "objc_library(",
+        "   name = 'direct_dep',",
+        "   deps = ['//examples/objc_skylark:my_target']",
+        ")");
+
+    ObjcProvider skylarkProviderDirectDepender =
+        getConfiguredTarget("//examples/objc_skylark2:direct_dep")
+            .get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    assertThat(skylarkProviderDirectDepender.getStrictDependencyIncludes()).isEmpty();
   }
 
   @Test

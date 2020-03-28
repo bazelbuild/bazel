@@ -298,10 +298,7 @@ public class BuildTool {
       if (e.isCatastrophic()) {
         result.setCatastrophe();
       }
-      detailedExitCode =
-          e.getDetailedExitCode() != null
-              ? e.getDetailedExitCode()
-              : DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+      detailedExitCode = e.getDetailedExitCode();
     } catch (InterruptedException e) {
       // We may have been interrupted by an error, or the user's interruption may have raced with
       // an error, so check to see if we should report that error code instead.
@@ -337,7 +334,7 @@ public class BuildTool {
       // target(s) that triggered them.
       result.setCatastrophe();
     } catch (AbruptExitException e) {
-      detailedExitCode = DetailedExitCode.justExitCode(e.getExitCode());
+      detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
       result.setCatastrophe();
     } catch (Throwable throwable) {

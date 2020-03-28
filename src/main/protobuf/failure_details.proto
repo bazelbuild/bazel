@@ -88,18 +88,43 @@ message FailureDetail {
 
   oneof category {
     Interrupted interrupted = 101;
+    ExternalRepository external_repository = 103;
+    BuildProgress build_progress = 104;
   }
 
   reserved 102; // For internal use
 }
 
 message Interrupted {
-  enum InterruptedCode {
+  enum Code {
     // Interrupted at an unspecified time.
     INTERRUPTED_UNSPECIFIED = 0 [(metadata) = { exit_code: 8 }];
+
+    reserved 1; // For internal use
+
     // TODO(mschaller): Add subcategories that specify what was happening at the
     //  time of interruption.
   }
 
-  InterruptedCode code = 1;
+  Code code = 1;
+}
+
+message ExternalRepository {
+  enum Code {
+    EXTERNAL_REPOSITORY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    OVERRIDE_DISALLOWED_MANAGED_DIRECTORIES = 1 [(metadata) = { exit_code: 2 }];
+  }
+  Code code = 1;
+  // Additional data could include external repository names.
+}
+
+message BuildProgress {
+  enum Code {
+    BUILD_PROGRESS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    OUTPUT_INITIALIZATION = 3 [(metadata) = { exit_code: 36 }];
+
+    reserved 1, 2; // For internal use
+  }
+  Code code = 1;
+  // Additional data could include the build progress upload endpoint.
 }

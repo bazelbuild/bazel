@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.runtime.commands.ConfigCommand.Configuratio
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationForOutput;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.FragmentDiffForOutput;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.FragmentForOutput;
+import com.google.devtools.build.lib.runtime.commands.ConfigCommand.FragmentOptionsForOutput;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.gson.Gson;
 import java.io.PrintWriter;
@@ -66,8 +67,19 @@ abstract class ConfigCommandOutputFormatter {
     public void writeConfiguration(ConfigurationForOutput configuration) {
       writer.println("BuildConfiguration " + configuration.configHash + ":");
       writer.println("Skyframe Key: " + configuration.skyKey);
+
+      StringBuilder fragments = new StringBuilder();
       for (FragmentForOutput fragment : configuration.fragments) {
-        writer.println("Fragment " + fragment.name + " {");
+        fragments
+            .append(fragment.name)
+            .append(": [")
+            .append(String.join(",", fragment.fragmentOptions))
+            .append("], ");
+      }
+
+      writer.println("Fragments: " + fragments);
+      for (FragmentOptionsForOutput fragment : configuration.fragmentOptions) {
+        writer.println("FragmentOptions " + fragment.name + " {");
         for (Map.Entry<String, String> optionSetting : fragment.options.entrySet()) {
           writer.printf("  %s: %s\n", optionSetting.getKey(), optionSetting.getValue());
         }
@@ -87,7 +99,7 @@ abstract class ConfigCommandOutputFormatter {
       writer.printf(
           "Displaying diff between configs %s and %s\n", diff.configHash1, diff.configHash2);
       for (FragmentDiffForOutput fragmentDiff : diff.fragmentsDiff) {
-        writer.println("Fragment " + fragmentDiff.name + " {");
+        writer.println("FragmentOptions " + fragmentDiff.name + " {");
         for (Map.Entry<String, Pair<String, String>> optionDiff :
             fragmentDiff.optionsDiff.entrySet()) {
           writer.printf(

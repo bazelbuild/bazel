@@ -9,6 +9,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/unix/jni:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

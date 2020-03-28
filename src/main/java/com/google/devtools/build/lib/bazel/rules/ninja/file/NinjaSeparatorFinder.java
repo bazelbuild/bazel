@@ -40,7 +40,7 @@ public class NinjaSeparatorFinder implements SeparatorFinder {
   private NinjaSeparatorFinder() {}
 
   @Override
-  public int findNextSeparator(ByteBufferFragment fragment, int startingFrom, int untilExcluded)
+  public int findNextSeparator(FileFragment fragment, int startingFrom, int untilExcluded)
       throws IncorrectSeparatorException {
     Preconditions.checkState(startingFrom < fragment.length());
     Preconditions.checkState(untilExcluded < 0 || untilExcluded <= fragment.length());

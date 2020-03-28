@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -281,7 +281,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     SkyframeExecutor skyframeExecutor =
         makeSkyframeExecutorFactory()
             .create(
-                TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
+                TestPackageFactoryBuilderFactory.getInstance()
                     .builder(directories)
                     .build(ruleClassProvider, fileSystem),
                 fileSystem,

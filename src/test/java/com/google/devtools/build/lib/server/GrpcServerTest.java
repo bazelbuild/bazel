@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerStub;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted.InterruptedCode;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.GrpcServerImpl.BlockingStreamObserver;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -400,7 +400,7 @@ public class GrpcServerTest {
     assertThat(secondResponse.get().hasFailureDetail()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().hasInterrupted()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().getInterrupted().getCode())
-        .isEqualTo(InterruptedCode.INTERRUPTED_UNSPECIFIED);
+        .isEqualTo(Interrupted.Code.INTERRUPTED_UNSPECIFIED);
   }
 
   @Test

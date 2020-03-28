@@ -120,8 +120,6 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
         @Param(
             name = "name",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The name of the target.")
       },
       useStarlarkThread = true)

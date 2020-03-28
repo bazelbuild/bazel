@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted.InterruptedCode;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.MessageOrBuilder;
@@ -34,7 +33,7 @@ public class FailureDetailUtil {
   /**
    * Returns a {@link FailureDetail} specifying {@code code} in its {@link Interrupted} submessage.
    */
-  public static FailureDetail interrupted(InterruptedCode code) {
+  public static FailureDetail interrupted(Interrupted.Code code) {
     return FailureDetail.newBuilder()
         .setInterrupted(Interrupted.newBuilder().setCode(code))
         .build();

@@ -59,7 +59,7 @@ public class ValidateAndLinkResourcesAction {
         name = "compiledDep",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "",
+        defaultValue = "null",
         converter = Converters.PathListConverter.class,
         category = "input",
         allowMultiple = true,

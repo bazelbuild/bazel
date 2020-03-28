@@ -73,17 +73,13 @@ public class SpawnExecException extends ExecException {
         message, this, action, isCatastrophic(), getDetailedExitCode());
   }
 
-  /** Return exit code depending on the spawn result. */
+  /** Return detailed exit code depending on the spawn result. */
   private DetailedExitCode getDetailedExitCode() {
-    if (result.status().isConsideredUserError()) {
-      if (result.failureDetail() != null) {
-        return DetailedExitCode.of(ExitCode.BUILD_FAILURE, result.failureDetail());
-      }
-      return null;
+    ExitCode exitCode =
+        result.status().isConsideredUserError() ? ExitCode.BUILD_FAILURE : ExitCode.REMOTE_ERROR;
+    if (result.failureDetail() == null) {
+      return DetailedExitCode.justExitCode(exitCode);
     }
-    if (result.failureDetail() != null) {
-      return DetailedExitCode.of(ExitCode.REMOTE_ERROR, result.failureDetail());
-    }
-    return DetailedExitCode.justExitCode(ExitCode.REMOTE_ERROR);
+    return DetailedExitCode.of(exitCode, result.failureDetail());
   }
 }

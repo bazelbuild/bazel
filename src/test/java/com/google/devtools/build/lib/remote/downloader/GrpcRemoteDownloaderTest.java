@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.remote.downloader;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import build.bazel.remote.asset.v1.FetchBlobRequest;

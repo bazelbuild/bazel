@@ -26,7 +26,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -91,6 +91,13 @@ public class RuleClassTest extends PackageLoadingTestCase {
               throw new IllegalStateException();
             }
           };
+
+  private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
+      ImmutableList.of(
+          new StarlarkThread.CallStackEntry(
+              "<toplevel>", Location.fromFileLineColumn("BUILD", 10, 1)),
+          new StarlarkThread.CallStackEntry("bar", Location.fromFileLineColumn("bar.bzl", 42, 1)),
+          new StarlarkThread.CallStackEntry("rule", Location.BUILTIN));
 
   private static final class DummyFragment extends BuildConfiguration.Fragment {}
 
@@ -896,7 +903,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
             : ruleDefinitionStarlarkThread.getTransitiveContentHashCode();
     return new RuleClass(
         name,
-        name,
+        DUMMY_STACK,
+        /*key=*/ name,
         RuleClassType.NORMAL,
         /*isSkylark=*/ skylarkExecutable,
         /*skylarkTestable=*/ false,

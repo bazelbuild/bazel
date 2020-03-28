@@ -132,7 +132,7 @@ new_local_repository(
 )
 EOF
   bazel build @foo//... &> $TEST_log && fail "Failure expected" || true
-  expect_log "select() cannot be used in WORKSPACE files"
+  expect_log "got value of type 'select' for attribute 'build_file' of new_local_repository rule 'foo'; select may not be used in repository rules"
 }
 
 function test_macro_select() {
@@ -153,7 +153,7 @@ def foo_repo():
 EOF
 
   bazel build @foo//... &> $TEST_log && fail "Failure expected" || true
-  expect_log "select() cannot be used in macros called from WORKSPACE files"
+  expect_log "got value of type 'select' for attribute 'build_file' of new_local_repository rule 'foo'"
 }
 
 function test_clean() {

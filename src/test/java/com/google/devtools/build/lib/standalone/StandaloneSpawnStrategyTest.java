@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.standalone;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -153,8 +153,8 @@ public class StandaloneSpawnStrategyTest {
                 Mockito.mock(RunfilesTreeUpdater.class)));
     this.executor =
         new TestExecutorBuilder(fileSystem, directories, binTools)
-            .addStrategy(SpawnStrategy.class, strategy, "standalone")
-            .setExecution("", "standalone")
+            .addStrategy(strategy, "standalone")
+            .setDefaultStrategies("standalone")
             .build();
 
     executor.getExecRoot().createDirectoryAndParents();

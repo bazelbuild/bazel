@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationDiffForOutput;
@@ -100,25 +101,25 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   /**
-   * Returns the given option's value for the given fragment of the given configuration.
+   * Returns the value of an option under a configuration's {@link FragmentOptions}.
    *
    * <p>Throws {@link NoSuchElementException} if it can't be found.
    */
   private static String getOptionValue(
-      ConfigurationForOutput config, String fragmentName, String optionName) {
+      ConfigurationForOutput config, String fragmentOptions, String optionName) {
     List<String> ans =
-        config.fragments.stream()
-            .filter(fragment -> fragment.name.endsWith(fragmentName))
+        config.fragmentOptions.stream()
+            .filter(fragment -> fragment.name.endsWith(fragmentOptions))
             .flatMap(fragment -> fragment.options.entrySet().stream())
             .filter(setting -> setting.getKey().equals(optionName))
             .map(entry -> entry.getValue())
             .collect(Collectors.toList());
     if (ans.size() > 1) {
       throw new NoSuchElementException(
-          String.format("Multple matches for fragment=%s, option=%s", fragmentName, optionName));
+          String.format("Multple matches for fragment=%s, option=%s", fragmentOptions, optionName));
     } else if (ans.isEmpty()) {
       throw new NoSuchElementException(
-          String.format("No matches for fragment=%s, option=%s", fragmentName, optionName));
+          String.format("No matches for fragment=%s, option=%s", fragmentOptions, optionName));
     }
     return ans.get(0);
   }
@@ -126,6 +127,16 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   private static boolean isTargetConfig(ConfigurationForOutput config) {
     return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is host configuration"))
         && !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
+  }
+
+  /** Converts {@code a.b.d} to {@code d}. * */
+  private static String getBaseName(String str) {
+    return str.substring(str.lastIndexOf(".") + 1);
+  }
+
+  /** Converts a list of {@code a.b.d} strings to {@code d} form. * */
+  private static List<String> getBaseNames(List<String> list) {
+    return list.stream().map(entry -> getBaseName(entry)).collect(Collectors.toList());
   }
 
   @Test
@@ -157,12 +168,22 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     // Verify the existence of a couple of expected fragments:
     assertThat(
             config.fragments.stream()
-                .map(fragment -> fragment.name.substring(fragment.name.lastIndexOf(".") + 1))
+                .map(
+                    fragment ->
+                        Pair.of(getBaseName(fragment.name), getBaseNames(fragment.fragmentOptions)))
+                .collect(Collectors.toList()))
+        .containsAtLeast(
+            Pair.of("PlatformConfiguration", ImmutableList.of("PlatformOptions")),
+            Pair.of("TestConfiguration", ImmutableList.of("TestConfiguration$TestOptions")));
+    // Verify the existence of a couple of expected fragment options:
+    assertThat(
+            config.fragmentOptions.stream()
+                .map(fragment -> getBaseName(fragment.name))
                 .collect(Collectors.toList()))
         .containsAtLeast("PlatformOptions", "CoreOptions", "user-defined");
     // Verify the existence of a couple of expected option names:
     assertThat(
-            config.fragments.stream()
+            config.fragmentOptions.stream()
                 .filter(fragment -> fragment.name.endsWith("CoreOptions"))
                 .flatMap(fragment -> fragment.options.keySet().stream())
                 .collect(Collectors.toList()))
@@ -288,7 +309,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(getOptionValue(targetConfig, "user-defined", "--define:a")).isEqualTo("1");
     assertThat(getOptionValue(targetConfig, "user-defined", "--define:b")).isEqualTo("2");
     assertThat(
-            targetConfig.fragments.stream()
+            targetConfig.fragmentOptions.stream()
                 .filter(fragment -> fragment.name.endsWith("CoreOptions"))
                 .flatMap(fragment -> fragment.options.keySet().stream())
                 .filter(name -> name.equals("define"))

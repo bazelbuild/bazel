@@ -16,6 +16,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/remote/options:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/util:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -39,11 +40,11 @@ java_library(
         ":ExecutionStatusException",
         ":ReferenceCountedChannel",
         ":Retrier",
+        "//src/main/java/com/google/devtools/build/lib:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
         "//src/main/java/com/google/devtools/build/lib/authandtls",

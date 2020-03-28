@@ -113,5 +113,5 @@ You can specify the host and target platforms for a build using the following
 command-line flags:
 
 *  `--host_platform` - defaults to `@bazel_tools//platforms:host_platform`
-
 *  `--platforms` - defaults to `@bazel_tools//platforms:target_platform`
+

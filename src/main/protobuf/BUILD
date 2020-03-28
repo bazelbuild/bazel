@@ -256,6 +256,27 @@ java_library_srcs(
     deps = [":remote_execution_log_java_proto"],
 )
 
+proto_library(
+    name = "xcode_proto",
+    srcs = ["xcode_config.proto"],
+    visibility = ["//visibility:public"],
+)
+
+java_proto_library(
+    name = "xcode_java_proto",
+    deps = [":xcode_proto"],
+)
+
+cc_proto_library(
+    name = "xcode_cc_proto",
+    deps = [":xcode_proto"],
+)
+
+java_library_srcs(
+    name = "xcode_java_proto_srcs",
+    deps = [":xcode_java_proto"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -273,5 +294,6 @@ filegroup(
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
+        ":xcode_java_proto_srcs",
     ],
 )

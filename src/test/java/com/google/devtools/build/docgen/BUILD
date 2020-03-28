@@ -22,7 +22,7 @@ java_test(
     runtime_deps = [
         ":documentation-failures-tests",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
     ],
 )
@@ -35,7 +35,8 @@ java_test(
     tags = ["docgen"],
     deps = [
         ":documentation-tests",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:junit4",
     ],
 )
@@ -51,9 +52,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skylark/util",
+        "//src/test/java/com/google/devtools/build/lib/syntax/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -79,9 +79,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skylark/util",
+        "//src/test/java/com/google/devtools/build/lib/syntax/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

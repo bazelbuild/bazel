@@ -7,6 +7,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -25,6 +26,7 @@ java_library(
     ),
     deps = [
         ":buildeventservice-options",
+        "//src/main/java/com/google/devtools/build/lib:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",

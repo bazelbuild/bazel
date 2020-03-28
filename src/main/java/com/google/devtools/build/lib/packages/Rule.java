@@ -74,8 +74,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   private boolean containsErrors;
 
-  private String definitionInformation;
-
   private final Location location;
 
   private final CallStack callstack;
@@ -123,10 +121,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   void setVisibility(RuleVisibility visibility) {
     this.visibility = visibility;
-  }
-
-  void setDefinitionInformation(String info) {
-    this.definitionInformation = info;
   }
 
   void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
@@ -279,10 +273,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Returns the stack of function calls active when this rule was instantiated. */
   public CallStack getCallStack() {
     return callstack;
-  }
-
-  public String getDefinitionInformation() {
-    return definitionInformation;
   }
 
   public ImplicitOutputsFunction getImplicitOutputsFunction() {

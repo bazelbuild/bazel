@@ -88,12 +88,11 @@ public class FilesystemValueChecker {
   private AtomicInteger modifiedOutputFilesCounter = new AtomicInteger(0);
   private AtomicInteger modifiedOutputFilesIntraBuildCounter = new AtomicInteger(0);
 
-  public FilesystemValueChecker(@Nullable TimestampGranularityMonitor tsgm,
-      @Nullable Range<Long> lastExecutionTimeRange) {
+  public FilesystemValueChecker(
+      @Nullable TimestampGranularityMonitor tsgm, @Nullable Range<Long> lastExecutionTimeRange) {
     this.tsgm = tsgm;
     this.lastExecutionTimeRange = lastExecutionTimeRange;
   }
-
   /**
    * Returns a {@link Differencer.DiffWithDelta} containing keys from the give map that are dirty
    * according to the passed-in {@code dirtinessChecker}.
@@ -167,12 +166,15 @@ public class FilesystemValueChecker {
   }
 
   /**
-   * Return a collection of action values which have output files that are not in-sync with
-   * the on-disk file value (were modified externally).
+   * Return a collection of action values which have output files that are not in-sync with the
+   * on-disk file value (were modified externally).
    */
-  Collection<SkyKey> getDirtyActionValues(Map<SkyKey, SkyValue> valuesMap,
-      @Nullable final BatchStat batchStatter, ModifiedFileSet modifiedOutputFiles)
-          throws InterruptedException {
+  Collection<SkyKey> getDirtyActionValues(
+      Map<SkyKey, SkyValue> valuesMap,
+      @Nullable final BatchStat batchStatter,
+      ModifiedFileSet modifiedOutputFiles,
+      boolean trustRemoteArtifacts)
+      throws InterruptedException {
     if (modifiedOutputFiles == ModifiedFileSet.NOTHING_MODIFIED) {
       logger.info("Not checking for dirty actions since nothing was modified");
       return ImmutableList.of();
@@ -230,13 +232,18 @@ public class FilesystemValueChecker {
         Runnable job =
             (batchStatter == null)
                 ? outputStatJob(
-                    dirtyKeys, shard, knownModifiedOutputFiles, sortedKnownModifiedOutputFiles)
+                    dirtyKeys,
+                    shard,
+                    knownModifiedOutputFiles,
+                    sortedKnownModifiedOutputFiles,
+                    trustRemoteArtifacts)
                 : batchStatJob(
                     dirtyKeys,
                     shard,
                     batchStatter,
                     knownModifiedOutputFiles,
-                    sortedKnownModifiedOutputFiles);
+                    sortedKnownModifiedOutputFiles,
+                    trustRemoteArtifacts);
         Future<?> unused = executor.submit(wrapper.wrap(job));
       }
 
@@ -250,10 +257,13 @@ public class FilesystemValueChecker {
     return dirtyKeys;
   }
 
-  private Runnable batchStatJob(final Collection<SkyKey> dirtyKeys,
-          final List<Pair<SkyKey, ActionExecutionValue>> shard,
-          final BatchStat batchStatter, final ImmutableSet<PathFragment> knownModifiedOutputFiles,
-          final Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles) {
+  private Runnable batchStatJob(
+      final Collection<SkyKey> dirtyKeys,
+      final List<Pair<SkyKey, ActionExecutionValue>> shard,
+      final BatchStat batchStatter,
+      final ImmutableSet<PathFragment> knownModifiedOutputFiles,
+      final Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
+      boolean trustRemoteArtifacts) {
     return new Runnable() {
       @Override
       public void run() {
@@ -292,7 +302,12 @@ public class FilesystemValueChecker {
           // Batch stat did not work. Log an exception and fall back on system calls.
           LoggingUtil.logToRemote(Level.WARNING, "Unable to process batch stat", e);
           logger.log(Level.WARNING, "Unable to process batch stat", e);
-          outputStatJob(dirtyKeys, shard, knownModifiedOutputFiles, sortedKnownModifiedOutputFiles)
+          outputStatJob(
+                  dirtyKeys,
+                  shard,
+                  knownModifiedOutputFiles,
+                  sortedKnownModifiedOutputFiles,
+                  trustRemoteArtifacts)
               .run();
           return;
         } catch (InterruptedException e) {
@@ -357,10 +372,12 @@ public class FilesystemValueChecker {
     }
   }
 
-  private Runnable outputStatJob(final Collection<SkyKey> dirtyKeys,
+  private Runnable outputStatJob(
+      final Collection<SkyKey> dirtyKeys,
       final List<Pair<SkyKey, ActionExecutionValue>> shard,
       final ImmutableSet<PathFragment> knownModifiedOutputFiles,
-      final Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles) {
+      final Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
+      boolean trustRemoteArtifacts) {
     return new Runnable() {
       @Override
       public void run() {
@@ -368,7 +385,10 @@ public class FilesystemValueChecker {
           ActionExecutionValue value = keyAndValue.getSecond();
           if (value == null
               || actionValueIsDirtyWithDirectSystemCalls(
-                  value, knownModifiedOutputFiles, sortedKnownModifiedOutputFiles)) {
+                  value,
+                  knownModifiedOutputFiles,
+                  sortedKnownModifiedOutputFiles,
+                  trustRemoteArtifacts)) {
             dirtyKeys.add(keyAndValue.getFirst());
           }
         }
@@ -406,9 +426,11 @@ public class FilesystemValueChecker {
     }
   }
 
-  private boolean actionValueIsDirtyWithDirectSystemCalls(ActionExecutionValue actionValue,
+  private boolean actionValueIsDirtyWithDirectSystemCalls(
+      ActionExecutionValue actionValue,
       ImmutableSet<PathFragment> knownModifiedOutputFiles,
-      Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles) {
+      Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
+      boolean trustRemoteArtifacts) {
     boolean isDirty = false;
     for (Map.Entry<Artifact, FileArtifactValue> entry : actionValue.getAllFileValues().entrySet()) {
       Artifact file = entry.getKey();
@@ -420,7 +442,9 @@ public class FilesystemValueChecker {
           FileArtifactValue fileValue = actionValue.getArtifactValue(file);
           boolean lastSeenRemotely = (fileValue != null) && fileValue.isRemote();
           boolean trustRemoteValue =
-              fileMetadata.getType() == FileStateType.NONEXISTENT && lastSeenRemotely;
+              fileMetadata.getType() == FileStateType.NONEXISTENT
+                  && lastSeenRemotely
+                  && trustRemoteArtifacts;
           if (!trustRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
             updateIntraBuildModifiedCounter(
                 fileMetadata.getType() != FileStateType.NONEXISTENT

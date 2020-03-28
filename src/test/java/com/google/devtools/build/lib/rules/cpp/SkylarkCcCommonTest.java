@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
@@ -90,7 +93,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
-      throws Exception {
+      throws LabelSyntaxException {
     Provider.Key key =
         new SkylarkProvider.SkylarkKey(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
@@ -5685,7 +5688,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveLinkWithDeps() throws Exception {
-    setupTestTransitiveLink(scratch, "        linking_contexts = dep_linking_contexts");
+    setupTestTransitiveLink(scratch, "linking_contexts = dep_linking_contexts");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     assertThat(target).isNotNull();
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
@@ -5751,6 +5754,74 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
     assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
         .contains("src foo/file.o");
+  }
+
+  @Test
+  public void testLinkStampExpliciltyEnabledOverridesNoStampFlag() throws Exception {
+    useConfiguration("--nostamp");
+    setupTestTransitiveLink(scratch, "stamp=1", "linking_contexts=dep_linking_contexts");
+    assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkExplicitlyDisabledOverridesStampFlag() throws Exception {
+    useConfiguration("--nostamp");
+    setupTestTransitiveLink(scratch, "stamp=0", "linking_contexts=dep_linking_contexts");
+    assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampUseFlagStamp() throws Exception {
+    useConfiguration("--stamp");
+    setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
+    assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampUseFlagNoStamp() throws Exception {
+    useConfiguration("--nostamp");
+    setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
+    assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampDisabledByDefaultDespiteStampFlag() throws Exception {
+    useConfiguration("--stamp");
+    setupTestTransitiveLink(scratch, "linking_contexts=dep_linking_contexts");
+    assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampInvalid() throws Exception {
+    setupTestTransitiveLink(scratch, "stamp=2");
+    checkError(
+        "//foo:bin",
+        "stamp value 2 is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)");
+  }
+
+  private CppCompileAction getLinkstampCompileAction(String label)
+      throws LabelSyntaxException, EvalException {
+    ConfiguredTarget target = getConfiguredTarget(label);
+    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
+    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    Artifact compiledLinkstamp =
+        ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "version.o");
+    CppCompileAction linkstampCompileAction =
+        (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+    assertThat(linkstampCompileAction.getMnemonic()).isEqualTo("CppLinkstampCompile");
+    return linkstampCompileAction;
+  }
+
+  private void assertStampEnabled(CppCompileAction linkstampAction)
+      throws CommandLineExpansionException {
+    assertThat(linkstampAction.getArguments())
+        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-volatile.h");
+  }
+
+  private void assertStampDisabled(CppCompileAction linkstampAction)
+      throws CommandLineExpansionException {
+    assertThat(linkstampAction.getArguments())
+        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-redacted.h");
   }
 
   @Test
@@ -6147,13 +6218,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "        feature_configuration=feature_configuration,",
         "        name = ctx.label.name,",
         "        cc_toolchain=toolchain,",
-        "        " + Joiner.on("").join(additionalLines),
+        "        " + Joiner.on(",\n        ").join(additionalLines),
         "    )",
         "    return [",
         "      MyInfo(",
-        "        library=linking_outputs.library_to_link,",
-        "        executable=linking_outputs.executable",
-        "      )",
+        "          library=linking_outputs.library_to_link,",
+        "          executable=linking_outputs.executable",
+        "      ),",
         "    ]",
         "cc_bin = rule(",
         "    implementation = _cc_bin_impl,",
@@ -6177,6 +6248,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_library(",
         "    name = 'dep1',",
         "    srcs = ['dep1.cc'],",
+        "    linkstamp = 'version.cc',",
         "    hdrs = ['dep1.h'],",
         "    includes = ['dep1/baz'],",
         "    defines = ['DEP1'],",

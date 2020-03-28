@@ -81,11 +81,19 @@ public interface OutputService {
   String getFilesSystemName();
 
   /**
+   * Returns true if Bazel should trust (and not verify) build artifacts that were last seen
+   * remotely and do not exist locally.
+   */
+  public default boolean shouldTrustRemoteArtifacts() {
+    return true;
+  }
+
+  /**
    * Start the build.
    *
    * @param buildId the UUID build identifier
-   * @param finalizeActions whether this build is finalizing actions so that the output service
-   *                        can track output tree modifications
+   * @param finalizeActions whether this build is finalizing actions so that the output service can
+   *     track output tree modifications
    * @return a ModifiedFileSet of changed output files.
    * @throws BuildFailedException if build preparation failed
    * @throws InterruptedException

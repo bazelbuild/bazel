@@ -1,25 +1,24 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
-licenses(["notice"])  # Apache 2.0
+package(
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["**"],
-    ),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
     name = "SkylarkConfigurationFieldProcessorTest",
     srcs = ["SkylarkConfigurationFieldProcessorTest.java"],
     resources = [":ProcessorTestFiles"],
-    deps = [
+    runtime_deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations",
+    ],
+    deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:annotation_preprocessor",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:compile_testing",
         "//third_party:guava",
         "//third_party:junit4",
@@ -38,7 +37,6 @@ test_suite(
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
@@ -46,5 +44,4 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

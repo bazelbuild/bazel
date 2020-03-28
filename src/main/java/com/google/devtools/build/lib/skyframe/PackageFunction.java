@@ -1207,7 +1207,8 @@ public class PackageFunction implements SkyFunction {
           // See the javadoc for ActionOnIOExceptionReadingBuildFile.
         }
         input = ParserInput.create(buildFileBytes, inputFile.toString());
-        file = PackageFactory.parseBuildFile(packageId, input, preludeStatements);
+        file =
+            PackageFactory.parseBuildFile(packageId, input, preludeStatements, starlarkSemantics);
         fileSyntaxCache.put(packageId, file);
       }
       SkylarkImportResult importResult;

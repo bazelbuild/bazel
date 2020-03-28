@@ -41,7 +41,6 @@ class NinjaGraphArtifactsHelper {
   private final PathFragment workingDirectory;
   private final ArtifactRoot derivedOutputRoot;
 
-  private final ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact;
   private final ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact;
   private final ImmutableSortedSet<PathFragment> outputRootSymlinks;
 
@@ -52,7 +51,6 @@ class NinjaGraphArtifactsHelper {
    * @param outputRootPath name of output directory for Ninja actions under execroot
    * @param workingDirectory relative path under execroot, the root for interpreting all paths in
    *     Ninja file
-   * @param depsNameToArtifact mapping between the path fragment in the Ninja file and prebuilt
    * @param symlinkPathToArtifact mapping of paths to artifacts for input symlinks under output_root
    * @param outputRootSymlinks list of output paths for which symlink artifacts should be created,
    *     paths are relative to the output_root.
@@ -61,13 +59,11 @@ class NinjaGraphArtifactsHelper {
       RuleContext ruleContext,
       PathFragment outputRootPath,
       PathFragment workingDirectory,
-      ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact,
       ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact,
       ImmutableSortedSet<PathFragment> outputRootSymlinks) {
     this.ruleContext = ruleContext;
     this.outputRootPath = outputRootPath;
     this.workingDirectory = workingDirectory;
-    this.depsNameToArtifact = depsNameToArtifact;
     this.symlinkPathToArtifact = symlinkPathToArtifact;
     this.outputRootSymlinks = outputRootSymlinks;
     Path execRoot =
@@ -98,10 +94,6 @@ class NinjaGraphArtifactsHelper {
   }
 
   Artifact getInputArtifact(PathFragment workingDirectoryPath) throws GenericParsingException {
-    if (depsNameToArtifact.containsKey(workingDirectoryPath)) {
-      return depsNameToArtifact.get(workingDirectoryPath);
-    }
-
     if (symlinkPathToArtifact.containsKey(workingDirectoryPath)) {
       return symlinkPathToArtifact.get(workingDirectoryPath);
     }
@@ -142,10 +134,6 @@ class NinjaGraphArtifactsHelper {
         .getAnalysisEnvironment()
         .getSourceArtifactForNinjaBuild(
             execPath, ruleContext.getRule().getPackage().getSourceRoot());
-  }
-
-  public Artifact getDepsMappingArtifact(PathFragment fragment) {
-    return depsNameToArtifact.get(fragment);
   }
 
   public PathFragment getOutputRootPath() {

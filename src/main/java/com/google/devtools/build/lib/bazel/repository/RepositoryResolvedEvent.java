@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunct
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -82,10 +82,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     String originalClass =
         rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
     resolvedInformationBuilder.put(ORIGINAL_RULE_CLASS, originalClass);
-
-    if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
-      resolvedInformationBuilder.put(DEFINITION_INFORMATION, rule.getDefinitionInformation());
-    }
+    resolvedInformationBuilder.put(DEFINITION_INFORMATION, getRuleDefinitionInformation(rule));
 
     ImmutableMap.Builder<String, Object> origAttrBuilder = ImmutableMap.builder();
     ImmutableMap.Builder<String, Object> defaults = ImmutableMap.builder();
@@ -216,6 +213,35 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
   /** Message describing the event */
   public String getMessage() {
     return message;
+  }
+
+  /** Returns an unstructured message explaining the origin of this rule. */
+  public static String getRuleDefinitionInformation(Rule rule) {
+    StringBuilder buf = new StringBuilder();
+
+    // Emit stack of rule instantiation.
+    buf.append("Repository ").append(rule.getName()).append(" instantiated at:\n");
+    ImmutableList<StarlarkThread.CallStackEntry> stack = rule.getCallStack().toList();
+    if (stack.isEmpty()) {
+      buf.append("  no stack (--record_rule_instantiation_callstack not enabled)\n");
+    } else {
+      for (StarlarkThread.CallStackEntry frame : stack) {
+        buf.append("  ").append(frame.location).append(": in ").append(frame.name).append('\n');
+      }
+    }
+
+    // Emit stack of rule class declaration.
+    stack = rule.getRuleClassObject().getCallStack();
+    if (stack.isEmpty()) {
+      buf.append("Repository rule ").append(rule.getRuleClass()).append(" is built-in.\n");
+    } else {
+      buf.append("Repository rule ").append(rule.getRuleClass()).append(" defined at:\n");
+      for (StarlarkThread.CallStackEntry frame : stack) {
+        buf.append("  ").append(frame.location).append(": in ").append(frame.name).append('\n');
+      }
+    }
+
+    return buf.toString();
   }
 
   /**

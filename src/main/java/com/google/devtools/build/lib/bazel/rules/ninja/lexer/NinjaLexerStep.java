@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.lexer;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Predicate;
 
@@ -59,7 +59,7 @@ public class NinjaLexerStep {
     return builder.build();
   }
 
-  private final ByteBufferFragment fragment;
+  private final FileFragment fragment;
   private final int position;
 
   private boolean seenZero;
@@ -69,7 +69,7 @@ public class NinjaLexerStep {
   /**
    * @param position start of the step inside a fragment; must point to a symbol inside fragment.
    */
-  public NinjaLexerStep(ByteBufferFragment fragment, int position) {
+  public NinjaLexerStep(FileFragment fragment, int position) {
     Preconditions.checkState(position < fragment.length());
     this.fragment = fragment;
     this.position = position;
@@ -96,7 +96,7 @@ public class NinjaLexerStep {
     return !seenZero && error == null && end < fragment.length();
   }
 
-  public ByteBufferFragment getFragment() {
+  public FileFragment getFragment() {
     return fragment;
   }
 

@@ -14,17 +14,18 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.collect.ImmutableList;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Helper class to expand {@link NestedSet} instances.
  *
- * <p>Implementations besides {@link NO_CALLBACKS} may wish to implement callbacks or timeouts for
+ * <p>Implementations besides {@link #DEFAULT} may wish to implement callbacks or timeouts for
  * dealing with expansions of sets from storage.
  */
 public interface NestedSetExpander {
 
   <T> ImmutableList<? extends T> toListInterruptibly(NestedSet<? extends T> nestedSet)
-      throws InterruptedException;
+      throws InterruptedException, TimeoutException;
 
   /** Simply delegates to {@link NestedSet#toListInterruptibly} without doing anything special. */
   NestedSetExpander DEFAULT = NestedSet::toListInterruptibly;

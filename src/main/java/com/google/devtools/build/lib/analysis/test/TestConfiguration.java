@@ -139,17 +139,16 @@ public class TestConfiguration extends Fragment {
     public boolean trimTestConfiguration;
 
     @Option(
-      name = "test_arg",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies additional options and arguments that should be passed to the test "
-              + "executable. Can be used multiple times to specify several arguments. "
-              + "If multiple tests are executed, each of them will receive identical arguments. "
-              + "Used only by the 'bazel test' command."
-    )
+        name = "test_arg",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specifies additional options and arguments that should be passed to the test "
+                + "executable. Can be used multiple times to specify several arguments. "
+                + "If multiple tests are executed, each of them will receive identical arguments. "
+                + "Used only by the 'bazel test' command.")
     public List<String> testArguments;
 
     @Option(

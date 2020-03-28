@@ -16,13 +16,11 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -68,20 +66,9 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
         makeFooThatSelectsOnFlag("python_version", "PY2"));
   }
 
+  // TODO(brandjon): Delete this test case when we delete these flags.
   @Test
-  public void canSelectOnForcePythonFlagsUnderOldApi() throws Exception {
-    // For backwards compatibility purposes, select()-ing on --force_python and --host_force_python
-    // is allowed while the old API is still enabled.
-    useConfiguration("--incompatible_remove_old_python_version_api=false");
-    scratch.file("fp/BUILD", makeFooThatSelectsOnFlag("force_python", "PY2"));
-    scratch.file("hfp/BUILD", makeFooThatSelectsOnFlag("host_force_python", "PY2"));
-    assertThat(getConfiguredTarget("//fp:foo")).isNotNull();
-    assertThat(getConfiguredTarget("//hfp:foo")).isNotNull();
-  }
-
-  @Test
-  public void cannotSelectOnForcePythonFlagsWithoutOldApi() throws Exception {
-    useConfiguration("--incompatible_remove_old_python_version_api=true");
+  public void cannotSelectOnForcePythonFlags() throws Exception {
     checkError(
         "fp",
         "foo",
@@ -119,36 +106,18 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
         "    }),",
         ")");
 
-    // Neither --python_version nor --force_python, use default value.
+    // No --python_version, use default value.
     doTestSelectOnPythonVersionTarget(py2, "--incompatible_py3_is_default=false");
-    doTestSelectOnPythonVersionTarget(
-        py3,
-        "--incompatible_py3_is_default=true",
-        // PythonConfiguration has a validation check requiring that the new transition semantics be
-        // enabled before we're allowed to set the default to PY3.
-        "--incompatible_allow_python_version_transitions=true");
+    doTestSelectOnPythonVersionTarget(py3, "--incompatible_py3_is_default=true");
 
-    // No --python_version, trust --force_python.
-    doTestSelectOnPythonVersionTarget(py2, "--force_python=PY2");
-    doTestSelectOnPythonVersionTarget(py3, "--force_python=PY3");
-
-    // --python_version overrides --force_python.
+    // --python_version is given, use it.
     doTestSelectOnPythonVersionTarget(py2, "--python_version=PY2");
-    doTestSelectOnPythonVersionTarget(py2, "--python_version=PY2", "--force_python=PY2");
-    doTestSelectOnPythonVersionTarget(py2, "--python_version=PY2", "--force_python=PY3");
     doTestSelectOnPythonVersionTarget(py3, "--python_version=PY3");
-    doTestSelectOnPythonVersionTarget(py3, "--python_version=PY3", "--force_python=PY2");
-    doTestSelectOnPythonVersionTarget(py3, "--python_version=PY3", "--force_python=PY3");
   }
 
   private void doTestSelectOnPythonVersionTarget(Artifact expected, String... flags)
       throws Exception {
-    ImmutableList<String> modifiedFlags =
-        ImmutableList.<String>builder()
-            .addAll(Arrays.asList(flags))
-            .add("--incompatible_remove_old_python_version_api=false")
-            .build();
-    useConfiguration(modifiedFlags.toArray(new String[] {}));
+    useConfiguration(flags);
     NestedSet<Artifact> files =
         getConfiguredTarget("//pkg:foo").getProvider(FileProvider.class).getFilesToBuild();
     assertThat(files.toList()).contains(expected);

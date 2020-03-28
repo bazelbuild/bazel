@@ -34,7 +34,6 @@ java_test(
         "//third_party:jsr330_inject",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party:truth8",
     ],
 )
 

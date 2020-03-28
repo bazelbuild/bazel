@@ -84,15 +84,14 @@ public final class PrintActionCommand implements BlazeCommand {
    */
   public static class PrintActionOptions extends OptionsBase {
     @Option(
-      name = "print_action_mnemonics",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Lists which mnemonics to filter print_action data by, no filtering takes place "
-              + "when left empty."
-    )
+        name = "print_action_mnemonics",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Lists which mnemonics to filter print_action data by, no filtering takes place "
+                + "when left empty.")
     public List<String> printActionMnemonics = new ArrayList<>();
   }
 
