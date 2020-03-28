@@ -85,7 +85,16 @@ public final class RemoteOptions extends OptionsBase {
               + " https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
 
-  public final String remoteDownloader = "";
+  @Option(
+      name = "experimental_remote_downloader",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A URI of a remote downloader endpoint. The supported schemas are grpc and grpcs"
+              + " (grpc with TLS enabled). If no schema is provided bazel will default to grpcs."
+              + " Specify grpc:// schema to disable TLS.")
+  public String remoteDownloader;
 
   @Option(
       name = "remote_header",

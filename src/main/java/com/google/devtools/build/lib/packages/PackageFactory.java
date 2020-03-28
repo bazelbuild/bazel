@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
@@ -137,7 +136,6 @@ public final class PackageFactory {
     protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
     protected PackageValidator packageValidator = PackageValidator.NOOP_VALIDATOR;
     protected boolean doChecksForTesting = true;
-    protected Reporter reporter;
 
     public BuilderForTesting setEnvironmentExtensions(
         Iterable<EnvironmentExtension> environmentExtensions) {
@@ -152,11 +150,6 @@ public final class PackageFactory {
 
     public BuilderForTesting setPackageValidator(PackageValidator packageValidator) {
       this.packageValidator = packageValidator;
-      return this;
-    }
-
-    public BuilderForTesting setReporter(Reporter reporter) {
-      this.reporter = reporter;
       return this;
     }
 

@@ -16,7 +16,6 @@
 
 package com.google.devtools.build.android.desugar.testing.junit;
 
-import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -159,7 +158,7 @@ public class DesugarRuleBuilder {
    *  .addSourceInputsFromJvmFlag("input_srcs").</code> in your test class.
    */
   public DesugarRuleBuilder addSourceInputsFromJvmFlag(String jvmFlagKey) {
-    return addSourceInputs(getRuntimePathsFromJvmFlag(jvmFlagKey));
+    return addSourceInputs(DesugarTestHelpers.getRuntimePathsFromJvmFlag(jvmFlagKey));
   }
 
   /**
@@ -169,17 +168,7 @@ public class DesugarRuleBuilder {
    *  .addSourceInputsFromJvmFlag("input_srcs").</code> in your test class.
    */
   public DesugarRuleBuilder addJarInputsFromJvmFlag(String jvmFlagKey) {
-    return addInputs(getRuntimePathsFromJvmFlag(jvmFlagKey));
-  }
-
-  /**
-   * A helper method that reads file paths into an array from the JVM flag value associated with
-   * {@param jvmFlagKey}.
-   */
-  public static Path[] getRuntimePathsFromJvmFlag(String jvmFlagKey) {
-    return Splitter.on(" ").trimResults().splitToList(System.getProperty(jvmFlagKey)).stream()
-        .map(Paths::get)
-        .toArray(Path[]::new);
+    return addInputs(DesugarTestHelpers.getRuntimePathsFromJvmFlag(jvmFlagKey));
   }
 
   /**

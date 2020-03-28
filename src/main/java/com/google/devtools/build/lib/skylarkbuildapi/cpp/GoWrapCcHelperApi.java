@@ -47,15 +47,15 @@ public interface GoWrapCcHelperApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
-        CcInfoT extends CcInfoApi,
+        CcInfoT extends CcInfoApi<FileT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
         CcLinkingContextT extends CcLinkingContextApi<FileT>,
         GoConfigurationT extends GoConfigurationApi,
         GoContextInfoT extends GoContextInfoApi,
         TransitiveInfoCollectionT extends TransitiveInfoCollectionApi,
-        CompilationInfoT extends CompilationInfoApi,
-        CcCompilationContextT extends CcCompilationContextApi,
+        CompilationInfoT extends CompilationInfoApi<FileT>,
+        CcCompilationContextT extends CcCompilationContextApi<FileT>,
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
     extends WrapCcHelperApi<
         FeatureConfigurationT,
@@ -126,7 +126,8 @@ public interface GoWrapCcHelperApi<
         @Param(name = "cc_info", positional = false, named = true, type = CcInfoApi.class),
       })
   // TODO(b/113797843): GoWrapCcInfo is not written in Skylark because several native rules use it.
-  public GoWrapCcInfoApi getGoWrapCcInfo(SkylarkRuleContextT skylarkRuleContext, CcInfoT ccInfo)
+  public GoWrapCcInfoApi<FileT> getGoWrapCcInfo(
+      SkylarkRuleContextT skylarkRuleContext, CcInfoT ccInfo)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

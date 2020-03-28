@@ -132,7 +132,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.NO_CALLBACKS);
+        NestedSetExpander.DEFAULT);
   }
 
   @Test

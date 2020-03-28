@@ -141,7 +141,7 @@ public class NinjaPipeline {
    * parsing result in the parent file {@link NinjaFileParseResult} structure.
    */
   public NinjaPromise<NinjaFileParseResult> createChildFileParsingPromise(
-      NinjaVariableValue value, Integer offset, String parentNinjaFileName)
+      NinjaVariableValue value, long offset, String parentNinjaFileName)
       throws GenericParsingException, IOException {
     if (value.isPlainText()) {
       // If the value of the path is already known, we can immediately schedule parsing

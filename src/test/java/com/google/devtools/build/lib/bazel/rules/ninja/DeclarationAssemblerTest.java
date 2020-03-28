@@ -60,7 +60,7 @@ public class DeclarationAssemblerTest {
 
   @Test
   public void testMergeTwoDifferentBuffers() throws Exception {
-    List<Pair<Integer, String>> offsetStringPairList = Lists.newArrayList();
+    List<Pair<Long, String>> offsetStringPairList = Lists.newArrayList();
     String unrelatedFirstBuffer = Strings.repeat(" ", 100);
     String s1 = "hello";
     String s2 = "goodbye";
@@ -87,7 +87,7 @@ public class DeclarationAssemblerTest {
                 chars1.length, new ByteBufferFragment(ByteBuffer.wrap(chars2), 0, s2.length()))));
 
     assertThat(Iterables.getOnlyElement(offsetStringPairList))
-        .isEqualTo(new Pair<>(unrelatedFirstBuffer.length(), "hellogoodbye"));
+        .isEqualTo(new Pair<>((long) unrelatedFirstBuffer.length(), "hellogoodbye"));
   }
 
   private static void doTwoBuffersTest(String s1, String s2, String... expected)
@@ -100,7 +100,7 @@ public class DeclarationAssemblerTest {
         new DeclarationAssembler(
             (byteFragmentAtOffset) -> {
               list.add(byteFragmentAtOffset.getFragment().toString());
-              assertThat(byteFragmentAtOffset.getBufferOffset()).isAnyOf(0, chars1.length);
+              assertThat(byteFragmentAtOffset.getBufferOffset()).isAnyOf(0L, (long) chars1.length);
             },
             NinjaSeparatorFinder.INSTANCE);
 

@@ -192,7 +192,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         new ConfiguredTargetProgressReceiver(),
         /*nonexistentFileReceiver=*/ null,
         managedDirectoriesKnowledge,
-        NestedSetExpander.NO_CALLBACKS);
+        NestedSetExpander.DEFAULT);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;

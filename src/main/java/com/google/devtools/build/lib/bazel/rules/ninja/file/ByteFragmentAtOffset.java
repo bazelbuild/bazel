@@ -22,22 +22,22 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
  */
 public class ByteFragmentAtOffset {
   /** The offset in the file the {@code ByteBuffer} backing this fragment starts at. */
-  private final int bufferOffset;
+  private final long bufferOffset;
 
   private final ByteBufferFragment fragment;
 
-  public ByteFragmentAtOffset(int bufferOffset, ByteBufferFragment fragment) {
+  public ByteFragmentAtOffset(long bufferOffset, ByteBufferFragment fragment) {
     this.bufferOffset = bufferOffset;
     this.fragment = fragment;
   }
 
   /** The offset in the file the {@code ByteBuffer} backing this fragment starts at. */
-  public int getBufferOffset() {
+  public long getBufferOffset() {
     return bufferOffset;
   }
 
   /** The offset in the file this fragment starts at. */
-  public int getFragmentOffset() {
+  public long getFragmentOffset() {
     return bufferOffset + fragment.getStartIncl();
   }
 

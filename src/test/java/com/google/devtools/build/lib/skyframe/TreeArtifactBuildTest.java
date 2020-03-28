@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -131,6 +132,9 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     parent.setGeneratingActionKey(ActionLookupData.create(ACTION_LOOKUP_KEY, 0));
     new SerializationTester(parent, ActionInputHelper.treeFileArtifact(parent, "child"))
         .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(
+            Root.RootCodecDependencies.class,
+            new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
         .runTests();
   }
 

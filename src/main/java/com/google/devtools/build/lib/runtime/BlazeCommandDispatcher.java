@@ -687,12 +687,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsData(optionsData)
-            // for starlark options
-            .skippedPrefix("--//")
-            .skippedPrefix("--no//")
-            // for starlark options in other repos
-            .skippedPrefix("--@")
-            .skippedPrefix("--no@")
+            .skipStarlarkOptionPrefixes()
             .allowResidue(annotation.allowResidue())
             .build();
     return parser;

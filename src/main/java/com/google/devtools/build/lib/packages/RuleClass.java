@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -122,6 +123,13 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 @AutoCodec
 public class RuleClass {
+
+  /**
+   * Maximum attributes per RuleClass. Current value was chosen high enough to be considered a
+   * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
+   * headroom before hitting {@link AttributeContainer}'s limits.
+   */
+  private static final int MAX_ATTRIBUTES = 200;
 
   @AutoCodec
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
@@ -775,6 +783,14 @@ public class RuleClass {
     public RuleClass build(String name, String key) {
       Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
       type.checkName(name);
+
+      Preconditions.checkArgument(
+          attributes.size() <= MAX_ATTRIBUTES,
+          "Rule class %s declared too many attributes (%s > %s)",
+          name,
+          attributes.size(),
+          MAX_ATTRIBUTES);
+
       type.checkAttributes(attributes);
       Preconditions.checkState(
           (type == RuleClassType.ABSTRACT)
@@ -1123,10 +1139,10 @@ public class RuleClass {
     }
 
     /**
-     * Builds attribute from the attribute builder and adds it to this rule
-     * class.
+     * Builds provided attribute and attaches it to this rule class.
      *
-     * @param attr attribute builder
+     * <p>Typically rule classes should only declare a handful of attributes - this expectation is
+     * enforced when the instance is built.
      */
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       addAttribute(attr.build());
@@ -1818,10 +1834,11 @@ public class RuleClass {
       AttributeValues<T> attributeValues,
       EventHandler eventHandler,
       Location location,
+      List<StarlarkThread.CallStackEntry> callstack,
       AttributeContainer attributeContainer,
       boolean checkThirdPartyRulesHaveLicenses)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, attributeContainer);
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, callstack, attributeContainer);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
@@ -1855,15 +1872,13 @@ public class RuleClass {
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       Location location,
+      List<StarlarkThread.CallStackEntry> callstack,
       AttributeContainer attributeContainer,
       ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(
-        ruleLabel,
-        this,
-        location,
-        attributeContainer,
-        implicitOutputsFunction);
+    Rule rule =
+        pkgBuilder.createRule(
+            ruleLabel, this, location, callstack, attributeContainer, implicitOutputsFunction);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
     rule.populateOutputFilesUnchecked(NullEventHandler.INSTANCE, pkgBuilder);
     return rule;

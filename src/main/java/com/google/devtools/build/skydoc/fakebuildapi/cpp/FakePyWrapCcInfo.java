@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcInfoApi;
@@ -21,10 +22,10 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link PyWrapCcHelperApi}. */
-public class FakePyWrapCcInfo implements PyWrapCcInfoApi {
+public class FakePyWrapCcInfo implements PyWrapCcInfoApi<FileApi> {
 
   @Override
-  public CcInfoApi getCcInfo() {
+  public CcInfoApi<FileApi> getCcInfo() {
     return null;
   }
 

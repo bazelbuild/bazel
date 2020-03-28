@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Serializable;
+import javax.annotation.Nullable;
 
 /**
  * Interface for classes which order, format and print the result of a Blaze
@@ -59,6 +60,6 @@ public abstract class OutputFormatter implements Serializable {
       Digraph<Target> result,
       OutputStream out,
       AspectResolver aspectProvider,
-      EventHandler eventHandler)
+      @Nullable EventHandler eventHandler)
       throws IOException, InterruptedException;
 }

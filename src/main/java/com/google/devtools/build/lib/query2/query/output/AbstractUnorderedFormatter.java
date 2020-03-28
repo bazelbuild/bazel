@@ -25,14 +25,16 @@ import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 abstract class AbstractUnorderedFormatter extends OutputFormatter implements StreamedFormatter {
 
   @Override
   public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {}
 
-  /** Sets a handler for reporting status output / errors. */
-  public void setEventHandler(EventHandler eventHandler) {}
+  /** Optionally sets a handler for reporting status output / errors. */
+  @Override
+  public void setEventHandler(@Nullable EventHandler eventHandler) {}
 
   @Override
   public void output(
@@ -40,7 +42,7 @@ abstract class AbstractUnorderedFormatter extends OutputFormatter implements Str
       Digraph<Target> result,
       OutputStream out,
       AspectResolver aspectResolver,
-      EventHandler eventHandler)
+      @Nullable EventHandler eventHandler)
       throws IOException, InterruptedException {
     setOptions(options, aspectResolver);
     setEventHandler(eventHandler);

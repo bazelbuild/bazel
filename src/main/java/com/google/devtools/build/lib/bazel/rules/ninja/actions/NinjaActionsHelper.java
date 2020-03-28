@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +64,7 @@ public class NinjaActionsHelper {
   private final ImmutableSortedMap<String, String> executionInfo;
   private final PhonyTargetArtifacts phonyTargetArtifacts;
   private final List<PathFragment> pathsToBuild;
+  private final ImmutableSet<PathFragment> outputRootInputsSymlinks;
 
   /**
    * Constructor
@@ -79,7 +83,8 @@ public class NinjaActionsHelper {
       ImmutableSortedMap<PathFragment, NinjaTarget> allUsualTargets,
       ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargets,
       PhonyTargetArtifacts phonyTargetArtifacts,
-      List<PathFragment> pathsToBuild) {
+      List<PathFragment> pathsToBuild,
+      ImmutableSet<PathFragment> outputRootInputsSymlinks) {
     this.ruleContext = ruleContext;
     this.artifactsHelper = artifactsHelper;
     this.allUsualTargets = allUsualTargets;
@@ -88,6 +93,7 @@ public class NinjaActionsHelper {
     this.executionInfo = createExecutionInfo(ruleContext);
     this.phonyTargetArtifacts = phonyTargetArtifacts;
     this.pathsToBuild = pathsToBuild;
+    this.outputRootInputsSymlinks = outputRootInputsSymlinks;
   }
 
   void createNinjaActions() throws GenericParsingException {
@@ -109,10 +115,39 @@ public class NinjaActionsHelper {
       PathFragment fragment = queue.remove();
       NinjaTarget target = allUsualTargets.get(fragment);
       if (target != null) {
-        if (visitedTargets.add(target)) {
-          createNinjaAction(target);
+        // If the output is already created by a symlink action created from specifying that
+        // file in output_root_inputs attribute of the ninja_graph rule, do not create other
+        // actions that output that same file, since that will result in an action conflict.
+        if (!outputRootInputsSymlinks.contains(fragment)) {
+          if (visitedTargets.add(target)) {
+            createNinjaAction(target);
+          }
+          enqueuer.accept(target.getAllInputs());
+        } else {
+          // Sanity check that the Ninja action we're skipping (because its outputs are already
+          // being symlinked using output_root_inputs) has only symlink outputs specified in
+          // output_root_inputs. Otherwise we might skip some other outputs.
+          List<PathFragment> outputsInOutputRootInputsSymlinks = new ArrayList<>();
+          List<PathFragment> outputsNotInOutputRootInputsSymlinks = new ArrayList<>();
+          for (PathFragment output : target.getAllOutputs()) {
+            if (outputRootInputsSymlinks.contains(output)) {
+              outputsInOutputRootInputsSymlinks.add(output);
+            } else {
+              outputsNotInOutputRootInputsSymlinks.add(output);
+            }
+          }
+          if (!outputsNotInOutputRootInputsSymlinks.isEmpty()) {
+            throw new GenericParsingException(
+                "Ninja target "
+                    + target.getRuleName()
+                    + " has "
+                    + "outputs in output_root_inputs and other outputs not in output_root_inputs:\n"
+                    + "Outputs in output_root_inputs:\n  "
+                    + Joiner.on("  \n").join(outputsInOutputRootInputsSymlinks)
+                    + "\nOutputs not in output_root_inputs:\n  "
+                    + Joiner.on("  \n").join(outputsNotInOutputRootInputsSymlinks));
+          }
         }
-        enqueuer.accept(target.getAllInputs());
       } else {
         PhonyTarget phonyTarget = phonyTargets.get(fragment);
         // Phony target can be null, if the path in neither usual or phony target,
@@ -126,15 +161,14 @@ public class NinjaActionsHelper {
 
   private void createNinjaAction(NinjaTarget target) throws GenericParsingException {
     NinjaRule rule = getNinjaRule(target);
-
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     ImmutableList.Builder<Artifact> outputsBuilder = ImmutableList.builder();
     boolean isAlwaysDirty = fillArtifacts(target, inputsBuilder, outputsBuilder);
 
     NinjaScope targetScope = createTargetScope(target);
-    int targetOffset = target.getOffset();
+    long targetOffset = target.getOffset();
 
-    ImmutableSortedMap<String, List<Pair<Integer, String>>> map =
+    ImmutableSortedMap<String, List<Pair<Long, String>>> map =
         resolveRuleVariables(targetScope, targetOffset, rule);
     String command = map.get(NinjaRuleVariable.COMMAND.lowerCaseName()).get(0).getSecond();
     maybeCreateRspFile(rule, inputsBuilder, map);
@@ -184,11 +218,11 @@ public class NinjaActionsHelper {
   private void maybeCreateRspFile(
       NinjaRule rule,
       NestedSetBuilder<Artifact> inputsBuilder,
-      ImmutableSortedMap<String, List<Pair<Integer, String>>> ruleVariables)
+      ImmutableSortedMap<String, List<Pair<Long, String>>> ruleVariables)
       throws GenericParsingException {
-    List<Pair<Integer, String>> filePair =
+    List<Pair<Long, String>> filePair =
         ruleVariables.get(NinjaRuleVariable.RSPFILE.lowerCaseName());
-    List<Pair<Integer, String>> contentPair =
+    List<Pair<Long, String>> contentPair =
         ruleVariables.get(NinjaRuleVariable.RSPFILE_CONTENT.lowerCaseName());
 
     if (filePair == null && contentPair == null) {
@@ -225,9 +259,9 @@ public class NinjaActionsHelper {
    *
    * <p>See {@link NinjaRuleVariable} for the list.
    */
-  private static ImmutableSortedMap<String, List<Pair<Integer, String>>> resolveRuleVariables(
-      NinjaScope targetScope, int targetOffset, NinjaRule rule) {
-    ImmutableSortedMap.Builder<String, List<Pair<Integer, String>>> builder =
+  private static ImmutableSortedMap<String, List<Pair<Long, String>>> resolveRuleVariables(
+      NinjaScope targetScope, long targetOffset, NinjaRule rule) {
+    ImmutableSortedMap.Builder<String, List<Pair<Long, String>>> builder =
         ImmutableSortedMap.naturalOrder();
     for (Map.Entry<NinjaRuleVariable, NinjaVariableValue> entry : rule.getVariables().entrySet()) {
       NinjaRuleVariable type = entry.getKey();
@@ -236,22 +270,22 @@ public class NinjaActionsHelper {
         continue;
       }
       String expandedValue = targetScope.getExpandedValue(targetOffset, entry.getValue());
-      builder.put(Ascii.toLowerCase(type.name()), ImmutableList.of(Pair.of(0, expandedValue)));
+      builder.put(Ascii.toLowerCase(type.name()), ImmutableList.of(Pair.of(0L, expandedValue)));
     }
     NinjaScope expandedRuleScope = targetScope.createScopeFromExpandedValues(builder.build());
     String command =
         expandedRuleScope.getExpandedValue(
             targetOffset, rule.getVariables().get(NinjaRuleVariable.COMMAND));
-    builder.put(NinjaRuleVariable.COMMAND.lowerCaseName(), ImmutableList.of(Pair.of(0, command)));
+    builder.put(NinjaRuleVariable.COMMAND.lowerCaseName(), ImmutableList.of(Pair.of(0L, command)));
     return builder.build();
   }
 
   private NinjaScope createTargetScope(NinjaTarget target) {
-    ImmutableSortedMap.Builder<String, List<Pair<Integer, String>>> builder =
+    ImmutableSortedMap.Builder<String, List<Pair<Long, String>>> builder =
         ImmutableSortedMap.naturalOrder();
     target
         .getVariables()
-        .forEach((key, value) -> builder.put(key, ImmutableList.of(Pair.of(0, value))));
+        .forEach((key, value) -> builder.put(key, ImmutableList.of(Pair.of(0L, value))));
     String inNewline =
         target.getUsualInputs().stream()
             .map(this::getInputPathWithDepsMappingReplacement)
@@ -260,9 +294,9 @@ public class NinjaActionsHelper {
         target.getOutputs().stream()
             .map(PathFragment::getPathString)
             .collect(Collectors.joining(" "));
-    builder.put("in", ImmutableList.of(Pair.of(0, inNewline.replace('\n', ' '))));
-    builder.put("in_newline", ImmutableList.of(Pair.of(0, inNewline)));
-    builder.put("out", ImmutableList.of(Pair.of(0, out)));
+    builder.put("in", ImmutableList.of(Pair.of(0L, inNewline.replace('\n', ' '))));
+    builder.put("in_newline", ImmutableList.of(Pair.of(0L, inNewline)));
+    builder.put("out", ImmutableList.of(Pair.of(0L, out)));
 
     return target.getScope().createScopeFromExpandedValues(builder.build());
   }

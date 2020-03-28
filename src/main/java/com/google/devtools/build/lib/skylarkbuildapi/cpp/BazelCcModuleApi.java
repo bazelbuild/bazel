@@ -40,7 +40,7 @@ public interface BazelCcModuleApi<
         SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CompilationContextT extends CcCompilationContextApi,
+        CompilationContextT extends CcCompilationContextApi<FileT>,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         LinkingOutputsT extends CcLinkingOutputsApi<FileT>,
         LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,

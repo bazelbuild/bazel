@@ -109,7 +109,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           /*artifactExpander=*/ null,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult=*/ null,
-          NestedSetExpander.NO_CALLBACKS);
+          NestedSetExpander.DEFAULT);
       this.spawnActionContext = spawnActionContext;
     }
 

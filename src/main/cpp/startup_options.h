@@ -106,9 +106,21 @@ class StartupOptions {
       const blaze_util::Path &server_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
 
-  // Checks whether the argument is a valid nullary option.
-  // E.g. --master_bazelrc, --nomaster_bazelrc.
-  bool IsNullary(const std::string& arg) const;
+  // Checks whether "arg" is a valid nullary option (e.g. "--master_bazelrc" or
+  // "--nomaster_bazelrc").
+  //
+  // Returns true, if "arg" looks like either a valid nullary option or a
+  // potentially valid unary option. In this case, "result" will be populated
+  // with true iff "arg" is definitely a valid nullary option.
+  //
+  // Returns false, if "arg" looks like an attempt to pass a value to nullary
+  // option (e.g. "--nullary_option=idontknowwhatimdoing"). In this case,
+  // "error" will be populated with a user-friendly error message.
+  //
+  // Therefore, callers of this function should look at the return value and
+  // then either look at "result" (on true) or "error" (on false).
+  bool MaybeCheckValidNullary(const std::string &arg, bool *result,
+                              std::string *error) const;
 
   // Checks whether the argument is a valid unary option.
   // E.g. --blazerc=foo, --blazerc foo.

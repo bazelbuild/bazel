@@ -177,6 +177,7 @@ java_test(
     ],
     test_class = "com.google.devtools.build.android.desugar.nest.NestDesugaringMethodAccessTest",
     deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:desugar_rule",
         "//third_party:asm",
         "//third_party:asm-tree",

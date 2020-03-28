@@ -40,7 +40,7 @@ Set up your build environment as follows:
 
 3.  Add the following `cc_binary` target to the `main/BUILD` file:
 
-    ```
+    ```python
     cc_binary(
         name = "helloworld.js",
         srcs = ["hello-world.cc"],
@@ -105,8 +105,9 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
 
     In the `toolchain/BUILD` file, define an empty filegroup as follows:
 
-    ```
+    ```python
     package(default_visibility = ['//visibility:public'])
+
     filegroup(name = "emscripten")
     ```
 
@@ -122,7 +123,7 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     `cc_toolchain_suite` rule. In the `toolchain/BUILD` file, replace the empty
     filegroup with the following:
 
-    ```
+    ```python
     cc_toolchain_suite(
         name = "emscripten",
         toolchains = {
@@ -147,7 +148,7 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     files that comprise the toolchain so that Bazel can set up sandboxing. Add
     the following to the `toolchain/BUILD` file:
 
-    ```
+    ```python
     filegroup(name = "empty")
 
     cc_toolchain(
@@ -172,7 +173,7 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
 
     Let's add a ":asmjs_toolchain_config" target to the `toolchain/BUILD` file:
 
-    ```
+    ```python
     filegroup(name = "asmjs_toolchain_config")
     ```
 
@@ -187,7 +188,8 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     toolchains. We are going to create a Starlark rule that will provide
     `CcToolchainConfigInfo`. Create a `toolchain/cc_toolchain_config.bzl`
     file with the following content:
-    ```
+
+    ```python
     def _impl(ctx):
         return cc_common.create_cc_toolchain_config_info(
             ctx = ctx,
@@ -213,14 +215,14 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     the newly implemented `cc_toolchain_config` rule. Add a load statement to
     `toolchains/BUILD`:
 
-    ```
+    ```python
     load(":cc_toolchain_config.bzl", "cc_toolchain_config")
     ```
 
     And replace the "asmjs_toolchain_config" filegroup with a declaration of a
     `cc_toolchain_config` rule:
 
-    ```
+    ```python
     cc_toolchain_config(name = "asmjs_toolchain_config")
     ```
 
@@ -239,7 +241,7 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     tools to use. For that, we'll need the tool_path() constructor from
     [`@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl`](https://source.bazel.build/bazel/+/4eea5c62a566d21832c93e4c18ec559e75d5c1ce:tools/cpp/cc_toolchain_config_lib.bzl;l=400):
 
-    ```
+    ```python
     # toolchain/cc_toolchain_config.bzl:
     load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl", "tool_path")
 
@@ -311,21 +313,21 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     To pull the toolchain from the GitHub repository, add the following
     `http_archive` repository definitions to your `WORKSPACE` file:
 
-    ```
+    ```python
     load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
     http_archive(
-      name = 'emscripten_toolchain',
-      url = 'https://github.com/kripken/emscripten/archive/1.37.22.tar.gz',
-      build_file = '//:emscripten-toolchain.BUILD',
-      strip_prefix = "emscripten-1.37.22",
+        name = 'emscripten_toolchain',
+        url = 'https://github.com/kripken/emscripten/archive/1.37.22.tar.gz',
+        build_file = '//:emscripten-toolchain.BUILD',
+        strip_prefix = "emscripten-1.37.22",
     )
 
     http_archive(
-      name = 'emscripten_clang',
-      url = 'https://s3.amazonaws.com/mozilla-games/emscripten/packages/llvm/tag/linux_64bit/emscripten-llvm-e1.37.22.tar.gz',
-      build_file = '//:emscripten-clang.BUILD',
-      strip_prefix = "emscripten-llvm-e1.37.22",
+        name = 'emscripten_clang',
+        url = 'https://s3.amazonaws.com/mozilla-games/emscripten/packages/llvm/tag/linux_64bit/emscripten-llvm-e1.37.22.tar.gz',
+        build_file = '//:emscripten-clang.BUILD',
+        strip_prefix = "emscripten-llvm-e1.37.22",
     )
     ```
 
@@ -343,23 +345,23 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     First create the `emscripten-toolchain.BUILD` file with the following
     contents:
 
-    ```
+    ```python
     package(default_visibility = ['//visibility:public'])
 
     filegroup(
-      name = "all",
-      srcs = glob(["**/*"]),
+        name = "all",
+        srcs = glob(["**/*"]),
     )
     ```
 
     Next, create the `emscripten-clang.BUILD` file with the following contents:
 
-    ```
+    ```python
     package(default_visibility = ['//visibility:public'])`
 
     filegroup(
-      name = "all",
-      srcs = glob(["**/*"]),
+        name = "all",
+        srcs = glob(["**/*"]),
     )
     ```
 
@@ -381,7 +383,7 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     a dependency of the corresponding `cc_toolchain` rule. Modify the
     `toolchain/BUILD` file to look as follows:
 
-    ```
+    ```python
     package(default_visibility = ["//visibility:public"])
 
     load(":cc_toolchain_config.bzl", "cc_toolchain_config")
@@ -405,16 +407,16 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     )
 
     cc_toolchain(
-       name = "asmjs_toolchain",
-       toolchain_identifier = "asmjs-toolchain",
-       toolchain_config = ":asmjs_toolchain_config",
-       all_files = ":all",
-       compiler_files = ":all",
-       dwp_files = ":empty",
-       linker_files = ":all",
-       objcopy_files = ":empty",
-       strip_files = ":empty",
-       supports_param_files = 0,
+        name = "asmjs_toolchain",
+        toolchain_identifier = "asmjs-toolchain",
+        toolchain_config = ":asmjs_toolchain_config",
+        all_files = ":all",
+        compiler_files = ":all",
+        dwp_files = ":empty",
+        linker_files = ":all",
+        objcopy_files = ":empty",
+        strip_files = ":empty",
+        supports_param_files = 0,
     )
     ```
 
@@ -440,20 +442,20 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
      For our example project, make the following modifications to the
      `toolchain/BUILD` file:
 
-     ```
+     ```python
      filegroup(
-       name = "all",
-       srcs = [
-         "emcc.sh",
-         "@emscripten_toolchain//:all",
-         "@emscripten_clang//:all",
-         ":emscripten_cache_content"
+         name = "all",
+         srcs = [
+             "emcc.sh",
+             "@emscripten_toolchain//:all",
+             "@emscripten_clang//:all",
+             ":emscripten_cache_content",
          ],
-      )
+     )
 
      filegroup(
-       name = "emscripten_cache_content",
-       srcs = glob(["emscripten_cache/**/*"]),
+         name = "emscripten_cache_content",
+         srcs = glob(["emscripten_cache/**/*"]),
      )
      ```
 
@@ -526,13 +528,16 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
      target folders as `-isystem` directories. For this, you'll need to add
      a [`feature`](https://source.bazel.build/bazel/+/4eea5c62a566d21832c93e4c18ec559e75d5c1ce:tools/cpp/cc_toolchain_config_lib.bzl;l=336) to the `CcToolchainConfigInfo`.
      Modify `toolchain/cc_toolchain_config.bzl` to look like this:
-     ```
-     load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
-          "feature",
-          "flag_group",
-          "flag_set",
-          "tool_path")
+
+     ```python
      load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+     load(
+         "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+         "feature",
+         "flag_group",
+         "flag_set",
+         "tool_path",
+     )
 
      def _impl(ctx):
          tool_paths = [

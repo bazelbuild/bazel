@@ -104,6 +104,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       streamedFormatter.setOptions(
           queryOptions,
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
+      streamedFormatter.setEventHandler(env.getReporter());
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
       callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
