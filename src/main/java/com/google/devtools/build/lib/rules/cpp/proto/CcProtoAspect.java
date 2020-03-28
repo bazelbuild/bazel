@@ -91,11 +91,13 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
   private final CppSemantics cppSemantics;
   private final LabelLateBoundDefault<?> ccToolchainAttrValue;
   private final Label ccToolchainType;
+  private final Label protoToolchainType;
 
   protected CcProtoAspect(AspectLegalCppSemantics cppSemantics, RuleDefinitionEnvironment env) {
     this.cppSemantics = cppSemantics;
     this.ccToolchainAttrValue = CppRuleClasses.ccToolchainAttribute(env);
     this.ccToolchainType = CppRuleClasses.ccToolchainTypeAttribute(env);
+    this.protoToolchainType = ProtoCommon.protoToolchainTypeAttribute(env);
   }
 
   @Override
@@ -124,7 +126,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
-            .addRequiredToolchains(ccToolchainType)
+            .addRequiredToolchains(ccToolchainType, protoToolchainType)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
                     .mandatoryNativeProviders(ImmutableList.of(ProtoLangToolchainProvider.class))

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
@@ -71,6 +72,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
   private final String defaultProtoToolchainLabel;
   private final Label hostJdkAttribute;
   private final Label javaToolchainAttribute;
+  private final Label protoToolchainType;
 
   public JavaLiteProtoAspect(
       JavaSemantics javaSemantics,
@@ -80,6 +82,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     this.defaultProtoToolchainLabel = defaultProtoToolchainLabel;
     this.hostJdkAttribute = JavaSemantics.hostJdkAttribute(env);
     this.javaToolchainAttribute = JavaSemantics.javaToolchainAttribute(env);
+    this.protoToolchainType = ProtoCommon.protoToolchainTypeAttribute(env);
   }
 
   @Override
@@ -110,6 +113,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .requiresConfigurationFragments(
                 JavaConfiguration.class, ProtoConfiguration.class, PlatformConfiguration.class)
             .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
+            .addRequiredToolchains(protoToolchainType)
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
             .advertiseProvider(
                 ImmutableList.of(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
@@ -62,6 +63,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
   private final Label hostJdkAttribute;
   private final Label javaToolchainAttribute;
+  private final Label protoToolchainType;
 
   private static LabelLateBoundDefault<?> getSpeedProtoToolchainLabel(String defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
@@ -86,6 +88,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         Preconditions.checkNotNull(defaultSpeedProtoToolchainLabel);
     this.hostJdkAttribute = JavaSemantics.hostJdkAttribute(env);
     this.javaToolchainAttribute = JavaSemantics.javaToolchainAttribute(env);
+    this.protoToolchainType = ProtoCommon.protoToolchainTypeAttribute(env);
   }
 
   @Override
@@ -119,6 +122,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             .requiresConfigurationFragments(
                 JavaConfiguration.class, ProtoConfiguration.class, PlatformConfiguration.class)
             .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
+            .addRequiredToolchains(protoToolchainType)
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
             .advertiseProvider(
                 ImmutableList.of(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))

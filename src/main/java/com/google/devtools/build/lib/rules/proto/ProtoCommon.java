@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
@@ -54,6 +55,12 @@ public class ProtoCommon {
   @VisibleForTesting
   public static final String PROTO_RULES_MIGRATION_LABEL =
       "__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
+
+  private static final String TOOLCHAIN_TYPE_LABEL = "//tools/proto:toolchain_type";
+
+  public static Label protoToolchainTypeAttribute(RuleDefinitionEnvironment env) {
+    return env.getToolsLabel(TOOLCHAIN_TYPE_LABEL);
+  }
 
   /**
    * Gets the direct sources of a proto library. If protoSources is not empty, the value is just

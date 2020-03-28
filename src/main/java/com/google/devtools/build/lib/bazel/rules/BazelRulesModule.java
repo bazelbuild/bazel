@@ -353,7 +353,7 @@ public class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public String glibc;
-    
+
     @Deprecated
     @Option(
         name = "experimental_shortened_obj_file_path",
@@ -416,6 +416,8 @@ public class BazelRulesModule extends BlazeModule {
     try {
       // Load auto-configuration files, it is made outside of the rule class provider so that it
       // will not be loaded for our Java tests.
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelRulesModule.class, "proto.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(

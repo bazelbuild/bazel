@@ -49,6 +49,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
     return builder
         .requiresConfigurationFragments(ProtoConfiguration.class)
+        .addRequiredToolchains(ProtoCommon.protoToolchainTypeAttribute(env))
         .setOutputToGenfiles()
         .add(
             attr(":proto_compiler", LABEL)
