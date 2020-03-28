@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEventRegex;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNotContainsEventRegex;
+import static com.google.devtools.build.lib.util.subjects.DetailedExitCodeSubjectFactory.assertThatDetailedExitCode;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -1589,8 +1590,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThat(e.getDetailedExitCode().getExitCode())
-        .isEqualTo(CatastrophicAction.expectedExitCode);
+    assertThatDetailedExitCode(e.getDetailedExitCode())
+        .hasExitCode(CatastrophicAction.expectedExitCode);
     assertThat(builtTargets).isEmpty();
     assertThat(markerRan.get()).isFalse();
   }
@@ -1724,8 +1725,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThat(e.getDetailedExitCode().getExitCode())
-        .isEqualTo(CatastrophicAction.expectedExitCode);
+    assertThatDetailedExitCode(e.getDetailedExitCode())
+        .hasExitCode(CatastrophicAction.expectedExitCode);
     assertThat(builtTargets).isEmpty();
   }
 
@@ -1856,8 +1857,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThat(e.getDetailedExitCode().getExitCode())
-        .isEqualTo(CatastrophicAction.expectedExitCode);
+    assertThatDetailedExitCode(e.getDetailedExitCode())
+        .hasExitCode(CatastrophicAction.expectedExitCode);
     assertThat(builtTargets).isEmpty();
   }
 
@@ -1965,8 +1966,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThat(e.getDetailedExitCode().getExitCode())
-        .isEqualTo(CatastrophicAction.expectedExitCode);
+    assertThatDetailedExitCode(e.getDetailedExitCode())
+        .hasExitCode(CatastrophicAction.expectedExitCode);
     assertThat(builtTargets).isEmpty();
   }
 
@@ -2079,7 +2080,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
-    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(USER_EXIT_CODE);
+    assertThatDetailedExitCode(e.getDetailedExitCode()).hasExitCode(USER_EXIT_CODE);
   }
 
   /**
@@ -2177,7 +2178,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
-    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(INFRA_EXIT_CODE);
+    assertThatDetailedExitCode(e.getDetailedExitCode()).hasExitCode(INFRA_EXIT_CODE);
   }
 
   /**
