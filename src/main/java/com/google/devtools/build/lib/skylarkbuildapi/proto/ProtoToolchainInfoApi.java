@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
-import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
@@ -23,4 +23,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     name = "ProtoToolchainInfo",
     doc = "Provides access to information about the Protobuf toolchain rule.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface ProtoToolchainInfoApi extends StructApi {}
+public interface ProtoToolchainInfoApi extends ToolchainInfoApi {}
