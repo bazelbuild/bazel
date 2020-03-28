@@ -117,7 +117,7 @@ public class RemoteCache implements AutoCloseable {
 
   public ActionResult downloadActionResult(ActionKey actionKey, boolean inlineOutErr)
       throws IOException, InterruptedException {
-    return getFromFuture(cacheProtocol.downloadActionResult(actionKey), inlineOutErr);
+    return getFromFuture(cacheProtocol.downloadActionResult(actionKey, inlineOutErr));
   }
 
   /**
