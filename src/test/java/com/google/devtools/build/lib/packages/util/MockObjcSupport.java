@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -567,7 +566,6 @@ public final class MockObjcSupport {
 
   /** Creates a mock objc_proto_library rule in the current main workspace. */
   public static void setupObjcProtoLibrary(Scratch scratch) throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
     // Append file instead of creating one in case it already exists.
     String toolsRepo = TestConstants.TOOLS_REPOSITORY;
     scratch.file("objc_proto_library/BUILD", "");

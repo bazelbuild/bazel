@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -58,11 +59,12 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
   private final List<Event> events = new ArrayList<>();
 
   @Before
-  public final void setUpAqueryOptions() {
+  public final void setUpAqueryOptions() throws Exception {
     this.options = new AqueryOptions();
     options.aspectDeps = Mode.OFF;
     options.includeArtifacts = true;
     this.reporter = new Reporter(new EventBus(), events::add);
+    MockProtoSupport.setupWorkspace(getHelper().getScratch());
   }
 
   @Test
@@ -587,11 +589,11 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
 
     writeFile(
         "test/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load(':rule.bzl', 'my_rule', 'my_jpl_rule')",
         "proto_library(",
         "  name = 'x',",
         "  srcs = [':x.proto'],",
-        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'my_java_proto',",
@@ -678,11 +680,11 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
 
     writeFile(
         "test/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load(':rule.bzl', 'my_jpl_rule')",
         "proto_library(",
         "  name = 'x',",
         "  srcs = [':x.proto'],",
-        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'my_java_proto',",
@@ -778,11 +780,11 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
 
     writeFile(
         "test/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load(':rule.bzl', 'my_jpl_rule', 'my_random_rule')",
         "proto_library(",
         "  name = 'x',",
         "  srcs = [':x.proto'],",
-        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'target_1',",
@@ -874,11 +876,11 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
 
     writeFile(
         "test/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
         "load(':rule.bzl', 'my_jpl_rule')",
         "proto_library(",
         "  name = 'x',",
         "  srcs = [':x.proto'],",
-        MockProtoSupport.MIGRATION_TAG,
         ")",
         "my_jpl_rule(",
         "  name = 'my_java_proto',",
