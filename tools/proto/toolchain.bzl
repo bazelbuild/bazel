@@ -26,9 +26,6 @@ def maybe_register_proto_toolchain():
     # buildifier: disable=native-proto
     native.proto_toolchain(
         name = "default_toolchain",
-        # Must be earlier than the first version of rules_proto that defined
-        # a proto toolchain (0.1.0).
-        rules_proto_version = "0.0.1",
         tags = [
             "__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__",
         ],
