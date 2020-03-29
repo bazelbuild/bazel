@@ -15,12 +15,20 @@
 # buildifier: disable=native-proto
 _proto_common = proto_common
 
-_use_proto_toolchain_from_rules_proto = "use_proto_toolchain_from_rules_proto_do_not_use_or_we_will_break_you_without_mercy"
+_provide_proto_toolchain_in_tools_workspace = "provide_proto_toolchain_in_tools_workspace_do_not_use_or_we_will_break_you_without_mercy"
 
 def maybe_register_proto_toolchain():
-    if getattr(_proto_common, _use_proto_toolchain_from_rules_proto, False):
-        # --incompatible_use_proto_toolchain_from_rules_proto has been flipped,
-        # nothing to do.
+    if not hasattr(_proto_common, _provide_proto_toolchain_in_tools_workspace):
+        # --incompatible_provide_proto_toolchain_in_tools_workspace has been
+        # flipped, nothing to do.
+        return
+
+    native.register_toolchains("@bazel_tools//tools/proto:toolchain")
+
+def maybe_create_proto_toolchain_targets():
+    if not hasattr(_proto_common, _provide_proto_toolchain_in_tools_workspace):
+        # --incompatible_provide_proto_toolchain_in_tools_workspace has been
+        # flipped, nothing to do.
         return
 
     # buildifier: disable=native-proto

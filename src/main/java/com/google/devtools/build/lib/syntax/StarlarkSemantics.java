@@ -110,6 +110,8 @@ public abstract class StarlarkSemantics {
         "incompatible_linkopts_to_linklibs";
     public static final String RECORD_RULE_INSTANTIATION_CALLSTACK =
         "record_rule_instantiation_callstack";
+    public static final String INCOMPATIBLE_PROVIDE_PROTO_TOOLCHAIN_IN_TOOLS_WORKSPACE =
+        "incompatible_provide_proto_toolchain_in_tools_workspace";
   }
 
   // TODO(adonovan): replace the fields of StarlarkSemantics
@@ -164,6 +166,8 @@ public abstract class StarlarkSemantics {
         return incompatibleLinkoptsToLinkLibs();
       case FlagIdentifier.RECORD_RULE_INSTANTIATION_CALLSTACK:
         return recordRuleInstantiationCallstack();
+      case FlagIdentifier.INCOMPATIBLE_PROVIDE_PROTO_TOOLCHAIN_IN_TOOLS_WORKSPACE:
+        return incompatibleProvideProtoToolchainInToolsWorkspace();
       default:
         throw new IllegalArgumentException(flag);
     }
@@ -291,6 +295,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean recordRuleInstantiationCallstack();
 
+  public abstract boolean incompatibleProvideProtoToolchainInToolsWorkspace();
+
   @Memoized
   @Override
   public abstract int hashCode();
@@ -367,6 +373,7 @@ public abstract class StarlarkSemantics {
           .incompatibleLinkoptsToLinkLibs(false)
           .maxComputationSteps(0)
           .recordRuleInstantiationCallstack(false)
+          .incompatibleProvideProtoToolchainInToolsWorkspace(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -459,6 +466,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder maxComputationSteps(long value);
 
     public abstract Builder recordRuleInstantiationCallstack(boolean value);
+
+    public abstract Builder incompatibleProvideProtoToolchainInToolsWorkspace(boolean value);
 
     public abstract StarlarkSemantics build();
   }

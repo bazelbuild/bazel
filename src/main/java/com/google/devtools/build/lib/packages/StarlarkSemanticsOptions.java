@@ -629,6 +629,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + " modest cost in memory. The stack is visible in some forms of query output.")
   public boolean recordRuleInstantiationCallstack;
 
+  @Option(
+      name = "incompatible_provide_proto_toolchain_in_tools_workspace",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the default proto_toolchain is no longer provided by Bazel and should "
+              + "be loaded from https://github.com/bazelbuild/rules_proto instead.")
+  public boolean incompatibleProvideProtoToolchainInToolsWorkspace;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -688,6 +702,8 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleLinkoptsToLinkLibs(incompatibleLinkoptsToLinkLibs)
             .maxComputationSteps(maxComputationSteps)
             .recordRuleInstantiationCallstack(recordRuleInstantiationCallstack)
+            .incompatibleProvideProtoToolchainInToolsWorkspace(
+                incompatibleProvideProtoToolchainInToolsWorkspace)
             .build();
     return INTERNER.intern(semantics);
   }

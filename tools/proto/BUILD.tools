@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":toolchain.bzl", "maybe_register_proto_toolchain")
+load(":toolchain.bzl", "maybe_create_proto_toolchain_targets")
 
 licenses(["notice"])  # Apache 2.0
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
+)
 
 # The toolchain type used to distinguish proto toolchains.
 toolchain_type(
@@ -22,4 +28,4 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
-maybe_register_proto_toolchain()
+maybe_create_proto_toolchain_targets()

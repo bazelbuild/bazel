@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
@@ -31,4 +33,15 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
             + "rules_proto</a>"
             + "</p>")
-public interface ProtoModuleApi extends StarlarkValue {}
+public interface ProtoModuleApi extends StarlarkValue {
+  @Deprecated
+  @SkylarkCallable(
+      name =
+          "provide_proto_toolchain_in_tools_workspace"
+              + "_do_not_use_or_we_will_break_you_without_mercy",
+      doc = "Indicates whether `@bazel_tools//tools/proto:toolchain` exists.",
+      documented = false,
+      structField = true,
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_PROVIDE_PROTO_TOOLCHAIN_IN_TOOLS_WORKSPACE)
+  default void provideProtoToolchainInToolsWorkspace() {};
+}
