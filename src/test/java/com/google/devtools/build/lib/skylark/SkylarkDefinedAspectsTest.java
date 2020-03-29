@@ -68,6 +68,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     MockObjcSupport.setup(mockToolsConfig);
     // Required for tests including the proto_library rule.
     MockProtoSupport.setup(mockToolsConfig);
+    MockProtoSupport.setupWorkspace(scratch);
   }
 
   @Test

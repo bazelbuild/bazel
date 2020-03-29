@@ -684,6 +684,7 @@ EOF
 function test_disable_proto_toolchain_in_tools_workspace() {
   write_workspace ""
 
+  mkdir -p foo
   cat > foo/BUILD <<EOF
 load("@rules_proto//proto:defs.bzl", "proto_library")
 proto_library(
