@@ -244,9 +244,28 @@ public final class MockProtoSupport {
         "local_repository(",
         "    name = 'rules_proto',",
         "    path = 'third_party/rules_proto',",
-        ")");
+        ")",
+        "register_toolchains('@rules_proto//proto:toolchain')");
     scratch.file("third_party/rules_proto/WORKSPACE");
-    scratch.file("third_party/rules_proto/proto/BUILD", "licenses(['notice'])");
+    scratch.file(
+        "third_party/rules_proto/proto/BUILD",
+        "licenses(['notice'])",
+        "alias(",
+        "    name = 'toolchain_type',",
+        "    actual = '@bazel_tools//tools/proto:toolchain_type',",
+        "    visibility = ['//visibility:public'],",
+        ")",
+        "proto_toolchain(",
+        "    name = 'default_toolchain',",
+        "    tags = [",
+        "        '__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__',",
+        "    ],",
+        ")",
+        "toolchain(",
+        "    name = 'toolchain',",
+        "    toolchain = ':default_toolchain',",
+        "    toolchain_type = ':toolchain_type',",
+        ")");
     scratch.file(
         "third_party/rules_proto/proto/defs.bzl",
         "def _add_tags(kargs):",

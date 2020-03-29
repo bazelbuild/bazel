@@ -282,6 +282,13 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("bazel_tools_workspace/objcproto/empty.cc");
     config.create("bazel_tools_workspace/objcproto/well_known_type.proto");
 
+    config.create(
+        "bazel_tools_workspace/tools/proto/BUILD",
+        "toolchain_type(",
+        "    name = 'toolchain_type',",
+        "    visibility = ['//visibility:public'],",
+        ")");
+
     config.create("rules_java_workspace/WORKSPACE", "workspace(name = 'rules_java')");
     config.create("rules_java_workspace/java/BUILD");
     config.create(

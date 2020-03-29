@@ -681,4 +681,25 @@ EOF
   bazel build //h || fail "build failed"
 }
 
+function test_disable_proto_toolchain_in_tools_workspace() {
+  write_workspace ""
+
+  cat > foo/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(
+  name = "foo_proto",
+  srcs = ["foo.proto"],
+)
+EOF
+
+  cat > foo/foo.proto <<EOF
+syntax = "proto3";
+EOF
+
+  bazel build //foo:foo_proto || fail "build failed"
+
+  bazel build //foo:foo_proto --incompatible_provide_proto_toolchain_in_tools_workspace && fail "build succeeded"
+  [[ "$?" == 1 ]] || fail "unexpected exit code"
+}
+
 run_suite "Integration tests for proto_library"
