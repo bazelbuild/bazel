@@ -62,6 +62,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     Path tools = embeddedBinaries.getRelative("embedded_tools");
     tools.getRelative("tools/cpp").createDirectoryAndParents();
     tools.getRelative("tools/osx").createDirectoryAndParents();
+    tools.getRelative("tools/proto").createDirectoryAndParents();
     FileSystemUtils.writeIsoLatin1(tools.getRelative("WORKSPACE"), "");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/cpp/BUILD"), "");
     FileSystemUtils.writeIsoLatin1(
@@ -91,6 +92,11 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "def maybe(repo_rule, name, **kwargs):",
         "  if name not in native.existing_rules():",
         "    repo_rule(name = name, **kwargs)");
+    FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/proto/BUILD"));
+    FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/proto/toolchain.bzl"),
+        "def maybe_register_proto_toolchain():",
+        "  pass");
   }
 
   private void fetchExternalRepo(RepositoryName externalRepo) {
