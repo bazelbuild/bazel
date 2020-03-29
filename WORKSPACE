@@ -107,6 +107,19 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "zlib",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    build_file = "@io_bazel//third_party/zlib:BUILD.tools",
+    sha256 = "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
+    strip_prefix = "zlib-1.2.11",
+    urls = [
+        "https://mirror.bazel.build/zlib.net/zlib-1.2.11.tar.gz",
+        "https://zlib.net/zlib-1.2.11.tar.gz",
+    ],
+)
+
 # This is a mock version of bazelbuild/rules_python that contains only
 # @rules_python//python:defs.bzl. It is used by protobuf.
 # TODO(#9029): We could potentially replace this with the real @rules_python.
@@ -154,6 +167,7 @@ distdir_tar(
         "1.25.0.zip",
         "rules_nodejs-1.3.0.tar.gz",
         "android_tools_pkg-0.16.0.tar.gz",
+        "zlib-1.2.11.tar.gz",
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         # bazelbuild/platforms
@@ -184,6 +198,7 @@ distdir_tar(
         # rules_nodejs
         "rules_nodejs-1.3.0.tar.gz": "b6670f9f43faa66e3009488bbd909bc7bc46a5a9661a33f6bc578068d1837f37",
         "android_tools_pkg-0.16.0.tar.gz": "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361",
+        "zlib-1.2.11.tar.gz": "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
         # bazelbuild/platforms
@@ -232,6 +247,10 @@ distdir_tar(
         ],
         "android_tools_pkg-0.16.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.16.0.tar.gz",
+        ],
+        "zlib-1.2.11.tar.gz": [
+            "https://mirror.bazel.build/zlib.net/zlib-1.2.11.tar.gz",
+            "https://zlib.net/zlib-1.2.11.tar.gz",
         ],
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [

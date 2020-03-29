@@ -58,6 +58,7 @@ output_paths = [
     ('*src/minimal_jdk.tar.gz', lambda x: 'jdk.tar.gz'),
     ('*src/minimal_jdk.zip', lambda x: 'jdk.zip'),
     ('*.bzl.tools', lambda x: x[:-6]),
+    ('*external/zlib/*', lambda x: 'third_party/zlib' + x[len('external/zlib'):]),
     ('*', lambda x: re.sub(r'^.*bazel-out/[^/]*/bin/', '', x, count=1)),
 ]
 

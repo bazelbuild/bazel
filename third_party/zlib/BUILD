@@ -1,26 +1,24 @@
 licenses(["notice"])  #  BSD/MIT-like license
 
+exports_files(["BUILD.tools"])
+
+filegroup(
+    name = "build_files",
+    srcs = [
+        "BUILD.tools",
+        "LICENSE.txt",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//third_party:__pkg__"],
 )
 
-filegroup(
-    name = "embedded_tools",
-    srcs = glob(["*.c"]) + glob(["*.h"]) + ["BUILD"] + ["LICENSE.txt"],
-    visibility = ["//visibility:public"],
-)
-
-cc_library(
+alias(
     name = "zlib",
-    srcs = glob(["*.c"]),
-    hdrs = glob(["*.h"]),
-    # Use -Dverbose=-1 to turn off zlib's trace logging. (#3280)
-    copts = [
-        "-w",
-        "-Dverbose=-1",
-    ],
-    includes = ["."],
+    actual = "@zlib//:zlib",
     visibility = ["//visibility:public"],
 )

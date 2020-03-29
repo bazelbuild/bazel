@@ -126,7 +126,8 @@ JAVA_TOOLS = [
                "//src/main/native:embedded_tools",
                "//src/main/protobuf:srcs",
                "//third_party/def_parser:srcs",
-               "//third_party/zlib:embedded_tools",
+               "//third_party/zlib:build_files",
+               "@zlib//:embedded_tools",
            ] + select({
                "//src/conditions:darwin": [
                    ":darwin_tools",
@@ -714,7 +715,10 @@ JAVA_VERSIONS = ("11", "12")
 # Part of the Java tools remote archive. Not embedded or used in Bazel.
 genrule(
     name = "zlib_zip",
-    srcs = ["//third_party/zlib:embedded_tools"],
+    srcs = [
+        "//third_party/zlib:build_files",
+        "@zlib//:embedded_tools",
+    ],
     outs = ["zlib.zip"],
     cmd = "$(location //src:zip_files) zlib $@ $(SRCS)",
     tools = ["//src:zip_files"],
@@ -760,5 +764,6 @@ filegroup(
         "@rules_pkg//:WORKSPACE",
         "@rules_proto//:WORKSPACE",
         "@rules_python//:WORKSPACE",
+        "@zlib//:WORKSPACE",
     ],
 )

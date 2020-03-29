@@ -1,0 +1,26 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+licenses(["notice"])  #  BSD/MIT-like license
+
+SRCS = glob(["*.c"])
+
+HDRS = glob(["*.h"])
+
+filegroup(
+    name = "embedded_tools",
+    srcs = SRCS + HDRS,
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "zlib",
+    srcs = SRCS,
+    hdrs = HDRS,
+    # Use -Dverbose=-1 to turn off zlib's trace logging. (#3280)
+    copts = [
+        "-w",
+        "-Dverbose=-1",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)
