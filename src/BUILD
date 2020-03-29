@@ -161,8 +161,8 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 470,
-    margin = 5,  # percentage
+    expect = 500,
+    margin = 2,  # percentage
 )
 
 filegroup(
