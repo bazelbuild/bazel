@@ -20,10 +20,6 @@ java_library(
             "Type.java",
         ],
     ),
-    # TODO(katre): Remove this when all packages that depend on :type are updated.
-    exports = [
-        ":type",
-    ],
     deps = [
         ":type",
         "//src/main/java/com/google/devtools/build/lib:config-matching-provider",
