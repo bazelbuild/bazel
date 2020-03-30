@@ -18,7 +18,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
 import com.google.common.base.Preconditions;
 
 /**
- * Implementation of {@link SeparatorFinder} for Ninja files.
+ * Finds the border between two different Ninja declarations.
  *
  * <p>The Ninja declaration consists of several text lines; if the line is a part of the previous
  * declaration, it starts with some amount of spaces or tabs. If the line is the beginning of the
@@ -28,9 +28,7 @@ import com.google.common.base.Preconditions;
  * <p>We support '\r\n' separators in Ninja files and throw {@link IncorrectSeparatorException} in
  * case an incorrect separator '\r' is used.
  */
-public class NinjaSeparatorFinder implements SeparatorFinder {
-  public static final NinjaSeparatorFinder INSTANCE = new NinjaSeparatorFinder();
-
+public class NinjaSeparatorFinder {
   private static final byte DOLLAR_BYTE = '$';
   private static final byte LINEFEED_BYTE = '\r';
   private static final byte NEWLINE_BYTE = '\n';
@@ -39,8 +37,7 @@ public class NinjaSeparatorFinder implements SeparatorFinder {
 
   private NinjaSeparatorFinder() {}
 
-  @Override
-  public int findNextSeparator(FileFragment fragment, int startingFrom, int untilExcluded)
+  public static int findNextSeparator(FileFragment fragment, int startingFrom, int untilExcluded)
       throws IncorrectSeparatorException {
     Preconditions.checkState(startingFrom < fragment.length());
     Preconditions.checkState(untilExcluded < 0 || untilExcluded <= fragment.length());

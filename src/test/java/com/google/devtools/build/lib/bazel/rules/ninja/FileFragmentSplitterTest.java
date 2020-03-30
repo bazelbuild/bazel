@@ -23,7 +23,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationConsumer;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragmentSplitter;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -50,8 +49,7 @@ public class FileFragmentSplitterTest {
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);
     ByteBuffer buffer = ByteBuffer.wrap(chars);
     FileFragment fragment = new FileFragment(buffer, offsetValue, 0, chars.length);
-    FileFragmentSplitter tokenizer =
-        new FileFragmentSplitter(fragment, consumer, NinjaSeparatorFinder.INSTANCE);
+    FileFragmentSplitter tokenizer = new FileFragmentSplitter(fragment, consumer);
     List<FileFragment> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n");
     assertThat(
@@ -73,8 +71,7 @@ public class FileFragmentSplitterTest {
     DeclarationConsumer consumer = fragment -> result.add(fragment.toString());
 
     FileFragment fragment = new FileFragment(bytes, 0, 0, chars.length);
-    FileFragmentSplitter tokenizer =
-        new FileFragmentSplitter(fragment, consumer, NinjaSeparatorFinder.INSTANCE);
+    FileFragmentSplitter tokenizer = new FileFragmentSplitter(fragment, consumer);
     List<FileFragment> edges = tokenizer.call();
     assertThat(result).containsExactly("two\n\ttwo-detail\n");
     assertThat(

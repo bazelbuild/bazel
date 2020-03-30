@@ -26,7 +26,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.CollectingListFuture;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing.BlockParameters;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
@@ -215,8 +214,7 @@ public class NinjaPipeline {
                   pieces.add(parseResult);
                   return new NinjaParser(NinjaPipeline.this, parseResult, path.getBaseName());
                 },
-                service,
-                NinjaSeparatorFinder.INSTANCE);
+                service);
             return NinjaFileParseResult.merge(pieces);
           }
         });

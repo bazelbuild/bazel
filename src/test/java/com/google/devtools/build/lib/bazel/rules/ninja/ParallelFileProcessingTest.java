@@ -27,7 +27,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationConsumer;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing.BlockParameters;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -143,8 +142,7 @@ public class ParallelFileProcessingTest {
           channel,
           parameters != null ? parameters : new BlockParameters(file.length()),
           factory,
-          service,
-          NinjaSeparatorFinder.INSTANCE);
+          service);
     } finally {
       ExecutorUtil.interruptibleShutdown(service);
     }
