@@ -400,7 +400,7 @@ public class GrpcServerTest {
     assertThat(secondResponse.get().hasFailureDetail()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().hasInterrupted()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().getInterrupted().getCode())
-        .isEqualTo(Interrupted.Code.INTERRUPTED_UNSPECIFIED);
+        .isEqualTo(Interrupted.Code.INTERRUPTED_UNKNOWN);
   }
 
   @Test

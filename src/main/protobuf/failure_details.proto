@@ -98,7 +98,7 @@ message FailureDetail {
 message Interrupted {
   enum Code {
     // Interrupted at an unspecified time.
-    INTERRUPTED_UNSPECIFIED = 0 [(metadata) = { exit_code: 8 }];
+    INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
 
     reserved 1; // For internal use
 

@@ -618,7 +618,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
               FailureDetail.newBuilder()
                   .setMessage("interrupted")
                   .setInterrupted(
-                      Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED_UNSPECIFIED))
+                      Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED_UNKNOWN))
                   .build());
       commandId = ""; // The default value, the client will ignore it
     }

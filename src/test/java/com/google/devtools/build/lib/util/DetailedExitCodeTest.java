@@ -33,7 +33,7 @@ public class DetailedExitCodeTest {
                 FailureDetail.newBuilder()
                     .setMessage("interrupted")
                     .setInterrupted(
-                        Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED_UNSPECIFIED))
+                        Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED_UNKNOWN))
                     .build()))
         .hasExitCode(ExitCode.INTERRUPTED);
   }
