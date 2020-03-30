@@ -879,6 +879,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.buildRunfilesManifests = buildRunfilesManifests;
     host.buildRunfiles = buildRunfiles;
     host.legacyExternalRunfiles = legacyExternalRunfiles;
+    host.remotableSourceManifestActions = remotableSourceManifestActions;
+    host.skipRunfilesManifests = skipRunfilesManifests;
 
     // === Filesets ===
     host.strictFilesetOutput = strictFilesetOutput;
