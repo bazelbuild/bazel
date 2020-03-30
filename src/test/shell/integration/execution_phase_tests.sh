@@ -365,4 +365,22 @@ EOF
   :  # So the exit code of the test is not inferred from that of "-r" above
 }
 
+# Trivial test to verify that the various flags that specify resource limits
+# accept the same syntax.
+function test_resource_flags_syntax() {
+  local threads=HOST_CPUS*0.8
+  local ram=HOST_RAM*0.8
+  # TODO(jmmv): The IncludeScanningModule is present in Bazel but is not
+  # part of the build, so this flag, which we should test here, isn't
+  # available: --experimental_include_scanning_parallelism="${threads}"
+  bazel build --nobuild \
+      --experimental_sandbox_async_tree_delete_idle_threads="${threads}" \
+      --jobs="${threads}" \
+      --loading_phase_threads="${threads}" \
+      --local_cpu_resources="${threads}" \
+      --local_ram_resources="${ram}" \
+      --local_test_jobs="${threads}" \
+      || fail "Empty build failed"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."
