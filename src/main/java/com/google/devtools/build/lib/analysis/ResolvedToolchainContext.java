@@ -166,7 +166,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
       try {
         return Label.parseAbsolute((String) key, repoMapping);
       } catch (LabelSyntaxException e) {
-        throw Starlark.errorf("Unable to parse toolchain %s: %s", key, e.getMessage());
+        throw Starlark.errorf("Unable to parse toolchain label '%s': %s", key, e.getMessage());
       }
     } else {
       throw Starlark.errorf(

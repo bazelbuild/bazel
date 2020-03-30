@@ -365,9 +365,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
         thread.getTransitiveContentHashCode());
 
-    builder.addRequiredToolchains(
-        collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"), bazelContext.getRepoMapping()));
+    builder.addRequiredToolchains(parseToolchains(toolchains, thread));
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
       throw Starlark.errorf(
@@ -401,10 +399,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     if (!execCompatibleWith.isEmpty()) {
-      builder.addExecutionPlatformConstraints(
-          collectConstraintLabels(
-              execCompatibleWith.getContents(String.class, "exec_compatile_with"),
-              bazelContext.getRepoMapping()));
+      builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
     }
 
     return new SkylarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
@@ -442,37 +437,46 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
   }
 
-  private static ImmutableList<Label> collectToolchainLabels(
-      Iterable<String> rawLabels, ImmutableMap<RepositoryName, RepositoryName> mapping)
+  /**
+   * Parses a sequence of label strings with a repo mapping.
+   *
+   * @param inputs sequence of input strings
+   * @param mapping repository mapping
+   * @param adjective describes the purpose of the label; used for errors
+   * @throws EvalException if the label can't be parsed
+   */
+  private static ImmutableList<Label> parseLabels(
+      Iterable<String> inputs,
+      ImmutableMap<RepositoryName, RepositoryName> mapping,
+      String adjective)
       throws EvalException {
-    ImmutableList.Builder<Label> requiredToolchains = new ImmutableList.Builder<>();
-    for (String rawLabel : rawLabels) {
+    ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
+    for (String input : inputs) {
       try {
-        Label toolchainLabel = Label.parseAbsolute(rawLabel, mapping);
-        requiredToolchains.add(toolchainLabel);
+        Label label = Label.parseAbsolute(input, mapping);
+        parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
-        throw new EvalException(
-            null, String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()), e);
+        throw Starlark.errorf(
+            "Unable to parse %s label '%s': %s", adjective, input, e.getMessage());
       }
     }
-
-    return requiredToolchains.build();
+    return parsedLabels.build();
   }
 
-  private static ImmutableList<Label> collectConstraintLabels(
-      Iterable<String> rawLabels, ImmutableMap<RepositoryName, RepositoryName> mapping)
+  private static ImmutableList<Label> parseToolchains(Sequence<?> inputs, StarlarkThread thread)
       throws EvalException {
-    ImmutableList.Builder<Label> constraintLabels = new ImmutableList.Builder<>();
-    for (String rawLabel : rawLabels) {
-      try {
-        Label constraintLabel = Label.parseAbsolute(rawLabel, mapping);
-        constraintLabels.add(constraintLabel);
-      } catch (LabelSyntaxException e) {
-        throw Starlark.errorf("Unable to parse constraint %s: %s", rawLabel, e.getMessage());
-      }
-    }
+    return parseLabels(
+        inputs.getContents(String.class, "toolchains"),
+        BazelStarlarkContext.from(thread).getRepoMapping(),
+        "toolchain");
+  }
 
-    return constraintLabels.build();
+  private static ImmutableList<Label> parseExecCompatibleWith(
+      Sequence<?> inputs, StarlarkThread thread) throws EvalException {
+    return parseLabels(
+        inputs.getContents(String.class, "exec_compatible_with"),
+        BazelStarlarkContext.from(thread).getRepoMapping(),
+        "constraint");
   }
 
   @Override
@@ -569,9 +573,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
-        collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"),
-            BazelStarlarkContext.from(thread).getRepoMapping()),
+        parseToolchains(toolchains, thread),
         applyToGeneratingRules);
   }
 
