@@ -61,7 +61,7 @@ public class DirectoryTreeTest {
   public void setup() {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("srcs"));
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, "srcs");
     digestUtil = new DigestUtil(fs.getDigestFunction());
   }
 

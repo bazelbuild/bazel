@@ -941,7 +941,7 @@ public class RemoteSpawnRunnerTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
 
-    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("outs"));
+    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, "outs");
     Artifact topLevelOutput =
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("foo.bin"));
 

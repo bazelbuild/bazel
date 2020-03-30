@@ -50,7 +50,7 @@ public class ArtifactRootTest {
   public void testAsDerivedRoot() throws IOException {
     Path execRoot = scratch.dir("/exec");
     Path rootDir = scratch.dir("/exec/root");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, rootDir);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, "root");
     assertThat(root.isSourceRoot()).isFalse();
     assertThat(root.getExecPath()).isEqualTo(PathFragment.create("root"));
     assertThat(root.getRoot()).isEqualTo(Root.fromPath(rootDir));
@@ -58,18 +58,23 @@ public class ArtifactRootTest {
   }
 
   @Test
-  public void testBadAsDerivedRoot() throws IOException {
+  public void emptyExecPathNotOk() throws IOException {
     Path execRoot = scratch.dir("/exec");
-    Path outsideDir = scratch.dir("/not_exec");
-    assertThrows(
-        IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, outsideDir));
+    assertThrows(IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, ""));
   }
 
   @Test
-  public void testBadAsDerivedRootSameForBoth() throws IOException {
+  public void emptySegmentOk() throws IOException {
+    Path execRoot = scratch.dir("/exec");
+    assertThat(ArtifactRoot.asDerivedRoot(execRoot, "", "suffix", ""))
+        .isEqualTo(ArtifactRoot.asDerivedRoot(execRoot, "suffix"));
+  }
+
+  @Test
+  public void segmentsAreSingles() throws IOException {
     Path execRoot = scratch.dir("/exec");
     assertThrows(
-        IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, execRoot));
+        IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, "suffix/"));
   }
 
   @Test
@@ -79,22 +84,24 @@ public class ArtifactRootTest {
   }
 
   @Test
-  public void testBadAsDerivedRootNullExecRoot() throws IOException {
-    Path execRoot = scratch.dir("/exec");
-    assertThrows(NullPointerException.class, () -> ArtifactRoot.asDerivedRoot(null, execRoot));
+  public void testBadAsDerivedRootNullExecRoot() {
+    assertThrows(NullPointerException.class, () -> ArtifactRoot.asDerivedRoot(null, "exec"));
   }
 
   @Test
   public void testEquals() throws IOException {
     Path execRoot = scratch.dir("/exec");
-    Path rootDir = scratch.dir("/exec/root");
+    String rootSegment = "root";
+    Path rootDir = execRoot.getChild(rootSegment);
+    rootDir.createDirectoryAndParents();
     Path otherRootDir = scratch.dir("/");
     Path sourceDir = scratch.dir("/source");
-    ArtifactRoot rootA = ArtifactRoot.asDerivedRoot(execRoot, rootDir);
-    assertEqualsAndHashCode(true, rootA, ArtifactRoot.asDerivedRoot(execRoot, rootDir));
+    ArtifactRoot rootA = ArtifactRoot.asDerivedRoot(execRoot, rootSegment);
+    assertEqualsAndHashCode(true, rootA, ArtifactRoot.asDerivedRoot(execRoot, rootSegment));
     assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(Root.fromPath(sourceDir)));
     assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(Root.fromPath(rootDir)));
-    assertEqualsAndHashCode(false, rootA, ArtifactRoot.asDerivedRoot(otherRootDir, rootDir));
+    assertEqualsAndHashCode(
+        false, rootA, ArtifactRoot.asDerivedRoot(otherRootDir, "exec", rootSegment));
   }
 
   public void assertEqualsAndHashCode(boolean expected, Object a, Object b) {

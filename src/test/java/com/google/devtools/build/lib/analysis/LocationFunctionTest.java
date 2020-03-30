@@ -192,8 +192,7 @@ final class LocationFunctionBuilder {
     FileSystem fs = new InMemoryFileSystem();
     if (path.startsWith("/exec/out")) {
       return ActionsTestUtil.createArtifact(
-          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), fs.getPath("/exec/out")),
-          fs.getPath(path));
+          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), "out"), fs.getPath(path));
     } else {
       return ActionsTestUtil.createArtifact(
           ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/exec"))), fs.getPath(path));

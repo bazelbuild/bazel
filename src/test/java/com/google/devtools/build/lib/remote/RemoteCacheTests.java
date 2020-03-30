@@ -111,7 +111,7 @@ public class RemoteCacheTests {
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
     fakeFileCache = new FakeActionInputFileCache(execRoot);
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getChild("outputs"));
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, "outputs");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }

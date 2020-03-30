@@ -14,12 +14,10 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
@@ -29,7 +27,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.Serializable;
 import java.util.Objects;
-import javax.annotation.Nullable;
 
 /**
  * A root for an artifact. The roots are the directories containing artifacts, and they are mapped
@@ -61,11 +58,6 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     return new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source);
   }
 
-  public static ArtifactRoot asExternalSourceRoot(Root root) {
-    return new ArtifactRoot(
-        root, LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX, RootType.Source);
-  }
-
   /**
    * Constructs an ArtifactRoot given the output prefixes. (eg, "bin"), and (eg, "testlogs")
    * relative to the execRoot.
@@ -73,29 +65,18 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * <p>Be careful with this method - all derived roots must be registered with the artifact factory
    * before the analysis phase.
    */
-  public static ArtifactRoot asDerivedRoot(Path execRoot, PathFragment... prefixes) {
+  public static ArtifactRoot asDerivedRoot(Path execRoot, String... prefixes) {
     Path root = execRoot;
-    for (PathFragment prefix : prefixes) {
-      root = root.getRelative(prefix);
+    for (String prefix : prefixes) {
+      // Tests can have empty segments here, be gentle to them.
+      if (!prefix.isEmpty()) {
+        root = root.getChild(prefix);
+      }
     }
     Preconditions.checkArgument(root.startsWith(execRoot));
     Preconditions.checkArgument(!root.equals(execRoot));
     PathFragment execPath = root.relativeTo(execRoot);
-    return INTERNER.intern(
-        new ArtifactRoot(
-            Root.fromPath(root), execPath, RootType.Output, ImmutableList.copyOf(prefixes)));
-  }
-
-  /**
-   * Returns the given path as a derived root, relative to the given exec root. The root must be a
-   * proper sub-directory of the exec root (i.e. not equal). Neither may be {@code null}.
-   *
-   * <p>Be careful with this method - all derived roots must be registered with the artifact factory
-   * before the analysis phase.
-   */
-  @VisibleForTesting
-  public static ArtifactRoot asDerivedRoot(Path execRoot, Path root) {
-    return asDerivedRoot(execRoot, root.relativeTo(execRoot));
+    return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, RootType.Output));
   }
 
   public static ArtifactRoot middlemanRoot(Path execRoot, Path outputDir) {
@@ -108,9 +89,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
-  static ArtifactRoot createForSerialization(
-      Root root, PathFragment execPath, RootType rootType, ImmutableList<PathFragment> components) {
-    return INTERNER.intern(new ArtifactRoot(root, execPath, rootType, components));
+  static ArtifactRoot createForSerialization(Root root, PathFragment execPath, RootType rootType) {
+    return INTERNER.intern(new ArtifactRoot(root, execPath, rootType));
   }
 
   @AutoCodec.VisibleForSerialization
@@ -123,18 +103,11 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   private final Root root;
   private final PathFragment execPath;
   private final RootType rootType;
-  @Nullable private final ImmutableList<PathFragment> components;
 
-  private ArtifactRoot(
-      Root root, PathFragment execPath, RootType rootType, ImmutableList<PathFragment> components) {
+  private ArtifactRoot(Root root, PathFragment execPath, RootType rootType) {
     this.root = Preconditions.checkNotNull(root);
     this.execPath = execPath;
     this.rootType = rootType;
-    this.components = components;
-  }
-
-  private ArtifactRoot(Root root, PathFragment execPath, RootType rootType) {
-    this(root, execPath, rootType, /* components= */ null);
   }
 
   public Root getRoot() {
@@ -154,8 +127,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     return getExecPath().getPathString();
   }
 
-  public ImmutableList<PathFragment> getComponents() {
-    return components;
+  public ImmutableList<String> getComponents() {
+    return execPath.getSegments();
   }
 
   public boolean isSourceRoot() {
@@ -173,7 +146,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
 
   @Override
   public int hashCode() {
-    return Objects.hash(root, execPath, rootType, components);
+    return Objects.hash(root, execPath, rootType);
   }
 
   @Override
@@ -185,10 +158,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
       return false;
     }
     ArtifactRoot r = (ArtifactRoot) o;
-    return root.equals(r.root)
-        && execPath.equals(r.execPath)
-        && rootType == r.rootType
-        && Objects.equals(components, r.components);
+    return root.equals(r.root) && execPath.equals(r.execPath) && rootType == r.rootType;
   }
 
   @Override

@@ -257,6 +257,11 @@ public final class ActionsTestUtil {
     }
   }
 
+  public static ArtifactRoot createArtifactRootFromTwoPaths(Path root, Path execPath) {
+    return ArtifactRoot.asDerivedRoot(
+        root, execPath.relativeTo(root).getSegments().toArray(new String[0]));
+  }
+
   /**
    * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
    * requested keys, blocking until the values are ready.

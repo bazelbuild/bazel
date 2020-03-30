@@ -333,10 +333,7 @@ public final class TargetCompleteEvent
                 name == null
                     ? artifact.getRootRelativePath().getRelative(relPath).getPathString()
                     : name);
-    if (artifact.getRoot().getComponents() != null) {
-      builder.addAllPathPrefix(
-          Iterables.transform(artifact.getRoot().getComponents(), PathFragment::getPathString));
-    }
+    builder.addAllPathPrefix(artifact.getRoot().getComponents());
     return builder;
   }
 
