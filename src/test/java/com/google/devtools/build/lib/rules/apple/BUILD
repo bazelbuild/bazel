@@ -21,6 +21,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/protobuf:xcode_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
