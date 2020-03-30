@@ -376,6 +376,7 @@ function test_resource_flags_syntax() {
   bazel build --nobuild \
       --experimental_sandbox_async_tree_delete_idle_threads="${threads}" \
       --jobs="${threads}" \
+      --legacy_globbing_threads="${threads}" \
       --loading_phase_threads="${threads}" \
       --local_cpu_resources="${threads}" \
       --local_ram_resources="${ram}" \
