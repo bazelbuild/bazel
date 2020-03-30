@@ -17,9 +17,15 @@ java_library(
         exclude = [
             "BuilderFactoryForTesting.java",
             "StarlarkSemanticsOptions.java",
+            "Type.java",
         ],
     ),
+    # TODO(katre): Remove this when all packages that depend on :type are updated.
+    exports = [
+        ":type",
+    ],
     deps = [
+        ":type",
         "//src/main/java/com/google/devtools/build/lib:config-matching-provider",
         "//src/main/java/com/google/devtools/build/lib:config-transitions",
         "//src/main/java/com/google/devtools/build/lib:events",
@@ -77,5 +83,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "type",
+    srcs = [
+        "Type.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:logging-util",
+        "//src/main/java/com/google/devtools/build/lib:string_util",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
