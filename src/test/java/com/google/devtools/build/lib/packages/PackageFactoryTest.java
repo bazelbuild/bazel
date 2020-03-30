@@ -21,19 +21,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -43,12 +39,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,42 +49,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PackageFactoryTest extends PackageFactoryTestBase {
 
-  @Override
-  public List<EnvironmentExtension> getEnvironmentExtensions() {
-    return ImmutableList.of();
-  }
-
   @Test
   public void testCreatePackage() throws Exception {
     Path buildFile = scratch.file("/pkgname/BUILD", "# empty build file ");
     Package pkg = packages.createPackage("pkgname", RootedPath.toRootedPath(root, buildFile));
     assertThat(pkg.getName()).isEqualTo("pkgname");
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class))).isEmpty();
-  }
-
-  @Test
-  public void testCreatePackageIsolatedFromOuterErrors() throws Exception {
-    ExecutorService e = Executors.newCachedThreadPool();
-
-    final Semaphore beforeError = new Semaphore(0);
-    final Semaphore afterError = new Semaphore(0);
-    Reporter reporter = new Reporter(new EventBus());
-    ParsingTracker parser = new ParsingTracker(beforeError, afterError, reporter);
-    final Logger log = Logger.getLogger(PackageFactory.class.getName());
-    log.addHandler(parser);
-    Level originalLevel = log.getLevel();
-    log.setLevel(Level.FINE);
-
-    e.execute(new ErrorReporter(reporter, beforeError, afterError));
-    e.execute(parser);
-
-    // wait for all to finish
-    e.shutdown();
-    assertThat(e.awaitTermination(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS))
-        .isTrue();
-    log.removeHandler(parser);
-    log.setLevel(originalLevel);
-    assertThat(parser.hasParsed()).isTrue();
   }
 
   @Test
@@ -1218,11 +1178,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     expectEvalError(
         "'//foo:foo' is duplicated in the 'default_restricted_to' list",
         "package(default_restricted_to=['//foo', '//bar', '//foo'])");
-  }
-
-  @Override
-  protected String getPathPrefix() {
-    return "";
   }
 
   @Test

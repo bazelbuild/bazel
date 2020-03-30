@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternExcept
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -1207,8 +1208,16 @@ public class PackageFunction implements SkyFunction {
           // See the javadoc for ActionOnIOExceptionReadingBuildFile.
         }
         input = ParserInput.create(buildFileBytes, inputFile.toString());
-        file =
-            PackageFactory.parseBuildFile(packageId, input, preludeStatements, starlarkSemantics);
+
+        // Options for processing BUILD files.
+        FileOptions options =
+            FileOptions.builder()
+                .recordScope(false) // don't mutate BUILD syntax tree due to shared prelude
+                .requireLoadStatementsFirst(false)
+                .allowToplevelRebinding(true)
+                .restrictStringEscapes(starlarkSemantics.incompatibleRestrictStringEscapes())
+                .build();
+        file = StarlarkFile.parseWithPrelude(input, preludeStatements, options);
         fileSyntaxCache.put(packageId, file);
       }
       SkylarkImportResult importResult;

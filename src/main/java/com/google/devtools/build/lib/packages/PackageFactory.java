@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
-import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
@@ -81,7 +80,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -93,10 +91,7 @@ import javax.annotation.Nullable;
  */
 public final class PackageFactory {
 
-  // Used only for a single test (that looks long obsolete).
-  private static final Logger logger = Logger.getLogger(PackageFactory.class.getName());
-
-  private static final GoogleLogger glogger = GoogleLogger.forEnclosingClass();
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An extension to the global namespace of the BUILD language. */
   // TODO(bazel-team): this is largely unrelated to syntax.StarlarkThread.Extension,
@@ -400,30 +395,6 @@ public final class PackageFactory {
   }
 
   // Exposed to skyframe.PackageFunction.
-  public static StarlarkFile parseBuildFile(
-      PackageIdentifier packageId,
-      ParserInput input,
-      List<Statement> preludeStatements,
-      StarlarkSemantics semantics) {
-    // Options for processing BUILD files.
-    FileOptions options =
-        FileOptions.builder()
-            .recordScope(false) // don't mutate BUILD syntax trees due to shared prelude
-            .requireLoadStatementsFirst(false)
-            .allowToplevelRebinding(true)
-            .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
-            .build();
-
-    // Log messages are expected as signs of progress by a single very old test:
-    // testCreatePackageIsolatedFromOuterErrors, see CL 6198296.
-    // Removing them will cause it to time out. TODO(adonovan): clean this up.
-    logger.fine("Starting to parse " + packageId);
-    StarlarkFile file = StarlarkFile.parseWithPrelude(input, preludeStatements, options);
-    logger.fine("Finished parsing of " + packageId);
-    return file;
-  }
-
-  // Exposed to skyframe.PackageFunction.
   public Package.Builder createPackageFromAst(
       String workspaceName,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
@@ -527,9 +498,14 @@ public final class PackageFactory {
     ParserInput input =
         ParserInput.create(
             FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().toString());
-    StarlarkFile file =
-        parseBuildFile(
-            packageId, input, /*preludeStatements=*/ ImmutableList.<Statement>of(), semantics);
+    // Options for processing BUILD files. (No prelude, so recordScope(true) is safe.)
+    FileOptions options =
+        FileOptions.builder()
+            .requireLoadStatementsFirst(false)
+            .allowToplevelRebinding(true)
+            .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
+            .build();
+    StarlarkFile file = StarlarkFile.parse(input, options);
     Package result =
         createPackageFromAst(
                 externalPkg.getWorkspaceName(),
@@ -689,7 +665,7 @@ public final class PackageFactory {
     // Write a log message for BUILD files with more than 1e6 steps
     // (approximately the top 1% in Google's code base).
     if (steps > 1_000_000) {
-      glogger.atInfo().log(
+      logger.atInfo().log(
           "%s: BUILD file computation took %d steps", pkg.getPackageIdentifier(), steps);
     }
 

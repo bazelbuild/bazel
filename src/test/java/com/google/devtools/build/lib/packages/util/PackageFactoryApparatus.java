@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.util.List;
 
 /**
  * An apparatus that creates / maintains a {@link PackageFactory}.
@@ -55,22 +53,17 @@ public class PackageFactoryApparatus {
   private final PackageFactory factory;
 
   public PackageFactoryApparatus(ExtendedEventHandler eventHandler) {
-    this(
-        eventHandler,
-        /*environmentExtensions=*/ ImmutableList.of(),
-        PackageValidator.NOOP_VALIDATOR);
+    this(eventHandler, PackageValidator.NOOP_VALIDATOR);
   }
 
   public PackageFactoryApparatus(
-      ExtendedEventHandler eventHandler,
-      List<EnvironmentExtension> environmentExtensions,
-      PackageValidator packageValidator) {
+      ExtendedEventHandler eventHandler, PackageValidator packageValidator) {
     this.eventHandler = eventHandler;
     RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     factory =
         new PackageFactory(
             ruleClassProvider,
-            ImmutableList.copyOf(environmentExtensions),
+            /*environmentExtensions=*/ ImmutableList.of(),
             "test",
             Package.Builder.DefaultHelper.INSTANCE,
             packageValidator);
