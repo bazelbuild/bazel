@@ -24,14 +24,12 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
@@ -133,11 +131,12 @@ public final class SandboxModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment cmdEnv, BuildRequest request, ExecutorBuilder builder)
+  public void registerSpawnStrategies(
+      SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
       throws ExecutorInitException {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
     try {
-      setup(cmdEnv, builder);
+      setup(env, registryBuilder);
     } catch (IOException e) {
       throw new ExecutorInitException("Failed to initialize sandbox", e);
     }
@@ -175,7 +174,7 @@ public final class SandboxModule extends BlazeModule {
     throw new IllegalStateException("Not reachable");
   }
 
-  private void setup(CommandEnvironment cmdEnv, ExecutorBuilder builder)
+  private void setup(CommandEnvironment cmdEnv, SpawnStrategyRegistry.Builder builder)
       throws IOException {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
     sandboxBase = computeSandboxBase(options, env);
@@ -279,8 +278,7 @@ public final class SandboxModule extends BlazeModule {
                   options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(
-          SpawnStrategy.class,
+      builder.registerStrategy(
           new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
           "sandboxed",
           "processwrapper-sandbox");
@@ -308,10 +306,8 @@ public final class SandboxModule extends BlazeModule {
                     useCustomizedImages,
                     treeDeleter));
         spawnRunners.add(spawnRunner);
-        builder.addActionContext(
-            SpawnStrategy.class,
-            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
-            "docker");
+        builder.registerStrategy(
+            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner), "docker");
       }
     } else if (options.dockerVerbose) {
       cmdEnv.getReporter().handle(Event.info(
@@ -333,8 +329,7 @@ public final class SandboxModule extends BlazeModule {
                   options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(
-          SpawnStrategy.class,
+      builder.registerStrategy(
           new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
           "sandboxed",
           "linux-sandbox");
@@ -354,8 +349,7 @@ public final class SandboxModule extends BlazeModule {
                   options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(
-          SpawnStrategy.class,
+      builder.registerStrategy(
           new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
           "sandboxed",
           "darwin-sandbox");
@@ -368,8 +362,7 @@ public final class SandboxModule extends BlazeModule {
               new WindowsSandboxedSpawnRunner(
                   helpers, cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(
-          SpawnStrategy.class,
+      builder.registerStrategy(
           new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
           "sandboxed",
           "windows-sandbox");
@@ -379,13 +372,9 @@ public final class SandboxModule extends BlazeModule {
         || linuxSandboxSupported
         || darwinSandboxSupported
         || windowsSandboxSupported) {
-      // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
-      // but it is not necessarily the default.
-      builder.addStrategyByContext(SpawnStrategy.class, "sandboxed");
-
       // This makes the "sandboxed" strategy the default Spawn strategy, unless it is
       // overridden by a later BlazeModule.
-      builder.addStrategyByMnemonic("", ImmutableList.of("sandboxed"));
+      builder.setDefaultStrategies(ImmutableList.of("sandboxed"));
     }
   }
 
