@@ -229,15 +229,9 @@ public abstract class FileSystem {
   public void deleteTreesBelow(Path dir) throws IOException {
     if (dir.isDirectory(Symlinks.NOFOLLOW)) {
       Collection<Path> entries;
-      try {
-        entries = dir.getDirectoryEntries();
-      } catch (IOException e) {
-        // If we couldn't read the directory, it may be because it's not readable. Try granting this
-        // permission and retry. If the retry fails, give up.
-        dir.setReadable(true);
-        dir.setExecutable(true);
-        entries = dir.getDirectoryEntries();
-      }
+      dir.setReadable(true);
+      dir.setExecutable(true);
+      entries = dir.getDirectoryEntries();
 
       Iterator<Path> iterator = entries.iterator();
       if (iterator.hasNext()) {

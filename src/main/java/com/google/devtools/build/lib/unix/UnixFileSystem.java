@@ -430,6 +430,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
       long startTime = Profiler.nanoTimeMaybe();
       try {
         NativePosixFiles.deleteTreesBelow(dir.toString());
+      } catch (IOException e) {
+        // retry with less efficient but more powerful generic implementation
+        super.deleteTreesBelow(dir);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());
       }
