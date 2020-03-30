@@ -628,38 +628,38 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
       PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithNinjaActions);
 
       assertThat(
-              parseWorkspaceFileValue("dont_symlink_directories_in_execroot(paths = [\"out\"])")
+              parseWorkspaceFileValue("toplevel_output_directories(paths = [\"out\"])")
                   .getDoNotSymlinkInExecrootPaths())
           .containsExactly("out");
       assertThat(
               parseWorkspaceFileValue(
-                      "dont_symlink_directories_in_execroot(paths = [\"out\", \"one more with"
+                      "toplevel_output_directories(paths = [\"out\", \"one more with"
                           + " space\"])")
                   .getDoNotSymlinkInExecrootPaths())
           .containsExactly("out", "one more with space");
       // Empty sequence is allowed.
       assertThat(
-              parseWorkspaceFileValue("dont_symlink_directories_in_execroot(paths = [])")
+              parseWorkspaceFileValue("toplevel_output_directories(paths = [])")
                   .getDoNotSymlinkInExecrootPaths())
           .isEmpty();
 
       parseWorkspaceFileValueWithError(
-          "dont_symlink_directories_in_execroot should not "
+          "toplevel_output_directories should not "
               + "contain duplicate values: \"out\" is specified more then once.",
-          "dont_symlink_directories_in_execroot(paths = [\"out\", \"out\"])");
+          "toplevel_output_directories(paths = [\"out\", \"out\"])");
       parseWorkspaceFileValueWithError(
-          "dont_symlink_directories_in_execroot can only accept "
+          "toplevel_output_directories can only accept "
               + "top level directories under workspace, \"out/subdir\" "
               + "can not be specified as an attribute.",
-          "dont_symlink_directories_in_execroot(paths = [\"out/subdir\"])");
+          "toplevel_output_directories(paths = [\"out/subdir\"])");
       parseWorkspaceFileValueWithError(
-          "Empty path can not be passed to " + "dont_symlink_directories_in_execroot.",
-          "dont_symlink_directories_in_execroot(paths = [\"\"])");
+          "Empty path can not be passed to " + "toplevel_output_directories.",
+          "toplevel_output_directories(paths = [\"\"])");
       parseWorkspaceFileValueWithError(
-          "dont_symlink_directories_in_execroot can only "
+          "toplevel_output_directories can only "
               + "accept top level directories under workspace, \"/usr/local/bin\" "
               + "can not be specified as an attribute.",
-          "dont_symlink_directories_in_execroot(paths = [\"/usr/local/bin\"])");
+          "toplevel_output_directories(paths = [\"/usr/local/bin\"])");
     } finally {
       PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
     }

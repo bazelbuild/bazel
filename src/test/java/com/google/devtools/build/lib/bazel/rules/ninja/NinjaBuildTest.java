@@ -59,7 +59,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
 
   @Test
   public void testSourceFileNotInSubtree() throws Exception {
-    rewriteWorkspace("dont_symlink_directories_in_execroot(paths=['out'])");
+    rewriteWorkspace("toplevel_output_directories(paths=['out'])");
 
     scratch.file("a/n.ninja", "rule cp", " command = cp $in $out", "build out/o: cp subdir/i");
 
@@ -77,8 +77,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testNinjaBuildRule() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/input.txt", "World");
     scratch.file(
@@ -118,8 +117,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRuleWithPhonyTarget() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/input.txt", "World");
     scratch.file(
@@ -161,8 +159,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRuleWithPhonyTree() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/a.txt", "A");
     scratch.file("build_config/b.txt", "B");
@@ -257,8 +254,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testDepsMapping() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("input.txt", "World");
     scratch.file(
@@ -305,8 +301,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testOnlySubGraphIsCreated() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/a.txt", "A");
     scratch.file("build_config/b.txt", "B");
@@ -357,8 +352,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testRuleWithDepfileVariable() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("input");
     scratch.file(
@@ -395,8 +389,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testCreateOutputSymlinkArtifacts() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file(
         "build_config/build.ninja",
@@ -434,8 +427,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testCreateIntermediateOutputSymlinkArtifacts() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file(
         "build_config/build.ninja",
@@ -476,8 +468,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testOutputRootInputsWithConflictingNinjaActionOutput() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/hello.txt", "hello");
     scratch.file(
@@ -516,8 +507,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
       throws Exception {
 
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/hello.txt", "hello");
     scratch.file(

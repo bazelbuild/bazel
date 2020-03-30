@@ -37,7 +37,7 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
         .write(
             WORKSPACE,
             String.format("workspace(name = '%s')", testName.getMethodName()),
-            "dont_symlink_directories_in_execroot(paths = ['build_dir'])");
+            "toplevel_output_directories(paths = ['build_dir'])");
   }
 
   @Test
@@ -102,8 +102,7 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
 
     BuilderRunner bazel = context().bazel();
     ProcessResult result = bazel.shouldFail().build("//:ninja_target");
-    assertThat(result.errString())
-        .contains("name 'dont_symlink_directories_in_execroot' is not defined");
+    assertThat(result.errString()).contains("name 'toplevel_output_directories' is not defined");
     assertThat(result.errString()).contains("FAILED: Build did NOT complete successfully");
   }
 

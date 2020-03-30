@@ -269,7 +269,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
           "output_root",
           String.format(
               "Ninja output root directory '%s' must be declared"
-                  + " using global workspace function dont_symlink_directories_in_execroot().",
+                  + " using global workspace function toplevel_output_directories().",
               outputRoot.getPathString()));
     }
 

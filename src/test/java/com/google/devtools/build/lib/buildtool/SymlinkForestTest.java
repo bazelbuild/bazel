@@ -706,7 +706,7 @@ public class SymlinkForestTest {
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo(
-            "Directories specified with dont_symlink_directories_in_execroot should be "
+            "Directories specified with toplevel_output_directories should be "
                 + "ignored and can not be used as sources.");
   }
 
@@ -743,7 +743,7 @@ public class SymlinkForestTest {
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo(
-            "dont_symlink_directories_in_execroot is not supported together "
+            "toplevel_output_directories is not supported together "
                 + "with --package_path option.");
   }
 }

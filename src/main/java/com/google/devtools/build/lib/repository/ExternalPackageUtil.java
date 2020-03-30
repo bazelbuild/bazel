@@ -40,8 +40,8 @@ public class ExternalPackageUtil {
   /**
    * Returns directories, that should not be symlinked under the execroot.
    *
-   * <p>Searches for dont_symlink_directories_in_execroot calls in the WORKSPACE file, and gathers
-   * values of all "paths" attributes.
+   * <p>Searches for toplevel_output_directories calls in the WORKSPACE file, and gathers values of
+   * all "paths" attributes.
    */
   public static ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories(Environment env)
       throws InterruptedException {
