@@ -10,17 +10,32 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+TYPE_SRCS = ["Type.java"]
+
+BUILD_TYPE_SRCS = [
+    "BuildType.java",
+    "FilesetEntry.java",
+    "License.java",
+    "SelectorList.java",
+    "SelectorValue.java",
+    "TriState.java",
+]
+
 java_library(
     name = "packages",
     srcs = glob(
         ["*.java"],
-        exclude = [
+        exclude = TYPE_SRCS + BUILD_TYPE_SRCS + [
             "BuilderFactoryForTesting.java",
             "StarlarkSemanticsOptions.java",
-            "Type.java",
         ],
     ),
+    # TODO(katre): Remove this when all dependencies are updated.
+    exports = [
+        ":build_type",
+    ],
     deps = [
+        ":build_type",
         ":type",
         "//src/main/java/com/google/devtools/build/lib:config-matching-provider",
         "//src/main/java/com/google/devtools/build/lib:config-transitions",
@@ -84,9 +99,7 @@ java_library(
 
 java_library(
     name = "type",
-    srcs = [
-        "Type.java",
-    ],
+    srcs = TYPE_SRCS,
     deps = [
         "//src/main/java/com/google/devtools/build/lib:logging-util",
         "//src/main/java/com/google/devtools/build/lib:string_util",
@@ -94,6 +107,24 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "build_type",
+    srcs = BUILD_TYPE_SRCS,
+    deps = [
+        ":type",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
