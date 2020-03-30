@@ -54,7 +54,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
    * See http://j2objc.org/docs/j2objc.html for flag documentation.
    */
   private static final ImmutableList<String> J2OBJC_DEFAULT_TRANSLATION_FLAGS =
-      ImmutableList.of("-g", "--nullability", "--class-properties");
+      ImmutableList.of("-g");
 
   /**
    * Disallowed flags for J2ObjC translation. See http://j2objc.org/docs/j2objc.html for flag
