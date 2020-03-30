@@ -521,15 +521,7 @@ public final class SkyframeActionExecutor {
    */
   @Nullable
   ActionExecutionState probeActionExecution(Action action) {
-    ActionExecutionState state =
-        buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
-    // Prior to sharing execution state between two actions, ensure that no conflict was detected.
-    // This can happen with actions owned by aspects, because unlike actions owned by configured
-    // targets, we don't proactively prune them from the graph when a conflict is detected.
-    if (state == null || badActionMap.containsKey(action)) {
-      return null;
-    }
-    return state;
+    return buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
   boolean probeCompletedAndReset(Action action) {

@@ -55,24 +55,24 @@ public class TargetCompletionValue implements SkyValue {
   /** {@link SkyKey} for {@link TargetCompletionValue}. */
   @AutoCodec
   @AutoValue
-  public abstract static class TargetCompletionKey implements SkyKey {
+  public abstract static class TargetCompletionKey
+      implements CompletionFunction.TopLevelActionLookupKey {
     @AutoCodec.Instantiator
     static TargetCompletionKey create(
-        ConfiguredTargetKey configuredTargetKey,
+        ConfiguredTargetKey actionLookupKey,
         TopLevelArtifactContext topLevelArtifactContext,
         boolean willTest) {
       return new AutoValue_TargetCompletionValue_TargetCompletionKey(
-          configuredTargetKey, topLevelArtifactContext, willTest);
+          topLevelArtifactContext, actionLookupKey, willTest);
     }
+
+    @Override
+    public abstract ConfiguredTargetKey actionLookupKey();
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.TARGET_COMPLETION;
     }
-
-    public abstract ConfiguredTargetKey configuredTargetKey();
-
-    abstract TopLevelArtifactContext topLevelArtifactContext();
 
     abstract boolean willTest();
   }

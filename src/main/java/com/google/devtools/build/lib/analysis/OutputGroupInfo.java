@@ -144,15 +144,9 @@ public final class OutputGroupInfo extends StructImpl
   }
 
   @Nullable
-  public static OutputGroupInfo get(TransitiveInfoCollection collection) {
-    return collection.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+  public static OutputGroupInfo get(ProviderCollection collection) {
+    return collection.get(SKYLARK_CONSTRUCTOR);
   }
-
-  @Nullable
-  public static OutputGroupInfo get(ConfiguredAspect aspect) {
-    return (OutputGroupInfo) aspect.get(SKYLARK_CONSTRUCTOR.getKey());
-  }
-
 
   /** Return the artifacts in a particular output group.
    *

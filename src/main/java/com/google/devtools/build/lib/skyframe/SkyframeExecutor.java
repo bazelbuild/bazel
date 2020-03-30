@@ -550,10 +550,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.LOAD_SKYLARK_ASPECT,
         new ToplevelSkylarkAspectFunction(skylarkImportLookupFunctionForInlining));
+    map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(
-        SkyFunctions.POST_CONFIGURED_TARGET,
-        new PostConfiguredTargetFunction(
-            new BuildViewProvider(), ruleClassProvider, defaultBuildOptions));
+        SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING,
+        new TopLevelActionLookupConflictFindingFunction());
     map.put(
         SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider, defaultBuildOptions));
@@ -2411,25 +2411,29 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Post-process the targets. Values in the EvaluationResult are known to be transitively
    * error-free from action conflicts.
    */
-  public EvaluationResult<PostConfiguredTargetValue> postConfigureTargets(
+  EvaluationResult<ActionLookupConflictFindingValue> filterActionConflicts(
       ExtendedEventHandler eventHandler,
-      List<ConfiguredTargetKey> values,
+      Iterable<ActionLookupValue.ActionLookupKey> keys,
       boolean keepGoing,
-      ImmutableMap<ActionAnalysisMetadata, SkyframeActionExecutor.ConflictException> badActions)
+      ImmutableMap<ActionAnalysisMetadata, SkyframeActionExecutor.ConflictException> badActions,
+      TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     checkActive();
     PrecomputedValue.BAD_ACTIONS.set(injectable(), badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    EvaluationResult<PostConfiguredTargetValue> result =
+    EvaluationResult<ActionLookupConflictFindingValue> result =
         evaluate(
-            PostConfiguredTargetValue.keys(values),
+            TopLevelActionLookupConflictFindingFunction.keys(keys, topLevelArtifactContext),
             keepGoing,
             /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
             eventHandler);
 
-    // Remove all post-configured target values immediately for memory efficiency. We are OK with
+    // Remove all action-conflict detection values immediately for memory efficiency. We are OK with
     // this mini-phase being non-incremental as the failure mode of action conflict is rare.
-    memoizingEvaluator.delete(SkyFunctionName.functionIs(SkyFunctions.POST_CONFIGURED_TARGET));
+    memoizingEvaluator.delete(
+        SkyFunctionName.functionIs(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING));
+    memoizingEvaluator.delete(
+        SkyFunctionName.functionIs(SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING));
 
     return result;
   }

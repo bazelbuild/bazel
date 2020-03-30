@@ -59,7 +59,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return "action from: " + arg;
     } else if (arg instanceof TargetCompletionKey
         && skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
-      return "configured target: " + ((TargetCompletionKey) arg).configuredTargetKey().getLabel();
+      return "configured target: " + ((TargetCompletionKey) arg).actionLookupKey().getLabel();
     } else if (arg instanceof TestCompletionKey
         && skyFunctionName.equals(SkyFunctions.TEST_COMPLETION)) {
       return "test target: " + ((TestCompletionKey) arg).configuredTargetKey().getLabel();
@@ -77,7 +77,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return ((ActionLookupData) arg).getLabel();
     } else if (arg instanceof TargetCompletionKey
         && key.functionName().equals(SkyFunctions.TARGET_COMPLETION)) {
-      return ((TargetCompletionKey) arg).configuredTargetKey().getLabel();
+      return ((TargetCompletionKey) arg).actionLookupKey().getLabel();
     } else if (arg instanceof TestCompletionKey
         && key.functionName().equals(SkyFunctions.TEST_COMPLETION)) {
       return ((TestCompletionKey) arg).configuredTargetKey().getLabel();

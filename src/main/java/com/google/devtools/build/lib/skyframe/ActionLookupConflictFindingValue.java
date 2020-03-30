@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -26,52 +27,41 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * A post-processed ConfiguredTarget which is known to be transitively error-free from action
- * conflict issues.
+ * A marker for an {@link ActionLookupValue} which is known to be transitively error-free from
+ * action conflict issues.
  */
-@AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
-class PostConfiguredTargetValue implements SkyValue {
+class ActionLookupConflictFindingValue implements SkyValue {
+  @AutoCodec
+  static final ActionLookupConflictFindingValue INSTANCE = new ActionLookupConflictFindingValue();
 
-  private final ConfiguredTarget ct;
+  private ActionLookupConflictFindingValue() {}
 
-  PostConfiguredTargetValue(ConfiguredTarget ct) {
-    this.ct = Preconditions.checkNotNull(ct);
+  public static ImmutableList<SkyKey> keys(Iterable<ActionLookupValue.ActionLookupKey> lookupKeys) {
+    return stream(lookupKeys).map(Key::create).collect(toImmutableList());
   }
 
-  public static ImmutableList<SkyKey> keys(Iterable<ConfiguredTargetKey> lacs) {
-    ImmutableList.Builder<SkyKey> keys = ImmutableList.builder();
-    for (ConfiguredTargetKey lac : lacs) {
-      keys.add(key(lac));
-    }
-    return keys.build();
-  }
-
-  public static Key key(ConfiguredTargetKey lac) {
-    return Key.create(lac);
+  public static Key key(ActionLookupValue.ActionLookupKey lookupKey) {
+    return Key.create(lookupKey);
   }
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<ConfiguredTargetKey> {
+  static class Key extends AbstractSkyKey<ActionLookupValue.ActionLookupKey> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
-    private Key(ConfiguredTargetKey arg) {
+    private Key(ActionLookupValue.ActionLookupKey arg) {
       super(arg);
     }
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static Key create(ConfiguredTargetKey arg) {
+    static Key create(ActionLookupValue.ActionLookupKey arg) {
       return interner.intern(new Key(arg));
     }
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.POST_CONFIGURED_TARGET;
+      return SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING;
     }
-  }
-
-  public ConfiguredTarget getCt() {
-    return ct;
   }
 }

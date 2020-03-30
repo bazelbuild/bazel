@@ -179,15 +179,15 @@ public final class TopLevelArtifactHelper {
 
   /**
    * Returns all artifacts to build if this target is requested as a top-level target. The resulting
-   * set includes the temps and either the files to compile, if
-   * {@code context.compileOnly() == true}, or the files to run.
+   * set includes the temps and either the files to compile, if {@code context.compileOnly() ==
+   * true}, or the files to run.
    *
    * <p>Calls to this method should generally return quickly; however, the runfiles computation can
    * be lazy, in which case it can be expensive on the first call. Subsequent calls may or may not
    * return the same {@code Iterable} instance.
    */
-  public static ArtifactsToBuild getAllArtifactsToBuild(TransitiveInfoCollection target,
-      TopLevelArtifactContext context) {
+  public static ArtifactsToBuild getAllArtifactsToBuild(
+      ProviderCollection target, TopLevelArtifactContext context) {
     return getAllArtifactsToBuild(
         OutputGroupInfo.get(target),
         target.getProvider(FileProvider.class),
@@ -197,11 +197,7 @@ public final class TopLevelArtifactHelper {
 
   public static ArtifactsToBuild getAllArtifactsToBuild(
       AspectValue aspectValue, TopLevelArtifactContext context) {
-    ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
-    return getAllArtifactsToBuild(
-        OutputGroupInfo.get(configuredAspect),
-        configuredAspect.getProvider(FileProvider.class),
-        context);
+    return getAllArtifactsToBuild(aspectValue.getConfiguredAspect(), context);
   }
 
   static ArtifactsToBuild getAllArtifactsToBuild(
