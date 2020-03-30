@@ -14,22 +14,27 @@
 
 package com.google.devtools.build.lib.util;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.subjects.DetailedExitCodeSubjectFactory.assertThatDetailedExitCode;
 
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link FailureDetailUtil}. */
+/** Tests for {@link DetailedExitCode}. */
 @RunWith(JUnit4.class)
-public class FailureDetailUtilTest {
+public class DetailedExitCodeTest {
 
   @Test
   public void testGetInterruptedExitCode() {
-    assertThat(
-            FailureDetailUtil.getExitCode(
-                FailureDetailUtil.interrupted(Interrupted.Code.INTERRUPTED_UNSPECIFIED)))
-        .isEqualTo(ExitCode.INTERRUPTED);
+    assertThatDetailedExitCode(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage("interrupted")
+                    .setInterrupted(
+                        Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED_UNSPECIFIED))
+                    .build()))
+        .hasExitCode(ExitCode.INTERRUPTED);
   }
 }

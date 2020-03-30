@@ -208,7 +208,6 @@ java_library(
             "util/Clock.java",
             "util/ExitCode.java",
             "util/DetailedExitCode.java",
-            "util/FailureDetailUtil.java",
             "util/FileType.java",
             "util/FileTypeSet.java",
             "util/GccParamFileEscaper.java",
@@ -334,20 +333,9 @@ java_library(
     srcs = ["util/DetailedExitCode.java"],
     deps = [
         ":exitcode-external",
-        ":failure_detail_util",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "failure_detail_util",
-    srcs = ["util/FailureDetailUtil.java"],
-    deps = [
-        ":exitcode-external",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -1138,7 +1126,6 @@ java_library(
     deps = [
         ":bug-report",
         ":exitcode-external",
-        ":failure_detail_util",
         ":os_util",
         ":runtime",
         ":string_util",
