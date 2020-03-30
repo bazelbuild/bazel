@@ -8,13 +8,6 @@ load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(
-    ["execution_statitics.proto"],
-    visibility = [
-        "//src/test/shell/integration:process_wrapper_test",
-    ],
-)
-
 FILES = [
     "action_cache",
     "android_deploy_info",
