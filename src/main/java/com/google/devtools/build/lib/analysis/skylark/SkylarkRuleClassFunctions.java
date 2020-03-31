@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
@@ -861,5 +862,15 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);
     }
+  }
+
+  @Override
+  public ExecGroup execGroup(
+      Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
+      throws EvalException {
+    ImmutableSet<Label> toolchainTypes = ImmutableSet.copyOf(parseToolchains(toolchains, thread));
+    ImmutableSet<Label> constraints =
+        ImmutableSet.copyOf(parseExecCompatibleWith(execCompatibleWith, thread));
+    return new ExecGroup(toolchainTypes, constraints);
   }
 }
