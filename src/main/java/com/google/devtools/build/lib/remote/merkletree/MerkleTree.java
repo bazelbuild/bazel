@@ -118,9 +118,24 @@ public class MerkleTree {
       Path execRoot,
       DigestUtil digestUtil)
       throws IOException {
-    try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build")) {
+    try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
           DirectoryTreeBuilder.fromActionInputs(inputs, metadataProvider, execRoot, digestUtil);
+      return build(tree, digestUtil);
+    }
+  }
+
+  /**
+   * Constructs a merkle tree from a lexicographically sorted map of files.
+   *
+   * @param inputFiles a map of path to files. The map is required to be sorted lexicographically by
+   *     paths.
+   * @param digestUtil a hashing utility
+   */
+  public static MerkleTree build(SortedMap<PathFragment, Path> inputFiles, DigestUtil digestUtil)
+      throws IOException {
+    try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(Path)")) {
+      DirectoryTree tree = DirectoryTreeBuilder.fromPaths(inputFiles, digestUtil);
       return build(tree, digestUtil);
     }
   }
