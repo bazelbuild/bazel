@@ -238,10 +238,13 @@ public class UiOptions extends OptionsBase {
       name = "ui_event_filters",
       converter = EventFiltersConverter.class,
       defaultValue = "null",
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Specifies which events to show in the UI.",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Specifies which events to show in the UI. It is possible to add or remove events "
+              + "to the default ones using leading +/-, or override the default "
+              + "set completely with direct assignment. The set of supported event kinds "
+              + "include INFO, DEBUG, ERROR and more.",
       allowMultiple = true)
   public List<EventKind> eventFilters;
 
