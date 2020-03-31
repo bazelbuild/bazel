@@ -133,7 +133,7 @@ wstring GetWindowsLongPath(const wstring& path) {
   if (!error.empty()) {
     PrintError(L"Failed to get long path for %s: %s", path.c_str(), error.c_str());
   }
-  return wstring(result.get());
+  return wstring(blaze_util::RemoveUncPrefixMaybe(result.get()));
 }
 
 wstring GetBinaryPathWithoutExtension(const wstring& binary) {
