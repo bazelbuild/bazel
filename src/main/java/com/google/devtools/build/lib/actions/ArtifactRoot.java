@@ -89,8 +89,13 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
-  static ArtifactRoot createForSerialization(Root root, PathFragment execPath, RootType rootType) {
-    return INTERNER.intern(new ArtifactRoot(root, execPath, rootType));
+  static ArtifactRoot createForSerialization(
+      Root rootForSerialization, PathFragment execPath, RootType rootType) {
+    if (rootType != RootType.Output) {
+      return INTERNER.intern(new ArtifactRoot(rootForSerialization, execPath, rootType));
+    }
+    return asDerivedRoot(
+        rootForSerialization.asPath(), execPath.getSegments().toArray(new String[0]));
   }
 
   @AutoCodec.VisibleForSerialization
@@ -147,6 +152,31 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   @Override
   public int hashCode() {
     return Objects.hash(root, execPath, rootType);
+  }
+
+  /**
+   * The Root of a derived ArtifactRoot contains the exec path. In order to avoid duplicating that
+   * path, and enable the Root to be serialized as a constant, we return the "exec root" Root here,
+   * by stripping the exec path. That Root is likely to be serialized as a constant by {@link
+   * Root.RootCodec}, saving a lot of serialized bytes on the wire.
+   */
+  @SuppressWarnings("unused") // Used by @AutoCodec.
+  Root getRootForSerialization() {
+    if (rootType != RootType.Output) {
+      return root;
+    }
+    // Find fragment of root that does not include execPath and return just that root. It is likely
+    // to be serialized as a constant by RootCodec. For instance, if the original exec root was
+    // /execroot, and this root was /execroot/bazel-out/bin, with execPath bazel-out/bin, then we
+    // just serialize /execroot and bazel-out/bin separately.
+    // We just want to strip execPath from root, but I don't know a trivial way to do that.
+    PathFragment rootFragment = root.asPath().asFragment();
+    return Root.fromPath(
+        root.asPath()
+            .getFileSystem()
+            .getPath(
+                rootFragment.subFragment(
+                    0, rootFragment.segmentCount() - execPath.segmentCount())));
   }
 
   @Override

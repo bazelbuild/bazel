@@ -16,11 +16,18 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -89,6 +96,28 @@ public class ArtifactRootTest {
   }
 
   @Test
+  public void derivedSerialization() throws IOException, SerializationException {
+    Path execRoot = scratch.dir("/thisisaveryverylongexecrootthatwedontwanttoserialize");
+    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, "first", "second", "third");
+    ObjectCodecRegistry registry = AutoRegistry.get();
+    ImmutableMap<Class<?>, Object> dependencies =
+        ImmutableMap.<Class<?>, Object>builder()
+            .put(FileSystem.class, scratch.getFileSystem())
+            .put(
+                Root.RootCodecDependencies.class,
+                new Root.RootCodecDependencies(/*likelyPopularRoot=*/ Root.fromPath(execRoot)))
+            .build();
+    ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
+    for (Object val : dependencies.values()) {
+      registryBuilder.addReferenceConstant(val);
+    }
+    ObjectCodecs objectCodecs = new ObjectCodecs(registryBuilder.build(), dependencies);
+    ByteString serialized = objectCodecs.serialize(derivedRoot);
+    // 28 bytes as of 2020/03/31.
+    assertThat(serialized.size()).isLessThan(30);
+  }
+
+  @Test
   public void testEquals() throws IOException {
     Path execRoot = scratch.dir("/exec");
     String rootSegment = "root";
@@ -104,7 +133,7 @@ public class ArtifactRootTest {
         false, rootA, ArtifactRoot.asDerivedRoot(otherRootDir, "exec", rootSegment));
   }
 
-  public void assertEqualsAndHashCode(boolean expected, Object a, Object b) {
+  private void assertEqualsAndHashCode(boolean expected, Object a, Object b) {
     if (expected) {
       new EqualsTester().addEqualityGroup(b, a).testEquals();
     } else {
