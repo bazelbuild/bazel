@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -117,6 +118,19 @@ public final class SpawnLogModule extends BlazeModule {
   }
 
   @Override
+  public void registerActionContexts(
+      ModuleActionContextRegistry.Builder registryBuilder,
+      CommandEnvironment env,
+      BuildRequest buildRequest) {
+    if (spawnLogContext != null) {
+      // TODO(b/63987502): Pretty sure the "spawn-log" commandline identifier is never used as there
+      // is no other SpawnLogContext to distinguish from.
+      registryBuilder.register(SpawnLogContext.class, spawnLogContext, "spawn-log");
+      registryBuilder.restrictTo(SpawnLogContext.class, "");
+    }
+  }
+
+  @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     env.getEventBus().register(this);
 
@@ -128,13 +142,6 @@ public final class SpawnLogModule extends BlazeModule {
           .exit(
               new AbruptExitException(
                   "Error initializing execution log", ExitCode.COMMAND_LINE_ERROR, e));
-    }
-
-    if (spawnLogContext != null) {
-      // TODO(schmitt): Pretty sure the "spawn-log" commandline identifier is never used as there is
-      //  no other SpawnLogContext to distinguish from.
-      builder.addActionContext(SpawnLogContext.class, spawnLogContext, "spawn-log");
-      builder.addStrategyByContext(SpawnLogContext.class, "");
     }
   }
 
