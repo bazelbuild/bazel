@@ -63,6 +63,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import java.io.File;
@@ -176,10 +177,14 @@ public final class RemoteWorker {
   }
 
   private SslContextBuilder getSslContextBuilder(RemoteWorkerOptions workerOptions) {
-    SslContextBuilder sslClientContextBuilder =
+    SslContextBuilder sslContextBuilder =
         SslContextBuilder.forServer(
             new File(workerOptions.tlsCertificate), new File(workerOptions.tlsPrivateKey));
-    return GrpcSslContexts.configure(sslClientContextBuilder, SslProvider.OPENSSL);
+    if (workerOptions.tlsCaCertificate != null) {
+      sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
+      sslContextBuilder.trustManager(new File(workerOptions.tlsCaCertificate));
+    }
+    return GrpcSslContexts.configure(sslContextBuilder, SslProvider.OPENSSL);
   }
 
   private void createPidFile() throws IOException {
