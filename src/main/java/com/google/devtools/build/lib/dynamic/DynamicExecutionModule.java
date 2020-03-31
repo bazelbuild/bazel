@@ -24,10 +24,9 @@ import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -41,9 +40,6 @@ import java.util.concurrent.Executors;
  * {@link BlazeModule} providing support for dynamic spawn execution and scheduling.
  */
 public class DynamicExecutionModule extends BlazeModule {
-
-  /** Strings that can be used to select this strategy in flags. */
-  private static final String[] COMMANDLINE_IDENTIFIERS = {"dynamic", "dynamic_worker"};
 
   private ExecutorService executorService;
 
@@ -105,47 +101,46 @@ public class DynamicExecutionModule extends BlazeModule {
         : options.dynamicRemoteStrategy;
   }
 
+  @Override
+  public void registerSpawnStrategies(
+      SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
+      throws ExecutorInitException {
+    registerSpawnStrategies(
+        registryBuilder, env.getOptions().getOptions(DynamicExecutionOptions.class));
+  }
+
+  // CommandEnvironment is difficult to access in tests, so use this method for testing.
   @VisibleForTesting
-  void initStrategies(ExecutorBuilder builder, DynamicExecutionOptions options)
+  final void registerSpawnStrategies(
+      SpawnStrategyRegistry.Builder registryBuilder, DynamicExecutionOptions options)
       throws ExecutorInitException {
     if (!options.internalSpawnScheduler) {
       return;
     }
 
+    SpawnStrategy strategy;
     if (options.legacySpawnScheduler) {
-      builder.addActionContext(
-          SpawnStrategy.class,
-          new LegacyDynamicSpawnStrategy(executorService, options, this::getExecutionPolicy),
-          COMMANDLINE_IDENTIFIERS);
+      strategy = new LegacyDynamicSpawnStrategy(executorService, options, this::getExecutionPolicy);
     } else {
-      builder.addActionContext(
-          SpawnStrategy.class,
-          new DynamicSpawnStrategy(executorService, options, this::getExecutionPolicy),
-          COMMANDLINE_IDENTIFIERS);
+      strategy = new DynamicSpawnStrategy(executorService, options, this::getExecutionPolicy);
     }
-    builder.addStrategyByContext(SpawnStrategy.class, "dynamic");
+    registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
 
     for (Map.Entry<String, List<String>> mnemonicToStrategies : getLocalStrategies(options)) {
       throwIfContainsDynamic(mnemonicToStrategies.getValue(), "--dynamic_local_strategy");
-      builder.addDynamicLocalStrategiesByMnemonic(
+      registryBuilder.addDynamicLocalStrategiesByMnemonic(
           mnemonicToStrategies.getKey(), mnemonicToStrategies.getValue());
     }
     for (Map.Entry<String, List<String>> mnemonicToStrategies : getRemoteStrategies(options)) {
       throwIfContainsDynamic(mnemonicToStrategies.getValue(), "--dynamic_remote_strategy");
-      builder.addDynamicRemoteStrategiesByMnemonic(
+      registryBuilder.addDynamicRemoteStrategiesByMnemonic(
           mnemonicToStrategies.getKey(), mnemonicToStrategies.getValue());
     }
   }
 
-  @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)
-      throws ExecutorInitException {
-    initStrategies(builder, env.getOptions().getOptions(DynamicExecutionOptions.class));
-  }
-
   private void throwIfContainsDynamic(List<String> strategies, String flagName)
       throws ExecutorInitException {
-    ImmutableSet<String> identifiers = ImmutableSet.copyOf(COMMANDLINE_IDENTIFIERS);
+    ImmutableSet<String> identifiers = ImmutableSet.of("dynamic", "dynamic_worker");
     if (!Sets.intersection(identifiers, ImmutableSet.copyOf(strategies)).isEmpty()) {
       throw new ExecutorInitException(
           "Cannot use strategy "
@@ -158,6 +153,7 @@ public class DynamicExecutionModule extends BlazeModule {
 
   /**
    * Use the {@link Spawn} metadata to determine if it can be executed locally, remotely, or both.
+   *
    * @param spawn the {@link Spawn} action
    * @return the {@link ExecutionPolicy} containing local/remote execution policies
    */
