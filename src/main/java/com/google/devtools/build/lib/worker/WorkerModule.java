@@ -18,15 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
@@ -138,7 +136,8 @@ public class WorkerModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+  public void registerSpawnStrategies(
+      SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
     Preconditions.checkNotNull(workerPool);
     SandboxOptions sandboxOptions = env.getOptions().getOptions(SandboxOptions.class);
     ImmutableMultimap<String, String> extraFlags =
@@ -158,11 +157,8 @@ public class WorkerModule extends BlazeModule {
             env.getLocalResourceManager(),
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
             RunfilesTreeUpdater.INSTANCE);
-    builder.addActionContext(
-        SpawnStrategy.class, new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner), "worker");
-
-    builder.addStrategyByContext(SpawnStrategy.class, "standalone");
-    builder.addStrategyByContext(SpawnStrategy.class, "worker");
+    registryBuilder.registerStrategy(
+        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner), "worker");
   }
 
   private static SpawnRunner createFallbackRunner(
