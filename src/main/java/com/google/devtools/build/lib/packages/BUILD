@@ -30,10 +30,6 @@ java_library(
             "StarlarkSemanticsOptions.java",
         ],
     ),
-    # TODO(katre): Remove this when all dependencies are updated.
-    exports = [
-        ":build_type",
-    ],
     deps = [
         ":build_type",
         ":type",
