@@ -418,13 +418,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         env.getEventBus().register(handler);
 
         int oomMoreEagerlyThreshold = commonOptions.oomMoreEagerlyThreshold;
-        if (oomMoreEagerlyThreshold == 100) {
-          oomMoreEagerlyThreshold =
-              runtime
-                  .getStartupOptionsProvider()
-                  .getOptions(BlazeServerStartupOptions.class)
-                  .oomMoreEagerlyThreshold;
-        }
         runtime.getRetainedHeapLimiter().updateThreshold(oomMoreEagerlyThreshold);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
