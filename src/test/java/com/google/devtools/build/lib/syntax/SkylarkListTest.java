@@ -209,6 +209,14 @@ public final class SkylarkListTest extends EvaluationTestCase {
   }
 
   @Test
+  public void listAfterRemoveHasExpectedEqualsAndHashCode() throws Exception {
+    exec("l = [1, 2, 3]");
+    exec("l.remove(3)");
+    assertThat(lookup("l")).isEqualTo(eval("[1, 2]"));
+    assertThat(lookup("l").hashCode()).isEqualTo(eval("[1, 2]").hashCode());
+  }
+
+  @Test
   public void testConcatListToString() throws Exception {
     assertThat(eval("str([1, 2] + [3, 4])")).isEqualTo("[1, 2, 3, 4]");
   }
