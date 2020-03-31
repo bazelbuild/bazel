@@ -47,11 +47,12 @@ import org.junit.runners.JUnit4;
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
-  private static final PatchTransition CHANGE_FOO_FLAG_TRANSITION = options -> {
-    BuildOptions toOptions = options.clone();
-    toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
-    return toOptions;
-  };
+  private static final PatchTransition CHANGE_FOO_FLAG_TRANSITION =
+      (options, eventHandler) -> {
+        BuildOptions toOptions = options.clone();
+        toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
+        return toOptions;
+      };
 
   /** Rule definition with a latebound dependency. */
   private static final RuleDefinition LATE_BOUND_DEP_RULE =

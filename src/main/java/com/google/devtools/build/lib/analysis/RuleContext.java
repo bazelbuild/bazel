@@ -908,7 +908,8 @@ public final class RuleContext extends TargetContext
                         .executionPlatform(getToolchainContext().executionPlatform().label())
                         .build());
     BuildOptions fromOptions = getConfiguration().getOptions();
-    Map<String, BuildOptions> splitOptions = transition.split(fromOptions);
+    Map<String, BuildOptions> splitOptions =
+        transition.split(fromOptions, getAnalysisEnvironment().getEventHandler());
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
 
     if (SplitTransition.equals(fromOptions, splitOptions.values())) {

@@ -80,7 +80,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     BuildOptions targetOptions = defaultBuildOptions.applyDiff(options.getOptionsDiff());
     BuildOptions hostOptions =
         targetOptions.get(CoreOptions.class).useDistinctHostConfiguration
-            ? HostTransition.INSTANCE.patch(targetOptions)
+            ? HostTransition.INSTANCE.patch(targetOptions, env.getListener())
             : targetOptions;
 
     ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> allFragments =
@@ -345,7 +345,6 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
             ConfigurationResolver.applyTransition(
                     fromOptions, transition, buildSettingPackages, env.getListener())
                 .values();
-        StarlarkTransition.replayEvents(env.getListener(), transition);
         for (BuildOptions toOption : toOptions) {
           configSkyKeys.add(
               BuildConfigurationValue.keyWithPlatformMapping(

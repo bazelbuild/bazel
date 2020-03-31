@@ -1512,7 +1512,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     BuildOptions targetOptions = firstTargetConfig.getOptions();
     BuildOptions hostOptions =
         targetOptions.get(CoreOptions.class).useDistinctHostConfiguration
-            ? HostTransition.INSTANCE.patch(targetOptions)
+            ? HostTransition.INSTANCE.patch(targetOptions, eventHandler)
             : targetOptions;
     BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
 
@@ -2045,7 +2045,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               ConfigurationResolver.applyTransition(
                       fromOptions, transition, buildSettingPackages, eventHandler)
                   .values();
-          StarlarkTransition.replayEvents(eventHandler, transition);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
           builder.setHasError();

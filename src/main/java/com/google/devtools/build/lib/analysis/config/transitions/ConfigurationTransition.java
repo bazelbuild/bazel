@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.events.EventHandler;
 import java.util.Map;
 
 /**
@@ -34,7 +35,7 @@ public interface ConfigurationTransition {
    *
    * <p>Returning an empty or null map triggers a {@link RuntimeException}.
    */
-  Map<String, BuildOptions> apply(BuildOptions buildOptions);
+  Map<String, BuildOptions> apply(BuildOptions buildOptions, EventHandler eventHandler);
 
   /**
    * We want to keep the number of transition interfaces no larger than what's necessary to maintain

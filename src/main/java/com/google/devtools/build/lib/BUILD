@@ -400,6 +400,7 @@ java_library(
         "analysis/config/FragmentOptions.java",
     ],
     deps = [
+        ":events",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

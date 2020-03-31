@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.Symlink
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -130,8 +132,20 @@ public class PyRuleClasses {
       if (!buildRequestOptions.experimentalCreatePySymlinks) {
         return ImmutableSet.of();
       }
+      EventHandler e =
+          new EventHandler() {
+            @Override
+            public void handle(Event event) {
+              throw new UnsupportedOperationException(
+                  "This transition shouldn't do anything that could fail.\n"
+                      + "TODO(bazel-team): refactor this to not call patch(). Blaze code should"
+                      + " not apply transitions unless it absolutely has to, since that requires"
+                      + " sequencing (likesupporting Starlark flags and handling exceptions)"
+                      + " that's easy to get wrong.");
+            }
+          };
       return targetConfigs.stream()
-          .map(config -> configGetter.apply(transition.patch(config.getOptions())))
+          .map(config -> configGetter.apply(transition.patch(config.getOptions(), e)))
           .map(config -> config.getOutputDirectory(repositoryName).getRoot().asPath())
           .distinct()
           .collect(toImmutableSet());

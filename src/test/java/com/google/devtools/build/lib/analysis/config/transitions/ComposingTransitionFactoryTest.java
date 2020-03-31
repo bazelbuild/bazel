@@ -23,9 +23,12 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.IntStream;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,6 +39,12 @@ public class ComposingTransitionFactoryTest {
   // Use starlark flags for the test since they are easy to set and check.
   private static final Label FLAG_1 = Label.parseAbsoluteUnchecked("//flag1");
   private static final Label FLAG_2 = Label.parseAbsoluteUnchecked("//flag2");
+  private EventHandler eventHandler;
+
+  @Before
+  public void init() {
+    eventHandler = new StoredEventHandler();
+  }
 
   @Test
   public void compose_patch_patch() {
@@ -48,7 +57,8 @@ public class ComposingTransitionFactoryTest {
     assertThat(composed).isNotNull();
     assertThat(composed.isSplit()).isFalse();
     ConfigurationTransition transition = composed.create(new StubData());
-    Collection<BuildOptions> results = transition.apply(BuildOptions.builder().build()).values();
+    Collection<BuildOptions> results =
+        transition.apply(BuildOptions.builder().build(), eventHandler).values();
     assertThat(results).isNotNull();
     assertThat(results).hasSize(1);
     BuildOptions result = Iterables.getOnlyElement(results);
@@ -67,7 +77,8 @@ public class ComposingTransitionFactoryTest {
     assertThat(composed).isNotNull();
     assertThat(composed.isSplit()).isTrue();
     ConfigurationTransition transition = composed.create(new StubData());
-    Map<String, BuildOptions> results = transition.apply(BuildOptions.builder().build());
+    Map<String, BuildOptions> results =
+        transition.apply(BuildOptions.builder().build(), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 
@@ -93,7 +104,8 @@ public class ComposingTransitionFactoryTest {
     assertThat(composed).isNotNull();
     assertThat(composed.isSplit()).isTrue();
     ConfigurationTransition transition = composed.create(new StubData());
-    Map<String, BuildOptions> results = transition.apply(BuildOptions.builder().build());
+    Map<String, BuildOptions> results =
+        transition.apply(BuildOptions.builder().build(), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 
@@ -200,7 +212,7 @@ public class ComposingTransitionFactoryTest {
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       return updateOptions(options, flagLabel, flagValue);
     }
   }
@@ -215,7 +227,7 @@ public class ComposingTransitionFactoryTest {
     }
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions options) {
+    public Map<String, BuildOptions> split(BuildOptions options, EventHandler eventHandler) {
       return IntStream.range(0, flagValues.size())
           .boxed()
           .collect(

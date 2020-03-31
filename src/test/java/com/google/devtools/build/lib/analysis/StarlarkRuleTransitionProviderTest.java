@@ -1203,4 +1203,58 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "transition outputs [//command_line_option:test_arg] were "
             + "not defined by transition function");
   }
+
+  @Test
+  public void composingTransitionReportsAllStarlarkErrors() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True))");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {}",
+        "attr_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//test:attr_transition_output_flag'])",
+        "self_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//test:self_transition_output_flag'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'attr_transition', 'self_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "rule_with_attr_transition = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist'),",
+        "    'deps': attr.label_list(cfg = attr_transition),",
+        "  })",
+        "rule_with_self_transition = rule(",
+        "  implementation = _impl,",
+        "  cfg = self_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist'),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_attr_transition', 'rule_with_self_transition')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "string_flag(name = 'attr_transition_output_flag', build_setting_default='')",
+        "string_flag(name = 'self_transition_output_flag', build_setting_default='')",
+        "rule_with_attr_transition(name = 'buildme', deps = [':adep'])",
+        "rule_with_self_transition(name = 'adep')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:buildme");
+    assertContainsEvent(
+        "transition outputs [//test:attr_transition_output_flag] were not defined by transition "
+            + "function");
+    assertContainsEvent(
+        "transition outputs [//test:self_transition_output_flag] were not defined by transition "
+            + "function");
+  }
 }

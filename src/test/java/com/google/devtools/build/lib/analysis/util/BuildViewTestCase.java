@@ -1771,7 +1771,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       try {
         return skyframeExecutor.getConfigurationForTesting(
-            reporter, fromConfig.fragmentClasses(), transition.patch(fromConfig.getOptions()));
+            reporter,
+            fromConfig.fragmentClasses(),
+            transition.patch(fromConfig.getOptions(), eventCollector));
       } catch (OptionsParsingException | InvalidConfigurationException e) {
         throw new AssertionError(e);
       }

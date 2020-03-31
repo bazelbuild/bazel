@@ -466,7 +466,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     BuildOptions toolchainOptions =
         ((ConfiguredRuleClassProvider) ruleClassProvider)
             .getToolchainTaggedTrimmingTransition()
-            .patch(configuration.getOptions());
+            .patch(configuration.getOptions(), env.getListener());
 
     BuildConfigurationValue.Key toolchainConfig =
         BuildConfigurationValue.keyWithoutPlatformMapping(

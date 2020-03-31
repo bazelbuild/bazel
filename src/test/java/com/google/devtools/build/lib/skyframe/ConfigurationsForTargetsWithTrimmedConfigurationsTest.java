@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -70,14 +71,14 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
 
   private static class NoopSplitTransition implements SplitTransition {
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
       return ImmutableMap.of("noop", buildOptions);
     }
   }
 
   private static class SetsHostCpuSplitTransition implements SplitTransition {
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
       BuildOptions result = buildOptions.clone();
       result.get(CoreOptions.class).hostCpu = "SET BY SPLIT";
       return ImmutableMap.of("hostCpu", result);
@@ -87,7 +88,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private static class SetsCpuSplitTransition implements SplitTransition {
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
       BuildOptions result = buildOptions.clone();
       result.get(CoreOptions.class).cpu = "SET BY SPLIT";
       return ImmutableMap.of("cpu", result);
@@ -97,7 +98,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private static class SetsCpuPatchTransition implements PatchTransition {
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       BuildOptions result = options.clone();
       result.get(CoreOptions.class).cpu = "SET BY PATCH";
       return result;
@@ -151,7 +152,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       BuildOptions result = options.clone();
       result.get(TestConfiguration.TestOptions.class).testFilter = "SET BY PATCH FACTORY: " + value;
       return result;
@@ -194,7 +195,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       if (!options.contains(TestConfiguration.TestOptions.class)) {
         return options;
       }
@@ -550,7 +551,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private static PatchTransition newPatchTransition(final String value) {
     return new PatchTransition() {
       @Override
-      public BuildOptions patch(BuildOptions options) {
+      public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
         BuildOptions toOptions = options.clone();
         TestConfiguration.TestOptions baseOptions =
             toOptions.get(TestConfiguration.TestOptions.class);
@@ -566,7 +567,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
    * prefix + "2"}.
    */
   private static SplitTransition newSplitTransition(final String prefix) {
-    return buildOptions -> {
+    return (buildOptions, eventHandler) -> {
       ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
       for (int index = 1; index <= 2; index++) {
         BuildOptions toOptions = buildOptions.clone();
