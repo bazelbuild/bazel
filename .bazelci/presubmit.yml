@@ -177,6 +177,8 @@ tasks:
     shards: 4
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
+      # TODO(pcloudy): Remove the following after Windows machine already install pywin32
+      - pip install pywin32
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
