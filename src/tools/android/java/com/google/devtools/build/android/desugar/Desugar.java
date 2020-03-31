@@ -1015,9 +1015,9 @@ public class Desugar {
       InvocationSiteTransformationRecordBuilder callSiteRecord) {
     ClassVisitor visitor = checkNotNull(writer);
 
-    visitor = new ImmutableLabelRemover(visitor);
 
     if (coreLibrarySupport != null) {
+      visitor = new ImmutableLabelRemover(visitor);
       visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
       visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
       visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
