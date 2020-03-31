@@ -208,11 +208,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /**
-   * Method to be called after Starlark-transitions are applied. Handles events and checks outputs.
-   *
-   * <p>Logs any events (e.g. {@code print()}s, errors} to output and throws an error if we had any
-   * errors. Right now, Starlark transitions are the only kind that knows how to throw errors so we
-   * know this will only report and throw if a Starlark transition caused a problem.
+   * Method to be called after Starlark-transitions are applied. Checks outputs.
    *
    * <p>We only do validation on Starlark-defined build settings. Native options (designated with
    * {@code COMMAND_LINE_OPTION_PREFIX}) already have their output values checked in {@link
