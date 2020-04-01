@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.events;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -48,7 +48,6 @@ public abstract class Location implements Serializable, Comparable<Location> {
   // TODO(adonovan): merge with Lexer.LexerLocation and make this the only implementation of
   // Location, once the parser no longer eagerly creates Locations but instead
   // records token offsets and the LineNumberTable in the tree.
-  @AutoCodec
   @Immutable
   static class FileLineColumn extends Location {
     final String file;
@@ -121,7 +120,6 @@ public abstract class Location implements Serializable, Comparable<Location> {
 
   /** A value class that describes the line and column of a location. */
   // TODO(adonovan): make private when we combine with LexerLocation.
-  @AutoCodec
   @Immutable
   public static final class LineAndColumn {
 
@@ -182,5 +180,5 @@ public abstract class Location implements Serializable, Comparable<Location> {
   }
 
   /** A location for built-in functions. */
-  @AutoCodec public static final Location BUILTIN = fromFile("<builtin>");
+  @SerializationConstant public static final Location BUILTIN = fromFile("<builtin>");
 }
