@@ -162,12 +162,17 @@ public final class CcCommon {
   private final FdoContext fdoContext;
 
   public CcCommon(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
-    this.ccToolchain =
+    this(
+        ruleContext,
         Preconditions.checkNotNull(
-            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
+            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)));
+  }
+
+  public CcCommon(RuleContext ruleContext, CcToolchainProvider ccToolchain) {
+    this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.fdoContext = ccToolchain.getFdoContext();
+    this.ccToolchain = ccToolchain;
   }
 
   /**
