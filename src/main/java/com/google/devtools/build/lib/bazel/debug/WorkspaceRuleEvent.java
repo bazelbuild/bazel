@@ -40,7 +40,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
 
   /** Creates a new WorkspaceRuleEvent for an execution event. */
   public static WorkspaceRuleEvent newExecuteEvent(
-      Iterable<?> args, // <String> or <SkylarkPath> expected
+      Iterable<String> args,
       Integer timeout,
       Map<String, String> commonEnvironment,
       Map<String, String> customEnvironment,
@@ -61,8 +61,8 @@ public final class WorkspaceRuleEvent implements ProgressLike {
       e = e.putAllEnvironment(customEnvironment);
     }
 
-    for (Object a : args) {
-      e.addArguments(a.toString());
+    for (String a : args) {
+      e.addArguments(a);
     }
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
