@@ -25,8 +25,8 @@ import static com.google.devtools.build.android.desugar.langmodel.ClassName.IN_P
 import static com.google.devtools.build.android.desugar.langmodel.ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.desugar.corelibadapter.InvocationSiteTransformationRecord.InvocationSiteTransformationRecordBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
-import com.google.devtools.build.android.desugar.langmodel.InvocationSiteTransformationRecord.InvocationSiteTransformationRecordBuilder;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
@@ -134,6 +134,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
             SHADOWED_TO_MIRRORED_TYPE_MAPPER.map(verbatimInvocationSite.argumentTypeNames()),
             verbatimInvocationSite.argumentTypeNames(),
             INLINE_PARAM_TYPE_CONVERSION_TAG + verbatimInvocationSite.method().encode());
+        invocationSiteRecord.addInlineConversion(verbatimInvocationSite);
         verbatimInvocationSite.accept(paramInlineInstructionsContainer);
 
         MethodRemapper methodRemapper = new MethodRemapper(mv, IMMUTABLE_LABEL_ATTACHER);
@@ -145,7 +146,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
         checkState(!immutableLabelApplicator.isSwitchOn());
         MethodInvocationSite adapterSite =
             ShadowedApiAdapterHelper.getAdapterInvocationSite(verbatimInvocationSite);
-        invocationSiteRecord.addTransformation(verbatimInvocationSite);
+        invocationSiteRecord.addAdapterReplacement(verbatimInvocationSite);
         adapterSite.acceptTypeMapper(IMMUTABLE_LABEL_ATTACHER).accept(mv);
         return;
       }

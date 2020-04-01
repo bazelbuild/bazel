@@ -28,11 +28,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
-import com.google.devtools.build.android.desugar.langmodel.InvocationSiteTransformationRecord;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import java.io.ByteArrayInputStream;
+import java.util.stream.Stream;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
@@ -41,8 +41,8 @@ import org.objectweb.asm.Type;
 
 /**
  * Generates type adapter classes with methods that bridge the interactions between
- * desugared-mirrored types and their desugar-shadowed built-in types, and delivers the generated
- * classes to runtime library.
+ * desugared-mirrored types and their desugar-shadowed built-in types. Together with the necessary
+ * type converter classes, the class delivers the generated adapter classes to runtime library.
  */
 public final class ShadowedApiAdaptersGenerator {
 
@@ -55,15 +55,6 @@ public final class ShadowedApiAdaptersGenerator {
   /** A record with evolving map values that track adapter classes to be generated. */
   private final ImmutableMap<ClassName, ClassWriter> typeAdapters;
 
-  /** The public API that provides the file content of generate adapter classes. */
-  public static ImmutableList<FileContentProvider<ByteArrayInputStream>> generateAdapterClasses(
-      InvocationSiteTransformationRecord callSiteTransformations) {
-    return emitClassWriters(callSiteTransformations)
-        .emitAdapterMethods()
-        .closeClassWriters()
-        .provideFileContents();
-  }
-
   private ShadowedApiAdaptersGenerator(
       InvocationSiteTransformationRecord invocationAdapterSites,
       ImmutableMap<ClassName, ClassWriter> typeAdapters) {
@@ -71,11 +62,17 @@ public final class ShadowedApiAdaptersGenerator {
     this.typeAdapters = typeAdapters;
   }
 
+  /** The public factory method to construct {@link ShadowedApiAdaptersGenerator}. */
+  public static ShadowedApiAdaptersGenerator create(
+      InvocationSiteTransformationRecord callSiteTransformations) {
+    return emitClassWriters(callSiteTransformations).emitAdapterMethods().closeClassWriters();
+  }
+
   private static ShadowedApiAdaptersGenerator emitClassWriters(
       InvocationSiteTransformationRecord callSiteTransformations) {
     return new ShadowedApiAdaptersGenerator(
         callSiteTransformations,
-        callSiteTransformations.record().stream()
+        callSiteTransformations.adapterReplacements().stream()
             .map(ShadowedApiAdapterHelper::getAdapterInvocationSite)
             .map(MethodInvocationSite::owner)
             .distinct()
@@ -97,8 +94,36 @@ public final class ShadowedApiAdaptersGenerator {
     return cw;
   }
 
+  /** Returns desugar-shadowed API adapters with desugar-mirrored types. */
+  public ImmutableList<FileContentProvider<ByteArrayInputStream>> getApiAdapters() {
+    return typeAdapters.entrySet().stream()
+        .map(
+            e ->
+                new FileContentProvider<>(
+                    e.getKey().classFilePathName(),
+                    () -> new ByteArrayInputStream(e.getValue().toByteArray())))
+        .collect(toImmutableList());
+  }
+
+  /**
+   * Returns type conversion classes that converts between a desugar-shadowed type and its
+   * deusgar-mirrored counterpart.
+   */
+  public ImmutableList<ClassName> getTypeConverters() {
+    return Stream.concat(
+            invocationAdapterSites.inlineConversions().stream(),
+            invocationAdapterSites.adapterReplacements().stream())
+        .flatMap(
+            site ->
+                Stream.concat(Stream.of(site.returnTypeName()), site.argumentTypeNames().stream()))
+        .filter(ClassName::isDesugarShadowedType)
+        .distinct()
+        .map(ClassName::typeConverterOwner)
+        .collect(toImmutableList());
+  }
+
   private ShadowedApiAdaptersGenerator emitAdapterMethods() {
-    for (MethodInvocationSite invocationSite : invocationAdapterSites.record()) {
+    for (MethodInvocationSite invocationSite : invocationAdapterSites.adapterReplacements()) {
       MethodInvocationSite adapterSite =
           ShadowedApiAdapterHelper.getAdapterInvocationSite(invocationSite);
       ClassName adapterOwner = adapterSite.owner();
@@ -153,15 +178,5 @@ public final class ShadowedApiAdaptersGenerator {
   private ShadowedApiAdaptersGenerator closeClassWriters() {
     typeAdapters.values().forEach(ClassVisitor::visitEnd);
     return this;
-  }
-
-  private ImmutableList<FileContentProvider<ByteArrayInputStream>> provideFileContents() {
-    return typeAdapters.entrySet().stream()
-        .map(
-            e ->
-                new FileContentProvider<>(
-                    e.getKey().classFilePathName(),
-                    () -> new ByteArrayInputStream(e.getValue().toByteArray())))
-        .collect(toImmutableList());
   }
 }

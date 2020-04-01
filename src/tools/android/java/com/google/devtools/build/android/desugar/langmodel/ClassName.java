@@ -83,7 +83,10 @@ public abstract class ClassName implements TypeMappable<ClassName> {
           .build();
 
   private static final ImmutableBiMap<String, String> SHADOWED_MIRRORED_TYPE_PREFIX_MAPPINGS =
-      ImmutableBiMap.<String, String>builder().put("javadesugar/", "jd$/").build();
+      ImmutableBiMap.<String, String>builder()
+          .put("java/", "j$/")
+          .put("javadesugar/", "jd$/")
+          .build();
   public static final TypeMapper SHADOWED_TO_MIRRORED_TYPE_MAPPER =
       new TypeMapper(ClassName::shadowedToMirrored);
   public static final TypeMapper IMMUTABLE_LABEL_ATTACHER =
@@ -273,19 +276,14 @@ public abstract class ClassName implements TypeMappable<ClassName> {
     return prefixes.stream().anyMatch(this::hasPackagePrefix);
   }
 
-  public final boolean isDesugarEligible(boolean enableDesugarBuiltinJdk) {
-    if (isDesugarShadowedType()) {
-      return enableDesugarBuiltinJdk;
-    }
-    return !isInPackageEligibleForTypeAdapter()
-        && !isInDesugarRuntimeLibrary()
-        && !isDesugarMirroredType();
+  public final boolean isDesugarEligible() {
+    return !isInDesugarRuntimeLibrary();
   }
 
   public final boolean isInPackageEligibleForTypeAdapter() {
     // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
     // rollouts are complete.
-    return hasAnyPackagePrefix("android/testing/");
+    return hasAnyPackagePrefix("android/testing/", "android/app/admin/FreezePeriod");
   }
 
   public final boolean isInDesugarRuntimeLibrary() {

@@ -31,6 +31,8 @@ import com.google.common.io.Closer;
 import com.google.common.io.Resources;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.desugar.corelibadapter.InvocationSiteTransformationRecord;
+import com.google.devtools.build.android.desugar.corelibadapter.InvocationSiteTransformationRecord.InvocationSiteTransformationRecordBuilder;
 import com.google.devtools.build.android.desugar.corelibadapter.ShadowedApiAdaptersGenerator;
 import com.google.devtools.build.android.desugar.corelibadapter.ShadowedApiInvocationSite;
 import com.google.devtools.build.android.desugar.corelibadapter.ShadowedApiInvocationSite.ImmutableLabelRemover;
@@ -45,8 +47,6 @@ import com.google.devtools.build.android.desugar.io.OutputFileProvider;
 import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
-import com.google.devtools.build.android.desugar.langmodel.InvocationSiteTransformationRecord;
-import com.google.devtools.build.android.desugar.langmodel.InvocationSiteTransformationRecord.InvocationSiteTransformationRecordBuilder;
 import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
 import com.google.devtools.build.android.desugar.nest.NestDesugaring;
 import com.google.devtools.build.android.desugar.nest.NestDigest;
@@ -554,14 +554,14 @@ public class Desugar {
 
       copyRuntimeClasses(outputFileProvider, coreLibrarySupport);
 
-      InvocationSiteTransformationRecord callSiteTransRecord = callSiteTransCollector.build();
-      ImmutableList<FileContentProvider<ByteArrayInputStream>> coreLibAdapters =
-          ShadowedApiAdaptersGenerator.generateAdapterClasses(callSiteTransRecord);
-
-      for (FileContentProvider<ByteArrayInputStream> fileContent : coreLibAdapters) {
+      ShadowedApiAdaptersGenerator adaptersGenerator =
+          ShadowedApiAdaptersGenerator.create(callSiteTransCollector.build());
+      for (FileContentProvider<ByteArrayInputStream> fileContent :
+          adaptersGenerator.getApiAdapters()) {
         outputFileProvider.write(
             fileContent.getBinaryPathName(), ByteStreams.toByteArray(fileContent.get()));
       }
+      copyTypeConverterClasses(outputFileProvider, adaptersGenerator.getTypeConverters());
 
       byte[] depsInfo = depsCollector.toByteArray();
       if (depsInfo != null) {
@@ -573,6 +573,18 @@ public class Desugar {
     checkState(lambdasLeftBehind.isEmpty(), "Didn't process %s", lambdasLeftBehind);
     ImmutableMap<String, ClassNode> generatedLeftBehind = store.drain();
     checkState(generatedLeftBehind.isEmpty(), "Didn't process %s", generatedLeftBehind.keySet());
+  }
+
+  private static void copyTypeConverterClasses(
+      OutputFileProvider outputFileProvider, ImmutableList<ClassName> converterClasses) {
+    for (ClassName className : converterClasses) {
+      String resourceName = className.classFilePathName();
+      try (InputStream stream = Resources.getResource(resourceName).openStream()) {
+        outputFileProvider.write(resourceName, ByteStreams.toByteArray(stream));
+      } catch (IOException e) {
+        throw new IOError(e);
+      }
+    }
   }
 
   /**
@@ -706,7 +718,7 @@ public class Desugar {
         // The runtime library typically uses constructs we'd otherwise desugar, so it's easier
         // to just skip it should it appear as a regular input (for idempotency).
         if (inputFilename.endsWith(".class")
-            && ClassName.fromClassFileName(inputFilename).isDesugarEligible(options.coreLibrary)) {
+            && ClassName.fromClassFileName(inputFilename).isDesugarEligible()) {
           ClassReader reader = rewriter.reader(content);
           UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
           ClassVisitor visitor =
