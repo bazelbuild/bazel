@@ -738,7 +738,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Module module = thread.getGlobals();
     StarlarkFile file = EvalUtils.parseAndValidate(input, FileOptions.DEFAULT, module);
     if (!file.ok()) {
-      throw new SyntaxError(file.errors());
+      throw new SyntaxError.Exception(file.errors());
     }
     SkylarkImportLookupFunction.execAndExport(file, FAKE_LABEL, ev.getEventHandler(), thread);
   }

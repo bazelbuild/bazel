@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.events.Event;
+import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +31,7 @@ public class LexerTest {
 
   // TODO(adonovan): make these these tests less unnecessarily stateful.
 
-  private final List<Event> errors = new ArrayList<>();
+  private final List<SyntaxError> errors = new ArrayList<>();
   private String lastError;
 
   /**
@@ -53,9 +53,8 @@ public class LexerTest {
       result.add(tok.copy());
     } while (tok.kind != TokenKind.EOF);
 
-    for (Event error : errors) {
-      lastError =
-          error.getLocation().file() + ":" + error.getLocation().line() + ": " + error.getMessage();
+    for (SyntaxError error : errors) {
+      lastError = error.location().file() + ":" + error.location().line() + ": " + error.message();
     }
 
     return result;
@@ -515,5 +514,25 @@ public class LexerTest {
   @Test
   public void testLexerLocationCodec() throws Exception {
     new SerializationTester(createLexer("foo").createLocation(0, 2)).runTests();
+  }
+
+  /**
+   * Returns the first error whose string form contains the specified substring, or throws an
+   * informative AssertionError if there is none.
+   *
+   * <p>Exposed for use by other frontend tests.
+   */
+  static SyntaxError assertContainsError(List<SyntaxError> errors, String substr) {
+    for (SyntaxError error : errors) {
+      if (error.toString().contains(substr)) {
+        return error;
+      }
+    }
+    if (errors.isEmpty()) {
+      throw new AssertionError("no errors, want '" + substr + "'");
+    } else {
+      throw new AssertionError(
+          "error '" + substr + "' not found, but got these:\n" + Joiner.on("\n").join(errors));
+    }
   }
 }

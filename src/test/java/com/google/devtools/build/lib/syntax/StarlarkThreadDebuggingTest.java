@@ -227,9 +227,9 @@ public class StarlarkThreadDebuggingTest {
     Module module = thread.getGlobals();
     module.put("a", 1);
 
-    SyntaxError e =
+    SyntaxError.Exception e =
         assertThrows(
-            SyntaxError.class,
+            SyntaxError.Exception.class,
             () ->
                 EvalUtils.execAndEvalOptionalFinalExpression(
                     ParserInput.fromLines("b"), FileOptions.DEFAULT, module, thread));

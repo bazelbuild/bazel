@@ -487,7 +487,7 @@ public final class Starlark {
    */
   public static Module exec(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
-      throws SyntaxError, EvalException, InterruptedException {
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     // Pseudocode:
     // file = StarlarkFile.parse(input)
     // validateFile(file, predeclared.keys, thread.semantics)
@@ -505,7 +505,7 @@ public final class Starlark {
    * exception.
    */
   public static Object eval(StarlarkThread thread, ParserInput input, Map<String, Object> env)
-      throws SyntaxError, EvalException, InterruptedException {
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     // Pseudocode:
     // StarlarkFunction fn = exprFunc(input, env, thread.semantics)
     // return call(thread, fn)
@@ -517,8 +517,9 @@ public final class Starlark {
    * it. If the final statement is an expression, return its value.
    *
    * <p>This complicated function, which combines exec and eval, is intended for use in a REPL or
-   * debugger. In case of parse of validation error, it throws SyntaxError. In case of execution
-   * error, the function returns partial results: the incomplete module plus the exception.
+   * debugger. In case of parse of validation error, it throws SyntaxError.Exception. In case of
+   * execution error, the function returns partial results: the incomplete module plus the
+   * exception.
    *
    * <p>Assignments in the input act as updates to a new module created by this function, which is
    * returned.
@@ -538,7 +539,7 @@ public final class Starlark {
    */
   public static ModuleAndValue execAndEval(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     // Pseudocode:
     // file = StarlarkFile.parse(input)
     // validateFile(file, predeclared.keys, thread.semantics)
@@ -568,7 +569,7 @@ public final class Starlark {
   /**
    * Parse the input as a file, validates it in the specified predeclared environment (a set of
    * names, optionally filtered by the semantics), and compiles it to a Program. It throws
-   * SyntaxError in case of scan/parse/validation error.
+   * SyntaxError.Exception in case of scan/parse/validation error.
    *
    * <p>In addition to the program, it returns the validated syntax tree. This permits clients such
    * as Bazel to inspect the syntax (for BUILD dialect checks, glob prefetching, etc.)
@@ -577,7 +578,7 @@ public final class Starlark {
       ParserInput input, //
       Set<String> predeclared,
       StarlarkSemantics semantics)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     // Pseudocode:
     // file = StarlarkFile.parse(input)
     // validateFile(file, predeclared.keys, thread.semantics)
@@ -621,7 +622,7 @@ public final class Starlark {
       ParserInput input, //
       Map<String, Object> env,
       StarlarkSemantics semantics)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     // Pseudocode:
     // expr = Expression.parse(input)
     // validateExpr(expr, env.keys, semantics)
