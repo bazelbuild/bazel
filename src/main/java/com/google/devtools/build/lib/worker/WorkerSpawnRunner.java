@@ -140,6 +140,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
     return Spawns.supportsWorkers(spawn) || Spawns.supportsMultiplexWorkers(spawn);
   }
 
+  @Override
+  public boolean handlesCaching() {
+    return false;
+  }
+
   private SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
     if (spawn.getToolFiles().isEmpty()) {

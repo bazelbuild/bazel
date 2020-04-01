@@ -258,6 +258,9 @@ public interface SpawnRunner {
   /** Returns whether this SpawnRunner supports executing the given Spawn. */
   boolean canExec(Spawn spawn);
 
+  /** Returns whether this SpawnRunner handles caching of actions internally. */
+  boolean handlesCaching();
+
   /** Returns the name of the SpawnRunner. */
   String getName();
 
