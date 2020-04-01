@@ -23,10 +23,12 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -49,6 +51,7 @@ import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -407,7 +410,8 @@ public final class SandboxModule extends BlazeModule {
   }
 
   private static SpawnRunner withFallback(CommandEnvironment env, SpawnRunner sandboxSpawnRunner) {
-    return new SandboxFallbackSpawnRunner(sandboxSpawnRunner, createFallbackRunner(env));
+    return new SandboxFallbackSpawnRunner(
+        sandboxSpawnRunner, createFallbackRunner(env), env.getReporter());
   }
 
   private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
@@ -426,10 +430,15 @@ public final class SandboxModule extends BlazeModule {
   private static final class SandboxFallbackSpawnRunner implements SpawnRunner {
     private final SpawnRunner sandboxSpawnRunner;
     private final SpawnRunner fallbackSpawnRunner;
+    private final ExtendedEventHandler extendedEventHandler;
 
-    SandboxFallbackSpawnRunner(SpawnRunner sandboxSpawnRunner, SpawnRunner fallbackSpawnRunner) {
+    SandboxFallbackSpawnRunner(
+        SpawnRunner sandboxSpawnRunner,
+        SpawnRunner fallbackSpawnRunner,
+        ExtendedEventHandler extendedEventHandler) {
       this.sandboxSpawnRunner = sandboxSpawnRunner;
       this.fallbackSpawnRunner = fallbackSpawnRunner;
+      this.extendedEventHandler = extendedEventHandler;
     }
 
     @Override
@@ -440,11 +449,16 @@ public final class SandboxModule extends BlazeModule {
     @Override
     public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
         throws InterruptedException, IOException, ExecException {
+      Instant spawnExecutionStartInstant = Instant.now();
+      SpawnResult spawnResult;
       if (sandboxSpawnRunner.canExec(spawn)) {
-        return sandboxSpawnRunner.exec(spawn, context);
+        spawnResult = sandboxSpawnRunner.exec(spawn, context);
       } else {
-        return fallbackSpawnRunner.exec(spawn, context);
+        spawnResult = fallbackSpawnRunner.exec(spawn, context);
       }
+      extendedEventHandler.post(
+          new SpawnExecutedEvent(spawn, spawnResult, spawnExecutionStartInstant));
+      return spawnResult;
     }
 
     @Override
