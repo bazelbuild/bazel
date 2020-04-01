@@ -576,6 +576,7 @@ java_library(
         "//src/main/protobuf:analysis_java_proto",
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:spawn_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//src/main/protobuf:xcode_java_proto",

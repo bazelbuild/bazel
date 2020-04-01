@@ -90,6 +90,7 @@ message FailureDetail {
     Interrupted interrupted = 101;
     ExternalRepository external_repository = 103;
     BuildProgress build_progress = 104;
+    RemoteOptions remote_options = 106;
   }
 
   reserved 102; // For internal use
@@ -128,4 +129,14 @@ message BuildProgress {
   }
   Code code = 1;
   // Additional data could include the build progress upload endpoint.
+}
+
+message RemoteOptions {
+  enum Code {
+    REMOTE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR = 1
+        [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
 }
