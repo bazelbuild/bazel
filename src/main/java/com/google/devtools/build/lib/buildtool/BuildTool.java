@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildtool.PostAnalysisQueryBuildTool.PostAnalysisQueryCommandLineException;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -411,7 +411,8 @@ public class BuildTool {
         .post(
             new BuildCompleteEvent(
                 result,
-                ImmutableList.of(BuildEventId.buildToolLogs(), BuildEventId.buildMetrics())));
+                ImmutableList.of(
+                    BuildEventIdUtil.buildToolLogs(), BuildEventIdUtil.buildMetrics())));
     // Post the build tool logs event; the corresponding local files may be contributed from
     // modules, and this has to happen after posting the BuildCompleteEvent because that's when
     // modules add their data to the collection.

@@ -709,7 +709,7 @@ public final class AspectFunction implements SkyFunction {
    */
   public static final class AspectCreationException extends Exception {
     private static ConfigurationId toId(BuildConfiguration config) {
-      return config == null ? null : config.getEventId().asStreamProto().getConfiguration();
+      return config == null ? null : config.getEventId().getConfiguration();
     }
 
     private final NestedSet<Cause> causes;

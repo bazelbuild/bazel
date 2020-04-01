@@ -31,7 +31,8 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -245,7 +246,7 @@ public final class CompletionFunction<
     private BuildEventId getConfigurationEventIdFromAspectValue(AspectValue value, Environment env)
         throws InterruptedException {
       if (value.getKey().getBaseConfiguredTargetKey().getConfigurationKey() == null) {
-        return BuildEventId.nullConfigurationId();
+        return BuildEventIdUtil.nullConfigurationId();
       } else {
         BuildConfigurationValue buildConfigurationValue =
             (BuildConfigurationValue)
