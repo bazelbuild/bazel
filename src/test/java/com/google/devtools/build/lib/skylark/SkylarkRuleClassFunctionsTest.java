@@ -1760,6 +1760,32 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testRuleAddExecGroup() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_exec_groups=true");
+    reset();
+
+    registerDummyStarlarkFunction();
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "plum = rule(",
+        "  implementation = impl,",
+        "  exec_groups = {",
+        "    'group': exec_group(",
+        "      toolchains=['//test:my_toolchain_type'],",
+        "      exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
+        "    ),",
+        "  },",
+        ")");
+    RuleClass plum = ((SkylarkRuleFunction) lookup("plum")).getRuleClass();
+    assertThat(plum.getRequiredToolchains()).isEmpty();
+    assertThat(plum.getExecGroups().get("group").getRequiredToolchains())
+        .containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
+    assertThat(plum.getExecGroups().get("group").getExecutionPlatformConstraints())
+        .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
+  }
+
+  @Test
   public void testRuleFunctionReturnsNone() throws Exception {
     scratch.file("test/rule.bzl",
         "def _impl(ctx):",

@@ -941,6 +941,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         /*requiredToolchains=*/ ImmutableSet.of(),
         /*useToolchainResolution=*/ true,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
+        /* execGroups= */ ImmutableMap.of(),
         OutputFile.Kind.FILE,
         ImmutableList.copyOf(attributes),
         /* buildSetting= */ null);
@@ -1148,6 +1149,29 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .containsExactly(
             Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
             Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+  }
+
+  @Test
+  public void testExecGroups() throws Exception {
+    RuleClass.Builder ruleClassBuilder =
+        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST));
+
+    Label toolchain = Label.parseAbsoluteUnchecked("//toolchain");
+    Label constraint = Label.parseAbsoluteUnchecked("//constraint");
+
+    ruleClassBuilder.addExecGroups(
+        ImmutableMap.of(
+            "cherry", new ExecGroup(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
+
+    RuleClass ruleClass = ruleClassBuilder.build();
+
+    assertThat(ruleClass.getExecGroups()).hasSize(1);
+    assertThat(ruleClass.getExecGroups().get("cherry").getRequiredToolchains())
+        .containsExactly(toolchain);
+    assertThat(ruleClass.getExecGroups().get("cherry").getExecutionPlatformConstraints())
+        .containsExactly(constraint);
   }
 
   @Test

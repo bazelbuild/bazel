@@ -368,6 +368,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
 
+    if (execGroups != Starlark.NONE) {
+      builder.addExecGroups(castMap(execGroups, String.class, ExecGroup.class, "exec_group"));
+    }
+
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
       throw Starlark.errorf(
           "Build setting rules cannot use the `cfg` param to apply transitions to themselves.");
