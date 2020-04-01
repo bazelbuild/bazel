@@ -50,7 +50,7 @@ public class RecursivePkgKey {
     this.excludedPaths = Preconditions.checkNotNull(excludedPaths);
   }
 
-  public RepositoryName getRepository() {
+  public RepositoryName getRepositoryName() {
     return repositoryName;
   }
 
