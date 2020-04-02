@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -71,7 +72,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:build");
     assertContainsEvent(
-        "Source artifact 'subdir/i' is not under the package of the ninja_build rule");
+        "Source artifact 'subdir/i' is not under the package directory 'a' of ninja_build rule");
   }
 
   @Test
@@ -384,6 +385,9 @@ public class NinjaBuildTest extends BuildViewTestCase {
     assertThat(commandLines).hasSize(1);
     assertThat(commandLines.get(0).commandLine.toString())
         .endsWith("cd build_config && executable -d out_file.d ../input > out_file");
+
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getOutputs()))
+        .containsExactly("out_file", "out_file.d");
   }
 
   @Test
