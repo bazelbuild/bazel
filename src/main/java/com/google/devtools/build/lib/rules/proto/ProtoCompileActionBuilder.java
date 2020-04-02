@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
@@ -325,8 +326,10 @@ public class ProtoCompileActionBuilder {
       RuleContext ruleContext, ProtoInfo protoInfo, Services allowServices)
       throws InterruptedException {
     Artifact output = protoInfo.getDirectDescriptorSet();
+    ImmutableList<ProtoInfo> protoDeps =
+        ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER));
     NestedSet<Artifact> dependenciesDescriptorSets =
-        ProtoCommon.computeDependenciesDescriptorSets(ruleContext);
+        ProtoCommon.computeDependenciesDescriptorSets(protoDeps);
     if (protoInfo.getDirectProtoSources().isEmpty()) {
       ruleContext.registerAction(
           FileWriteAction.createEmptyWithInputs(

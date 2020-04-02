@@ -71,8 +71,8 @@ java_test(
 )
 
 java_test(
-    name = "BazelProtoInfoStarlarkTest",
-    srcs = ["BazelProtoInfoStarlarkTest.java"],
+    name = "ProtoInfoStarlarkApiTest",
+    srcs = ["ProtoInfoStarlarkApiTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
