@@ -14,8 +14,8 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",  # !!
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",

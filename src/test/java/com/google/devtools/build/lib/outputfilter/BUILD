@@ -22,9 +22,9 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/outputfilter",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/vfs",

@@ -18,11 +18,11 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",

@@ -28,8 +28,8 @@ java_test(
     srcs = ["SkylarkDebugServerTest.java"],
     deps = [
         ":utils",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:skylark_debugging_java_proto",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -45,7 +45,7 @@ java_test(
     name = "DebugServerTransportTest",
     srcs = ["DebugServerTransportTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:skylark_debugging_java_proto",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",

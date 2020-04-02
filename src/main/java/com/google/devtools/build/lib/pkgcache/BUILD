@@ -16,7 +16,6 @@ java_library(
     name = "pkgcache",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:resource-converter",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -25,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

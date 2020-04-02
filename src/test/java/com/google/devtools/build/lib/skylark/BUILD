@@ -26,7 +26,6 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:classpath-util",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/build/lib:syntax",
@@ -34,6 +33,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",
         "//src/main/java/com/google/devtools/build/lib/packages:type",

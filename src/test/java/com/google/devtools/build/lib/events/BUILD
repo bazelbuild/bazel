@@ -41,7 +41,7 @@ java_library(
     testonly = 1,
     srcs = glob(["util/*.java"]) + ["EventTestTemplate.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",

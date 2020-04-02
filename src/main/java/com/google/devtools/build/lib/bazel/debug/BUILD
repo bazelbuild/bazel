@@ -44,7 +44,7 @@ java_library(
     srcs = ["WorkspaceRuleEvent.java"],
     deps = [
         ":workspace_log_java_proto",
-        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
     ],
 )
@@ -56,9 +56,9 @@ java_library(
         ":debugging-options",
         ":workspace-rule-event",
         "//src/main/java/com/google/devtools/build/lib:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",

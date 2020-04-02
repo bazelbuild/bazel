@@ -17,7 +17,6 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:resource_usage",
         "//src/main/java/com/google/devtools/build/lib:util",
@@ -25,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util/io",

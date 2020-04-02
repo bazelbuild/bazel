@@ -174,8 +174,8 @@ java_test(
     srcs = ["RuleConfiguredTargetTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
         "//third_party:junit4",

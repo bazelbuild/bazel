@@ -120,8 +120,8 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
@@ -323,8 +323,8 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
@@ -429,7 +429,7 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -450,9 +450,9 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",

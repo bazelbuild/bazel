@@ -42,7 +42,6 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:util",
@@ -53,6 +52,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",

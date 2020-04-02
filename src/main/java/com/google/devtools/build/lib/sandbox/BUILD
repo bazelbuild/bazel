@@ -17,7 +17,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:command-utils",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:process_util",
         "//src/main/java/com/google/devtools/build/lib:resource-converter",
@@ -26,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/profiler",
