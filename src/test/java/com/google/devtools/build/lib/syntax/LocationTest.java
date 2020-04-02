@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.events;
+package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -21,10 +21,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class LocationTest extends EventTestTemplate {
+public final class LocationTest {
 
   @Test
   public void fromFile() throws Exception {
+    String file = "this is a filename";
     Location location = Location.fromFile(file);
     assertThat(location.file()).isEqualTo(file);
     assertThat(location.line()).isEqualTo(0);
@@ -34,6 +35,7 @@ public class LocationTest extends EventTestTemplate {
 
   @Test
   public void testCodec() throws Exception {
+    String file = "this is a filename";
     new SerializationTester(
             Location.fromFile(file), //
             Location.fromFileLineColumn(file, 20, 25),

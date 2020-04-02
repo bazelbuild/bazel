@@ -21,9 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -481,13 +478,6 @@ public final class StarlarkThread {
   /** Returns the PrintHandler for Starlark print statements. */
   PrintHandler getPrintHandler() {
     return printHandler;
-  }
-
-  /** Returns a PrintHandler that sends DEBUG events to the provided EventHandler. */
-  // TODO(adonovan): move to lib.events.Event when we reverse the dependency.
-  // For now, clients call thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(h));
-  public static PrintHandler makeDebugPrintHandler(EventHandler h) {
-    return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
   }
 
   /** Sets the behavior of Starlark print statements executed by this thread. */

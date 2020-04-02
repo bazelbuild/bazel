@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skylarkdebug.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ContinueExecutionResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugEvent;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Thr
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadPausedEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.Debug;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Collection;

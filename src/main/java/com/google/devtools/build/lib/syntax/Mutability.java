@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.Location;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;

@@ -81,7 +81,7 @@ public class EvaluationTestCase {
             .setGlobals(Module.createForBuiltins(envBuilder.build()))
             .setSemantics(semantics)
             .build();
-    thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
+    thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
     return thread;
   }
 

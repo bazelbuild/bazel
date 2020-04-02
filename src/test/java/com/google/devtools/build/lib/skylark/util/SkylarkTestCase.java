@@ -65,7 +65,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                         globals.withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                     .build();
-            thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
+            thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
 
             // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
             // Rule creation is tested by SkylarkIntegrationTest.

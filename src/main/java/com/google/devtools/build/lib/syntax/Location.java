@@ -12,42 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.events;
+package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
 import java.util.Objects;
 
 /**
  * A Location denotes a position within a Starlark file.
  *
- * <p>A location is a triple {@code (file, line column)}, where {@code file} is the apparent name of
- * the file, {@code line} is the optional 1-based line number, and {@code column} is the optional
+ * <p>A location is a triple {@code (file, line, column)}, where {@code file} is the apparent name
+ * of the file, {@code line} is the optional 1-based line number, and {@code column} is the optional
  * 1-based column number measured in UTF-16 code units. If the column is zero it is not displayed.
  * If the line number is also zero, it too is not displayed; in this case, the location denotes the
  * file as a whole.
  */
-// TODO(adonovan): invert the dependency syntax -> events dependency.
-// That is, make this package depend on the Starlark syntax package,
-// not the other way around.
-// This Location type belongs in lib.syntax.
-//
-// Due to recent lib.syntax clean-ups, Location construction is
-// infrequent during normal execution; Locations are constructed only
-// on error.
-//
-// The syntax package also depends on Event, both for print events
-// (which can be eliminated by defining a PrintHandler interface
-// and defining an adaptor for it in lib.events) and for syntax errors,
-// for which lib.syntax will need a new String+Location error type,
-// which again this package will adapt to events.Event.
 public abstract class Location implements Serializable, Comparable<Location> {
 
   // TODO(adonovan): merge with Lexer.LexerLocation and make this the only implementation of
   // Location, once the parser no longer eagerly creates Locations but instead
   // records token offsets and the LineNumberTable in the tree.
+  @AutoCodec
   @Immutable
   static class FileLineColumn extends Location {
     final String file;
@@ -120,6 +107,7 @@ public abstract class Location implements Serializable, Comparable<Location> {
 
   /** A value class that describes the line and column of a location. */
   // TODO(adonovan): make private when we combine with LexerLocation.
+  @AutoCodec
   @Immutable
   public static final class LineAndColumn {
 
@@ -180,5 +168,5 @@ public abstract class Location implements Serializable, Comparable<Location> {
   }
 
   /** A location for built-in functions. */
-  @SerializationConstant public static final Location BUILTIN = fromFile("<builtin>");
+  @AutoCodec public static final Location BUILTIN = fromFile("<builtin>");
 }

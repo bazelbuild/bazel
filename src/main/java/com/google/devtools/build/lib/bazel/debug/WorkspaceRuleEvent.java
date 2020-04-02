@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.Symlin
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.TemplateEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.WhichEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Location;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;

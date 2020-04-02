@@ -18,14 +18,15 @@ import static com.google.devtools.build.lib.analysis.config.transitions.Configur
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -287,7 +288,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
             StarlarkThread.builder(mutability)
                 .setSemantics(semantics)
                 .build();
-        thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(eventHandler));
+        thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
         starlarkContext.storeInThread(thread);
         return Starlark.call(thread, function, args, /*kwargs=*/ ImmutableMap.of());
       }

@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 
 /** Defines an argument to the {@code package()} function. */
 public abstract class PackageArgument<T> {

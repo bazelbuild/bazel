@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Location;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;

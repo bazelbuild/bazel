@@ -222,10 +222,10 @@ java_test(
     name = "PyInfoTest",
     srcs = ["PyInfoTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/test/java/com/google/devtools/build/lib/skylark/util",
         "//third_party:junit4",
         "//third_party:truth",
@@ -236,10 +236,10 @@ java_test(
     name = "PyRuntimeInfoTest",
     srcs = ["PyRuntimeInfoTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/skylark/util",
         "//third_party:junit4",

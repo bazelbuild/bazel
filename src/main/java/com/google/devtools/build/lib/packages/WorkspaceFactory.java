@@ -167,7 +167,7 @@ public class WorkspaceFactory {
             .setGlobals(Module.createForBuiltins(env))
             .setImportedExtensions(importMap)
             .build();
-    thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(localReporter));
+    thread.setPrintHandler(Event.makeDebugPrintHandler(localReporter));
     thread.setThreadLocal(
         PackageFactory.PackageContext.class,
         new PackageFactory.PackageContext(builder, null, localReporter));

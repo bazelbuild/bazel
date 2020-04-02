@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.events.Location;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;

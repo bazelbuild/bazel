@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Event; // TODO(adonovan): break dependency
-import com.google.devtools.build.lib.events.Location;
 import java.util.List;
 
 /**
@@ -25,7 +23,7 @@ import java.util.List;
  * error, a structural problem, or a failure of identifier resolution. It records a description of
  * the error and its location in the syntax.
  */
-public final class SyntaxError implements Event.Eventable {
+public final class SyntaxError {
 
   private final Location location;
   private final String message;
@@ -49,11 +47,6 @@ public final class SyntaxError implements Event.Eventable {
   @Override
   public String toString() {
     return location + ": " + message;
-  }
-
-  @Override
-  public Event toEvent() {
-    return Event.error(location, message);
   }
 
   /**

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
 
 /** A Node is a node in a Starlark syntax tree. */
 public abstract class Node {
