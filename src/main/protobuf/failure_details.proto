@@ -125,7 +125,10 @@ message BuildProgress {
   enum Code {
     BUILD_PROGRESS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     OUTPUT_INITIALIZATION = 3 [(metadata) = { exit_code: 36 }];
-
+    BES_RUNS_PER_TEST_LIMIT_UNSUPPORTED = 4 [(metadata) = { exit_code: 2 }];
+    BES_LOCAL_WRITE_ERROR = 5 [(metadata) = { exit_code: 36 }];
+    BES_INITIALIZATION_ERROR = 6 [(metadata) = { exit_code: 36 }];
+    BES_UPLOAD_TIMEOUT_ERROR = 7 [(metadata) = { exit_code: 38 }];
     reserved 1, 2; // For internal use
   }
   Code code = 1;
