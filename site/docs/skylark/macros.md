@@ -30,8 +30,9 @@ genrule(
 )
 ```
 
-> Tip: `$@` is a [Make variable] that refers to the execution-time locations of the files 
-> in the `outs` attribute list. It's equivalent to `$(locations :file.txt)`.
+> Tip: `$@` is a [Make variable](../be/make-variables.html#predefined_genrule_variables) 
+> that refers to the execution-time locations of the files in the `outs` attribute list. 
+> It is equivalent to `$(locations :file.txt)`.
 
 If you want to generate more files with different arguments, you may want to
 extract this code to a macro function. Let's call the macro `file_generator`, which
@@ -61,8 +62,7 @@ Here, we are loading the `file_generator` symbol from a `.bzl` file located in t
 we can keep our BUILD files clean and declarative,  The `.bzl` file can be loaded 
 from any package in the workspace, as long as `visibility` conditions are met.
 
-> Tip: To make a `.bzl` file visible from a package, add [`exports_files(["<filename>.bzl"])`](https://docs.bazel.build/versions/master/be/functions.html#exports_files) into the `BUILD`
-file in the same directory as the `.bzl` file.
+> Tip: To make a `.bzl` file visible from a package, add [`exports_files(["<filename>.bzl"])`](../be/functions.html#exports_files) into the `BUILD` file in the same directory as the `.bzl` file.
 
 Finally, in `path/generator.bzl`, let's write the definition of the macro to encapsulate and 
 parameterize our original genrule definition:
