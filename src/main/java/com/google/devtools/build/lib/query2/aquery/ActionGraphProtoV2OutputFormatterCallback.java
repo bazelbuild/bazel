@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandl
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintStream;
 
 /** Default output callback for aquery, prints proto output. */
 public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeCallback {
@@ -54,21 +55,7 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;
-
-    switch (outputType) {
-      case BINARY:
-      case TEXT:
-        this.aqueryOutputHandler =
-            new StreamedOutputHandler(
-                this.outputType,
-                CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
-                this.printStream);
-        break;
-      case JSON:
-        this.aqueryOutputHandler = new MonolithicOutputHandler(this.printStream);
-        break;
-    }
-
+    this.aqueryOutputHandler = constructAqueryOutputHandler(outputType, out, printStream);
     this.actionGraphDump =
         new ActionGraphDump(
             options.includeCommandline,
@@ -76,6 +63,23 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
             this.actionFilters,
             options.includeParamFiles,
             aqueryOutputHandler);
+  }
+
+  public static AqueryOutputHandler constructAqueryOutputHandler(
+      OutputType outputType, OutputStream out, PrintStream printStream) {
+    switch (outputType) {
+      case BINARY:
+      case TEXT:
+        return new StreamedOutputHandler(
+            outputType, CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE), printStream);
+      case JSON:
+        return new MonolithicOutputHandler(printStream);
+    }
+    throw new IllegalStateException(
+        "Unsupported output format "
+            + outputType.formatName()
+            + ": --incompatible_proto_output_v2 must be used with"
+            + " --output=(proto|textproto|jsonproto).");
   }
 
   @Override

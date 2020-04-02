@@ -809,6 +809,37 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return actionGraphDump.build();
   }
 
+  /** Support for aquery output with --incompatible_proto_output_v2. */
+  public void dumpSkyframeState(
+      com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump actionGraphDump)
+      throws CommandLineExpansionException, IOException {
+
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
+        memoizingEvaluator.getDoneValues().entrySet()) {
+      SkyKey key = skyKeyAndValue.getKey();
+      SkyValue skyValue = skyKeyAndValue.getValue();
+      SkyFunctionName functionName = key.functionName();
+      try {
+        // The skyValue may be null in case analysis of the previous build failed.
+        if (skyValue != null) {
+          if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
+            actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
+          } else if (functionName.equals(SkyFunctions.ASPECT)) {
+            AspectValue aspectValue = (AspectValue) skyValue;
+            AspectKey aspectKey = aspectValue.getKey();
+            ConfiguredTargetValue configuredTargetValue =
+                (ConfiguredTargetValue)
+                    memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
+            actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
+          }
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException("No interruption in sequenced evaluation", e);
+      }
+    }
+  }
+
   /**
    * In addition to calling the superclass method, deletes all analysis-related values from the
    * Skyframe cache. This is done to save memory (e.g. on a configuration change); since the
