@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.whitelisting;
 
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;

@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -272,7 +273,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     }
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions options) {
+    public Map<String, BuildOptions> split(BuildOptions options, EventHandler eventHandler) {
       BuildOptions result1 = options.clone();
       BuildOptions result2 = options.clone();
       result1.get(TestOptions.class).testArguments = Collections.singletonList(toOption1);
@@ -537,7 +538,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
   /** Return an empty BuildOptions for testing fragment dropping. * */
   public static class RemoveTestOptionsTransition implements PatchTransition {
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       BuildOptions.Builder builder = BuildOptions.builder();
       for (FragmentOptions option : options.getNativeOptions()) {
         if (!(option instanceof TestOptions)) {

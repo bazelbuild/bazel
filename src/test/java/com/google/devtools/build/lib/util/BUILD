@@ -10,6 +10,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/util/io:srcs",
+        "//src/test/java/com/google/devtools/build/lib/util/subjects:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -37,8 +38,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build",
         "//src/main/java/com/google/devtools/build/lib:command-utils",
+        "//src/main/java/com/google/devtools/build/lib:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
-        "//src/main/java/com/google/devtools/build/lib:failure_detail_util",
         "//src/main/java/com/google/devtools/build/lib:filetype",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:resource-converter",
@@ -56,7 +57,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//src/test/java/com/google/devtools/build/lib/util/subjects",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
@@ -72,7 +73,6 @@ java_test(
     resources = ["ResourceFileLoaderTest.message"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:junit4",
         "//third_party:truth",
     ],

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -548,10 +549,21 @@ public final class ConfigurationResolver {
     }
 
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
-    Map<String, BuildOptions> result = transition.apply(fromOptions);
+    StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
+    Map<String, BuildOptions> result = transition.apply(fromOptions, handlerWithErrorStatus);
 
     if (doesStarlarkTransition) {
-      StarlarkTransition.replayEvents(eventHandler, transition);
+      // We use a temporary StoredEventHandler instead of the caller's event handler because
+      // StarlarkTransition.validate assumes no errors occurred. We need a StoredEventHandler to be
+      // able to check that, and fail out early if there are errors.
+      //
+      // TODO(bazel-team): harden StarlarkTransition.validate so we can eliminate this step.
+      // StarlarkRuleTransitionProviderTest#testAliasedBuildSetting_outputReturnMismatch shows the
+      // effect.
+      handlerWithErrorStatus.replayOn(eventHandler);
+      if (handlerWithErrorStatus.hasErrors()) {
+        throw new TransitionException("Errors encountered while applying Starlark transition");
+      }
       result = StarlarkTransition.validate(transition, buildSettingPackages, result);
     }
     return result;

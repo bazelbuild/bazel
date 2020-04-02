@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.util.stream.Collectors.joining;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -946,7 +946,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
 
   // TODO(adonovan): move this and all tests that use it to Validation tests.
   private void assertValidationError(String expectedError, final String... lines) throws Exception {
-    SyntaxError error = assertThrows(SyntaxError.class, () -> exec(lines));
+    SyntaxError.Exception error = assertThrows(SyntaxError.Exception.class, () -> exec(lines));
     assertThat(error).hasMessageThat().contains(expectedError);
   }
 

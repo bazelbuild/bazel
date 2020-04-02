@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -73,14 +73,13 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   public static final class TestOptions extends OptionsBase {
     @Option(
-      name = "multi_cpu",
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "",
-      help = "Additional target CPUs."
-    )
+        name = "multi_cpu",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        help = "Additional target CPUs.")
     public List<String> multiCpus;
   }
 
@@ -125,9 +124,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         "  pass",
         "",
         "def http_file(**kwargs):",
-        "  pass",
-        "",
-        "def http_jar(**kwargs):",
         "  pass");
 
     analysisMock.setupMockClient(mockToolsConfig);

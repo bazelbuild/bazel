@@ -188,7 +188,8 @@ public final class AllocationTrackerTest {
     assertThat(rules).containsExactly("myrule", new RuleBytes("myrule").addBytes(128L));
   }
 
-  private void exec(String... lines) throws SyntaxError, EvalException, InterruptedException {
+  private void exec(String... lines)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.create(Joiner.on("\n").join(lines), "a.star");
     Mutability mu = Mutability.create("test");
     StarlarkThread thread =

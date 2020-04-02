@@ -19,10 +19,12 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
@@ -56,6 +58,17 @@ public class PackageCacheOptions extends OptionsBase {
     @Override
     public String getTypeDescription() {
       return "default visibility";
+    }
+  }
+
+  /** Converter for globbing threads. */
+  public static class ParallelismConverter extends ResourceConverter {
+    public ParallelismConverter() throws OptionsParsingException {
+      super(
+          /* autoSupplier= */ () ->
+              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
+          /* minValue= */ 1,
+          /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
@@ -111,12 +124,16 @@ public class PackageCacheOptions extends OptionsBase {
   public RuleVisibility defaultVisibility;
 
   @Option(
-    name = "legacy_globbing_threads",
-    defaultValue = "100",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Number of threads to use for glob evaluation."
-  )
+      name = "legacy_globbing_threads",
+      defaultValue = "100",
+      converter = ParallelismConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Number of threads to use for glob evaluation. Takes "
+              + ResourceConverter.FLAG_SYNTAX
+              + ". \"auto\" means to use a reasonable value derived from the machine's hardware"
+              + " profile (e.g. the number of processors).")
   public int globbingThreads;
 
   @Option(

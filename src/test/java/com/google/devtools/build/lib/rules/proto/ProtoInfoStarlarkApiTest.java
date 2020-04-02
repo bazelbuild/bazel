@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoModuleApi;
+import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +34,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestCase*/ {
+public class ProtoInfoStarlarkApiTest extends BuildViewTestCase /*SkylarkTestCase*/ {
 
   @Before
   public void setUp() throws Exception {
@@ -68,8 +68,9 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
 
     ConfiguredTarget test = getConfiguredTarget("//foo:test");
     Object protoCommon = getMyInfoFromTarget(test).getValue("proto_common");
-    assertThat(protoCommon).isInstanceOf(ProtoModuleApi.class);
+    assertThat(protoCommon).isInstanceOf(ProtoCommonApi.class);
   }
+
   @Test
   public void testProvider() throws Exception {
     scratch.file(

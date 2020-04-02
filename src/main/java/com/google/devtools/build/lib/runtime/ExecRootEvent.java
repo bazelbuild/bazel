@@ -17,8 +17,9 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 
@@ -38,14 +39,14 @@ public class ExecRootEvent implements BuildEvent {
             .setLocalExecRoot(execRoot.getPathString())
             .build();
     return BuildEventStreamProtos.BuildEvent.newBuilder()
-        .setId(getEventId().asStreamProto())
+        .setId(getEventId())
         .setWorkspaceInfo(workspaceConfigEvent)
         .build();
   }
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.workspaceConfigId();
+    return BuildEventIdUtil.workspaceConfigId();
   }
 
   @Override

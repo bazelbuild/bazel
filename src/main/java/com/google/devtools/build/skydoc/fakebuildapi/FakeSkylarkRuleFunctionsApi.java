@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkbuildapi.ExecGroupApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
@@ -235,6 +236,12 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     aspectInfoList.add(new AspectInfoWrapper(fakeAspect, thread.getCallerLocation(), aspectInfo));
 
     return fakeAspect;
+  }
+
+  @Override
+  public ExecGroupApi execGroup(
+      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread) {
+    return new FakeExecGroup();
   }
 
   /**

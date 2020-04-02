@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Ascii;
@@ -250,9 +250,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         "  pass",
         "",
         "def http_file(**kwargs):",
-        "  pass",
-        "",
-        "def http_jar(**kwargs):",
         "  pass");
     initializeMockClient();
 
@@ -1774,7 +1771,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       try {
         return skyframeExecutor.getConfigurationForTesting(
-            reporter, fromConfig.fragmentClasses(), transition.patch(fromConfig.getOptions()));
+            reporter,
+            fromConfig.fragmentClasses(),
+            transition.patch(fromConfig.getOptions(), eventCollector));
       } catch (OptionsParsingException | InvalidConfigurationException e) {
         throw new AssertionError(e);
       }

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -711,17 +711,19 @@ public class FilesystemValueCheckerTest {
   }
 
   private Artifact createDerivedArtifact(String relPath) throws IOException {
-    Path outputPath = fs.getPath("/bin");
+    String outSegment = "bin";
+    Path outputPath = fs.getPath("/" + outSegment);
     outputPath.createDirectory();
     return ActionsTestUtil.createArtifact(
-        ArtifactRoot.asDerivedRoot(fs.getPath("/"), outputPath), outputPath.getRelative(relPath));
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), outSegment), outputPath.getRelative(relPath));
   }
 
   private SpecialArtifact createTreeArtifact(String relPath) throws IOException {
-    Path outputDir = fs.getPath("/bin");
+    String outSegment = "bin";
+    Path outputDir = fs.getPath("/" + outSegment);
     Path outputPath = outputDir.getRelative(relPath);
     outputDir.createDirectory();
-    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(fs.getPath("/"), outputDir);
+    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(fs.getPath("/"), outSegment);
     return new SpecialArtifact(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),

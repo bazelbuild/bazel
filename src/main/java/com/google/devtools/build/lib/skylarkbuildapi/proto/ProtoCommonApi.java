@@ -31,4 +31,4 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
             + "rules_proto</a>"
             + "</p>")
-public interface ProtoModuleApi extends StarlarkValue {}
+public interface ProtoCommonApi extends StarlarkValue {}

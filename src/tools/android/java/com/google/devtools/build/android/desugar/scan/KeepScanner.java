@@ -68,7 +68,7 @@ class KeepScanner {
     @Option(
         name = "classpath_entry",
         allowMultiple = true,
-        defaultValue = "",
+        defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         converter = ExistingPathConverter.class,
@@ -80,7 +80,7 @@ class KeepScanner {
     @Option(
         name = "bootclasspath_entry",
         allowMultiple = true,
-        defaultValue = "",
+        defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         converter = ExistingPathConverter.class,

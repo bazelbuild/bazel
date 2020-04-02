@@ -61,7 +61,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:graph_inconsistency_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/testutil:EventUtils",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestRunnableWrapper",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",

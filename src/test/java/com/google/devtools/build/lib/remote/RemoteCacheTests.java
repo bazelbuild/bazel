@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.toBinaryDigest;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -112,7 +112,7 @@ public class RemoteCacheTests {
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
     fakeFileCache = new FakeActionInputFileCache(execRoot);
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getChild("outputs"));
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, "outputs");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }

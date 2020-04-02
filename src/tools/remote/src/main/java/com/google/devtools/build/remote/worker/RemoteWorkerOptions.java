@@ -92,25 +92,23 @@ public class RemoteWorkerOptions extends OptionsBase {
   public boolean sandboxing;
 
   @Option(
-    name = "sandboxing_writable_path",
-    defaultValue = "",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    allowMultiple = true,
-    help = "When using sandboxing, allow running actions to write to this path."
-  )
+      name = "sandboxing_writable_path",
+      defaultValue = "null",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help = "When using sandboxing, allow running actions to write to this path.")
   public List<String> sandboxingWritablePaths;
 
   @Option(
-    name = "sandboxing_tmpfs_dir",
-    defaultValue = "",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    allowMultiple = true,
-    help = "When using sandboxing, mount an empty tmpfs onto this path for each running action."
-  )
+      name = "sandboxing_tmpfs_dir",
+      defaultValue = "null",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help = "When using sandboxing, mount an empty tmpfs onto this path for each running action.")
   public List<String> sandboxingTmpfsDirs;
 
   @Option(
@@ -167,6 +165,16 @@ public class RemoteWorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specify the TLS private key to be used.")
   public String tlsPrivateKey;
+
+  @Option(
+      name = "tls_ca_certificate",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a CA certificate to use for authenticating clients; setting this implicitly "
+              + "requires client authentication (aka mTLS).")
+  public String tlsCaCertificate;
 
   private static final int MAX_JOBS = 16384;
 

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -34,7 +34,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SelectTest {
 
-  private static Object eval(String expr) throws SyntaxError, EvalException, InterruptedException {
+  private static Object eval(String expr)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(expr);
     StarlarkThread thread =
         StarlarkThread.builder(Mutability.create("test"))

@@ -118,24 +118,23 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     for (String path : pathsList) {
       PathFragment pathFragment = PathFragment.create(path);
       if (pathFragment.isEmpty()) {
-        throw Starlark.errorf(
-            "Empty path can not be passed to dont_symlink_directories_in_execroot.");
+        throw Starlark.errorf("Empty path can not be passed to toplevel_output_directories.");
       }
       if (pathFragment.containsUplevelReferences() || pathFragment.segmentCount() > 1) {
         throw Starlark.errorf(
-            "dont_symlink_directories_in_execroot can only accept top level directories under"
+            "toplevel_output_directories can only accept top level directories under"
                 + " workspace, \"%s\" can not be specified as an attribute.",
             path);
       }
       if (pathFragment.isAbsolute()) {
         throw Starlark.errorf(
-            "dont_symlink_directories_in_execroot can only accept top level directories under"
+            "toplevel_output_directories can only accept top level directories under"
                 + " workspace, absolute path \"%s\" can not be specified as an attribute.",
             path);
       }
       if (!set.add(pathFragment.getBaseName())) {
         throw Starlark.errorf(
-            "dont_symlink_directories_in_execroot should not contain duplicate values: \"%s\" is"
+            "toplevel_output_directories should not contain duplicate values: \"%s\" is"
                 + " specified more then once.",
             path);
       }

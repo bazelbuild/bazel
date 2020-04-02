@@ -145,7 +145,11 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         }
         Dependency dep = attributeAndDep.getValue();
         BuildOptions fromOptions = config.getOptions();
-        Collection<BuildOptions> toOptions = dep.getTransition().apply(fromOptions).values();
+        // TODO(bazel-team): support transitions on Starlark-defined build flags. These require
+        // Skyframe loading to get flag default values. See ConfigurationResolver.applyTransition
+        // for an example of the required logic.
+        Collection<BuildOptions> toOptions =
+            dep.getTransition().apply(fromOptions, eventHandler).values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
         if (attributeAndDep.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {

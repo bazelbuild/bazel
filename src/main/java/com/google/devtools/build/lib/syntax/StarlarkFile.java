@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.events.Event;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -32,14 +31,14 @@ public final class StarlarkFile extends Node {
   private final ImmutableList<Statement> statements;
   private final FileOptions options;
   private final ImmutableList<Comment> comments;
-  final List<Event> errors; // appended to by ValidationEnvironment
+  final List<SyntaxError> errors; // appended to by ValidationEnvironment
   @Nullable private final String contentHashCode;
 
   private StarlarkFile(
       ImmutableList<Statement> statements,
       FileOptions options,
       ImmutableList<Comment> comments,
-      List<Event> errors,
+      List<SyntaxError> errors,
       String contentHashCode,
       Lexer.LexerLocation location) {
     this.statements = statements;
@@ -81,7 +80,7 @@ public final class StarlarkFile extends Node {
    * Returns an unmodifiable view of the list of scanner, parser, and (perhaps) resolver errors
    * accumulated in this Starlark file.
    */
-  public List<Event> errors() {
+  public List<SyntaxError> errors() {
     return Collections.unmodifiableList(errors);
   }
 

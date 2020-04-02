@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -42,7 +44,7 @@ public class TestTrimmingTransitionTest {
         BuildOptions.of(
             ImmutableList.of(CoreOptions.class, TestOptions.class), "--trim_test_configuration");
 
-    BuildOptions result = TRIM_TRANSITION.patch(options);
+    BuildOptions result = TRIM_TRANSITION.patch(options, new StoredEventHandler());
 
     // Verify the transitions actually applied.
     assertThat(result).isNotNull();
@@ -56,7 +58,7 @@ public class TestTrimmingTransitionTest {
         BuildOptions.of(
             ImmutableList.of(CoreOptions.class, TestOptions.class), "--notrim_test_configuration");
 
-    BuildOptions result = TRIM_TRANSITION.patch(options);
+    BuildOptions result = TRIM_TRANSITION.patch(options, new StoredEventHandler());
 
     // Verify the transitions actually applied.
     assertThat(result).isNotNull();
@@ -75,7 +77,7 @@ public class TestTrimmingTransitionTest {
             .addStarlarkOption(starlarkOptionKey, starlarkOptionValue)
             .build();
 
-    BuildOptions result = TRIM_TRANSITION.patch(options);
+    BuildOptions result = TRIM_TRANSITION.patch(options, new StoredEventHandler());
 
     // Verify the transitions actually applied.
     assertThat(result).isNotNull();
@@ -103,8 +105,11 @@ public class TestTrimmingTransitionTest {
             "--platforms=//platform:target",
             "--trim_test_configuration");
 
-    BuildOptions execThenTrim = TRIM_TRANSITION.patch(execTransition.patch(options));
-    BuildOptions trimThenExec = execTransition.patch(TRIM_TRANSITION.patch(options));
+    EventHandler handler = new StoredEventHandler();
+    BuildOptions execThenTrim =
+        TRIM_TRANSITION.patch(execTransition.patch(options, handler), handler);
+    BuildOptions trimThenExec =
+        execTransition.patch(TRIM_TRANSITION.patch(options, handler), handler);
 
     assertThat(execThenTrim).isEqualTo(trimThenExec);
 

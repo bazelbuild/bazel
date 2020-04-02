@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.starlark.cmd;
 
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FileOptions;
@@ -104,9 +103,9 @@ class Starlark {
         if (result != null) {
           System.out.println(com.google.devtools.build.lib.syntax.Starlark.repr(result));
         }
-      } catch (SyntaxError ex) {
-        for (Event ev : ex.errors()) {
-          System.err.println(ev);
+      } catch (SyntaxError.Exception ex) {
+        for (SyntaxError error : ex.errors()) {
+          System.err.println(error);
         }
       } catch (EvalException ex) {
         System.err.println(ex.print());
@@ -133,9 +132,9 @@ class Starlark {
     try {
       EvalUtils.exec(ParserInput.create(content, filename), options, module, thread);
       return 0;
-    } catch (SyntaxError ex) {
-      for (Event ev : ex.errors()) {
-        System.err.println(ev);
+    } catch (SyntaxError.Exception ex) {
+      for (SyntaxError error : ex.errors()) {
+        System.err.println(error);
       }
       return 1;
     } catch (EvalException ex) {

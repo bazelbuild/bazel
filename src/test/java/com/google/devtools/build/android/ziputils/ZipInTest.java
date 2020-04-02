@@ -24,8 +24,8 @@ import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.E
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDSIZ;
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDSUB;
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDTOT;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.android.ziputils.ZipIn.ZipEntry;
 import java.io.IOException;

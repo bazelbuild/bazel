@@ -133,48 +133,44 @@ public class SandboxOptions extends OptionsBase {
   public boolean sandboxFakeUsername;
 
   @Option(
-    name = "sandbox_block_path",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "For sandboxed actions, disallow access to this path."
-  )
+      name = "sandbox_block_path",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "For sandboxed actions, disallow access to this path.")
   public List<String> sandboxBlockPath;
 
   @Option(
-    name = "sandbox_tmpfs_path",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "For sandboxed actions, mount an empty, writable directory at this path"
-            + " (if supported by the sandboxing implementation, ignored otherwise)."
-  )
+      name = "sandbox_tmpfs_path",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "For sandboxed actions, mount an empty, writable directory at this path"
+              + " (if supported by the sandboxing implementation, ignored otherwise).")
   public List<String> sandboxTmpfsPath;
 
   @Option(
-    name = "sandbox_writable_path",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "For sandboxed actions, make an existing directory writable in the sandbox"
-            + " (if supported by the sandboxing implementation, ignored otherwise)."
-  )
+      name = "sandbox_writable_path",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "For sandboxed actions, make an existing directory writable in the sandbox"
+              + " (if supported by the sandboxing implementation, ignored otherwise).")
   public List<String> sandboxWritablePath;
 
   @Option(
-    name = "sandbox_add_mount_pair",
-    allowMultiple = true,
-    converter = MountPairConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Add additional path pair to mount in sandbox."
-  )
+      name = "sandbox_add_mount_pair",
+      allowMultiple = true,
+      converter = MountPairConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Add additional path pair to mount in sandbox.")
   public List<ImmutableMap.Entry<String, String>> sandboxAdditionalMounts;
 
   @Option(

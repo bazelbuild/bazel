@@ -211,7 +211,7 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
 }
 
 string GetProcessIdAsString() {
-  return ToString(getpid());
+  return blaze_util::ToString(getpid());
 }
 
 string GetHomeDir() { return GetPathEnv("HOME"); }

@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.skydoc.fakebuildapi.proto;
+package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** Fake implementation of {@link ProtoInfoApi.Provider}. */
-public class FakeProtoInfoApiProvider implements ProtoInfoApi.Provider {
-
-  @Override
-  public void repr(Printer printer) {}
-}
+/** A unit of toolchain resolution. Every rule has one or more of these. */
+@SkylarkModule(name = "exec_group", category = SkylarkModuleCategory.BUILTIN, documented = false)
+public interface ExecGroupApi extends StarlarkValue {}

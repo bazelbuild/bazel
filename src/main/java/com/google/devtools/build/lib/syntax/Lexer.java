@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.ArrayList;
@@ -73,7 +72,7 @@ final class Lexer {
   private int openParenStackDepth = 0;
 
   // List of errors appended to by Lexer and Parser.
-  private final List<Event> errors;
+  private final List<SyntaxError> errors;
 
   /**
    * True after a NEWLINE token.
@@ -84,7 +83,7 @@ final class Lexer {
   private int dents; // number of saved INDENT (>0) or OUTDENT (<0) tokens to return
 
   /** Constructs a lexer which tokenizes the parser input. Errors are appended to {@code errors}. */
-  Lexer(ParserInput input, FileOptions options, List<Event> errors) {
+  Lexer(ParserInput input, FileOptions options, List<SyntaxError> errors) {
     this.lnt = LineNumberTable.create(input.getContent(), input.getFile());
     this.options = options;
     this.buffer = input.getContent();
@@ -137,7 +136,7 @@ final class Lexer {
   }
 
   private void error(String message, int start, int end) {
-    errors.add(Event.error(createLocation(start, end), message));
+    errors.add(new SyntaxError(createLocation(start, end), message));
   }
 
   LexerLocation createLocation(int start, int end) {
@@ -416,13 +415,13 @@ final class Lexer {
             default:
               // unknown char escape => "\literal"
               if (options.restrictStringEscapes()) {
-                errors.add(
-                    Event.error(
-                        createLocation(pos - 1, pos),
-                        "invalid escape sequence: \\"
-                            + c
-                            + ". You can enable unknown escape sequences by passing the flag "
-                            + "--incompatible_restrict_string_escapes=false"));
+                error(
+                    "invalid escape sequence: \\"
+                        + c
+                        + ". You can enable unknown escape sequences by passing the flag"
+                        + " --incompatible_restrict_string_escapes=false",
+                    pos - 1,
+                    pos);
               }
               literal.append('\\');
               literal.append(c);

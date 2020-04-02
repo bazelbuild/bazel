@@ -1653,7 +1653,7 @@ public abstract class CcModule
       throw Starlark.errorf("Either PIC or no PIC actions have to be created.");
     }
 
-    CcCommon common = new CcCommon(actions.getRuleContext());
+    CcCommon common = new CcCommon(actions.getRuleContext(), ccToolchainProvider);
     CcCompilationHelper helper =
         new CcCompilationHelper(
                 actions.asActionRegistry(actions),

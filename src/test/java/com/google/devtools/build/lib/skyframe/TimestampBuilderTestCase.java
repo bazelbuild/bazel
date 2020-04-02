@@ -404,9 +404,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return new Artifact.DerivedArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
-        execPath,
-        ACTION_LOOKUP_KEY);
+        ArtifactRoot.asDerivedRoot(execRoot, "out"), execPath, ACTION_LOOKUP_KEY);
   }
 
   /**

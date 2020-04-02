@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Objects;
@@ -48,11 +49,12 @@ public class ComposingTransition implements ConfigurationTransition {
   }
 
   @Override
-  public Map<String, BuildOptions> apply(BuildOptions buildOptions) {
+  public Map<String, BuildOptions> apply(BuildOptions buildOptions, EventHandler eventHandler) {
     ImmutableMap.Builder<String, BuildOptions> toOptions = ImmutableMap.builder();
-    for (Map.Entry<String, BuildOptions> entry1 : transition1.apply(buildOptions).entrySet()) {
+    for (Map.Entry<String, BuildOptions> entry1 :
+        transition1.apply(buildOptions, eventHandler).entrySet()) {
       for (Map.Entry<String, BuildOptions> entry2 :
-          transition2.apply(entry1.getValue()).entrySet()) {
+          transition2.apply(entry1.getValue(), eventHandler).entrySet()) {
         toOptions.put(composeKeys(entry1.getKey(), entry2.getKey()), entry2.getValue());
       }
     }

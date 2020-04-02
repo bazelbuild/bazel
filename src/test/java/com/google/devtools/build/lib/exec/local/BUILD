@@ -36,11 +36,11 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/shell/integration:spend_cpu_time",  # keep
         "//third_party:guava",
+        "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
     ],

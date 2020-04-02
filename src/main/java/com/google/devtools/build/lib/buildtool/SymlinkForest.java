@@ -175,7 +175,7 @@ public class SymlinkForest {
       if (this.notSymlinkedInExecrootDirectories.contains(target.getBaseName())) {
         throw new AbruptExitException(
             "Directories specified with "
-                + "dont_symlink_directories_in_execroot should be ignored and can not be used"
+                + "toplevel_output_directories should be ignored and can not be used"
                 + " as sources.",
             ExitCode.COMMAND_LINE_ERROR);
       }
@@ -380,7 +380,7 @@ public class SymlinkForest {
     if (mainRepoRoots.size() > 1) {
       if (!this.notSymlinkedInExecrootDirectories.isEmpty()) {
         throw new AbruptExitException(
-            "dont_symlink_directories_in_execroot is "
+            "toplevel_output_directories is "
                 + "not supported together with --package_path option.",
             ExitCode.COMMAND_LINE_ERROR);
       }

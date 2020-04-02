@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.truth.Truth;
-import com.google.devtools.build.lib.events.Event;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -54,8 +53,8 @@ public class LValueBoundNamesTest {
   private static void assertBoundNames(String assignment, String... expectedBoundNames) {
     ParserInput input = ParserInput.fromLines(assignment);
     StarlarkFile file = StarlarkFile.parse(input);
-    for (Event error : file.errors()) {
-      throw new AssertionError(error);
+    if (!file.ok()) {
+      throw new AssertionError(new SyntaxError.Exception(file.errors()));
     }
     Expression lhs = ((AssignmentStatement) file.getStatements().get(0)).getLHS();
     Set<String> boundNames =

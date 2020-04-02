@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.actions.CustomCommandLine.builder;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -49,16 +49,14 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class CustomCommandLineTest {
-
-  private Scratch scratch;
   private ArtifactRoot rootDir;
   private Artifact artifact1;
   private Artifact artifact2;
 
   @Before
   public void createArtifacts() throws Exception  {
-    scratch = new Scratch();
-    rootDir = ArtifactRoot.asDerivedRoot(scratch.dir("/exec/root"), scratch.dir("/exec/root/dir"));
+    Scratch scratch = new Scratch();
+    rootDir = ArtifactRoot.asDerivedRoot(scratch.dir("/exec/root"), "dir");
     artifact1 = ActionsTestUtil.createArtifact(rootDir, scratch.file("/exec/root/dir/file1.txt"));
     artifact2 = ActionsTestUtil.createArtifact(rootDir, scratch.file("/exec/root/dir/file2.txt"));
   }

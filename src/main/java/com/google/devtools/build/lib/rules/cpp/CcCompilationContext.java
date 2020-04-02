@@ -455,17 +455,22 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /**
-   * Returns the immutable set of additional transitive inputs needed for
-   * compilation, like C++ module map artifacts.
+   * Returns the immutable set of additional transitive inputs needed for compilation, like C++
+   * module map artifacts.
    */
   public NestedSet<Artifact> getAdditionalInputs() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    addAdditionalInputs(builder);
+    return builder.build();
+  }
+
+  /** Adds additional transitive inputs needed for compilation to builder. */
+  void addAdditionalInputs(NestedSetBuilder<Artifact> builder) {
     builder.addAll(directModuleMaps);
     builder.addTransitive(nonCodeInputs);
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
     }
-    return builder.build();
   }
 
   /** @return modules maps from direct dependencies. */

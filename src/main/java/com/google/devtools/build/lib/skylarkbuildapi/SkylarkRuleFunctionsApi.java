@@ -37,6 +37,9 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 @SkylarkGlobalLibrary
 public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
 
+  String EXEC_COMPATIBLE_WITH_PARAM = "exec_compatible_with";
+  String TOOLCHAINS_PARAM = "toolchains";
+
   String PROVIDES_DOC =
       "A list of providers that the implementation function must return."
           + ""
@@ -246,7 +249,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "This should only be used for testing the analysis-time behavior of "
                     + "Starlark rules. This flag may be removed in the future."),
         @Param(
-            name = "toolchains",
+            name = TOOLCHAINS_PARAM,
             type = Sequence.class,
             named = true,
             generic1 = String.class,
@@ -272,7 +275,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
-            name = "exec_compatible_with",
+            name = EXEC_COMPATIBLE_WITH_PARAM,
             type = Sequence.class,
             generic1 = String.class,
             named = true,
@@ -461,7 +464,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                 "List of names of configuration fragments that the aspect requires "
                     + "in host configuration."),
         @Param(
-            name = "toolchains",
+            name = TOOLCHAINS_PARAM,
             type = Sequence.class,
             named = true,
             generic1 = String.class,
@@ -543,5 +546,36 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useStarlarkThread = true)
   @SkylarkConstructor(objectType = Label.class)
   Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
+      throws EvalException;
+
+  @SkylarkCallable(
+      name = "exec_group",
+      // TODO(juliexxia); uncomment or remove based on resolution of b/152637857
+      // enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+      doc =
+          "<i>experimental</i> Creates an execution group which can be used to create"
+              + "actions for a specific execution platform during rule implementation. This is "
+              + "ongoing work and not yet functional - DO NOT USE.",
+      parameters = {
+        @Param(
+            name = TOOLCHAINS_PARAM,
+            type = Sequence.class,
+            generic1 = String.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "<i>Experimental</i> The set of toolchains this execution group requires."),
+        @Param(
+            name = EXEC_COMPATIBLE_WITH_PARAM,
+            type = Sequence.class,
+            generic1 = String.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "<i>Experimental</i> A list of constraints on the execution platform."),
+      },
+      useStarlarkThread = true)
+  ExecGroupApi execGroup(
+      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread)
       throws EvalException;
 }

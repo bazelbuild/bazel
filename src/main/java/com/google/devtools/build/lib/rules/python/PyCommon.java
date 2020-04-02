@@ -478,6 +478,9 @@ public final class PyCommon {
   /**
    * If 2to3 conversion is to be done, creates the 2to3 actions and returns the map of converted
    * files; otherwise returns null.
+   *
+   * <p>May also return null and report a rule error if there is a problem creating an output file
+   * for 2to3 conversion.
    */
   // TODO(#1393): 2to3 conversion doesn't work in Bazel and the attempt to invoke it for Bazel
   // should be removed / factored away into PythonSemantics.

@@ -21,8 +21,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
@@ -163,7 +164,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.testResult(
+    return BuildEventIdUtil.testResult(
         testAction.getOwner().getLabel(),
         testAction.getRunNumber(),
         testAction.getShardNum(),
@@ -174,7 +175,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
   @Override
   public Collection<BuildEventId> postedAfter() {
     return ImmutableList.of(
-        BuildEventId.targetCompleted(
+        BuildEventIdUtil.targetCompleted(
             testAction.getOwner().getLabel(), testAction.getConfiguration().getEventId()));
   }
 
@@ -184,7 +185,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
       return ImmutableList.of();
     } else {
       return ImmutableList.of(
-          BuildEventId.testResult(
+          BuildEventIdUtil.testResult(
               testAction.getOwner().getLabel(),
               testAction.getRunNumber(),
               testAction.getShardNum(),

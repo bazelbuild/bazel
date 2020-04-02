@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
@@ -40,9 +39,9 @@ import javax.annotation.Nullable;
  * nodes. (In the future, it will attach additional information to functions to support lexical
  * scope, and even compilation of the trees to bytecode.) Validation errors are reported in the
  * analogous manner to scan/parse errors: for a StarlarkFile, they are appended to {@code
- * StarlarkFile.errors}; for an expression they are reported by an SyntaxError exception. It is
- * legal to validate a file that already contains scan/parse errors, though it may lead to secondary
- * validation errors.
+ * StarlarkFile.errors}; for an expression they are reported by an SyntaxError.Exception exception.
+ * It is legal to validate a file that already contains scan/parse errors, though it may lead to
+ * secondary validation errors.
  */
 // TODO(adonovan): make this class private. Call it through the EvalUtils facade.
 public final class ValidationEnvironment extends NodeVisitor {
@@ -105,13 +104,13 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
-  private final List<Event> errors;
+  private final List<SyntaxError> errors;
   private final FileOptions options;
   private final Module module;
   private Block block;
   private int loopCount;
 
-  private ValidationEnvironment(List<Event> errors, Module module, FileOptions options) {
+  private ValidationEnvironment(List<SyntaxError> errors, Module module, FileOptions options) {
     this.errors = errors;
     this.module = module;
     this.options = options;
@@ -122,7 +121,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   }
 
   void addError(Location loc, String message) {
-    errors.add(Event.error(loc, message));
+    errors.add(new SyntaxError(loc, message));
   }
 
   /**
@@ -486,14 +485,14 @@ public final class ValidationEnvironment extends NodeVisitor {
    * defined by {@code module}. This operation mutates the Expression.
    */
   public static void validateExpr(Expression expr, Module module, FileOptions options)
-      throws SyntaxError {
-    List<Event> errors = new ArrayList<>();
+      throws SyntaxError.Exception {
+    List<SyntaxError> errors = new ArrayList<>();
     ValidationEnvironment venv = new ValidationEnvironment(errors, module, options);
 
     venv.visit(expr);
 
     if (!errors.isEmpty()) {
-      throw new SyntaxError(errors);
+      throw new SyntaxError.Exception(errors);
     }
   }
 

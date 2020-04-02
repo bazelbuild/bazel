@@ -34,8 +34,9 @@ import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.OutputGroup;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TargetComplete;
@@ -125,7 +126,7 @@ public final class TargetCompleteEvent
       NestedSet<ArtifactsInOutputGroup> outputs,
       boolean isTest) {
     this.rootCauses =
-        (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
+        (rootCauses == null) ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : rootCauses;
     this.executableTargetData = new ExecutableTargetData(targetAndData);
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
     this.label = targetAndData.getConfiguredTarget().getLabel();
@@ -138,9 +139,9 @@ public final class TargetCompleteEvent
     this.configuredTargetKey =
         ConfiguredTargetKey.of(
             targetAndData.getConfiguredTarget(), targetAndData.getConfiguration());
-    postedAfterBuilder.add(BuildEventId.targetConfigured(aliasLabel));
+    postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(aliasLabel));
     for (Cause cause : getRootCauses().toList()) {
-      postedAfterBuilder.add(BuildEventId.fromCause(cause));
+      postedAfterBuilder.add(cause.getIdProto());
     }
     this.postedAfter = postedAfterBuilder.build();
     this.completionContext = completionContext;
@@ -149,7 +150,7 @@ public final class TargetCompleteEvent
     this.testTimeoutSeconds = isTest ? getTestTimeoutSeconds(targetAndData) : null;
     BuildConfiguration configuration = targetAndData.getConfiguration();
     this.configEventId =
-        configuration != null ? configuration.getEventId() : BuildEventId.nullConfigurationId();
+        configuration != null ? configuration.getEventId() : BuildEventIdUtil.nullConfigurationId();
     this.configurationEvent = configuration != null ? configuration.toBuildEvent() : null;
     this.testParams =
         isTest
@@ -254,14 +255,14 @@ public final class TargetCompleteEvent
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.targetCompleted(aliasLabel, configEventId);
+    return BuildEventIdUtil.targetCompleted(aliasLabel, configEventId);
   }
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
     for (Cause cause : getRootCauses().toList()) {
-      childrenBuilder.add(BuildEventId.fromCause(cause));
+      childrenBuilder.add(cause.getIdProto());
     }
     if (isTest) {
       // For tests, announce all the test actions that will minimally happen (except for
@@ -270,10 +271,10 @@ public final class TargetCompleteEvent
       Label label = getLabel();
       for (int run = 0; run < Math.max(testParams.getRuns(), 1); run++) {
         for (int shard = 0; shard < Math.max(testParams.getShards(), 1); shard++) {
-          childrenBuilder.add(BuildEventId.testResult(label, run, shard, configEventId));
+          childrenBuilder.add(BuildEventIdUtil.testResult(label, run, shard, configEventId));
         }
       }
-      childrenBuilder.add(BuildEventId.testSummary(label, configEventId));
+      childrenBuilder.add(BuildEventIdUtil.testSummary(label, configEventId));
     }
     return childrenBuilder.build();
   }
@@ -333,10 +334,7 @@ public final class TargetCompleteEvent
                 name == null
                     ? artifact.getRootRelativePath().getRelative(relPath).getPathString()
                     : name);
-    if (artifact.getRoot().getComponents() != null) {
-      builder.addAllPathPrefix(
-          Iterables.transform(artifact.getRoot().getComponents(), PathFragment::getPathString));
-    }
+    builder.addAllPathPrefix(artifact.getRoot().getComponents());
     return builder;
   }
 

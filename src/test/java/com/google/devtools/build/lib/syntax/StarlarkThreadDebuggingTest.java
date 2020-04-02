@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
@@ -227,9 +227,9 @@ public class StarlarkThreadDebuggingTest {
     Module module = thread.getGlobals();
     module.put("a", 1);
 
-    SyntaxError e =
+    SyntaxError.Exception e =
         assertThrows(
-            SyntaxError.class,
+            SyntaxError.Exception.class,
             () ->
                 EvalUtils.execAndEvalOptionalFinalExpression(
                     ParserInput.fromLines("b"), FileOptions.DEFAULT, module, thread));

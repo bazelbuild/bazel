@@ -20,10 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -35,11 +32,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ParserTest {
 
-  private final EventCollector events = new EventCollector();
+  private final List<SyntaxError> events = new ArrayList<>();
   private boolean failFast = true;
 
-  private Event assertContainsError(String expectedMessage) {
-    return MoreAsserts.assertContainsEvent(events, expectedMessage);
+  private SyntaxError assertContainsError(String expectedMessage) {
+    return LexerTest.assertContainsError(events, expectedMessage);
   }
 
   private void setFailFast(boolean failFast) {
@@ -47,7 +44,7 @@ public final class ParserTest {
   }
 
   // Joins the lines, parse, and returns an expression.
-  private static Expression parseExpression(String... lines) throws SyntaxError {
+  private static Expression parseExpression(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     return Expression.parse(input);
   }
@@ -59,32 +56,33 @@ public final class ParserTest {
     try {
       Expression.parse(input);
       throw new AssertionError("parseExpression(%s) succeeded unexpectedly: " + src);
-    } catch (SyntaxError ex) {
-      return ex.errors().get(0).getMessage();
+    } catch (SyntaxError.Exception ex) {
+      return ex.errors().get(0).message();
     }
   }
 
   // Joins the lines, parses, and returns a file.
   // Errors are added to this.events, or thrown if this.failFast;
-  private StarlarkFile parseFile(String... lines) throws SyntaxError {
+  private StarlarkFile parseFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input);
     if (!file.ok()) {
       if (failFast) {
-        throw new SyntaxError(file.errors());
+        throw new SyntaxError.Exception(file.errors());
       }
-      Event.replayEventsOn(events, file.errors());
+      // TODO(adonovan): return these, and eliminate a stateful field.
+      events.addAll(file.errors());
     }
     return file;
   }
 
   // Joins the lines, parses, and returns the sole statement.
-  private Statement parseStatement(String... lines) throws SyntaxError {
+  private Statement parseStatement(String... lines) throws SyntaxError.Exception {
     return Iterables.getOnlyElement(parseStatements(lines));
   }
 
   // Joins the lines, parses, and returns the statements.
-  private List<Statement> parseStatements(String... lines) throws SyntaxError {
+  private ImmutableList<Statement> parseStatements(String... lines) throws SyntaxError.Exception {
     return parseFile(lines).getStatements();
   }
 
@@ -341,7 +339,8 @@ public final class ParserTest {
     assertLocation(0, 14, slice);
   }
 
-  private static void evalSlice(String statement, Object... expectedArgs) throws SyntaxError {
+  private static void evalSlice(String statement, Object... expectedArgs)
+      throws SyntaxError.Exception {
     SliceExpression e = (SliceExpression) parseExpression(statement);
 
     // There is no way to evaluate the expression here, so we rely on string comparison.
@@ -401,7 +400,7 @@ public final class ParserTest {
   }
 
   @Test
-  public void testSecondaryLocation() throws SyntaxError {
+  public void testSecondaryLocation() throws SyntaxError.Exception {
     String expr = "f(1 % 2)";
     CallExpression call = (CallExpression) parseExpression(expr);
     Argument arg = call.getArguments().get(0);
@@ -409,7 +408,7 @@ public final class ParserTest {
   }
 
   @Test
-  public void testPrimaryLocation() throws SyntaxError {
+  public void testPrimaryLocation() throws SyntaxError.Exception {
     String expr = "f(1 + 2)";
     CallExpression call = (CallExpression) parseExpression(expr);
     Argument arg = call.getArguments().get(0);
@@ -621,7 +620,7 @@ public final class ParserTest {
     assertStatementLocationCorrect("def foo():\n  pass");
   }
 
-  private void assertStatementLocationCorrect(String stmtStr) throws SyntaxError {
+  private void assertStatementLocationCorrect(String stmtStr) throws SyntaxError.Exception {
     Statement stmt = parseStatement(stmtStr);
     assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
     // Also try it with another token at the end (newline), which broke the location in the past.
@@ -629,7 +628,7 @@ public final class ParserTest {
     assertThat(getText(stmtStr, stmt)).isEqualTo(stmtStr);
   }
 
-  private static void assertExpressionLocationCorrect(String exprStr) throws SyntaxError {
+  private static void assertExpressionLocationCorrect(String exprStr) throws SyntaxError.Exception {
     Expression expr = parseExpression(exprStr);
     assertThat(getText(exprStr, expr)).isEqualTo(exprStr);
     // Also try it with another token at the end (newline), which broke the location in the past.
@@ -866,10 +865,10 @@ public final class ParserTest {
             "  b = 2 * * 5", // parse error
             "");
 
-    assertThat(events).hasSize(3);
     assertContainsError("syntax error at 'for': expected newline");
     assertContainsError("syntax error at 'ada': expected newline");
     assertContainsError("syntax error at '*': expected expression");
+    assertThat(events).hasSize(3);
     assertThat(statements).hasSize(3);
   }
 
@@ -1182,7 +1181,7 @@ public final class ParserTest {
   }
 
   private void runLoadAliasTestForSymbols(String loadSymbolString, String... expectedSymbols)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     List<Statement> statements =
         parseStatements(String.format("load('//foo/bar:file.bzl', %s)\n", loadSymbolString));
     LoadStatement stmt = (LoadStatement) statements.get(0);
@@ -1332,6 +1331,15 @@ public final class ParserTest {
         "    3,", // error on this line
         ")\n");
     assertContainsError(":4:5: positional argument is misplaced (positional arguments come first)");
+  }
+
+  @Test
+  public void testFunctionDefDuplicateArguments() throws Exception {
+    setFailFast(false);
+    parseFile(
+        "def func(a,b,a):", //
+        "  a = 1\n");
+    assertContainsError("duplicate parameter name in function definition");
   }
 
   @Test

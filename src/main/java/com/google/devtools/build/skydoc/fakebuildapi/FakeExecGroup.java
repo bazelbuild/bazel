@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.testutil;
+package com.google.devtools.build.skydoc.fakebuildapi;
 
-/**
- * Annotation interface to prevent a test case from being executed in a special internal mode. This
- * only applies to whole test classes, not individual methods. For individual methods, test on the
- * case's {@code TestConstants#InternalTestExecutionMode}.
- */
-public @interface TestOnlyInNormalExecutionMode {}
+import com.google.devtools.build.lib.skylarkbuildapi.ExecGroupApi;
+import com.google.devtools.build.lib.syntax.Printer;
+
+/** Fake implementation of {@link ExecGroupApi} */
+public class FakeExecGroup implements ExecGroupApi {
+  @Override
+  public void repr(Printer printer) {}
+}

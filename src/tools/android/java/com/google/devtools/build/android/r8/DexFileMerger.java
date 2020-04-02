@@ -110,7 +110,7 @@ public class DexFileMerger {
     @Option(
         name = "input",
         allowMultiple = true,
-        defaultValue = "",
+        defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         converter = ExistingPathConverter.class,

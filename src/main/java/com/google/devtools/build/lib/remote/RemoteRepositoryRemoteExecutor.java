@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Message;
 import io.grpc.Context;
 import java.io.IOException;
@@ -84,6 +86,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
   @Override
   public ExecutionResult execute(
       ImmutableList<String> arguments,
+      ImmutableSortedMap<PathFragment, Path> inputFiles,
       ImmutableMap<String, String> executionProperties,
       ImmutableMap<String, String> environment,
       String workingDirectory,
@@ -100,12 +103,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
               platform,
               workingDirectory);
       Digest commandHash = digestUtil.compute(command);
-      MerkleTree merkleTree =
-          MerkleTree.build(
-              ImmutableSortedMap.of(),
-              /* metadataProvider= */ null,
-              /* execRoot= */ null,
-              digestUtil);
+      MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
       Action action =
           RemoteSpawnRunner.buildAction(
               commandHash, merkleTree.getRootDigest(), timeout, acceptCached);

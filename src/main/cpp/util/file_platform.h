@@ -192,6 +192,10 @@ void SyncFile(const Path &path);
 bool MakeDirectories(const std::string &path, unsigned int mode);
 bool MakeDirectories(const Path &path, unsigned int mode);
 
+// Creates a directory starting with prefix for temporary usage. The directory
+// name is guaranteed to be at least unique to this process.
+std::string CreateTempDir(const std::string &prefix);
+
 // Removes the specified path or directory, and in the latter case, all of its
 // contents. Returns true iff the path doesn't exists when the method completes
 // (including if the path didn't exist to begin with). Does not follow symlinks.

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
@@ -737,7 +738,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Module module = thread.getGlobals();
     StarlarkFile file = EvalUtils.parseAndValidate(input, FileOptions.DEFAULT, module);
     if (!file.ok()) {
-      throw new SyntaxError(file.errors());
+      throw new SyntaxError.Exception(file.errors());
     }
     SkylarkImportLookupFunction.execAndExport(file, FAKE_LABEL, ev.getEventHandler(), thread);
   }
@@ -1759,6 +1760,32 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testRuleAddExecGroup() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_exec_groups=true");
+    reset();
+
+    registerDummyStarlarkFunction();
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "plum = rule(",
+        "  implementation = impl,",
+        "  exec_groups = {",
+        "    'group': exec_group(",
+        "      toolchains=['//test:my_toolchain_type'],",
+        "      exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
+        "    ),",
+        "  },",
+        ")");
+    RuleClass plum = ((SkylarkRuleFunction) lookup("plum")).getRuleClass();
+    assertThat(plum.getRequiredToolchains()).isEmpty();
+    assertThat(plum.getExecGroups().get("group").getRequiredToolchains())
+        .containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
+    assertThat(plum.getExecGroups().get("group").getExecutionPlatformConstraints())
+        .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
+  }
+
+  @Test
   public void testRuleFunctionReturnsNone() throws Exception {
     scratch.file("test/rule.bzl",
         "def _impl(ctx):",
@@ -1790,5 +1817,23 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
     assertThat(lookup("p")).isEqualTo("Provider");
     assertThat(lookup("s")).isEqualTo("struct");
+  }
+
+  @Test
+  public void testCreateExecGroup() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_exec_groups=true");
+    reset();
+
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "group = exec_group(",
+        "  toolchains=['//test:my_toolchain_type'],",
+        "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
+        ")");
+    ExecGroup group = ((ExecGroup) lookup("group"));
+    assertThat(group.getRequiredToolchains())
+        .containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(group.getExecutionPlatformConstraints())
+        .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
   }
 }

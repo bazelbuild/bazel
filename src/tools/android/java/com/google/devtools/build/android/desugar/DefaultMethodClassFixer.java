@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.android.desugar.io.BitFlags;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
@@ -351,7 +352,8 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       return false;
     }
     String implemented = internalName(itf);
-    if (implemented.startsWith("java/") || implemented.startsWith("__desugar__/java/")) {
+    if (implemented.startsWith("java/")
+        || implemented.startsWith(ClassName.IN_PROCESS_LABEL + "java/")) {
       return coreLibrarySupport != null
           && (coreLibrarySupport.isRenamedCoreLibrary(implemented)
               || coreLibrarySupport.isEmulatedCoreClassOrInterface(implemented));

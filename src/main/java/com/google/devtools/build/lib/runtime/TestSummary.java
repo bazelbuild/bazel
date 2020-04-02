@@ -25,8 +25,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -530,9 +531,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.testSummary(
+    return BuildEventIdUtil.testSummary(
         AliasProvider.getDependencyLabel(target),
-        BuildEventId.configurationId(target.getConfigurationChecksum()));
+        BuildEventIdUtil.configurationId(target.getConfigurationChecksum()));
   }
 
   @Override
@@ -543,9 +544,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public Collection<BuildEventId> postedAfter() {
     return ImmutableList.of(
-        BuildEventId.targetCompleted(
+        BuildEventIdUtil.targetCompleted(
             AliasProvider.getDependencyLabel(target),
-            BuildEventId.configurationId(target.getConfigurationChecksum())));
+            BuildEventIdUtil.configurationId(target.getConfigurationChecksum())));
   }
 
   @Override

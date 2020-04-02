@@ -114,10 +114,10 @@ void ExtractArchiveOrDie(const string &archive_path, const string &product_name,
   if (dumper == nullptr) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << error;
   }
-  if (!blaze_util::MakeDirectories(output_dir, 0777)) {
+
+  if (!blaze_util::PathExists(output_dir)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "couldn't create '" << output_dir
-        << "': " << blaze_util::GetLastErrorString();
+        << "Archive output directory didn't exist: " << output_dir;
   }
 
   BAZEL_LOG(USER) << "Extracting " << product_name << " installation...";

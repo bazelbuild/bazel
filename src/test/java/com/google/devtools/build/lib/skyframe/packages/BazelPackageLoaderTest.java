@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -85,9 +85,6 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "  pass",
         "",
         "def http_file(**kwargs):",
-        "  pass",
-        "",
-        "def http_jar(**kwargs):",
         "  pass");
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/build_defs/repo/utils.bzl"),

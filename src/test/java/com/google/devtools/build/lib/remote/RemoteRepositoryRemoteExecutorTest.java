@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -78,6 +79,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     ExecutionResult executionResult =
         repoExecutor.execute(
             ImmutableList.of("/bin/bash", "-c", "exit 0"),
+            /* inputFiles= */ ImmutableSortedMap.of(),
             /* executionProperties= */ ImmutableMap.of(),
             /* environment= */ ImmutableMap.of(),
             /* workingDirectory= */ null,
@@ -107,6 +109,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     ExecutionResult executionResult =
         repoExecutor.execute(
             ImmutableList.of("/bin/bash", "-c", "exit 1"),
+            /* inputFiles= */ ImmutableSortedMap.of(),
             /* executionProperties= */ ImmutableMap.of(),
             /* environment= */ ImmutableMap.of(),
             /* workingDirectory= */ null,
@@ -143,6 +146,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     ExecutionResult executionResult =
         repoExecutor.execute(
             ImmutableList.of("/bin/bash", "-c", "echo hello"),
+            /* inputFiles= */ ImmutableSortedMap.of(),
             /* executionProperties= */ ImmutableMap.of(),
             /* environment= */ ImmutableMap.of(),
             /* workingDirectory= */ null,

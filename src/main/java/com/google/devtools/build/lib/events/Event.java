@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.FileOutErr.OutputReference;
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -224,6 +225,22 @@ public final class Event implements Serializable {
   public static void replayEventsOn(EventHandler eventHandler, Iterable<Event> events) {
     for (Event event : events) {
       eventHandler.handle(event);
+    }
+  }
+
+  /**
+   * An Eventable is an event-like value that can be converted to an event. This interface is a
+   * transitional hack until the lib.syntax-to-lib.events dependency can be reversed, at which point
+   * its use in {@link #replayEventsOn} will be replaced with a direct reference to {@code
+   * lib.syntax.SyntaxError}.
+   */
+  public interface Eventable {
+    Event toEvent();
+  }
+
+  public static void replayEventsOn(EventHandler eventHandler, List<? extends Eventable> events) {
+    for (Eventable event : events) {
+      eventHandler.handle(event.toEvent());
     }
   }
 

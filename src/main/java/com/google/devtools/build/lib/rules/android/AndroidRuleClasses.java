@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
-import java.util.Map;
 
 /** Rule definitions for Android rules. */
 public final class AndroidRuleClasses {
@@ -244,7 +243,8 @@ public final class AndroidRuleClasses {
     }
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public ImmutableMap<String, BuildOptions> split(
+        BuildOptions buildOptions, EventHandler eventHandler) {
 
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);

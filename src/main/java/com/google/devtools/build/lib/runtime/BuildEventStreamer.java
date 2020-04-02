@@ -39,9 +39,10 @@ import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
@@ -287,19 +288,17 @@ public class BuildEventStreamer {
    * {@link BuildCompletingEvent} that caused the early end of the stream.
    */
   private synchronized void clearMissingStartEvent(BuildEventId id) {
-    if (pendingEvents.containsKey(BuildEventId.buildStartedId())) {
-      ImmutableSet.Builder<BuildEventId> children = ImmutableSet.<BuildEventId>builder();
+    if (pendingEvents.containsKey(BuildEventIdUtil.buildStartedId())) {
+      ImmutableSet.Builder<BuildEventId> children = ImmutableSet.builder();
       children.add(ProgressEvent.INITIAL_PROGRESS_UPDATE);
       children.add(id);
       children.addAll(
-          pendingEvents
-              .get(BuildEventId.buildStartedId())
-              .stream()
+          pendingEvents.get(BuildEventIdUtil.buildStartedId()).stream()
               .map(BuildEvent::getEventId)
-              .collect(ImmutableSet.<BuildEventId>toImmutableSet()));
+              .collect(ImmutableSet.toImmutableSet()));
       buildEvent(
           new AbortedEvent(
-              BuildEventId.buildStartedId(),
+              BuildEventIdUtil.buildStartedId(),
               children.build(),
               getLastAbortReason(),
               getAbortReasonDetails()));
@@ -466,7 +465,7 @@ public class BuildEventStreamer {
     }
 
     if (event instanceof BuildCompletingEvent
-        && !event.getEventId().equals(BuildEventId.buildStartedId())) {
+        && !event.getEventId().equals(BuildEventIdUtil.buildStartedId())) {
       clearMissingStartEvent(event.getEventId());
     }
 

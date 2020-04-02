@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -117,23 +117,6 @@ public class SpawnStrategyRegistryTest {
                 createSpawnWithMnemonicAndDescription("", "hello"),
                 SpawnStrategyRegistryTest::noopEventHandler))
         .containsExactly(strategy2, strategy1);
-  }
-
-  @Test
-  public void testFilterNoMatch() throws Exception {
-    NoopStrategy strategy = new NoopStrategy("");
-    SpawnStrategyRegistry strategyRegistry =
-        SpawnStrategyRegistry.builder()
-            .registerStrategy(strategy, "foo")
-            .addMnemonicFilter("mnem", ImmutableList.of("foo"))
-            .setDefaultStrategies(ImmutableList.of())
-            .build();
-
-    assertThat(
-            strategyRegistry.getStrategies(
-                createSpawnWithMnemonicAndDescription("other", ""),
-                SpawnStrategyRegistryTest::noopEventHandler))
-        .isEmpty();
   }
 
   @Test

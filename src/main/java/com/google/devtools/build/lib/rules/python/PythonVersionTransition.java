@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.errorprone.annotations.Immutable;
 import java.util.Objects;
 
@@ -68,7 +69,7 @@ public abstract class PythonVersionTransition implements PatchTransition {
   private static final BuildOptionsCache<PythonVersion> cache = new BuildOptionsCache<>();
 
   @Override
-  public BuildOptions patch(BuildOptions options) {
+  public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
     PythonVersion newVersion = determineNewVersion(options);
     Preconditions.checkArgument(newVersion.isTargetValue());
 

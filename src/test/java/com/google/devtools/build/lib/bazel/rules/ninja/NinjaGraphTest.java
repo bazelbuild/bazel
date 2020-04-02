@@ -57,8 +57,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRule() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/input.txt", "World");
     scratch.file(
@@ -107,8 +106,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRuleWithPhonyTarget() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     // We do not have to have the real files in place, the rule only reads
     // the contents of Ninja files.
@@ -165,8 +163,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRuleWithPhonyTree() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     // We do not have to have the real files in place, the rule only reads
     // the contents of Ninja files.

@@ -706,7 +706,7 @@ public final class ConfiguredTargetFactory {
     }
 
     for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
-      if (configuredAspect.getProvider(providerId) == null) {
+      if (configuredAspect.get(providerId) == null) {
         eventHandler.handle(Event.error(
             target.getLocation(),
             String.format(

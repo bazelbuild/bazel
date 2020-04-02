@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCountAtLeast;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
+import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -916,8 +917,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   /**
    * Tests that rules with configurable attributes can be accessed through {@link
-   * com.google.devtools.build.lib.skyframe.PostConfiguredTargetFunction}.
-   * This is a regression test for a Bazel crash.
+   * ActionLookupConflictFindingFunction}. This is a regression test for a Bazel crash.
    */
   @Test
   public void testPostProcessedConfigurableAttributes() throws Exception {

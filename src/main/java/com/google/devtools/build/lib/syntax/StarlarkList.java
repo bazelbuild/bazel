@@ -182,7 +182,12 @@ public final class StarlarkList<E> extends AbstractList<E>
 
   @Override
   public int hashCode() {
-    return 6047 + 4673 * Arrays.hashCode(elems);
+    // Roll our own hash code to avoid iterating through null part of elems.
+    int result = 1;
+    for (int i = 0; i < size; i++) {
+      result = 31 * result + elems[i].hashCode();
+    }
+    return 6047 + 4673 * result;
   }
 
   @Override

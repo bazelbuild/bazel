@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -612,7 +613,7 @@ public final class TrimmableTestConfigurationFragments {
       }
 
       @Override
-      public BuildOptions patch(BuildOptions target) {
+      public BuildOptions patch(BuildOptions target, EventHandler eventHandler) {
         BuildOptions output = target.clone();
         if (alpha != null) {
           output.get(AOptions.class).alpha = alpha;

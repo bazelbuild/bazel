@@ -31,12 +31,6 @@ import org.junit.runners.JUnit4;
 /** Tests handling of WorkspaceRuleEvent */
 @RunWith(JUnit4.class)
 public final class WorkspaceRuleEventTest {
-  static class DummyString {
-    @Override
-    public String toString() {
-      return "dummy string";
-    }
-  }
 
   @Before
   public void setUp() {}
@@ -44,9 +38,9 @@ public final class WorkspaceRuleEventTest {
   @Test
   public void newExecuteEvent_expectedResult() {
     // Set up arguments, as a combination of String and SkylarkPath
-    ArrayList<Object> arguments = new ArrayList<>();
+    ArrayList<String> arguments = new ArrayList<>();
     arguments.add("argument 1");
-    arguments.add(new DummyString());
+    arguments.add("dummy string");
 
     Map<String, String> commonEnv = ImmutableMap.of("key1", "val1", "key3", "val3");
     Map<String, String> customEnv = ImmutableMap.of("key2", "val2!", "key3", "val3!");

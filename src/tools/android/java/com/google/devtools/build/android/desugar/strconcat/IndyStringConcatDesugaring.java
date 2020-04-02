@@ -110,7 +110,8 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
             ImmutableList.of(LangModelHelper::anyPrimitiveToStringInvocationSite),
             Arrays.stream(Type.getArgumentTypes(descriptor))
                 .map(ClassName::create)
-                .collect(toImmutableList()));
+                .collect(toImmutableList()),
+            ImmutableList.of());
 
         String recipe = (String) bootstrapMethodArguments[0];
         visitLdcInsn(recipe);

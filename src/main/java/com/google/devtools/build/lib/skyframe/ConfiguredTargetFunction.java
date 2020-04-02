@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -466,7 +466,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     BuildOptions toolchainOptions =
         ((ConfiguredRuleClassProvider) ruleClassProvider)
             .getToolchainTaggedTrimmingTransition()
-            .patch(configuration.getOptions());
+            .patch(configuration.getOptions(), env.getListener());
 
     BuildConfigurationValue.Key toolchainConfig =
         BuildConfigurationValue.keyWithoutPlatformMapping(
@@ -974,7 +974,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   @AutoCodec
   public static final class ConfiguredValueCreationException extends Exception {
     private static ConfigurationId toId(BuildConfiguration config) {
-      return config == null ? null : config.getEventId().asStreamProto().getConfiguration();
+      return config == null ? null : config.getEventId().getConfiguration();
     }
 
     @Nullable private final BuildEventId configuration;

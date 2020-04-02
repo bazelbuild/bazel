@@ -26,7 +26,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -72,8 +71,8 @@ java_test(
 )
 
 java_test(
-    name = "BazelProtoInfoStarlarkTest",
-    srcs = ["BazelProtoInfoStarlarkTest.java"],
+    name = "ProtoInfoStarlarkApiTest",
+    srcs = ["ProtoInfoStarlarkApiTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",

@@ -2345,9 +2345,14 @@ a user-friendly way.
     generated as a result of build commands. If the workspace directory is
     writable, a symlink named <code>bazel-out</code> is placed there pointing
     to this directory.
-    </li>
+  </li>
   <li><code>server_pid</code>: the process ID of the Bazel server
-     process. </li>
+     process.
+  </li>
+  <li><code>server_log</code>: the absolute path to the Bazel server's debug log file.
+    This file contains debugging information for all commands over the lifetime of the
+    Bazel server, and is intended for human consumption by Bazel developers and power users.
+  </li>
   <li><code>command_log</code>: the absolute path to the command log file;
     this contains the interleaved stdout and stderr streams of the most recent
     Bazel command. Note that running <code>bazel info</code> will overwrite the

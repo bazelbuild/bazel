@@ -287,7 +287,6 @@ EOF
 
     repos=(
         "android_tools_for_testing"
-        "android_gmaven_r8_for_testing"
         "bazel_skylib"
         "bazel_toolchains"
         "com_google_protobuf"

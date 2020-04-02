@@ -8,6 +8,9 @@ $sidebar-hover-border-color: #66bb6a;
   padding-top: 40px;
   padding-left: 1.5rem;
 
+  // override parent row padding-left. bootstrap's default is 15px.
+  margin-left: -15px;
+
   li {
     font-size: $font-size-base * .95;
   }
