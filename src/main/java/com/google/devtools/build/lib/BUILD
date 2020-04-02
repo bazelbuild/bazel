@@ -341,14 +341,6 @@ java_library(
     ],
 )
 
-# TODO(katre): Clean up dependencies and remove.
-java_library(
-    name = "events",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-    ],
-)
-
 ########################################################################
 #
 # The "foundation" library (concurrent, events, util, vfs, inmemoryfs, options)
