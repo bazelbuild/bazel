@@ -35,10 +35,13 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -696,7 +699,15 @@ public class CommandEnvironment {
     if (inWorkspace()) {
       if (commonOptions.clientCwd.containsUplevelReferences()) {
         throw new AbruptExitException(
-            "Client cwd contains uplevel references", ExitCode.COMMAND_LINE_ERROR);
+            DetailedExitCode.of(
+                ExitCode.COMMAND_LINE_ERROR,
+                FailureDetail.newBuilder()
+                    .setMessage("Client cwd contains uplevel references")
+                    .setClientEnvironment(
+                        FailureDetails.ClientEnvironment.newBuilder()
+                            .setCode(FailureDetails.ClientEnvironment.Code.CLIENT_CWD_MALFORMED)
+                            .build())
+                    .build()));
       }
       workingDirectory = workspace.getRelative(commonOptions.clientCwd);
     } else {

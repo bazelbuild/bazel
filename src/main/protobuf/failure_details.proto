@@ -91,6 +91,7 @@ message FailureDetail {
     ExternalRepository external_repository = 103;
     BuildProgress build_progress = 104;
     RemoteOptions remote_options = 106;
+    ClientEnvironment client_environment = 107;
   }
 
   reserved 102; // For internal use
@@ -136,6 +137,15 @@ message RemoteOptions {
     REMOTE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR = 1
         [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message ClientEnvironment {
+  enum Code {
+    CLIENT_ENVIRONMENT_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    CLIENT_CWD_MALFORMED = 1 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
