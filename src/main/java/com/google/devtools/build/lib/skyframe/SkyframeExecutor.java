@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
@@ -430,8 +429,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.ruleClassProvider = (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
     this.defaultBuildOptions = defaultBuildOptions;
     this.skyframeActionExecutor =
-        new SkyframeActionExecutor(
-            actionKeyContext, statusReporterRef, this::getPathEntries, this::createSourceArtifact);
+        new SkyframeActionExecutor(actionKeyContext, statusReporterRef, this::getPathEntries);
     this.skyframeBuildView =
         new SkyframeBuildView(
             directories,
@@ -1240,13 +1238,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   ImmutableList<Root> getPathEntries() {
     return pkgLocator.get().getPathEntries();
-  }
-
-  private SourceArtifact createSourceArtifact(PathFragment execPath) {
-    // This is only used by ActionFileSystem.
-    return artifactFactory
-        .get()
-        .getSourceArtifact(execPath, Iterables.getOnlyElement(getPathEntries()));
   }
 
   public AtomicReference<PathPackageLocator> getPackageLocator() {

@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
@@ -130,7 +129,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -221,7 +219,6 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
-  private final Function<PathFragment, SourceArtifact> sourceArtifactFactory;
 
   private boolean bazelRemoteExecutionEnabled;
 
@@ -230,12 +227,10 @@ public final class SkyframeActionExecutor {
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
-      Supplier<ImmutableList<Root>> sourceRootSupplier,
-      Function<PathFragment, SourceArtifact> sourceArtifactFactory) {
+      Supplier<ImmutableList<Root>> sourceRootSupplier) {
     this.actionKeyContext = actionKeyContext;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
-    this.sourceArtifactFactory = sourceArtifactFactory;
   }
 
   /**
@@ -485,8 +480,7 @@ public final class SkyframeActionExecutor {
         relativeOutputPath,
         sourceRootSupplier.get(),
         inputArtifactData,
-        outputArtifacts,
-        sourceArtifactFactory);
+        outputArtifacts);
   }
 
   void updateActionFileSystemContext(
