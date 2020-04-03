@@ -26,11 +26,11 @@ import java.util.Set;
  */
 public class ExecGroup implements ExecGroupApi {
   private final ImmutableSet<Label> requiredToolchains;
-  private final ImmutableSet<Label> execComptaibleWith;
+  private final ImmutableSet<Label> execCompatibleWith;
 
   public ExecGroup(Set<Label> requiredToolchains, Set<Label> execCompatibleWith) {
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
-    this.execComptaibleWith = ImmutableSet.copyOf(execCompatibleWith);
+    this.execCompatibleWith = ImmutableSet.copyOf(execCompatibleWith);
   }
 
   public ImmutableSet<Label> getRequiredToolchains() {
@@ -38,6 +38,6 @@ public class ExecGroup implements ExecGroupApi {
   }
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {
-    return execComptaibleWith;
+    return execCompatibleWith;
   }
 }
