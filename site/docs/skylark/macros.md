@@ -10,15 +10,15 @@ title: Macros
 ## Introduction
 
 A macro is a function called from the BUILD file that can instantiate rules.
-Macros are mainly used for encapsulation and code reuse of existing rules 
-and other macros. By the end of the [loading phase](concepts.md#evaluation-model), 
+Macros are mainly used for encapsulation and code reuse of existing rules
+and other macros. By the end of the [loading phase](concepts.md#evaluation-model),
 macros don't exist anymore, and Bazel sees only the concrete set of instantiated rules.
 
 ## Usage
 
-The typical use-case for a macro is when you want to reuse a rule. 
+The typical use-case for a macro is when you want to reuse a rule.
 
-For example, we have a genrule in a BUILD file that generates a file 
+For example, we have a genrule in a BUILD file that generates a file
 using `//test:generator` with a `some_arg` argument hardcoded in the command:
 
 ```python
@@ -30,8 +30,8 @@ genrule(
 )
 ```
 
-> Tip: `$@` is a [Make variable](../be/make-variables.html#predefined_genrule_variables) 
-> that refers to the execution-time locations of the files in the `outs` attribute list. 
+> Tip: `$@` is a [Make variable](../be/make-variables.html#predefined_genrule_variables)
+> that refers to the execution-time locations of the files in the `outs` attribute list.
 > It is equivalent to `$(locations :file.txt)`.
 
 If you want to generate more files with different arguments, you may want to
@@ -86,6 +86,7 @@ def chained_genrules(name, visibility=None):
     outs = [name + ".one"],
     cmd = "$(location :tool-one) $@",
     tools = [":tool-one"],
+    visibility = ["//visibility:private"],
   )
   
   native.genrule(
@@ -98,11 +99,16 @@ def chained_genrules(name, visibility=None):
   )
 ```
 
-> Tip: Similar to `$@` for outputs, `$<` expands to the locations of files in the `srcs` attribute list.
+Note that we only assigned the value of `visibility` to the second genrule.
+This enables macro authors hide outputs of intermediate rules from being
+depended upon by other targets in the workspace.
+
+> Tip: Similar to `$@` for outputs, `$<` expands to the locations of files in
+the `srcs` attribute list.
 
 ## Expanding macros
 
-When you want to investigate what a macro does, use the `query` command with 
+When you want to investigate what a macro does, use the `query` command with
 `--output=build` to see the expanded form:
 
 ```
