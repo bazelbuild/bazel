@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkIm
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -594,7 +594,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               extensionLabel,
               mutability,
               starlarkSemantics,
-              StarlarkThread.makeDebugPrintHandler(eventHandler),
+              Event.makeDebugPrintHandler(eventHandler),
               file.getContentHashCode(),
               importMap,
               packageFactory.getNativeModule(inWorkspace),

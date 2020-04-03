@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
@@ -99,20 +98,9 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
      * Adds arguments to the list of arguments to pass to the command. The first argument is
      * expected to be the binary to execute. The subsequent arguments are the arguments passed to
      * the binary.
-     *
-     * <p>Each argument can be either a string or a {@link SkylarkPath}, passing another argument
-     * will fail when executing the command.
      */
-    Builder addArguments(Iterable<?> args) throws EvalException {
-      for (Object arg : args) {
-        // We might have skylark path, do conversion.
-        if (!(arg instanceof String || arg instanceof SkylarkPath)) {
-          throw new EvalException(
-              Location.BUILTIN,
-              "Argument " + this.args.size() + " of execute is neither a path nor a string.");
-        }
-        this.args.add(arg.toString());
-      }
+    Builder addArguments(List<String> args) {
+      this.args.addAll(args);
       return this;
     }
 
@@ -120,7 +108,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
      * Set the path to the directory to execute the result process. This method must be called
      * before calling {@link #execute()}.
      */
-    Builder setDirectory(File path) throws EvalException {
+    Builder setDirectory(File path) {
       this.directory = path;
       return this;
     }

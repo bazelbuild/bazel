@@ -406,6 +406,7 @@ public class BuildView {
               topLevelCtKeys,
               aspectKeys,
               Suppliers.memoize(configurationLookupSupplier),
+              topLevelOptions,
               eventBus,
               keepGoing,
               loadingPhaseThreads);

@@ -23,8 +23,10 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaAction;
@@ -58,7 +60,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
 
   @Test
   public void testSourceFileNotInSubtree() throws Exception {
-    rewriteWorkspace("dont_symlink_directories_in_execroot(paths=['out'])");
+    rewriteWorkspace("toplevel_output_directories(paths=['out'])");
 
     scratch.file("a/n.ninja", "rule cp", " command = cp $in $out", "build out/o: cp subdir/i");
 
@@ -70,14 +72,13 @@ public class NinjaBuildTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:build");
     assertContainsEvent(
-        "Source artifact 'subdir/i' is not under the package of the ninja_build rule");
+        "Source artifact 'subdir/i' is not under the package directory 'a' of ninja_build rule");
   }
 
   @Test
   public void testNinjaBuildRule() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/input.txt", "World");
     scratch.file(
@@ -117,8 +118,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRuleWithPhonyTarget() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/input.txt", "World");
     scratch.file(
@@ -160,8 +160,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRuleWithPhonyTree() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/a.txt", "A");
     scratch.file("build_config/b.txt", "B");
@@ -256,8 +255,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testDepsMapping() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("input.txt", "World");
     scratch.file(
@@ -279,17 +277,24 @@ public class NinjaBuildTest extends BuildViewTestCase {
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
-    assertThat(actions).hasSize(1);
+    assertThat(actions).hasSize(2);
 
-    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
+    ActionAnalysisMetadata symlinkAction = actions.get(0);
+    assertThat(symlinkAction).isInstanceOf(SymlinkAction.class);
+    assertThat(symlinkAction.getPrimaryInput().getExecPathString()).isEqualTo("input.txt");
+    assertThat(symlinkAction.getPrimaryOutput().getExecPathString())
+        .isEqualTo("build_config/placeholder");
+
+    ActionAnalysisMetadata action = actions.get(1);
     assertThat(action).isInstanceOf(NinjaAction.class);
     NinjaAction ninjaAction = (NinjaAction) action;
     List<CommandLineAndParamFileInfo> commandLines =
         ninjaAction.getCommandLines().getCommandLines();
     assertThat(commandLines).hasSize(1);
     assertThat(commandLines.get(0).commandLine.toString())
-        .endsWith("cd build_config && echo \"Hello $(cat /workspace/input.txt)!\" > hello.txt");
-    assertThat(ninjaAction.getPrimaryInput().getExecPathString()).isEqualTo("input.txt");
+        .endsWith("cd build_config && echo \"Hello $(cat placeholder)!\" > hello.txt");
+    assertThat(ninjaAction.getPrimaryInput().getExecPathString())
+        .isEqualTo("build_config/placeholder");
     assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
         .isEqualTo("build_config/hello.txt");
   }
@@ -297,8 +302,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testOnlySubGraphIsCreated() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/a.txt", "A");
     scratch.file("build_config/b.txt", "B");
@@ -349,8 +353,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testRuleWithDepfileVariable() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("input");
     scratch.file(
@@ -382,13 +385,15 @@ public class NinjaBuildTest extends BuildViewTestCase {
     assertThat(commandLines).hasSize(1);
     assertThat(commandLines.get(0).commandLine.toString())
         .endsWith("cd build_config && executable -d out_file.d ../input > out_file");
+
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getOutputs()))
+        .containsExactly("out_file", "out_file.d");
   }
 
   @Test
   public void testCreateOutputSymlinkArtifacts() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file(
         "build_config/build.ninja",
@@ -426,8 +431,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testCreateIntermediateOutputSymlinkArtifacts() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file(
         "build_config/build.ninja",
@@ -468,8 +472,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Test
   public void testOutputRootInputsWithConflictingNinjaActionOutput() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/hello.txt", "hello");
     scratch.file(
@@ -508,8 +511,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
       throws Exception {
 
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/hello.txt", "hello");
     scratch.file(

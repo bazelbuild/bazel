@@ -15,10 +15,9 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.StarlarkThread.ReadyToPause;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Stepping;
 import org.junit.Test;
@@ -40,7 +39,7 @@ public class StarlarkThreadDebuggingTest {
   // and returns the function value.
   private static StarlarkFunction defineFunc(StarlarkThread thread) throws Exception {
     Module module = thread.getGlobals();
-    EvalUtils.exec(ParserInput.fromLines("def f(): pass"), module, thread);
+    EvalUtils.exec(ParserInput.fromLines("def f(): pass"), FileOptions.DEFAULT, module, thread);
     return (StarlarkFunction) thread.getGlobals().lookup("f");
   }
 
@@ -94,7 +93,7 @@ public class StarlarkThreadDebuggingTest {
                 + "  f()\n"
                 + "g(4, 5, 6)",
             "main.star");
-    EvalUtils.exec(input, module, thread);
+    EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
 
     @SuppressWarnings("unchecked")
     ImmutableList<Debug.Frame> stack = (ImmutableList<Debug.Frame>) result[0];
@@ -216,7 +215,8 @@ public class StarlarkThreadDebuggingTest {
     module.put("a", 1);
 
     Object a =
-        EvalUtils.execAndEvalOptionalFinalExpression(ParserInput.fromLines("a"), module, thread);
+        EvalUtils.execAndEvalOptionalFinalExpression(
+            ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread);
     assertThat(a).isEqualTo(1);
   }
 
@@ -226,12 +226,13 @@ public class StarlarkThreadDebuggingTest {
     Module module = thread.getGlobals();
     module.put("a", 1);
 
-    SyntaxError e =
+    SyntaxError.Exception e =
         assertThrows(
-            SyntaxError.class,
+            SyntaxError.Exception.class,
             () ->
                 EvalUtils.execAndEvalOptionalFinalExpression(
-                    ParserInput.fromLines("b"), module, thread));
+                    ParserInput.fromLines("b"), FileOptions.DEFAULT, module, thread));
+
     assertThat(e).hasMessageThat().isEqualTo("name 'b' is not defined");
   }
 
@@ -243,15 +244,12 @@ public class StarlarkThreadDebuggingTest {
 
     assertThat(
             EvalUtils.execAndEvalOptionalFinalExpression(
-                ParserInput.fromLines("a.startswith('str')"), module, thread))
+                ParserInput.fromLines("a.startswith('str')"), FileOptions.DEFAULT, module, thread))
         .isEqualTo(true);
-    EvalUtils.exec(
-        EvalUtils.parseAndValidate(ParserInput.fromLines("a = 1"), module, thread.getSemantics()),
-        module,
-        thread);
+    EvalUtils.exec(ParserInput.fromLines("a = 1"), FileOptions.DEFAULT, module, thread);
     assertThat(
             EvalUtils.execAndEvalOptionalFinalExpression(
-                ParserInput.fromLines("a"), module, thread))
+                ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread))
         .isEqualTo(1);
   }
 }

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -66,15 +65,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
   public StarlarkTransition(StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
     this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
-  }
-
-  public void replayOn(ExtendedEventHandler eventHandler) {
-    starlarkDefinedConfigTransition.getEventHandler().replayOn(eventHandler);
-    starlarkDefinedConfigTransition.getEventHandler().clear();
-  }
-
-  public boolean hasErrors() {
-    return starlarkDefinedConfigTransition.getEventHandler().hasErrors();
   }
 
   private List<String> getInputs() {
@@ -218,11 +208,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /**
-   * Method to be called after Starlark-transitions are applied. Handles events and checks outputs.
-   *
-   * <p>Logs any events (e.g. {@code print()}s, errors} to output and throws an error if we had any
-   * errors. Right now, Starlark transitions are the only kind that knows how to throw errors so we
-   * know this will only report and throw if a Starlark transition caused a problem.
+   * Method to be called after Starlark-transitions are applied. Checks outputs.
    *
    * <p>We only do validation on Starlark-defined build settings. Native options (designated with
    * {@code COMMAND_LINE_OPTION_PREFIX}) already have their output values checked in {@link
@@ -510,25 +496,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
             .filter(setting -> !setting.startsWith(COMMAND_LINE_OPTION_PREFIX))
             .map(Label::parseAbsoluteUnchecked)
             .collect(Collectors.toSet()));
-  }
-
-  /**
-   * For a given transition, for any Starlark-defined transitions that compose it, replay events. If
-   * any events were errors, throw an error.
-   */
-  public static void replayEvents(ExtendedEventHandler eventHandler, ConfigurationTransition root)
-      throws TransitionException {
-    root.visit(
-        (StarlarkTransitionVisitor)
-            transition -> {
-              // Replay events and errors and throw if there were errors
-              boolean hasErrors = transition.hasErrors();
-              transition.replayOn(eventHandler);
-              if (hasErrors) {
-                throw new TransitionException(
-                    "Errors encountered while applying Starlark transition");
-              }
-            });
   }
 
   @Override

@@ -374,7 +374,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             .sorted(ATTRIBUTE_NAME)
             .collect(Collectors.toList()));
 
-    if (includeSyntheticAttributeHash()) {
+    if (includeSyntheticAttributeHash) {
       rulePb.addAttribute(
           Build.Attribute.newBuilder()
               .setName("$internal_attr_hash")
@@ -437,11 +437,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   protected boolean includeRuleDefinitionEnvironment() {
     return true;
-  }
-
-  /** Returns if the "$internal_attr_hash" should be computed and added to the result. */
-  protected boolean includeSyntheticAttributeHash() {
-    return includeSyntheticAttributeHash;
   }
 
   /**

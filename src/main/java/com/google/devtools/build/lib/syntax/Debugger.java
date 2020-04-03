@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
 
 /**
  * A simple interface for the Starlark interpreter to notify a debugger of events during execution.

@@ -23,10 +23,9 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.CollectingListFuture;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ParallelFileProcessing.BlockParameters;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
@@ -91,7 +90,7 @@ public class NinjaPipeline {
         waitForFutureAndGetWithCheckedException(
             scheduleParsing(mainFile), GenericParsingException.class, IOException.class);
 
-    Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets = Maps.newHashMap();
+    Map<NinjaScope, List<FileFragment>> rawTargets = Maps.newHashMap();
     NinjaScope scope = new NinjaScope();
     // This will cause additional parsing of included/subninja scopes, and their recursive expand.
     result.expandIntoScope(scope, rawTargets);
@@ -104,7 +103,7 @@ public class NinjaPipeline {
    * included scopes, and parsing corresponding targets.
    */
   private List<NinjaTarget> iterateScopesScheduleTargetsParsing(
-      NinjaScope scope, Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets)
+      NinjaScope scope, Map<NinjaScope, List<FileFragment>> rawTargets)
       throws GenericParsingException, InterruptedException {
     ArrayDeque<NinjaScope> queue = new ArrayDeque<>();
     queue.add(scope);
@@ -112,14 +111,14 @@ public class NinjaPipeline {
         new CollectingListFuture<>(GenericParsingException.class);
     while (!queue.isEmpty()) {
       NinjaScope currentScope = queue.removeFirst();
-      List<ByteFragmentAtOffset> targetFragments = rawTargets.get(currentScope);
+      List<FileFragment> targetFragments = rawTargets.get(currentScope);
       Preconditions.checkNotNull(targetFragments);
-      for (ByteFragmentAtOffset byteFragmentAtOffset : targetFragments) {
+      for (FileFragment fragment : targetFragments) {
         future.add(
             service.submit(
                 () ->
-                    new NinjaParserStep(new NinjaLexer(byteFragmentAtOffset.getFragment()))
-                        .parseNinjaTarget(currentScope, byteFragmentAtOffset.getFragmentOffset())));
+                    new NinjaParserStep(new NinjaLexer(fragment))
+                        .parseNinjaTarget(currentScope, fragment.getFragmentOffset())));
       }
       queue.addAll(currentScope.getIncludedScopes());
       queue.addAll(currentScope.getSubNinjaScopes());
@@ -215,8 +214,7 @@ public class NinjaPipeline {
                   pieces.add(parseResult);
                   return new NinjaParser(NinjaPipeline.this, parseResult, path.getBaseName());
                 },
-                service,
-                NinjaSeparatorFinder.INSTANCE);
+                service);
             return NinjaFileParseResult.merge(pieces);
           }
         });

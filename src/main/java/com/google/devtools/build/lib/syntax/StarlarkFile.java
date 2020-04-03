@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.events.Event;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -30,93 +29,64 @@ import javax.annotation.Nullable;
 public final class StarlarkFile extends Node {
 
   private final ImmutableList<Statement> statements;
+  private final FileOptions options;
   private final ImmutableList<Comment> comments;
-  final List<Event> errors; // appended to by ValidationEnvironment
-  private final List<Event> stringEscapeEvents;
+  final List<SyntaxError> errors; // appended to by ValidationEnvironment
   @Nullable private final String contentHashCode;
 
   private StarlarkFile(
       ImmutableList<Statement> statements,
-      List<Event> errors,
-      String contentHashCode,
-      Lexer.LexerLocation location,
+      FileOptions options,
       ImmutableList<Comment> comments,
-      List<Event> stringEscapeEvents) {
+      List<SyntaxError> errors,
+      String contentHashCode,
+      Lexer.LexerLocation location) {
     this.statements = statements;
+    this.options = options;
     this.comments = comments;
     this.errors = errors;
-    this.stringEscapeEvents = stringEscapeEvents;
     this.contentHashCode = contentHashCode;
     this.setLocation(location);
   }
 
+  // Creates a StarlarkFile from the given effective list of statements,
+  // which may include the prelude.
   private static StarlarkFile create(
-      List<Statement> preludeStatements,
+      ImmutableList<Statement> statements,
+      FileOptions options,
       Parser.ParseResult result,
-      String contentHashCode,
-      boolean allowImportInternal) {
-    ImmutableList.Builder<Statement> statementsbuilder =
-        ImmutableList.<Statement>builder().addAll(preludeStatements);
-
-    if (allowImportInternal) {
-      for (Statement stmt : result.statements) {
-        if (stmt instanceof LoadStatement) {
-          statementsbuilder.add(LoadStatement.allowLoadingOfInternalSymbols((LoadStatement) stmt));
-        } else {
-          statementsbuilder.add(stmt);
-        }
-      }
-    } else {
-      statementsbuilder.addAll(result.statements);
-    }
-    ImmutableList<Statement> statements = statementsbuilder.build();
+      String contentHashCode) {
     return new StarlarkFile(
         statements,
+        options,
+        ImmutableList.copyOf(result.comments),
         result.errors,
         contentHashCode,
-        result.location,
-        ImmutableList.copyOf(result.comments),
-        result.stringEscapeEvents);
+        result.location);
   }
 
-  /**
-   * Extract a subtree containing only statements from {@code firstStatement} (included) up to
-   * {@code lastStatement} excluded.
-   */
-  public StarlarkFile subTree(int firstStatement, int lastStatement) {
-    ImmutableList<Statement> statements = this.statements.subList(firstStatement, lastStatement);
+  /** Extract a subtree containing only statements from i (included) to j (excluded). */
+  public StarlarkFile subTree(int i, int j) {
     return new StarlarkFile(
-        statements,
+        this.statements.subList(i, j),
+        this.options,
+        /*comments=*/ ImmutableList.of(),
         errors,
-        null,
-        (Lexer.LexerLocation) this.statements.get(firstStatement).getStartLocation(),
-        ImmutableList.of(),
-        stringEscapeEvents);
+        /*contentHashCode=*/ null,
+        (Lexer.LexerLocation) this.statements.get(i).getStartLocation());
   }
 
   /**
    * Returns an unmodifiable view of the list of scanner, parser, and (perhaps) resolver errors
    * accumulated in this Starlark file.
    */
-  public List<Event> errors() {
+  public List<SyntaxError> errors() {
     return Collections.unmodifiableList(errors);
   }
 
   /** Returns errors().isEmpty(). */
   public boolean ok() {
     return errors.isEmpty();
-  }
-
-  /**
-   * Appends string escaping errors to {@code errors}. The Lexer diverts such errors into a separate
-   * bucket as they should be selectively reported depending on a StarlarkSemantics, to which the
-   * lexer/parser does not have access. This function is called by ValidationEnvironment, which has
-   * access to a StarlarkSemantics and can thus decide whether to respect or ignore these events.
-   *
-   * <p>Naturally this function should be called at most once.
-   */
-  void addStringEscapeEvents() {
-    errors.addAll(stringEscapeEvents);
   }
 
   /** Returns an (immutable, ordered) list of statements in this BUILD file. */
@@ -140,36 +110,29 @@ public final class StarlarkFile extends Node {
   }
 
   /**
-   * Parse the specified file, returning its syntax tree with the preludeStatements inserted at the
+   * Parse the specified file, returning its syntax tree with the prelude statements inserted at the
    * front of its statement list.
    */
   public static StarlarkFile parseWithPrelude(
-      ParserInput input, List<Statement> preludeStatements) {
-    Parser.ParseResult result = Parser.parseFile(input);
-    return create(
-        preludeStatements, result, /* contentHashCode= */ null, /*allowImportInternal=*/ false);
-  }
+      ParserInput input, List<Statement> prelude, FileOptions options) {
+    Parser.ParseResult result = Parser.parseFile(input, options);
 
-  /**
-   * Parse the specified build file, returning its AST. All load statements parsed that way will be
-   * exempt from visibility restrictions.
-   */
-  // TODO(adonovan): make LoadStatement.allowInternal publicly settable, and delete this.
-  public static StarlarkFile parseVirtualBuildFile(
-      ParserInput input, List<Statement> preludeStatements) {
-    Parser.ParseResult result = Parser.parseFile(input);
-    return create(
-        preludeStatements, result, /* contentHashCode= */ null, /*allowImportInternal=*/ true);
+    ImmutableList.Builder<Statement> stmts = ImmutableList.builder();
+    stmts.addAll(prelude);
+    stmts.addAll(result.statements);
+
+    return create(stmts.build(), options, result, /*contentHashCode=*/ null);
   }
 
   // TODO(adonovan): make the digest publicly settable, and delete this.
-  public static StarlarkFile parseWithDigest(ParserInput input, byte[] digest) throws IOException {
-    Parser.ParseResult result = Parser.parseFile(input);
+  public static StarlarkFile parseWithDigest(ParserInput input, byte[] digest, FileOptions options)
+      throws IOException {
+    Parser.ParseResult result = Parser.parseFile(input, options);
     return create(
-        /* preludeStatements= */ ImmutableList.of(),
+        ImmutableList.copyOf(result.statements),
+        options,
         result,
-        HashCode.fromBytes(digest).toString(),
-        /* allowImportInternal= */ false);
+        HashCode.fromBytes(digest).toString());
   }
 
   /**
@@ -179,20 +142,27 @@ public final class StarlarkFile extends Node {
    * Example usage:
    *
    * <pre>
-   * StarlarkFile file = StarlarkFile.parse(input);
+   * StarlarkFile file = StarlarkFile.parse(input, options);
    * if (!file.ok()) {
    *    Event.replayEventsOn(handler, file.errors());
    *    ...
    * }
    * </pre>
    */
-  public static StarlarkFile parse(ParserInput input) {
-    Parser.ParseResult result = Parser.parseFile(input);
+  public static StarlarkFile parse(ParserInput input, FileOptions options) {
+    Parser.ParseResult result = Parser.parseFile(input, options);
     return create(
-        /* preludeStatements= */ ImmutableList.of(),
-        result,
-        /* contentHashCode= */ null,
-        /* allowImportInternal=*/ false);
+        ImmutableList.copyOf(result.statements), options, result, /*contentHashCode=*/ null);
+  }
+
+  /** Parse a Starlark file with default options. */
+  public static StarlarkFile parse(ParserInput input) {
+    return parse(input, FileOptions.DEFAULT);
+  }
+
+  /** Returns the options specified when parsing this file. */
+  public FileOptions getOptions() {
+    return options;
   }
 
   /**

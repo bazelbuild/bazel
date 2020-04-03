@@ -70,7 +70,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
-  private final NestedSet<PathFragment> declaredIncludeDirs;
+  private final NestedSet<PathFragment> looseHdrsDirs;
   private final NestedSet<Artifact> declaredIncludeSrcs;
 
   /** Module maps from direct dependencies. */
@@ -108,7 +108,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   CcCompilationContext(
       CommandLineCcCompilationContext commandLineCcCompilationContext,
       NestedSet<Artifact> compilationPrerequisites,
-      NestedSet<PathFragment> declaredIncludeDirs,
+      NestedSet<PathFragment> looseHdrsDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> nonCodeInputs,
       HeaderInfo headerInfo,
@@ -123,7 +123,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
-    this.declaredIncludeDirs = declaredIncludeDirs;
+    this.looseHdrsDirs = looseHdrsDirs;
     this.declaredIncludeSrcs = declaredIncludeSrcs;
     this.directModuleMaps = directModuleMaps;
     this.headerInfo = headerInfo;
@@ -278,8 +278,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * Returns the immutable set of declared include directories, relative to a "-I" or "-iquote"
    * directory" (possibly empty but never null).
    */
-  public NestedSet<PathFragment> getDeclaredIncludeDirs() {
-    return declaredIncludeDirs;
+  public NestedSet<PathFragment> getLooseHdrsDirs() {
+    return looseHdrsDirs;
   }
 
   /**
@@ -455,17 +455,22 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /**
-   * Returns the immutable set of additional transitive inputs needed for
-   * compilation, like C++ module map artifacts.
+   * Returns the immutable set of additional transitive inputs needed for compilation, like C++
+   * module map artifacts.
    */
   public NestedSet<Artifact> getAdditionalInputs() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    addAdditionalInputs(builder);
+    return builder.build();
+  }
+
+  /** Adds additional transitive inputs needed for compilation to builder. */
+  void addAdditionalInputs(NestedSetBuilder<Artifact> builder) {
     builder.addAll(directModuleMaps);
     builder.addTransitive(nonCodeInputs);
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
     }
-    return builder.build();
   }
 
   /** @return modules maps from direct dependencies. */
@@ -502,7 +507,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   /**
    * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext}
-   * but returns empty sets for {@link #getDeclaredIncludeDirs()}.
+   * but returns empty sets for {@link #getLooseHdrsDirs()}.
    */
   public static CcCompilationContext disallowUndeclaredHeaders(
       CcCompilationContext ccCompilationContext) {
@@ -608,8 +613,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final Set<PathFragment> quoteIncludeDirs = new LinkedHashSet<>();
     private final Set<PathFragment> systemIncludeDirs = new LinkedHashSet<>();
     private final Set<PathFragment> frameworkIncludeDirs = new LinkedHashSet<>();
-    private final NestedSetBuilder<PathFragment> declaredIncludeDirs =
-        NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<PathFragment> looseHdrsDirs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs =
         NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
@@ -676,7 +680,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       quoteIncludeDirs.addAll(otherCcCompilationContext.getQuoteIncludeDirs());
       systemIncludeDirs.addAll(otherCcCompilationContext.getSystemIncludeDirs());
       frameworkIncludeDirs.addAll(otherCcCompilationContext.getFrameworkIncludeDirs());
-      declaredIncludeDirs.addTransitive(otherCcCompilationContext.getDeclaredIncludeDirs());
+      looseHdrsDirs.addTransitive(otherCcCompilationContext.getLooseHdrsDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       transitiveHeaderInfo.addTransitive(otherCcCompilationContext.transitiveHeaderInfos);
       transitiveModules.addTransitive(otherCcCompilationContext.transitiveModules);
@@ -766,8 +770,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
 
     /** Add a single declared include dir, relative to a "-I" or "-iquote" directory". */
-    public Builder addDeclaredIncludeDir(PathFragment dir) {
-      declaredIncludeDirs.add(dir);
+    public Builder addLooseHdrsDir(PathFragment dir) {
+      looseHdrsDirs.add(dir);
       return this;
     }
 
@@ -908,7 +912,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
               defines.build(),
               ImmutableList.copyOf(localDefines)),
           constructedPrereq,
-          declaredIncludeDirs.build(),
+          looseHdrsDirs.build(),
           declaredIncludeSrcs.build(),
           nonCodeInputs.build(),
           headerInfo,

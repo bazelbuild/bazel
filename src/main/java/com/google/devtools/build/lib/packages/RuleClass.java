@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
@@ -57,6 +56,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -641,6 +641,7 @@ public class RuleClass {
             attr("local", Type.BOOLEAN).build());
 
     private String name;
+    private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
     private final boolean skylark;
     private boolean skylarkTestable = false;
@@ -709,6 +710,7 @@ public class RuleClass {
     private boolean useToolchainResolution = true;
     private Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
+    private final Map<String, ExecGroup> execGroups = new HashMap<>();
 
     /**
      * Constructs a new {@code RuleClassBuilder} using all attributes from all
@@ -742,6 +744,14 @@ public class RuleClass {
         addRequiredToolchains(parent.getRequiredToolchains());
         useToolchainResolution = parent.useToolchainResolution;
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
+        try {
+          addExecGroups(parent.getExecGroups());
+        } catch (DuplicateExecGroupError e) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "An execution group named '%s' is inherited multiple times in %s ruleclass",
+                  e.getDuplicateGroup(), name));
+        }
 
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
@@ -830,6 +840,7 @@ public class RuleClass {
 
       return new RuleClass(
           name,
+          callstack,
           key,
           type,
           skylark,
@@ -860,6 +871,7 @@ public class RuleClass {
           requiredToolchains,
           useToolchainResolution,
           executionPlatformConstraints,
+          execGroups,
           outputFileKind,
           attributes.values(),
           buildSetting);
@@ -953,6 +965,12 @@ public class RuleClass {
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
           configurationFragmentNames);
+      return this;
+    }
+
+    /** Sets the Starlark call stack associated with this rule class's creation. */
+    public Builder setCallStack(ImmutableList<StarlarkThread.CallStackEntry> callstack) {
+      this.callstack = callstack;
       return this;
     }
 
@@ -1357,6 +1375,36 @@ public class RuleClass {
     }
 
     /**
+     * Adds execution groups to this rule class. Errors out if multiple groups with the same name
+     * are added.
+     */
+    public Builder addExecGroups(Map<String, ExecGroup> execGroups) throws DuplicateExecGroupError {
+      for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
+        String name = group.getKey();
+        if (this.execGroups.put(name, group.getValue()) != null) {
+          throw new DuplicateExecGroupError(name);
+        }
+      }
+      return this;
+    }
+
+    /** An error to help report {@link ExecGroup}s with the same name */
+    static class DuplicateExecGroupError extends EvalException {
+      private final String duplicateGroup;
+
+      DuplicateExecGroupError(String duplicateGroup) {
+        super(
+            null,
+            String.format("Multiple execution groups with the same name: '%s'.", duplicateGroup));
+        this.duplicateGroup = duplicateGroup;
+      }
+
+      String getDuplicateGroup() {
+        return duplicateGroup;
+      }
+    }
+
+    /**
      * Causes rules to use toolchain resolution to determine the execution platform and toolchains.
      * Rules that are part of configuring toolchains and platforms should set this to {@code false}.
      */
@@ -1398,6 +1446,7 @@ public class RuleClass {
   }
 
   private final String name; // e.g. "cc_library"
+  private final ImmutableList<StarlarkThread.CallStackEntry> callstack; // of call to 'rule'
 
   private final String key; // Just the name for native, label + name for skylark
 
@@ -1515,6 +1564,7 @@ public class RuleClass {
   private final ImmutableSet<Label> requiredToolchains;
   private final boolean useToolchainResolution;
   private final ImmutableSet<Label> executionPlatformConstraints;
+  private final ImmutableMap<String, ExecGroup> execGroups;
 
   /**
    * Constructs an instance of RuleClass whose name is 'name', attributes are 'attributes'. The
@@ -1539,6 +1589,7 @@ public class RuleClass {
   @VisibleForTesting
   RuleClass(
       String name,
+      ImmutableList<StarlarkThread.CallStackEntry> callstack,
       String key,
       RuleClassType type,
       boolean isSkylark,
@@ -1569,10 +1620,12 @@ public class RuleClass {
       Set<Label> requiredToolchains,
       boolean useToolchainResolution,
       Set<Label> executionPlatformConstraints,
+      Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
       Collection<Attribute> attributes,
       @Nullable BuildSetting buildSetting) {
     this.name = name;
+    this.callstack = callstack;
     this.key = key;
     this.type = type;
     this.isSkylark = isSkylark;
@@ -1607,6 +1660,7 @@ public class RuleClass {
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
     this.useToolchainResolution = useToolchainResolution;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
+    this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
 
     // Create the index and collect non-configurable attributes.
@@ -1676,6 +1730,15 @@ public class RuleClass {
    */
   public String getName() {
     return name;
+  }
+
+  /**
+   * Returns the stack of Starlark active function calls at the moment this rule class was created.
+   * Entries appear outermost first, and exclude the built-in itself ('rule' or 'repository_rule').
+   * Empty for non-Starlark rules.
+   */
+  public ImmutableList<StarlarkThread.CallStackEntry> getCallStack() {
+    return callstack;
   }
 
   /** Returns the type of rule that this RuleClass represents. Only for use during serialization. */
@@ -2514,6 +2577,10 @@ public class RuleClass {
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {
     return executionPlatformConstraints;
+  }
+
+  public ImmutableMap<String, ExecGroup> getExecGroups() {
+    return execGroups;
   }
 
   public OutputFile.Kind  getOutputFileKind() {

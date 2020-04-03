@@ -41,6 +41,7 @@ java_library(
         "DotExpression.java",
         "Expression.java",
         "ExpressionStatement.java",
+        "FileOptions.java",
         "FlowStatement.java",
         "ForStatement.java",
         "FunctionSignature.java",
@@ -52,6 +53,7 @@ java_library(
         "LineNumberTable.java",
         "ListExpression.java",
         "LoadStatement.java",
+        "Location.java",
         "Node.java",
         "NodePrinter.java",
         "NodeVisitor.java",
@@ -61,7 +63,6 @@ java_library(
         "ReturnStatement.java",
         "SliceExpression.java",
         "StarlarkFile.java",
-        "StarlarkSemantics.java",
         "Statement.java",
         "StringLiteral.java",
         "SyntaxError.java",
@@ -71,7 +72,6 @@ java_library(
         "ValidationEnvironment.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:string_util",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -124,6 +124,7 @@ java_library(
         "StarlarkFunction.java",
         "StarlarkIterable.java",
         "StarlarkList.java",
+        "StarlarkSemantics.java",
         "StarlarkThread.java",
         "StarlarkValue.java",
         "StringModule.java",
@@ -132,7 +133,6 @@ java_library(
     data = [":libcpu_profiler.so"],  # will be loaded dynamically
     deps = [
         ":frontend",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

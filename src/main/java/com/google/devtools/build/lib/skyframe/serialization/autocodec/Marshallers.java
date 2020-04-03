@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.isVariableOrWildcardType;
+
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.AutoCodecProcessingFailedException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.SerializationProcessingFailedException;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.squareup.javapoet.TypeName;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -29,8 +31,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.type.TypeVariable;
-import javax.lang.model.type.WildcardType;
 
 /** Class containing all {@link Marshaller} instances. */
 class Marshallers {
@@ -40,7 +40,7 @@ class Marshallers {
     this.env = env;
   }
 
-  void writeSerializationCode(Context context) {
+  void writeSerializationCode(Context context) throws SerializationProcessingFailedException {
     SerializationCodeGenerator generator = getMatchingCodeGenerator(context.type);
     boolean needsNullHandling = context.canBeNull() && generator != contextMarshaller;
     if (needsNullHandling) {
@@ -55,7 +55,7 @@ class Marshallers {
     }
   }
 
-  void writeDeserializationCode(Context context) {
+  void writeDeserializationCode(Context context) throws SerializationProcessingFailedException {
     SerializationCodeGenerator generator = getMatchingCodeGenerator(context.type);
     boolean needsNullHandling = context.canBeNull() && generator != contextMarshaller;
     // If we have a generic or a wildcard parameter we need to erase it when we write the code out.
@@ -82,7 +82,8 @@ class Marshallers {
     }
   }
 
-  private SerializationCodeGenerator getMatchingCodeGenerator(TypeMirror type) {
+  private SerializationCodeGenerator getMatchingCodeGenerator(TypeMirror type)
+      throws SerializationProcessingFailedException {
     if (type.getKind() == TypeKind.ARRAY) {
       return arrayCodeGenerator;
     }
@@ -94,7 +95,7 @@ class Marshallers {
           .findFirst()
           .orElseThrow(
               () ->
-                  new AutoCodecProcessingFailedException(
+                  new SerializationProcessingFailedException(
                       null, "No generator for: %s", primitiveType));
     }
 
@@ -124,7 +125,8 @@ class Marshallers {
   private final SerializationCodeGenerator arrayCodeGenerator =
       new SerializationCodeGenerator() {
         @Override
-        public void addSerializationCode(Context context) {
+        public void addSerializationCode(Context context)
+            throws SerializationProcessingFailedException {
           String length = context.makeName("length");
           context.builder.addStatement("int $L = $L.length", length, context.name);
           context.builder.addStatement("codedOut.writeInt32NoTag($L)", length);
@@ -141,7 +143,8 @@ class Marshallers {
         }
 
         @Override
-        public void addDeserializationCode(Context context) {
+        public void addDeserializationCode(Context context)
+            throws SerializationProcessingFailedException {
           Context repeated =
               context.with(
                   ((ArrayType) context.type).getComponentType(), context.makeName("repeated"));
@@ -287,14 +290,16 @@ class Marshallers {
         }
 
         @Override
-        public void addSerializationCode(Context context) {
+        public void addSerializationCode(Context context)
+            throws SerializationProcessingFailedException {
           DeclaredType suppliedType =
               (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
           writeSerializationCode(context.with(suppliedType, context.name + ".get()"));
         }
 
         @Override
-        public void addDeserializationCode(Context context) {
+        public void addDeserializationCode(Context context)
+            throws SerializationProcessingFailedException {
           DeclaredType suppliedType =
               (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
           String suppliedName = context.makeName("supplied");
@@ -355,7 +360,4 @@ class Marshallers {
     return AutoCodecUtil.getType(clazz, env);
   }
 
-  static boolean isVariableOrWildcardType(TypeMirror type) {
-    return type instanceof TypeVariable || type instanceof WildcardType;
-  }
 }

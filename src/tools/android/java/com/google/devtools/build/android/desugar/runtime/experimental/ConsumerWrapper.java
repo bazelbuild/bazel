@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar.runtime;
 
-import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.AccessibilityService.ScreenshotResult;
 import android.app.DirectAction;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -94,16 +92,5 @@ public final class ConsumerWrapper<T> implements Consumer<T> {
         cancellationSignal,
         resultExecutor,
         callback != null ? new ConsumerWrapper<List<DirectAction>>(callback) : null);
-  }
-
-  public static boolean takeScreenshot(
-      AccessibilityService receiver,
-      int displayId,
-      Executor resultExecutor,
-      j$.util.function.Consumer<ScreenshotResult> callback) {
-    return receiver.takeScreenshot(
-        displayId,
-        resultExecutor,
-        callback != null ? new ConsumerWrapper<ScreenshotResult>(callback) : null);
   }
 }

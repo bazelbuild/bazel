@@ -15,7 +15,7 @@
 package com.google.devtools.skylark.common;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
+import com.google.devtools.build.lib.syntax.Location.LineAndColumn;
 import javax.annotation.Nullable;
 
 /**

@@ -26,20 +26,22 @@ import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
+import com.google.devtools.build.lib.syntax.Location;
 
 /**
  * Provider encapsulating all the information from the cc_toolchain rule that affects creation of
@@ -97,6 +99,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final Label ccToolchainLabel;
   private final TransitiveInfoCollection staticRuntimeLib;
   private final TransitiveInfoCollection dynamicRuntimeLib;
+  private final PackageSpecificationProvider whitelistForLayeringCheck;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
@@ -219,6 +222,9 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
       this.toolchainType = null;
     }
     this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
+    this.whitelistForLayeringCheck =
+        Whitelist.fetchPackageSpecificationProvider(
+            ruleContext, CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_WHITELIST);
   }
 
   public String getCpu() {
@@ -404,6 +410,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public Artifact getIfsoBuilder() {
     return ifsoBuilder;
+  }
+
+  public PackageSpecificationProvider getWhitelistForLayeringCheck() {
+    return whitelistForLayeringCheck;
   }
 
   private static NestedSet<Artifact> getMiddlemanOrFiles(RuleContext context, String attribute) {

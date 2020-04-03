@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -83,13 +84,19 @@ public class Utils {
 
   /** Constructs a {@link SpawnResult}. */
   public static SpawnResult createSpawnResult(
-      int exitCode, boolean cacheHit, String runnerName, @Nullable InMemoryOutput inMemoryOutput) {
+      int exitCode,
+      boolean cacheHit,
+      String runnerName,
+      @Nullable InMemoryOutput inMemoryOutput,
+      SpawnMetrics spawnMetrics) {
     SpawnResult.Builder builder =
         new SpawnResult.Builder()
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setExitCode(exitCode)
             .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
-            .setCacheHit(cacheHit);
+            .setCacheHit(cacheHit)
+            .setSpawnMetrics(spawnMetrics)
+            .setRemote(true);
     if (inMemoryOutput != null) {
       builder.setInMemoryOutput(inMemoryOutput.getOutput(), inMemoryOutput.getContents());
     }

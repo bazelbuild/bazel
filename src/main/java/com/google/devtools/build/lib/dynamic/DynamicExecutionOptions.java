@@ -85,7 +85,7 @@ public class DynamicExecutionOptions extends OptionsBase {
       converter = Converters.StringToStringListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "",
+      defaultValue = "null",
       allowMultiple = true,
       help =
           "The remote strategies to use for the given mnemonic. Passing 'remote'"

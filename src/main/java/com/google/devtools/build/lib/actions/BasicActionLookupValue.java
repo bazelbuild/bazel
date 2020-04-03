@@ -19,10 +19,10 @@ import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 
 /**
- * Basic implementation of {@link ActionLookupValue} where the value itself owns and maintains
- * the list of generating actions.
+ * Basic implementation of {@link ActionLookupValue} where the value itself owns and maintains the
+ * list of generating actions.
  */
-public class BasicActionLookupValue extends ActionLookupValue {
+public class BasicActionLookupValue implements ActionLookupValue {
   protected final ImmutableList<ActionAnalysisMetadata> actions;
 
   protected BasicActionLookupValue(ImmutableList<ActionAnalysisMetadata> actions) {

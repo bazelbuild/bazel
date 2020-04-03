@@ -113,7 +113,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             StampedAndroidManifest.getManifestValues(ruleContext),
-            ruleContext.getExpander().withDataExecLocations().tokenized("nocompress_extensions"));
+            ruleContext.getExpander().withDataExecLocations().tokenized("nocompress_extensions"),
+            ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext));
 
     attributesBuilder.addRuntimeClassPathEntry(resourceApk.getResourceJavaClassJar());
 
@@ -490,7 +491,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
       Map<String, String> manifestValues,
-      List<String> noCompressExtensions)
+      List<String> noCompressExtensions,
+      ResourceFilterFactory resourceFilterFactory)
       throws InterruptedException {
 
     StampedAndroidManifest stamped =
@@ -511,7 +513,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             assets,
             resourceDeps,
             assetDeps,
-            noCompressExtensions)
+            noCompressExtensions,
+            resourceFilterFactory)
         .generateRClass(dataContext);
   }
 

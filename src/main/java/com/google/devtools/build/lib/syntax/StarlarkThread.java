@@ -21,9 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -83,6 +80,18 @@ public final class StarlarkThread {
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
 
   private boolean interruptible = true;
+
+  long steps; // count of logical computation steps executed so far
+
+  /**
+   * Returns the number of Starlark computation steps executed by this thread according to a
+   * small-step semantics. (Today, that means exec, eval, and assign operations executed by the
+   * tree-walking evaluator, but in future will mean byte code instructions; the two are not
+   * commensurable.)
+   */
+  public long getExecutedSteps() {
+    return steps;
+  }
 
   /**
    * Disables polling of the {@link java.lang.Thread#interrupted} flag during Starlark evaluation.
@@ -469,13 +478,6 @@ public final class StarlarkThread {
   /** Returns the PrintHandler for Starlark print statements. */
   PrintHandler getPrintHandler() {
     return printHandler;
-  }
-
-  /** Returns a PrintHandler that sends DEBUG events to the provided EventHandler. */
-  // TODO(adonovan): move to lib.events.Event when we reverse the dependency.
-  // For now, clients call thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(h));
-  public static PrintHandler makeDebugPrintHandler(EventHandler h) {
-    return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
   }
 
   /** Sets the behavior of Starlark print statements executed by this thread. */

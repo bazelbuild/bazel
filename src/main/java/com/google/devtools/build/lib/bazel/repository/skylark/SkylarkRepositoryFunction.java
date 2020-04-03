@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -99,12 +98,10 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       Map<String, String> markerData,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
-    if (rule.getDefinitionInformation() != null) {
-      env.getListener()
-          .post(
-              new SkylarkRepositoryDefinitionLocationEvent(
-                  rule.getName(), rule.getDefinitionInformation()));
-    }
+
+    String defInfo = RepositoryResolvedEvent.getRuleDefinitionInformation(rule);
+    env.getListener().post(new SkylarkRepositoryDefinitionLocationEvent(rule.getName(), defInfo));
+
     StarlarkFunction function = rule.getRuleClassObject().getConfiguredTargetFunction();
     if (declareEnvironmentDependencies(markerData, env, getEnviron(rule)) == null) {
       return null;
@@ -146,7 +143,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
               .build();
-      thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(env.getListener()));
+      thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
 
       // The fetch phase does not need the tools repository
       // or the fragment map because it happens before analysis.
@@ -212,7 +209,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               rule, skylarkRepositoryContext.getAttr(), outputDirectory, result);
       if (resolved.isNewInformationReturned()) {
         env.getListener().handle(Event.debug(resolved.getMessage()));
-        env.getListener().handle(Event.debug(rule.getDefinitionInformation()));
+        env.getListener().handle(Event.debug(defInfo));
       }
 
       String ruleClass =
@@ -248,9 +245,9 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
                       + rule.getName()
                       + "':\n   "
                       + e.getMessage()));
-      if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
-        env.getListener().handle(Event.info(rule.getDefinitionInformation()));
-      }
+      env.getListener()
+          .handle(Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(rule)));
+
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 

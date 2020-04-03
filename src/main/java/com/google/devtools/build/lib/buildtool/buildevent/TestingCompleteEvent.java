@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /**
@@ -34,6 +35,10 @@ public class TestingCompleteEvent extends BuildCompletingEvent {
    * @param wasSuspended was the build suspended at any point.
    */
   public TestingCompleteEvent(ExitCode exitCode, long finishTimeMillis, boolean wasSuspended) {
-    super(exitCode, finishTimeMillis, ImmutableList.of(BuildEventId.buildToolLogs()), wasSuspended);
+    super(
+        exitCode,
+        finishTimeMillis,
+        ImmutableList.of(BuildEventIdUtil.buildToolLogs()),
+        wasSuspended);
   }
 }

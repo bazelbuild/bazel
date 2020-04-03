@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.starlark.cmd;
 
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -45,6 +45,10 @@ class Starlark {
       new BufferedReader(new InputStreamReader(System.in, CHARSET));
   private final StarlarkThread thread;
   private final Module module;
+
+  // TODO(adonovan): set load-binds-globally option when we support load,
+  // so that loads bound in one REPL chunk are visible in the next.
+  private final FileOptions options = FileOptions.DEFAULT;
 
   {
     thread =
@@ -94,13 +98,14 @@ class Starlark {
     while ((line = prompt()) != null) {
       ParserInput input = ParserInput.create(line, "<stdin>");
       try {
-        Object result = EvalUtils.execAndEvalOptionalFinalExpression(input, module, thread);
+        Object result =
+            EvalUtils.execAndEvalOptionalFinalExpression(input, options, module, thread);
         if (result != null) {
           System.out.println(com.google.devtools.build.lib.syntax.Starlark.repr(result));
         }
-      } catch (SyntaxError ex) {
-        for (Event ev : ex.errors()) {
-          System.err.println(ev);
+      } catch (SyntaxError.Exception ex) {
+        for (SyntaxError error : ex.errors()) {
+          System.err.println(error);
         }
       } catch (EvalException ex) {
         System.err.println(ex.print());
@@ -125,11 +130,11 @@ class Starlark {
   /** Execute a Starlark file. */
   private int execute(String filename, String content) {
     try {
-      EvalUtils.exec(ParserInput.create(content, filename), module, thread);
+      EvalUtils.exec(ParserInput.create(content, filename), options, module, thread);
       return 0;
-    } catch (SyntaxError ex) {
-      for (Event ev : ex.errors()) {
-        System.err.println(ev);
+    } catch (SyntaxError.Exception ex) {
+      for (SyntaxError error : ex.errors()) {
+        System.err.println(error);
       }
       return 1;
     } catch (EvalException ex) {

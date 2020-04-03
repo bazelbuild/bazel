@@ -14,12 +14,13 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,34 +33,38 @@ public final class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testExecutionStopsAtFirstError() throws Exception {
-    EventCollector printEvents = new EventCollector();
-    StarlarkThread thread = createStarlarkThread(StarlarkThread.makeDebugPrintHandler(printEvents));
+    List<String> printEvents = new ArrayList<>();
+    StarlarkThread thread =
+        createStarlarkThread(/*printHandler=*/ (_thread, msg) -> printEvents.add(msg));
     ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");
-    Module module = thread.getGlobals();
 
-    assertThrows(EvalException.class, () -> EvalUtils.exec(input, module, thread));
+    Module module = thread.getGlobals();
+    assertThrows(
+        EvalException.class, () -> EvalUtils.exec(input, FileOptions.DEFAULT, module, thread));
 
     // Only expect hello, should have been an error before goodbye.
-    assertThat(printEvents).hasSize(1);
-    assertThat(printEvents.iterator().next().getMessage()).isEqualTo("hello");
+    assertThat(printEvents.toString()).isEqualTo("[hello]");
   }
 
   @Test
   public void testExecutionNotStartedOnInterrupt() throws Exception {
-    EventCollector printEvents = new EventCollector();
-    StarlarkThread thread = createStarlarkThread(StarlarkThread.makeDebugPrintHandler(printEvents));
+    StarlarkThread thread =
+        createStarlarkThread(
+            /*printHandler=*/ (_thread, msg) -> {
+              throw new AssertionError("print statement was reached");
+            });
     ParserInput input = ParserInput.fromLines("print('hello');");
     Module module = thread.getGlobals();
 
     try {
       Thread.currentThread().interrupt();
-      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, module, thread));
+      assertThrows(
+          InterruptedException.class,
+          () -> EvalUtils.exec(input, FileOptions.DEFAULT, module, thread));
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
     }
-
-    assertThat(printEvents).isEmpty();
   }
 
   @Test
@@ -77,7 +82,9 @@ public final class EvaluationTest extends EvaluationTestCase {
             "foo()");
 
     try {
-      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, module, thread));
+      assertThrows(
+          InterruptedException.class,
+          () -> EvalUtils.exec(input, FileOptions.DEFAULT, module, thread));
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
@@ -96,7 +103,9 @@ public final class EvaluationTest extends EvaluationTestCase {
     ParserInput input = ParserInput.fromLines("[interrupt(i == 5) for i in range(100)]");
 
     try {
-      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, module, thread));
+      assertThrows(
+          InterruptedException.class,
+          () -> EvalUtils.exec(input, FileOptions.DEFAULT, module, thread));
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
@@ -116,7 +125,9 @@ public final class EvaluationTest extends EvaluationTestCase {
         ParserInput.fromLines("interrupt(False); interrupt(True); interrupt(False);");
 
     try {
-      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, module, thread));
+      assertThrows(
+          InterruptedException.class,
+          () -> EvalUtils.exec(input, FileOptions.DEFAULT, module, thread));
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
@@ -555,18 +566,13 @@ public final class EvaluationTest extends EvaluationTestCase {
   }
 
   private static void execBUILD(String... lines)
-      throws SyntaxError, EvalException, InterruptedException {
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parse(input);
-    StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
     StarlarkThread thread =
-        StarlarkThread.builder(Mutability.create("test")).setSemantics(semantics).build();
+        StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
     Module module = thread.getGlobals();
-    ValidationEnvironment.validateFile(file, module, semantics, /*isBuildFile=*/ true);
-    if (!file.ok()) {
-      throw new SyntaxError(file.errors());
-    }
-    EvalUtils.exec(file, module, thread);
+    FileOptions options = FileOptions.builder().recordScope(false).build();
+    EvalUtils.exec(input, options, module, thread);
   }
 
   @Test

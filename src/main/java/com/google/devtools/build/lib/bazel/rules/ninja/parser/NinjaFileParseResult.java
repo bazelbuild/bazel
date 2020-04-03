@@ -19,7 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
@@ -56,7 +56,7 @@ public class NinjaFileParseResult {
   private final NavigableMap<String, List<Pair<Long, NinjaVariableValue>>> variables;
   private final NavigableMap<String, List<Pair<Long, NinjaRule>>> rules;
   private final NavigableMap<String, List<Pair<Long, NinjaPool>>> pools;
-  private final List<ByteFragmentAtOffset> targets;
+  private final List<FileFragment> targets;
   private final NavigableMap<Long, NinjaPromise<NinjaFileParseResult>> includedFilesFutures;
   private final NavigableMap<Long, NinjaPromise<NinjaFileParseResult>> subNinjaFilesFutures;
 
@@ -77,7 +77,7 @@ public class NinjaFileParseResult {
     subNinjaFilesFutures.put(offset, promise);
   }
 
-  public void addTarget(ByteFragmentAtOffset fragment) {
+  public void addTarget(FileFragment fragment) {
     targets.add(fragment);
   }
 
@@ -103,7 +103,7 @@ public class NinjaFileParseResult {
     return rules;
   }
 
-  public List<ByteFragmentAtOffset> getTargets() {
+  public List<FileFragment> getTargets() {
     return targets;
   }
 
@@ -152,8 +152,7 @@ public class NinjaFileParseResult {
    * Fills in passed {@link NinjaScope} with the expanded variables and rules, and <code>rawTargets
    * </code> - map of NinjaScope to list of fragments with unparsed Ninja targets.
    */
-  public void expandIntoScope(
-      NinjaScope scope, Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets)
+  public void expandIntoScope(NinjaScope scope, Map<NinjaScope, List<FileFragment>> rawTargets)
       throws InterruptedException, GenericParsingException, IOException {
     scope.setRules(rules);
     scope.setPools(pools);

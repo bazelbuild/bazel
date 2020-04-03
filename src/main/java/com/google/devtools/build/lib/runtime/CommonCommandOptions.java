@@ -71,18 +71,17 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enablePlatformSpecificConfig;
 
   @Option(
-    name = "config",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    allowMultiple = true,
-    help =
-        "Selects additional config sections from the rc files; for every <command>, it "
-            + "also pulls in the options from <command>:<config> if such a section exists; "
-            + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
-            + "The config sections and flag combinations they are equivalent to are "
-            + "located in the tools/*.blazerc config files."
-  )
+      name = "config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Selects additional config sections from the rc files; for every <command>, it "
+              + "also pulls in the options from <command>:<config> if such a section exists; "
+              + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
+              + "The config sections and flag combinations they are equivalent to are "
+              + "located in the tools/*.blazerc config files.")
   public List<String> configs;
 
   @Option(
@@ -206,7 +205,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
       name = "build_metadata",
       converter = AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
@@ -283,14 +282,6 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help = "If set, Bazel will measure cpu usage and add it to the JSON profile.")
   public boolean enableCpuUsageProfiling;
-
-  @Option(
-      name = "experimental_profile_action_counts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will add action counts at the top of the JSON profile.")
-  public boolean enableActionCountProfile;
 
   @Option(
       name = "experimental_profile_additional_tasks",
@@ -495,18 +486,17 @@ public class CommonCommandOptions extends OptionsBase {
   public ToolCommandLineEvent toolCommandLine;
 
   @Option(
-    name = "unconditional_warning",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    allowMultiple = true,
-    help =
-        "A warning that will unconditionally get printed with build warnings and errors. This is "
-            + "useful to deprecate bazelrc files or --config definitions. If the intent is to "
-            + "effectively deprecate some flag or combination of flags, this is NOT sufficient. "
-            + "The flag or flags should use the deprecationWarning field in the option definition, "
-            + "or the bad combination should be checked for programmatically."
-  )
+      name = "unconditional_warning",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      allowMultiple = true,
+      help =
+          "A warning that will unconditionally get printed with build warnings and errors. This is"
+              + " useful to deprecate bazelrc files or --config definitions. If the intent is to"
+              + " effectively deprecate some flag or combination of flags, this is NOT sufficient."
+              + " The flag or flags should use the deprecationWarning field in the option"
+              + " definition, or the bad combination should be checked for programmatically.")
   public List<String> deprecationWarnings;
 
   @Option(

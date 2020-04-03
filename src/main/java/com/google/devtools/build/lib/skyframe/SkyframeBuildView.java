@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -375,6 +376,7 @@ public final class SkyframeBuildView {
       List<ConfiguredTargetKey> ctKeys,
       List<AspectValueKey> aspectKeys,
       Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       EventBus eventBus,
       boolean keepGoing,
       int numThreads)
@@ -493,23 +495,43 @@ public final class SkyframeBuildView {
     if (!badActions.isEmpty()) {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
-      EvaluationResult<PostConfiguredTargetValue> actionConflictResult;
+      EvaluationResult<ActionLookupConflictFindingValue> actionConflictResult;
       enableAnalysis(true);
       try {
         actionConflictResult =
-            skyframeExecutor.postConfigureTargets(eventHandler, ctKeys, keepGoing, badActions);
+            skyframeExecutor.filterActionConflicts(
+                eventHandler,
+                Iterables.concat(ctKeys, aspectKeys),
+                keepGoing,
+                badActions,
+                topLevelArtifactContextForConflictPruning);
       } finally {
         enableAnalysis(false);
       }
 
-      cts = Lists.newArrayListWithCapacity(ctKeys.size());
-      for (ConfiguredTargetKey value : ctKeys) {
-        PostConfiguredTargetValue postCt =
-            actionConflictResult.get(PostConfiguredTargetValue.key(value));
-        if (postCt != null) {
-          cts.add(postCt.getCt());
+      ImmutableList.Builder<ConfiguredTarget> ctBuilder = ImmutableList.builder();
+
+      for (ConfiguredTargetKey key : ctKeys) {
+        TopLevelActionLookupConflictFindingFunction.Key conflictKey =
+            TopLevelActionLookupConflictFindingFunction.Key.create(
+                key, topLevelArtifactContextForConflictPruning);
+        if (actionConflictResult.get(conflictKey) != null) {
+          ctBuilder.add(
+              Preconditions.checkNotNull((ConfiguredTargetValue) result.get(key), key)
+                  .getConfiguredTarget());
         }
       }
+      cts = ctBuilder.build();
+
+      ImmutableList.Builder<AspectValue> aspectBuilder = ImmutableList.builder();
+
+      for (AspectValueKey key : aspectKeys) {
+        if (actionConflictResult.get(ActionLookupConflictFindingValue.key(key)) != null) {
+          aspectBuilder.add(Preconditions.checkNotNull((AspectValue) result.get(key), key));
+        }
+      }
+
+      aspects = aspectBuilder.build();
     }
 
     return new SkyframeAnalysisResult(
@@ -770,6 +792,15 @@ public final class SkyframeBuildView {
         do {
           path.add(currentKey);
           foundDep = false;
+
+          Map<SkyKey, Exception> missingMap =
+              walkableGraph.getMissingAndExceptions(ImmutableList.of(currentKey));
+          if (missingMap.containsKey(currentKey) && missingMap.get(currentKey) == null) {
+            // This can happen in a no-keep-going build, where we don't write the bubbled-up error
+            // nodes to the graph.
+            break;
+          }
+
           for (SkyKey dep : walkableGraph.getDirectDeps(currentKey)) {
             if (cause.equals(walkableGraph.getException(dep))) {
               currentKey = dep;

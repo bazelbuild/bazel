@@ -19,7 +19,7 @@ java_test(
     tags = ["ziputils"],
     test_class = "com.google.devtools.build.android.ziputils.AllTests",
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:ziputils_lib",
         "//third_party:guava",
         "//third_party:jsr305",

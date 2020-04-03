@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.ERROR;
 import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.IGNORE;
 import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.RESOLVE;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -66,8 +66,7 @@ public class SpawnInputExpanderTest {
 
   private final FileSystem fs = new InMemoryFileSystem();
   private final Path execRoot = fs.getPath("/root");
-  private final ArtifactRoot rootDir =
-      ArtifactRoot.asDerivedRoot(execRoot, fs.getPath("/root/out"));
+  private final ArtifactRoot rootDir = ArtifactRoot.asDerivedRoot(execRoot, "out");
 
   private SpawnInputExpander expander = new SpawnInputExpander(execRoot, /*strict=*/ true);
   private Map<PathFragment, ActionInput> inputMappings = new HashMap<>();
@@ -373,10 +372,11 @@ public class SpawnInputExpanderTest {
 
   private SpecialArtifact createSpecialArtifact(String relPath, SpecialArtifactType type)
       throws IOException {
-    Path outputDir = execRoot.getRelative("out");
+    String outputSegment = "out";
+    Path outputDir = execRoot.getRelative(outputSegment);
     Path outputPath = outputDir.getRelative(relPath);
     outputPath.createDirectoryAndParents();
-    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, outputDir);
+    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, outputSegment);
     return new SpecialArtifact(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.LinkBuildVariablesTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -64,7 +63,6 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   @Override
   protected void useConfiguration(String... args) throws Exception {
     ImmutableList<String> extraArgs = ImmutableList.<String>builder()
-        .addAll(TestConstants.OSX_CROSSTOOL_FLAGS)
         .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
         .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)

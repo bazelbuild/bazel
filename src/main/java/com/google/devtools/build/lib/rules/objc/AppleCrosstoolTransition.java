@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
@@ -39,7 +40,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
 
   @Override
-  public BuildOptions patch(BuildOptions buildOptions) {
+  public BuildOptions patch(BuildOptions buildOptions, EventHandler eventHandler) {
     BuildOptions result = buildOptions.clone();
 
     AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);

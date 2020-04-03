@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.remote.http;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.util.Collections.singletonList;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -28,12 +28,11 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
-import com.google.api.client.util.Preconditions;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.testutil.MoreAsserts.ThrowingRunnable;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerHandler;
 import com.google.protobuf.ByteString;
@@ -449,8 +448,9 @@ public class HttpCacheClientTest {
               server, /* timeoutSeconds= */ 1, /* remoteVerifyDownloads= */ true, credentials);
       Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(Charsets.UTF_8));
       try (OutputStream out = new ByteArrayOutputStream()) {
-        ThrowingRunnable download = () -> getFromFuture(blobStore.downloadBlob(fooDigest, out));
-        IOException e = assertThrows(IOException.class, download);
+        IOException e =
+            assertThrows(
+                IOException.class, () -> getFromFuture(blobStore.downloadBlob(fooDigest, out)));
         assertThat(e).hasMessageThat().contains(fooDigest.getHash());
         assertThat(e).hasMessageThat().contains(DIGEST_UTIL.computeAsUtf8("bar").getHash());
       }

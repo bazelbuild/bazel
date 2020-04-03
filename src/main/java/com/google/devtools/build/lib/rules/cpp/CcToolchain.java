@@ -25,7 +25,8 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.syntax.Location;
 import java.io.Serializable;
 import java.util.HashMap;
 
@@ -41,6 +42,14 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   /** Default attribute name for the c++ toolchain type */
   public static final String CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$cc_toolchain_type";
+
+  public static final String ALLOWED_LAYERING_CHECK_FEATURES_WHITELIST =
+      "disabling_parse_headers_and_layering_check_allowed";
+  public static final String ALLOWED_LAYERING_CHECK_FEATURES_TARGET =
+      "@bazel_tools//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:"
+          + ALLOWED_LAYERING_CHECK_FEATURES_WHITELIST;
+  public static final Label ALLOWED_LAYERING_CHECK_FEATURES_LABEL =
+      Label.parseAbsoluteUnchecked(ALLOWED_LAYERING_CHECK_FEATURES_TARGET);
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)

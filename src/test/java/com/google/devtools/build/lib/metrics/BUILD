@@ -1,9 +1,15 @@
-licenses(["notice"])  # Apache 2.0
+load("@rules_java//java:defs.bzl", "java_test")
+
+package(
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    testonly = 0,
+    srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
@@ -16,6 +22,20 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party:truth8",
+    ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
     ],
 )

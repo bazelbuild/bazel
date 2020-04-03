@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.query2.query.output;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Comparator;
 

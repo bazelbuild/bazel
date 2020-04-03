@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.ArrayList;
 import org.junit.Test;
@@ -206,6 +205,14 @@ public final class SkylarkListTest extends EvaluationTestCase {
     exec("l = [1, 2]");
     assertThat(Starlark.NONE).isEqualTo(eval("l.extend([3, 4])"));
     assertThat(eval("[1, 2, 3, 4]")).isEqualTo(lookup("l"));
+  }
+
+  @Test
+  public void listAfterRemoveHasExpectedEqualsAndHashCode() throws Exception {
+    exec("l = [1, 2, 3]");
+    exec("l.remove(3)");
+    assertThat(lookup("l")).isEqualTo(eval("[1, 2]"));
+    assertThat(lookup("l").hashCode()).isEqualTo(eval("[1, 2]").hashCode());
   }
 
   @Test

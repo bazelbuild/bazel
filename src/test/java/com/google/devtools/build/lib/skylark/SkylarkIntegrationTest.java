@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 import static com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -1239,8 +1239,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testNoOutputAttrDefault() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_no_output_attr_default=true");
-
     scratch.file(
         "test/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -1263,15 +1261,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
-    assertContainsEvent(
-        "parameter 'default' is deprecated and will be removed soon. It may be "
-            + "temporarily re-enabled by setting --incompatible_no_output_attr_default=false");
+    assertContainsEvent("got unexpected keyword argument 'default'");
   }
 
   @Test
   public void testNoOutputListAttrDefault() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_no_output_attr_default=true");
-
     scratch.file(
         "test/extension.bzl",
         "def custom_rule_impl(ctx):",
@@ -1288,45 +1282,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
-    assertContainsEvent(
-        "parameter 'default' is deprecated and will be removed soon. It may be "
-            + "temporarily re-enabled by setting --incompatible_no_output_attr_default=false");
-  }
-
-  @Test
-  public void testLegacyOutputAttrDefault() throws Exception {
-    // Note that use of the "default" parameter of attr.output and attr.output_label is deprecated
-    // and barely functional. This test simply serves as proof-of-concept verification that the
-    // legacy behavior remains intact.
-    setSkylarkSemanticsOptions("--incompatible_no_output_attr_default=false");
-
-    scratch.file(
-        "test/skylark/extension.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def custom_rule_impl(ctx):",
-        "  out_file = ctx.actions.declare_file(ctx.attr._o1.name)",
-        "  ctx.actions.write(output=out_file, content='hi')",
-        "  return [MyInfo(o1=ctx.attr._o1,",
-        "                 o2=ctx.attr.o2)]",
-        "",
-        "def output_fn():",
-        "  return Label('//test/skylark:foo.txt')",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl,",
-        "  attrs = {'_o1': attr.output(default = output_fn),",
-        "           'o2': attr.output_list(default = [])})");
-
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(name = 'cr')");
-
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
-    StructImpl myInfo = getMyInfoFromTarget(target);
-    assertThat(myInfo.getValue("o1"))
-        .isEqualTo(Label.parseAbsoluteUnchecked("//test/skylark:foo.txt"));
-    assertThat(myInfo.getValue("o2")).isEqualTo(StarlarkList.empty());
+    assertContainsEvent("got unexpected keyword argument 'default'");
   }
 
   @Test

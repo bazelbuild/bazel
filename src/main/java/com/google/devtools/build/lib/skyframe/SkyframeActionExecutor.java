@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
@@ -130,7 +129,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -221,23 +219,18 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
-  private final Function<PathFragment, SourceArtifact> sourceArtifactFactory;
 
   private boolean bazelRemoteExecutionEnabled;
 
-  private final NestedSetExpander nestedSetExpander;
+  private NestedSetExpander nestedSetExpander;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
-      Supplier<ImmutableList<Root>> sourceRootSupplier,
-      Function<PathFragment, SourceArtifact> sourceArtifactFactory,
-      NestedSetExpander nestedSetExpander) {
+      Supplier<ImmutableList<Root>> sourceRootSupplier) {
     this.actionKeyContext = actionKeyContext;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
-    this.sourceArtifactFactory = sourceArtifactFactory;
-    this.nestedSetExpander = nestedSetExpander;
   }
 
   /**
@@ -487,8 +480,7 @@ public final class SkyframeActionExecutor {
         relativeOutputPath,
         sourceRootSupplier.get(),
         inputArtifactData,
-        outputArtifacts,
-        sourceArtifactFactory);
+        outputArtifacts);
   }
 
   void updateActionFileSystemContext(
@@ -523,15 +515,7 @@ public final class SkyframeActionExecutor {
    */
   @Nullable
   ActionExecutionState probeActionExecution(Action action) {
-    ActionExecutionState state =
-        buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
-    // Prior to sharing execution state between two actions, ensure that no conflict was detected.
-    // This can happen with actions owned by aspects, because unlike actions owned by configured
-    // targets, we don't proactively prune them from the graph when a conflict is detected.
-    if (state == null || badActionMap.containsKey(action)) {
-      return null;
-    }
-    return state;
+    return buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
   boolean probeCompletedAndReset(Action action) {
@@ -924,9 +908,13 @@ public final class SkyframeActionExecutor {
     return hadExecutionError && !options.getOptions(KeepGoingOption.class).keepGoing;
   }
 
-  void configure(MetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
+  public void configure(
+      MetadataProvider fileCache,
+      ActionInputPrefetcher actionInputPrefetcher,
+      NestedSetExpander nestedSetExpander) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.nestedSetExpander = nestedSetExpander;
   }
 
   /**

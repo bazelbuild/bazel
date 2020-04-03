@@ -21,8 +21,9 @@ import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
@@ -113,12 +114,10 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   @Override
   public BuildEventId getEventId() {
     if (action.getOwner() == null) {
-      return BuildEventId.actionCompleted(actionId);
+      return BuildEventIdUtil.actionCompleted(actionId);
     } else {
-      return BuildEventId.actionCompleted(
-          actionId,
-          action.getOwner().getLabel(),
-          action.getOwner().getConfigurationChecksum());
+      return BuildEventIdUtil.actionCompleted(
+          actionId, action.getOwner().getLabel(), action.getOwner().getConfigurationChecksum());
     }
   }
 
@@ -195,7 +194,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       if (configuration == null) {
         configuration = new NullConfiguration();
       }
-      actionBuilder.setConfiguration(configuration.getEventId().asStreamProto().getConfiguration());
+      actionBuilder.setConfiguration(configuration.getEventId().getConfiguration());
     }
     for (MetadataLog actionMetadataLog : actionMetadataLogs) {
       String uri = pathConverter.apply(actionMetadataLog.getFilePath());

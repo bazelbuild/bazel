@@ -66,7 +66,7 @@ public class NinjaGraphRule implements RuleDefinition {
                 .setDoc(
                     "<p>Directory under workspace, where all the intermediate and output artifacts"
                         + " will be created.</p><p>Must not be symlinked to the execroot. For"
-                        + " that, dont_symlink_directories_in_execroot function should be used in"
+                        + " that, toplevel_output_directories function should be used in"
                         + " WORKSPACE file.</p>"))
         .add(
             attr("output_root_inputs", STRING_LIST)

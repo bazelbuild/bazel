@@ -37,6 +37,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     return OS.isPosixCompatible() && ProcessWrapperUtil.isSupported(cmdEnv);
   }
 
+  private final SandboxHelpers helpers;
   private final Path processWrapper;
   private final Path execRoot;
   private final Path sandboxBase;
@@ -49,6 +50,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool.
    *
+   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param timeoutKillDelay additional grace period before killing timing out commands
@@ -57,6 +59,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
    * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
    */
   ProcessWrapperSandboxedSpawnRunner(
+      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
@@ -64,6 +67,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
+    this.helpers = helpers;
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
@@ -109,13 +113,13 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     }
 
     SandboxInputs inputs =
-        SandboxHelpers.processInputFiles(
+        helpers.processInputFiles(
             context.getInputMapping(
                 getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
             spawn,
             context.getArtifactExpander(),
             execRoot);
-    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
+    SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     if (sandboxfsProcess != null) {
       return new SandboxfsSandboxedSpawn(

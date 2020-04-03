@@ -65,7 +65,9 @@ public class WorkerExecRootTest {
         new WorkerExecRoot(
             execRoot,
             new SandboxInputs(
-                ImmutableMap.of(PathFragment.create("worker.sh"), workerSh), ImmutableMap.of()),
+                ImmutableMap.of(PathFragment.create("worker.sh"), workerSh),
+                ImmutableSet.of(),
+                ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(PathFragment.create("worker.sh")));
@@ -104,6 +106,7 @@ public class WorkerExecRootTest {
             execRoot,
             new SandboxInputs(
                 ImmutableMap.of(),
+                ImmutableSet.of(),
                 ImmutableMap.of(
                     PathFragment.create("dir/input_symlink_1"), PathFragment.create("new_content"),
                     PathFragment.create("dir/input_symlink_2"), PathFragment.create("unchanged"))),
@@ -141,6 +144,7 @@ public class WorkerExecRootTest {
             execRoot,
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("needed_file"), neededWorkspaceFile),
+                ImmutableSet.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableSet.of());
@@ -167,7 +171,7 @@ public class WorkerExecRootTest {
     WorkerExecRoot workerExecRoot =
         new WorkerExecRoot(
             execRoot,
-            new SandboxInputs(inputs, ImmutableMap.of()),
+            new SandboxInputs(inputs, ImmutableSet.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableSet.of());
 

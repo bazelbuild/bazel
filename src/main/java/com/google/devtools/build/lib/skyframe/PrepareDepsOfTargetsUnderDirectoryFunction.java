@@ -55,7 +55,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
     ProcessPackageDirectoryResult packageExistenceAndSubdirDeps =
         processPackageDirectory.getPackageExistenceAndSubdirDeps(
             recursivePkgKey.getRootedPath(),
-            recursivePkgKey.getRepository(),
+            recursivePkgKey.getRepositoryName(),
             recursivePkgKey.getExcludedPaths(),
             env);
     if (env.valuesMissing()) {
@@ -68,7 +68,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
               ImmutableList.of(
                   CollectTargetsInPackageValue.key(
                       PackageIdentifier.create(
-                          recursivePkgKey.getRepository(),
+                          recursivePkgKey.getRepositoryName(),
                           recursivePkgKey.getRootedPath().getRootRelativePath()),
                       filteringPolicy)),
               keysToRequest);

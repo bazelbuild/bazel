@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
 
 /**
  * The StarlarkCallable interface is implemented by all Starlark values that may be called from

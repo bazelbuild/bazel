@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildtool.PostAnalysisQueryBuildTool.PostAnalysisQueryCommandLineException;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -298,23 +298,21 @@ public class BuildTool {
       if (e.isCatastrophic()) {
         result.setCatastrophe();
       }
-      detailedExitCode =
-          e.getDetailedExitCode() != null
-              ? e.getDetailedExitCode()
-              : DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+      detailedExitCode = e.getDetailedExitCode();
     } catch (InterruptedException e) {
       // We may have been interrupted by an error, or the user's interruption may have raced with
       // an error, so check to see if we should report that error code instead.
-      ExitCode environmentPendingExitCode = env.getPendingExitCode();
-      if (environmentPendingExitCode == null) {
+      AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
+      if (environmentPendingAbruptExitException == null) {
         detailedExitCode = DetailedExitCode.justExitCode(ExitCode.INTERRUPTED);
         env.getReporter().handle(Event.error("build interrupted"));
         env.getEventBus().post(new BuildInterruptedEvent());
       } else {
         // Report the exception from the environment - the exception we're handling here is just an
         // interruption.
-        detailedExitCode = DetailedExitCode.justExitCode(environmentPendingExitCode);
-        reportExceptionError(env.getPendingException());
+        detailedExitCode =
+            DetailedExitCode.justExitCode(environmentPendingAbruptExitException.getExitCode());
+        reportExceptionError(environmentPendingAbruptExitException);
         result.setCatastrophe();
       }
     } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
@@ -337,7 +335,7 @@ public class BuildTool {
       // target(s) that triggered them.
       result.setCatastrophe();
     } catch (AbruptExitException e) {
-      detailedExitCode = DetailedExitCode.justExitCode(e.getExitCode());
+      detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
       result.setCatastrophe();
     } catch (Throwable throwable) {
@@ -413,7 +411,8 @@ public class BuildTool {
         .post(
             new BuildCompleteEvent(
                 result,
-                ImmutableList.of(BuildEventId.buildToolLogs(), BuildEventId.buildMetrics())));
+                ImmutableList.of(
+                    BuildEventIdUtil.buildToolLogs(), BuildEventIdUtil.buildMetrics())));
     // Post the build tool logs event; the corresponding local files may be contributed from
     // modules, and this has to happen after posting the BuildCompleteEvent because that's when
     // modules add their data to the collection.

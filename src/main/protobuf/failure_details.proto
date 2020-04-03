@@ -88,18 +88,68 @@ message FailureDetail {
 
   oneof category {
     Interrupted interrupted = 101;
+    ExternalRepository external_repository = 103;
+    BuildProgress build_progress = 104;
+    RemoteOptions remote_options = 106;
+    ClientEnvironment client_environment = 107;
   }
 
   reserved 102; // For internal use
+  reserved 105; // For internal use
 }
 
 message Interrupted {
-  enum InterruptedCode {
+  enum Code {
     // Interrupted at an unspecified time.
-    INTERRUPTED_UNSPECIFIED = 0 [(metadata) = { exit_code: 8 }];
+    INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
+
+    reserved 1; // For internal use
+
     // TODO(mschaller): Add subcategories that specify what was happening at the
     //  time of interruption.
   }
 
-  InterruptedCode code = 1;
+  Code code = 1;
+}
+
+message ExternalRepository {
+  enum Code {
+    EXTERNAL_REPOSITORY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    OVERRIDE_DISALLOWED_MANAGED_DIRECTORIES = 1 [(metadata) = { exit_code: 2 }];
+  }
+  Code code = 1;
+  // Additional data could include external repository names.
+}
+
+message BuildProgress {
+  enum Code {
+    BUILD_PROGRESS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    OUTPUT_INITIALIZATION = 3 [(metadata) = { exit_code: 36 }];
+    BES_RUNS_PER_TEST_LIMIT_UNSUPPORTED = 4 [(metadata) = { exit_code: 2 }];
+    BES_LOCAL_WRITE_ERROR = 5 [(metadata) = { exit_code: 36 }];
+    BES_INITIALIZATION_ERROR = 6 [(metadata) = { exit_code: 36 }];
+    BES_UPLOAD_TIMEOUT_ERROR = 7 [(metadata) = { exit_code: 38 }];
+    reserved 1, 2; // For internal use
+  }
+  Code code = 1;
+  // Additional data could include the build progress upload endpoint.
+}
+
+message RemoteOptions {
+  enum Code {
+    REMOTE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR = 1
+        [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message ClientEnvironment {
+  enum Code {
+    CLIENT_ENVIRONMENT_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    CLIENT_CWD_MALFORMED = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
 }

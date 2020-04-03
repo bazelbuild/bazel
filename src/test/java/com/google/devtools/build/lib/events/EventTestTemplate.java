@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.devtools.build.lib.syntax.Location;
 import org.junit.Before;
 
 // Without 'public', tests fail in the guts of junit reflection.
+// TODO(adonovan): copy this code into all subclasses.
+// This is yet another terrible use of 'extends'.
 public abstract class EventTestTemplate {
 
   protected Event event;

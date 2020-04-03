@@ -371,8 +371,8 @@ EOF
 
   bazel build --worker_quit_after_build :hello_world_1 &> $TEST_log \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
-  expect_log "Destroying Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work multiplex-worker (id [0-9]\+)"
+  expect_log "Destroying Work multiplex-worker (id [0-9]\+)"
   expect_log "Build completed, shutting down worker pool..."
 }
 
@@ -389,9 +389,9 @@ EOF
   bazel build --worker_quit_after_build :hello_world_1 &> $TEST_log \
     || fail "build failed"
 
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work multiplex-worker (id [0-9]\+)"
 
-  worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
+  worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/multiplex-worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
 
   [ -e "$worker_log" ] \
     || fail "Worker log was not found"
@@ -420,8 +420,8 @@ EOF
   bazel build --worker_quit_after_build :hello_world &> $TEST_log \
     || fail "build failed"
 
-  expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
-  expect_not_log "Destroying Work worker (id [0-9]\+)"
+  expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work multiplex-worker (id [0-9]\+)"
+  expect_not_log "Destroying Work multiplex-worker (id [0-9]\+)"
 
   # WorkerSpawnStrategy falls back to standalone strategy, so we still expect the output to be generated.
   [ -e "$BINS/hello_world.out" ] \
@@ -460,12 +460,12 @@ EOF
   bazel build :hello_clean &> $TEST_log \
     || fail "build failed"
   assert_equals "hello clean" "$(cat $BINS/hello_clean.out)"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work multiplex-worker (id [0-9]\+)"
 
   bazel clean &> $TEST_log \
     || fail "clean failed"
   expect_log "Clean command is running, shutting down worker pool..."
-  expect_log "Destroying Work worker (id [0-9]\+)"
+  expect_log "Destroying Work multiplex-worker (id [0-9]\+)"
 }
 
 function test_crashed_worker_causes_log_dump() {

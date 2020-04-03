@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -80,7 +81,7 @@ public class EvaluationTestCase {
             .setGlobals(Module.createForBuiltins(envBuilder.build()))
             .setSemantics(semantics)
             .build();
-    thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
+    thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
     return thread;
   }
 
@@ -109,7 +110,7 @@ public class EvaluationTestCase {
   // and evaluation.
 
   /** Parses an expression. */
-  protected final Expression parseExpression(String... lines) throws SyntaxError {
+  protected final Expression parseExpression(String... lines) throws SyntaxError.Exception {
     return Expression.parse(ParserInput.fromLines(lines));
   }
 
@@ -127,20 +128,21 @@ public class EvaluationTestCase {
   /** Joins the lines, parses them as an expression, and evaluates it. */
   public final Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return EvalUtils.eval(input, thread.getGlobals(), thread);
+    return EvalUtils.eval(input, FileOptions.DEFAULT, thread.getGlobals(), thread);
   }
 
   /** Joins the lines, parses them as a file, and executes it. */
-  public final void exec(String... lines) throws SyntaxError, EvalException, InterruptedException {
+  public final void exec(String... lines)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
-    EvalUtils.exec(input, thread.getGlobals(), thread);
+    EvalUtils.exec(input, FileOptions.DEFAULT, thread.getGlobals(), thread);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
     try {
       exec(input);
       fail("Expected error '" + msg + "' but got no error");
-    } catch (SyntaxError | EvalException | EventCollectionApparatus.FailFastException e) {
+    } catch (SyntaxError.Exception | EvalException | EventCollectionApparatus.FailFastException e) {
       assertThat(e).hasMessageThat().isEqualTo(msg);
     }
   }
@@ -149,7 +151,7 @@ public class EvaluationTestCase {
     try {
       exec(input);
       fail("Expected error containing '" + msg + "' but got no error");
-    } catch (SyntaxError | EvalException | EventCollectionApparatus.FailFastException e) {
+    } catch (SyntaxError.Exception | EvalException | EventCollectionApparatus.FailFastException e) {
       assertThat(e).hasMessageThat().contains(msg);
     }
   }
@@ -157,7 +159,7 @@ public class EvaluationTestCase {
   public void checkEvalErrorDoesNotContain(String msg, String... input) throws Exception {
     try {
       exec(input);
-    } catch (SyntaxError | EvalException | EventCollectionApparatus.FailFastException e) {
+    } catch (SyntaxError.Exception | EvalException | EventCollectionApparatus.FailFastException e) {
       assertThat(e).hasMessageThat().doesNotContain(msg);
     }
   }

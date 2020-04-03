@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
@@ -58,7 +58,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testReference() throws Exception {
     setFailFast(false);
-    SyntaxError e = assertThrows(SyntaxError.class, () -> eval("foo"));
+    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> eval("foo"));
     assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
     update("foo", "bar");
     assertThat(eval("foo")).isEqualTo("bar");
@@ -67,7 +67,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
   // Test assign and reference through interpreter:
   @Test
   public void testAssignAndReference() throws Exception {
-    SyntaxError e = assertThrows(SyntaxError.class, () -> eval("foo"));
+    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> eval("foo"));
     assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
     exec("foo = 'bar'");
     assertThat(eval("foo")).isEqualTo("bar");
@@ -173,7 +173,8 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread.getGlobals(), thread);
+    EvalUtils.exec(
+        ParserInput.fromLines("True = 123"), FileOptions.DEFAULT, thread.getGlobals(), thread);
     assertThat(thread.getGlobals().lookup("True")).isEqualTo(123);
   }
 
@@ -187,6 +188,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
           ParserInput.fromLines(
               "def foo(x): x += global_var; global_var = 36; return x", //
               "foo(1)"),
+          FileOptions.DEFAULT,
           module,
           thread);
       throw new AssertionError("failed to fail");

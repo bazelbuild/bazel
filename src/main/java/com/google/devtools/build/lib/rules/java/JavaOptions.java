@@ -119,7 +119,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "javacopt",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Additional options to pass to javac.")
@@ -128,7 +128,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "host_javacopt",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -139,7 +139,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "jvmopt",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -364,7 +364,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "extra_proguard_specs",
       allowMultiple = true,
-      defaultValue = "", // Ignored
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -409,7 +409,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "message_translations",
-      defaultValue = "",
+      defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -419,7 +419,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "check_constraint",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Check the listed constraint.")
@@ -547,7 +547,7 @@ public class JavaOptions extends FragmentOptions {
       name = "plugin",
       converter = LabelListConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Plugins to use in the build. Currently works with java_plugin.")

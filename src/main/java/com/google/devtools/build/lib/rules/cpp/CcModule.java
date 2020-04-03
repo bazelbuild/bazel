@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -158,12 +159,15 @@ public abstract class CcModule
     // flipped.
     BuildOptions buildOptions =
         ruleContext == null ? null : ruleContext.getConfiguration().getOptions();
-    getSemantics().validateLayeringCheckFeatures(ruleContext.getRuleContext());
+    ImmutableSet<String> unsupportedFeaturesSet =
+        ImmutableSet.copyOf(unsupportedFeatures.getContents(String.class, "unsupported_features"));
+    getSemantics()
+        .validateLayeringCheckFeatures(
+            ruleContext.getRuleContext(), toolchain, unsupportedFeaturesSet);
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.copyOf(requestedFeatures.getContents(String.class, "requested_features")),
-            ImmutableSet.copyOf(
-                unsupportedFeatures.getContents(String.class, "unsupported_features")),
+            unsupportedFeaturesSet,
             toolchain,
             cppConfiguration),
         cppConfiguration,
@@ -1571,6 +1575,21 @@ public abstract class CcModule
     }
   }
 
+  private static boolean isStampingEnabled(int stamp, BuildConfiguration config)
+      throws EvalException {
+    if (stamp == 0) {
+      return false;
+    } else if (stamp == 1) {
+      return true;
+    } else if (stamp == -1) {
+      return config.stampBinaries();
+    } else {
+      throw Starlark.errorf(
+          "stamp value %d is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)",
+          stamp);
+    }
+  }
+
   protected Label getCallerLabel(SkylarkActionFactory actions, String name) throws EvalException {
     try {
       return Label.create(
@@ -1634,7 +1653,7 @@ public abstract class CcModule
       throw Starlark.errorf("Either PIC or no PIC actions have to be created.");
     }
 
-    CcCommon common = new CcCommon(actions.getRuleContext());
+    CcCommon common = new CcCommon(actions.getRuleContext(), ccToolchainProvider);
     CcCompilationHelper helper =
         new CcCompilationHelper(
                 actions.asActionRegistry(actions),
@@ -1707,12 +1726,15 @@ public abstract class CcModule
       String language,
       String outputType,
       boolean linkDepsStatically,
+      int stamp,
       Sequence<?> additionalInputs,
       Object grepIncludes,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     validateLanguage(language);
     validateOutputType(outputType);
+    boolean isStampingEnabled =
+        isStampingEnabled(stamp, actions.getRuleContext().getConfiguration());
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
@@ -1759,6 +1781,7 @@ public abstract class CcModule
                     actions.getRuleContext().isAllowTagsPropagation()))
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
+            .setIsStampingEnabled(isStampingEnabled)
             .addNonCodeLinkerInputs(
                 additionalInputs.getContents(Artifact.class, "additional_inputs"))
             .setDynamicLinkType(dynamicLinkTargetType)

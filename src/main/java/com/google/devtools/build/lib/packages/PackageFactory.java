@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
@@ -44,12 +44,14 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.ForStatement;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.IfStatement;
 import com.google.devtools.build.lib.syntax.IntegerLiteral;
 import com.google.devtools.build.lib.syntax.ListExpression;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.NodeVisitor;
@@ -61,7 +63,6 @@ import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
-import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
@@ -79,7 +80,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -91,7 +91,7 @@ import javax.annotation.Nullable;
  */
 public final class PackageFactory {
 
-  private static final Logger logger = Logger.getLogger(PackageFactory.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An extension to the global namespace of the BUILD language. */
   // TODO(bazel-team): this is largely unrelated to syntax.StarlarkThread.Extension,
@@ -365,25 +365,17 @@ public final class PackageFactory {
       }
       BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
-        addRule(getContext(thread), kwargs, thread);
+        RuleFactory.createAndAddRule(
+            getContext(thread),
+            ruleClass,
+            new BuildLangTypedAttributeValuesMap(kwargs),
+            thread.getSemantics(),
+            thread.getCallStack(),
+            new AttributeContainer(ruleClass));
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(null, e.getMessage());
       }
       return Starlark.NONE;
-    }
-
-    private void addRule(PackageContext context, Map<String, Object> kwargs, StarlarkThread thread)
-        throws RuleFactory.InvalidRuleException, Package.NameConflictException,
-            InterruptedException {
-      BuildLangTypedAttributeValuesMap attributeValues =
-          new BuildLangTypedAttributeValuesMap(kwargs);
-      RuleFactory.createAndAddRule(
-          context,
-          ruleClass,
-          attributeValues,
-          thread.getCallerLocation(),
-          thread,
-          new AttributeContainer(ruleClass));
     }
 
     @Override
@@ -400,18 +392,6 @@ public final class PackageFactory {
     public void repr(Printer printer) {
       printer.append("<built-in rule " + getName() + ">");
     }
-  }
-
-  // Exposed to skyframe.PackageFunction.
-  public static StarlarkFile parseBuildFile(
-      PackageIdentifier packageId, ParserInput input, List<Statement> preludeStatements) {
-    // Log messages are expected as signs of progress by a single very old test:
-    // testCreatePackageIsolatedFromOuterErrors, see CL 6198296.
-    // Removing them will cause it to time out. TODO(adonovan): clean this up.
-    logger.fine("Starting to parse " + packageId);
-    StarlarkFile file = StarlarkFile.parseWithPrelude(input, preludeStatements);
-    logger.fine("Finished parsing of " + packageId);
-    return file;
   }
 
   // Exposed to skyframe.PackageFunction.
@@ -518,8 +498,14 @@ public final class PackageFactory {
     ParserInput input =
         ParserInput.create(
             FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().toString());
-    StarlarkFile file =
-        parseBuildFile(packageId, input, /*preludeStatements=*/ ImmutableList.<Statement>of());
+    // Options for processing BUILD files. (No prelude, so recordScope(true) is safe.)
+    FileOptions options =
+        FileOptions.builder()
+            .requireLoadStatementsFirst(false)
+            .allowToplevelRebinding(true)
+            .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
+            .build();
+    StarlarkFile file = StarlarkFile.parse(input, options);
     Package result =
         createPackageFromAst(
                 externalPkg.getWorkspaceName(),
@@ -664,8 +650,26 @@ public final class PackageFactory {
       long loadTimeNanos,
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
-    packageBuilderHelper.onLoadingComplete(pkg, starlarkSemantics, loadTimeNanos);
     packageValidator.validate(pkg, eventHandler);
+
+    // Enforce limit on number of compute steps in BUILD file (b/151622307).
+    long maxSteps = starlarkSemantics.maxComputationSteps();
+    long steps = pkg.getComputationSteps();
+    if (maxSteps > 0 && steps > maxSteps) {
+      throw new InvalidPackageException(
+          pkg.getPackageIdentifier(),
+          String.format(
+              "BUILD file computation took %d steps, but --max_computation_steps=%d",
+              steps, maxSteps));
+    }
+    // Write a log message for BUILD files with more than 1e6 steps
+    // (approximately the top 1% in Google's code base).
+    if (steps > 1_000_000) {
+      logger.atInfo().log(
+          "%s: BUILD file computation took %d steps", pkg.getPackageIdentifier(), steps);
+    }
+
+    packageBuilderHelper.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
   }
 
   /**
@@ -765,11 +769,11 @@ public final class PackageFactory {
               .setSemantics(semantics)
               .setImportedExtensions(imports)
               .build();
-      thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(pkgContext.eventHandler));
+      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
       Module module = thread.getGlobals();
 
       // Validate.
-      ValidationEnvironment.validateFile(file, module, semantics, /*isBuildFile=*/ true);
+      ValidationEnvironment.validateFile(file, module);
       if (!file.ok()) {
         Event.replayEventsOn(pkgContext.eventHandler, file.errors());
         return false;
@@ -829,6 +833,8 @@ public final class PackageFactory {
         pkgContext.eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
         return false;
       }
+
+      pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
 
     return true; // success

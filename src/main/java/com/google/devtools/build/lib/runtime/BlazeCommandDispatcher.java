@@ -306,9 +306,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
         commonOptions.enableCpuUsageProfiling = true;
       }
-      if (!options.containsExplicitOption("experimental_profile_action_counts")) {
-        commonOptions.enableActionCountProfile = true;
-      }
       if (!options.containsExplicitOption("experimental_post_profile_started_event")) {
         commonOptions.postProfileStartedEvent = true;
       }
@@ -418,13 +415,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         env.getEventBus().register(handler);
 
         int oomMoreEagerlyThreshold = commonOptions.oomMoreEagerlyThreshold;
-        if (oomMoreEagerlyThreshold == 100) {
-          oomMoreEagerlyThreshold =
-              runtime
-                  .getStartupOptionsProvider()
-                  .getOptions(BlazeServerStartupOptions.class)
-                  .oomMoreEagerlyThreshold;
-        }
         runtime.getRetainedHeapLimiter().updateThreshold(oomMoreEagerlyThreshold);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -248,6 +249,9 @@ public class AutoProfiler implements SilentCloseable {
     }
   }
 
+  // Used by GoogleAutoProfilerUtils.
+  static final String LOGGING_MESSAGE_TEMPLATE = "Spent %d %s doing %s";
+
   /** {@link ElapsedTimeReceiver} that will not log a message if the time elapsed is too small. */
   public abstract static class FilteringElapsedTimeReceiver implements ElapsedTimeReceiver {
     private final String taskDescription;
@@ -270,9 +274,9 @@ public class AutoProfiler implements SilentCloseable {
     private String loggingMessage(long elapsedTimeNanos) {
       if (elapsedTimeNanos >= minNanosForLogging) {
         return String.format(
-            "Spent %d %s doing %s",
+            LOGGING_MESSAGE_TEMPLATE,
             timeUnit.convert(elapsedTimeNanos, TimeUnit.NANOSECONDS),
-            timeUnit.toString().toLowerCase(),
+            Ascii.toLowerCase(timeUnit.toString()),
             taskDescription);
       } else {
         return null;

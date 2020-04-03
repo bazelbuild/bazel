@@ -57,13 +57,12 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     public String adb;
 
     @Option(
-      name = "adb_arg",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help = "Extra arguments to pass to adb. Usually used to designate a device to install to."
-    )
+        name = "adb_arg",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+        help = "Extra arguments to pass to adb. Usually used to designate a device to install to.")
     public List<String> adbArgs;
 
     @Option(

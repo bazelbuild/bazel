@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,9 +38,9 @@ import javax.annotation.Nullable;
  * nodes. (In the future, it will attach additional information to functions to support lexical
  * scope, and even compilation of the trees to bytecode.) Validation errors are reported in the
  * analogous manner to scan/parse errors: for a StarlarkFile, they are appended to {@code
- * StarlarkFile.errors}; for an expression they are reported by an SyntaxError exception. It is
- * legal to validate a file that already contains scan/parse errors, though it may lead to secondary
- * validation errors.
+ * StarlarkFile.errors}; for an expression they are reported by an SyntaxError.Exception exception.
+ * It is legal to validate a file that already contains scan/parse errors, though it may lead to
+ * secondary validation errors.
  */
 // TODO(adonovan): make this class private. Call it through the EvalUtils facade.
 public final class ValidationEnvironment extends NodeVisitor {
@@ -79,18 +77,17 @@ public final class ValidationEnvironment extends NodeVisitor {
     //
     // A single method will then suffice:
     //   Scope resolve(String name) throws Undeclared
-    // This requires that the Module retain its semantics.
 
     /** Returns the set of names defined by this module. The caller must not modify the set. */
     Set<String> getNames();
 
     /**
      * Returns (optionally) a more specific error for an undeclared name than the generic message.
-     * This hook allows the module to implement "semantics-restricted" names without any knowledge
-     * in this file.
+     * This hook allows the module to implement flag-enabled names without any knowledge in this
+     * file.
      */
     @Nullable
-    String getUndeclaredNameError(StarlarkSemantics semantics, String name);
+    String getUndeclaredNameError(String name);
   }
 
   private static final Identifier PREDECLARED = new Identifier("");
@@ -106,26 +103,16 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
-  private final List<Event> errors;
-  private final StarlarkSemantics semantics;
+  private final List<SyntaxError> errors;
+  private final FileOptions options;
   private final Module module;
   private Block block;
   private int loopCount;
 
-  // In BUILD files, we have a slightly different behavior for legacy reasons.
-  // TODO(adonovan): eliminate isBuildFile. It is necessary because the prelude is implemented
-  // by inserting shared Statements, which must not be mutated, into each StarlarkFile.
-  // Instead, we should implement the prelude by executing it like a .bzl module
-  // and putting its members in the initial environment of the StarlarkFile.
-  // In the meantime, let's move this flag into Module (GlobalFrame).
-  private final boolean isBuildFile;
-
-  private ValidationEnvironment(
-      List<Event> errors, Module module, StarlarkSemantics semantics, boolean isBuildFile) {
+  private ValidationEnvironment(List<SyntaxError> errors, Module module, FileOptions options) {
     this.errors = errors;
     this.module = module;
-    this.semantics = semantics;
-    this.isBuildFile = isBuildFile;
+    this.options = options;
     block = new Block(Scope.Universe, null);
     for (String name : module.getNames()) {
       block.variables.put(name, PREDECLARED);
@@ -133,7 +120,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   }
 
   void addError(Location loc, String message) {
-    errors.add(Event.error(loc, message));
+    errors.add(new SyntaxError(loc, message));
   }
 
   /**
@@ -170,13 +157,19 @@ public final class ValidationEnvironment extends NodeVisitor {
         break;
       case LOAD:
         LoadStatement load = (LoadStatement) stmt;
-
-        // The global reassignment check is not yet enabled for BUILD files,
-        // but we apply it to load statements as a special case.
-        // Because (for now) its error message is better than the general
-        // message emitted by 'declare', we'll apply it to non-BUILD files too.
         Set<String> names = new HashSet<>();
         for (LoadStatement.Binding b : load.getBindings()) {
+          // Reject load('...', '_private').
+          Identifier orig = b.getOriginalName();
+          if (orig.isPrivate() && !options.allowLoadPrivateSymbols()) {
+            addError(
+                orig.getStartLocation(),
+                "symbol '" + orig.getName() + "' is private and cannot be imported.");
+          }
+
+          // The allowToplevelRebinding check is not applied to all files
+          // but we apply it to each load statement as a special case,
+          // and emit a better error message than the generic check.
           if (!names.add(b.getLocalName().getName())) {
             addError(
                 b.getLocalName().getStartLocation(),
@@ -184,6 +177,11 @@ public final class ValidationEnvironment extends NodeVisitor {
                     "load statement defines '%s' more than once", b.getLocalName().getName()));
           }
         }
+
+        // TODO(adonovan): support options.loadBindsGlobally().
+        // Requires that we open a Local block for each file,
+        // as well as its Module block, and select which block
+        // to declare it in. See go.starlark.net implementation.
 
         for (LoadStatement.Binding b : load.getBindings()) {
           declare(b.getLocalName());
@@ -204,7 +202,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   private void assign(Expression lhs) {
     if (lhs instanceof Identifier) {
-      if (!isBuildFile) {
+      if (options.recordScope()) {
         ((Identifier) lhs).setScope(block.scope);
       }
       // no-op
@@ -224,9 +222,9 @@ public final class ValidationEnvironment extends NodeVisitor {
     String name = node.getName();
     @Nullable Block b = blockThatDefines(name);
     if (b == null) {
-      // The identifier might not exist because it was restricted (hidden) by the current semantics.
+      // The identifier might not exist because it was restricted (hidden) by flags.
       // If this is the case, output a more helpful error message than 'not found'.
-      String error = module.getUndeclaredNameError(semantics, name);
+      String error = module.getUndeclaredNameError(name);
       if (error == null) {
         // generic error
         error = createInvalidIdentifierException(node.getName(), getAllSymbols());
@@ -234,9 +232,7 @@ public final class ValidationEnvironment extends NodeVisitor {
       addError(node.getStartLocation(), error);
       return;
     }
-    // TODO(laurentlb): In BUILD files, calling setScope will throw an exception. This happens
-    // because some AST nodes are shared across multipe ASTs (due to the prelude file).
-    if (!isBuildFile) {
+    if (options.recordScope()) {
       node.setScope(b.scope);
     }
   }
@@ -393,8 +389,7 @@ public final class ValidationEnvironment extends NodeVisitor {
     Identifier prev = block.variables.putIfAbsent(id.getName(), id);
 
     // Symbols defined in the module scope cannot be reassigned.
-    // TODO(laurentlb): Forbid reassignment in BUILD files too.
-    if (prev != null && block.scope == Scope.Module && !isBuildFile) {
+    if (prev != null && block.scope == Scope.Module && !options.allowToplevelRebinding()) {
       addError(
           id.getStartLocation(),
           String.format(
@@ -446,9 +441,7 @@ public final class ValidationEnvironment extends NodeVisitor {
             statement.getStartLocation(),
             "load() statements must be called before any other statement. "
                 + "First non-load() statement appears at "
-                + firstStatement
-                + ". Use --incompatible_bzl_disallow_load_after_statement=false to temporarily "
-                + "disable this check.");
+                + firstStatement);
       }
 
       if (firstStatement == null) {
@@ -459,7 +452,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   private void validateToplevelStatements(List<Statement> statements) {
     // Check that load() statements are on top.
-    if (!isBuildFile && semantics.incompatibleBzlDisallowLoadAfterStatement()) {
+    if (options.requireLoadStatementsFirst()) {
       checkLoadAfterStatement(statements);
     }
 
@@ -477,16 +470,10 @@ public final class ValidationEnvironment extends NodeVisitor {
   /**
    * Performs static checks, including resolution of identifiers in {@code file} in the environment
    * defined by {@code module}. The StarlarkFile is mutated. Errors are appended to {@link
-   * StarlarkFile#errors}. {@code isBuildFile} enables Bazel's legacy mode for BUILD files in which
-   * reassignment at top-level is permitted.
+   * StarlarkFile#errors}.
    */
-  public static void validateFile(
-      StarlarkFile file, Module module, StarlarkSemantics semantics, boolean isBuildFile) {
-    ValidationEnvironment venv =
-        new ValidationEnvironment(file.errors, module, semantics, isBuildFile);
-    if (semantics.incompatibleRestrictStringEscapes()) {
-      file.addStringEscapeEvents();
-    }
+  public static void validateFile(StarlarkFile file, Module module) {
+    ValidationEnvironment venv = new ValidationEnvironment(file.errors, module, file.getOptions());
     venv.validateToplevelStatements(file.getStatements());
     // Check that no closeBlock was forgotten.
     Preconditions.checkState(venv.block.parent == null);
@@ -496,16 +483,15 @@ public final class ValidationEnvironment extends NodeVisitor {
    * Performs static checks, including resolution of identifiers in {@code expr} in the environment
    * defined by {@code module}. This operation mutates the Expression.
    */
-  public static void validateExpr(Expression expr, Module module, StarlarkSemantics semantics)
-      throws SyntaxError {
-    List<Event> errors = new ArrayList<>();
-    ValidationEnvironment venv =
-        new ValidationEnvironment(errors, module, semantics, /*isBuildFile=*/ false);
+  public static void validateExpr(Expression expr, Module module, FileOptions options)
+      throws SyntaxError.Exception {
+    List<SyntaxError> errors = new ArrayList<>();
+    ValidationEnvironment venv = new ValidationEnvironment(errors, module, options);
 
     venv.visit(expr);
 
     if (!errors.isEmpty()) {
-      throw new SyntaxError(errors);
+      throw new SyntaxError.Exception(errors);
     }
   }
 

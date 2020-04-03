@@ -98,7 +98,6 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "block_for_lock");
   ExpectValidNullaryOption(options, "client_debug");
   ExpectValidNullaryOption(options, "deep_execroot");
-  ExpectValidNullaryOption(options, "experimental_oom_more_eagerly");
   ExpectValidNullaryOption(options, "fatal_event_bus_exceptions");
   ExpectValidNullaryOption(options, "home_rc");
   ExpectValidNullaryOption(options, "host_jvm_debug");
@@ -114,7 +113,6 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "command_port");
   ExpectIsUnaryOption(options, "connect_timeout_secs");
   ExpectIsUnaryOption(options, "digest_function");
-  ExpectIsUnaryOption(options, "experimental_oom_more_eagerly_threshold");
   ExpectIsUnaryOption(options, "host_jvm_args");
   ExpectIsUnaryOption(options, "host_jvm_profile");
   ExpectIsUnaryOption(options, "install_base");

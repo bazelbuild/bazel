@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.errorprone.annotations.FormatMethod;
@@ -668,21 +667,19 @@ public abstract class SkylarkType {
       return ImmutableMap.of();
     }
     if (!(obj instanceof Map<?, ?>)) {
-      throw Starlark.errorf(
-          "expected a dictionary for '%s' but got '%s' instead",
-          what, EvalUtils.getDataTypeName(obj));
+      throw Starlark.errorf("got '%s' for '%s', want 'dict'", EvalUtils.getDataTypeName(obj), what);
     }
 
     for (Map.Entry<?, ?> input : ((Map<?, ?>) obj).entrySet()) {
       if (!keyType.isAssignableFrom(input.getKey().getClass())
           || !valueType.isAssignableFrom(input.getValue().getClass())) {
         throw Starlark.errorf(
-            "expected <%s, %s> type for '%s' but got <%s, %s> instead",
-            keyType.getSimpleName(),
-            valueType.getSimpleName(),
+            "got dict<%s, %s> for '%s', want dict<%s, %s>",
+            Starlark.type(input.getKey()),
+            Starlark.type(input.getValue()),
             what,
-            EvalUtils.getDataTypeName(input.getKey()),
-            EvalUtils.getDataTypeName(input.getValue()));
+            EvalUtils.getDataTypeNameFromClass(keyType),
+            EvalUtils.getDataTypeNameFromClass(valueType));
       }
     }
 

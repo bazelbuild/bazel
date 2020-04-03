@@ -125,6 +125,7 @@ public class BazelCcModule extends CcModule
       String language,
       String outputType,
       boolean linkDepsStatically,
+      int stamp,
       Sequence<?> additionalInputs, // <Artifact> expected
       Object grepIncludes,
       StarlarkThread thread)
@@ -140,6 +141,7 @@ public class BazelCcModule extends CcModule
         language,
         outputType,
         linkDepsStatically,
+        stamp,
         additionalInputs,
         /* grepIncludes= */ null,
         thread);

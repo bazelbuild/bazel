@@ -8,15 +8,25 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
+)
+
+java_library(
+    name = "codec-scanning-constants",
+    srcs = ["CodecScanningConstants.java"],
 )
 
 java_library(
     name = "serialization",
     srcs = glob(
         ["**/*.java"],
-        exclude = ["SerializationConstants.java"],
+        exclude = [
+            "SerializationConstants.java",
+            "CodecScanningConstants.java",
+        ],
     ),
     deps = [
+        ":codec-scanning-constants",
         "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",

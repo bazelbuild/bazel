@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,6 +49,8 @@ final class Lexer {
   private final char[] buffer;
   private int pos;
 
+  private final FileOptions options;
+
   private final LineNumberTable lnt; // maps offsets to Locations
 
   // The stack of enclosing indentation levels; always contains '0' at the
@@ -71,7 +71,7 @@ final class Lexer {
   private int openParenStackDepth = 0;
 
   // List of errors appended to by Lexer and Parser.
-  private final List<Event> errors;
+  private final List<SyntaxError> errors;
 
   /**
    * True after a NEWLINE token.
@@ -81,17 +81,10 @@ final class Lexer {
 
   private int dents; // number of saved INDENT (>0) or OUTDENT (<0) tokens to return
 
-  /**
-   * StringEscapeEvents contains the errors related to invalid escape sequences like "\a". This is
-   * not handled by the normal eventHandler. Instead, it is passed to the parser and then the AST.
-   * During the evaluation, we can decide to show the events based on a flag in StarlarkSemantics.
-   * This code is temporary, during the migration.
-   */
-  private final List<Event> stringEscapeEvents = new ArrayList<>();
-
   /** Constructs a lexer which tokenizes the parser input. Errors are appended to {@code errors}. */
-  Lexer(ParserInput input, List<Event> errors) {
+  Lexer(ParserInput input, FileOptions options, List<SyntaxError> errors) {
     this.lnt = LineNumberTable.create(input.getContent(), input.getFile());
+    this.options = options;
     this.buffer = input.getContent();
     this.pos = 0;
     this.errors = errors;
@@ -105,10 +98,6 @@ final class Lexer {
 
   List<Comment> getComments() {
     return comments;
-  }
-
-  List<Event> getStringEscapeEvents() {
-    return stringEscapeEvents;
   }
 
   /** Returns the apparent name of the lexer's input file. */
@@ -146,7 +135,7 @@ final class Lexer {
   }
 
   private void error(String message, int start, int end) {
-    errors.add(Event.error(createLocation(start, end), message));
+    errors.add(new SyntaxError(createLocation(start, end), message));
   }
 
   LexerLocation createLocation(int start, int end) {
@@ -424,14 +413,15 @@ final class Lexer {
               break;
             default:
               // unknown char escape => "\literal"
-              stringEscapeEvents.add(
-                  Event.error(
-                      createLocation(pos - 1, pos),
-                      "invalid escape sequence: \\"
-                          + c
-                          + ". You can enable unknown escape sequences by passing the flag "
-                          + "--incompatible_restrict_string_escapes=false"));
-
+              if (options.restrictStringEscapes()) {
+                error(
+                    "invalid escape sequence: \\"
+                        + c
+                        + ". You can enable unknown escape sequences by passing the flag"
+                        + " --incompatible_restrict_string_escapes=false",
+                    pos - 1,
+                    pos);
+              }
               literal.append('\\');
               literal.append(c);
               break;

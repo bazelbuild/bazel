@@ -19,8 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -52,22 +50,19 @@ final class Parser {
 
     // Errors encountered during scanning or parsing.
     // These lists are ultimately owned by StarlarkFile.
-    final List<Event> errors;
-    final List<Event> stringEscapeEvents;
+    final List<SyntaxError> errors;
 
     ParseResult(
         List<Statement> statements,
         List<Comment> comments,
         Lexer.LexerLocation location,
-        List<Event> errors,
-        List<Event> stringEscapeEvents) {
+        List<SyntaxError> errors) {
       // No need to copy here; when the object is created, the parser instance is just about to go
       // out of scope and be garbage collected.
       this.statements = Preconditions.checkNotNull(statements);
       this.comments = Preconditions.checkNotNull(comments);
       this.location = location;
       this.errors = errors;
-      this.stringEscapeEvents = stringEscapeEvents;
     }
   }
 
@@ -109,7 +104,7 @@ final class Parser {
   private static final boolean DEBUGGING = false;
 
   private final Lexer lexer;
-  private final List<Event> errors;
+  private final List<SyntaxError> errors;
 
   // TODO(adonovan): opt: compute this by subtraction.
   private static final Map<TokenKind, TokenKind> augmentedAssignments =
@@ -158,7 +153,7 @@ final class Parser {
   // Intern string literals, as some files contain many literals for the same string.
   private final Map<String, String> stringInterner = new HashMap<>();
 
-  private Parser(Lexer lexer, List<Event> errors) {
+  private Parser(Lexer lexer, List<SyntaxError> errors) {
     this.lexer = lexer;
     this.errors = errors;
     nextToken();
@@ -181,9 +176,9 @@ final class Parser {
   }
 
   // Main entry point for parsing a file.
-  static ParseResult parseFile(ParserInput input) {
-    List<Event> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, errors);
+  static ParseResult parseFile(ParserInput input, FileOptions options) {
+    List<SyntaxError> errors = new ArrayList<>();
+    Lexer lexer = new Lexer(input, options, errors);
     Parser parser = new Parser(lexer, errors);
     List<Statement> statements;
     try (SilentCloseable c =
@@ -191,11 +186,7 @@ final class Parser {
       statements = parser.parseFileInput();
     }
     return new ParseResult(
-        statements,
-        lexer.getComments(),
-        locationFromStatements(lexer, statements),
-        errors,
-        lexer.getStringEscapeEvents());
+        statements, lexer.getComments(), locationFromStatements(lexer, statements), errors);
   }
 
   // stmt ::= simple_stmt
@@ -215,9 +206,10 @@ final class Parser {
   }
 
   /** Parses an expression, possibly followed by newline tokens. */
-  static Expression parseExpression(ParserInput input) throws SyntaxError {
-    List<Event> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, errors);
+  static Expression parseExpression(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
+    List<SyntaxError> errors = new ArrayList<>();
+    Lexer lexer = new Lexer(input, options, errors);
     Parser parser = new Parser(lexer, errors);
     Expression result = parser.parseExpression();
     while (parser.token.kind == TokenKind.NEWLINE) {
@@ -225,7 +217,7 @@ final class Parser {
     }
     parser.expect(TokenKind.EOF);
     if (!errors.isEmpty()) {
-      throw new SyntaxError(errors);
+      throw new SyntaxError.Exception(errors);
     }
     return result;
   }
@@ -259,7 +251,7 @@ final class Parser {
     errorsCount++;
     // Limit the number of reported errors to avoid spamming output.
     if (errorsCount <= 5) {
-      errors.add(Event.error(location, message));
+      errors.add(new SyntaxError(location, message));
     }
   }
 

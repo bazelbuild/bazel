@@ -23,12 +23,22 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 cert_path="${BAZEL_RUNFILES}/src/test/testdata/test_tls_certificate"
+client_mtls_flags=
+enable_mtls=0
+if [[ $1 == "--mtls" ]]; then
+  enable_mtls=1
+  client_mtls_flags="--tls_client_certificate=${cert_path}/client.crt --tls_client_key=${cert_path}/client.pem"
+fi
 
 function set_up() {
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
   attempts=1
+  mtls_flag=
+  if [[ $enable_mtls == 1 ]]; then
+    mtls_flag=--tls_ca_certificate="${cert_path}/ca.crt"
+  fi
   while [ $attempts -le 3 ]; do
     (( attempts++ ))
     worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
@@ -38,6 +48,7 @@ function set_up() {
         --cas_path=${cas_path} \
         --tls_certificate="${cert_path}/server.crt" \
         --tls_private_key="${cert_path}/server.pem" \
+        $mtls_flag \
         --pid_file="${pid_file}" >& $TEST_log &
     local wait_seconds=0
     until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 15 ]; do
@@ -82,8 +93,23 @@ function test_remote_grpcs_cache() {
   bazel build \
       --remote_cache=grpcs://localhost:${worker_port} \
       --tls_certificate="${cert_path}/ca.crt" \
+      ${client_mtls_flags} \
       //a:foo \
       || fail "Failed to build //a:foo with grpcs remote cache"
+}
+
+# Tests that bazel fails if no client cert is provided but the server requires one.
+function test_mtls_fails_if_client_has_no_cert() {
+  # This test only makes sense when we test mtls.
+  [[ $enable_mtls == 1 ]] || return 0
+  _prepareBasicRule
+
+  bazel build \
+      --remote_cache=grpcs://localhost:${worker_port} \
+      --tls_certificate="${cert_path}/ca.crt" \
+      //a:foo 2> $TEST_log \
+      && fail "Expected bazel to fail without a client cert" || true
+  expect_log "ALERT_HANDSHAKE_FAILURE"
 }
 
 function test_remote_grpc_cache() {
@@ -93,6 +119,7 @@ function test_remote_grpc_cache() {
   bazel build \
       --remote_cache=localhost:${worker_port} \
       --tls_certificate="${cert_path}/ca.crt" \
+      ${client_mtls_flags} \
       //a:foo \
       || fail "Failed to build //a:foo with grpc remote cache"
 }
@@ -104,6 +131,7 @@ function test_remote_https_cache() {
   bazel build \
       --remote_cache=https://localhost:${worker_port} \
       --tls_certificate="${cert_path}/ca.crt" \
+      ${client_mtls_flags} \
       //a:foo \
       || fail "Failed to build //a:foo with https remote cache"
 }
@@ -115,6 +143,7 @@ function test_remote_cache_with_incompatible_tls_enabled_removed_grpc_scheme() {
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --tls_certificate="${cert_path}/ca.crt" \
+      ${client_mtls_flags} \
       //a:foo \
       && fail "Expected test failure" || true
 }

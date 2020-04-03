@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -191,8 +190,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         mutableArtifactFactorySupplier,
         new ConfiguredTargetProgressReceiver(),
         /*nonexistentFileReceiver=*/ null,
-        managedDirectoriesKnowledge,
-        NestedSetExpander.DEFAULT);
+        managedDirectoriesKnowledge);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
@@ -675,8 +673,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
-      diff = new FilesystemValueChecker(tsgm, null).getDirtyKeys(memoizingEvaluator.getValues(),
-          new BasicFilesystemDirtinessChecker());
+      diff =
+          new FilesystemValueChecker(tsgm, null)
+              .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
       diff = getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry);
     }
@@ -695,7 +694,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void detectModifiedOutputFiles(
-      ModifiedFileSet modifiedOutputFiles, @Nullable Range<Long> lastExecutionTimeRange)
+      ModifiedFileSet modifiedOutputFiles,
+      @Nullable Range<Long> lastExecutionTimeRange,
+      boolean trustRemoteArtifacts)
       throws InterruptedException {
     long startTime = System.nanoTime();
     FilesystemValueChecker fsvc =
@@ -703,7 +704,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
     recordingDiffer.invalidate(
         fsvc.getDirtyActionValues(
-            memoizingEvaluator.getValues(), batchStatter, modifiedOutputFiles));
+            memoizingEvaluator.getValues(),
+            batchStatter,
+            modifiedOutputFiles,
+            trustRemoteArtifacts));
     modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
     outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
     modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
@@ -803,6 +807,37 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
     return actionGraphDump.build();
+  }
+
+  /** Support for aquery output with --incompatible_proto_output_v2. */
+  public void dumpSkyframeState(
+      com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump actionGraphDump)
+      throws CommandLineExpansionException, IOException {
+
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
+        memoizingEvaluator.getDoneValues().entrySet()) {
+      SkyKey key = skyKeyAndValue.getKey();
+      SkyValue skyValue = skyKeyAndValue.getValue();
+      SkyFunctionName functionName = key.functionName();
+      try {
+        // The skyValue may be null in case analysis of the previous build failed.
+        if (skyValue != null) {
+          if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
+            actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
+          } else if (functionName.equals(SkyFunctions.ASPECT)) {
+            AspectValue aspectValue = (AspectValue) skyValue;
+            AspectKey aspectKey = aspectValue.getKey();
+            ConfiguredTargetValue configuredTargetValue =
+                (ConfiguredTargetValue)
+                    memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
+            actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
+          }
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException("No interruption in sequenced evaluation", e);
+      }
+    }
   }
 
   /**
