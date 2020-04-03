@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.Fingerprint; // TODO(adonovan): break dependency
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;

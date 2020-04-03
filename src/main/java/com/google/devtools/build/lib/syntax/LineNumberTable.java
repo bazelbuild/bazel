@@ -18,7 +18,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.Pair;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -89,14 +88,6 @@ final class LineNumberTable {
 
   String getFile() {
     return file;
-  }
-
-  Pair<Integer, Integer> getOffsetsForLine(int line) {
-    if (line <= 0 || line >= linestart.length) {
-      throw new IllegalArgumentException("Illegal line: " + line);
-    }
-    return Pair.of(
-        linestart[line], line < linestart.length - 1 ? linestart[line + 1] : bufferLength);
   }
 
   @Override

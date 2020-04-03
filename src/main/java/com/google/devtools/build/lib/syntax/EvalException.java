@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.util.LoggingUtil;
-import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
@@ -65,7 +63,6 @@ public class EvalException extends Exception {
       } else {
         details = "Invalid EvalException:\n" + Throwables.getStackTraceAsString(cause);
       }
-      LoggingUtil.logToRemote(Level.SEVERE, details, cause);
       throw new IllegalArgumentException(details);
     }
   }

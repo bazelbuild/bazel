@@ -134,7 +134,6 @@ java_library(
         "RegexFilter.java",
         "ResourceFileLoader.java",
         "Sleeper.java",
-        "SpellChecker.java",
         "StreamWriter.java",
         "StringIndexer.java",
         "ThreadUtils.java",
