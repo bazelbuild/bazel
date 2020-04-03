@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.MessageOrBuilder;
+import java.util.Comparator;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -167,5 +168,38 @@ public class DetailedExitCode {
         "FailureDetail category submessage has non-enum field #1: %s",
         failureDetail);
     return (EnumValueDescriptor) fieldNumberOneVal;
+  }
+
+  /**
+   * A comparator to determine the reporting priority of {@link DetailedExitCode}.
+   *
+   * <p>Priority: infrastructure exit codes > non-infrastructure exit codes > null exit codes, with
+   * exit codes that contain failure details taking priority within each class.
+   */
+  public static class DetailedExitCodeComparator implements Comparator<DetailedExitCode> {
+    public static final DetailedExitCodeComparator INSTANCE = new DetailedExitCodeComparator();
+
+    private DetailedExitCodeComparator() {}
+
+    @Nullable
+    public static DetailedExitCode chooseMoreImportantWithFirstIfTie(
+        @Nullable DetailedExitCode first, @Nullable DetailedExitCode second) {
+      return INSTANCE.compare(first, second) >= 0 ? first : second;
+    }
+
+    @Override
+    public int compare(DetailedExitCode c1, DetailedExitCode c2) {
+      // returns POSITIVE result when the priority of c1 is HIGHER than the priority of c2
+      return getPriority(c1) - getPriority(c2);
+    }
+
+    private static int getPriority(DetailedExitCode code) {
+      if (code == null) {
+        return 0;
+      } else {
+        int codeClass = code.getExitCode().isInfrastructureFailure() ? 4 : 2;
+        return codeClass + (code.getFailureDetail() != null ? 1 : 0);
+      }
+    }
   }
 }

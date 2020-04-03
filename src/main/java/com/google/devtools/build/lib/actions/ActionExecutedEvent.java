@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -165,12 +166,17 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
             .setSuccess(getException() == null)
             .setType(action.getMnemonic());
 
-    if (exception != null && exception.getExitCode() != null) {
+    if (exception != null) {
       // TODO(b/150405553): This statement seems to be confused. The exit_code field of
       //  ActionExecuted is documented as "The exit code of the action, if it is available."
       //  However, the value returned by exception.getExitCode().getNumericExitCode() is intended as
       //  an exit code that this Bazel invocation might return to the user.
       actionBuilder.setExitCode(exception.getExitCode().getNumericExitCode());
+      FailureDetails.FailureDetail failureDetail =
+          exception.getDetailedExitCode().getFailureDetail();
+      if (failureDetail != null) {
+        actionBuilder.setFailureDetail(failureDetail);
+      }
     }
     if (stdout != null) {
       String uri = pathConverter.apply(stdout);

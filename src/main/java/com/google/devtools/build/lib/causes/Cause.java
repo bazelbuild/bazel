@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.causes;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import javax.annotation.Nullable;
 
 /**
  * Interface for classes identifying root causes for a target to fail to build.
@@ -26,4 +28,9 @@ public interface Cause {
 
   /** Return the event id for the cause in the format of the build event protocol. */
   BuildEventStreamProtos.BuildEventId getIdProto();
+
+  @Nullable // TODO(janakr): override for all callers and make never null.
+  default DetailedExitCode getDetailedExitCode() {
+    return null;
+  }
 }
