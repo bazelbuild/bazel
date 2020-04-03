@@ -57,15 +57,13 @@ file_generator(
 )
 ```
 
-Here, we are loading the `file_generator` symbol from a `.bzl` file located in the 
-`//path` package. By putting macro function definitions in a separate `.bzl` file, 
-we can keep our BUILD files clean and declarative,  The `.bzl` file can be loaded 
-from any package in the workspace, as long as `visibility` conditions are met.
+Here, we are loading the `file_generator` symbol from a `.bzl` file located
+in the `//path` package. By putting macro function definitions in a separate
+`.bzl` file, we can keep our BUILD files clean and declarative, The `.bzl`
+file can be loaded from any package in the workspace.
 
-> Tip: To make a `.bzl` file visible from a package, add [`exports_files(["<filename>.bzl"])`](../be/functions.html#exports_files) into the `BUILD` file in the same directory as the `.bzl` file.
-
-Finally, in `path/generator.bzl`, let's write the definition of the macro to encapsulate and 
-parameterize our original genrule definition:
+Finally, in `path/generator.bzl`, let's write the definition of the macro to
+encapsulate and parameterize our original genrule definition:
 
 ```python
 def file_generator(name, arg, visibility=None):
@@ -78,37 +76,24 @@ def file_generator(name, arg, visibility=None):
   )
 ```
 
-You can also use macros to chain rules together. This example shows a generated
-text file undergoing conversions to markdown and rich text format:
+You can also use macros to chain rules together. This example shows chained
+genrules, where a genrule uses the outputs of a previous genrule as inputs:
 
 ```python
-def txt_md_rtf_generator(name, visibility=None):
-  # Generates a txt file
+def chained_genrules(name, visibility=None):
   native.genrule(
-    name = name + "-txt",
-    outs = [name + ".txt"],
-    cmd = "$(location //test:generator) %s > $@",
-    tools = ["//test:txt-generator"],
-    visibility = visibility,
+    name = name + "-one",
+    outs = [name + ".one"],
+    cmd = "$(location :tool-one) $@",
+    tools = [":tool-one"],
   )
   
-  # Converts the txt to markdown
   native.genrule(
-    name = name + "-md",
-    srcs = [name + ".txt"],
-    outs = [name + ".md"],
-    cmd = "$(location //test:txt-to-md) $< > $@",
-    tools = ["//test:txt-to-md"],
-    visibility = visibility,
-  )
-  
-  # Converts the markdown to rtf
-  native.genrule(
-    name = name,
-    srcs = [name + ".md"],
-    outs = [name + ".rtf"],
-    cmd = "$(location //test:md-to-rtf) $< > $@",
-    tools = ["//test:md-to-rtf"],
+    name = name + "-two",
+    srcs = [name + ".one"],
+    outs = [name + ".two"],
+    cmd = "$(location :tool-two) $< $@",
+    tools = [":tool-two"],
     visibility = visibility,
   )
 ```
