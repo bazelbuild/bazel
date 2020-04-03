@@ -140,16 +140,6 @@ java_library(
         "TimeUtilities.java",
         "UserUtils.java",
     ],
-    #TODO(katre): Remove this when dependers are updated.
-    exports = [
-        ":filetype",
-        ":os",
-        ":resource_usage",
-        ":string",
-        ":var_int",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-    ],
     deps = [
         ":os",
         ":shell_escaper",
