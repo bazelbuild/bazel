@@ -41,6 +41,6 @@ java_library(
     name = "constants",
     srcs = ["SerializationConstants.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:resource_usage",
+        "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
     ],
 )
