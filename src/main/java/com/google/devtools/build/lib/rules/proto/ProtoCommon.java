@@ -485,7 +485,7 @@ public class ProtoCommon {
 
     Library library =
         createLibraryWithVirtualSourceRootMaybe(
-            ruleContext, originalDirectProtoSources, generatedProtosInVirtualImports);
+            ruleContext, originalDirectProtoSources, /* generatedProtosInVirtualImports */ true);
     if (ruleContext.hasErrors()) {
       return null;
     }
