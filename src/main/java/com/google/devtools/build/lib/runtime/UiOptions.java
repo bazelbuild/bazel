@@ -63,29 +63,31 @@ public class UiOptions extends OptionsBase {
 
     public List<EventKind> convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
-       return new ArrayList<>();
+        // This method is not called to convert the default value
+        // Empty list means that the user wants to filter all events
+       return new ArrayList<>(EventKind.ALL_EVENTS);
       }
       List<String> filters = this.delegate.convert(input);
       EnumConverter<EventKind> eventKindConverter = new EventKindConverter(input);
 
-      HashSet<EventKind> allowedEvents = new HashSet<>(EventKind.ALL_EVENTS);
+      HashSet<EventKind> filteredEvents = new HashSet<>();
       for (String filter: filters) {
         if (!filter.startsWith("+") && !filter.startsWith("-")) {
-          allowedEvents.clear();
+          filteredEvents.addAll(EventKind.ALL_EVENTS);
           break;
         }
       }
 
       for (String filter : filters) {
         if (filter.startsWith("+")) {
-          allowedEvents.add(eventKindConverter.convert(filter.substring(1)));
+          filteredEvents.remove(eventKindConverter.convert(filter.substring(1)));
         } else if (filter.startsWith("-")) {
-          allowedEvents.remove(eventKindConverter.convert(filter.substring(1)));
+          filteredEvents.add(eventKindConverter.convert(filter.substring(1)));
         } else {
-          allowedEvents.add(eventKindConverter.convert(filter));
+          filteredEvents.remove(eventKindConverter.convert(filter));
         }
       }
-      return new ArrayList<>(allowedEvents);
+      return new ArrayList<>(filteredEvents);
     }
 
     @Override
