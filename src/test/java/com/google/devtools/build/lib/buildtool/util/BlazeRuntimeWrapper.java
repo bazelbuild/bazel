@@ -285,7 +285,6 @@ public class BlazeRuntimeWrapper {
               /* execStartTimeNanos= */ 42,
               /* enabledCpuUsageProfiling= */ false,
               /* slimProfile= */ false,
-              /* enableActionCountProfile= */ false,
               /* includePrimaryOutput= */ false);
       OutErr outErr = env.getReporter().getOutErr();
       System.setOut(new PrintStream(outErr.getOutputStream(), /*autoflush=*/ true));
