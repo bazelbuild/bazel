@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * Configured target classes that implement this class can contribute .proto files to the
@@ -55,11 +55,11 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   private final NestedSet<Pair<Artifact, String>> strictImportableProtoSourcesImportPaths;
   private final NestedSet<Pair<Artifact, String>>
       strictImportableProtoSourcesImportPathsForDependents;
+  private final NestedSet<String> strictImportableProtoSourceRoots;
+  private final NestedSet<Pair<Artifact, String>> exportedProtoSourcesImportPaths;
+  private final NestedSet<String> exportedProtoSourceRoots;
   private final Artifact directDescriptorSet;
   private final NestedSet<Artifact> transitiveDescriptorSets;
-  private final NestedSet<Pair<PathFragment, ImmutableList<Artifact>>> importableProtos;
-  private final NestedSet<Pair<PathFragment, ImmutableList<Artifact>>> exportedProtos;
-  private final NestedSet<Pair<PathFragment, ImmutableList<Artifact>>> transitiveProtos;
 
   @AutoCodec.Instantiator
   public ProtoInfo(
@@ -72,11 +72,11 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       NestedSet<Artifact> strictImportableProtoSourcesForDependents,
       NestedSet<Pair<Artifact, String>> strictImportableProtoSourcesImportPaths,
       NestedSet<Pair<Artifact, String>> strictImportableProtoSourcesImportPathsForDependents,
+      NestedSet<String> strictImportableProtoSourceRoots,
+      NestedSet<Pair<Artifact, String>> exportedProtoSourcesImportPaths,
+      NestedSet<String> exportedProtoSourceRoots,
       Artifact directDescriptorSet,
       NestedSet<Artifact> transitiveDescriptorSets,
-      NestedSet<Pair<PathFragment, ImmutableList<Artifact>>> importableProtos,
-      NestedSet<Pair<PathFragment, ImmutableList<Artifact>>> exportedProtos,
-      NestedSet<Pair<PathFragment, ImmutableList<Artifact>>> transitiveProtos,
       Location location) {
     super(PROVIDER, location);
     this.directProtoSources = directProtoSources;
@@ -89,11 +89,11 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     this.strictImportableProtoSourcesImportPaths = strictImportableProtoSourcesImportPaths;
     this.strictImportableProtoSourcesImportPathsForDependents =
         strictImportableProtoSourcesImportPathsForDependents;
+    this.strictImportableProtoSourceRoots = strictImportableProtoSourceRoots;
+    this.exportedProtoSourcesImportPaths = exportedProtoSourcesImportPaths;
+    this.exportedProtoSourceRoots = exportedProtoSourceRoots;
     this.directDescriptorSet = directDescriptorSet;
     this.transitiveDescriptorSets = transitiveDescriptorSets;
-    this.importableProtos = importableProtos;
-    this.exportedProtos = exportedProtos;
-    this.transitiveProtos = transitiveProtos;
   }
 
   /**
@@ -199,6 +199,29 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   }
 
   /**
+   * Returns the proto source roots of the dependencies whose sources can be imported if strict
+   * dependency checking is in effect.
+   *
+   * <p>(strict dependency checking: when a target can only include / import source files from its
+   * direct dependencies, but not from transitive ones)
+   */
+  public NestedSet<String> getStrictImportableProtoSourceRoots() {
+    return strictImportableProtoSourceRoots;
+  }
+
+  /**
+   * Returns the .proto files that are the direct srcs of the exported dependencies of this rule.
+   */
+  @Nullable
+  public NestedSet<Pair<Artifact, String>> getExportedProtoSourcesImportPaths() {
+    return exportedProtoSourcesImportPaths;
+  }
+
+  public NestedSet<String> getExportedProtoSourceRoots() {
+    return exportedProtoSourceRoots;
+  }
+
+  /**
    * Be careful while using this artifact - it is the parsing of the transitive set of .proto files.
    * It's possible to cause a O(n^2) behavior, where n is the length of a proto chain-graph.
    * (remember that proto-compiler reads all transitive .proto files, even when producing the
@@ -222,38 +245,5 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
   public NestedSet<Artifact> getTransitiveDescriptorSets() {
     return transitiveDescriptorSets;
-  }
-
-  /**
-   * The {@code .proto} that are importable by this {@link ProtoInfo}. Usually, this contains files
-   * from {@code srcs} and exported files from {@code deps}, but not from {@code exports} (unless
-   * they are also in {@code deps}).
-   *
-   * <p>For efficiency, these are pairs of {@code proto_source_root -> [sources]}. There may be
-   * multiple occasions of the same {@code proto_source_root}.
-   */
-  NestedSet<Pair<PathFragment, ImmutableList<Artifact>>> getImportableProtos() {
-    return importableProtos;
-  }
-
-  /**
-   * The {@code .proto} files that are exported by this {@link ProtoInfo}. Usually, this contains
-   * files from {@code srcs} and exported files from {@code exports}.
-   *
-   * <p>For efficiency, these are pairs of {@code proto_source_root -> [sources]}. There may be
-   * multiple occasions of the same {@code proto_source_root}.
-   */
-  NestedSet<Pair<PathFragment, ImmutableList<Artifact>>> getExportedProtos() {
-    return exportedProtos;
-  }
-
-  /**
-   * The transitive closure of all {@code .proto} files reachable from this {@link ProtoInfo}.
-   *
-   * <p>For efficiency, these are pairs of {@code proto_source_root -> [sources]}. There may be
-   * multiple occasions of the same {@code proto_source_root}.
-   */
-  NestedSet<Pair<PathFragment, ImmutableList<Artifact>>> getTransitiveProtos() {
-    return transitiveProtos;
   }
 }

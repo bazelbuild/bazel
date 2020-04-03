@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -452,13 +450,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // of its exports and nothing else (not the exports of its exports or the deps of its exports
     // or the exports of its deps)
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    ImmutableList<Pair<PathFragment, ImmutableList<Artifact>>> exportedProtos =
-        c.get(ProtoInfo.PROVIDER).getExportedProtos().toList();
-    assertThat(Iterables.transform(exportedProtos, p -> p.first.getPathString()))
-        .containsExactly(
-            genfiles + "/a/_virtual_imports/a",
-            genfiles + "/c/_virtual_imports/c",
-            genfiles + "/ae/_virtual_imports/ae");
+    assertThat(c.get(ProtoInfo.PROVIDER).getExportedProtoSourceRoots().toList())
+        .containsExactly(genfiles + "/a/_virtual_imports/a", genfiles + "/c/_virtual_imports/c");
   }
 
   private void testImportPrefixInExternalRepo(boolean siblingRepoLayout) throws Exception {
