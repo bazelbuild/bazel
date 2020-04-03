@@ -119,6 +119,22 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   /**
+   * Create {@link FileArtifactValue} for artifact that must be non-middleman non-tree derived
+   * artifact.
+   */
+  static FileArtifactValue createSimpleFileArtifactValue(
+      Artifact.DerivedArtifact artifact, ActionExecutionValue actionValue) {
+    Preconditions.checkState(!artifact.isMiddlemanArtifact(), "%s %s", artifact, actionValue);
+    Preconditions.checkState(!artifact.isTreeArtifact(), "%s %s", artifact, actionValue);
+    return Preconditions.checkNotNull(
+        actionValue.getArtifactValue(artifact),
+        "%s %s %s",
+        artifact,
+        artifact.getGeneratingActionKey(),
+        actionValue);
+  }
+
+  /**
    * @return The data for each non-middleman output of this action, in the form of the {@link
    *     FileValue} that would be created for the file if it were to be read from disk.
    */

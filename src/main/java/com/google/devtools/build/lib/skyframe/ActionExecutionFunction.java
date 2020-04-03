@@ -1033,7 +1033,7 @@ public class ActionExecutionFunction implements SkyFunction {
       } else if (retrievedMetadata instanceof ActionExecutionValue) {
         inputData.putWithNoDepOwner(
             input,
-            ArtifactFunction.createSimpleFileArtifactValue(
+            ActionExecutionValue.createSimpleFileArtifactValue(
                 (Artifact.DerivedArtifact) input, (ActionExecutionValue) retrievedMetadata));
       } else if (retrievedMetadata instanceof MissingFileArtifactValue) {
         inputData.putWithNoDepOwner(input, FileArtifactValue.MISSING_FILE_MARKER);
