@@ -415,7 +415,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.packageManager =
         new SkyframePackageManager(
             new SkyframePackageLoader(),
-            new SkyframeTransitivePackageLoader(),
+            new SkyframeTransitivePackageLoader(this::getDriver),
             syscalls,
             cyclesReporter,
             pkgLocator,
@@ -2436,30 +2436,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public TransitivePackageLoader pkgLoader() {
     checkActive();
-    return new SkyframeLabelVisitor(new SkyframeTransitivePackageLoader(), cyclesReporter);
-  }
-
-  class SkyframeTransitivePackageLoader {
-    /** Loads the specified {@link TransitiveTargetValue}s. */
-    EvaluationResult<TransitiveTargetValue> loadTransitiveTargets(
-        ExtendedEventHandler eventHandler,
-        Iterable<Label> labelsToVisit,
-        boolean keepGoing,
-        int parallelThreads)
-        throws InterruptedException {
-      List<SkyKey> valueNames = new ArrayList<>();
-      for (Label label : labelsToVisit) {
-        valueNames.add(TransitiveTargetKey.of(label));
-      }
-      EvaluationContext evaluationContext =
-          EvaluationContext.newBuilder()
-              .setKeepGoing(keepGoing)
-              .setNumThreads(parallelThreads)
-              .setEventHander(eventHandler)
-              .setUseForkJoinPool(true)
-              .build();
-      return buildDriver.evaluate(valueNames, evaluationContext);
-    }
+    return new SkyframeLabelVisitor(
+        new SkyframeTransitivePackageLoader(this::getDriver), cyclesReporter);
   }
 
   /**
