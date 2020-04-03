@@ -24,11 +24,13 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -46,6 +48,7 @@ import javax.annotation.Nullable;
  */
 public class SimpleCycleDetector implements CycleDetector {
   private static final Logger logger = Logger.getLogger(SimpleCycleDetector.class.getName());
+  private static final Duration MIN_LOGGING = Duration.ofMillis(10);
 
   @Override
   public void checkForCycles(
@@ -53,7 +56,8 @@ public class SimpleCycleDetector implements CycleDetector {
       EvaluationResult.Builder<?> result,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
-    try (AutoProfiler p = AutoProfiler.logged("Checking for Skyframe cycles", logger, 10)) {
+    try (AutoProfiler p =
+        GoogleAutoProfilerUtils.logged("Checking for Skyframe cycles", MIN_LOGGING)) {
       for (SkyKey root : badRoots) {
         ErrorInfo errorInfo = checkForCycles(root, evaluatorContext);
         if (errorInfo == null) {

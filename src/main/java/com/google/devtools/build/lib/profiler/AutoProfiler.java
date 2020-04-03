@@ -101,61 +101,20 @@ public class AutoProfiler implements SilentCloseable {
     return clock != null ? clock.nanoTime() : BlazeClock.instance().nanoTime();
   }
 
-  /**
-   * Factory to use for creating {@link ElapsedTimeReceiver} instances for servicing
-   * {@link #logged} et al.
-   */
+  /** Factory to use for creating {@link ElapsedTimeReceiver} instances. */
   public interface LoggingElapsedTimeReceiverFactory {
     ElapsedTimeReceiver create(
         String taskDescription, Logger logger, long minTimeForLogging, TimeUnit timeUnit);
   }
 
   /**
-   * Inject a custom {@link LoggingElapsedTimeReceiverFactory} for servicing {@link #logged} et al.
+   * Injects a custom {@link LoggingElapsedTimeReceiverFactory}.
    *
    * <p>Use this if you want custom logging behavior.
    */
   public static void setLoggingElapsedTimeReceiverFactory(
       LoggingElapsedTimeReceiverFactory factory) {
     LOGGING_ELAPSED_TIME_RECEIVER_FACTORY_REF.set(factory);
-  }
-
-  /**
-   * Returns an {@link AutoProfiler} that, when closed, logs the elapsed time in milliseconds to
-   * the given {@link Logger}.
-   *
-   * <p>The returned {@link AutoProfiler} is thread-safe.
-   */
-  public static AutoProfiler logged(String taskDescription, Logger logger) {
-    return logged(taskDescription, logger, TimeUnit.MILLISECONDS);
-  }
-
-  /**
-   * Returns an {@link AutoProfiler} that, when closed, logs the elapsed time in the given
-   * {@link TimeUnit} to the given {@link Logger}.
-   *
-   * <p>The returned {@link AutoProfiler} is thread-safe.
-   */
-  public static AutoProfiler logged(String taskDescription, Logger logger, TimeUnit timeUnit) {
-    return create(
-        LOGGING_ELAPSED_TIME_RECEIVER_FACTORY_REF
-            .get()
-            .create(taskDescription, logger, 0L, timeUnit));
-  }
-
-  /**
-   * Returns an {@link AutoProfiler} that, when closed, logs the elapsed time in milliseconds to the
-   * given {@link Logger} if it is greater than {@code minTimeForLoggingInMilliseconds}.
-   *
-   * <p>The returned {@link AutoProfiler} is thread-safe.
-   */
-  public static AutoProfiler logged(
-      String taskDescription, Logger logger, long minTimeForLoggingInMilliseconds) {
-    return create(
-        LOGGING_ELAPSED_TIME_RECEIVER_FACTORY_REF
-            .get()
-            .create(
-                taskDescription, logger, minTimeForLoggingInMilliseconds, TimeUnit.MILLISECONDS));
   }
 
   /**
@@ -332,4 +291,3 @@ public class AutoProfiler implements SilentCloseable {
     }
   }
 }
-
