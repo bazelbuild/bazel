@@ -385,7 +385,6 @@ java_library(
     deps = [
         ":bug-report",
         ":build-request-options",
-        ":command-utils",
         ":keep-going-option",
         ":provider-collection",
         ":transitive-info-provider",
@@ -437,6 +436,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/unix/jni",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:command",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",

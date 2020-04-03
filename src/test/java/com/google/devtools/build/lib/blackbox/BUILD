@@ -26,6 +26,7 @@ java_library(
     visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox:__subpackages__"],
     exports = [
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib/testutil",
