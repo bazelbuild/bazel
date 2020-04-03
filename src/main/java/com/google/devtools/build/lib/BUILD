@@ -833,13 +833,6 @@ java_library(
 )
 
 java_library(
-    name = "python-rules",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
-    ],
-)
-
-java_library(
     name = "shared-base-rules",
     exports = [
         ":android-rules",
