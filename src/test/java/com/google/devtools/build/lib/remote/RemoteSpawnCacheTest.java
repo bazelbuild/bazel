@@ -180,7 +180,7 @@ public class RemoteSpawnCacheTest {
           return new MetadataInjector() {
             @Override
             public void injectRemoteFile(
-                Artifact output, byte[] digest, long size, int locationIndex) {
+                Artifact output, byte[] digest, long size, int locationIndex, String actionId) {
               throw new UnsupportedOperationException();
             }
 
@@ -690,7 +690,7 @@ public class RemoteSpawnCacheTest {
     // assert
     assertThat(cacheHandle.hasResult()).isTrue();
     assertThat(cacheHandle.getResult().exitCode()).isEqualTo(0);
-    verify(remoteCache).downloadMinimal(any(), anyCollection(), any(), any(), any(), any(), any());
+    verify(remoteCache).downloadMinimal(any(), any(), anyCollection(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -705,7 +705,7 @@ public class RemoteSpawnCacheTest {
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(any(), /* inlineOutErr= */ eq(false)))
         .thenReturn(success);
-    when(remoteCache.downloadMinimal(any(), anyCollection(), any(), any(), any(), any(), any()))
+    when(remoteCache.downloadMinimal(any(), any(), anyCollection(), any(), any(), any(), any(), any()))
         .thenThrow(downloadFailure);
 
     // act
@@ -713,7 +713,7 @@ public class RemoteSpawnCacheTest {
 
     // assert
     assertThat(cacheHandle.hasResult()).isFalse();
-    verify(remoteCache).downloadMinimal(any(), anyCollection(), any(), any(), any(), any(), any());
+    verify(remoteCache).downloadMinimal(any(), any(), anyCollection(), any(), any(), any(), any(), any());
     assertThat(eventHandler.getEvents().size()).isEqualTo(1);
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);

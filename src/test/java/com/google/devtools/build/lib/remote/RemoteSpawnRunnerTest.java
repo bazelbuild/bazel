@@ -885,7 +885,7 @@ public class RemoteSpawnRunnerTest {
 
     // assert
     verify(cache)
-        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
@@ -911,7 +911,7 @@ public class RemoteSpawnRunnerTest {
     // assert
     verify(executor).executeRemotely(any());
     verify(cache)
-        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
@@ -924,7 +924,7 @@ public class RemoteSpawnRunnerTest {
     when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
         .thenReturn(succeededAction);
     IOException downloadFailure = new IOException("downloadMinimal failed");
-    when(cache.downloadMinimal(any(), anyCollection(), any(), any(), any(), any(), any()))
+    when(cache.downloadMinimal(any(), any(), anyCollection(), any(), any(), any(), any(), any()))
         .thenThrow(downloadFailure);
 
     RemoteSpawnRunner runner = newSpawnRunner();
@@ -938,7 +938,7 @@ public class RemoteSpawnRunnerTest {
 
     // assert
     verify(cache)
-        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
@@ -969,7 +969,7 @@ public class RemoteSpawnRunnerTest {
     // assert
     verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr), any());
     verify(cache, never())
-        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
   }
 
   @Test

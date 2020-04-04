@@ -186,6 +186,7 @@ final class RemoteSpawnCache implements SpawnCache {
                 prof.profile(ProfilerTask.REMOTE_DOWNLOAD, "download outputs minimal")) {
               inMemoryOutput =
                   remoteCache.downloadMinimal(
+                      actionKey.getDigest().getHash(),
                       result,
                       spawn.getOutputFiles(),
                       inMemoryOutputPath,
