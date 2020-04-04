@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -781,7 +782,7 @@ public class ExecutionTool {
     actionCache.mergeIntoActionCacheStatistics(builder);
 
     AutoProfiler p =
-        AutoProfiler.profiledAndLogged("Saving action cache", ProfilerTask.INFO, logger);
+        GoogleAutoProfilerUtils.profiledAndLogged("Saving action cache", ProfilerTask.INFO);
     try {
       builder.setSizeInBytes(actionCache.save());
     } catch (IOException e) {
