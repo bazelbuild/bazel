@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -233,6 +234,21 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Event event = ev.getEventCollector().iterator().next();
     assertThat(event.getKind()).isEqualTo(EventKind.ERROR);
     assertThat(event.getMessage()).contains("Rule class r declared too many attributes");
+  }
+
+  @Test
+  public void testRuleClassTooLongAttributeName() throws Exception {
+    ev.setFailFast(false);
+
+    evalAndExport(
+        "def impl(ctx): return;",
+        "r = rule(impl, attrs = { '" + Strings.repeat("x", 150) + "': attr.int() })");
+
+    assertThat(ev.getEventCollector()).hasSize(1);
+    Event event = ev.getEventCollector().iterator().next();
+    assertThat(event.getKind()).isEqualTo(EventKind.ERROR);
+    assertThat(event.getMessage())
+        .matches("Attribute r\\.x{150}'s name is too long \\(150 > 128\\)");
   }
 
   @Test
