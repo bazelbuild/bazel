@@ -21,21 +21,21 @@ java_library(
         ":util_internal",
     ],
     runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-modules",
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel:modules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
     ],
 )
 java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-main",
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelRepositoryModule",
         "//src/main/java/com/google/devtools/build/lib:build",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:loading-phase-threads-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/bazel:main",
+        "//src/main/java/com/google/devtools/build/lib/bazel:repository_module",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

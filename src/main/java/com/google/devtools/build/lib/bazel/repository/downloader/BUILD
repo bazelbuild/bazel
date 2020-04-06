@@ -8,8 +8,6 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-# Description:
-#   Main Java code for Bazel
 java_library(
     name = "downloader",
     srcs = glob(["*.java"]),

@@ -5,17 +5,14 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 # Description:
 #   Debugging helpers and modules
 package(
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility =
+        ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = [
-        "//src:__pkg__",
-        "//src/main/java/com/google/devtools/build/lib:__pkg__",
-        "//src/test/shell/bazel:__pkg__",
-    ],
+    visibility = ["//src:__subpackages__"],
 )
 
 proto_library(

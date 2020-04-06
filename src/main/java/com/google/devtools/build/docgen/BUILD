@@ -60,7 +60,7 @@ java_binary(
     srcs = ["BuildEncyclopediaGenerator.java"],
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
     runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
     ],
     deps = [
         ":docgen_javalib",
@@ -74,7 +74,7 @@ java_binary(
     srcs = ["SkylarkDocumentationGenerator.java"],
     main_class = "com.google.devtools.build.docgen.SkylarkDocumentationGenerator",
     runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
     ],
     deps = [":docgen_javalib"],
 )
