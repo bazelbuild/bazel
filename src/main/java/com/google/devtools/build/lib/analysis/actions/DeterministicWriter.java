@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,23 +18,19 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * A {@link DeterministicWriter} that wraps a {@link ByteString}. Use to avoid {@link ByteString}
- * copies.
+ * A deterministic writer writes bytes to an output stream. The same byte stream is written on every
+ * invocation of writeOutputFile().
  */
-public class ByteStringDeterministicWriter implements DeterministicWriter {
-  private final ByteString byteString;
+public interface DeterministicWriter {
+  void writeOutputFile(OutputStream out) throws IOException;
 
-  public ByteStringDeterministicWriter(ByteString byteString) {
-    this.byteString = byteString;
-  }
-
-  @Override
-  public void writeOutputFile(OutputStream out) throws IOException {
-    byteString.writeTo(out);
-  }
-
-  @Override
-  public ByteString getBytes() throws IOException {
-    return byteString;
+  /**
+   * Returns the contents that would be written, as a {@link ByteString}. Used when the caller wants
+   * a {@link ByteString} in the end, to avoid making unnecessary copies.
+   */
+  default ByteString getBytes() throws IOException {
+    ByteString.Output out = ByteString.newOutput();
+    writeOutputFile(out);
+    return out.toByteString();
   }
 }
