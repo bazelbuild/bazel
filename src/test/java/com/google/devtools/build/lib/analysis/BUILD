@@ -35,7 +35,6 @@ java_library(
         ],
     ),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:build",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:syntax",
@@ -51,6 +50,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",
         "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/rules/android",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/rules/python",

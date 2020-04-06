@@ -85,7 +85,6 @@ java_test(
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -99,6 +98,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",
         "//src/main/java/com/google/devtools/build/lib/packages:type",
+        "//src/main/java/com/google/devtools/build/lib/rules/android",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
