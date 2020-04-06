@@ -6342,4 +6342,33 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         getArtifactsFromMyInfo(barTarget, "direct_textual_headers");
     assertThat(baseArtifactNames(barDirectTextualHeaders)).containsExactly("bar.def");
   }
+
+  /** Fixes #10580 */
+  @Test
+  public void testMixedLinkerInputsWithOwnerAndWithout() throws Exception {
+    setUpCcLinkingContextTest();
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'crule')", "crule(name='a')");
+    scratch.file(
+        "foo/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  linker_input = cc_common.create_linker_input(owner=ctx.label)",
+        "  linking_context = cc_common.create_linking_context(",
+        "     linker_inputs=depset([linker_input]))",
+        "  linking_context = cc_common.create_linking_context(",
+        "     libraries_to_link=[],)",
+        "  cc_info = CcInfo(linking_context=linking_context)",
+        "  if cc_info.linking_context.linker_inputs.to_list()[0] == linker_input:",
+        "     pass",
+        "  return [cc_info]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    assertThat(getConfiguredTarget("//foo:a")).isNotNull();
+    assertNoEvents();
+  }
 }
