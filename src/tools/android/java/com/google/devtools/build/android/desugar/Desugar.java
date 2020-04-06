@@ -562,7 +562,13 @@ public class Desugar {
         outputFileProvider.write(
             fileContent.getBinaryPathName(), ByteStreams.toByteArray(fileContent.get()));
       }
-      copyTypeConverterClasses(outputFileProvider, adaptersGenerator.getTypeConverters());
+
+      ImmutableSet.Builder<ClassName> typeAdapters = ImmutableSet.builder();
+      typeAdapters.addAll(adaptersGenerator.getTypeConverters());
+      if (coreLibrarySupport != null) {
+        typeAdapters.addAll(coreLibrarySupport.usedTypeConverters());
+      }
+      copyTypeConverterClasses(outputFileProvider, typeAdapters.build());
 
       byte[] depsInfo = depsCollector.toByteArray();
       if (depsInfo != null) {
@@ -577,10 +583,9 @@ public class Desugar {
   }
 
   private static void copyTypeConverterClasses(
-      OutputFileProvider outputFileProvider, ImmutableList<ClassName> converterClasses) {
+      OutputFileProvider outputFileProvider, ImmutableSet<ClassName> converterClasses) {
     ImmutableSet<ClassName> reachableReferencedTypes =
-        findReachableReferencedTypes(
-            ImmutableSet.copyOf(converterClasses), ClassName::isInDesugarRuntimeLibrary);
+        findReachableReferencedTypes(converterClasses, ClassName::isInDesugarRuntimeLibrary);
     for (ClassName className : reachableReferencedTypes) {
       String resourceName = className.classFilePathName();
       try (InputStream stream = Resources.getResource(resourceName).openStream()) {
@@ -629,7 +634,10 @@ public class Desugar {
                 checkState(!options.coreLibrary, "Core library shouldn't depend on %s", className);
                 try (InputStream stream =
                     Desugar.class.getClassLoader().getResourceAsStream(className + ".class")) {
-                  outputFileProvider.write(className + ".class", ByteStreams.toByteArray(stream));
+                  outputFileProvider.write(
+                      className + ".class",
+                      ByteStreams.toByteArray(
+                          checkNotNull(stream, "Resource Not Found for %s.", className)));
                 } catch (IOException e) {
                   throw new IOError(e);
                 }

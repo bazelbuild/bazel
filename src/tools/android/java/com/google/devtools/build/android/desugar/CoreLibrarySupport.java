@@ -27,8 +27,11 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.android.desugar.corelibadapter.ShadowedApiAdapterHelper;
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.errorprone.annotations.Immutable;
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -81,6 +84,9 @@ class CoreLibrarySupport {
       LinkedHashMultimap.create();
   /** Collect targets queried in {@link #getMoveTarget} and {@link #getFromCoreLibraryConverter}. */
   private final Set<String> usedRuntimeHelpers = new LinkedHashSet<>();
+
+  /** Collect targets queried in {@link #getTypeConverterSite(ClassName)}. */
+  private final Set<ClassName> usedTypeConverters = new LinkedHashSet<>();
 
   public CoreLibrarySupport(
       CoreLibraryRewriter rewriter,
@@ -227,6 +233,13 @@ class CoreLibrarySupport {
     // Remember that we need this conversion so we can include it in the output later
     usedRuntimeHelpers.add(result);
     return result;
+  }
+
+  public MethodInvocationSite getTypeConverterSite(ClassName classname) {
+    MethodInvocationSite typeConverterSite =
+        ShadowedApiAdapterHelper.shadowedToMirroredTypeConversionSite(classname);
+    usedTypeConverters.add(typeConverterSite.owner());
+    return typeConverterSite;
   }
 
   /**
@@ -431,6 +444,10 @@ class CoreLibrarySupport {
   /** Returns targets queried in {@link #getMoveTarget} and {@link #getFromCoreLibraryConverter}. */
   public Set<String> usedRuntimeHelpers() {
     return unmodifiableSet(usedRuntimeHelpers);
+  }
+
+  public ImmutableSet<ClassName> usedTypeConverters() {
+    return ImmutableSet.copyOf(usedTypeConverters);
   }
 
   public void makeDispatchHelpers(GeneratedClassStore store) {

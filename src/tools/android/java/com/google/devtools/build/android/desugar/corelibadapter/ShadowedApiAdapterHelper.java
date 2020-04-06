@@ -30,7 +30,7 @@ import org.objectweb.asm.Type;
  * Static utilities that serve conversions between desugar-shadowed platform types and their
  * desugared-mirrored counterparts.
  */
-class ShadowedApiAdapterHelper {
+public class ShadowedApiAdapterHelper {
 
   private ShadowedApiAdapterHelper() {}
 
@@ -92,7 +92,8 @@ class ShadowedApiAdapterHelper {
    * Returns an {@link MethodInvocationSite} that serves transforming a {@code
    * shadowedTypeName}-represented type to its desugar-mirrored counterpart.
    */
-  static MethodInvocationSite shadowedToMirroredTypeConversionSite(ClassName shadowedTypeName) {
+  public static MethodInvocationSite shadowedToMirroredTypeConversionSite(
+      ClassName shadowedTypeName) {
     checkArgument(
         shadowedTypeName.isDesugarShadowedType(),
         "Expected desugar-shadowed type: Actual (%s)",
