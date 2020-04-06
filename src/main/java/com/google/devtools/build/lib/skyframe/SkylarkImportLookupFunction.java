@@ -126,7 +126,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   }
 
   @Nullable
-  SkylarkImportLookupValue computeWithInlineCalls(
+  SkylarkImportLookupValue computeWithInlineCallsForPackageAndWorkspaceNodes(
       SkyKey skyKey,
       Environment env,
       Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps> visitedDepsInToplevelLoad)

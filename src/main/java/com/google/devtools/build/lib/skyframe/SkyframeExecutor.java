@@ -457,8 +457,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(PackageFactory pkgFactory) {
     ConfiguredRuleClassProvider ruleClassProvider =
         (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
-    SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining =
-        getSkylarkImportLookupFunctionForInlining();
+    SkylarkImportLookupFunction skylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes =
+        getSkylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes();
     // TODO(janakr): use this semaphore to bound memory usage for SkyFunctions besides
     // ConfiguredTargetFunction that may have a large temporary memory blow-up.
     Semaphore cpuBoundSemaphore = new Semaphore(ResourceUsage.getAvailableProcessors());
@@ -520,7 +520,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             packageFunctionCache,
             fileSyntaxCache,
             numPackagesLoaded,
-            skylarkImportLookupFunctionForInlining,
+            skylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
             actionOnIOExceptionReadingBuildFile,
             tracksStateForIncrementality()
@@ -546,12 +546,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new AspectFunction(
             new BuildViewProvider(),
             ruleClassProvider,
-            skylarkImportLookupFunctionForInlining,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             defaultBuildOptions));
-    map.put(
-        SkyFunctions.LOAD_SKYLARK_ASPECT,
-        new ToplevelSkylarkAspectFunction(skylarkImportLookupFunctionForInlining));
+    map.put(SkyFunctions.LOAD_SKYLARK_ASPECT, new ToplevelSkylarkAspectFunction());
     map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(
         SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING,
@@ -564,7 +561,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
-            ruleClassProvider, pkgFactory, directories, skylarkImportLookupFunctionForInlining));
+            ruleClassProvider,
+            pkgFactory,
+            directories,
+            skylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes));
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     map.put(
         SkyFunctions.TARGET_COMPLETION,
@@ -635,7 +635,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @Nullable
-  protected SkylarkImportLookupFunction getSkylarkImportLookupFunctionForInlining() {
+  protected SkylarkImportLookupFunction
+      getSkylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes() {
     return null;
   }
 

@@ -703,8 +703,9 @@ public class PackageFunction implements SkyFunction {
           skyValue = visitedDepsInToplevelLoad.get(importLookupKey).getValue();
         } else {
           skyValue =
-              skylarkImportLookupFunctionForInlining.computeWithInlineCalls(
-                  importLookupKey, env, visitedDepsInToplevelLoad);
+              skylarkImportLookupFunctionForInlining
+                  .computeWithInlineCallsForPackageAndWorkspaceNodes(
+                      importLookupKey, env, visitedDepsInToplevelLoad);
         }
       } catch (SkylarkImportFailedException | InconsistentFilesystemException e) {
         // For determinism's sake while inlining, preserve the first exception and continue to run

@@ -33,13 +33,7 @@ import javax.annotation.Nullable;
  * one after another, so BuildView calls this function to do the work.
  */
 public class ToplevelSkylarkAspectFunction implements SkyFunction {
-
-  @Nullable private final SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
-
-  ToplevelSkylarkAspectFunction(
-      @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
-    this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
-  }
+  ToplevelSkylarkAspectFunction() {}
 
   @Nullable
   @Override
@@ -51,9 +45,7 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
 
     SkylarkAspect skylarkAspect;
     try {
-      skylarkAspect =
-          AspectFunction.loadSkylarkAspect(
-              env, skylarkFileLabel, skylarkValueName, skylarkImportLookupFunctionForInlining);
+      skylarkAspect = AspectFunction.loadSkylarkAspect(env, skylarkFileLabel, skylarkValueName);
       if (skylarkAspect == null) {
         return null;
       }
