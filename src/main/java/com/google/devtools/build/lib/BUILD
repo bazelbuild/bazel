@@ -87,6 +87,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/python:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
@@ -421,7 +422,6 @@ java_library(
         ":build-info",
         ":core-rules",
         ":core-workspace-rules",
-        ":proto-rules",
         ":testing-support-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -447,6 +447,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
+        "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -693,36 +694,8 @@ java_library(
 
 java_library(
     name = "proto-rules",
-    srcs = glob(
-        ["rules/proto/*.java"],
-    ),
-    deps = [
-        ":build-base",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/rules/proto",
     ],
 )
 
@@ -782,10 +755,10 @@ java_library(
     name = "shared-base-rules",
     exports = [
         ":nativedeps-rules",
-        ":proto-rules",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
+        "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
     ],
 )
@@ -1082,8 +1055,9 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/proto:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
     ],
 )
 
