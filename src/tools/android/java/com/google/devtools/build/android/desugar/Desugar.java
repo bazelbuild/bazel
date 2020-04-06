@@ -578,9 +578,10 @@ public class Desugar {
 
   private static void copyTypeConverterClasses(
       OutputFileProvider outputFileProvider, ImmutableList<ClassName> converterClasses) {
-    for (ClassName className :
+    ImmutableSet<ClassName> reachableReferencedTypes =
         findReachableReferencedTypes(
-            ImmutableSet.copyOf(converterClasses), ClassName::isInDesugarRuntimeLibrary)) {
+            ImmutableSet.copyOf(converterClasses), ClassName::isInDesugarRuntimeLibrary);
+    for (ClassName className : reachableReferencedTypes) {
       String resourceName = className.classFilePathName();
       try (InputStream stream = Resources.getResource(resourceName).openStream()) {
         outputFileProvider.write(resourceName, ByteStreams.toByteArray(stream));

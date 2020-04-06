@@ -82,11 +82,34 @@ public abstract class ClassName implements TypeMappable<ClassName> {
           .put(ClassName.create(Type.DOUBLE_TYPE), ClassName.create("java/lang/Double"))
           .build();
 
-  private static final ImmutableBiMap<String, String> SHADOWED_MIRRORED_TYPE_PREFIX_MAPPINGS =
+  private static final ImmutableBiMap<String, String> SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS =
       ImmutableBiMap.<String, String>builder()
-          .put("java/", "j$/")
-          .put("javadesugar/", "jd$/")
+          .put("java/time/", "j$/time/")
+          .put("java/lang/Double8", "j$/lang/Double8")
+          .put("java/lang/Integer8", "j$/lang/Integer8")
+          .put("java/lang/Long8", "j$/lang/Long8")
+          .put("java/lang/Math8", "j$/lang/Math8")
+          .put("java/io/Desugar", "j$/io/Desugar")
+          .put("java/io/UncheckedIOException", "j$/io/UncheckedIOException")
+          .put("java/util/stream/", "j$/util/stream/")
+          .put("java/util/function/", "j$/util/function/")
+          .put("java/util/Desugar", "j$/util/Desugar")
+          .put("java/util/DoubleSummaryStatistics", "j$/util/DoubleSummaryStatistics")
+          .put("java/util/IntSummaryStatistics", "j$/util/IntSummaryStatistics")
+          .put("java/util/LongSummaryStatistics", "j$/util/LongSummaryStatistics")
+          .put("java/util/Objects", "j$/util/Objects")
+          .put("java/util/Optional", "j$/util/Optional")
+          .put("java/util/PrimitiveIterator", "j$/util/PrimitiveIterator")
+          .put("java/util/Spliterator", "j$/util/Spliterator")
+          .put("java/util/StringJoiner", "j$/util/StringJoiner")
+          .put("java/util/concurrent/ConcurrentHashMap", "j$/util/concurrent/ConcurrentHashMap")
+          .put("java/util/concurrent/ThreadLocalRandom", "j$/util/concurrent/ThreadLocalRandom")
+          .put(
+              "java/util/concurrent/atomic/DesugarAtomic",
+              "j$/util/concurrent/atomic/DesugarAtomic")
+          .put("javadesugar/testing/", "jd$/testing/")
           .build();
+
   public static final TypeMapper SHADOWED_TO_MIRRORED_TYPE_MAPPER =
       new TypeMapper(ClassName::shadowedToMirrored);
   public static final TypeMapper IMMUTABLE_LABEL_ATTACHER =
@@ -235,11 +258,11 @@ public abstract class ClassName implements TypeMappable<ClassName> {
    * is a desugared-shadowed built-in core type.
    */
   public final ClassName shadowedToMirrored() {
-    return SHADOWED_MIRRORED_TYPE_PREFIX_MAPPINGS.keySet().stream()
+    return SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.keySet().stream()
         .filter(this::hasPackagePrefix)
         .map(
             prefix ->
-                replacePackagePrefix(prefix, SHADOWED_MIRRORED_TYPE_PREFIX_MAPPINGS.get(prefix)))
+                replacePackagePrefix(prefix, SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.get(prefix)))
         .findAny()
         .orElse(this);
   }
@@ -251,7 +274,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
    */
   public final ClassName mirroredToShadowed() {
     ImmutableBiMap<String, String> verbatimTypeMappings =
-        SHADOWED_MIRRORED_TYPE_PREFIX_MAPPINGS.inverse();
+        SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.inverse();
     return verbatimTypeMappings.keySet().stream()
         .filter(this::hasPackagePrefix)
         .map(prefix -> replacePackagePrefix(prefix, verbatimTypeMappings.get(prefix)))
@@ -283,7 +306,21 @@ public abstract class ClassName implements TypeMappable<ClassName> {
   public final boolean isInPackageEligibleForTypeAdapter() {
     // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
     // rollouts are complete.
-    return hasAnyPackagePrefix("android/testing/", "android/app/admin/FreezePeriod");
+
+    return hasAnyPackagePrefix(
+        "android/testing/",
+        "android/accessibilityservice/AccessibilityService",
+        "android/app/admin/FreezePeriod",
+        "android/app/role/RoleManager",
+        "android/app/usage/UsageStatsManager",
+        "android/hardware/display/AmbientBrightnessDayStats",
+        "android/os/SystemClock",
+        "android/service/voice/VoiceInteractionSession",
+        "android/service/voice/VoiceInteractionSession",
+        "android/telephony/SubscriptionPlan$Builder",
+        "android/telephony/TelephonyManager",
+        "android/view/textclassifier/TextClassification$Request",
+        "android/view/textclassifier/TextLinks");
   }
 
   public final boolean isInDesugarRuntimeLibrary() {
@@ -292,11 +329,11 @@ public abstract class ClassName implements TypeMappable<ClassName> {
   }
 
   public final boolean isDesugarShadowedType() {
-    return hasAnyPackagePrefix(SHADOWED_MIRRORED_TYPE_PREFIX_MAPPINGS.keySet());
+    return hasAnyPackagePrefix(SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.keySet());
   }
 
   public final boolean isDesugarMirroredType() {
-    return hasAnyPackagePrefix(SHADOWED_MIRRORED_TYPE_PREFIX_MAPPINGS.values());
+    return hasAnyPackagePrefix(SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.values());
   }
 
   private ClassName stripPackagePrefix(String prefix) {

@@ -15,21 +15,21 @@
 
 package desugar.runtime.typeadapter.java.time;
 
-/** Converts types between the desugar-mirrored and desugar-shadowed {@link java.time.MonthDay}. */
+/** Converts types between the desugar-mirrored and desugar-shadowed {@link java.time.Instant}. */
 @SuppressWarnings("AndroidJdkLibsChecker")
-public abstract class MonthDayConverter {
+public abstract class InstantConverter {
 
-  private MonthDayConverter() {}
+  private InstantConverter() {}
 
-  public static j$.time.MonthDay from(java.time.MonthDay monthDay) {
-    return monthDay == null
+  public static j$.time.Instant from(java.time.Instant instant) {
+    return instant == null
         ? null
-        : j$.time.MonthDay.of(monthDay.getMonthValue(), monthDay.getDayOfMonth());
+        : j$.time.Instant.ofEpochSecond(instant.getEpochSecond(), instant.getNano());
   }
 
-  public static java.time.MonthDay to(j$.time.MonthDay monthDay) {
-    return monthDay == null
+  public static java.time.Instant to(j$.time.Instant instant) {
+    return instant == null
         ? null
-        : java.time.MonthDay.of(monthDay.getMonthValue(), monthDay.getDayOfMonth());
+        : java.time.Instant.ofEpochSecond(instant.getEpochSecond(), instant.getNano());
   }
 }
