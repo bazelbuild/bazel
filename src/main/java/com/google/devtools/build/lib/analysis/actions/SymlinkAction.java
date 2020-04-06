@@ -17,13 +17,18 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -41,6 +46,7 @@ public final class SymlinkAction extends AbstractAction {
 
   /** Null when {@link #getPrimaryInput} is the target of the symlink. */
   @Nullable private final PathFragment inputPath;
+
   @Nullable private final String progressMessage;
 
   @VisibleForSerialization
@@ -77,8 +83,8 @@ public final class SymlinkAction extends AbstractAction {
    * @param output the {@link Artifact} that will be created by executing this Action.
    * @param progressMessage the progress message.
    */
-  public static SymlinkAction toArtifact(ActionOwner owner, Artifact input, Artifact output,
-      String progressMessage) {
+  public static SymlinkAction toArtifact(
+      ActionOwner owner, Artifact input, Artifact output, String progressMessage) {
     return new SymlinkAction(owner, null, input, output, progressMessage, TargetType.OTHER);
   }
 
@@ -157,8 +163,8 @@ public final class SymlinkAction extends AbstractAction {
    * @param output the Artifact that will be created by executing this Action.
    * @param progressMessage the progress message.
    */
-  public static SymlinkAction toAbsolutePath(ActionOwner owner, PathFragment absolutePath,
-      Artifact output, String progressMessage) {
+  public static SymlinkAction toAbsolutePath(
+      ActionOwner owner, PathFragment absolutePath, Artifact output, String progressMessage) {
     Preconditions.checkState(absolutePath.isAbsolute());
     return new SymlinkAction(owner, absolutePath, null, output, progressMessage, TargetType.OTHER);
   }
@@ -172,9 +178,13 @@ public final class SymlinkAction extends AbstractAction {
   }
 
   @Override
-  public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+  public final ActionContinuationOrResult beginExecution(
+      ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+
+    // Before Execute Block
     maybeVerifyTargetIsExecutable(actionExecutionContext);
+    // End Before Execute Block
 
     Path srcPath;
     if (inputPath == null) {
@@ -182,17 +192,47 @@ public final class SymlinkAction extends AbstractAction {
     } else {
       srcPath = actionExecutionContext.getExecRoot().getRelative(inputPath);
     }
-    try {
-      getOutputPath(actionExecutionContext).createSymbolicLink(srcPath);
-    } catch (IOException e) {
-      throw new ActionExecutionException("failed to create symbolic link '"
-          + Iterables.getOnlyElement(getOutputs()).prettyPrint()
-          + "' to '" + printInputs()
-          + "' due to I/O error: " + e.getMessage(), e, this, false);
+    SpawnContinuation first =
+        SymlinkHelper.createFirst(this, actionExecutionContext, getPrimaryOutput(), srcPath);
+    return new SymlinkActionContinuation(actionExecutionContext, first);
+  }
+
+  private final class SymlinkActionContinuation extends ActionContinuationOrResult {
+    private final ActionExecutionContext actionExecutionContext;
+    private final SpawnContinuation spawnContinuation;
+
+    public SymlinkActionContinuation(
+        ActionExecutionContext actionExecutionContext, SpawnContinuation spawnContinuation) {
+      this.actionExecutionContext = actionExecutionContext;
+      this.spawnContinuation = spawnContinuation;
     }
 
-    updateInputMtimeIfNeeded(actionExecutionContext);
-    return ActionResult.EMPTY;
+    @Nullable
+    @Override
+    public ListenableFuture<?> getFuture() {
+      return spawnContinuation.getFuture();
+    }
+
+    @Override
+    public ActionContinuationOrResult execute()
+        throws ActionExecutionException, InterruptedException {
+      SpawnContinuation nextContinuation;
+      try {
+        nextContinuation = spawnContinuation.execute();
+        if (!nextContinuation.isDone()) {
+          return new SymlinkActionContinuation(actionExecutionContext, nextContinuation);
+        }
+        // After Execute Block
+        updateInputMtimeIfNeeded(actionExecutionContext);
+        // End After Execute Block
+      } catch (ExecException e) {
+        throw e.toActionExecutionException(
+            "Error creating Symlink '" + Label.print(getOwner().getLabel()) + "'",
+            actionExecutionContext.getVerboseFailures(),
+            SymlinkAction.this);
+      }
+      return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
+    }
   }
 
   private void maybeVerifyTargetIsExecutable(ActionExecutionContext actionExecutionContext)

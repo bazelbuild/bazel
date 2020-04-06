@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -27,8 +29,11 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.SymlinkHelper;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -38,7 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Creates mangled symlinks in the solib directory for all shared libraries. Libraries that have a
@@ -53,36 +58,58 @@ public final class SolibSymlinkAction extends AbstractAction {
   private final Artifact symlink;
 
   @VisibleForSerialization
-  SolibSymlinkAction(
-      ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
+  SolibSymlinkAction(ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
     super(
         owner,
         NestedSetBuilder.create(Order.STABLE_ORDER, primaryInput),
         ImmutableSet.of(primaryOutput));
-
     Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(primaryInput.getFilename()));
     this.symlink = Preconditions.checkNotNull(primaryOutput);
   }
 
   @Override
-  public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
-    Path mangledPath = actionExecutionContext.getInputPath(symlink);
-    try {
-      mangledPath.createSymbolicLink(actionExecutionContext.getInputPath(getPrimaryInput()));
-    } catch (IOException e) {
-      throw new ActionExecutionException(
-          "failed to create _solib symbolic link '"
-              + symlink.prettyPrint()
-              + "' to target '"
-              + getPrimaryInput()
-              + "': "
-              + e.getMessage(),
-          e,
-          this,
-          false);
+  public final ActionContinuationOrResult beginExecution(
+      ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    Path srcPath = actionExecutionContext.getInputPath(getPrimaryInput());
+    SpawnContinuation first =
+        SymlinkHelper.createFirst(this, actionExecutionContext, symlink, srcPath);
+    return new SolibSymlinkActionContinuation(actionExecutionContext, first);
+  }
+
+  private final class SolibSymlinkActionContinuation extends ActionContinuationOrResult {
+    private final ActionExecutionContext actionExecutionContext;
+    private final SpawnContinuation spawnContinuation;
+
+    public SolibSymlinkActionContinuation(
+        ActionExecutionContext actionExecutionContext, SpawnContinuation spawnContinuation) {
+      this.actionExecutionContext = actionExecutionContext;
+      this.spawnContinuation = spawnContinuation;
     }
-    return ActionResult.EMPTY;
+
+    @Nullable
+    @Override
+    public ListenableFuture<?> getFuture() {
+      return spawnContinuation.getFuture();
+    }
+
+    @Override
+    public ActionContinuationOrResult execute()
+        throws ActionExecutionException, InterruptedException {
+      SpawnContinuation nextContinuation;
+      try {
+        nextContinuation = spawnContinuation.execute();
+        if (!nextContinuation.isDone()) {
+          return new SolibSymlinkActionContinuation(actionExecutionContext, nextContinuation);
+        }
+      } catch (ExecException e) {
+        throw e.toActionExecutionException(
+            "Error creating SolibSymlink '" + Label.print(getOwner().getLabel()) + "'",
+            actionExecutionContext.getVerboseFailures(),
+            SolibSymlinkAction.this);
+      }
+      return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
+    }
   }
 
   @Override
@@ -240,15 +267,14 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   /**
-   * Compute the SONAME to use for a dynamic library. This name is basically the
-   * name of the shared library in its final symlinked location.
+   * Compute the SONAME to use for a dynamic library. This name is basically the name of the shared
+   * library in its final symlinked location.
    *
    * @param libraryPath name of the shared library that needs to be mangled
    * @param preserveName true if filename should be preserved, false - mangled
    * @return soname to embed in the dynamic library
    */
-  public static String getDynamicLibrarySoname(PathFragment libraryPath,
-                                               boolean preserveName) {
+  public static String getDynamicLibrarySoname(PathFragment libraryPath, boolean preserveName) {
     String mangledName;
     if (preserveName) {
       mangledName = libraryPath.getBaseName();
