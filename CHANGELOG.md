@@ -1,3 +1,67 @@
+## Release 3.0.0 (2020-04-06)
+
+```
+Baseline: 3c7cc747ac653dca8b88a9e43726a794e2c27a9c
+
+Cherry picks:
+
+   + 19e214b44df9c82a8a3bd3381344f7145813c572:
+     Use prefix encoding for paths.
+   + 63b01f7b1cd6603a08bf2a8ae813388c201e3448:
+     Avoid file operations in the sandbox creation critical path.
+   + 80a2d7cc5f8a22816934dcd2ca9bdf87050f3d9f:
+     Implementation (but not plumbing) of the gRPC remote downloader
+   + 586eabf419972c74fdd5fef328cfe9a259e035ed:
+     Implement RemoteDownloader w/ `--experimental_remote_downloader`
+```
+
+Incompatible changes:
+
+  - Flip --incompatible_remove_enabled_toolchain_types, so that rules
+    can no longer access enabled toolchain types from the platform
+    fragment.
+  - The --incompatible_use_jdk11_as_host_javabase flag has been
+    removed (it was flipped in Bazel 0.25.0).
+  - Using JDK 9 or 10 as a `--host_javabase` is no longer officially
+    supported. As always, you can use the
+    `@bazel_tools//tools/jdk:toolchain_vanilla` Java toolchain to use
+    older or newer JDKs than what Bazel currently supports.
+  - --fatal_event_bus_exceptions is deprecated and should not be
+    used. Any crashes should be reported so that they can be fixed.
+  - The old-style binary profile format is no longer suppported, use
+    the new JSON trace profile instead.
+
+Important changes:
+
+  - Improve the performance of creating a sandboxed execution root
+    for workers when the number of inputs is large (>1000).
+  - Treat .cu and .cl files as C++ source. CUDA or OpenCL are not
+    natively supported and will require custom flags to compile with
+    e.g. clang.
+  - Add actions' primary output details in JSON profile and
+    analysis_v2.proto.
+  - Add --cds_archive option for embedding CDS archive into deploy
+    JAR.
+  - Add new global attribute: applicable_licenses
+    - Package level default with default_applicable_licenses
+    - guarded by --incompatible_applicable_licenses (default true for
+    Blaze, false for Bazel)
+    - In support of
+    https://docs.google.com/document/d/1uwBuhAoBNrw8tmFs-NxlssI6VRolid
+    GYdYqagLqHWt8/edit#
+  - Non-test Java rules no longer require the TestConfiguration and
+    thus --trim_test_configuration is again usable for Java builds
+  - The flag `--incompatible_always_check_depset_elements` is enabled
+    by default.
+  - --incompatible_objc_compile_info_migration determines
+    whether native rules can assume compile info has been migrated to
+    CcInfo. See https://github.com/bazelbuild/bazel/issues/10854.
+  - --incompatible_remove_local_resources is true by default. Please
+    use --local_ram_resources and --local_cpu_resources instead of
+    --local_resources.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Benjamin Peterson, Christy Norman, Dave hughes, David Haxton, David Neil, garyschulte, George Chiramel, George Gensure, Gibson Fahnestock, Greg Estren, Greg, Jason Hoch, Jin, John Millikin, Jonathan Springer, Keith Smiley, Laurent Le Brun, Ulf Adams, Yannic Bonenberger, Yannic, Yihong Wang, Yuchen Dai.
+
 ## Release 2.2.0 (2020-03-03)
 
 ```
