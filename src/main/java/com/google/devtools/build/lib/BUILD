@@ -693,13 +693,6 @@ java_library(
 )
 
 java_library(
-    name = "proto-rules",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/rules/proto",
-    ],
-)
-
-java_library(
     name = "core-rules",
     srcs = glob(
         ["rules/core/*.java"],
