@@ -378,7 +378,7 @@ The resolution steps are as follows.
 
 1. A `target_compatible_with` or `exec_compatible_with` clause *matches* a
    platform iff, for each `constraint_value` in its list, the platform also has
-   that `contraint_value` (either explicitly or as a default).
+   that `constraint_value` (either explicitly or as a default).
 
    If the platform has `constraint_value`s from `constraint_setting`s not
    referenced by the clause, these do not affect matching.
