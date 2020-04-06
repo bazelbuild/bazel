@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package desugar.runtime.typeadapter.javadesugar.testing;
+package com.google.devtools.build.android.desugar.typeadapter.javadesugar.testing;
 
 /**
  * Simulated a manually-configured type converter between platform built-in types and

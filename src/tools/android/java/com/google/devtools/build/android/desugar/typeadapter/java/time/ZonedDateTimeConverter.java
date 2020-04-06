@@ -4,6 +4,7 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -13,7 +14,7 @@
  * limitations under the License.
  */
 
-package desugar.runtime.typeadapter.java.time;
+package com.google.devtools.build.android.desugar.typeadapter.java.time;
 
 /**
  * Converts types between the desugar-mirrored and desugar-shadowed {@link java.time.ZonedDateTime}.

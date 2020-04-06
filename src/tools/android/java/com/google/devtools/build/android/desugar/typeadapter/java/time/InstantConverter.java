@@ -4,6 +4,7 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -13,19 +14,23 @@
  * limitations under the License.
  */
 
-package desugar.runtime.typeadapter.java.time;
+package com.google.devtools.build.android.desugar.typeadapter.java.time;
 
-/** Converts types between the desugar-mirrored and desugar-shadowed {@link java.time.ZoneId}. */
+/** Converts types between the desugar-mirrored and desugar-shadowed {@link java.time.Instant}. */
 @SuppressWarnings("AndroidJdkLibsChecker")
-public abstract class ZoneIdConverter {
+public abstract class InstantConverter {
 
-  private ZoneIdConverter() {}
+  private InstantConverter() {}
 
-  public static j$.time.ZoneId from(java.time.ZoneId zoneId) {
-    return zoneId == null ? null : j$.time.ZoneId.of(zoneId.getId());
+  public static j$.time.Instant from(java.time.Instant instant) {
+    return instant == null
+        ? null
+        : j$.time.Instant.ofEpochSecond(instant.getEpochSecond(), instant.getNano());
   }
 
-  public static java.time.ZoneId to(j$.time.ZoneId zoneId) {
-    return zoneId == null ? null : java.time.ZoneId.of(zoneId.getId());
+  public static java.time.Instant to(j$.time.Instant instant) {
+    return instant == null
+        ? null
+        : java.time.Instant.ofEpochSecond(instant.getEpochSecond(), instant.getNano());
   }
 }

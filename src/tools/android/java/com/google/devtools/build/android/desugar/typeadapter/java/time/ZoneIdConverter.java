@@ -4,6 +4,7 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
+ *
  *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
@@ -13,23 +14,19 @@
  * limitations under the License.
  */
 
-package desugar.runtime.typeadapter.java.time;
+package com.google.devtools.build.android.desugar.typeadapter.java.time;
 
-/** Converts types between the desugar-mirrored and desugar-shadowed {@link java.time.MonthDay}. */
+/** Converts types between the desugar-mirrored and desugar-shadowed {@link java.time.ZoneId}. */
 @SuppressWarnings("AndroidJdkLibsChecker")
-public abstract class MonthDayConverter {
+public abstract class ZoneIdConverter {
 
-  private MonthDayConverter() {}
+  private ZoneIdConverter() {}
 
-  public static j$.time.MonthDay from(java.time.MonthDay monthDay) {
-    return monthDay == null
-        ? null
-        : j$.time.MonthDay.of(monthDay.getMonthValue(), monthDay.getDayOfMonth());
+  public static j$.time.ZoneId from(java.time.ZoneId zoneId) {
+    return zoneId == null ? null : j$.time.ZoneId.of(zoneId.getId());
   }
 
-  public static java.time.MonthDay to(j$.time.MonthDay monthDay) {
-    return monthDay == null
-        ? null
-        : java.time.MonthDay.of(monthDay.getMonthValue(), monthDay.getDayOfMonth());
+  public static java.time.ZoneId to(j$.time.ZoneId zoneId) {
+    return zoneId == null ? null : java.time.ZoneId.of(zoneId.getId());
   }
 }

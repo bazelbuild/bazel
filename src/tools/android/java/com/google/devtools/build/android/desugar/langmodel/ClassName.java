@@ -37,7 +37,8 @@ public abstract class ClassName implements TypeMappable<ClassName> {
 
   private static final String IMMUTABLE_LABEL_LABEL = "__final__/";
 
-  private static final String TYPE_ADAPTER_PACKAGE_ROOT = "desugar/runtime/typeadapter/";
+  private static final String TYPE_ADAPTER_PACKAGE_ROOT =
+      "com/google/devtools/build/android/desugar/typeadapter/";
 
   public static final TypeMapper IN_PROCESS_LABEL_STRIPPER =
       new TypeMapper(className -> className.stripPackagePrefix(IN_PROCESS_LABEL));
@@ -325,7 +326,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
 
   public final boolean isInDesugarRuntimeLibrary() {
     return hasAnyPackagePrefix(
-        "com/google/devtools/build/android/desugar/runtime/", "desugar/runtime/");
+        "com/google/devtools/build/android/desugar/runtime/", TYPE_ADAPTER_PACKAGE_ROOT);
   }
 
   public final boolean isDesugarShadowedType() {
