@@ -779,13 +779,6 @@ java_library(
 )
 
 java_library(
-    name = "android-rules",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/rules/android",
-    ],
-)
-
-java_library(
     name = "shared-base-rules",
     exports = [
         ":nativedeps-rules",
