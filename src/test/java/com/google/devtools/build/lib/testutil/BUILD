@@ -31,7 +31,6 @@ java_library(
         "FoundationTestCase.java",
         "ManualClock.java",
         "ManualSleeper.java",
-        "ManualSleeperTest.java",
         "Scratch.java",
         "Suite.java",
         "TestFileOutErr.java",
@@ -196,6 +195,7 @@ java_library(
 java_library(
     name = "TestUtilTests_lib",
     srcs = [
+        "ManualSleeperTest.java",
         "MoreAssertsTest.java",
         "TestSizeAnnotationTest.java",
     ],
