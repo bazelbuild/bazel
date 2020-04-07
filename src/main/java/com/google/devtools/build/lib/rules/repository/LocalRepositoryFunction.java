@@ -54,58 +54,11 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     PathFragment pathFragment =
         RepositoryFunction.getTargetPath(userDefinedPath, directories.getWorkspace());
     RepositoryDirectoryValue.Builder result =
-        LocalRepositoryFunction.symlink(outputDirectory, pathFragment, userDefinedPath, env);
+        RepositoryDelegatorFunction.symlink(outputDirectory, pathFragment, userDefinedPath, env);
     if (result != null) {
       env.getListener().post(resolve(rule, directories));
     }
     return result;
-  }
-
-  public static RepositoryDirectoryValue.Builder symlink(
-      Path source, PathFragment destination, String userDefinedPath, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    try {
-      source.createSymbolicLink(destination);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              String.format(
-                  "Could not create symlink to repository \"%s\" (absolute path: \"%s\"): %s",
-                  userDefinedPath, destination, e.getMessage()),
-              e),
-          Transience.TRANSIENT);
-    }
-    FileValue repositoryValue = getRepositoryDirectory(source, env);
-    if (repositoryValue == null) {
-      // TODO(bazel-team): If this returns null, we unnecessarily recreate the symlink above on the
-      // second execution.
-      return null;
-    }
-
-    if (!repositoryValue.isDirectory()) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              String.format(
-                  "The repository's path is \"%s\" (absolute: \"%s\") "
-                      + "but this directory does not exist.",
-                  userDefinedPath, destination)),
-          Transience.PERSISTENT);
-    }
-
-    // Check that the repository contains a WORKSPACE file.
-    // It's important to check the real path, otherwise this looks under the "external/[repo]" path
-    // and cause a Skyframe cycle in the lookup.
-    FileValue workspaceFileValue = getWorkspaceFile(repositoryValue.realRootedPath(), env);
-    if (workspaceFileValue == null) {
-      return null;
-    }
-
-    if (!workspaceFileValue.exists()) {
-      throw new RepositoryFunctionException(
-          new IOException("No WORKSPACE file found in " + source), Transience.PERSISTENT);
-    }
-
-    return RepositoryDirectoryValue.builder().setPath(source);
   }
 
   @Override
