@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -136,7 +135,8 @@ public class ActionExecutionValue implements SkyValue {
 
   /**
    * @return The data for each non-middleman output of this action, in the form of the {@link
-   *     FileValue} that would be created for the file if it were to be read from disk.
+   *     com.google.devtools.build.lib.actions.FileValue} that would be created for the file if it
+   *     were to be read from disk.
    */
   @Nullable
   public FileArtifactValue getArtifactValue(Artifact artifact) {
@@ -158,9 +158,10 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   /**
-   * @return The map from {@link Artifact}s to the corresponding {@link FileValue}s that would be
-   *     returned by {@link #getArtifactValue}. Primarily needed by {@link FilesystemValueChecker},
-   *     also called by {@link ArtifactFunction} when aggregating a {@link TreeArtifactValue}.
+   * @return The map from {@link Artifact}s to the corresponding {@link
+   *     com.google.devtools.build.lib.actions.FileValue}s that would be returned by {@link
+   *     #getArtifactValue}. Primarily needed by {@link FilesystemValueChecker}, also called by
+   *     {@link ArtifactFunction} when aggregating a {@link TreeArtifactValue}.
    */
   Map<Artifact, FileArtifactValue> getAllFileValues() {
     return artifactData;

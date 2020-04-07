@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
@@ -272,8 +271,8 @@ public final class ConfiguredTargetFactory {
    * remaining pieces of config state.
    *
    * <p>The strings can be names of {@link BuildConfiguration.Fragment}s, names of {@link
-   * FragmentOptions}, and labels of user-defined options such as Starlark flags and Android feature
-   * flags.
+   * com.google.devtools.build.lib.analysis.config.FragmentOptions}, and labels of user-defined
+   * options such as Starlark flags and Android feature flags.
    *
    * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
    * result includes only the config state considered to be directly required by this rule. If it's
@@ -292,12 +291,14 @@ public final class ConfiguredTargetFactory {
    *     specified for this rule
    * @param configurationFragmentPolicy source of truth for the fragments required by this rule's
    *     rule class
-   * @param configConditions {@link FragmentOptions} required by {@code select}s on this rule. This
-   *     is a different type than the others: options and fragments are different concepts. There's
-   *     some subtlety to their relationship (e.g. a {@link FragmentOptions} can be associated with
-   *     multiple {@link BuildConfiguration.Fragment}s). Rather than trying to merge all results
-   *     into a pure set of {@link BuildConfiguration.Fragment}s we just allow the mix. In practice
-   *     the conceptual dependencies remain clear enough without trying to resolve these subtleties.
+   * @param configConditions {@link com.google.devtools.build.lib.analysis.config.FragmentOptions}
+   *     required by {@code select}s on this rule. This is a different type than the others: options
+   *     and fragments are different concepts. There's some subtlety to their relationship (e.g. a
+   *     {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} can be associated
+   *     with multiple {@link BuildConfiguration.Fragment}s). Rather than trying to merge all
+   *     results into a pure set of {@link BuildConfiguration.Fragment}s we just allow the mix. In
+   *     practice the conceptual dependencies remain clear enough without trying to resolve these
+   *     subtleties.
    * @param prerequisites all prerequisties of this rule
    * @return An alphabetically ordered set of required fragments, options, and labels of
    *     user-defined options.

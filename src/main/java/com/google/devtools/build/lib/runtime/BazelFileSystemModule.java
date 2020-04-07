@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultAlreadySetException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
@@ -30,10 +29,12 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 
 /**
- * Module to provide a {@link FileSystem} instance that uses {@code SHA256} as the default hash
- * function, or else what's specified by {@code -Dbazel.DigestFunction}.
+ * Module to provide a {@link com.google.devtools.build.lib.vfs.FileSystem} instance that uses
+ * {@code SHA256} as the default hash function, or else what's specified by {@code
+ * -Dbazel.DigestFunction}.
  *
- * <p>For legacy reasons we can't make the {@link FileSystem} class use {@code SHA256} by default.
+ * <p>For legacy reasons we can't make the {@link com.google.devtools.build.lib.vfs.FileSystem}
+ * class use {@code SHA256} by default.
  */
 public class BazelFileSystemModule extends BlazeModule {
 

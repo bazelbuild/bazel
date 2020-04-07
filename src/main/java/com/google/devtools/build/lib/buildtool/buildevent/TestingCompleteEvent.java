@@ -17,14 +17,14 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /**
  * Event triggered after testing has completed.
  *
- * <p>This event is used by the BEP to construct the {@link BuildEventStreamProtos.BuildFinished}
- * event when the test command is used.
+ * <p>This event is used by the BEP to construct the {@link
+ * com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildFinished} event when
+ * the test command is used.
  */
 public class TestingCompleteEvent extends BuildCompletingEvent {
   /**

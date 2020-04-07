@@ -21,10 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -54,11 +52,11 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
- * A {@link ConfiguredTarget} that is produced by a rule.
+ * A {@link com.google.devtools.build.lib.analysis.ConfiguredTarget} that is produced by a rule.
  *
- * <p>Created by {@link RuleConfiguredTargetBuilder}. There is an instance of this class for every
- * analyzed rule. For more information about how analysis works, see {@link
- * com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
+ * <p>Created by {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder}. There
+ * is an instance of this class for every analyzed rule. For more information about how analysis
+ * works, see {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
 @AutoCodec(checkClassExplicitlyAllowed = true)
 @Immutable // (and Starlark-hashable)

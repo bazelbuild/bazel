@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.profiler.Profiler.Format;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
-import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
@@ -447,8 +445,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /**
-   * Returns the {@link QueryEnvironmentFactory} that should be used to create a
-   * {@link AbstractBlazeQueryEnvironment}, whenever one is needed.
+   * Returns the {@link QueryEnvironmentFactory} that should be used to create a {@link
+   * com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment}, whenever one is
+   * needed.
    */
   public QueryEnvironmentFactory getQueryEnvironmentFactory() {
     return queryEnvironmentFactory;
@@ -1458,8 +1457,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /**
    * A builder for {@link BlazeRuntime} objects. The only required fields are the {@link
-   * BlazeDirectories}, and the {@link RuleClassProvider} (except for testing). All other fields
-   * have safe default values.
+   * BlazeDirectories}, and the {@link com.google.devtools.build.lib.packages.RuleClassProvider}
+   * (except for testing). All other fields have safe default values.
    *
    * <p>The default behavior of the BlazeRuntime's EventBus is to exit the JVM when a subscriber
    * throws an exception. Please plan appropriately.

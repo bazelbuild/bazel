@@ -34,7 +34,6 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.UUID;
@@ -210,7 +209,10 @@ public class PrecomputedValue implements SkyValue {
     }
   }
 
-  /** {@link SkyKey} for {@code PrecomputedValue}. */
+  /**
+   * {@link com/google/devtools/build/lib/skyframe/PrecomputedValue.java used only in javadoc:
+   * com.google.devtools.build.skyframe.SkyKey} for {@code PrecomputedValue}.
+   */
   @AutoCodec
   public static class Key extends AbstractSkyKey<String> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();

@@ -16,15 +16,14 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /**
  * A {@link ConfiguredTarget} is conceptually a {@link TransitiveInfoCollection} coupled with the
- * {@link Target} and {@link BuildConfiguration} objects it was created from.
+ * {@link com.google.devtools.build.lib.packages.Target} and {@link
+ * com.google.devtools.build.lib.analysis.config.BuildConfiguration} objects it was created from.
  *
  * <p>This interface is supposed to only be used in {@link BuildView} and above. In particular, rule
  * implementations should not be able to access the {@link ConfiguredTarget} objects associated with

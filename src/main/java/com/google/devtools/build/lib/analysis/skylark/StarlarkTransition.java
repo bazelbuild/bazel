@@ -23,7 +23,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
@@ -221,8 +220,10 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * <p>Deduplicate redundant build settings from the result of split transitions. The first
    * encountered split key is used to represent the deduped build setting.
    *
-   * @param root transition that was applied. Likely a {@link ComposingTransition} so we decompose
-   *     and post-process all StarlarkTransitions out of whatever transition is passed here.
+   * @param root transition that was applied. Likely a {@link
+   *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition} so we
+   *     decompose and post-process all StarlarkTransitions out of whatever transition is passed
+   *     here.
    * @param buildSettingPackages PackageValue.Key/Values of packages that contain all
    *     Starlark-defined build settings that were set by {@code root}. If any build settings are
    *     referenced by {@link Alias}, this contains all packages in the alias chain.

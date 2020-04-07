@@ -21,7 +21,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -35,8 +34,9 @@ import javax.annotation.Nullable;
  * The value computed by {@link CollectPackagesUnderDirectoryFunction}. Contains a mapping for all
  * its non-excluded directories to whether there are packages or error messages beneath them.
  *
- * <p>This value is used by {@link RecursivePackageProvider#streamPackagesUnderDirectory} to help it
- * traverse the graph and find the set of packages under a directory, recursively by {@link
+ * <p>This value is used by {@link
+ * com.google.devtools.build.lib.pkgcache.RecursivePackageProvider#streamPackagesUnderDirectory} to
+ * help it traverse the graph and find the set of packages under a directory, recursively by {@link
  * CollectPackagesUnderDirectoryFunction} which computes a value for a directory by aggregating
  * results calculated from its subdirectories, and by {@link
  * PrepareDepsOfTargetsUnderDirectoryFunction} which uses this value to find transitive targets to

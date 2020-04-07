@@ -18,9 +18,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 
-/** A {@link SkyValue} for a {@link ConfiguredTarget}. */
+/**
+ * A {@link com/google/devtools/build/lib/skyframe/ConfiguredTargetValue.java used only in javadoc:
+ * com.google.devtools.build.skyframe.SkyValue} for a {@link ConfiguredTarget}.
+ */
 public interface ConfiguredTargetValue extends ConfiguredObjectValue {
   static SkyKey key(Label label, BuildConfiguration configuration) {
     return ConfiguredTargetKey.of(label, configuration);

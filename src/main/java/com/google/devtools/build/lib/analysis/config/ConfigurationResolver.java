@@ -25,7 +25,6 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -46,7 +45,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -687,9 +685,11 @@ public final class ConfigurationResolver {
    * top-level configuration transitions) . Uses original (untrimmed, pre-transition) configurations
    * for targets that can't be evaluated (e.g. due to loading phase errors).
    *
-   * <p>This is suitable for feeding {@link ConfiguredTargetValue} keys: as general principle {@link
-   * ConfiguredTarget}s should have exactly as much information in their configurations as they need
-   * to evaluate and no more (e.g. there's no need for Android settings in a C++ configured target).
+   * <p>This is suitable for feeding {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetValue} keys: as general principle {@link
+   * com.google.devtools.build.lib.analysis.ConfiguredTarget}s should have exactly as much
+   * information in their configurations as they need to evaluate and no more (e.g. there's no need
+   * for Android settings in a C++ configured target).
    *
    * @param defaultContext the original targets and starting configurations before applying rule
    *     transitions and trimming. When actual configurations can't be evaluated, these values are

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
@@ -58,12 +57,13 @@ import java.util.logging.Logger;
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
  *
- * <p>The various concrete build command classes handle the command options and request
- * setup, then delegate the handling of the request (the building of targets) to this class.
+ * <p>The various concrete build command classes handle the command options and request setup, then
+ * delegate the handling of the request (the building of targets) to this class.
  *
  * <p>The main entry point is {@link #buildTargets}.
  *
- * <p>Most of analysis is handled in {@link BuildView}, and execution in {@link ExecutionTool}.
+ * <p>Most of analysis is handled in {@link com.google.devtools.build.lib.analysis.BuildView}, and
+ * execution in {@link ExecutionTool}.
  */
 public class BuildTool {
 
