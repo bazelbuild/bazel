@@ -140,6 +140,16 @@ import javax.annotation.Nullable;
  */
 public final class SkyframeActionExecutor {
 
+  static boolean actionDependsOnBuildId(Action action) {
+    // Volatile build actions may need to execute even if none of their known inputs have changed.
+    // Depending on the build id ensures that these actions have a chance to execute.
+    // SkyframeAwareActions do not need to depend on the build id because their volatility is due to
+    // their dependence on Skyframe nodes that are not captured in the action cache. Any changes to
+    // those nodes will cause this action to be rerun, so a build id dependency is unnecessary.
+    return (action.isVolatile() && !(action instanceof SkyframeAwareAction))
+        || action instanceof NotifyOnActionCacheHit;
+  }
+
   enum ProgressEventBehavior {
     EMIT,
     SUPPRESS
@@ -1261,7 +1271,7 @@ public final class SkyframeActionExecutor {
           (action instanceof IncludeScannable)
               ? ((IncludeScannable) action).getDiscoveredModules()
               : null,
-          ActionExecutionFunction.actionDependsOnBuildId(action));
+          actionDependsOnBuildId(action));
     }
 
     /** A closure to continue an asynchronously running action. */

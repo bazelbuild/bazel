@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actionsketch.ActionSketch;
@@ -138,7 +137,7 @@ public class ActionExecutionFunction implements SkyFunction {
       return null;
     }
     skyframeActionExecutor.noteActionEvaluationStarted(actionLookupData, action);
-    if (actionDependsOnBuildId(action)) {
+    if (SkyframeActionExecutor.actionDependsOnBuildId(action)) {
       PrecomputedValue.BUILD_ID.get(env);
     }
 
@@ -790,7 +789,7 @@ public class ActionExecutionFunction implements SkyFunction {
           (action instanceof IncludeScannable)
               ? ((IncludeScannable) action).getDiscoveredModules()
               : null,
-          actionDependsOnBuildId(action));
+          SkyframeActionExecutor.actionDependsOnBuildId(action));
     }
 
     // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
@@ -1287,16 +1286,6 @@ public class ActionExecutionFunction implements SkyFunction {
     }
     return accumulateInputResultsFactory.create(
         inputArtifactData, expandedArtifacts, filesetsInsideRunfiles, topLevelFilesets);
-  }
-
-  static boolean actionDependsOnBuildId(Action action) {
-    // Volatile build actions may need to execute even if none of their known inputs have changed.
-    // Depending on the build id ensures that these actions have a chance to execute.
-    // SkyframeAwareActions do not need to depend on the build id because their volatility is due to
-    // their dependence on Skyframe nodes that are not captured in the action cache. Any changes to
-    // those nodes will cause this action to be rerun, so a build id dependency is unnecessary.
-    return (action.isVolatile() && !(action instanceof SkyframeAwareAction))
-        || action instanceof NotifyOnActionCacheHit;
   }
 
   @Override
