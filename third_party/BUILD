@@ -127,7 +127,7 @@ java_import(
 
 java_import(
     name = "apache_commons_pool2",
-    jars = ["apache_commons_pool2/commons-pool2-2.3.jar"],
+    jars = ["apache_commons_pool2/commons-pool2-2.8.0.jar"],
 )
 
 java_import(

@@ -21,7 +21,7 @@ import java.util.Objects;
  * Our own configuration class for the {@code WorkerPool} that correctly implements {@code equals()}
  * and {@code hashCode()}.
  */
-final class WorkerPoolConfig extends GenericKeyedObjectPoolConfig {
+final class WorkerPoolConfig extends GenericKeyedObjectPoolConfig<Worker> {
   @Override
   public boolean equals(Object o) {
     if (this == o) {
