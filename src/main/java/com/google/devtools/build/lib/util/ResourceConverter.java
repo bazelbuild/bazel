@@ -126,7 +126,7 @@ public class ResourceConverter extends Converters.IntegerConverter {
     throw new OptionsParsingException(
         String.format(
             "Parameter '%s' does not follow correct syntax. This flag takes %s.",
-            input, FLAG_SYNTAX));
+            input, getTypeDescription()));
   }
 
   /** Applies function designated in {@code expression} ([-|*]<float>) to value. */
