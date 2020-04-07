@@ -35,8 +35,6 @@ To run Bazel with remote execution, you can use one of the following:
     *   [Buildfarm](https://github.com/bazelbuild/bazel-buildfarm)
     *   [BuildGrid](https://gitlab.com/BuildGrid/buildgrid)
     *   [Scoot](https://github.com/twitter/scoot)
-*   Self-hosted or hosted
-    *   [EngFlow Remote Execution](https://www.engflow.com) -- Commercial remote execution and remote caching service. Can be self-hosted or hosted.
 *   Hosted
     *   Remote Build Execution, which is a remote execution service from Google.
         Joining the
@@ -44,6 +42,7 @@ To run Bazel with remote execution, you can use one of the following:
         will give you full access to the official documentation.
         To begin using the service, fill out this
         [short information form](https://docs.google.com/forms/d/e/1FAIpQLScBai-iQ2tn7RcGcsz3Twjr4yDOeHowrb6-3v5qlgS69GcxbA/viewform).
+    *   [EngFlow Remote Execution](https://www.engflow.com) -- Commercial remote execution and remote caching service. Can be self-hosted or hosted.
 
 ## Requirements
 
