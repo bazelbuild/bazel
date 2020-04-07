@@ -107,6 +107,25 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ImmutableMap.of();
 
   /**
+   * Attempt to find a {@link ConfiguredValueCreationException} in a {@link ToolchainException}, or
+   * its causes.
+   *
+   * <p>If one cannot be found, null is returned.
+   */
+  @Nullable
+  public static ConfiguredValueCreationException asConfiguredValueCreationException(
+      ToolchainException e) {
+    for (Throwable cause = e.getCause();
+        cause != null && cause != cause.getCause();
+        cause = cause.getCause()) {
+      if (cause instanceof ConfiguredValueCreationException) {
+        return (ConfiguredValueCreationException) cause;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Exception class that signals an error during the evaluation of a dependency.
    */
   public static class DependencyEvaluationException extends Exception {
@@ -402,7 +421,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               e.getCauses()));
     } catch (ToolchainException e) {
       // We need to throw a ConfiguredValueCreationException, so either find one or make one.
-      ConfiguredValueCreationException cvce = e.asConfiguredValueCreationException();
+      ConfiguredValueCreationException cvce = asConfiguredValueCreationException(e);
       if (cvce == null) {
         cvce =
             new ConfiguredValueCreationException(e.getMessage(), target.getLabel(), configuration);
