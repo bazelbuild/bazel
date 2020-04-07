@@ -294,14 +294,15 @@ public class CommonCommandOptions extends OptionsBase {
   public List<ProfilerTask> additionalProfileTasks;
 
   @Option(
-      name = "experimental_slim_json_profile",
-      defaultValue = "false",
+      name = "slim_profile",
+      oldName = "experimental_slim_json_profile",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
               + " too large.")
-  public boolean enableJsonProfileDiet;
+  public boolean slimProfile;
 
   @Option(
       name = "experimental_include_primary_output",
