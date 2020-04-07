@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -128,9 +127,20 @@ public final class RuleContext extends TargetContext
     return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
   }
 
-  /**
-   * The configured version of FilesetEntry.
-   */
+  /** Custom dependency validation logic. */
+  public interface PrerequisiteValidator {
+    /**
+     * Checks whether the rule in {@code contextBuilder} is allowed to depend on {@code
+     * prerequisite} through the attribute {@code attribute}.
+     *
+     * <p>Can be used for enforcing any organization-specific policies about the layout of the
+     * workspace.
+     */
+    void validate(
+        Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
+  }
+
+  /** The configured version of FilesetEntry. */
   @Immutable
   public static final class ConfiguredFilesetEntry {
     private final FilesetEntry entry;
@@ -1544,8 +1554,7 @@ public final class RuleContext extends TargetContext
    * Returns true if {@code label} is visible from {@code prerequisite}.
    *
    * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by {@link
-   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   * whether a dependency is allowed is made by {@link PrerequisiteValidator}.
    */
   public static boolean isVisible(Label label, TransitiveInfoCollection prerequisite) {
     // Check visibility attribute
@@ -1563,8 +1572,7 @@ public final class RuleContext extends TargetContext
    * Returns true if {@code rule} is visible from {@code prerequisite}.
    *
    * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by {@link
-   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   * whether a dependency is allowed is made by {@link PrerequisiteValidator}.
    */
   public static boolean isVisible(Rule rule, TransitiveInfoCollection prerequisite) {
     return isVisible(rule.getLabel(), prerequisite);
@@ -1989,11 +1997,10 @@ public final class RuleContext extends TargetContext
 
     /**
      * @return true if {@code rule} is visible from {@code prerequisite}.
-     *
-     * <p>This only computes the logic as implemented by the visibility system. The final decision
-     * whether a dependency is allowed is made by
-     * {@link ConfiguredRuleClassProvider.PrerequisiteValidator}, who is supposed to call this
-     * method to determine whether a dependency is allowed as per visibility rules.
+     *     <p>This only computes the logic as implemented by the visibility system. The final
+     *     decision whether a dependency is allowed is made by {@link PrerequisiteValidator}, who is
+     *     supposed to call this method to determine whether a dependency is allowed as per
+     *     visibility rules.
      */
     public boolean isVisible(TransitiveInfoCollection prerequisite) {
       return RuleContext.isVisible(target.getAssociatedRule(), prerequisite);
