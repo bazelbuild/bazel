@@ -2416,7 +2416,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     checkActive();
-    PrecomputedValue.BAD_ACTIONS.set(injectable(), badActions);
+    SkyframeActionExecutor.BAD_ACTIONS.set(injectable(), badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     EvaluationResult<ActionLookupConflictFindingValue> result =
         evaluate(
