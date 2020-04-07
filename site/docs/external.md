@@ -239,7 +239,7 @@ For example, to override `@foo` to the local directory `/path/to/local/foo`, pas
 
 Some of the use cases include:
 
-* Debugging bugs. For example, you can override a `http_archive` repository to a 
+* Debugging issues. For example, you can override a `http_archive` repository to a 
   local directory where you can make changes more easily.
 * Vendoring. If you are in an environment where you cannot make network calls,
   override the network-based repository rules to point to local directories 
