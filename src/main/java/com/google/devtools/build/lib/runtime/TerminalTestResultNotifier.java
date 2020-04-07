@@ -13,17 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.DETAILED;
-import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.TESTCASE;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.TESTCASE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
 import com.google.devtools.build.lib.exec.TestLogHelper;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
-import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
@@ -38,8 +38,8 @@ public class TestLogHelper {
    * test has passed or not.
    */
   public static boolean shouldOutputTestLog(TestOutputFormat outputMode, boolean hasPassed) {
-    return (outputMode == TestOutputFormat.ALL)
-        || (!hasPassed && (outputMode == TestOutputFormat.ERRORS));
+    return (outputMode == ExecutionOptions.TestOutputFormat.ALL)
+        || (!hasPassed && (outputMode == ExecutionOptions.TestOutputFormat.ERRORS));
   }
 
   /**

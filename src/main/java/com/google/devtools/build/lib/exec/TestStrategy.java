@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
-import com.google.devtools.common.options.EnumConverter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -100,38 +99,6 @@ public abstract class TestStrategy implements TestActionContext {
   private void recreateDirectory(Path directory) throws IOException {
     directory.deleteTree();
     directory.createDirectoryAndParents();
-  }
-
-  /** An enum for specifying different formats of test output. */
-  public enum TestOutputFormat {
-    SUMMARY, // Provide summary output only.
-    ERRORS, // Print output from failed tests to the stderr after the test failure.
-    ALL, // Print output from all tests to the stderr after the test completion.
-    STREAMED; // Stream output for each test.
-
-    /** Converts to {@link TestOutputFormat}. */
-    public static class Converter extends EnumConverter<TestOutputFormat> {
-      public Converter() {
-        super(TestOutputFormat.class, "test output");
-      }
-    }
-  }
-
-  /** An enum for specifying different formatting styles of test summaries. */
-  public enum TestSummaryFormat {
-    SHORT, // Print information only about tests.
-    TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
-    DETAILED, // Print information only about failed test cases.
-    NONE, // Do not print summary.
-    TESTCASE; // Print summary in test case resolution, do not print detailed information about
-    // failed test cases.
-
-    /** Converts to {@link TestSummaryFormat}. */
-    public static class Converter extends EnumConverter<TestSummaryFormat> {
-      public Converter() {
-        super(TestSummaryFormat.class, "test summary");
-      }
-    }
   }
 
   public static final PathFragment TEST_TMP_ROOT = PathFragment.create("_tmp");
@@ -325,8 +292,8 @@ public abstract class TestStrategy implements TestActionContext {
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
     a large amount of memory. */
-    if ((executionOptions.testSummary != TestSummaryFormat.DETAILED)
-        && (executionOptions.testSummary != TestSummaryFormat.TESTCASE)) {
+    if ((executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.DETAILED)
+        && (executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.TESTCASE)) {
       return null;
     }
 
