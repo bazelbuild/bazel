@@ -374,6 +374,7 @@ function test_resource_flags_syntax() {
   # part of the build, so this flag, which we should test here, isn't
   # available: --experimental_include_scanning_parallelism="${threads}"
   bazel build --nobuild \
+      --experimental_fsvc_threads="${threads}" \
       --experimental_sandbox_async_tree_delete_idle_threads="${threads}" \
       --jobs="${threads}" \
       --legacy_globbing_threads="${threads}" \

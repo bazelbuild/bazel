@@ -1258,7 +1258,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected Differencer.Diff getDiff(
       TimestampGranularityMonitor tsgm,
       Collection<PathFragment> modifiedSourceFiles,
-      final Root pathEntry)
+      final Root pathEntry,
+      int fsvcThreads)
       throws InterruptedException {
     if (modifiedSourceFiles.isEmpty()) {
       return new ImmutableDiff(ImmutableList.<SkyKey>of(), ImmutableMap.<SkyKey, SkyValue>of());
@@ -1280,7 +1281,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     logger.info(
         "About to recompute filesystem nodes corresponding to files that are known to have "
             + "changed");
-    FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, null);
+    FilesystemValueChecker fsvc =
+        new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
     Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
     Differencer.DiffWithDelta diff =
         fsvc.getNewAndOldValues(valuesMap, dirtyFileStateSkyKeys, new FileDirtinessChecker());
@@ -2807,7 +2809,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public abstract void detectModifiedOutputFiles(
       ModifiedFileSet modifiedOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange,
-      boolean trustRemoteArtifacts)
+      boolean trustRemoteArtifacts,
+      int fsvcThreads)
       throws AbruptExitException, InterruptedException;
 
   /**

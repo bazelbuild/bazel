@@ -450,7 +450,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   private Collection<SkyKey> dirtyValues() throws InterruptedException {
     Diff diff =
-        new FilesystemValueChecker(new TimestampGranularityMonitor(BlazeClock.instance()), null)
+        new FilesystemValueChecker(
+                new TimestampGranularityMonitor(BlazeClock.instance()),
+                /* lastExecutionTimeRange= */ null,
+                /* numThreads= */ 20)
             .getDirtyKeys(
                 skyframeExecutor.getEvaluatorForTesting().getValues(),
                 new BasicFilesystemDirtinessChecker());

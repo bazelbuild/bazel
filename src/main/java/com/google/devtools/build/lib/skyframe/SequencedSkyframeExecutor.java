@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
@@ -345,14 +346,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
       }
     }
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
+    // but plumbing the flag through is hard.
+    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
     handleDiffsWithCompleteDiffInformation(
-        tsgm, modifiedFilesByPathEntry, managedDirectoriesChanged);
+        tsgm, modifiedFilesByPathEntry, managedDirectoriesChanged, fsvcThreads);
     handleDiffsWithMissingDiffInformation(
         eventHandler,
         tsgm,
         pathEntriesWithoutDiffInformation,
         checkOutputFiles,
-        managedDirectoriesChanged);
+        managedDirectoriesChanged,
+        fsvcThreads);
     handleClientEnvironmentChanges();
   }
 
@@ -416,7 +422,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private void handleDiffsWithCompleteDiffInformation(
       TimestampGranularityMonitor tsgm,
       Map<Root, ProcessableModifiedFileSet> modifiedFilesByPathEntry,
-      boolean managedDirectoriesChanged)
+      boolean managedDirectoriesChanged,
+      int fsvcThreads)
       throws InterruptedException {
     for (Root pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
       DiffAwarenessManager.ProcessableModifiedFileSet processableModifiedFileSet =
@@ -425,7 +432,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
       handleChangedFiles(
           ImmutableList.of(pathEntry),
-          getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry),
+          getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry, fsvcThreads),
           /*numSourceFilesCheckedIfDiffWasMissing=*/ 0,
           managedDirectoriesChanged);
       processableModifiedFileSet.markProcessed();
@@ -441,7 +448,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       TimestampGranularityMonitor tsgm,
       Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation,
       boolean checkOutputFiles,
-      boolean managedDirectoriesChanged)
+      boolean managedDirectoriesChanged,
+      int fsvcThreads)
       throws InterruptedException {
     ExternalFilesKnowledge externalFilesKnowledge =
         externalFilesHelper.getExternalFilesKnowledge();
@@ -465,7 +473,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             .build();
     getDriver().evaluate(ImmutableList.of(), evaluationContext);
 
-    FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, null);
+    FilesystemValueChecker fsvc =
+        new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
     // We need to manually check for changes to known files. This entails finding all dirty file
     // system values under package roots for which we don't have diff information. If at least
     // one path entry doesn't have diff information, then we're going to have to iterate over
@@ -674,10 +683,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
-          new FilesystemValueChecker(tsgm, null)
+          new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, /* numThreads= */ 20)
               .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
-      diff = getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry);
+      diff = getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry, /* fsvcThreads= */ 20);
     }
     syscalls.set(getPerBuildSyscallCache(/*concurrencyLevel=*/ 42));
     recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
@@ -696,11 +705,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void detectModifiedOutputFiles(
       ModifiedFileSet modifiedOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange,
-      boolean trustRemoteArtifacts)
+      boolean trustRemoteArtifacts,
+      int fsvcThreads)
       throws InterruptedException {
     long startTime = System.nanoTime();
     FilesystemValueChecker fsvc =
-        new FilesystemValueChecker(Preconditions.checkNotNull(tsgm.get()), lastExecutionTimeRange);
+        new FilesystemValueChecker(
+            Preconditions.checkNotNull(tsgm.get()), lastExecutionTimeRange, fsvcThreads);
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
     recordingDiffer.invalidate(
         fsvc.getDirtyActionValues(

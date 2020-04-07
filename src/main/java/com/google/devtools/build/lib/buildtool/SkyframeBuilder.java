@@ -115,8 +115,12 @@ public class SkyframeBuilder implements Builder {
       TopLevelArtifactContext topLevelArtifactContext,
       boolean trustRemoteArtifacts)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
+    // but plumbing the flag through is hard.
+    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
     skyframeExecutor.detectModifiedOutputFiles(
-        modifiedOutputFiles, lastExecutionTimeRange, trustRemoteArtifacts);
+        modifiedOutputFiles, lastExecutionTimeRange, trustRemoteArtifacts, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
     }

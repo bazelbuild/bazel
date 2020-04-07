@@ -463,6 +463,27 @@ public class BuildRequestOptions extends OptionsBase {
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
 
+  /** Converter for filesystem value checker threads. */
+  public static class ThreadConverter extends ResourceConverter {
+    public ThreadConverter() {
+      super(
+          /* autoSupplier= */ () ->
+              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
+          /* minValue= */ 1,
+          /* maxValue= */ Integer.MAX_VALUE);
+    }
+  }
+
+  @Option(
+      name = "experimental_fsvc_threads",
+      defaultValue = "200",
+      converter = ThreadConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "The number of threads that are used by the FileSystemValueChecker.")
+  public int fsvcThreads;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
