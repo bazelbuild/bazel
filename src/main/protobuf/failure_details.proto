@@ -141,6 +141,10 @@ message RemoteOptions {
     REMOTE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR = 1
         [(metadata) = { exit_code: 2 }];
+    // Credentials could not be read from the requested file/socket/process/etc.
+    CREDENTIALS_READ_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+    // Credentials could not be written to a shared, temporary file.
+    CREDENTIALS_WRITE_FAILURE = 3 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
