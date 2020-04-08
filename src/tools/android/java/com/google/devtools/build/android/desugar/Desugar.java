@@ -326,19 +326,6 @@ public class Desugar {
         help = "Method invocations not to rewrite, given as \"class/Name#method\".")
     public List<String> dontTouchCoreLibraryMembers;
 
-    /** Converter functions from undesugared to desugared core library types. */
-    @Option(
-        name = "from_core_library_conversion",
-        defaultValue = "null",
-        allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Core library conversion functions given as \"class/Name=my/Converter\".  The"
-                + " specified Converter class must have a public static method named"
-                + " \"from<Name>\".")
-    public List<String> fromCoreLibraryConversions;
-
     @Option(
         name = "preserve_core_library_override",
         defaultValue = "null",
@@ -513,7 +500,6 @@ public class Desugar {
                   options.emulateCoreLibraryInterfaces,
                   options.retargetCoreLibraryMembers,
                   options.dontTouchCoreLibraryMembers,
-                  options.fromCoreLibraryConversions,
                   options.preserveCoreLibraryOverrides)
               : null;
 
