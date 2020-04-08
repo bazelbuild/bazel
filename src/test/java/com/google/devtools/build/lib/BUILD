@@ -618,6 +618,7 @@ test_suite(
         "//src/test/java/com/google/devtools/build/lib/unsafe:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/util:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/vfs:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/windows:all_windows_tests",
     ],
     visibility = ["//src:__pkg__"],
 )
