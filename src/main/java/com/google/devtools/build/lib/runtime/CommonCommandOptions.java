@@ -222,18 +222,6 @@ public class CommonCommandOptions extends OptionsBase {
   public String oomMessage;
 
   @Option(
-      name = "incompatible_remove_binary_profile",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, Bazel will write JSON-format profiles instead of binary profiles.")
-  public boolean removeBinaryProfile;
-
-  @Option(
       name = "incompatible_enable_profile_by_default",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
