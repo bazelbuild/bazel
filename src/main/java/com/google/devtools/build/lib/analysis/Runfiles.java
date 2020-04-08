@@ -744,13 +744,13 @@ public final class Runfiles implements RunfilesApi {
               (previous == null) ? "empty file" : previous.getExecPath().toString();
           String artifactStr =
               (artifact == null) ? "empty file" : artifact.getExecPath().toString();
-          String message =
-              String.format(
-                  "overwrote runfile %s, was symlink to %s, now symlink to %s",
-                  path.getSafePathString(),
-                  previousStr,
-                  artifactStr);
-          eventHandler.handle(Event.of(eventKind, location, message));
+          if (!previousStr.equals(artifactStr)) {
+            String message =
+                String.format(
+                    "overwrote runfile %s, was symlink to %s, now symlink to %s",
+                    path.getSafePathString(), previousStr, artifactStr);
+            eventHandler.handle(Event.of(eventKind, location, message));
+          }
         }
       }
       map.put(path, artifact);
