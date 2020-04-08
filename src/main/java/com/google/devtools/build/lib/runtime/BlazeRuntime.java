@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
+import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LogHandlerQuerier;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -1215,11 +1216,21 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
+    PathFragment failureDetailOut = startupOptions.failureDetailOut;
 
     maybeForceJNIByGettingPid(installBase); // Must be before first use of JNI.
 
-    // From the point of view of the Java program --install_base, --output_base, and
-    // --output_user_root are mandatory options, despite the comment in their declarations.
+    // From the point of view of the Java program --install_base, --output_base, --output_user_root,
+    // and --failure_detail_out are mandatory options, despite the comment in their declarations.
+
+    // Set up the failure detail path first, so that it can communicate problems with the other
+    // flags.
+    if (failureDetailOut == null || !failureDetailOut.isAbsolute()) { // (includes "" default case)
+      throw new IllegalArgumentException(
+          "Bad --failure_detail_out option specified: '" + failureDetailOut + "'");
+    }
+    CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
+
     if (installBase == null || !installBase.isAbsolute()) { // (includes "" default case)
       throw new IllegalArgumentException(
           "Bad --install_base option specified: '" + installBase + "'");
