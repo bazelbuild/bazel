@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
-import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipeline;
+import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipelineImpl;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -118,7 +118,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
               .getWorkspace();
       String ownerTargetName = ruleContext.getLabel().getName();
       List<NinjaTarget> ninjaTargets =
-          new NinjaPipeline(
+          new NinjaPipelineImpl(
                   workspace.getRelative(workingDirectory),
                   MoreExecutors.listeningDecorator(NINJA_POOL),
                   childNinjaFiles,

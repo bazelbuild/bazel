@@ -92,6 +92,7 @@ message FailureDetail {
     BuildProgress build_progress = 104;
     RemoteOptions remote_options = 106;
     ClientEnvironment client_environment = 107;
+    Crash crash = 108;
   }
 
   reserved 102; // For internal use
@@ -152,4 +153,25 @@ message ClientEnvironment {
   }
 
   Code code = 1;
+}
+
+message Crash {
+  enum Code { CRASH_UNKNOWN = 0 [(metadata) = { exit_code: 37 }]; }
+
+  Code code = 1;
+
+  // The cause chain of the crash, with the outermost throwable first. Limited
+  // to the outermost exception and at most 4 nested causes (so, max size of 5).
+  repeated Throwable causes = 2;
+}
+
+message Throwable {
+  // The class name of the java.lang.Throwable.
+  string throwable_class = 1;
+  // The throwable's message.
+  string message = 2;
+  // The result of calling toString on the deepest (i.e. closest to the
+  // throwable's construction site) 1000 (or fewer) StackTraceElements.
+  // Unstructured to simplify string matching.
+  repeated string stack_trace = 3;
 }

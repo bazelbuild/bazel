@@ -278,11 +278,15 @@ public class ShadowedAndroidApiAdapterTest {
           MethodNode method) {
     assertThat(
             findMethodInvocations(
-                method, "desugar/runtime/typeadapter/javadesugar/testing/CuboidConverter", "from"))
+                method,
+                "com/google/devtools/build/android/desugar/typeadapter/javadesugar/testing/CuboidConverter",
+                "from"))
         .isEmpty();
     assertThat(
             findMethodInvocations(
-                method, "desugar/runtime/typeadapter/javadesugar/testing/CuboidConverter", "to"))
+                method,
+                "com/google/devtools/build/android/desugar/typeadapter/javadesugar/testing/CuboidConverter",
+                "to"))
         .isNotEmpty();
   }
 
@@ -296,16 +300,20 @@ public class ShadowedAndroidApiAdapterTest {
     assertThat(
             findMethodInvocations(
                 method,
-                "desugar/runtime/typeadapter/android/testing/CuboidInflaterAdapter",
+                "com/google/devtools/build/android/desugar/typeadapter/android/testing/CuboidInflaterAdapter",
                 "inflateStatic"))
         .isNotEmpty();
     assertThat(
             findMethodInvocations(
-                method, "desugar/runtime/typeadapter/javadesugar/testing/CuboidConverter", "from"))
+                method,
+                "com/google/devtools/build/android/desugar/typeadapter/javadesugar/testing/CuboidConverter",
+                "from"))
         .isEmpty();
     assertThat(
             findMethodInvocations(
-                method, "desugar/runtime/typeadapter/javadesugar/testing/CuboidConverter", "to"))
+                method,
+                "com/google/devtools/build/android/desugar/typeadapter/javadesugar/testing/CuboidConverter",
+                "to"))
         .isEmpty();
   }
 
@@ -319,16 +327,20 @@ public class ShadowedAndroidApiAdapterTest {
     assertThat(
             findMethodInvocations(
                 method,
-                "desugar/runtime/typeadapter/android/testing/CuboidInflaterAdapter",
+                "com/google/devtools/build/android/desugar/typeadapter/android/testing/CuboidInflaterAdapter",
                 "inflateInstance"))
         .isNotEmpty();
     assertThat(
             findMethodInvocations(
-                method, "desugar/runtime/typeadapter/javadesugar/testing/CuboidConverter", "from"))
+                method,
+                "com/google/devtools/build/android/desugar/typeadapter/javadesugar/testing/CuboidConverter",
+                "from"))
         .isEmpty();
     assertThat(
             findMethodInvocations(
-                method, "desugar/runtime/typeadapter/javadesugar/testing/CuboidConverter", "to"))
+                method,
+                "com/google/devtools/build/android/desugar/typeadapter/javadesugar/testing/CuboidConverter",
+                "to"))
         .isEmpty();
   }
 

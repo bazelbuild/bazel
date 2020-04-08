@@ -158,6 +158,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("output_base");
   RegisterUnaryStartupFlag("output_user_root");
   RegisterUnaryStartupFlag("server_jvm_out");
+  RegisterUnaryStartupFlag("failure_detail_out");
 }
 
 StartupOptions::~StartupOptions() {}
@@ -272,6 +273,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
                                      "--server_jvm_out")) != NULL) {
     server_jvm_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["server_jvm_out"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--failure_detail_out")) !=
+             NULL) {
+    failure_detail_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    option_sources["failure_detail_out"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
              NULL) {
     host_jvm_profile = value;

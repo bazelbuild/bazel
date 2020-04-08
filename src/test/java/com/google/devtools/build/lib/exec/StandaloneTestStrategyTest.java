@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -468,7 +467,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   @Test
   public void testThatTestLogAndOutputAreReturned() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
-    executionOptions.testOutput = TestOutputFormat.ERRORS;
+    executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ERRORS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
@@ -558,7 +557,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   @Test
   public void testThatTestLogAndOutputAreReturnedWithSplitXmlGeneration() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
-    executionOptions.testOutput = TestOutputFormat.ERRORS;
+    executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ERRORS;
     executionOptions.splitXmlGeneration = true;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
@@ -654,7 +653,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   @Test
   public void testEmptyOutputCreatesEmptyLogFile() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
-    executionOptions.testOutput = TestOutputFormat.ALL;
+    executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ALL;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
@@ -710,7 +709,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   @Test
   public void testAppendStdErrDoesNotBusyLoop() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
-    executionOptions.testOutput = TestOutputFormat.ALL;
+    executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ALL;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =

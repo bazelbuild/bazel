@@ -125,11 +125,18 @@ import javax.annotation.concurrent.Immutable;
 public class RuleClass {
 
   /**
-   * Maximum attributes per RuleClass. Current value was chosen high enough to be considered a
+   * Maximum attributes per RuleClass. Current value was chosen to be high enough to be considered a
    * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
    * headroom before hitting {@link AttributeContainer}'s limits.
    */
   private static final int MAX_ATTRIBUTES = 200;
+
+  /**
+   * Maximum attribute name length. Chosen to accommodate existing and prevent extreme outliers from
+   * forming - extreme values create bloat, both in memory usage and various outputs, including but
+   * not limited to, query output.
+   */
+  private static final int MAX_ATTRIBUTE_NAME_LENGTH = 128;
 
   @AutoCodec
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
@@ -794,14 +801,8 @@ public class RuleClass {
       Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
       type.checkName(name);
 
-      Preconditions.checkArgument(
-          attributes.size() <= MAX_ATTRIBUTES,
-          "Rule class %s declared too many attributes (%s > %s)",
-          name,
-          attributes.size(),
-          MAX_ATTRIBUTES);
+      checkAttributes(name, type, attributes);
 
-      type.checkAttributes(attributes);
       Preconditions.checkState(
           (type == RuleClassType.ABSTRACT)
               == (configuredTargetFactory == null && configuredTargetFunction == null),
@@ -875,6 +876,30 @@ public class RuleClass {
           outputFileKind,
           attributes.values(),
           buildSetting);
+    }
+
+    private static void checkAttributes(
+        String ruleClassName, RuleClassType ruleClassType, Map<String, Attribute> attributes) {
+      Preconditions.checkArgument(
+          attributes.size() <= MAX_ATTRIBUTES,
+          "Rule class %s declared too many attributes (%s > %s)",
+          ruleClassName,
+          attributes.size(),
+          MAX_ATTRIBUTES);
+
+      for (String attributeName : attributes.keySet()) {
+        // TODO(b/151171037): This check would make more sense at Attribute creation time, but the
+        // use of unchecked exceptions in these APIs makes it brittle.
+        Preconditions.checkArgument(
+            attributeName.length() <= MAX_ATTRIBUTE_NAME_LENGTH,
+            "Attribute %s.%s's name is too long (%s > %s)",
+            ruleClassName,
+            attributeName,
+            attributeName.length(),
+            MAX_ATTRIBUTE_NAME_LENGTH);
+      }
+
+      ruleClassType.checkAttributes(attributes);
     }
 
     private void assertSkylarkRuleClassHasImplementationFunction() {
@@ -1161,6 +1186,9 @@ public class RuleClass {
      *
      * <p>Typically rule classes should only declare a handful of attributes - this expectation is
      * enforced when the instance is built.
+     *
+     * <p>Attribute names should be meaningful but short; overly long names are rejected at
+     * instantiation.
      */
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       addAttribute(attr.build());

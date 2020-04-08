@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.profiler.Profiler.Format;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
-import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
@@ -77,6 +75,7 @@ import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
+import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LogHandlerQuerier;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -365,10 +364,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       ImmutableSet<ProfilerTask> profiledTasks = profiledTasksBuilder.build();
       if (!profiledTasks.isEmpty()) {
-        if (options.enableJsonProfileDiet && options.includePrimaryOutput) {
+        if (options.slimProfile && options.includePrimaryOutput) {
           eventHandler.handle(
               Event.warn(
-                  "Enabling both --experimental_slim_json_profile and"
+                  "Enabling both --slim_profile and"
                       + " --experimental_include_primary_output: the \"out\" field"
                       + " will be omitted in merged actions."));
         }
@@ -383,7 +382,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             clock,
             execStartTimeNanos,
             options.enableCpuUsageProfiling,
-            options.enableJsonProfileDiet,
+            options.slimProfile,
             options.includePrimaryOutput);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
@@ -447,8 +446,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /**
-   * Returns the {@link QueryEnvironmentFactory} that should be used to create a
-   * {@link AbstractBlazeQueryEnvironment}, whenever one is needed.
+   * Returns the {@link QueryEnvironmentFactory} that should be used to create a {@link
+   * com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment}, whenever one is
+   * needed.
    */
   public QueryEnvironmentFactory getQueryEnvironmentFactory() {
     return queryEnvironmentFactory;
@@ -1216,11 +1216,21 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
+    PathFragment failureDetailOut = startupOptions.failureDetailOut;
 
     maybeForceJNIByGettingPid(installBase); // Must be before first use of JNI.
 
-    // From the point of view of the Java program --install_base, --output_base, and
-    // --output_user_root are mandatory options, despite the comment in their declarations.
+    // From the point of view of the Java program --install_base, --output_base, --output_user_root,
+    // and --failure_detail_out are mandatory options, despite the comment in their declarations.
+
+    // Set up the failure detail path first, so that it can communicate problems with the other
+    // flags.
+    if (failureDetailOut == null || !failureDetailOut.isAbsolute()) { // (includes "" default case)
+      throw new IllegalArgumentException(
+          "Bad --failure_detail_out option specified: '" + failureDetailOut + "'");
+    }
+    CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
+
     if (installBase == null || !installBase.isAbsolute()) { // (includes "" default case)
       throw new IllegalArgumentException(
           "Bad --install_base option specified: '" + installBase + "'");
@@ -1458,8 +1468,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /**
    * A builder for {@link BlazeRuntime} objects. The only required fields are the {@link
-   * BlazeDirectories}, and the {@link RuleClassProvider} (except for testing). All other fields
-   * have safe default values.
+   * BlazeDirectories}, and the {@link com.google.devtools.build.lib.packages.RuleClassProvider}
+   * (except for testing). All other fields have safe default values.
    *
    * <p>The default behavior of the BlazeRuntime's EventBus is to exit the JVM when a subscriber
    * throws an exception. Please plan appropriately.

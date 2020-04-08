@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.syntax.Location.LineAndColumn;
-import com.google.devtools.build.lib.util.Pair;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -51,7 +50,6 @@ public class LineNumberTableTest {
     assertThat(table.getLineAndColumn(0)).isEqualTo(new LineAndColumn(1, 1));
     assertThat(table.getLineAndColumn(1)).isEqualTo(new LineAndColumn(1, 2));
     assertThat(table.getLineAndColumn(2)).isEqualTo(new LineAndColumn(1, 3));
-    assertThat(table.getOffsetsForLine(1)).isEqualTo(Pair.of(0, 3));
   }
 
   @Test
@@ -60,28 +58,23 @@ public class LineNumberTableTest {
 
     // \n
     assertThat(table.getLineAndColumn(0)).isEqualTo(new LineAndColumn(1, 1));
-    assertThat(table.getOffsetsForLine(1)).isEqualTo(Pair.of(0, 1));
 
     // two\n
     assertThat(table.getLineAndColumn(1)).isEqualTo(new LineAndColumn(2, 1));
     assertThat(table.getLineAndColumn(2)).isEqualTo(new LineAndColumn(2, 2));
     assertThat(table.getLineAndColumn(3)).isEqualTo(new LineAndColumn(2, 3));
     assertThat(table.getLineAndColumn(4)).isEqualTo(new LineAndColumn(2, 4));
-    assertThat(table.getOffsetsForLine(2)).isEqualTo(Pair.of(1, 5));
 
     // three\n
     assertThat(table.getLineAndColumn(5)).isEqualTo(new LineAndColumn(3, 1));
     assertThat(table.getLineAndColumn(10)).isEqualTo(new LineAndColumn(3, 6));
-    assertThat(table.getOffsetsForLine(3)).isEqualTo(Pair.of(5, 11));
 
     // \n
     assertThat(table.getLineAndColumn(11)).isEqualTo(new LineAndColumn(4, 1));
-    assertThat(table.getOffsetsForLine(4)).isEqualTo(Pair.of(11, 12));
 
     // five\n
     assertThat(table.getLineAndColumn(12)).isEqualTo(new LineAndColumn(5, 1));
     assertThat(table.getLineAndColumn(16)).isEqualTo(new LineAndColumn(5, 5));
-    assertThat(table.getOffsetsForLine(5)).isEqualTo(Pair.of(12, 17));
   }
 
   @Test

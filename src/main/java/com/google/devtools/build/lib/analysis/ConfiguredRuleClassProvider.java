@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -43,7 +44,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -97,23 +96,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
 
     public boolean apply(
         BuildOptions newOptions, OptionDefinition option, Object oldValue, Object newValue);
-  }
-
-  /**
-   * Custom dependency validation logic.
-   */
-  public interface PrerequisiteValidator {
-    /**
-     * Checks whether the rule in {@code contextBuilder} is allowed to depend on {@code
-     * prerequisite} through the attribute {@code attribute}.
-     *
-     * <p>Can be used for enforcing any organization-specific policies about the layout of the
-     * workspace.
-     */
-    void validate(
-        RuleContext.Builder contextBuilder,
-        ConfiguredTargetAndData prerequisite,
-        Attribute attribute);
   }
 
   /**

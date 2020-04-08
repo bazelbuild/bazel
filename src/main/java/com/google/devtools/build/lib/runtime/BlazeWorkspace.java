@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.profiler.AutoProfiler.profiledAndLogged;
+import static com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils.profiledAndLogged;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
@@ -227,13 +227,13 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns reference to the lazily instantiated persistent action cache
-   * instance. Note, that method may recreate instance between different build
-   * requests, so return value should not be cached.
+   * Returns reference to the lazily instantiated persistent action cache instance. Note, that
+   * method may recreate instance between different build requests, so return value should not be
+   * cached.
    */
-  public ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
+  ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
-      try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO, logger)) {
+      try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO)) {
         try {
           actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
         } catch (IOException e) {

@@ -58,9 +58,9 @@ java_library(
         ]),
     deps = [
         ":profiler",
-        "//src/main/java/com/google/devtools/build/lib:base-util",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:auto_value",
         "//third_party:gson",

@@ -20,9 +20,9 @@ java_test(
     ],
     tags = ["manual"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules-without-workspaces",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",

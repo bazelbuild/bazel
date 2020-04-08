@@ -20,7 +20,7 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.util.SpellChecker;
+import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
@@ -228,22 +228,25 @@ public final class EvalUtils {
 
   /**
    * Returns a pretty name for the datatype equivalent of class 'c' in the Build language.
+   *
    * @param highlightNameSpaces Determines whether the result should also contain a special comment
-   * when the given class identifies a Skylark name space.
+   *     when the given class identifies a Skylark name space.
    */
-  public static String getDataTypeNameFromClass(Class<?> c, boolean highlightNameSpaces) {
-    SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(c);
-    if (module != null) {
-      return module.name()
-          + ((module.namespace() && highlightNameSpaces) ? " (a language module)" : "");
-    } else if (c.equals(Object.class)) {
-      return "unknown";
-    } else if (c.equals(String.class)) {
+  private static String getDataTypeNameFromClass(Class<?> c, boolean highlightNameSpaces) {
+    // Check for "direct hits" first to avoid needing to scan for annotations.
+    if (c.equals(String.class)) {
       return "string";
     } else if (c.equals(Integer.class)) {
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
+    }
+
+    SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(c);
+    if (module != null) {
+      return module.namespace() && highlightNameSpaces
+          ? module.name() + " (a language module)"
+          : module.name();
     } else if (List.class.isAssignableFrom(c)) { // This is a Java List that isn't a Sequence
       return "List"; // This case shouldn't happen in normal code, but we keep it for debugging.
     } else if (Map.class.isAssignableFrom(c)) { // This is a Java Map that isn't a Dict
@@ -251,12 +254,11 @@ public final class EvalUtils {
     } else if (StarlarkCallable.class.isAssignableFrom(c)) {
       // TODO(adonovan): each StarlarkCallable should report its own type string.
       return "function";
+    } else if (c.equals(Object.class)) {
+      return "unknown";
     } else {
-      if (c.getSimpleName().isEmpty()) {
-        return c.getName();
-      } else {
-        return c.getSimpleName();
-      }
+      String simpleName = c.getSimpleName();
+      return simpleName.isEmpty() ? c.getName() : simpleName;
     }
   }
 

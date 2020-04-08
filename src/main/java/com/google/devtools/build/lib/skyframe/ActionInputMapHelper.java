@@ -87,7 +87,7 @@ class ActionInputMapHelper {
     } else if (value instanceof ActionExecutionValue) {
       inputMap.put(
           key,
-          ArtifactFunction.createSimpleFileArtifactValue(
+          ActionExecutionValue.createSimpleFileArtifactValue(
               (Artifact.DerivedArtifact) key, (ActionExecutionValue) value),
           key);
       if (key.isFileset()) {

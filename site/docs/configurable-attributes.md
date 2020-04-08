@@ -180,7 +180,7 @@ flag for `IncludeSpecialProjectFeatureX`.
 
 Plans for [truly custom flags](
 https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
-are underway. In the meantime, [`--define`](user-manual.html#flag--define) is
+are underway. In the meantime, [`--define`](command-line-reference.html#flag--define) is
 the best approach for these purposes.
 `--define` is a bit awkward to use and wasn't originally designed for this
 purpose. We recommend using it sparingly until true custom flags are available.

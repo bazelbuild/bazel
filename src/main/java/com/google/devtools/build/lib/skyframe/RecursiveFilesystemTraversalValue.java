@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.FileType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -105,6 +104,146 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
    */
   public NestedSet<ResolvedFile> getTransitiveFiles() {
     return resolvedPaths;
+  }
+
+  /** Type information about the filesystem entry residing at a path. */
+  enum FileType {
+    /** A regular file. */
+    FILE {
+      @Override
+      boolean isFile() {
+        return true;
+      }
+
+      @Override
+      boolean exists() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<f>";
+      }
+    },
+    /**
+     * A symlink to a regular file.
+     *
+     * <p>The symlink may be direct (points to a non-symlink (here a file)) or it may be transitive
+     * (points to a direct or transitive symlink).
+     */
+    SYMLINK_TO_FILE {
+      @Override
+      boolean isFile() {
+        return true;
+      }
+
+      @Override
+      boolean isSymlink() {
+        return true;
+      }
+
+      @Override
+      boolean exists() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<lf>";
+      }
+    },
+    /** A directory. */
+    DIRECTORY {
+      @Override
+      boolean isDirectory() {
+        return true;
+      }
+
+      @Override
+      boolean exists() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<d>";
+      }
+    },
+    /**
+     * A symlink to a directory.
+     *
+     * <p>The symlink may be direct (points to a non-symlink (here a directory)) or it may be
+     * transitive (points to a direct or transitive symlink).
+     */
+    SYMLINK_TO_DIRECTORY {
+      @Override
+      boolean isDirectory() {
+        return true;
+      }
+
+      @Override
+      boolean isSymlink() {
+        return true;
+      }
+
+      @Override
+      boolean exists() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<ld>";
+      }
+    },
+    /** A dangling symlink, i.e. one whose target is known not to exist. */
+    DANGLING_SYMLINK {
+      @Override
+      boolean isFile() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      boolean isDirectory() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      boolean isSymlink() {
+        return true;
+      }
+
+      @Override
+      public String toString() {
+        return "<l?>";
+      }
+    },
+    /** A path that does not exist or should be ignored. */
+    NONEXISTENT {
+      @Override
+      public String toString() {
+        return "<?>";
+      }
+    };
+
+    boolean isFile() {
+      return false;
+    }
+
+    boolean isDirectory() {
+      return false;
+    }
+
+    boolean isSymlink() {
+      return false;
+    }
+
+    boolean exists() {
+      return false;
+    }
+
+    @Override
+    public abstract String toString();
   }
 
   /** The parameters of a file or directory traversal. */

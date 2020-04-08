@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ProjectFile;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -31,7 +30,8 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 
 /**
- * Provides support for implementations for {@link BlazeCommand} to work with {@link ProjectFile}.
+ * Provides support for implementations for {@link
+ * com.google.devtools.build.lib.runtime.BlazeCommand} to work with {@link ProjectFile}.
  */
 public final class ProjectFileSupport {
   static final String PROJECT_FILE_PREFIX = "+";

@@ -18,7 +18,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
@@ -574,7 +573,7 @@ public final class Starlark {
    * <p>In addition to the program, it returns the validated syntax tree. This permits clients such
    * as Bazel to inspect the syntax (for BUILD dialect checks, glob prefetching, etc.)
    */
-  public static Pair<Program, StarlarkFile> compileFile(
+  public static Object /*Pair<Program, StarlarkFile>*/ compileFile(
       ParserInput input, //
       Set<String> predeclared,
       StarlarkSemantics semantics)

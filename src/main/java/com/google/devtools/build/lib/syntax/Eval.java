@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.util.SpellChecker;
+import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;

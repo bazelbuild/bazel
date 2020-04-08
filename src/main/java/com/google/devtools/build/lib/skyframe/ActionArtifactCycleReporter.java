@@ -33,6 +33,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   private static final Predicate<SkyKey> IS_ARTIFACT_OR_ACTION_SKY_KEY =
       Predicates.or(
           SkyFunctions.isSkyFunction(Artifact.ARTIFACT),
+          SkyFunctions.isSkyFunction(SkyFunctions.ARTIFACT_NESTED_SET),
           SkyFunctions.isSkyFunction(SkyFunctions.ACTION_EXECUTION),
           SkyFunctions.isSkyFunction(SkyFunctions.TARGET_COMPLETION),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT_COMPLETION),
@@ -92,5 +93,13 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
     return IS_ARTIFACT_OR_ACTION_SKY_KEY.test(topLevelKey)
         && cycleInfo.getCycle().stream().allMatch(IS_ARTIFACT_OR_ACTION_SKY_KEY);
+  }
+
+  @Override
+  protected boolean shouldSkipIntermediateKeyOnCycle(SkyKey key) {
+    // ArtifactNestedSetKey isn't worth reporting to the user - it is just an optimization, and will
+    // always be an intermediate member of a cycle. It may contain artifacts irrelevant to the
+    // cycle, and may be nested several layers deep.
+    return key instanceof ArtifactNestedSetKey;
   }
 }

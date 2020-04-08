@@ -24,12 +24,12 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:bug-report",
-        "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
@@ -71,8 +71,8 @@ java_library(
     ],
     deps = [
         ":nestedset",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],

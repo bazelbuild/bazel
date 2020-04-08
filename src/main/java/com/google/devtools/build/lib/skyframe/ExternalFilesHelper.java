@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -144,11 +142,14 @@ public class ExternalFilesHelper {
      * Bazel to assume these paths are immutable.
      *
      * <p>Note that {@link ExternalFilesHelper#maybeHandleExternalFile} is only used for {@link
-     * FileStateValue} and {@link DirectoryListingStateValue}, and also note that output files do
-     * not normally have corresponding {@link FileValue} instances (and thus also {@link
-     * FileStateValue} instances) in the Skyframe graph ({@link ArtifactFunction} only uses {@link
-     * FileValue}s for source files). But {@link FileStateValue}s for output files can still make
-     * their way into the Skyframe graph if e.g. a source file is a symlink to an output file.
+     * com.google.devtools.build.lib.actions.FileStateValue} and {@link DirectoryListingStateValue},
+     * and also note that output files do not normally have corresponding {@link
+     * com.google.devtools.build.lib.actions.FileValue} instances (and thus also {@link
+     * com.google.devtools.build.lib.actions.FileStateValue} instances) in the Skyframe graph
+     * ({@link ArtifactFunction} only uses {@link com.google.devtools.build.lib.actions.FileValue}s
+     * for source files). But {@link com.google.devtools.build.lib.actions.FileStateValue}s for
+     * output files can still make their way into the Skyframe graph if e.g. a source file is a
+     * symlink to an output file.
      */
     // TODO(nharmata): Consider an alternative design where we have an OutputFileDiffAwareness. This
     // could work but would first require that we clean up all RootedPath usage.

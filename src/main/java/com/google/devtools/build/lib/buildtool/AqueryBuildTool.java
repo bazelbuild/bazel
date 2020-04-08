@@ -113,7 +113,7 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
         }
       }
       return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
-    } catch (CommandLineException | CommandLineExpansionException e) {
+    } catch (CommandLineExpansionException | CommandLineException e) {
       env.getReporter().handle(Event.error("Error while parsing command: " + e.getMessage()));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     } catch (IOException e) {

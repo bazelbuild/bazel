@@ -135,6 +135,10 @@ class StartupOptions {
   // Otherwise a default path in the output base is used.
   blaze_util::Path server_jvm_out;
 
+  // If supplied, alternate location to write a serialized failure_detail proto.
+  // Otherwise a default path in the output base is used.
+  blaze_util::Path failure_detail_out;
+
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.
   blaze_util::Path output_base;

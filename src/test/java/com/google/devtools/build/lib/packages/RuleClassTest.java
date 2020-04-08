@@ -32,6 +32,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1220,5 +1221,22 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("Rule class myclass declared too many attributes (201 > 200)");
+  }
+
+  @Test
+  public void testBuildTooLongAttributeNameRejected() {
+    IllegalArgumentException expected =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
+                    .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+                    .add(attr("tags", STRING_LIST))
+                    .add(attr(Strings.repeat("x", 150), STRING))
+                    .build());
+
+    assertThat(expected)
+        .hasMessageThat()
+        .matches("Attribute myclass\\.x{150}'s name is too long \\(150 > 128\\)");
   }
 }

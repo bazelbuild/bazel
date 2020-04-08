@@ -222,18 +222,6 @@ public class CommonCommandOptions extends OptionsBase {
   public String oomMessage;
 
   @Option(
-      name = "incompatible_remove_binary_profile",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, Bazel will write JSON-format profiles instead of binary profiles.")
-  public boolean removeBinaryProfile;
-
-  @Option(
       name = "incompatible_enable_profile_by_default",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -268,14 +256,6 @@ public class CommonCommandOptions extends OptionsBase {
   public TriState enableTracerCompression;
 
   @Option(
-      name = "experimental_post_profile_started_event",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will post the ProfilerStartedEvent including the path to the profile.")
-  public boolean postProfileStartedEvent;
-
-  @Option(
       name = "experimental_profile_cpu_usage",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -294,14 +274,15 @@ public class CommonCommandOptions extends OptionsBase {
   public List<ProfilerTask> additionalProfileTasks;
 
   @Option(
-      name = "experimental_slim_json_profile",
-      defaultValue = "false",
+      name = "slim_profile",
+      oldName = "experimental_slim_json_profile",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
               + " too large.")
-  public boolean enableJsonProfileDiet;
+  public boolean slimProfile;
 
   @Option(
       name = "experimental_include_primary_output",

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -239,33 +240,31 @@ public class ExecutionOptions extends OptionsBase {
   public PathFragment testTmpDir;
 
   @Option(
-    name = "test_output",
-    defaultValue = "summary",
-    converter = TestStrategy.TestOutputFormat.Converter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies desired output mode. Valid values are 'summary' to output only test status "
-            + "summary, 'errors' to also print test logs for failed tests, 'all' to print logs "
-            + "for all tests and 'streamed' to output logs for all tests in real time "
-            + "(this will force tests to be executed locally one at a time regardless of "
-            + "--test_strategy value)."
-  )
-  public TestStrategy.TestOutputFormat testOutput;
+      name = "test_output",
+      defaultValue = "summary",
+      converter = TestOutputFormat.Converter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies desired output mode. Valid values are 'summary' to output only test status "
+              + "summary, 'errors' to also print test logs for failed tests, 'all' to print logs "
+              + "for all tests and 'streamed' to output logs for all tests in real time "
+              + "(this will force tests to be executed locally one at a time regardless of "
+              + "--test_strategy value).")
+  public TestOutputFormat testOutput;
 
   @Option(
-    name = "test_summary",
-    defaultValue = "short",
-    converter = TestStrategy.TestSummaryFormat.Converter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies the desired format ot the test summary. Valid values are 'short' to print "
-            + "information only about tests executed, 'terse', to print information only about "
-            + "unsuccessful tests that were run, 'detailed' to print detailed information about "
-            + "failed test cases, and 'none' to omit the summary."
-  )
-  public TestStrategy.TestSummaryFormat testSummary;
+      name = "test_summary",
+      defaultValue = "short",
+      converter = TestSummaryFormat.Converter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies the desired format ot the test summary. Valid values are 'short' to print "
+              + "information only about tests executed, 'terse', to print information only about "
+              + "unsuccessful tests that were run, 'detailed' to print detailed information about "
+              + "failed test cases, and 'none' to omit the summary.")
+  public TestSummaryFormat testSummary;
 
   @Option(
     name = "resource_autosense",
@@ -477,6 +476,38 @@ public class ExecutionOptions extends OptionsBase {
               + "Bazel uses a separate action to generate a dummy test.xml file containing the "
               + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
+
+  /** An enum for specifying different formats of test output. */
+  public enum TestOutputFormat {
+    SUMMARY, // Provide summary output only.
+    ERRORS, // Print output from failed tests to the stderr after the test failure.
+    ALL, // Print output from all tests to the stderr after the test completion.
+    STREAMED; // Stream output for each test.
+
+    /** Converts to {@link TestOutputFormat}. */
+    public static class Converter extends EnumConverter<TestOutputFormat> {
+      public Converter() {
+        super(TestOutputFormat.class, "test output");
+      }
+    }
+  }
+
+  /** An enum for specifying different formatting styles of test summaries. */
+  public enum TestSummaryFormat {
+    SHORT, // Print information only about tests.
+    TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
+    DETAILED, // Print information only about failed test cases.
+    NONE, // Do not print summary.
+    TESTCASE; // Print summary in test case resolution, do not print detailed information about
+    // failed test cases.
+
+    /** Converts to {@link TestSummaryFormat}. */
+    public static class Converter extends EnumConverter<TestSummaryFormat> {
+      public Converter() {
+        super(TestSummaryFormat.class, "test summary");
+      }
+    }
+  }
 
   /** Converter for the --flaky_test_attempts option. */
   public static class TestAttemptsConverter extends PerLabelOptions.PerLabelOptionsConverter {

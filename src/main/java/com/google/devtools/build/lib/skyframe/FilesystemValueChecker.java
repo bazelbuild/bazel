@@ -76,22 +76,24 @@ import javax.annotation.Nullable;
  */
 public class FilesystemValueChecker {
 
-  private static final int DIRTINESS_CHECK_THREADS = 200;
   private static final Logger logger = Logger.getLogger(FilesystemValueChecker.class.getName());
 
   private static final Predicate<SkyKey> ACTION_FILTER =
       SkyFunctionName.functionIs(SkyFunctions.ACTION_EXECUTION);
 
   @Nullable private final TimestampGranularityMonitor tsgm;
-  @Nullable
-  private final Range<Long> lastExecutionTimeRange;
+  @Nullable private final Range<Long> lastExecutionTimeRange;
   private AtomicInteger modifiedOutputFilesCounter = new AtomicInteger(0);
   private AtomicInteger modifiedOutputFilesIntraBuildCounter = new AtomicInteger(0);
+  private final int numThreads;
 
   public FilesystemValueChecker(
-      @Nullable TimestampGranularityMonitor tsgm, @Nullable Range<Long> lastExecutionTimeRange) {
+      @Nullable TimestampGranularityMonitor tsgm,
+      @Nullable Range<Long> lastExecutionTimeRange,
+      int numThreads) {
     this.tsgm = tsgm;
     this.lastExecutionTimeRange = lastExecutionTimeRange;
+    this.numThreads = numThreads;
   }
   /**
    * Returns a {@link Differencer.DiffWithDelta} containing keys from the give map that are dirty
@@ -516,7 +518,7 @@ public class FilesystemValueChecker {
       throws InterruptedException {
     ExecutorService executor =
         Executors.newFixedThreadPool(
-            DIRTINESS_CHECK_THREADS,
+            numThreads,
             new ThreadFactoryBuilder().setNameFormat("FileSystem Value Invalidator %d").build());
 
     ThrowableRecordingRunnableWrapper wrapper =

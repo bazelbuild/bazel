@@ -1120,7 +1120,7 @@ sh_test(
         ":test-deps",
         "//src:embedded_jdk_allmodules",
         "//src:jdeps_modules.golden",
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["no_windows"],

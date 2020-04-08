@@ -12,9 +12,7 @@ java_library(
     resources = [":template_files"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:classpath-util",
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -35,6 +33,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/stubs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:classpath",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/android",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/apple",
@@ -59,7 +60,7 @@ java_binary(
     srcs = ["BuildEncyclopediaGenerator.java"],
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
     runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
     ],
     deps = [
         ":docgen_javalib",
@@ -73,7 +74,7 @@ java_binary(
     srcs = ["SkylarkDocumentationGenerator.java"],
     main_class = "com.google.devtools.build.docgen.SkylarkDocumentationGenerator",
     runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
     ],
     deps = [":docgen_javalib"],
 )

@@ -156,6 +156,24 @@ public interface MemoizingEvaluator {
     QueryableGraph transform(QueryableGraph graph);
 
     ProcessableGraph transform(ProcessableGraph graph);
+
+    GraphTransformerForTesting NO_OP =
+        new GraphTransformerForTesting() {
+          @Override
+          public InMemoryGraph transform(InMemoryGraph graph) {
+            return graph;
+          }
+
+          @Override
+          public QueryableGraph transform(QueryableGraph graph) {
+            return graph;
+          }
+
+          @Override
+          public ProcessableGraph transform(ProcessableGraph graph) {
+            return graph;
+          }
+        };
   }
 
   /**

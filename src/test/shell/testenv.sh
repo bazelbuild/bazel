@@ -271,9 +271,6 @@ common --show_progress_rate_limit=-1
 # Disable terminal-specific features.
 common --color=no --curses=no
 
-# TODO(#7899): Remove once we flip the flag default.
-build --incompatible_use_python_toolchains=true
-
 # Prevent SIGBUS during JVM actions.
 build --sandbox_tmpfs_path=/tmp
 

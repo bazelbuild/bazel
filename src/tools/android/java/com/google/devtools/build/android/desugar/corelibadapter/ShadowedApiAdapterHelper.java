@@ -30,7 +30,7 @@ import org.objectweb.asm.Type;
  * Static utilities that serve conversions between desugar-shadowed platform types and their
  * desugared-mirrored counterparts.
  */
-class ShadowedApiAdapterHelper {
+public class ShadowedApiAdapterHelper {
 
   private ShadowedApiAdapterHelper() {}
 
@@ -43,6 +43,11 @@ class ShadowedApiAdapterHelper {
    *     No in-process label, such as "__desugar__/", is attached to this invocation site.
    */
   static boolean shouldUseInlineTypeConversion(MethodInvocationSite verbatimInvocationSite) {
+    // Fix for b/153441709: Type adapter generation causes one-version violation.
+    // TODO(b/153486382): Use per-method adapter class instead.
+    if (verbatimInvocationSite.owner().hasPackagePrefix("android/app/usage/UsageStatsManager")) {
+      return true;
+    }
     return verbatimInvocationSite.isConstructorInvocation()
         && verbatimInvocationSite.owner().isInPackageEligibleForTypeAdapter()
         && Stream.concat(
@@ -92,7 +97,8 @@ class ShadowedApiAdapterHelper {
    * Returns an {@link MethodInvocationSite} that serves transforming a {@code
    * shadowedTypeName}-represented type to its desugar-mirrored counterpart.
    */
-  static MethodInvocationSite shadowedToMirroredTypeConversionSite(ClassName shadowedTypeName) {
+  public static MethodInvocationSite shadowedToMirroredTypeConversionSite(
+      ClassName shadowedTypeName) {
     checkArgument(
         shadowedTypeName.isDesugarShadowedType(),
         "Expected desugar-shadowed type: Actual (%s)",

@@ -74,7 +74,7 @@ public final class BazelPyRuleClasses {
                   .mandatoryProvidersList(
                       ImmutableList.of(
                           // Legacy provider.
-                          // TODO(#7010): Remove this legacy set.
+                          // TODO(b/153363654): Remove this legacy set.
                           ImmutableList.of(
                               SkylarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
                           // Modern provider.

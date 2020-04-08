@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
+import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Attribute;

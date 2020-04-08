@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -49,9 +48,9 @@ import java.util.Set;
 import java.util.logging.Logger;
 
 /**
- * A {@link RecursivePackageProvider} backed by a {@link WalkableGraph}, used by {@code
- * SkyQueryEnvironment} to look up the packages and targets matching the universe that's been
- * preloaded in {@code graph}.
+ * A {@link com.google.devtools.build.lib.pkgcache.RecursivePackageProvider} backed by a {@link
+ * WalkableGraph}, used by {@code SkyQueryEnvironment} to look up the packages and targets matching
+ * the universe that's been preloaded in {@code graph}.
  */
 @ThreadSafe
 public final class GraphBackedRecursivePackageProvider extends AbstractRecursivePackageProvider {

@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectResolver;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -101,7 +100,6 @@ public final class AspectFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
   private final BuildOptions defaultBuildOptions;
-  @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link AspectValue} will
    * be needed for package root resolution later in the build. If not, they are not collected and
@@ -112,12 +110,10 @@ public final class AspectFunction implements SkyFunction {
   AspectFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
-      @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining,
       boolean storeTransitivePackagesForPackageRootResolution,
       BuildOptions defaultBuildOptions) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
-    this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
     this.storeTransitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution;
     this.defaultBuildOptions = defaultBuildOptions;
@@ -131,16 +127,12 @@ public final class AspectFunction implements SkyFunction {
    */
   @Nullable
   static SkylarkDefinedAspect loadSkylarkDefinedAspect(
-      Environment env,
-      SkylarkAspectClass skylarkAspectClass,
-      @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
+      Environment env, SkylarkAspectClass skylarkAspectClass)
       throws AspectCreationException, InterruptedException {
     Label extensionLabel = skylarkAspectClass.getExtensionLabel();
     String skylarkValueName = skylarkAspectClass.getExportedName();
 
-    SkylarkAspect skylarkAspect =
-        loadSkylarkAspect(
-            env, extensionLabel, skylarkValueName, skylarkImportLookupFunctionForInlining);
+    SkylarkAspect skylarkAspect = loadSkylarkAspect(env, extensionLabel, skylarkValueName);
     if (skylarkAspect == null) {
       return null;
     }
@@ -161,24 +153,13 @@ public final class AspectFunction implements SkyFunction {
    */
   @Nullable
   static SkylarkAspect loadSkylarkAspect(
-      Environment env,
-      Label extensionLabel,
-      String skylarkValueName,
-      @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
+      Environment env, Label extensionLabel, String skylarkValueName)
       throws AspectCreationException, InterruptedException {
     SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel);
     try {
-      SkylarkImportLookupValue skylarkImportLookupValue;
-      if (skylarkImportLookupFunctionForInlining == null) {
-        // not inlining
-        skylarkImportLookupValue =
-            (SkylarkImportLookupValue)
-                env.getValueOrThrow(importFileKey, SkylarkImportFailedException.class);
-      } else {
-        skylarkImportLookupValue =
-            skylarkImportLookupFunctionForInlining.computeWithInlineCalls(
-                importFileKey, env, /*visitedDepsInToplevelLoad=*/ new HashMap<>());
-      }
+      SkylarkImportLookupValue skylarkImportLookupValue =
+          (SkylarkImportLookupValue)
+              env.getValueOrThrow(importFileKey, SkylarkImportFailedException.class);
       if (skylarkImportLookupValue == null) {
         Preconditions.checkState(
             env.valuesMissing(), "no Starlark import value for %s", importFileKey);
@@ -198,9 +179,7 @@ public final class AspectFunction implements SkyFunction {
                 "%s from %s is not an aspect", skylarkValueName, extensionLabel.toString()));
       }
       return (SkylarkAspect) skylarkValue;
-    } catch (SkylarkImportFailedException
-        | ConversionException
-        | InconsistentFilesystemException e) {
+    } catch (SkylarkImportFailedException | ConversionException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new AspectCreationException(e.getMessage(), extensionLabel);
     }
@@ -223,9 +202,7 @@ public final class AspectFunction implements SkyFunction {
       SkylarkAspectClass skylarkAspectClass = (SkylarkAspectClass) key.getAspectClass();
       SkylarkDefinedAspect skylarkAspect;
       try {
-        skylarkAspect =
-            loadSkylarkDefinedAspect(
-                env, skylarkAspectClass, skylarkImportLookupFunctionForInlining);
+        skylarkAspect = loadSkylarkDefinedAspect(env, skylarkAspectClass);
       } catch (AspectCreationException e) {
         throw new AspectFunctionException(e);
       }

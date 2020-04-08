@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.server;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
@@ -54,7 +55,7 @@ class IdleServerTasks {
             () -> {
               MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
               MemoryUsage before = memBean.getHeapMemoryUsage();
-              try (AutoProfiler p = AutoProfiler.logged("Idle GC", logger)) {
+              try (AutoProfiler p = GoogleAutoProfilerUtils.logged("Idle GC")) {
                 System.gc();
               }
               MemoryUsage after = memBean.getHeapMemoryUsage();

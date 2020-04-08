@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -55,8 +56,11 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -118,6 +122,7 @@ public final class TargetCompleteEvent
   private final BuildEventId configEventId;
   private final Iterable<String> tags;
   private final ExecutableTargetData executableTargetData;
+  @Nullable private final DetailedExitCode detailedExitCode;
 
   private TargetCompleteEvent(
       ConfiguredTargetAndData targetAndData,
@@ -140,9 +145,14 @@ public final class TargetCompleteEvent
         ConfiguredTargetKey.of(
             targetAndData.getConfiguredTarget(), targetAndData.getConfiguration());
     postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(aliasLabel));
+    DetailedExitCode mostImportantDetailedExitCode = null;
     for (Cause cause : getRootCauses().toList()) {
+      mostImportantDetailedExitCode =
+          DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+              mostImportantDetailedExitCode, cause.getDetailedExitCode());
       postedAfterBuilder.add(cause.getIdProto());
     }
+    detailedExitCode = mostImportantDetailedExitCode;
     this.postedAfter = postedAfterBuilder.build();
     this.completionContext = completionContext;
     this.outputs = outputs;
@@ -380,7 +390,18 @@ public final class TargetCompleteEvent
     BuildEventStreamProtos.TargetComplete.Builder builder =
         BuildEventStreamProtos.TargetComplete.newBuilder();
 
-    builder.setSuccess(!failed());
+    boolean failed = failed();
+    builder.setSuccess(!failed);
+    if (detailedExitCode != null) {
+      if (!failed) {
+        BugReport.sendBugReport(
+            new IllegalStateException("Detailed exit code with success? " + detailedExitCode));
+      }
+      FailureDetails.FailureDetail failureDetail = detailedExitCode.getFailureDetail();
+      if (failureDetail != null) {
+        builder.setFailureDetail(failureDetail);
+      }
+    }
     builder.addAllTag(getTags());
     builder.addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
 

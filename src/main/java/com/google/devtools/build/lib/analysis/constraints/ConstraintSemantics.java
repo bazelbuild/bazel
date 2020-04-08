@@ -366,7 +366,7 @@ public class ConstraintSemantics {
   public static EnvironmentGroup getEnvironmentGroup(Target envTarget)
       throws EnvironmentLookupException {
     if (!(envTarget instanceof Rule)
-        || !((Rule) envTarget).getRuleClass().equals(EnvironmentRule.RULE_NAME)) {
+        || !((Rule) envTarget).getRuleClass().equals(ConstraintConstants.ENVIRONMENT_RULE)) {
       throw new EnvironmentLookupException(
           envTarget.getLabel() + " is not a valid environment definition");
     }

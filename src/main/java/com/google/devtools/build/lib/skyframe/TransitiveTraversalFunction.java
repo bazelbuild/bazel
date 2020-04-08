@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -34,10 +33,10 @@ import javax.annotation.Nullable;
 
 /**
  * This class is like {@link TransitiveTargetFunction}, but the values it returns do not contain
- * {@link NestedSet}s. It performs the side-effects of {@link TransitiveTargetFunction} (i.e.,
- * ensuring that transitive targets and their packages have been loaded). It evaluates to a {@link
- * TransitiveTraversalValue} that contains the first error message it encountered, and a set of
- * names of providers if the target is a rule.
+ * {@link com.google.devtools.build.lib.collect.nestedset.NestedSet}s. It performs the side-effects
+ * of {@link TransitiveTargetFunction} (i.e., ensuring that transitive targets and their packages
+ * have been loaded). It evaluates to a {@link TransitiveTraversalValue} that contains the first
+ * error message it encountered, and a set of names of providers if the target is a rule.
  */
 public class TransitiveTraversalFunction
     extends TransitiveBaseTraversalFunction<

@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
-import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
@@ -35,7 +33,6 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -133,10 +130,11 @@ public abstract class BlazeModule {
   /**
    * Returns handler for {@link com.google.common.eventbus.EventBus} subscriber and async thread
    * exceptions. For async thread exceptions, {@link
-   * SubscriberExceptionHandler#handleException(Throwable, SubscriberExceptionContext)} will be
-   * called with null {@link SubscriberExceptionContext}. If all modules return null, a handler that
-   * crashes on all async exceptions and files bug reports for all EventBus subscriber exceptions
-   * will be used.
+   * SubscriberExceptionHandler#handleException(Throwable,
+   * com.google.common.eventbus.SubscriberExceptionContext)} will be called with null {@link
+   * com.google.common.eventbus.SubscriberExceptionContext}. If all modules return null, a handler
+   * that crashes on all async exceptions and files bug reports for all EventBus subscriber
+   * exceptions will be used.
    */
   public SubscriberExceptionHandler getEventBusAndAsyncExceptionHandler() {
     return null;
@@ -310,8 +308,9 @@ public abstract class BlazeModule {
 
   /**
    * Registers any action contexts this module provides with the execution phase. They will be
-   * available for {@linkplain ActionContext.ActionContextRegistry#getContext querying} to actions
-   * and other action contexts.
+   * available for {@linkplain
+   * com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry#getContext querying}
+   * to actions and other action contexts.
    *
    * <p>This method is invoked before actions are executed but after {@link #executorInit}.
    *
@@ -398,8 +397,8 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns a helper that the {@link PackageFactory} will use during package loading, or null if
-   * the module does not provide any helper.
+   * Returns a helper that the {@link com.google.devtools.build.lib.packages.PackageFactory} will
+   * use during package loading, or null if the module does not provide any helper.
    *
    * <p>Called once during server startup some time after {@link #serverInit}.
    *

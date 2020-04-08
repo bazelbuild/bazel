@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
@@ -28,8 +27,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Builder class to create an {@link Executor} instance. This class is part of the module API,
- * which allows modules to affect how the executor is initialized.
+ * Builder class to create an {@link com.google.devtools.build.lib.actions.Executor} instance. This
+ * class is part of the module API, which allows modules to affect how the executor is initialized.
  */
 public class ExecutorBuilder {
   private final SpawnActionContextMaps.Builder spawnActionContextMapsBuilder =

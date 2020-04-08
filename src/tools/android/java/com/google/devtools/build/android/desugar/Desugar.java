@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.android.desugar.LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY;
+import static com.google.devtools.build.android.desugar.io.FileBasedTypeReferenceClosure.findReachableReferencedTypes;
 import static com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesugaring.INVOKE_JDK11_STRING_CONCAT;
 
 import com.google.auto.value.AutoValue;
@@ -325,19 +326,6 @@ public class Desugar {
         help = "Method invocations not to rewrite, given as \"class/Name#method\".")
     public List<String> dontTouchCoreLibraryMembers;
 
-    /** Converter functions from undesugared to desugared core library types. */
-    @Option(
-        name = "from_core_library_conversion",
-        defaultValue = "null",
-        allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Core library conversion functions given as \"class/Name=my/Converter\".  The"
-                + " specified Converter class must have a public static method named"
-                + " \"from<Name>\".")
-    public List<String> fromCoreLibraryConversions;
-
     @Option(
         name = "preserve_core_library_override",
         defaultValue = "null",
@@ -512,7 +500,6 @@ public class Desugar {
                   options.emulateCoreLibraryInterfaces,
                   options.retargetCoreLibraryMembers,
                   options.dontTouchCoreLibraryMembers,
-                  options.fromCoreLibraryConversions,
                   options.preserveCoreLibraryOverrides)
               : null;
 
@@ -561,7 +548,13 @@ public class Desugar {
         outputFileProvider.write(
             fileContent.getBinaryPathName(), ByteStreams.toByteArray(fileContent.get()));
       }
-      copyTypeConverterClasses(outputFileProvider, adaptersGenerator.getTypeConverters());
+
+      ImmutableSet.Builder<ClassName> typeAdapters = ImmutableSet.builder();
+      typeAdapters.addAll(adaptersGenerator.getTypeConverters());
+      if (coreLibrarySupport != null) {
+        typeAdapters.addAll(coreLibrarySupport.usedTypeConverters());
+      }
+      copyTypeConverterClasses(outputFileProvider, typeAdapters.build());
 
       byte[] depsInfo = depsCollector.toByteArray();
       if (depsInfo != null) {
@@ -576,8 +569,10 @@ public class Desugar {
   }
 
   private static void copyTypeConverterClasses(
-      OutputFileProvider outputFileProvider, ImmutableList<ClassName> converterClasses) {
-    for (ClassName className : converterClasses) {
+      OutputFileProvider outputFileProvider, ImmutableSet<ClassName> converterClasses) {
+    ImmutableSet<ClassName> reachableReferencedTypes =
+        findReachableReferencedTypes(converterClasses, ClassName::isInDesugarRuntimeLibrary);
+    for (ClassName className : reachableReferencedTypes) {
       String resourceName = className.classFilePathName();
       try (InputStream stream = Resources.getResource(resourceName).openStream()) {
         outputFileProvider.write(resourceName, ByteStreams.toByteArray(stream));
@@ -625,7 +620,10 @@ public class Desugar {
                 checkState(!options.coreLibrary, "Core library shouldn't depend on %s", className);
                 try (InputStream stream =
                     Desugar.class.getClassLoader().getResourceAsStream(className + ".class")) {
-                  outputFileProvider.write(className + ".class", ByteStreams.toByteArray(stream));
+                  outputFileProvider.write(
+                      className + ".class",
+                      ByteStreams.toByteArray(
+                          checkNotNull(stream, "Resource Not Found for %s.", className)));
                 } catch (IOException e) {
                   throw new IOError(e);
                 }

@@ -41,7 +41,7 @@ java_test(
     ),
     deps = [
         ":testutils",
-        "//src/main/java/com/google/devtools/build/lib:classpath-util",
+        "//src/main/java/com/google/devtools/build/lib/util:classpath",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/java/com/google/devtools/common/options/testing",

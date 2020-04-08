@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.causes;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -30,11 +33,17 @@ public class ActionFailed implements Cause {
   private final PathFragment execPath;
   private final Label label;
   private final String configurationChecksum;
+  private final DetailedExitCode detailedExitCode;
 
-  public ActionFailed(PathFragment execPath, Label label, @Nullable String configurationChecksum) {
+  public ActionFailed(
+      PathFragment execPath,
+      Label label,
+      @Nullable String configurationChecksum,
+      DetailedExitCode detailedExitCode) {
     this.execPath = execPath;
     this.label = label;
     this.configurationChecksum = configurationChecksum;
+    this.detailedExitCode = checkNotNull(detailedExitCode);
   }
 
   @Override
@@ -43,12 +52,19 @@ public class ActionFailed implements Cause {
         .add("execPath", execPath)
         .add("label", label)
         .add("configurationChecksum", configurationChecksum)
+        .add("detailedExitCode", detailedExitCode)
         .toString();
   }
 
   @Override
   public Label getLabel() {
     return label;
+  }
+
+  @Nullable
+  @Override
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
   }
 
   @Override

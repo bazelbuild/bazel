@@ -484,6 +484,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);
         }
       }
+      SkyKey childErrorKey = errorKey;
       errorKey = parent;
       SkyFunctionEnvironment env =
           new SkyFunctionEnvironment(
@@ -493,10 +494,12 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               ImmutableSet.<SkyKey>of(),
               evaluatorContext);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
+      boolean completedRun = false;
       try {
         // This build is only to check if the parent node can give us a better error. We don't
         // care about a return value.
         factory.compute(parent, env);
+        completedRun = true;
       } catch (InterruptedException interruptedException) {
         // Do nothing.
         // This throw happens if the builder requested the failed node, and then checked the
@@ -524,7 +527,19 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         // Clear interrupted status. We're not listening to interrupts here.
         Thread.interrupted();
       }
-      // Builder didn't throw an exception, so just propagate this one up.
+      if (completedRun) {
+        logger.info(
+            "SkyFunction did not rethrow error, may be a bug that it did not expect one: "
+                + errorKey
+                + " via "
+                + childErrorKey
+                + ", "
+                + error
+                + " ("
+                + bubbleErrorInfo
+                + ")");
+      }
+      // Builder didn't throw its own exception, so just propagate this one up.
       Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
           env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
       bubbleErrorInfo.put(

@@ -48,7 +48,7 @@ public class WindowsSubprocessTest {
     runfiles = Runfiles.create();
     mockSubprocess =
         runfiles.rlocation(
-            "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
+            "io_bazel/src/test/java/com/google/devtools/build/lib/windows/MockSubprocess_deploy.jar");
     mockBinary = System.getProperty("java.home") + "\\bin\\java.exe";
 
     process = null;
@@ -144,7 +144,8 @@ public class WindowsSubprocessTest {
   private void assertSubprocessReceivesArgsAsIntended(ArgPair... args) throws Exception {
     // Look up the path of the printarg.exe utility.
     String printArgExe =
-        runfiles.rlocation("io_bazel/src/test/java/com/google/devtools/build/lib/printarg.exe");
+        runfiles.rlocation(
+            "io_bazel/src/test/java/com/google/devtools/build/lib/windows/printarg.exe");
     assertThat(printArgExe).isNotEmpty();
 
     for (ArgPair arg : args) {

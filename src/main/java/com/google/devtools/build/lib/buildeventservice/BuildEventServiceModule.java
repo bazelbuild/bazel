@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatus.Status;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -80,7 +81,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -89,8 +89,6 @@ import javax.annotation.Nullable;
  */
 public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServiceOptions>
     extends BlazeModule {
-
-  private static final Logger logger = Logger.getLogger(BuildEventServiceModule.class.getName());
   private static final GoogleLogger googleLogger = GoogleLogger.forEnclosingClass();
 
   /**
@@ -458,7 +456,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                   },
                   executor));
 
-      try (AutoProfiler p = AutoProfiler.logged("waiting for BES close", logger)) {
+      try (AutoProfiler p = GoogleAutoProfilerUtils.logged("waiting for BES close")) {
         Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
       }
     } catch (ExecutionException e) {

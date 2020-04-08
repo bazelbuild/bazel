@@ -300,14 +300,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         && commonOptions.enableProfileByDefault
         && !profileExplicitlyDisabled) {
       commonOptions.enableTracer = true;
-      if (!options.containsExplicitOption("experimental_slim_json_profile")) {
-        commonOptions.enableJsonProfileDiet = true;
-      }
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
         commonOptions.enableCpuUsageProfiling = true;
-      }
-      if (!options.containsExplicitOption("experimental_post_profile_started_event")) {
-        commonOptions.postProfileStartedEvent = true;
       }
     }
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
@@ -322,9 +316,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             env,
             execStartTimeNanos,
             waitTimeInMs);
-    if (commonOptions.postProfileStartedEvent) {
-      storedEventHandler.post(profilerStartedEvent);
-    }
+    storedEventHandler.post(profilerStartedEvent);
 
     // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
     if (!commonOptions.starlarkCpuProfile.isEmpty()) {

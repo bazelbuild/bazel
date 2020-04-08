@@ -20,7 +20,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
+import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -146,7 +150,8 @@ public abstract class BugReport {
    */
   public static void handleCrashWithoutSendingBugReport(
       Throwable throwable, ExitCode exitCode, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ false, exitCode, args);
+    // TODO(b/78555988): allow call sites to specialize DetailedExitCode
+    handleCrash(throwable, /*sendBugReport=*/ false, DetailedExitCode.justExitCode(exitCode), args);
   }
 
   /**
@@ -156,7 +161,8 @@ public abstract class BugReport {
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
   public static void handleCrash(Throwable throwable, ExitCode exitCode, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ true, exitCode, args);
+    // TODO(b/78555988): allow call sites to specialize DetailedExitCode
+    handleCrash(throwable, /*sendBugReport=*/ true, DetailedExitCode.justExitCode(exitCode), args);
   }
 
   /**
@@ -166,13 +172,23 @@ public abstract class BugReport {
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
   public static RuntimeException handleCrash(Throwable throwable, String... args) {
-    throw handleCrash(throwable, /*sendBugReport=*/ true, /*exitCode=*/ null, args);
+    throw handleCrash(throwable, /*sendBugReport=*/ true, /*detailedExitCode=*/ null, args);
   }
 
   private static RuntimeException handleCrash(
-      Throwable throwable, boolean sendBugReport, @Nullable ExitCode exitCode, String... args) {
-    ExitCode exitCodeToUse = exitCode == null ? getExitCodeForThrowable(throwable) : exitCode;
+      Throwable throwable,
+      boolean sendBugReport,
+      @Nullable DetailedExitCode detailedExitCode,
+      String... args) {
+    ExitCode exitCodeToUse =
+        detailedExitCode == null
+            ? getExitCodeForThrowable(throwable)
+            : detailedExitCode.getExitCode();
     int numericExitCode = exitCodeToUse.getNumericExitCode();
+    FailureDetail failureDetail =
+        detailedExitCode == null || detailedExitCode.getFailureDetail() == null
+            ? CrashFailureDetails.forThrowable(throwable)
+            : detailedExitCode.getFailureDetail();
     try {
       synchronized (LOCK) {
         if (IN_TEST) {
@@ -187,6 +203,7 @@ public abstract class BugReport {
             runtime.cleanUpForCrash(exitCodeToUse);
           }
           CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode);
+          CustomFailureDetailPublisher.maybeWriteFailureDetailFile(failureDetail);
         } finally {
           // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
           // trigger our Blaze crash handler (this method). Calling System#exit() here, would

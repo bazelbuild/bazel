@@ -221,9 +221,9 @@ public final class Attribute implements Comparable<Attribute> {
     NONCONFIGURABLE,
 
     /**
-     * Whether we should skip dependency validation checks done by
-     * {@link com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator}
-     * (for visibility, etc.).
+     * Whether we should skip dependency validation checks done by {@link
+     * com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator} (for visibility,
+     * etc.).
      */
     SKIP_PREREQ_VALIDATOR_CHECKS,
 
@@ -747,8 +747,8 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Disables dependency checks done by
-     * {@link com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator}.
+     * Disables dependency checks done by {@link
+     * com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator}.
      */
     public Builder<TYPE> skipPrereqValidatorCheck() {
       return setPropertyFlag(PropertyFlag.SKIP_PREREQ_VALIDATOR_CHECKS,

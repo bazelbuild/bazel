@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -58,7 +59,6 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -115,8 +115,12 @@ public class SkyframeBuilder implements Builder {
       TopLevelArtifactContext topLevelArtifactContext,
       boolean trustRemoteArtifacts)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
+    // but plumbing the flag through is hard.
+    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
     skyframeExecutor.detectModifiedOutputFiles(
-        modifiedOutputFiles, lastExecutionTimeRange, trustRemoteArtifacts);
+        modifiedOutputFiles, lastExecutionTimeRange, trustRemoteArtifacts, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
     }
@@ -274,13 +278,11 @@ public class SkyframeBuilder implements Builder {
         for (Map.Entry<SkyKey, ErrorInfo> error : result.errorMap().entrySet()) {
           Throwable cause = error.getValue().getException();
           if (cause instanceof ActionExecutionException) {
-            ActionExecutionException actionExecutionCause = (ActionExecutionException) cause;
-            DetailedExitCode thisCode = actionExecutionCause.getDetailedExitCode();
             // Update global exit code when current exit code is not null and global exit code has
             // a lower 'reporting' priority.
-            if (DetailedExitCodeComparator.INSTANCE.compare(thisCode, detailedExitCode) > 0) {
-              detailedExitCode = thisCode;
-            }
+            detailedExitCode =
+                DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+                    detailedExitCode, ((ActionExecutionException) cause).getDetailedExitCode());
           }
         }
 
@@ -354,26 +356,4 @@ public class SkyframeBuilder implements Builder {
     return count;
   }
 
-  /**
-   * A comparator to determine the reporting priority of {@link DetailedExitCode}.
-   *
-   * <p>Priority: infrastructure exit codes > non-infrastructure exit codes > null exit codes.
-   */
-  private static class DetailedExitCodeComparator implements Comparator<DetailedExitCode> {
-    private static final DetailedExitCodeComparator INSTANCE = new DetailedExitCodeComparator();
-
-    @Override
-    public int compare(DetailedExitCode c1, DetailedExitCode c2) {
-      // returns POSITIVE result when the priority of c1 is HIGHER than the priority of c2
-      return getPriority(c1) - getPriority(c2);
-    }
-
-    private static int getPriority(DetailedExitCode code) {
-      if (code == null) {
-        return 0;
-      } else {
-        return code.getExitCode().isInfrastructureFailure() ? 2 : 1;
-      }
-    }
-  }
 }

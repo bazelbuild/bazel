@@ -24,7 +24,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -110,12 +109,14 @@ public class ConfigRuleClasses {
    *
    * instance matches all its flag values in the configurable attribute owner's configuration.
    *
-   * <p>This rule isn't accessed through the standard {@link RuleContext#getPrerequisites}
-   * interface. This is because Bazel constructs a rule's configured attribute map *before* its
-   * {@link RuleContext} is created (in fact, the map is an input to the context's constructor). And
-   * the config_settings referenced by the rule's configurable attributes are themselves inputs to
-   * that map. So Bazel has special logic to read and properly apply config_setting instances. See
-   * {@link com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} for
+   * <p>This rule isn't accessed through the standard {@link
+   * com.google.devtools.build.lib.analysis.RuleContext#getPrerequisites} interface. This is because
+   * Bazel constructs a rule's configured attribute map *before* its {@link
+   * com.google.devtools.build.lib.analysis.RuleContext} is created (in fact, the map is an input to
+   * the context's constructor). And the config_settings referenced by the rule's configurable
+   * attributes are themselves inputs to that map. So Bazel has special logic to read and properly
+   * apply config_setting instances. See {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} for
    * details.
    */
   public static final class ConfigSettingRule implements RuleDefinition {

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
@@ -594,7 +593,8 @@ public class CommandEnvironment {
 
   /**
    * Initializes the package cache using the given options, and syncs the package cache. Also
-   * injects the skylark semantics using the options for the {@link BuildConfiguration}.
+   * injects the skylark semantics using the options for the {@link
+   * com.google.devtools.build.lib.analysis.config.BuildConfiguration}.
    */
   public void setupPackageCache(OptionsProvider options)
       throws InterruptedException, AbruptExitException {

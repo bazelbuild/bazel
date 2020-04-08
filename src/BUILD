@@ -11,7 +11,7 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 [genrule(
     name = "install_base_key-file" + suffix,
     srcs = [
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "//src/main/cpp:client",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
@@ -324,7 +324,7 @@ filegroup(
         # The script assumes that the embedded tools zip (if exists) is the
         # first item here, the deploy jar the second, install base key is the
         # third, and platforms archive is the fourth.
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
         ":platforms_archive",
         "//src/main/native:target-os-unix-native-lib",
@@ -441,6 +441,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/com/google/devtools/starlark/cmd:srcs",
+        "//src/main/java/com/google/devtools/starlark/spelling:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/tools:srcs",
@@ -456,6 +457,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/skydoc:srcs",
         "//src/test/java/com/google/devtools/build/skyframe:srcs",
         "//src/test/java/com/google/devtools/common/options:srcs",
+        "//src/test/java/com/google/devtools/starlark/spelling:srcs",
         "//src/test/py/bazel:srcs",
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
