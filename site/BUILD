@@ -158,3 +158,13 @@ jekyll_build(
     ] + [":jekyll-tree"],  # jekyll-tree *must* come last to be the default.
     bucket = "docs.bazel.build",
 )
+
+# A smaller site target to build. Includes master and latest release version of docs only.
+# Used for development and CI smoke tests.
+jekyll_build(
+    name = "site_latest",
+    srcs = [
+        "@jekyll_tree_%s//file" % DOC_VERSIONS[0]["version"].replace(".", "_")
+    ] + [":jekyll-tree"],  # jekyll-tree *must* come last to be the default.
+    bucket = "docs.bazel.build",
+)
