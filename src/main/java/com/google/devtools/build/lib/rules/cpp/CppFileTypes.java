@@ -176,9 +176,8 @@ public final class CppFileTypes {
 
   // Matches shared libraries with version names in the extension, i.e.
   // libmylib.so.2 or libmylib.so.2.10 or libmylib.so.1a_b35.
-  private static final Pattern VERSIONED_SO_PATTERN = Pattern.compile("^.+\\.so(\\.\\d\\w*)+$");
-  private static final Pattern VERSIONED_DYLIB_PATTERN =
-      Pattern.compile("^.+\\.dylib(\\.\\d\\w*)+$");
+  private static final Pattern VERSIONED_SHARED_LIBRARY_PATTERN =
+      Pattern.compile("^.+\\.((so)|(dylib))(\\.\\d\\w*)+$");
   public static final FileType VERSIONED_SHARED_LIBRARY =
       new FileType() {
         @Override
@@ -189,8 +188,7 @@ public final class CppFileTypes {
           if (!path.contains(".so.") && !path.contains(".dylib.")) {
             return false;
           }
-          return VERSIONED_SO_PATTERN.matcher(path).matches()
-              || VERSIONED_DYLIB_PATTERN.matcher(path).matches();
+          return VERSIONED_SHARED_LIBRARY_PATTERN.matcher(path).matches();
         }
       };
 
