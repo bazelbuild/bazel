@@ -43,6 +43,11 @@ public class ShadowedApiAdapterHelper {
    *     No in-process label, such as "__desugar__/", is attached to this invocation site.
    */
   static boolean shouldUseInlineTypeConversion(MethodInvocationSite verbatimInvocationSite) {
+    // Fix for b/153441709: Type adapter generation causes one-version violation.
+    // TODO(b/153486382): Use per-method adapter class instead.
+    if (verbatimInvocationSite.owner().hasPackagePrefix("android/app/usage/UsageStatsManager")) {
+      return true;
+    }
     return verbatimInvocationSite.isConstructorInvocation()
         && verbatimInvocationSite.owner().isInPackageEligibleForTypeAdapter()
         && Stream.concat(
