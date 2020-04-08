@@ -639,6 +639,8 @@ public final class AspectFunction implements SkyFunction {
       } catch (MissingDepException e) {
         Preconditions.checkState(env.valuesMissing());
         return null;
+      } catch (ActionConflictException e) {
+        throw new AspectFunctionException(e);
       } finally {
         CurrentRuleTracker.endConfiguredAspect();
       }
