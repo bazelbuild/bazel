@@ -265,6 +265,7 @@ java_library(
             "analysis/TransitiveInfoProvider.java",
             "analysis/config/BuildConfigurationOptionDetails.java",
             "rules/repository/CoreWorkspaceRules.java",
+            "skyframe/SaneAnalysisException.java",
         ],
     ) + [
         "runtime/BlazeServerStartupOptions.java",
@@ -272,6 +273,7 @@ java_library(
     ],
     exports = [
         ":rule-definition-context",
+        ":sane_analysis_exception",
         ":transitive-info-provider",
     ],
     deps = [
@@ -279,6 +281,7 @@ java_library(
         ":build-request-options",
         ":keep-going-option",
         ":provider-collection",
+        ":sane_analysis_exception",
         ":transitive-info-provider",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -800,4 +803,10 @@ java_library(
     srcs = [
         "analysis/BuildInfo.java",
     ],
+)
+
+# TODO(b/144899336): This belongs in skyframe/BUILD once it exists.
+java_library(
+    name = "sane_analysis_exception",
+    srcs = ["skyframe/SaneAnalysisException.java"],
 )

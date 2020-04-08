@@ -646,7 +646,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     return null;
   }
 
-  static final class SkylarkImportFailedException extends Exception {
+  static final class SkylarkImportFailedException extends Exception
+      implements SaneAnalysisException {
     private SkylarkImportFailedException(String errorMessage) {
       super(errorMessage);
     }

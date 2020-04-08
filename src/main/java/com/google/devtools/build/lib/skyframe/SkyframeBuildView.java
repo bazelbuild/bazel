@@ -73,12 +73,9 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction.InvalidExecutionPlatformLabelException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Root;
@@ -818,22 +815,15 @@ public final class SkyframeBuildView {
   }
 
   private static boolean isSaneAnalysisError(Throwable cause) {
-    return cause instanceof ConfiguredValueCreationException
-        || cause instanceof ActionConflictException
-        || cause instanceof CcCrosstoolException
-        // For top-level aspects
-        || cause instanceof AspectCreationException
-        || cause instanceof SkylarkImportFailedException
+    return cause instanceof SaneAnalysisException
         // Only if we run the reduced loading phase and then analyze with --nokeep_going.
         || cause instanceof NoSuchTargetException
-        || cause instanceof NoSuchPackageException
-        // Platform-related:
-        || cause instanceof InvalidExecutionPlatformLabelException;
+        || cause instanceof NoSuchPackageException;
   }
 
   /** Special flake for error cases when loading CROSSTOOL for C++ rules */
   // TODO(b/110087561): Remove when CROSSTOOL file is not loaded anymore
-  public static class CcCrosstoolException extends Exception {
+  public static class CcCrosstoolException extends Exception implements SaneAnalysisException {
 
     public CcCrosstoolException(String message) {
       super(message);

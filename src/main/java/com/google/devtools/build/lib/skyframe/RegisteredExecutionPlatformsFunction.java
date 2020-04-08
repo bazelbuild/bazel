@@ -192,7 +192,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
    * Used to indicate that the given {@link Label} represents a {@link ConfiguredTarget} which is
    * not a valid {@link PlatformInfo} provider.
    */
-  static final class InvalidExecutionPlatformLabelException extends Exception {
+  static final class InvalidExecutionPlatformLabelException extends Exception
+      implements SaneAnalysisException {
 
     public InvalidExecutionPlatformLabelException(
         TargetPatternUtil.InvalidTargetPatternException e) {

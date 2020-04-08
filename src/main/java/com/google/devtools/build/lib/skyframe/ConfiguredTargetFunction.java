@@ -991,7 +991,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * ConfiguredTargetValue.
    */
   @AutoCodec
-  public static final class ConfiguredValueCreationException extends Exception {
+  public static final class ConfiguredValueCreationException extends Exception
+      implements SaneAnalysisException {
     private static ConfigurationId toId(BuildConfiguration config) {
       return config == null ? null : config.getEventId().getConfiguration();
     }

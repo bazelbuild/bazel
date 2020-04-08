@@ -681,10 +681,9 @@ public final class AspectFunction implements SkyFunction {
     return Label.print(aspectKey.getLabel());
   }
 
-  /**
-   * An exception indicating that there was a problem creating an aspect.
-   */
-  public static final class AspectCreationException extends Exception {
+  /** An exception indicating that there was a problem creating an aspect. */
+  public static final class AspectCreationException extends Exception
+      implements SaneAnalysisException {
     private static ConfigurationId toId(BuildConfiguration config) {
       return config == null ? null : config.getEventId().getConfiguration();
     }
