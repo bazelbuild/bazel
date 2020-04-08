@@ -235,7 +235,7 @@ flag. This enables you to change the contents of external repositories without c
 your source code.
 
 For example, to override `@foo` to the local directory `/path/to/local/foo`, pass the
-`--override_repository=foo=path/to/local/foo` flag.
+`--override_repository=foo=/path/to/local/foo` flag.
 
 Some of the use cases include:
 
