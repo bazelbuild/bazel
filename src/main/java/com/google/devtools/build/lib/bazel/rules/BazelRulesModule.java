@@ -426,6 +426,14 @@ public class BazelRulesModule extends BlazeModule {
         },
         help = "No-op.")
     public boolean removeBinaryProfile;
+
+    @Option(
+        name = "experimental_post_profile_started_event",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean postProfileStartedEvent;
   }
 
   @Override

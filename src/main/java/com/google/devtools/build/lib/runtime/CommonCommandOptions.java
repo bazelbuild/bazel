@@ -256,14 +256,6 @@ public class CommonCommandOptions extends OptionsBase {
   public TriState enableTracerCompression;
 
   @Option(
-      name = "experimental_post_profile_started_event",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will post the ProfilerStartedEvent including the path to the profile.")
-  public boolean postProfileStartedEvent;
-
-  @Option(
       name = "experimental_profile_cpu_usage",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
