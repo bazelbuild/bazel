@@ -61,13 +61,6 @@ import javax.annotation.Nullable;
 @AutoCodec(checkClassExplicitlyAllowed = true)
 @Immutable // (and Starlark-hashable)
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
-  /**
-   * The name of the key for the 'actions' synthesized provider.
-   *
-   * <p>If you respond to this key you are expected to return a list of actions belonging to this
-   * configured target.
-   */
-  public static final String ACTIONS_FIELD_NAME = "actions";
 
   /**
    * The configuration transition for an attribute through which a prerequisite
