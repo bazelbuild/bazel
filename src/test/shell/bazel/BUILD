@@ -597,8 +597,9 @@ sh_test(
     name = "bazel_docgen_test",
     size = "large",
     srcs = ["bazel_docgen_test.sh"],
-    data = ["//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia"],
+    data = ["//src/main/java/com/google/devtools/build/lib:generated_docs"],
     tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(

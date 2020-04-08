@@ -714,6 +714,21 @@ java_library(
     ],
 )
 
+########################################################################
+#
+# Documentation generation
+#
+
+filegroup(
+    name = "generated_docs",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia",
+        "//src/main/java/com/google/devtools/build/lib:gen_command-line-reference",
+        "//src/main/java/com/google/devtools/build/lib:gen_skylarklibrary",
+    ],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
 filegroup(
     name = "docs_embedded_in_sources",
     srcs = glob(["**/*.java"]) + [
@@ -750,10 +765,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/docgen:docgen_bin",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
     ],
-    visibility = [
-        "//site:__pkg__",
-        "//src/test/shell/bazel:__pkg__",
-    ],
+    visibility = ["//site:__pkg__"],
 )
 
 genrule(
@@ -769,15 +781,14 @@ genrule(
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
         "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
+        "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
         "help everything-as-html >> $@ 2>/dev/null && " +
         "cat $(location //site:command-line-reference-suffix.html) >> $@"
     ),
     tools = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer",
     ],
-    visibility = [
-        "//site:__pkg__",
-    ],
+    visibility = ["//site:__pkg__"],
 )
 
 genrule(
