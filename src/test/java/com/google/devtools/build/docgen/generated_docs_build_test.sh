@@ -25,4 +25,4 @@ done
 
 COMMAND_LINE_REF_FILE="$(rlocation io_bazel/src/main/java/com/google/devtools/build/lib/command-line-reference.html)"
 # Test that the file contains (at least) the title string.
-grep "Command-Line Reference" "$COMMAND_LINE_REF_FILE" 1>/dev/null
+grep -q "Command-Line Reference" "$COMMAND_LINE_REF_FILE"
