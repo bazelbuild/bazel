@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
@@ -120,32 +121,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
     return null;
-  }
-
-  /**
-   * Exception class that signals an error during the evaluation of a dependency.
-   */
-  public static class DependencyEvaluationException extends Exception {
-    public DependencyEvaluationException(InvalidConfigurationException cause) {
-      super(cause);
-    }
-
-    public DependencyEvaluationException(ConfiguredValueCreationException cause) {
-      super(cause);
-    }
-
-    public DependencyEvaluationException(InconsistentAspectOrderException cause) {
-      super(cause);
-    }
-
-    public DependencyEvaluationException(TransitionException cause) {
-      super(cause);
-    }
-
-    @Override
-    public synchronized Exception getCause() {
-      return (Exception) super.getCause();
-    }
   }
 
   private final BuildViewProvider buildViewProvider;
