@@ -307,11 +307,11 @@ bootstrap test.
 ### Repository rules
 
 Prefer [`http_archive`](repo/http.html#http_archive) to `git_repository` and
-`new_git_repository`. The reasons are: 
+`new_git_repository`. The reasons are:
 
 * Git repository rules depend on system `git(1)` whereas the HTTP downloader is built 
-  into Bazel and has no system dependencies. `
-* http_archive` supports a list of `urls` as mirrors, and `git_repository` supports only 
+  into Bazel and has no system dependencies.
+* `http_archive` supports a list of `urls` as mirrors, and `git_repository` supports only
   a single `remote`.
 * `http_archive` works with the [repository cache](guide.html#repository-cache), but not
   `git_repository`. See
