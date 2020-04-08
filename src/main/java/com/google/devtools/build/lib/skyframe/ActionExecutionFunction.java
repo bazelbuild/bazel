@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionRewoundEvent;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -132,7 +131,7 @@ public class ActionExecutionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionExecutionFunctionException, InterruptedException {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
-    Action action = getActionForLookupData(env, actionLookupData);
+    Action action = ActionUtils.getActionForLookupData(env, actionLookupData);
     if (action == null) {
       return null;
     }
@@ -575,16 +574,6 @@ public class ActionExecutionFunction implements SkyFunction {
       }
     }
     return inputDepOwners;
-  }
-
-  @Nullable
-  static Action getActionForLookupData(Environment env, ActionLookupData actionLookupData)
-      throws InterruptedException {
-    ActionLookupValue actionLookupValue =
-        ArtifactFunction.getActionLookupValue(actionLookupData.getActionLookupKey(), env);
-    return actionLookupValue != null
-        ? actionLookupValue.getAction(actionLookupData.getActionIndex())
-        : null;
   }
 
   /**
