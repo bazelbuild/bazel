@@ -568,11 +568,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     map.put(
         SkyFunctions.TARGET_COMPLETION,
-        CompletionFunction.targetCompletionFunction(
+        TargetCompletor.targetCompletionFunction(
             pathResolverFactory, skyframeActionExecutor::getExecRoot));
     map.put(
         SkyFunctions.ASPECT_COMPLETION,
-        CompletionFunction.aspectCompletionFunction(
+        AspectCompletor.aspectCompletionFunction(
             pathResolverFactory, skyframeActionExecutor::getExecRoot));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(
