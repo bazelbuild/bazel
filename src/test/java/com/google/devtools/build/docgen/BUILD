@@ -12,14 +12,6 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-sh_test(
-    name = "generated_docs_build_test",
-    srcs = ["generated_docs_build_test.sh"],
-    data = ["//src/main/java/com/google/devtools/build/lib:generated_docs"],
-    tags = ["docgen"],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
 java_test(
     name = "DocumentationFailuresTests",
     size = "medium",
