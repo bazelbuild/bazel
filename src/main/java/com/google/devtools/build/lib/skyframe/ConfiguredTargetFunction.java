@@ -46,8 +46,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -71,7 +69,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -861,7 +858,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             }
           }
         } catch (ConfiguredValueCreationException e) {
-          transitiveRootCauses.addTransitive(e.rootCauses);
+          transitiveRootCauses.addTransitive(e.getRootCauses());
           failWithMessage = e.getMessage();
         }
       }
@@ -933,16 +930,20 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     events.replayOn(env.getListener());
     if (events.hasErrors()) {
       analysisEnvironment.disable(target);
-      NestedSet<Cause> rootCauses = NestedSetBuilder.wrap(
-          Order.STABLE_ORDER,
-          events.getEvents().stream()
-              .filter((event) -> event.getKind() == EventKind.ERROR)
-              .map((event) ->
-                  new AnalysisFailedCause(
-                      target.getLabel(),
-                      ConfiguredValueCreationException.toId(configuration),
-                      event.getMessage()))
-              .collect(Collectors.toList()));
+      NestedSet<Cause> rootCauses =
+          NestedSetBuilder.wrap(
+              Order.STABLE_ORDER,
+              events.getEvents().stream()
+                  .filter((event) -> event.getKind() == EventKind.ERROR)
+                  .map(
+                      (event) ->
+                          new AnalysisFailedCause(
+                              target.getLabel(),
+                              configuration == null
+                                  ? null
+                                  : configuration.getEventId().getConfiguration(),
+                              event.getMessage()))
+                  .collect(Collectors.toList()));
       throw new ConfiguredTargetFunctionException(
           new ConfiguredValueCreationException(
               "Analysis of target '" + target.getLabel() + "' failed", configuration, rootCauses));
@@ -983,55 +984,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           transitivePackagesForPackageRootResolution == null
               ? null
               : transitivePackagesForPackageRootResolution.build());
-    }
-  }
-
-  /**
-   * An exception indicating that there was a problem during the construction of a
-   * ConfiguredTargetValue.
-   */
-  @AutoCodec
-  public static final class ConfiguredValueCreationException extends Exception
-      implements SaneAnalysisException {
-    private static ConfigurationId toId(BuildConfiguration config) {
-      return config == null ? null : config.getEventId().getConfiguration();
-    }
-
-    @Nullable private final BuildEventId configuration;
-    private final NestedSet<Cause> rootCauses;
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    ConfiguredValueCreationException(
-        String message,
-        @Nullable BuildEventId configuration,
-        NestedSet<Cause> rootCauses) {
-      super(message);
-      this.rootCauses = rootCauses;
-      this.configuration = configuration;
-    }
-
-    private ConfiguredValueCreationException(
-        String message, Label currentTarget, @Nullable BuildConfiguration configuration) {
-      this(
-          message,
-          configuration == null ? null : configuration.getEventId(),
-          NestedSetBuilder.<Cause>stableOrder()
-              .add(new AnalysisFailedCause(currentTarget, toId(configuration), message))
-              .build());
-    }
-
-    private ConfiguredValueCreationException(
-        String message, @Nullable BuildConfiguration configuration, NestedSet<Cause> rootCauses) {
-      this(message, configuration == null ? null : configuration.getEventId(), rootCauses);
-    }
-
-    public NestedSet<Cause> getRootCauses() {
-      return rootCauses;
-    }
-
-    @Nullable public BuildEventId getConfiguration() {
-      return configuration;
     }
   }
 
