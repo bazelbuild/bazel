@@ -32,19 +32,19 @@
   #end
 #end
 
-  <li><a href="${bazelbuildGithub}/rules_appengine" target="_blank">AppEngine</a></li>
-  <li><a href="${bazelbuildGithub}/rules_apple" target="_blank">Apple (Swift, iOS, macOS, tvOS, watchOS)</a></li>
-  <li><a href="${bazelbuildGithub}/rules_dotnet" target="_blank">C#</a></li>
-  <li><a href="${bazelbuildGithub}/rules_d" target="_blank">D</a></li>
-  <li><a href="${bazelbuildGithub}/rules_docker" target="_blank">Docker</a></li>
-  <li><a href="${bazelbuildGithub}/rules_groovy" target="_blank">Groovy</a></li>
-  <li><a href="${bazelbuildGithub}/rules_go" target="_blank">Go</a></li>
-  <li><a href="${bazelbuildGithub}/rules_closure" target="_blank">JavaScript (Closure)</a></li>
-  <li><a href="${bazelbuildGithub}/rules_jsonnet" target="_blank">Jsonnet</a></li>
+  <li><a href="${bazelbuildGithub}/rules_appengine" target="_blank" rel="noopener">AppEngine</a></li>
+  <li><a href="${bazelbuildGithub}/rules_apple" target="_blank" rel="noopener">Apple (Swift, iOS, macOS, tvOS, watchOS)</a></li>
+  <li><a href="${bazelbuildGithub}/rules_dotnet" target="_blank" rel="noopener">C#</a></li>
+  <li><a href="${bazelbuildGithub}/rules_d" target="_blank" rel="noopener">D</a></li>
+  <li><a href="${bazelbuildGithub}/rules_docker" target="_blank" rel="noopener">Docker</a></li>
+  <li><a href="${bazelbuildGithub}/rules_groovy" target="_blank" rel="noopener">Groovy</a></li>
+  <li><a href="${bazelbuildGithub}/rules_go" target="_blank" rel="noopener">Go</a></li>
+  <li><a href="${bazelbuildGithub}/rules_closure" target="_blank" rel="noopener">JavaScript (Closure)</a></li>
+  <li><a href="${bazelbuildGithub}/rules_jsonnet" target="_blank" rel="noopener">Jsonnet</a></li>
   <li><a href="${path}/pkg.html">Packaging</a></li>
-  <li><a href="${bazelbuildGithub}/rules_rust" target="_blank">Rust</a></li>
-  <li><a href="${bazelbuildGithub}/rules_sass" target="_blank">Sass</a></li>
-  <li><a href="${bazelbuildGithub}/rules_scala" target="_blank">Scala</a></li>
+  <li><a href="${bazelbuildGithub}/rules_rust" target="_blank" rel="noopener">Rust</a></li>
+  <li><a href="${bazelbuildGithub}/rules_sass" target="_blank" rel="noopener">Sass</a></li>
+  <li><a href="${bazelbuildGithub}/rules_scala" target="_blank" rel="noopener">Scala</a></li>
   </ul>
   </li>
 
