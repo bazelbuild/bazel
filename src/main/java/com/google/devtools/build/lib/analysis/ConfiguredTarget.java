@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
@@ -47,6 +48,17 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
         ? null
         : getConfigurationKey().getOptionsDiff().getChecksum();
   }
+
+  /**
+   * Returns the {@link BuildConfigurationValue.Key} naming the {@link
+   * com.google.devtools.build.lib.analysis.config.BuildConfiguration} for which this configured
+   * target is defined. Configuration is defined for all configured targets with exception of {@link
+   * com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget} and {@link
+   * com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget} for
+   * which it is always <b>null</b>.
+   */
+  @Nullable
+  BuildConfigurationValue.Key getConfigurationKey();
 
   /** Returns keys for a legacy Skylark provider. */
   @Override
