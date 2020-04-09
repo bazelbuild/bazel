@@ -27,7 +27,7 @@ external workspaces, but they are rich enough to allow arbitrary processing to
 happen in the process. All related commands are happening locally and can be a
 potential source of non-hermeticity. Usually non-hermetic behavior is
 introduced through
-[`repository_ctx`](/skylark/lib/repository_ctx.html) which allows interacting
+[`repository_ctx`](/starlark/lib/repository_ctx.html) which allows interacting
 with the host machine.
 
 Starting with Bazel 0.18, you can get a log of some potentially non-hermetic
@@ -92,7 +92,7 @@ To find what was executed during workspace initialization:
 The log consists of
 [WorkspaceEvent](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/bazel/debug/workspace_log.proto?q=WorkspaceEvent)
 messages outlining certain potentially non-hermetic actions performed on a
-[`repository_ctx`](/skylark/lib/repository_ctx.html).
+[`repository_ctx`](/starlark/lib/repository_ctx.html).
 
 The actions that have been highlighted as potentially non-hermetic are as follows:
 
