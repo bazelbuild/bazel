@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -118,7 +119,8 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
           ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
 
       // Get a ToolchainContext to use for dependency resolution.
-      ToolchainContext toolchainContext = accessor.getToolchainContext(target, config);
+      ToolchainCollection<ToolchainContext> toolchainContexts =
+          accessor.getToolchainContexts(target, config);
       try {
         // We don't actually use fromOptions in our implementation of
         // DependencyResolver but passing to avoid passing a null and since we have the information
@@ -130,7 +132,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     hostConfiguration,
                     /*aspect=*/ null,
                     configConditions,
-                    toolchainContext,
+                    toolchainContexts,
                     trimmingTransitionFactory);
       } catch (EvalException | InconsistentAspectOrderException e) {
         throw new InterruptedException(e.getMessage());

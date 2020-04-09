@@ -189,7 +189,7 @@ public abstract class DependencyResolver {
    *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspect the aspect applied to this target (if any)
    * @param configConditions resolver for config_setting labels
-   * @param toolchainContext the toolchain context for this target
+   * @param toolchainContexts the toolchain contexts for this target
    * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
@@ -199,7 +199,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext,
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
@@ -209,7 +209,7 @@ public abstract class DependencyResolver {
             hostConfig,
             aspect != null ? ImmutableList.of(aspect) : ImmutableList.<Aspect>of(),
             configConditions,
-            toolchainContext,
+            toolchainContexts,
             rootCauses,
             trimmingTransitionFactory);
     if (!rootCauses.isEmpty()) {
@@ -243,7 +243,7 @@ public abstract class DependencyResolver {
    *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
    * @param aspects the aspects applied to this target (if any)
    * @param configConditions resolver for config_setting labels
-   * @param toolchainContext the toolchain context for this target
+   * @param toolchainContexts the toolchain contexts for this target
    * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded
@@ -254,7 +254,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainContext toolchainContext,
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       NestedSetBuilder<Cause> rootCauses,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
@@ -279,7 +279,7 @@ public abstract class DependencyResolver {
     } else if (target instanceof Rule) {
       fromRule = (Rule) target;
       attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions);
-      visitRule(node, hostConfig, aspects, attributeMap, toolchainContext, outgoingLabels);
+      visitRule(node, hostConfig, aspects, attributeMap, toolchainContexts, outgoingLabels);
     } else if (target instanceof PackageGroup) {
       outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
     } else {
@@ -294,7 +294,7 @@ public abstract class DependencyResolver {
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
-            outgoingLabels, fromRule, attributeMap, toolchainContext, aspects);
+            outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
 
     OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
         fullyResolveDependencies(
@@ -316,7 +316,7 @@ public abstract class DependencyResolver {
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           @Nullable Rule fromRule,
           ConfiguredAttributeMapper attributeMap,
-          @Nullable ToolchainContext toolchainContext,
+          @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
           Iterable<Aspect> aspects) {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
@@ -361,8 +361,12 @@ public abstract class DependencyResolver {
           aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
 
       Label executionPlatformLabel = null;
-      if (toolchainContext != null && toolchainContext.executionPlatform() != null) {
-        executionPlatformLabel = toolchainContext.executionPlatform().label();
+      // TODO(b/151742236): support transitions to other ({@link ExecGroup defined}) execution
+      // platforms
+      if (toolchainContexts != null
+          && toolchainContexts.getDefaultToolchainContext().executionPlatform() != null) {
+        executionPlatformLabel =
+            toolchainContexts.getDefaultToolchainContext().executionPlatform().label();
       }
       AttributeTransitionData attributeTransitionData =
           AttributeTransitionData.builder()
@@ -426,7 +430,7 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
       ConfiguredAttributeMapper attributeMap,
-      @Nullable ToolchainContext toolchainContext,
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels)
       throws EvalException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule, node);
@@ -479,8 +483,8 @@ public abstract class DependencyResolver {
           rule.getPackage().getDefaultRestrictedTo());
     }
 
-    if (toolchainContext != null) {
-      outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainContext.resolvedToolchainLabels());
+    if (toolchainContexts != null) {
+      outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainContexts.getRequiredToolchains());
     }
 
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.APPLICABLE_LICENSES_ATTR)) {

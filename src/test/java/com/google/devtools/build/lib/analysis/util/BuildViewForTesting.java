@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -275,7 +276,7 @@ public class BuildViewForTesting {
       final ExtendedEventHandler eventHandler,
       final ConfiguredTarget ct,
       BuildConfigurationCollection configurations,
-      @Nullable ToolchainContext toolchainContext)
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
       throws EvalException, InterruptedException, InconsistentAspectOrderException,
           StarlarkTransition.TransitionException, InvalidConfigurationException {
 
@@ -332,7 +333,7 @@ public class BuildViewForTesting {
         configurations.getHostConfiguration(),
         /*aspect=*/ null,
         getConfigurableAttributeKeysForTesting(eventHandler, ctgNode),
-        toolchainContext,
+        toolchainContexts,
         ruleClassProvider.getTrimmingTransitionFactory());
   }
 
@@ -367,12 +368,12 @@ public class BuildViewForTesting {
       final ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
       BuildConfigurationCollection configurations,
-      @Nullable ToolchainContext toolchainContext)
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException, StarlarkTransition.TransitionException {
     OrderedSetMultimap<DependencyKind, Dependency> depNodeNames =
         getDirectPrerequisiteDependenciesForTesting(
-            eventHandler, target, configurations, toolchainContext);
+            eventHandler, target, configurations, toolchainContexts);
 
     ImmutableMultimap<Dependency, ConfiguredTargetAndData> cts =
         skyframeExecutor.getConfiguredTargetMapForTesting(
@@ -509,7 +510,13 @@ public class BuildViewForTesting {
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
-            eventHandler, configuredTarget, configurations, unloadedToolchainContext);
+            eventHandler,
+            configuredTarget,
+            configurations,
+            // TODO(b/151742236): make tests aware of exec groups
+            new ToolchainCollection.Builder<>()
+                .addDefaultContext(unloadedToolchainContext)
+                .build());
     String targetDescription = target.toString();
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
