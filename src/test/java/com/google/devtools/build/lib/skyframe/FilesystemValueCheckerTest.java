@@ -115,7 +115,7 @@ public class FilesystemValueCheckerTest {
   private MockFileSystem fs;
   private Path pkgRoot;
 
-  private static final int FSVC_THREADS_FOR_TEST = 20;
+  private static final int FSVC_THREADS_FOR_TEST = 200;
 
   @Before
   public final void setUp() throws Exception  {
