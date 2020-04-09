@@ -322,7 +322,7 @@ public class PackageCacheTest extends FoundationTestCase {
     Package oldPkg = getPackage("pkg");
     assertThat(getPackage("pkg")).isSameInstanceAs(oldPkg); // change not yet visible
     assertThat(oldPkg.getFilename().asPath()).isEqualTo(buildFile1);
-    assertThat(oldPkg.getSourceRoot()).isEqualTo(Root.fromPath(rootDirectory));
+    assertThat(oldPkg.getSourceRoot().get()).isEqualTo(Root.fromPath(rootDirectory));
 
     buildFile1.delete();
     invalidatePackages();
@@ -330,7 +330,7 @@ public class PackageCacheTest extends FoundationTestCase {
     Package newPkg = getPackage("pkg");
     assertThat(newPkg).isNotSameInstanceAs(oldPkg);
     assertThat(newPkg.getFilename().asPath()).isEqualTo(buildFile2);
-    assertThat(newPkg.getSourceRoot()).isEqualTo(Root.fromPath(scratch.dir("/otherroot")));
+    assertThat(newPkg.getSourceRoot().get()).isEqualTo(Root.fromPath(scratch.dir("/otherroot")));
 
     // TODO(bazel-team): (2009) test BUILD file moves in the other direction too.
   }

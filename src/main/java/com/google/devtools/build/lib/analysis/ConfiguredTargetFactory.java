@@ -238,7 +238,7 @@ public final class ConfiguredTargetFactory {
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(
                   analysisEnvironment.getSkylarkSemantics().experimentalSiblingRepositoryLayout()),
-              inputFile.getPackage().getSourceRoot(),
+              inputFile.getPackage().getSourceRoot().get(),
               ConfiguredTargetKey.of(target.getLabel(), config));
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
     } else if (target instanceof PackageGroup) {

@@ -343,7 +343,7 @@ EOF
   expect_log "INFO: 2 processes"
 }
 
-function test_external_dependency() {
+function test_external_source_dependency() {
   setup_basic_ninja_build
 
   cat > BUILD <<'EOF'
@@ -387,6 +387,73 @@ EOF
   expect_log "ab"
 
   echo "z" > external/two
+
+  bazel build //:rootbuild --experimental_sibling_repository_layout --experimental_disable_external_package --experimental_ninja_actions &> $TEST_log \
+      || fail "build should have succeeded"
+  cat bazel-workspace/out/test/output.txt > $TEST_log
+  expect_log "az"
+}
+
+# Tests a dependency on external package sources in the scenario where the
+# ninja_build target has a dependency on //external:cc_toolchain. This is a
+# regression test for a bug in which this dependency interfered with external
+# source resolution.
+function test_external_dependency_cctoolchain() {
+  setup_basic_ninja_build
+
+  cat > BUILD <<'EOF'
+ninja_graph(
+    name = "rootgraph",
+    main = "build.ninja",
+    output_root = "out",
+)
+
+genrule(
+    name = "g",
+    cmd = "echo 'c' > $@",
+    outs = ["generated.txt"],
+    # This ensures rootbuild depends on cc_toolchain transitively.
+    srcs = ["//external:cc_toolchain"],
+)
+
+ninja_build(
+    name = "rootbuild",
+    ninja_graph = "rootgraph",
+    output_groups = {
+        "out" : ["out/test/output.txt"],
+    },
+    deps_mapping = {
+        "out/dummy" : ":g",
+    },
+)
+EOF
+
+  cat > build.ninja <<'EOF'
+rule cattool
+  depfile = out/test/depfile.d
+  command = ${in} ${out}
+build out/test/output.txt: cattool test/cattool.sh test/one
+EOF
+
+  cat > test/cattool.sh <<'EOF'
+for i in $@; do :; done
+OUTPUT=$i
+DEPFILE="$(dirname $OUTPUT)/depfile.d"
+
+cat test/one external/foo/two > $OUTPUT
+
+echo "$1 : test/one external/foo/two" > $DEPFILE
+EOF
+  mkdir -p external/foo
+  touch external/foo/BUILD
+  echo "b" > external/foo/two
+
+  bazel build //:rootbuild --experimental_sibling_repository_layout --experimental_disable_external_package --experimental_ninja_actions &> $TEST_log \
+      || fail "build should have succeeded"
+  cat bazel-workspace/out/test/output.txt > $TEST_log
+  expect_log "ab"
+
+  echo "z" > external/foo/two
 
   bazel build //:rootbuild --experimental_sibling_repository_layout --experimental_disable_external_package --experimental_ninja_actions &> $TEST_log \
       || fail "build should have succeeded"

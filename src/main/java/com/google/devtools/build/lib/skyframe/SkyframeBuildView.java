@@ -750,7 +750,9 @@ public final class SkyframeBuildView {
     // Make a map of the package names to their root paths.
     ImmutableMap.Builder<PackageIdentifier, Root> packageRoots = ImmutableMap.builder();
     for (Package pkg : packages) {
-      packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot());
+      if (pkg.getSourceRoot().isPresent()) {
+        packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot().get());
+      }
     }
     return packageRoots.build();
   }
