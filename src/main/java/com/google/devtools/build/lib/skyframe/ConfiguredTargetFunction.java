@@ -359,14 +359,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         ConfiguredValueCreationException cvce = (ConfiguredValueCreationException) e.getCause();
 
         // Check if this is caused by an unresolved toolchain, and report it as such.
-        // TODO(b/151742236): check non-default {@link ExecGroup} toolchains as well.
         if (unloadedToolchainContexts != null) {
-          UnloadedToolchainContext finalUnloadedToolchainContext =
-              unloadedToolchainContexts.getDefaultToolchainContext();
+          ImmutableSet<Label> requiredToolchains =
+              unloadedToolchainContexts.getResolvedToolchains();
           Set<Label> toolchainDependencyErrors =
               cvce.getRootCauses().toList().stream()
                   .map(Cause::getLabel)
-                  .filter(l -> finalUnloadedToolchainContext.resolvedToolchainLabels().contains(l))
+                  .filter(requiredToolchains::contains)
                   .collect(ImmutableSet.toImmutableSet());
 
           if (!toolchainDependencyErrors.isEmpty()) {

@@ -484,7 +484,7 @@ public abstract class DependencyResolver {
     }
 
     if (toolchainContexts != null) {
-      outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainContexts.getRequiredToolchains());
+      outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainContexts.getResolvedToolchains());
     }
 
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.APPLICABLE_LICENSES_ATTR)) {

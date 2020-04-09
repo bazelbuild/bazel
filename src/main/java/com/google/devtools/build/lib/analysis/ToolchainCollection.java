@@ -13,15 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A wrapper class for a map of exec_group names to their relevent ToolchainContext.
@@ -70,12 +70,10 @@ public class ToolchainCollection<T extends ToolchainContext> {
     return toolchainContexts.get(execGroup);
   }
 
-  public ImmutableSet<Label> getRequiredToolchains() {
-    Set<Label> requiredToolchains = new HashSet<>();
-    for (T context : toolchainContexts.values()) {
-      requiredToolchains.addAll(context.resolvedToolchainLabels());
-    }
-    return ImmutableSet.copyOf(requiredToolchains);
+  public ImmutableSet<Label> getResolvedToolchains() {
+    return toolchainContexts.values().stream()
+        .flatMap(c -> c.resolvedToolchainLabels().stream())
+        .collect(toImmutableSet());
   }
 
   public ToolchainCollection<ToolchainContext> asToolchainContexts() {
