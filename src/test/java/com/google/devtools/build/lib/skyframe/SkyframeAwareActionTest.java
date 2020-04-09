@@ -364,7 +364,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   /** Sanity check: ensure that a file's ctime was updated from an older value. */
-  private void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
+  private static void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
     if (oldCtime >= path.stat().getLastChangeTime()) {
       throw new IllegalStateException(String.format("path=(%s), ctime=(%d)", path, oldCtime));
     }
@@ -500,7 +500,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     return RootedPath.toRootedPath(Root.fromPath(rootDirectory), PathFragment.create("action.dep"));
   }
 
-  private void appendToFile(Path path) throws Exception {
+  private static void appendToFile(Path path) throws Exception {
     try (OutputStream stm = path.getOutputStream(/*append=*/ true)) {
       stm.write("blah".getBytes(StandardCharsets.UTF_8));
     }

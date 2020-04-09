@@ -58,7 +58,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     fetchExternalRepo(RepositoryName.create("@bazel_tools"));
   }
 
-  private void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
+  private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
     Path tools = embeddedBinaries.getRelative("embedded_tools");
     tools.getRelative("tools/cpp").createDirectoryAndParents();
     tools.getRelative("tools/osx").createDirectoryAndParents();

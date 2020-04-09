@@ -349,7 +349,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   @SafeVarargs
-  private final void assertExpectedResolvedFilesPresent(
+  private static final void assertExpectedResolvedFilesPresent(
       Map<PathFragment, ResolvedFile> nameToActualResolvedFiles,
       ResolvedFile... expectedFilesIgnoringMetadata)
       throws Exception {
@@ -447,9 +447,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
   }
 
-  private void assertTraversalRootHashesAre(
+  private static void assertTraversalRootHashesAre(
       boolean equal, RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b)
-          throws Exception {
+      throws Exception {
     if (equal) {
       assertThat(a.getResolvedRoot().get().hashCode())
           .isEqualTo(b.getResolvedRoot().get().hashCode());
@@ -459,12 +459,12 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
   }
 
-  private void assertTraversalRootHashesAreEqual(
+  private static void assertTraversalRootHashesAreEqual(
       RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) throws Exception {
     assertTraversalRootHashesAre(true, a, b);
   }
 
-  private void assertTraversalRootHashesAreNotEqual(
+  private static void assertTraversalRootHashesAreNotEqual(
       RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) throws Exception {
     assertTraversalRootHashesAre(false, a, b);
   }

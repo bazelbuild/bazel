@@ -96,7 +96,7 @@ public class ObjectCodecs {
     return deserializeImpl(codedIn, /*memoize=*/ true);
   }
 
-  private void serializeImpl(
+  private static void serializeImpl(
       Object subject, CodedOutputStream codedOut, SerializationContext serializationContext)
       throws SerializationException {
     try {

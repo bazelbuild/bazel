@@ -45,26 +45,29 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTestCase {
 
-  private SkyKey createCollectPackagesKey(
+  private static SkyKey createCollectPackagesKey(
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return CollectPackagesUnderDirectoryValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths);
   }
 
-  private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath) {
+  private static SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath) {
     return createPrepDepsKey(root, rootRelativePath, ImmutableSet.<PathFragment>of());
   }
 
-  private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath,
-      ImmutableSet<PathFragment> excludedPaths) {
+  private static SkyKey createPrepDepsKey(
+      Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths);
   }
 
-  private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath,
-      ImmutableSet<PathFragment> excludedPaths, FilteringPolicy filteringPolicy) {
+  private static SkyKey createPrepDepsKey(
+      Path root,
+      PathFragment rootRelativePath,
+      ImmutableSet<PathFragment> excludedPaths,
+      FilteringPolicy filteringPolicy) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
         RepositoryName.MAIN, rootedPath, excludedPaths, filteringPolicy);

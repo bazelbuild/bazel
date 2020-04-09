@@ -285,7 +285,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return result;
   }
 
-  private String getNameFromGetter(ExecutableElement method) {
+  private static String getNameFromGetter(ExecutableElement method) {
     String name = method.getSimpleName().toString();
     if (name.startsWith("get")) {
       return name.substring(3, 4).toLowerCase() + name.substring(4);

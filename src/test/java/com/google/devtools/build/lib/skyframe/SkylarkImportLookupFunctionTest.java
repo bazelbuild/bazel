@@ -167,7 +167,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     return result;
   }
 
-  private SkyKey key(String label) {
+  private static SkyKey key(String label) {
     return SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked(label));
   }
 
