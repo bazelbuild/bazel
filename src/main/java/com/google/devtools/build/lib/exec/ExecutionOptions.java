@@ -213,21 +213,26 @@ public class ExecutionOptions extends OptionsBase {
   public boolean testKeepGoing;
 
   @Option(
-    name = "flaky_test_attempts",
-    allowMultiple = true,
-    defaultValue = "default",
-    converter = TestAttemptsConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Each test will be retried up to the specified number of times in case of any test "
-            + "failure. Tests that required more than one attempt to pass would be marked as "
-            + "'FLAKY' in the test summary. If this option is set, it should specify an int N or "
-            + "the string 'default'. If it's an int, then all tests will be run up to N times. "
-            + "If it is not specified or its value is 'default', then only a single test attempt "
-            + "will be made for regular tests and three for tests marked explicitly as flaky by "
-            + "their rule (flaky=1 attribute)."
-  )
+      name = "flaky_test_attempts",
+      allowMultiple = true,
+      defaultValue = "default",
+      converter = TestAttemptsConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Each test will be retried up to the specified number of times in case of any test"
+              + " failure. Tests that required more than one attempt to pass are marked as 'FLAKY'"
+              + " in the test summary. Normally the value specified is just an integer or the"
+              + " string 'default'. If an integer, then all tests will be run up to N times. If"
+              + " 'default', then only a single test attempt will be made for regular tests and"
+              + " three for tests marked explicitly as flaky by their rule (flaky=1 attribute)."
+              + " Alternate syntax: regex_filter@flaky_test_attempts. Where flaky_test_attempts is"
+              + " as above and regex_filter stands for a list of include and exclude regular"
+              + " expression patterns (Also see --runs_per_test). Example:"
+              + " --flaky_test_attempts=//foo/.*,-//foo/bar/.*@3 deflakes all tests in //foo/"
+              + " except those under foo/bar three times. This option can be passed multiple"
+              + " times. The most recently passed argument that matches takes precedence. If"
+              + " nothing matches, behavior is as if 'default' above.")
   public List<PerLabelOptions> testAttempts;
 
   @Option(
