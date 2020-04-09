@@ -39,7 +39,7 @@ This rule does things.
     <tr id="my_rule-first">
       <td><code>first</code></td>
       <td>
-        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: Label -> String</a>; optional
+        <a href="https://bazel.build/docs/starlark/lib/dict.html">Dictionary: Label -> String</a>; optional
         <p>
           this is the first attribute.
         </p>

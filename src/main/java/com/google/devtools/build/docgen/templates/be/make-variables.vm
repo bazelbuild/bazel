@@ -461,7 +461,7 @@ source file paths
 <p>
   Rule and <a href="../toolchains.html">toolchain</a> writers can define
   completely custom variables by returning a <a
-  href="../skylark/lib/TemplateVariableInfo.html">TemplateVariableInfo</a>
+  href="../starlark/lib/TemplateVariableInfo.html">TemplateVariableInfo</a>
   provider. Any rules depending on these through the
   <code>toolchains</code> attribute can then read their values:
 </p>

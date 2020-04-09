@@ -42,7 +42,7 @@ This rule does C++-related things.
     <tr id="cpp_related_rule-second">
       <td><code>second</code></td>
       <td>
-        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
+        <a href="https://bazel.build/docs/starlark/lib/dict.html">Dictionary: String -> String</a>; required
       </td>
     </tr>
     <tr id="cpp_related_rule-third">

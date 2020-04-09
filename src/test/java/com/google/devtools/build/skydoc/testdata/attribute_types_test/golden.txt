@@ -66,7 +66,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-e">
       <td><code>e</code></td>
       <td>
-        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: Label -> String</a>; required
+        <a href="https://bazel.build/docs/starlark/lib/dict.html">Dictionary: Label -> String</a>; required
         <p>
           Some label_keyed_string_dict
         </p>
@@ -111,7 +111,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-j">
       <td><code>j</code></td>
       <td>
-        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
+        <a href="https://bazel.build/docs/starlark/lib/dict.html">Dictionary: String -> String</a>; required
         <p>
           Some string_dict
         </p>
@@ -129,7 +129,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-l">
       <td><code>l</code></td>
       <td>
-        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> List of strings</a>; optional
+        <a href="https://bazel.build/docs/starlark/lib/dict.html">Dictionary: String -> List of strings</a>; optional
         <p>
           Some string_list_dict
         </p>
