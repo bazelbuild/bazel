@@ -62,7 +62,7 @@ function setup {
   mv "$be_dir/be-nav.html" "$OUT_DIR/_includes"
 
   # Unpack the Skylark Library into versions/master/starlark/lib
-  local sl_dir="$VERSION_DIR/skylark/lib"
+  local sl_dir="$VERSION_DIR/starlark/lib"
   mkdir -p "$sl_dir"
   unzip -qq "$SL_ZIP" -d "$sl_dir"
   mv "$sl_dir/skylark-nav.html" "$OUT_DIR/_includes"
@@ -88,7 +88,7 @@ layout: documentation
 title: ${rule_family_name} Rules
 ---
 EOF
-    cat "$TMP/skylark/$rule_family/README.md"; ) > "$be_dir/${rule_family}.md"
+    cat "$TMP/starlark/$rule_family/README.md"; ) > "$be_dir/${rule_family}.md"
 }
 
 # Copies the READMEs for Skylark rules bundled with Bazel.
