@@ -321,16 +321,22 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Preconditions.checkNotNull(depValueMap);
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
-      // TODO(b/151742236); load non-default {@link ExecGroup} toolchains.
-      ResolvedToolchainContext toolchainContext = null;
+      ToolchainCollection<ResolvedToolchainContext> toolchainContexts = null;
       if (unloadedToolchainContexts != null) {
         String targetDescription = target.toString();
-        toolchainContext =
-            ResolvedToolchainContext.load(
-                target.getPackage().getRepositoryMapping(),
-                unloadedToolchainContexts.getDefaultToolchainContext(),
-                targetDescription,
-                depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
+        ToolchainCollection.Builder<ResolvedToolchainContext> contextsBuilder =
+            new ToolchainCollection.Builder<>();
+        for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
+            unloadedToolchainContexts.getContextMap().entrySet()) {
+          contextsBuilder.addContext(
+              unloadedContext.getKey(),
+              ResolvedToolchainContext.load(
+                  target.getPackage().getRepositoryMapping(),
+                  unloadedContext.getValue(),
+                  targetDescription,
+                  depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY)));
+        }
+        toolchainContexts = contextsBuilder.build();
       }
 
       ConfiguredTargetValue ans =
@@ -342,7 +348,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configuredTargetKey,
               depValueMap,
               configConditions,
-              toolchainContext,
+              toolchainContexts,
               transitivePackagesForPackageRootResolution);
       if (configuredTargetProgress != null) {
         configuredTargetProgress.doneConfigureTarget();
@@ -916,7 +922,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext,
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();
@@ -942,7 +948,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configuredTargetKey,
               depValueMap,
               configConditions,
-              toolchainContext);
+              toolchainContexts);
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;

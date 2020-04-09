@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -30,7 +30,7 @@ import java.util.Set;
  *     after toolchain resolution.
  */
 public class ToolchainCollection<T extends ToolchainContext> {
-  private static final String DEFAULT_EXEC_GROUP_NAME = "default_exec_group";
+  @VisibleForTesting public static final String DEFAULT_EXEC_GROUP_NAME = "default_exec_group";
 
   /** A map of execution group names to toolchain contexts. */
   private final ImmutableMap<String, T> toolchainContexts;
@@ -82,7 +82,7 @@ public class ToolchainCollection<T extends ToolchainContext> {
     return new ToolchainCollection<>(ImmutableMap.copyOf(toolchainContexts));
   }
 
-  public Collection<T> getContexts() {
-    return toolchainContexts.values();
+  public ImmutableMap<String, T> getContextMap() {
+    return toolchainContexts;
   }
 }

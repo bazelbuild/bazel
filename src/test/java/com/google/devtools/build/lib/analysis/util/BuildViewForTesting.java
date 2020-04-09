@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageSpecification;
@@ -85,10 +86,13 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext.UnloadedToolchainContextKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -497,33 +501,69 @@ public class BuildViewForTesting {
     }
     ImmutableSet<Label> requiredToolchains =
         target.getAssociatedRule().getRuleClassObject().getRequiredToolchains();
+    ImmutableMap<String, ExecGroup> execGroups =
+        target.getAssociatedRule().getRuleClassObject().getExecGroups();
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
-    UnloadedToolchainContext unloadedToolchainContext =
-        (UnloadedToolchainContext)
-            skyfunctionEnvironment.getValueOrThrow(
-                UnloadedToolchainContext.key()
-                    .configurationKey(BuildConfigurationValue.key(targetConfig))
-                    .requiredToolchainTypeLabels(requiredToolchains)
-                    .build(),
-                ToolchainException.class);
+
+    Map<String, UnloadedToolchainContextKey> unloadedToolchainContextKeys = new HashMap<>();
+    for (Map.Entry<String, ExecGroup> execGroup : execGroups.entrySet()) {
+      unloadedToolchainContextKeys.put(
+          execGroup.getKey(),
+          UnloadedToolchainContext.key()
+              .configurationKey(BuildConfigurationValue.key(targetConfig))
+              .requiredToolchainTypeLabels(execGroup.getValue().getRequiredToolchains())
+              .build());
+    }
+    String targetUnloadedToolchainContextKey = "target-unloaded-toolchain-context";
+    unloadedToolchainContextKeys.put(
+        targetUnloadedToolchainContextKey,
+        UnloadedToolchainContext.key()
+            .configurationKey(BuildConfigurationValue.key(targetConfig))
+            .requiredToolchainTypeLabels(requiredToolchains)
+            .build());
+
+    Map<SkyKey, ValueOrException<ToolchainException>> values =
+        skyfunctionEnvironment.getValuesOrThrow(
+            unloadedToolchainContextKeys.values(), ToolchainException.class);
+
+    ToolchainCollection.Builder<UnloadedToolchainContext> unloadedToolchainContexts =
+        new ToolchainCollection.Builder<>();
+    for (Map.Entry<String, UnloadedToolchainContextKey> unloadedToolchainContextKey :
+        unloadedToolchainContextKeys.entrySet()) {
+      UnloadedToolchainContext unloadedToolchainContext =
+          (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();
+      String execGroup = unloadedToolchainContextKey.getKey();
+      if (execGroup.equals(targetUnloadedToolchainContextKey)) {
+        unloadedToolchainContexts.addDefaultContext(unloadedToolchainContext);
+      } else {
+        unloadedToolchainContexts.addContext(execGroup, unloadedToolchainContext);
+      }
+    }
+
+    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
+        unloadedToolchainContexts.build();
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
             eventHandler,
             configuredTarget,
             configurations,
-            // TODO(b/151742236): make tests aware of exec groups
-            new ToolchainCollection.Builder<>()
-                .addDefaultContext(unloadedToolchainContext)
-                .build());
+            unloadedToolchainCollection.asToolchainContexts());
     String targetDescription = target.toString();
-    ResolvedToolchainContext toolchainContext =
-        ResolvedToolchainContext.load(
-            target.getPackage().getRepositoryMapping(),
-            unloadedToolchainContext,
-            targetDescription,
-            prerequisiteMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
+
+    ToolchainCollection.Builder<ResolvedToolchainContext> resolvedToolchainContext =
+        new ToolchainCollection.Builder<>();
+    for (Map.Entry<String, UnloadedToolchainContext> unloadedToolchainContext :
+        unloadedToolchainCollection.getContextMap().entrySet()) {
+      ResolvedToolchainContext toolchainContext =
+          ResolvedToolchainContext.load(
+              target.getPackage().getRepositoryMapping(),
+              unloadedToolchainContext.getValue(),
+              targetDescription,
+              prerequisiteMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
+      resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
+    }
 
     return new RuleContext.Builder(
             env,
@@ -543,7 +583,7 @@ public class BuildViewForTesting {
                 prerequisiteMap, target.getAssociatedRule()))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
         .setUniversalFragments(ruleClassProvider.getUniversalFragments())
-        .setToolchainContext(toolchainContext)
+        .setToolchainContexts(resolvedToolchainContext.build())
         .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
         .build();
   }
