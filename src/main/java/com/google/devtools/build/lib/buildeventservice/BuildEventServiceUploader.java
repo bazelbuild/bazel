@@ -49,6 +49,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Sleeper;
@@ -545,17 +547,20 @@ public final class BuildEventServiceUploader implements Runnable {
       }
       throw e;
     } finally {
-      // Cancel all local file uploads that may still be running
-      // of events that haven't been uploaded.
-      EventLoopCommand event;
-      while ((event = ackQueue.pollFirst()) != null) {
-        if (event instanceof SendRegularBuildEventCommand) {
-          cancelLocalFileUpload((SendRegularBuildEventCommand) event);
+      logger.info("About to cancel all local file uploads");
+      try (AutoProfiler ignored = GoogleAutoProfilerUtils.logged("local file upload cancelation")) {
+        // Cancel all local file uploads that may still be running
+        // of events that haven't been uploaded.
+        EventLoopCommand event;
+        while ((event = ackQueue.pollFirst()) != null) {
+          if (event instanceof SendRegularBuildEventCommand) {
+            cancelLocalFileUpload((SendRegularBuildEventCommand) event);
+          }
         }
-      }
-      while ((event = eventQueue.pollFirst()) != null) {
-        if (event instanceof SendRegularBuildEventCommand) {
-          cancelLocalFileUpload((SendRegularBuildEventCommand) event);
+        while ((event = eventQueue.pollFirst()) != null) {
+          if (event instanceof SendRegularBuildEventCommand) {
+            cancelLocalFileUpload((SendRegularBuildEventCommand) event);
+          }
         }
       }
     }
