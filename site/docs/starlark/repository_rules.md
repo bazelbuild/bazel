@@ -93,7 +93,7 @@ dependencies might cause a restart:
 - Declaration of the repository rule in the `WORKSPACE` file.
 - Value of any environment variable declared with the `environ`
 attribute of the
-[`repository_rule`](https://docs.bazel.build/skylark/lib/globals.html#repository_rule)
+[`repository_rule`](https://docs.bazel.build/starlark/lib/globals.html#repository_rule)
 function. The value of those environment variable can be enforced from
 the command line with the
 [`--action_env`](https://docs.bazel.build/command-line-reference.html#flag--action_env)
@@ -112,7 +112,7 @@ external repositories unconditionally by calling `bazel sync`.
 Moreover, some rules inspect the local machine and might become
 outdated if the local machine was upgraded. Here you can ask bazel to
 only refetch those external repositories where the
-[`repository_rule`](https://docs.bazel.build/skylark/lib/globals.html#repository_rule)
+[`repository_rule`](https://docs.bazel.build/starlark/lib/globals.html#repository_rule)
 definition has the `configure` attribute set, use `bazel sync --configure`.
 
 
