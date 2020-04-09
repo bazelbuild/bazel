@@ -47,18 +47,18 @@ public class WorkspaceFileFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final BlazeDirectories directories;
   private final RuleClassProvider ruleClassProvider;
-  private final SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
+  private final StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining;
   private static final PackageIdentifier rootPackage = PackageIdentifier.createInMainRepo("");
 
   public WorkspaceFileFunction(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       BlazeDirectories directories,
-      SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
+      StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining) {
     this.packageFactory = packageFactory;
     this.directories = directories;
     this.ruleClassProvider = ruleClassProvider;
-    this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
+    this.starlarkImportLookupFunctionForInlining = starlarkImportLookupFunctionForInlining;
   }
 
   @Override
@@ -132,7 +132,7 @@ public class WorkspaceFileFunction implements SkyFunction {
               ast,
               key.getIndex(),
               env,
-              skylarkImportLookupFunctionForInlining);
+              starlarkImportLookupFunctionForInlining);
       if (importResult == null) {
         return null;
       }

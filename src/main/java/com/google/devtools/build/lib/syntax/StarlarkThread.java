@@ -635,7 +635,7 @@ public final class StarlarkThread {
    * Specifies a hook function to be run after each assignment at top level.
    *
    * <p>This is a short-term hack to allow us to consolidate all StarlarkFile execution in one place
-   * even while SkylarkImportLookupFunction implements the old "export" behavior, in which rules,
+   * even while StarlarkImportLookupFunction implements the old "export" behavior, in which rules,
    * aspects and providers are "exported" as soon as they are assigned, not at the end of file
    * execution.
    */

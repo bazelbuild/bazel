@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -3053,14 +3053,14 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
       ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions =
           ((InMemoryMemoizingEvaluator) getSkyframeExecutor().getEvaluatorForTesting())
               .getSkyFunctionsForTesting();
-      SkylarkImportLookupFunction skylarkImportLookupFunction =
-          new SkylarkImportLookupFunction(
+      StarlarkImportLookupFunction starlarkImportLookupFunction =
+          new StarlarkImportLookupFunction(
               this.getRuleClassProvider(),
               this.getPackageFactory(),
               /*starlarkImportLookupValueCacheSize=*/ 2);
-      skylarkImportLookupFunction.resetCache();
+      starlarkImportLookupFunction.resetCache();
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
-          .setSkylarkImportLookupFunctionForInliningForTesting(skylarkImportLookupFunction);
+          .setSkylarkImportLookupFunctionForInliningForTesting(starlarkImportLookupFunction);
     }
 
     @Override

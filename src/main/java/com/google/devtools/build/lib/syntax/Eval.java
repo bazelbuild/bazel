@@ -55,7 +55,7 @@ final class Eval {
         return flow;
       }
 
-      // Hack for SkylarkImportLookupFunction's "export" semantics.
+      // Hack for StarlarkImportLookupFunction's "export" semantics.
       // We enable it only for statements outside any function (isToplevelFunction)
       // and outside any if- or for- statements (!indented).
       if (isToplevelFunction && !indented && fr.thread.postAssignHook != null) {

@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
@@ -152,12 +152,12 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
         AnalysisMock.get().getPackageFactoryBuilderForTesting(directories);
-    SkylarkImportLookupFunction skylarkImportLookupFunction =
-        new SkylarkImportLookupFunction(
+    StarlarkImportLookupFunction starlarkImportLookupFunction =
+        new StarlarkImportLookupFunction(
             ruleClassProvider,
             pkgFactoryBuilder.build(ruleClassProvider, fileSystem),
             /*starlarkImportLookupValueCacheSize=*/ 2);
-    skylarkImportLookupFunction.resetCache();
+    starlarkImportLookupFunction.resetCache();
 
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -188,7 +188,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                             .builder(directories)
                             .build(ruleClassProvider, fileSystem),
                         directories,
-                        skylarkImportLookupFunction))
+                        starlarkImportLookupFunction))
                 .put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction())
                 .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())

@@ -457,7 +457,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(PackageFactory pkgFactory) {
     ConfiguredRuleClassProvider ruleClassProvider =
         (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
-    SkylarkImportLookupFunction skylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes =
+    StarlarkImportLookupFunction starlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes =
         getSkylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes();
     // TODO(janakr): use this semaphore to bound memory usage for SkyFunctions besides
     // ConfiguredTargetFunction that may have a large temporary memory blow-up.
@@ -520,7 +520,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             packageFunctionCache,
             fileSyntaxCache,
             numPackagesLoaded,
-            skylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes,
+            starlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
             actionOnIOExceptionReadingBuildFile,
             tracksStateForIncrementality()
@@ -564,7 +564,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ruleClassProvider,
             pkgFactory,
             directories,
-            skylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes));
+            starlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes));
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     map.put(
         SkyFunctions.TARGET_COMPLETION,
@@ -635,14 +635,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @Nullable
-  protected SkylarkImportLookupFunction
+  protected StarlarkImportLookupFunction
       getSkylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes() {
     return null;
   }
 
   protected SkyFunction newSkylarkImportLookupFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
-    return new SkylarkImportLookupFunction(ruleClassProvider, this.pkgFactory);
+    return new StarlarkImportLookupFunction(ruleClassProvider, this.pkgFactory);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {
