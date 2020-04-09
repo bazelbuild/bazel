@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     category = SkylarkModuleCategory.PROVIDER,
     doc =
         "Deprecated. Use <a"
-            + " href=\"https://docs.bazel.build/versions/master/skylark/lib/JavaInfo.html\">JavaInfo</a>"
+            + " href=\"https://docs.bazel.build/versions/master/starlark/lib/JavaInfo.html\">JavaInfo</a>"
             + " instead.")
 @StarlarkDeprecated
 public interface JavaSkylarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {}

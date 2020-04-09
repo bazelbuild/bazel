@@ -230,7 +230,7 @@ public class ConfigRuleClasses {
 
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(flag_values) -->
           The same as <a href="${link config_setting.values}"><code>values</code></a> but
-          for <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+          for <a href="https://docs.bazel.build/versions/master/starlark/config.html#user-defined-build-settings">
           Starlark-defined flags</a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
 
@@ -350,7 +350,7 @@ public class ConfigRuleClasses {
 
     <li>
       If a flag takes multiple values (like <code>--copt=-Da --copt=-Db</code> or a list-typed
-      <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+      <a href="https://docs.bazel.build/versions/master/starlark/config.html#user-defined-build-settings">
       Starlark flag</a>), <code>values = { "flag": "a" }</code> matches if <code>"a"</code> is
       present <i>anywhere</i> in the actual list.
 
@@ -369,7 +369,7 @@ public class ConfigRuleClasses {
     </li>
 
     <li>If you need to define conditions that aren't modeled by built-in Bazel flags, use
-      <a href="https://docs.bazel.build/versions/master/skylark/config.html#user-defined-build-settings">
+      <a href="https://docs.bazel.build/versions/master/starlark/config.html#user-defined-build-settings">
       Starlark-defined flags</a>. You can also use <code>--define</code>, but this offers weaker
       support and is not recommended. See
       <a href="${link common-definitions#configurable-attributes}">here</a> for more discussion.

@@ -700,7 +700,7 @@ Important changes:
     `PATH` now includes `/usr/local/bin`.
   - Turn on --experimental_build_setting_api by default for starlark
     build settings (see
-    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    https://docs.bazel.build/versions/master/starlark/config.html#user-
     defined-build-settings for more info)
   - `@bazel_tools//tools/jdk:toolchain_java10` and
     `@bazel_tools//tools/jdk:toolchain_java11` are now available to
@@ -754,7 +754,7 @@ Important changes:
     issue #8746
   - Turn on --experimental_build_setting_api by default for starlark
     build settings (see
-    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    https://docs.bazel.build/versions/master/starlark/config.html#user-
     defined-build-settings for more info)
   - Attribute names are going to be restricted and must be
     syntactically valid identifiers.
@@ -807,7 +807,7 @@ Important changes:
     `PATH` now includes `/usr/local/bin`.
   - Turn on --experimental_build_setting_api by default for starlark
     build settings (see
-    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    https://docs.bazel.build/versions/master/starlark/config.html#user-
     defined-build-settings for more info)
 
 This release contains contributions from many people at Google, as well as Ricky Pai.
@@ -983,11 +983,11 @@ Important changes:
     [#8283](https://github.com/bazelbuild/bazel/issues/8283).
   - Turn on --experimental_starlark_config_transitions by default for
     starlark transitions (see
-    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    https://docs.bazel.build/versions/master/starlark/config.html#user-
     defined-transitions for more info)
   - Turn on --experimental_build_setting_api by default for starlark
     build settings (see
-    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    https://docs.bazel.build/versions/master/starlark/config.html#user-
     defined-build-settings for more info)
   - Incompatible flag
     `--incompatible_dont_enable_host_nonhost_crosstool_features` has
@@ -1006,7 +1006,7 @@ Important changes:
     `PATH` now includes `/usr/local/bin`.
   - Turn on --experimental_build_setting_api by default for starlark
     build settings (see
-    https://docs.bazel.build/versions/master/skylark/config.html#user-
+    https://docs.bazel.build/versions/master/starlark/config.html#user-
     defined-build-settings for more info)
 
 This release contains contributions from many people at Google, as well as Alex Thompson, Andy Scott, Benjamin Peterson, David McNett, Drew Gassaway, Ira Shikhman, James deBoer, Jay Vercellone, Jingwen Chen, Josh Rosen, Keith Smiley, Laurent Le Brun, Lee Mracek, Marwan Tammam, Matt Passell, Michael Hackner, Michal Majcherski, Patrick Niklaus, Peter Mounce, Ricky Pai, Steeve Morin, szakmary, Takuto Ikuta, Vladimir Chebotarev, Yen-Chi Chen.
@@ -1171,7 +1171,7 @@ Cherry picks:
   [Buildifier](https://github.com/bazelbuild/buildtools) can update your code
   automatically.
 
-- [`struct.to_proto()`](https://docs.bazel.build/versions/master/skylark/lib/struct.html#to_proto)
+- [`struct.to_proto()`](https://docs.bazel.build/versions/master/starlark/lib/struct.html#to_proto)
   can now convert dictionaries into proto3 text message.
 
 - The [`glob`](https://docs.bazel.build/versions/master/be/functions.html#glob)
@@ -1195,7 +1195,7 @@ Cherry picks:
 
 - Added `--incompatible_remove_binary_profile` to disable the old binary
   profiles. Instead use the JSON profile format:
-  https://docs.bazel.build/versions/master/skylark/performance.html#json-profile
+  https://docs.bazel.build/versions/master/starlark/performance.html#json-profile
 
 - Introducing `--execution_log_binary_file` and `--execution_log_json_file`
   that output a stable sorted execution log. They will offer a stable
@@ -1400,7 +1400,7 @@ Incompatible changes:
 
   - (Starlark rules) The legacy "py" provider can no longer be passed
     to or produced by native Python rules; use
-    [PyInfo](https://docs.bazel.build/versions/master/skylark/lib/PyIn
+    [PyInfo](https://docs.bazel.build/versions/master/starlark/lib/PyIn
     fo.html) instead. See
     [#7298](https://github.com/bazelbuild/bazel/issues/7298) for more
     information.
@@ -2420,14 +2420,14 @@ Future Changes
 --------------
 
 * None of the C++ related incompatible flags mentioned in the 0.18 release were flipped, they will be flipped in the next release (0.20). We have created tracking issues for all the relevant incompatible flags:
-    * [`--incompatible_disable_late_bound_option_defaults`](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-late-bound-option-defaults): #6384
-    * [`--incompatible_disable_depset_in_cc_user_flags`](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-depsets-in-c-toolchain-api-in-user-flags): #6383
-    * [`--incompatible_disable_cc_toolchain_label_from_crosstool_proto`](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disallow-using-crosstool-to-select-the-cc_toolchain-label): #6382
+    * [`--incompatible_disable_late_bound_option_defaults`](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disable-late-bound-option-defaults): #6384
+    * [`--incompatible_disable_depset_in_cc_user_flags`](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disable-depsets-in-c-toolchain-api-in-user-flags): #6383
+    * [`--incompatible_disable_cc_toolchain_label_from_crosstool_proto`](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disallow-using-crosstool-to-select-the-cc_toolchain-label): #6382
     * [`--incompatible_disable_cc_configuration_make_variables`](https://github.com/bazelbuild/bazel/issues/6381): #6381
-    * [`--incompatible_disable_legacy_cpp_toolchain_skylark_api`](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-legacy-c-configuration-api): #6380
-    * [`incompatible_disable_legacy_flags_cc_toolchain_api`](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-legacy-c-toolchain-api): #6434
+    * [`--incompatible_disable_legacy_cpp_toolchain_skylark_api`](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disable-legacy-c-configuration-api): #6380
+    * [`incompatible_disable_legacy_flags_cc_toolchain_api`](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disable-legacy-c-toolchain-api): #6434
 
-* In the 0.20 release the flags [`--incompatible_remove_native_git_repository`](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#remove-native-git-repository) and [`--incompatible_remove_native_http_archive`](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#remove-native-http-archive) will be turned on.
+* In the 0.20 release the flags [`--incompatible_remove_native_git_repository`](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#remove-native-git-repository) and [`--incompatible_remove_native_http_archive`](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#remove-native-http-archive) will be turned on.
 
 Thank you to our contributors!
 ------------------------------
@@ -2530,27 +2530,27 @@ C++
 
 - In-memory package //tools/defaults has been removed (controlled by
   `--incompatible_disable_tools_defaults_package` flag). Please see
-  [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-inmemory-tools-defaults-package)
+  [migration instructions](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disable-inmemory-tools-defaults-package)
   and migrate soon, the flag will be flipped in Bazel 0.19, and the legacy
   behavior will be removed in Bazel 0.20.
 
 - Late bound option defaults (typical example was the `--compiler` flag, when
   it was not specified, it’s value was computed using the CROSSTOOL) are removed
   (controlled by `--incompatible_disable_late_bound_option_defaults` flag).
-  Please see [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-late-bound-option-defaults)
+  Please see [migration instructions](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disable-late-bound-option-defaults)
   and migrate soon, the flag will be flipped in Bazel 0.19, and the legacy
   behavior will be removed in Bazel 0.20.
 
 - Depsets are no longer accepted in `user_compile_flags` and `user_link_flags`
   in the C++ toolchain API (controlled by
   `--incompatible_disable_depset_in_cc_user_flags` flag) affects C++ users.
-  Please see [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-depsets-in-c-toolchain-api-in-user-flags)
+  Please see [migration instructions](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disable-depsets-in-c-toolchain-api-in-user-flags)
   and migrate soon, the flag will be flipped in Bazel 0.19, and the legacy
   behavior will be removed in Bazel 0.20.
 
 - CROSSTOOL is no longer consulted when selecting C++ toolchain (controlled by
   `--incompatible_disable_cc_toolchain_label_from_crosstool_proto` flag).
-  Please see [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disallow-using-crosstool-to-select-the-cc_toolchain-label)
+  Please see [migration instructions](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disallow-using-crosstool-to-select-the-cc_toolchain-label)
   and migrate soon, the flag will be flipped in Bazel 0.19, and the legacy behavior will be removed in Bazel 0.20.
 
 - You can now use [`toolchain_identifier` attribute](https://github.com/bazelbuild/bazel/commit/857d4664ce939f240b1d10d8d2baca6c6893cfcb)
@@ -2559,7 +2559,7 @@ C++
 - C++ specific Make variables
   are no longer passed from the `CppConfiguration`, but from the C++ toolchain
   (controlled by `--incompatible_disable_cc_configuration_make_variables` flag).
-  Please see [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disallow-using-c-specific-make-variables-from-the-configuration)
+  Please see [migration instructions](https://docs.bazel.build/versions/master/starlark/backward-compatibility.html#disallow-using-c-specific-make-variables-from-the-configuration)
   and migrate soon, the flag will be flipped
   in Bazel 0.19, and the legacy behavior will be removed in Bazel 0.20.
 
@@ -3334,7 +3334,7 @@ Incompatible changes:
     favor of
       functions `package_name()` and `repository_name()`.
 
-    https://docs.bazel.build/versions/master/skylark/lib/native.html#p
+    https://docs.bazel.build/versions/master/starlark/lib/native.html#p
     ackage_name
   - BUILD_TIMESTAMP now contains seconds (and not milliseconds) since
     the epoch.
@@ -3712,7 +3712,7 @@ Important changes:
   - Using `+`, `|` or `.union` on depsets is now deprecated. Please
     use the new
       constructor instead (see
-    https://docs.bazel.build/versions/master/skylark/depsets.html).
+    https://docs.bazel.build/versions/master/starlark/depsets.html).
   - config_feature_flag's default_value is optional. It is
     only an error to have a config_feature_flag with no default_value
     if that config_feature_flag has not been set in the configuration

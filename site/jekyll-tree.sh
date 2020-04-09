@@ -61,7 +61,7 @@ function setup {
   unzip -qq "$BE_ZIP" -d "$be_dir"
   mv "$be_dir/be-nav.html" "$OUT_DIR/_includes"
 
-  # Unpack the Skylark Library into versions/master/skylark/lib
+  # Unpack the Skylark Library into versions/master/starlark/lib
   local sl_dir="$VERSION_DIR/skylark/lib"
   mkdir -p "$sl_dir"
   unzip -qq "$SL_ZIP" -d "$sl_dir"

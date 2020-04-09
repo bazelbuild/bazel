@@ -255,12 +255,12 @@ public final class ValidationEnvironment extends NodeVisitor {
     if (name.equals("PACKAGE_NAME")) {
       return "The value 'PACKAGE_NAME' has been removed in favor of 'package_name()', "
           + "please use the latter ("
-          + "https://docs.bazel.build/versions/master/skylark/lib/native.html#package_name). ";
+          + "https://docs.bazel.build/versions/master/starlark/lib/native.html#package_name). ";
     }
     if (name.equals("REPOSITORY_NAME")) {
       return "The value 'REPOSITORY_NAME' has been removed in favor of 'repository_name()', please"
           + " use the latter ("
-          + "https://docs.bazel.build/versions/master/skylark/lib/native.html#repository_name).";
+          + "https://docs.bazel.build/versions/master/starlark/lib/native.html#repository_name).";
     }
     return null;
   }
