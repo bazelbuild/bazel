@@ -227,6 +227,24 @@ This mechanism can also be used to join diamonds. For example if `A` and `B`
 had the same dependency but call it by different names, those dependencies can
 be joined in myproject/WORKSPACE.
 
+## Overriding repositories from the command line
+
+To override a declared repository with a local repository from the command line,
+use the
+[`--override_repository`](command-line-reference.html#flag--override_repository)
+flag. Using this flag changes the contents of external repositories without
+changing your source code.
+
+For example, to override `@foo` to the local directory `/path/to/local/foo`,
+pass the `--override_repository=foo=/path/to/local/foo` flag.
+
+Some of the use cases include:
+
+* Debugging issues. For example, you can override a `http_archive` repository
+  to a local directory where you can make changes more easily.
+* Vendoring. If you are in an environment where you cannot make network calls,
+  override the network-based repository rules to point to local directories
+  instead.
 
 <a name="using-proxies"></a>
 ## Using proxies
