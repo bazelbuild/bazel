@@ -85,7 +85,7 @@ when building your Java projects:
    *  [`java_proto_common`](starlark/lib/java_proto_common.html)
    *  [`JavaRuntimeClasspathProvider`](starlark/lib/JavaRuntimeClasspathProvider.html)
    *  [`JavaRuntimeInfo`](starlark/lib/JavaRuntimeInfo.html)
-   *  [`JavaToolchainSkylarkApiProvider`](starlark/lib/JavaToolchainSkylarkApiProvider.html)
+   *  [`JavaToolchainInfo`](starlark/lib/JavaToolchainInfo.html)
 
 *  Configuration fragments:
 
