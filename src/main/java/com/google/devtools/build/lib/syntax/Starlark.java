@@ -145,12 +145,28 @@ public final class Starlark {
   }
 
   /**
+   * Checks whether the Freezable Starlark value is frozen or temporarily immutable due to active
+   * iterators.
+   *
+   * @throws EvalException if the value is not mutable.
+   */
+  public static void checkMutable(Mutability.Freezable x) throws EvalException {
+    if (x.mutability().isFrozen()) {
+      throw Starlark.errorf("trying to mutate a frozen %s value", Starlark.type(x));
+    }
+    if (x.updateIteratorCount(0)) {
+      throw Starlark.errorf(
+          "%s value is temporarily immutable due to active for-loop iteration", Starlark.type(x));
+    }
+  }
+
+  /**
    * Returns an iterable view of {@code x} if it is an iterable Starlark value; throws EvalException
    * otherwise.
    *
-   * <p>Whereas the interpreter temporarily freezes the iterable value using {@link EvalUtils#lock}
-   * and {@link EvalUtils#unlock} while iterating in {@code for} loops and comprehensions, iteration
-   * using this method does not freeze the value. Callers should exercise care not to mutate the
+   * <p>Whereas the interpreter temporarily freezes the iterable value by bracketing {@code for}
+   * loops and comprehensions in calls to {@link Freezable#updateIteratorCount}, iteration using
+   * this method does not freeze the value. Callers should exercise care not to mutate the
    * underlying object during iteration.
    */
   public static Iterable<?> toIterable(Object x) throws EvalException {

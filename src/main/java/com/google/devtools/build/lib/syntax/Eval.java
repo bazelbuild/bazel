@@ -91,7 +91,7 @@ final class Eval {
       throws EvalException, InterruptedException {
     Object o = eval(fr, node.getCollection());
     Iterable<?> seq = Starlark.toIterable(o);
-    EvalUtils.lock(o, node.getStartLocation());
+    EvalUtils.addIterator(o);
     try {
       for (Object it : seq) {
         assign(fr, node.getLHS(), it);
@@ -115,7 +115,7 @@ final class Eval {
     } catch (EvalException ex) {
       throw ex.ensureLocation(node.getLHS().getStartLocation());
     } finally {
-      EvalUtils.unlock(o, node.getStartLocation());
+      EvalUtils.removeIterator(o);
     }
     return TokenKind.PASS;
   }
@@ -202,7 +202,7 @@ final class Eval {
       // changing it to fr.locals.put breaks a test. TODO(adonovan): find out why.
       try {
         fn(fr).getModule().put(binding.getLocalName().getName(), value);
-      } catch (Mutability.MutabilityException ex) {
+      } catch (EvalException ex) {
         throw new AssertionError(ex);
       }
     }
@@ -325,7 +325,7 @@ final class Eval {
         try {
           module.put(name, value);
           module.exportedBindings.add(name);
-        } catch (Mutability.MutabilityException ex) {
+        } catch (EvalException ex) {
           throw new IllegalStateException(ex);
         }
         break;
@@ -746,19 +746,18 @@ final class Eval {
             Comprehension.For forClause = (Comprehension.For) clause;
 
             Object iterable = eval(fr, forClause.getIterable());
-            Location loc = comp.getStartLocation(); // TODO(adonovan): use location of 'for' token
             Iterable<?> listValue = Starlark.toIterable(iterable);
-            // TODO(adonovan): lock should not need loc.
-            EvalUtils.lock(iterable, loc);
+            EvalUtils.addIterator(iterable);
             try {
               for (Object elem : listValue) {
                 assign(fr, forClause.getVars(), elem);
                 execClauses(index + 1);
               }
             } catch (EvalException ex) {
-              throw ex.ensureLocation(loc);
+              // TODO(adonovan): use location of 'for' token
+              throw ex.ensureLocation(comp.getStartLocation());
             } finally {
-              EvalUtils.unlock(iterable, loc);
+              EvalUtils.removeIterator(iterable);
             }
 
           } else {

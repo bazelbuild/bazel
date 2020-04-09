@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -338,11 +337,11 @@ public final class Module implements ValidationEnvironment.Module {
   }
 
   /** Updates a binding in the module environment. */
-  public void put(String varname, Object value) throws MutabilityException {
+  public void put(String varname, Object value) throws EvalException {
     Preconditions.checkNotNull(value, "Module.put(%s, null)", varname);
     checkInitialized();
     if (mutability.isFrozen()) {
-      throw new MutabilityException("trying to mutate a frozen module");
+      throw Starlark.errorf("trying to mutate a frozen module");
     }
     bindings.put(varname, value);
   }

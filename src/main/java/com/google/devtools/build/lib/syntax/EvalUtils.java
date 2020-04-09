@@ -262,17 +262,15 @@ public final class EvalUtils {
     }
   }
 
-  public static void lock(Object object, Location loc) {
-    if (object instanceof Mutability.Freezable) {
-      Mutability.Freezable x = (Mutability.Freezable) object;
-      x.mutability().lock(x, loc);
+  static void addIterator(Object x) {
+    if (x instanceof Mutability.Freezable) {
+      ((Mutability.Freezable) x).updateIteratorCount(+1);
     }
   }
 
-  public static void unlock(Object object, Location loc) {
-    if (object instanceof Mutability.Freezable) {
-      Mutability.Freezable x = (Mutability.Freezable) object;
-      x.mutability().unlock(x, loc);
+  static void removeIterator(Object x) {
+    if (x instanceof Mutability.Freezable) {
+      ((Mutability.Freezable) x).updateIteratorCount(-1);
     }
   }
 

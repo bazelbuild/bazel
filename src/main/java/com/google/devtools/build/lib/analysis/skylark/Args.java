@@ -268,7 +268,7 @@ public abstract class Args implements CommandLineArgsApi {
         Object mapFn,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final String argName;
       if (value == Starlark.UNBOUND) {
         value = argNameOrValue;
@@ -315,7 +315,7 @@ public abstract class Args implements CommandLineArgsApi {
         Object terminateWith,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -355,7 +355,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean expandDirectories,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -503,7 +503,7 @@ public abstract class Args implements CommandLineArgsApi {
     @Override
     public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
@@ -519,7 +519,7 @@ public abstract class Args implements CommandLineArgsApi {
 
     @Override
     public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final ParameterFileType parameterFileType;
       switch (format) {
         case "shell":

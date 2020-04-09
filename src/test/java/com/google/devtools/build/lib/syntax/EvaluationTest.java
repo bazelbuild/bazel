@@ -741,7 +741,9 @@ public final class EvaluationTest extends EvaluationTestCase {
   public void testListComprehensionUpdate() throws Exception {
     new Scenario()
         .setUp("xs = [1, 2, 3]")
-        .testIfErrorContains("trying to mutate a locked object", "[xs.append(4) for x in xs]");
+        .testIfErrorContains(
+            "list value is temporarily immutable due to active for-loop iteration",
+            "[xs.append(4) for x in xs]");
   }
 
   @Test
@@ -749,7 +751,8 @@ public final class EvaluationTest extends EvaluationTestCase {
     new Scenario()
         .setUp("xs = [1, 2, 3]")
         .testIfErrorContains(
-            "trying to mutate a locked object", "[xs.append(4) for x in xs for y in xs]");
+            "list value is temporarily immutable due to active for-loop iteration",
+            "[xs.append(4) for x in xs for y in xs]");
   }
 
   @Test
@@ -757,7 +760,7 @@ public final class EvaluationTest extends EvaluationTestCase {
     new Scenario()
         .setUp("xs = [1, 2, 3]")
         .testIfErrorContains(
-            "trying to mutate a locked object",
+            "list value is temporarily immutable due to active for-loop iteration",
             // Use short-circuiting to produce valid output in the event
             // the exception is not raised.
             "[y for x in xs for y in (xs.append(4) or xs)]");
@@ -767,7 +770,9 @@ public final class EvaluationTest extends EvaluationTestCase {
   public void testDictComprehensionUpdate() throws Exception {
     new Scenario()
         .setUp("xs = {1:1, 2:2, 3:3}")
-        .testIfErrorContains("trying to mutate a locked object", "[xs.popitem() for x in xs]");
+        .testIfErrorContains(
+            "dict value is temporarily immutable due to active for-loop iteration",
+            "[xs.popitem() for x in xs]");
   }
 
   @Test

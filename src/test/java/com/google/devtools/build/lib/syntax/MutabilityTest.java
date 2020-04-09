@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
-import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,10 +40,9 @@ public final class MutabilityTest {
     }
   }
 
-  private void assertCheckMutableFailsBecauseFrozen(Freezable value, Mutability mutability) {
-    MutabilityException expected =
-        assertThrows(MutabilityException.class, () -> Mutability.checkMutable(value, mutability));
-    assertThat(expected).hasMessageThat().contains("trying to mutate a frozen object");
+  private static void assertCheckMutableFailsBecauseFrozen(DummyFreezable x) {
+    EvalException ex = assertThrows(EvalException.class, () -> Starlark.checkMutable(x));
+    assertThat(ex).hasMessageThat().contains("trying to mutate a frozen DummyFreezable value");
   }
 
   @Test
@@ -52,184 +50,60 @@ public final class MutabilityTest {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
 
-    Mutability.checkMutable(dummy, mutability);
+    Starlark.checkMutable(dummy);
     mutability.freeze();
-    assertCheckMutableFailsBecauseFrozen(dummy, mutability);
+    assertCheckMutableFailsBecauseFrozen(dummy);
   }
 
   @Test
   public void tryWithResources() throws Exception {
-    Mutability escapedMutability;
     DummyFreezable dummy;
     try (Mutability mutability = Mutability.create("test")) {
       dummy = new DummyFreezable(mutability);
-      Mutability.checkMutable(dummy, mutability);
-      escapedMutability = mutability;
+      Starlark.checkMutable(dummy);
     }
-    assertCheckMutableFailsBecauseFrozen(dummy, escapedMutability);
+    assertCheckMutableFailsBecauseFrozen(dummy);
   }
 
   @Test
-  public void queryLockedState_InitiallyUnlocked() throws Exception {
+  public void initiallyMutable() throws Exception {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
 
-    assertThat(mutability.isLocked(dummy)).isFalse();
-    Mutability.checkMutable(dummy, mutability);
+    Starlark.checkMutable(dummy);
   }
 
   @Test
-  public void queryLockedState_OneLocation() throws Exception {
+  public void temporarilyImmutableDuringIteration() throws Exception {
     Mutability mutability = Mutability.create("test");
-    DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromFileLineColumn("/a", 1, 0);
+    DummyFreezable x = new DummyFreezable(mutability);
+    x.updateIteratorCount(+1);
+    EvalException ex = assertThrows(EvalException.class, () -> Starlark.checkMutable(x));
+    assertThat(ex)
+        .hasMessageThat()
+        .contains("DummyFreezable value is temporarily immutable due to active for-loop iteration");
 
-    mutability.lock(dummy, locA);
-    assertThat(mutability.isLocked(dummy)).isTrue();
-    assertThat(mutability.getLockLocations(dummy)).containsExactly(locA);
+    x.updateIteratorCount(+1);
+    x.updateIteratorCount(-1); // net +1 => still immutable
+    ex = assertThrows(EvalException.class, () -> Starlark.checkMutable(x));
+    assertThat(ex)
+        .hasMessageThat()
+        .contains("DummyFreezable value is temporarily immutable due to active for-loop iteration");
+
+    x.updateIteratorCount(-1); // net 0 => mutable
+    Starlark.checkMutable(x); // ok
+
+    assertThrows(IllegalStateException.class, () -> x.updateIteratorCount(-1)); // underflow
   }
 
   @Test
-  public void queryLockedState_ManyLocations() throws Exception {
+  public void addIteratorAndThenFreeze() throws Exception {
     Mutability mutability = Mutability.create("test");
     DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromFileLineColumn("/a", 1, 0);
-    Location locB = Location.fromFileLineColumn("/b", 1, 0);
-    Location locC = Location.fromFileLineColumn("/c", 1, 0);
-    Location locD = Location.fromFileLineColumn("/d", 1, 0);
-
-    mutability.lock(dummy, locA);
-    mutability.lock(dummy, locB);
-    mutability.lock(dummy, locC);
-    mutability.lock(dummy, locD);
-    assertThat(mutability.isLocked(dummy)).isTrue();
-    assertThat(mutability.getLockLocations(dummy))
-        .containsExactly(locA, locB, locC, locD).inOrder();
-  }
-
-  @Test
-  public void queryLockedState_LockTwiceUnlockOnce() throws Exception {
-    Mutability mutability = Mutability.create("test");
-    DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromFileLineColumn("/a", 1, 0);
-    Location locB = Location.fromFileLineColumn("/b", 1, 0);
-
-    mutability.lock(dummy, locA);
-    mutability.lock(dummy, locB);
-    mutability.unlock(dummy, locA);
-    assertThat(mutability.isLocked(dummy)).isTrue();
-    assertThat(mutability.getLockLocations(dummy)).containsExactly(locB);
-  }
-
-  @Test
-  public void queryLockedState_LockTwiceUnlockTwice() throws Exception {
-    Mutability mutability = Mutability.create("test");
-    DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromFileLineColumn("/a", 1, 0);
-    Location locB = Location.fromFileLineColumn("/b", 1, 0);
-
-    mutability.lock(dummy, locA);
-    mutability.lock(dummy, locB);
-    mutability.unlock(dummy, locA);
-    mutability.unlock(dummy, locB);
-    assertThat(mutability.isLocked(dummy)).isFalse();
-    Mutability.checkMutable(dummy, mutability);
-  }
-
-  @Test
-  public void cannotMutateLocked() throws Exception {
-    Mutability mutability = Mutability.create("test");
-    DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromFileLineColumn("/a", 1, 0);
-    Location locB = Location.fromFileLineColumn("/b", 1, 0);
-
-    mutability.lock(dummy, locA);
-    mutability.lock(dummy, locB);
-    MutabilityException expected =
-        assertThrows(MutabilityException.class, () -> Mutability.checkMutable(dummy, mutability));
-    assertThat(expected).hasMessageThat().contains(
-        "trying to mutate a locked object (is it currently being iterated over by a for loop or "
-            + "comprehension?)\nObject locked at the following location(s): /a:1, /b:1");
-  }
-
-  @Test
-  public void unlockLocationMismatch() throws Exception {
-    Mutability mutability = Mutability.create("test");
-    DummyFreezable dummy = new DummyFreezable(mutability);
-    Location locA = Location.fromFileLineColumn("/a", 1, 0);
-    Location locB = Location.fromFileLineColumn("/b", 1, 0);
-
-    mutability.lock(dummy, locA);
-    IllegalArgumentException expected =
-        assertThrows(IllegalArgumentException.class, () -> mutability.unlock(dummy, locB));
-    assertThat(expected).hasMessageThat().contains(
-        "trying to unlock an object for a location at which it was not locked (/b:1)");
-  }
-
-  @Test
-  public void lockAndThenFreeze() throws Exception {
-    Mutability mutability = Mutability.create("test");
-    DummyFreezable dummy = new DummyFreezable(mutability);
-    Location loc = Location.fromFileLineColumn("/a", 1, 0);
-
-    mutability.lock(dummy, loc);
+    dummy.updateIteratorCount(+1);
     mutability.freeze();
-    assertThat(mutability.isLocked(dummy)).isFalse();
-    // Should fail with frozen error, not locked error.
-    assertCheckMutableFailsBecauseFrozen(dummy, mutability);
-  }
-
-  @Test
-  public void wrongContext_CheckMutable() throws Exception {
-    Mutability mutability1 = Mutability.create("test1");
-    Mutability mutability2 = Mutability.create("test2");
-    DummyFreezable dummy = new DummyFreezable(mutability1);
-
-    IllegalArgumentException expected =
-        assertThrows(
-            IllegalArgumentException.class, () -> Mutability.checkMutable(dummy, mutability2));
-    assertThat(expected).hasMessageThat().contains(
-        "trying to mutate an object from a different context");
-  }
-
-  @Test
-  public void wrongContext_Lock() throws Exception {
-    Mutability mutability1 = Mutability.create("test1");
-    Mutability mutability2 = Mutability.create("test2");
-    DummyFreezable dummy = new DummyFreezable(mutability1);
-    Location loc = Location.fromFileLineColumn("/a", 1, 0);
-
-    IllegalArgumentException expected =
-        assertThrows(IllegalArgumentException.class, () -> mutability2.lock(dummy, loc));
-    assertThat(expected).hasMessageThat().contains(
-        "trying to lock an object from a different context");
-  }
-
-  @Test
-  public void wrongContext_Unlock() throws Exception {
-    Mutability mutability1 = Mutability.create("test1");
-    Mutability mutability2 = Mutability.create("test2");
-    DummyFreezable dummy = new DummyFreezable(mutability1);
-    Location loc = Location.fromFileLineColumn("/a", 1, 0);
-
-    IllegalArgumentException expected =
-        assertThrows(IllegalArgumentException.class, () -> mutability2.unlock(dummy, loc));
-    assertThat(expected).hasMessageThat().contains(
-        "trying to unlock an object from a different context");
-  }
-
-  @Test
-  public void wrongContext_IsLocked() throws Exception {
-    Mutability mutability1 = Mutability.create("test1");
-    Mutability mutability2 = Mutability.create("test2");
-    DummyFreezable dummy = new DummyFreezable(mutability1);
-    Location loc = Location.fromFileLineColumn("/a", 1, 0);
-
-    mutability1.lock(dummy, loc);
-    IllegalArgumentException expected =
-        assertThrows(IllegalArgumentException.class, () -> mutability2.isLocked(dummy));
-    assertThat(expected).hasMessageThat().contains(
-        "trying to check the lock of an object from a different context");
+    // Should fail with frozen error, not temporarily immutable error.
+    assertCheckMutableFailsBecauseFrozen(dummy);
   }
 
   @Test
