@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -121,7 +122,11 @@ public class SymlinkForest {
   }
 
   private void plantSymlinkForExternalRepo(
-      RepositoryName repository, Path source, Set<Path> externalRepoLinks) throws IOException {
+      ImmutableList.Builder<Path> plantedSymlinks,
+      RepositoryName repository,
+      Path source,
+      Set<Path> externalRepoLinks)
+      throws IOException {
     // For external repositories, create one symlink to each external repository
     // directory.
     // From <output_base>/execroot/<main repo name>/external/<external repo name>
@@ -139,9 +144,11 @@ public class SymlinkForest {
       return;
     }
     execrootLink.createSymbolicLink(source);
+    plantedSymlinks.add(execrootLink);
   }
 
-  private void plantSymlinkForestWithFullMainRepository(Path mainRepoRoot) throws IOException {
+  private void plantSymlinkForestWithFullMainRepository(
+      ImmutableList.Builder<Path> plantedSymlinks, Path mainRepoRoot) throws IOException {
     // For the main repo top-level directory, generate symlinks to everything in the directory
     // instead of the directory itself.
     if (siblingRepositoryLayout) {
@@ -159,12 +166,14 @@ public class SymlinkForest {
           && (siblingRepositoryLayout
               || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()))) {
         execPath.createSymbolicLink(target);
+        plantedSymlinks.add(execPath);
         // TODO(jingwen-external): is this creating execroot/io_bazel/external?
       }
     }
   }
 
-  private void plantSymlinkForestWithPartialMainRepository(Map<Path, Path> mainRepoLinks)
+  private void plantSymlinkForestWithPartialMainRepository(
+      ImmutableList.Builder<Path> plantedSymlinks, Map<Path, Path> mainRepoLinks)
       throws IOException, AbruptExitException {
     if (siblingRepositoryLayout) {
       execroot.createDirectory();
@@ -180,11 +189,14 @@ public class SymlinkForest {
             ExitCode.COMMAND_LINE_ERROR);
       }
       link.createSymbolicLink(target);
+      plantedSymlinks.add(link);
     }
   }
 
   private void plantSymlinkForestMultiPackagePath(
-      Map<PackageIdentifier, Root> packageRootsForMainRepo) throws IOException {
+      ImmutableList.Builder<Path> plantedSymlinks,
+      Map<PackageIdentifier, Root> packageRootsForMainRepo)
+      throws IOException {
     // Packages come from exactly one root, but their shared ancestors may come from more.
     Map<PackageIdentifier, Set<Root>> dirRootsMap = Maps.newHashMap();
     // Elements in this list are added so that parents come before their children.
@@ -239,20 +251,16 @@ public class SymlinkForest {
       if (roots.size() == 1) {
         PathFragment parent = dir.getPackageFragment().getParentDirectory();
         if (!parent.isEmpty() && dirRootsMap.get(createInRepo(dir, parent)).size() == 1) {
-          continue;  // skip--an ancestor will link this one in from above
+          continue; // skip--an ancestor will link this one in from above
         }
         // This is the top-most dir that can be linked to a single root. Make it so.
         Root root = roots.iterator().next(); // lone root in set
+        Path link = execroot.getRelative(dir.getExecPath(siblingRepositoryLayout));
         if (LOG_FINER) {
-          logger.finer(
-              "ln -s "
-                  + root.getRelative(dir.getSourceRoot())
-                  + " "
-                  + execroot.getRelative(dir.getExecPath(siblingRepositoryLayout)));
+          logger.finer("ln -s " + root.getRelative(dir.getSourceRoot()) + " " + link);
         }
-        execroot
-            .getRelative(dir.getExecPath(siblingRepositoryLayout))
-            .createSymbolicLink(root.getRelative(dir.getSourceRoot()));
+        link.createSymbolicLink(root.getRelative(dir.getSourceRoot()));
+        plantedSymlinks.add(link);
       }
     }
     // Make links for dirs within packages, skip parent-only dirs.
@@ -272,15 +280,22 @@ public class SymlinkForest {
               for (Path target : absdir.getDirectoryEntries()) {
                 PathFragment p = root.relativize(target);
                 if (!dirRootsMap.containsKey(createInRepo(pkgId, p))) {
-                  //LOG.finest("ln -s " + target + " " + linkRoot.getRelative(p));
                   execroot.getRelative(p).createSymbolicLink(target);
+                  plantedSymlinks.add(execroot.getRelative(p));
                 }
               }
             } else {
               logger.fine("Symlink planting skipping dir '" + absdir + "'");
             }
           } catch (IOException e) {
-            e.printStackTrace();
+            // TODO(arostovtsev): Why are we swallowing the IOException here instead of letting it
+            // be thrown?
+            logger.log(
+                Level.WARNING,
+                "I/O error while planting symlinks to contents of '"
+                    + root.getRelative(dir.getSourceRoot())
+                    + "'",
+                e);
           }
           // Otherwise its just an otherwise empty common parent dir.
         }
@@ -306,13 +321,18 @@ public class SymlinkForest {
         // Create any links that don't exist yet and don't start with bazel-.
         if (!baseName.startsWith(productName + "-") && !execPath.exists()) {
           execPath.createSymbolicLink(target);
+          plantedSymlinks.add(execPath);
         }
       }
     }
   }
 
-  /** Performs the filesystem operations to plant the symlink forest. */
-  public void plantSymlinkForest() throws IOException, AbruptExitException {
+  /**
+   * Performs the filesystem operations to plant the symlink forest.
+   *
+   * @return the symlinks that have been planted
+   */
+  public ImmutableList<Path> plantSymlinkForest() throws IOException, AbruptExitException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
 
     if (siblingRepositoryLayout) {
@@ -329,6 +349,7 @@ public class SymlinkForest {
     Set<Root> mainRepoRoots = Sets.newLinkedHashSet();
     Set<Path> externalRepoLinks = Sets.newLinkedHashSet();
     Map<PackageIdentifier, Root> packageRootsForMainRepo = Maps.newLinkedHashMap();
+    ImmutableList.Builder<Path> plantedSymlinks = ImmutableList.builder();
 
     for (Map.Entry<PackageIdentifier, Root> entry : packageRoots.entrySet()) {
       PackageIdentifier pkgId = entry.getKey();
@@ -367,6 +388,7 @@ public class SymlinkForest {
         }
       } else {
         plantSymlinkForExternalRepo(
+            plantedSymlinks,
             repository,
             entry.getValue().getRelative(repository.getSourceRoot()),
             externalRepoLinks);
@@ -384,15 +406,16 @@ public class SymlinkForest {
                 + "not supported together with --package_path option.",
             ExitCode.COMMAND_LINE_ERROR);
       }
-      plantSymlinkForestMultiPackagePath(packageRootsForMainRepo);
+      plantSymlinkForestMultiPackagePath(plantedSymlinks, packageRootsForMainRepo);
     } else if (shouldLinkAllTopLevelItems) {
       Path mainRepoRoot = Iterables.getOnlyElement(mainRepoRoots).asPath();
-      plantSymlinkForestWithFullMainRepository(mainRepoRoot);
+      plantSymlinkForestWithFullMainRepository(plantedSymlinks, mainRepoRoot);
     } else {
-      plantSymlinkForestWithPartialMainRepository(mainRepoLinks);
+      plantSymlinkForestWithPartialMainRepository(plantedSymlinks, mainRepoLinks);
     }
 
     logger.info("Planted symlink forest in " + execroot);
+    return plantedSymlinks.build();
   }
 
   private static PackageIdentifier createInRepo(
