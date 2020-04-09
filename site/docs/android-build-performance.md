@@ -7,7 +7,7 @@ title: Android Build Performance
 
 This document contains information on optimizing build performance for Android
 apps specifically. For general build performance optimization with Bazel, see
-[Optimizing Performance](skylark/performance.html).
+[Optimizing Performance](starlark/performance.html).
 
 ## Recommended flags
 
@@ -20,7 +20,7 @@ they can be pasted directly into a `bazelrc` file and invoked with
 
 This set of flags generates a JSON trace profile, `profile.json.gz`, that
 can be viewed using the Chrome Tracing Profiler (`chrome://tracing`). See
-the [JSON Profile documentation](skylark/performance.html#json-profile) for
+the [JSON Profile documentation](starlark/performance.html#json-profile) for
 how to read and interact with the profile.
 
 ```

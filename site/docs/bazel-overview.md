@@ -57,7 +57,7 @@ To build or test a project with Bazel, you typically do the following:
     build it.
 
     You write your `BUILD` file by declaring build targets using
-    [Starlark](skylark/language.html), a domain-specific language. (See example
+    [Starlark](starlark/language.html), a domain-specific language. (See example
     [here](https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD).)
 
     A build target specifies a set of input artifacts that Bazel will build plus
@@ -85,7 +85,7 @@ When running a build or a test, Bazel does the following:
 
 2.  **Analyzes** the inputs and their
     [dependencies](build-ref.html#dependencies), applies the specified build
-    rules, and produces an [action](skylark/concepts.html#evaluation-model)
+    rules, and produces an [action](starlark/concepts.html#evaluation-model)
     graph.
 
 3.  **Executes** the build actions on the inputs until the final build outputs

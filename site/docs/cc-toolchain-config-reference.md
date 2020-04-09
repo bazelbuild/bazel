@@ -32,14 +32,14 @@ Bazel needs to know the following:
 If the compiler has support for multiple architectures, Bazel needs to configure
 them separately.
 
-[`CcToolchainConfigInfo`](skylark/lib/CcToolchainConfigInfo.html) is a provider that provides the necessary level of
+[`CcToolchainConfigInfo`](starlark/lib/CcToolchainConfigInfo.html) is a provider that provides the necessary level of
 granularity for configuring the behavior of Bazel's C++ rules. By default,
 Bazel automatically configures `CcToolchainConfigInfo` for your build, but you
 have the option to configure it manually. For that, you need a Starlark rule
 that provides the `CcToolchainConfigInfo` and you need to point the
 [`toolchain_config`](be/c-cpp.html#cc_toolchain.toolchain_config) attribute of the `cc_toolchain` to your rule.
 You can create the `CcToolchainConfigInfo` by calling
-[`cc_common.create_cc_toolchain_config_info()`](skylark/lib/cc_common.html#create_cc_toolchain_config_info).
+[`cc_common.create_cc_toolchain_config_info()`](starlark/lib/cc_common.html#create_cc_toolchain_config_info).
 You can find Starlark constructors for all structs you'll need in the process in
 [`@rules_cc//cc:cc_toolchain_config_lib.bzl`](https://github.com/bazelbuild/rules_cc/blob/master/cc/cc_toolchain_config_lib.bzl).
 

@@ -337,7 +337,7 @@ sh_binary(
 ```
 
 
-For more complex expressions, you can use [macros](skylark/macros.md):
+For more complex expressions, you can use [macros](starlark/macros.md):
 
 Before:
 
@@ -717,7 +717,7 @@ details.
 
 The key issue this question usually means is that select() doesn't work in
 *macros*. These are different than *rules*. See the
-documentation on [rules](skylark/rules.html) and [macros](skylark/macros.html)
+documentation on [rules](starlark/rules.html) and [macros](starlark/macros.html)
 to understand the difference.
 Here's an end-to-end example:
 

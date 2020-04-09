@@ -564,6 +564,6 @@ API_LEVELS = [
 - Remote test caching and execution
 
 We are currently rewriting the Android rules in
-[Starlark](skylark/concepts.html). The `android_instrumentation_test` rule will
+[Starlark](starlark/concepts.html). The `android_instrumentation_test` rule will
 be part of the rewrite, however, its usage will remain unchanged from the
 end-user perspective.

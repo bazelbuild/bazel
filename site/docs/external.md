@@ -38,7 +38,7 @@ If `project1` wanted to depend on a target, `:foo`, defined in
 
 The `WORKSPACE` file allows users to depend on targets from other parts of the
 filesystem or downloaded from the internet. Users can also write custom
-[repository rules](skylark/repository_rules.html) to get more complex behavior.
+[repository rules](starlark/repository_rules.html) to get more complex behavior.
 
 This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
 different set of rules. The full list of built-in rules are in the Build
@@ -84,7 +84,7 @@ local_repository(
 
 If your coworker has a target `//foo:bar`, your project can refer to it as
 `@coworkers_project//foo:bar`. External project names must be
-[valid workspace names](skylark/lib/globals.html#workspace), so `_` (valid) is used to
+[valid workspace names](starlark/lib/globals.html#workspace), so `_` (valid) is used to
 replace `-` (invalid) in the name `coworkers_project`.
 
 <a name="non-bazel-projects"></a>
@@ -300,8 +300,8 @@ during the build.
 For true offline builds, where the providing of the needed files is to be done
 by an entity different from bazel, bazel supports the option
 `--distdir`. Whenever a repository rule asks bazel to fetch a file via
-[`ctx.download`](skylark/lib/repository_ctx.html#download) or
-[`ctx.download_and_extract`](skylark/lib/repository_ctx.html#download_and_extract)
+[`ctx.download`](starlark/lib/repository_ctx.html#download) or
+[`ctx.download_and_extract`](starlark/lib/repository_ctx.html#download_and_extract)
 and provides a hash sum of the file
 needed, bazel will first look into the directories specified by that option for
 a file matching the basename of the first URL provided, and use that local copy

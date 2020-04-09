@@ -10,7 +10,7 @@ title: Toolchains
 This page describes the toolchain framework -- a way for rule authors to
 decouple their rule logic from platform-based selection of tools. It is
 recommended to read the
-[rules](skylark/rules.html)
+[rules](starlark/rules.html)
 and
 [platforms](platforms.html)
 pages before continuing. This page covers why toolchains are needed, how to
@@ -177,7 +177,7 @@ def _bar_binary_impl(ctx):
 ```
 
 `ctx.toolchains["//bar_tools:toolchain_type"]` returns the
-[`ToolchainInfo` provider](skylark/lib/platform_common.html#ToolchainInfo)
+[`ToolchainInfo` provider](starlark/lib/platform_common.html#ToolchainInfo)
 of whatever target Bazel resolved the toolchain dependency to. The fields of the
 `ToolchainInfo` object are set by the underlying tool's rule; in the next
 section we'll define this rule such that there is a `barcinfo` field that wraps
@@ -362,9 +362,9 @@ platform for the current target.
 
 The available execution platforms and toolchains are gathered from the
 `WORKSPACE` file via
-[`register_execution_platforms`](skylark/lib/globals.html#register_execution_platforms)
+[`register_execution_platforms`](starlark/lib/globals.html#register_execution_platforms)
 and
-[`register_toolchains`](skylark/lib/globals.html#register_toolchains).
+[`register_toolchains`](starlark/lib/globals.html#register_toolchains).
 Additional execution platforms and toolchains may also be specified on the
 command line via
 [`--extra_execution_platforms`](command-line-reference.html#flag--extra_execution_platforms)
@@ -386,7 +386,7 @@ The resolution steps are as follows.
 1. If the target being built specifies the
    [`exec_compatible_with` attribute](be/common-definitions.html#common.exec_compatible_with)
    (or its rule definition specifies the
-   [`exec_compatible_with` argument](skylark/lib/globals.html#rule.exec_compatible_with)),
+   [`exec_compatible_with` argument](starlark/lib/globals.html#rule.exec_compatible_with)),
    the list of available execution platforms is filtered to remove
    any that do not match the execution constraints.
 

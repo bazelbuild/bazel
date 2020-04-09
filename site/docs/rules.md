@@ -7,7 +7,7 @@ title: Rules
 
 ## Recommended rules
 
-Much of Bazel's strength comes from the ability [to define new rules](skylark/concepts.html)
+Much of Bazel's strength comes from the ability [to define new rules](starlark/concepts.html)
 which can be used by others. There is a growing and evolving set of rules to
 support popular languages and packages.
 

@@ -72,26 +72,26 @@ Follow these guidelines when creating your BUILD files:
 You do not need it when getting started with Bazel.
 
 The following modules, configuration fragments, and providers will help you
-[extend Bazel's capabilities](skylark/concepts.html)
+[extend Bazel's capabilities](starlark/concepts.html)
 when building your Java projects:
 
 *  Modules:
 
-   *  [`java_annotation_processing`](skylark/lib/java_annotation_processing.html)
-   *  [`java_common`](skylark/lib/java_common.html)
-   *  [`java_compilation_info`](skylark/lib/java_compilation_info.html)
-   *  [`java_output`](skylark/lib/java_output.html)
-   *  [`java_output_jars`](skylark/lib/java_output_jars.html)
-   *  [`java_proto_common`](skylark/lib/java_proto_common.html)
-   *  [`JavaRuntimeClasspathProvider`](skylark/lib/JavaRuntimeClasspathProvider.html)
-   *  [`JavaRuntimeInfo`](skylark/lib/JavaRuntimeInfo.html)
-   *  [`JavaToolchainSkylarkApiProvider`](skylark/lib/JavaToolchainSkylarkApiProvider.html)
+   *  [`java_annotation_processing`](starlark/lib/java_annotation_processing.html)
+   *  [`java_common`](starlark/lib/java_common.html)
+   *  [`java_compilation_info`](starlark/lib/java_compilation_info.html)
+   *  [`java_output`](starlark/lib/java_output.html)
+   *  [`java_output_jars`](starlark/lib/java_output_jars.html)
+   *  [`java_proto_common`](starlark/lib/java_proto_common.html)
+   *  [`JavaRuntimeClasspathProvider`](starlark/lib/JavaRuntimeClasspathProvider.html)
+   *  [`JavaRuntimeInfo`](starlark/lib/JavaRuntimeInfo.html)
+   *  [`JavaToolchainSkylarkApiProvider`](starlark/lib/JavaToolchainSkylarkApiProvider.html)
 
 *  Configuration fragments:
 
-   *  [`java`](skylark/lib/java.html)
+   *  [`java`](starlark/lib/java.html)
 
 *  Providers:
 
-   *  [`java`](skylark/lib/JavaSkylarkApiProvider.html)
-   *  [`JavaInfo`](skylark/lib/JavaInfo.html)
+   *  [`java`](starlark/lib/JavaSkylarkApiProvider.html)
+   *  [`JavaInfo`](starlark/lib/JavaInfo.html)

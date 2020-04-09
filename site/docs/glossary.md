@@ -12,7 +12,7 @@ A command to run during the build, for example, a call to a compiler that takes
 Includes metadata like the command line arguments, action key, environment
 variables, and declared input/output artifacts.
 
-**See also:** [Rules documentation](skylark/rules.html#actions)
+**See also:** [Rules documentation](starlark/rules.html#actions)
 
 ### Action cache
 
@@ -69,7 +69,7 @@ cached and reused between targets requiring the same aspect. Created with the
 `aspect()` Starlark Build API function. Can be used, for example, to generate
 metadata for IDEs, and create actions for linting.
 
-**See also:** [Aspects documentation](skylark/aspects.html)
+**See also:** [Aspects documentation](starlark/aspects.html)
 
 ### Aspect-on-aspect
 
@@ -174,7 +174,7 @@ target platform, action environment variables, and command-line [build
 flags](#command-flags). [Transitions](#transition) may create additional
 configurations, e.g. for host tools or cross-compilation.
 
-**See also:** [Configurations](skylark/rules.html#configurations)
+**See also:** [Configurations](starlark/rules.html#configurations)
 
 <!-- TODO: ### Configuration fragment -->
 
@@ -230,7 +230,7 @@ the rule is at the top level of the build graph. Flattening large depsets incurs
 huge memory consumption. Also known as *nested sets* in Bazel's internal
 implementation.
 
-**See also:** [Depset documentation](skylark/depsets.html)
+**See also:** [Depset documentation](starlark/depsets.html)
 
 ### Disk cache
 
@@ -318,7 +318,7 @@ a single [Starlark](#starlark) function. Enables reusing common rule declaration
 patterns across BUILD files. Expanded to the underlying rule target declarations
 during the [loading phase](#loading-phase).
 
-**See also:** [Macro documentation](skylark/macros.html)
+**See also:** [Macro documentation](starlark/macros.html)
 
 ### Mnemonic
 
@@ -430,7 +430,7 @@ Rule targets also produce and pass along information that may be useful to other
 rule targets in the form of [providers](#provider) (e.g. `DefaultInfo`
 provider).
 
-**See also:** [Rules documentation](skylark/rules.html)
+**See also:** [Rules documentation](starlark/rules.html)
 
 ### Runfiles
 
@@ -440,7 +440,7 @@ data dependencies of the test. Before the invocation of the executable (during
 bazel test), Bazel prepares the tree of runfiles alongside the test executable
 according to their source directory structure.
 
-**See also:** [Runfiles documentation](skylark/rules.html#runfiles)
+**See also:** [Runfiles documentation](starlark/rules.html#runfiles)
 
 ### Sandboxing
 
@@ -475,7 +475,7 @@ file](#bzl-file) extension. [BUILD files](#build-file) use an even more
 restricted version of Starlark (e.g. no `def` function definitions). Formerly
 known as Skylark.
 
-**See also:** [Starlark language documentation](skylark/language.html)
+**See also:** [Starlark language documentation](starlark/language.html)
 
 <!-- TODO: ### Starlark rules -->
 
@@ -551,7 +551,7 @@ the [target graph](#target-graph) is forked with distinct configurations for
 each fork. For example, one can build an Android APK with native binaries
 compiled for ARM and x86 using split transitions in a single build.
 
-**See also:** [User-defined transitions](skylark/config.html#user-defined-transitions)
+**See also:** [User-defined transitions](starlark/config.html#user-defined-transitions)
 
 ### Tree artifact
 

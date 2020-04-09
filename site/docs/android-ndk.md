@@ -334,7 +334,7 @@ any special flags, except for `--fat_apk_cpu` and `--android_crosstool_top` for
 ABI and STL configuration.
 
 Behind the scenes, this automatic configuration uses Android [configuration
-transitions](skylark/rules.html#configurations).
+transitions](starlark/rules.html#configurations).
 
 A compatible rule, like `android_binary`, automatically changes the
 configuration of its dependencies to an Android configuration, so only

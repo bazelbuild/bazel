@@ -149,9 +149,9 @@ constraint_value(
 )
 ```
 
-A [`toolchain`](toolchains.html) is a [Starlark rule](skylark/rules.html). Its
+A [`toolchain`](toolchains.html) is a [Starlark rule](starlark/rules.html). Its
 attributes declare a language's tools (like `compiler =
-"//mytoolchain:custom_gcc"`). Its [providers](skylark/rules.html#providers) pass
+"//mytoolchain:custom_gcc"`). Its [providers](starlark/rules.html#providers) pass
 this information to rules that need to build with these tools.
 
 Toolchains declare the `constraint_value`s of machines they can
@@ -165,7 +165,7 @@ automatically selects a toolchain that can run on the build machine and
 build binaries for `//:myplatform`. This is known as *toolchain resolution*.
 
 The set of available toolchains can be registered in the `WORKSPACE` with
-[`register_toolchains`](skylark/lib/globals.html#register_toolchains) or at the
+[`register_toolchains`](starlark/lib/globals.html#register_toolchains) or at the
 command line with [`--extra_toolchains`](command-line-reference.html#flag--extra_toolchains).
 
 See [here](toolchains.html) for a deeper dive.
@@ -187,7 +187,7 @@ API](toolchains.html) (`ctx.toolchains`) and stop reading legacy settings like
    Bazel runs on). But we generally expect projects to define their own platforms.
 
 1. Existing projects must be migrated. `select()`s and
-[transitions](skylark/config.html#user-defined-transitions) also have to be
+[transitions](starlark/config.html#user-defined-transitions) also have to be
 migrated. This is the biggest challenge. It's particularly challenging for
 multi-language projects (which may fail if *all* languages can't read
 `--platforms`).
@@ -339,7 +339,7 @@ migrating your project to platforms, you must either convert them to
 both styles through the migration window.
 
 ### Transitions
-[Starlark transitions](skylark/config.html#user-defined-transitions) change
+[Starlark transitions](starlark/config.html#user-defined-transitions) change
 flags down parts of your build graph. If your project uses a transition that
 sets `--cpu`, `--crossstool_top`, or other legacy flags, rules that read
 `--platforms` won't see these changes.
