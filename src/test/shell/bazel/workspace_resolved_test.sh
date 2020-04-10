@@ -1216,4 +1216,49 @@ EOF
   expect_log "  TEST_TMPDIR/.*/external/bazel_tools/tools/build_defs/repo/http.bzl:"
 }
 
+# Test that a canonical repo warning is generated for explicitly specified
+# attributes whose values differ, and that it is never generated for implicitly
+# created attributes (in particular, the generator_* attributes).
+test_canonical_warning() {
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
+  mkdir main
+  touch main/BUILD
+  cat > main/reporule.bzl <<EOF
+def _impl(repository_ctx):
+    repository_ctx.file("a.txt", "A")
+    repository_ctx.file("BUILD.bazel", "exports_files(['a.txt'])")
+    # Don't include "name", test that we warn about it below.
+    return {"myattr": "bar"}
+
+reporule = repository_rule(
+    implementation = _impl,
+    attrs = {
+        "myattr": attr.string()
+    })
+
+# We need to use a macro for the generator_* attributes to be defined.
+def instantiate_reporule(name, **kwargs):
+    reporule(name=name, **kwargs)
+EOF
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+load("//:reporule.bzl", "instantiate_reporule")
+instantiate_reporule(
+  name = "myrepo",
+  myattr = "foo"
+)
+EOF
+
+  cd main
+  # We should get a warning for "myattr" having a changed value and for "name"
+  # being dropped, but not for the generator_* attributes.
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir > $TEST_log 2>&1
+  expect_log "Rule 'myrepo' indicated that a canonical reproducible form \
+can be obtained by modifying arguments myattr = \"bar\" and dropping \
+\[.*\"name\".*\]"
+  expect_not_log "Rule 'myrepo' indicated .*generator"
+}
+
 run_suite "workspace_resolved_test tests"

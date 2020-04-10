@@ -245,17 +245,31 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
   }
 
   /**
+   * Attributes that may be defined on a repository rule without affecting its canonical
+   * representation. These may be created implicitly by Bazel.
+   */
+  private static final ImmutableList<String> IGNORED_ATTRIBUTE_NAMES =
+      ImmutableList.of("generator_name", "generator_function", "generator_location");
+
+  /**
    * Compare two maps from Strings to objects, returning a pair of the map with all entries not in
    * the original map or in the original map, but with a different value, and the keys dropped from
    * the original map. However, ignore changes where a value is explicitly set to its default.
+   *
+   * <p>Ignores attributes listed in {@code IGNORED_ATTRIBUTE_NAMES}.
    */
   static Pair<Map<String, Object>, List<String>> compare(
       Map<String, Object> orig, Map<String, Object> defaults, Map<?, ?> modified) {
     ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.<String, Object>builder();
     for (Map.Entry<?, ?> entry : modified.entrySet()) {
       if (entry.getKey() instanceof String) {
-        Object value = entry.getValue();
         String key = (String) entry.getKey();
+        if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
+          // The dict returned by the repo rule really shouldn't know about these anyway, but
+          // for symmetry we'll ignore them if they happen to be present.
+          continue;
+        }
+        Object value = entry.getValue();
         Object old = orig.get(key);
         if (old == null) {
           Object defaultValue = defaults.get(key);
@@ -271,6 +285,9 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     }
     ImmutableList.Builder<String> keysDropped = ImmutableList.<String>builder();
     for (String key : orig.keySet()) {
+      if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
+        continue;
+      }
       if (!modified.containsKey(key)) {
         keysDropped.add(key);
       }
