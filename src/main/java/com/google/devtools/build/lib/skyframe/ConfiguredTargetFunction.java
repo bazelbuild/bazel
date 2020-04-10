@@ -604,7 +604,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               transitiveRootCauses,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
     } catch (EvalException e) {
-      // EvalException can only be thrown by computed Skylark attributes in the current rule.
+      // EvalException can only be thrown by computed Starlark attributes in the current rule.
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(

@@ -57,12 +57,12 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
   @Nullable
   BuildConfigurationValue.Key getConfigurationKey();
 
-  /** Returns keys for a legacy Skylark provider. */
+  /** Returns keys for a legacy Starlark provider. */
   @Override
   ImmutableCollection<String> getFieldNames();
 
   /**
-   * Returns a legacy Skylark provider.
+   * Returns a legacy Starlark provider.
    *
    * <p>Overrides {@link ClassObject#getValue(String)}, but does not allow EvalException to be
    * thrown.

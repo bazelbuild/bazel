@@ -103,7 +103,7 @@ JAVA_TOOLS = [
 ]
 
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
-# in Skylark rules on Windows has been released.
+# in Starlark rules on Windows has been released.
 [filegroup(
     name = "embedded_tools" + suffix + "_srcs",
     srcs = JAVA_TOOLS + [

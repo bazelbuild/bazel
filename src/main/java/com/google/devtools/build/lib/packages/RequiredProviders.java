@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  *       see any other aspect applied to a target.
  *   <li>accept a dependency that provides all providers from one of several sets of providers. It
  *       just so happens that in all current usages these sets are either all native providers or
- *       all Skylark providers, so this is the only use case this class currently supports.
+ *       all Starlark providers, so this is the only use case this class currently supports.
  * </ul>
  */
 @Immutable
@@ -357,10 +357,10 @@ public final class RequiredProviders {
     }
 
     /**
-     * Add an alternative set of Skylark providers.
+     * Add an alternative set of Starlark providers.
      *
-     * If all of these providers are present in the dependency, the dependency satisfies
-     * {@link RequiredProviders}.
+     * <p>If all of these providers are present in the dependency, the dependency satisfies {@link
+     * RequiredProviders}.
      */
     public Builder addSkylarkSet(ImmutableSet<SkylarkProviderIdentifier> skylarkProviderSet) {
       constraint = Constraint.RESTRICTED;

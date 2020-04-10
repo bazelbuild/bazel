@@ -46,7 +46,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
-/** A collection of global skylark build API functions that apply to WORKSPACE files. */
+/** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   // Must start with a letter and can contain letters, numbers, and underscores

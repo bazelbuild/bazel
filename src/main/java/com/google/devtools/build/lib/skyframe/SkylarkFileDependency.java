@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /**
- * A simple value class to store the direct Skylark file dependencies of a Skylark extension file.
+ * A simple value class to store the direct Starlark file dependencies of a Starlark extension file.
  * It also contains a Label identifying the extension file.
  *
  * <p>The dependency structure must be acyclic.
@@ -37,16 +37,14 @@ public class SkylarkFileDependency {
   }
 
   /**
-   * Returns the list of direct Skylark file dependencies of the Skylark extension file
+   * Returns the list of direct Starlark file dependencies of the Starlark extension file
    * corresponding to this object.
    */
   public ImmutableList<SkylarkFileDependency> getDependencies() {
     return dependencies;
   }
 
-  /**
-   * Returns the Label of the Skylark extension file corresponding to this object.
-   */
+  /** Returns the Label of the Starlark extension file corresponding to this object. */
   public Label getLabel() {
     return label;
   }

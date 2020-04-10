@@ -20,9 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
-/**
- * A collection of global skylark build API functions that belong in the global namespace.
- */
+/** A collection of global Starlark build API functions that belong in the global namespace. */
 @SkylarkGlobalLibrary
 public interface SkylarkBuildApiGlobals {
 

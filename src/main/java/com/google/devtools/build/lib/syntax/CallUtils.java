@@ -190,7 +190,7 @@ public final class CallUtils {
   }
 
   /**
-   * Returns a set of the Skylark name of all Skylark callable methods for object of type {@code
+   * Returns a set of the Starlark name of all Starlark callable methods for object of type {@code
    * objClass}.
    */
   static ImmutableSet<String> getMethodNames(StarlarkSemantics semantics, Class<?> objClass) {

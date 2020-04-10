@@ -286,9 +286,7 @@ public final class AspectValue extends BasicActionLookupValue implements Configu
     }
   }
 
-  /**
-   * The key for a skylark aspect.
-   */
+  /** The key for a Starlark aspect. */
   public static class SkylarkAspectLoadingKey extends AspectValueKey {
 
     private final Label targetLabel;
@@ -335,7 +333,7 @@ public final class AspectValue extends BasicActionLookupValue implements Configu
 
     @Override
     public String getDescription() {
-      // Skylark aspects are referred to on command line with <file>%<value ame>
+      // Starlark aspects are referred to on command line with <file>%<value ame>
       return String.format("%s%%%s of %s", skylarkFileLabel, skylarkValueName, targetLabel);
     }
 

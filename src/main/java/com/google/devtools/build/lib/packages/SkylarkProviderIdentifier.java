@@ -21,7 +21,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A wrapper around Skylark provider identifier, representing either a declared provider ({@see
+ * A wrapper around Starlark provider identifier, representing either a declared provider ({@see
  * SkylarkProvider}) or a "legacy" string identifier.
  */
 public final class SkylarkProviderIdentifier {

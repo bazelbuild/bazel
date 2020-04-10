@@ -625,7 +625,7 @@ public class RuleClass {
     }
 
     /**
-     * Name of default attribute implicitly added to all Skylark RuleClasses that are {@code
+     * Name of default attribute implicitly added to all Starlark RuleClasses that are {@code
      * build_setting}s.
      */
     public static final String SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
@@ -958,7 +958,7 @@ public class RuleClass {
      * configuration.
      *
      * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method takes the
-     * Skylark module names of fragments instead of their classes.
+     * Starlark module names of fragments instead of their classes.
      */
     public Builder requiresConfigurationFragmentsBySkylarkModuleName(
         Collection<String> configurationFragmentNames) {
@@ -970,19 +970,18 @@ public class RuleClass {
     /**
      * Declares the configuration fragments that are required by this rule for the host
      * configuration.
-     *
      */
     /**
-     * Declares that the implementation of the associated rule class requires the given
-     * fragments to be present in the given configuration that isn't the rule's configuration but
-     * is also readable by the rule.
+     * Declares that the implementation of the associated rule class requires the given fragments to
+     * be present in the given configuration that isn't the rule's configuration but is also
+     * readable by the rule.
      *
      * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
-     * this method takes Skylark module names of fragments instead of their classes.
-     * *
+     * this method takes Starlark module names of fragments instead of their classes. *
+     *
      * <p>You probably don't want to use this, because rules generally shouldn't read configurations
-     * other than their own. If you want to declare host config fragments, see
-     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
+     * other than their own. If you want to declare host config fragments, see {@link
+     * com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
      *
      * <p>The value is inherited by subclasses.
      */
@@ -1207,10 +1206,10 @@ public class RuleClass {
     }
 
     /**
-     * Adds or overrides the attribute in the rule class. Meant for Skylark usage.
+     * Adds or overrides the attribute in the rule class. Meant for Starlark usage.
      *
      * @throws IllegalArgumentException if the attribute overrides an existing attribute (will be
-     * legal in the future).
+     *     legal in the future).
      */
     public void addOrOverrideAttribute(Attribute attribute) {
       String name = attribute.getName();
@@ -1225,7 +1224,7 @@ public class RuleClass {
       return attributes.containsKey(name);
     }
 
-    /** Sets the rule implementation function. Meant for Skylark usage. */
+    /** Sets the rule implementation function. Meant for Starlark usage. */
     public Builder setConfiguredTargetFunction(StarlarkFunction func) {
       this.configuredTargetFunction = func;
       return this;
@@ -1241,7 +1240,7 @@ public class RuleClass {
       return this;
     }
 
-    /** Sets the rule definition environment label and hash code. Meant for Skylark usage. */
+    /** Sets the rule definition environment label and hash code. Meant for Starlark usage. */
     public Builder setRuleDefinitionEnvironmentLabelAndHashCode(Label label, String hashCode) {
       this.ruleDefinitionEnvironmentLabel = Preconditions.checkNotNull(label, this.name);
       this.ruleDefinitionEnvironmentHashCode = Preconditions.checkNotNull(hashCode, this.name);
@@ -1266,8 +1265,8 @@ public class RuleClass {
     }
 
     /**
-     * This rule class outputs a default executable for every rule with the same name as
-     * the rules's. Only works for Skylark.
+     * This rule class outputs a default executable for every rule with the same name as the
+     * rules's. Only works for Starlark.
      */
     public <TYPE> Builder setExecutableSkylark() {
       this.isExecutableSkylark = true;
@@ -1294,7 +1293,7 @@ public class RuleClass {
     }
 
     /**
-     * This rule class has the _whitelist_function_transition attribute.  Intended only for Skylark
+     * This rule class has the _whitelist_function_transition attribute. Intended only for Starlark
      * rules.
      */
     public <TYPE> Builder setHasFunctionTransitionWhitelist() {
@@ -1476,7 +1475,7 @@ public class RuleClass {
   private final String name; // e.g. "cc_library"
   private final ImmutableList<StarlarkThread.CallStackEntry> callstack; // of call to 'rule'
 
-  private final String key; // Just the name for native, label + name for skylark
+  private final String key; // Just the name for native, label + name for Starlark
 
   /**
    * The kind of target represented by this RuleClass (e.g. "cc_library rule").
@@ -1546,12 +1545,13 @@ public class RuleClass {
   private final AdvertisedProviderSet advertisedProviders;
 
   /**
-   * The Skylark rule implementation of this RuleClass. Null for non Skylark executable RuleClasses.
+   * The Starlark rule implementation of this RuleClass. Null for non Starlark executable
+   * RuleClasses.
    */
   @Nullable private final StarlarkFunction configuredTargetFunction;
 
   /**
-   * The BuildSetting associated with this rule. Null for all RuleClasses except Skylark-defined
+   * The BuildSetting associated with this rule. Null for all RuleClasses except Starlark-defined
    * rules that pass {@code build_setting} to their {@code rule()} declaration.
    */
   @Nullable private final BuildSetting buildSetting;
@@ -1567,8 +1567,8 @@ public class RuleClass {
   private final Function<? super Rule, ? extends Set<String>> optionReferenceFunction;
 
   /**
-   * The Skylark rule definition environment's label and hash code of this RuleClass. Null for non
-   * Skylark executable RuleClasses.
+   * The Starlark rule definition environment's label and hash code of this RuleClass. Null for non
+   * Starlark executable RuleClasses.
    */
   @Nullable private final Label ruleDefinitionEnvironmentLabel;
 
@@ -2116,12 +2116,12 @@ public class RuleClass {
     // have been set.
     for (Attribute attr : attrsWithComputedDefaults) {
       // If Attribute#hasComputedDefault was true above, Attribute#getDefaultValue returns the
-      // computed default function object or a Skylark computed default template. Note that we
+      // computed default function object or a Starlark computed default template. Note that we
       // cannot determine the exact value of the computed default function here because it may
       // depend on other attribute values that are configurable (i.e. they came from select({..})
       // expressions in the build language, and they require configuration data from the analysis
       // phase to be resolved). Instead, we're setting the attribute value to a reference to the
-      // computed default function, or if #getDefaultValue is a Skylark computed default
+      // computed default function, or if #getDefaultValue is a Starlark computed default
       // template, setting the attribute value to a reference to the SkylarkComputedDefault
       // returned from SkylarkComputedDefaultTemplate#computePossibleValues.
       //
@@ -2501,7 +2501,7 @@ public class RuleClass {
     return binaryOutput;
   }
 
-  /** Returns this RuleClass's custom Skylark rule implementation. */
+  /** Returns this RuleClass's custom Starlark rule implementation. */
   @Nullable
   public StarlarkFunction getConfiguredTargetFunction() {
     return configuredTargetFunction;
@@ -2528,7 +2528,7 @@ public class RuleClass {
   }
 
   /**
-   * For Skylark rule classes, returns this RuleClass's rule definition environment's label, which
+   * For Starlark rule classes, returns this RuleClass's rule definition environment's label, which
    * is never null. Is null for native rules' RuleClass objects.
    */
   @Nullable
@@ -2545,15 +2545,12 @@ public class RuleClass {
     return ruleDefinitionEnvironmentHashCode;
   }
 
-  /** Returns true if this RuleClass is a Skylark-defined RuleClass. */
+  /** Returns true if this RuleClass is a Starlark-defined RuleClass. */
   public boolean isSkylark() {
     return isSkylark;
   }
 
-  /**
-   * Returns true if this RuleClass is Skylark-defined and is subject to analysis-time
-   * tests.
-   */
+  /** Returns true if this RuleClass is Starlark-defined and is subject to analysis-time tests. */
   public boolean isSkylarkTestable() {
     return skylarkTestable;
   }

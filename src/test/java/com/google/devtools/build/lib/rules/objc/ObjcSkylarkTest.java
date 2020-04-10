@@ -40,9 +40,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for Skylark interaction with the objc_* rules.
- */
+/** Tests for Starlark interaction with the objc_* rules. */
 @RunWith(JUnit4.class)
 public class ObjcSkylarkTest extends ObjcRuleTestCase {
   private void writeObjcSplitTransitionTestFiles() throws Exception {
