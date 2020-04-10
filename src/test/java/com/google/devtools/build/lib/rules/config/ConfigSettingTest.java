@@ -342,7 +342,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
     checkError(
         "foo",
         "none",
-        "ERROR /workspace/foo/BUILD:1:1: //foo:none: "
+        "ERROR /workspace/foo/BUILD:1:15: //foo:none: "
             + "expected value of type 'string' for dict value element, but got None (NoneType)",
         "config_setting(",
         "    name = 'none',",

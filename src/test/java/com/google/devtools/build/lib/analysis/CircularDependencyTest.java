@@ -98,7 +98,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
       }
     }
     assertThat(foundEvent).isNotNull();
-    assertThat(foundEvent.getLocation().toString()).isEqualTo("/workspace/cycle/BUILD:3:1");
+    assertThat(foundEvent.getLocation().toString()).isEqualTo("/workspace/cycle/BUILD:3:14");
   }
 
   /**

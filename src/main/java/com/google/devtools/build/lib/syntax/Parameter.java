@@ -29,20 +29,20 @@ import javax.annotation.Nullable;
  */
 public abstract class Parameter extends Node {
 
-  @Nullable private final Identifier identifier;
+  @Nullable private final Identifier id;
 
-  private Parameter(@Nullable Identifier identifier) {
-    this.identifier = identifier;
+  private Parameter(@Nullable Identifier id) {
+    this.id = id;
   }
 
   @Nullable
   public String getName() {
-    return identifier != null ? identifier.getName() : null;
+    return id != null ? id.getName() : null;
   }
 
   @Nullable
   public Identifier getIdentifier() {
-    return identifier;
+    return id;
   }
 
   @Nullable
@@ -55,8 +55,18 @@ public abstract class Parameter extends Node {
    * depending on its position.
    */
   public static final class Mandatory extends Parameter {
-    Mandatory(Identifier identifier) {
-      super(identifier);
+    Mandatory(Identifier id) {
+      super(id);
+    }
+
+    @Override
+    public int getStartOffset() {
+      return getIdentifier().getStartOffset();
+    }
+
+    @Override
+    public int getEndOffset() {
+      return getIdentifier().getEndOffset();
     }
   }
 
@@ -68,8 +78,8 @@ public abstract class Parameter extends Node {
 
     public final Expression defaultValue;
 
-    Optional(Identifier identifier, @Nullable Expression defaultValue) {
-      super(identifier);
+    Optional(Identifier id, @Nullable Expression defaultValue) {
+      super(id);
       this.defaultValue = defaultValue;
     }
 
@@ -80,22 +90,58 @@ public abstract class Parameter extends Node {
     }
 
     @Override
+    public int getStartOffset() {
+      return getIdentifier().getStartOffset();
+    }
+
+    @Override
+    public int getEndOffset() {
+      return getDefaultValue().getEndOffset();
+    }
+
+    @Override
     public String toString() {
       return getName() + "=" + defaultValue;
     }
   }
 
-  /** Syntax node for a star parameter, {@code f(*identifier)} or or {@code f(..., *, ...)}. */
+  /** Syntax node for a star parameter, {@code f(*id)} or or {@code f(..., *, ...)}. */
   public static final class Star extends Parameter {
-    Star(@Nullable Identifier identifier) {
-      super(identifier);
+    private final int starOffset;
+
+    Star(int starOffset, @Nullable Identifier id) {
+      super(id);
+      this.starOffset = starOffset;
+    }
+
+    @Override
+    public int getStartOffset() {
+      return starOffset;
+    }
+
+    @Override
+    public int getEndOffset() {
+      return getIdentifier().getEndOffset();
     }
   }
 
-  /** Syntax node for a parameter of the form {@code f(**identifier)}. */
+  /** Syntax node for a parameter of the form {@code f(**id)}. */
   public static final class StarStar extends Parameter {
-    StarStar(Identifier identifier) {
-      super(identifier);
+    private final int starStarOffset;
+
+    StarStar(int starStarOffset, Identifier id) {
+      super(id);
+      this.starStarOffset = starStarOffset;
+    }
+
+    @Override
+    public int getStartOffset() {
+      return starStarOffset;
+    }
+
+    @Override
+    public int getEndOffset() {
+      return getIdentifier().getEndOffset();
     }
   }
 

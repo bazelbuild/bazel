@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
-import java.util.Objects;
 
 /**
  * A Location denotes a position within a Starlark file.
@@ -29,31 +28,33 @@ import java.util.Objects;
  * If the line number is also zero, it too is not displayed; in this case, the location denotes the
  * file as a whole.
  */
-public abstract class Location implements Serializable, Comparable<Location> {
+@AutoCodec
+@Immutable
+public final class Location implements Serializable, Comparable<Location> {
 
-  // TODO(adonovan): merge with Lexer.LexerLocation and make this the only implementation of
-  // Location, once the parser no longer eagerly creates Locations but instead
-  // records token offsets and the LineNumberTable in the tree.
-  @AutoCodec
-  @Immutable
-  static class FileLineColumn extends Location {
-    final String file;
-    final LineAndColumn linecol;
+  private final String file;
+  private final int line;
+  private final int column;
 
-    FileLineColumn(String file, LineAndColumn linecol) {
-      this.file = Preconditions.checkNotNull(file);
-      this.linecol = linecol;
-    }
+  public Location(String file, int line, int column) {
+    this.file = Preconditions.checkNotNull(file);
+    this.line = line;
+    this.column = column;
+  }
 
-    @Override
-    public String file() {
-      return file;
-    }
+  /** Returns the name of the file containing this location. */
+  public String file() {
+    return file;
+  }
 
-    @Override
-    protected LineAndColumn getLineAndColumn() {
-      return linecol;
-    }
+  /** Returns the line number of this location. */
+  public int line() {
+    return line;
+  }
+
+  /** Returns the column number of this location. */
+  public int column() {
+    return column;
   }
 
   /**
@@ -62,29 +63,12 @@ public abstract class Location implements Serializable, Comparable<Location> {
    */
   public static Location fromFileLineColumn(String file, int line, int column) {
     Preconditions.checkArgument(line != 0 || column == 0, "non-zero column but no line number");
-    return new FileLineColumn(file, new LineAndColumn(line, column));
+    return new Location(file, line, column);
   }
 
   /** Returns a Location for the file as a whole. */
   public static Location fromFile(String file) {
-    return new FileLineColumn(file, ZERO);
-  }
-
-  private static final LineAndColumn ZERO = new LineAndColumn(0, 0);
-
-  /** Returns the name of the file containing this location. */
-  public abstract String file();
-
-  protected abstract LineAndColumn getLineAndColumn();
-
-  /** Returns the line number of this location. */
-  public final int line() {
-    return getLineAndColumn().line;
-  }
-
-  /** Returns the column number of this location. */
-  public final int column() {
-    return getLineAndColumn().column;
+    return new Location(file, 0, 0);
   }
 
   /**
@@ -94,52 +78,14 @@ public abstract class Location implements Serializable, Comparable<Location> {
   @Override
   public String toString() {
     StringBuilder buf = new StringBuilder();
-    buf.append(file());
-    LineAndColumn linecol = getLineAndColumn();
-    if (linecol.line != 0) {
-      buf.append(':').append(linecol.line);
-      if (linecol.column != 0) {
-        buf.append(':').append(linecol.column);
+    buf.append(file);
+    if (line != 0) {
+      buf.append(':').append(line);
+      if (column != 0) {
+        buf.append(':').append(column);
       }
     }
     return buf.toString();
-  }
-
-  /** A value class that describes the line and column of a location. */
-  // TODO(adonovan): make private when we combine with LexerLocation.
-  @AutoCodec
-  @Immutable
-  public static final class LineAndColumn {
-
-    public final int line;
-    public final int column;
-
-    public LineAndColumn(int line, int column) {
-      this.line = line;
-      this.column = column;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o == this) {
-        return true;
-      }
-      if (!(o instanceof LineAndColumn)) {
-        return false;
-      }
-      LineAndColumn lac = (LineAndColumn) o;
-      return lac.line == line && lac.column == column;
-    }
-
-    @Override
-    public int hashCode() {
-      return line * 41 + column;
-    }
-
-    @Override
-    public String toString() {
-      return line + ":" + column;
-    }
   }
 
   /** Returns a three-valued lexicographical comparison of two Locations. */
@@ -149,22 +95,22 @@ public abstract class Location implements Serializable, Comparable<Location> {
     if (cmp != 0) {
       return cmp;
     }
-    LineAndColumn x = this.getLineAndColumn();
-    LineAndColumn y = that.getLineAndColumn();
-    return Long.compare(((long) x.line << 32) | x.column, ((long) y.line << 32) | y.column);
+    return Long.compare(
+        ((long) this.line << 32) | this.column, ((long) that.line << 32) | that.column);
   }
 
   @Override
-  public final int hashCode() {
-    return Objects.hash(file(), getLineAndColumn());
+  public int hashCode() {
+    return 97 * file.hashCode() + 37 * line + column;
   }
 
   @Override
-  public final boolean equals(Object that) {
+  public boolean equals(Object that) {
     return this == that
-        || that instanceof Location
-            && this.file().equals(((Location) that).file())
-            && this.getLineAndColumn().equals(((Location) that).getLineAndColumn());
+        || (that instanceof Location
+            && this.file.equals(((Location) that).file)
+            && this.line == ((Location) that).line
+            && this.column == ((Location) that).column);
   }
 
   /** A location for built-in functions. */

@@ -90,7 +90,7 @@ public final class ValidationEnvironment extends NodeVisitor {
     String getUndeclaredNameError(String name);
   }
 
-  private static final Identifier PREDECLARED = new Identifier("");
+  private static final Identifier PREDECLARED = new Identifier("", 0);
 
   private static class Block {
     private final Map<String, Identifier> variables = new HashMap<>();
@@ -119,7 +119,13 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
-  void addError(Location loc, String message) {
+  // Reports an error at the start of the specified node.
+  private void addError(Node node, String message) {
+    addError(node.getStartLocation(), message);
+  }
+
+  // Reports an error at the specified location.
+  private void addError(Location loc, String message) {
     errors.add(new SyntaxError(loc, message));
   }
 
@@ -162,9 +168,7 @@ public final class ValidationEnvironment extends NodeVisitor {
           // Reject load('...', '_private').
           Identifier orig = b.getOriginalName();
           if (orig.isPrivate() && !options.allowLoadPrivateSymbols()) {
-            addError(
-                orig.getStartLocation(),
-                "symbol '" + orig.getName() + "' is private and cannot be imported.");
+            addError(orig, "symbol '" + orig.getName() + "' is private and cannot be imported.");
           }
 
           // The allowToplevelRebinding check is not applied to all files
@@ -172,7 +176,7 @@ public final class ValidationEnvironment extends NodeVisitor {
           // and emit a better error message than the generic check.
           if (!names.add(b.getLocalName().getName())) {
             addError(
-                b.getLocalName().getStartLocation(),
+                b.getLocalName(),
                 String.format(
                     "load statement defines '%s' more than once", b.getLocalName().getName()));
           }
@@ -213,7 +217,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         assign(elem);
       }
     } else {
-      addError(lhs.getStartLocation(), "cannot assign to '" + lhs + "'");
+      addError(lhs, "cannot assign to '" + lhs + "'");
     }
   }
 
@@ -229,7 +233,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         // generic error
         error = createInvalidIdentifierException(node.getName(), getAllSymbols());
       }
-      addError(node.getStartLocation(), error);
+      addError(node, error);
       return;
     }
     if (options.recordScope()) {
@@ -238,7 +242,8 @@ public final class ValidationEnvironment extends NodeVisitor {
   }
 
   private static String createInvalidIdentifierException(String name, Set<String> candidates) {
-    if (name.equals("$error$")) {
+    if (!Identifier.isValid(name)) {
+      // Identifier was created by Parser.makeErrorExpression and contains misparsed text.
       return "contains syntax error(s)";
     }
 
@@ -251,6 +256,7 @@ public final class ValidationEnvironment extends NodeVisitor {
     return "name '" + name + "' is not defined" + suggestion;
   }
 
+  // TODO(adonovan): delete this. It's been long enough.
   static String getErrorForObsoleteThreadLocalVars(String name) {
     if (name.equals("PACKAGE_NAME")) {
       return "The value 'PACKAGE_NAME' has been removed in favor of 'package_name()', "
@@ -268,7 +274,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(ReturnStatement node) {
     if (block.scope != Scope.Local) {
-      addError(node.getStartLocation(), "return statements must be inside a function");
+      addError(node, "return statements must be inside a function");
     }
     super.visit(node);
   }
@@ -277,7 +283,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   public void visit(ForStatement node) {
     if (block.scope != Scope.Local) {
       addError(
-          node.getStartLocation(),
+          node,
           "for loops are not allowed at the top level. You may move it inside a function "
               + "or use a comprehension, [f(x) for x in sequence]");
     }
@@ -292,7 +298,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(LoadStatement node) {
     if (block.scope == Scope.Local) {
-      addError(node.getStartLocation(), "load statement not at top level");
+      addError(node, "load statement not at top level");
     }
     super.visit(node);
   }
@@ -300,7 +306,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(FlowStatement node) {
     if (node.getKind() != TokenKind.PASS && loopCount <= 0) {
-      addError(node.getStartLocation(), node.getKind() + " statement must be inside a for loop");
+      addError(node, node.getKind() + " statement must be inside a for loop");
     }
     super.visit(node);
   }
@@ -338,9 +344,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(DefStatement node) {
     if (block.scope == Scope.Local) {
-      addError(
-          node.getStartLocation(),
-          "nested functions are not allowed. Move the function to the top level.");
+      addError(node, "nested functions are not allowed. Move the function to the top level.");
     }
     for (Parameter param : node.getParameters()) {
       if (param instanceof Parameter.Optional) {
@@ -362,7 +366,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   public void visit(IfStatement node) {
     if (block.scope != Scope.Local) {
       addError(
-          node.getStartLocation(),
+          node,
           "if statements are not allowed at the top level. You may move it inside a function "
               + "or use an if expression (x if condition else y).");
     }
@@ -377,7 +381,7 @@ public final class ValidationEnvironment extends NodeVisitor {
     // Other bad cases are handled in assign.
     if (node.isAugmented() && node.getLHS() instanceof ListExpression) {
       addError(
-          node.getStartLocation(),
+          node.getOperatorLocation(),
           "cannot perform augmented assignment on a list or tuple expression");
     }
 
@@ -391,14 +395,13 @@ public final class ValidationEnvironment extends NodeVisitor {
     // Symbols defined in the module scope cannot be reassigned.
     if (prev != null && block.scope == Scope.Module && !options.allowToplevelRebinding()) {
       addError(
-          id.getStartLocation(),
+          id,
           String.format(
               "cannot reassign global '%s' (read more at"
                   + " https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html)",
               id.getName()));
       if (prev != PREDECLARED) {
-        addError(
-            prev.getStartLocation(), String.format("'%s' previously declared here", id.getName()));
+        addError(prev, String.format("'%s' previously declared here", id.getName()));
       }
     }
   }
@@ -424,7 +427,7 @@ public final class ValidationEnvironment extends NodeVisitor {
 
   // Report an error if a load statement appears after another kind of statement.
   private void checkLoadAfterStatement(List<Statement> statements) {
-    Location firstStatement = null;
+    Statement firstStatement = null;
 
     for (Statement statement : statements) {
       // Ignore string literals (e.g. docstrings).
@@ -437,15 +440,12 @@ public final class ValidationEnvironment extends NodeVisitor {
         if (firstStatement == null) {
           continue;
         }
-        addError(
-            statement.getStartLocation(),
-            "load() statements must be called before any other statement. "
-                + "First non-load() statement appears at "
-                + firstStatement);
+        addError(statement, "load statements must appear before any other statement");
+        addError(firstStatement, "\tfirst non-load statement appears here");
       }
 
       if (firstStatement == null) {
-        firstStatement = statement.getStartLocation();
+        firstStatement = statement;
       }
     }
   }

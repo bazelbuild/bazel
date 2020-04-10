@@ -17,14 +17,26 @@ package com.google.devtools.build.lib.syntax;
 /** Syntax node for comments. */
 public final class Comment extends Node {
 
-  protected final String value;
+  private final int offset;
+  private final String text;
 
-  public Comment(String value) {
-    this.value = value;
+  Comment(int offset, String text) {
+    this.offset = offset;
+    this.text = text;
   }
 
-  public String getValue() {
-    return value;
+  public String getText() {
+    return text;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return offset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return offset + text.length();
   }
 
   @Override
@@ -34,6 +46,6 @@ public final class Comment extends Node {
 
   @Override
   public String toString() {
-    return value;
+    return text;
   }
 }

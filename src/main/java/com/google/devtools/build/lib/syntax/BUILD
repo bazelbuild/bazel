@@ -66,7 +66,6 @@ java_library(
         "Statement.java",
         "StringLiteral.java",
         "SyntaxError.java",
-        "Token.java",
         "TokenKind.java",
         "UnaryOperatorExpression.java",
         "ValidationEnvironment.java",

@@ -22,12 +22,15 @@ package com.google.devtools.build.lib.syntax;
 public final class IndexExpression extends Expression {
 
   private final Expression object;
-
+  private final int lbracketOffset;
   private final Expression key;
+  private final int rbracketOffset;
 
-  IndexExpression(Expression object, Expression key) {
+  IndexExpression(Expression object, int lbracketOffset, Expression key, int rbracketOffset) {
     this.object = object;
+    this.lbracketOffset = lbracketOffset;
     this.key = key;
+    this.rbracketOffset = rbracketOffset;
   }
 
   public Expression getObject() {
@@ -36,6 +39,20 @@ public final class IndexExpression extends Expression {
 
   public Expression getKey() {
     return key;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return object.getStartOffset();
+  }
+
+  @Override
+  public int getEndOffset() {
+    return rbracketOffset + 1;
+  }
+
+  public Location getLbracketLocation() {
+    return lnt.getLocation(lbracketOffset);
   }
 
   @Override

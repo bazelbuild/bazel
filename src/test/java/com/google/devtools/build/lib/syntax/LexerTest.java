@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -45,13 +44,31 @@ public class LexerTest {
     return new Lexer(inputSource, FileOptions.DEFAULT, errors);
   }
 
+  private static class Token {
+    TokenKind kind;
+    int left;
+    int right;
+    Object value;
+
+    @Override
+    public String toString() {
+      return kind == TokenKind.STRING
+          ? "\"" + value + "\""
+          : value == null ? kind.toString() : value.toString();
+    }
+  }
+
   private ArrayList<Token> allTokens(Lexer lexer) {
     ArrayList<Token> result = new ArrayList<>();
-    Token tok;
     do {
-      tok = lexer.nextToken();
-      result.add(tok.copy());
-    } while (tok.kind != TokenKind.EOF);
+      lexer.nextToken();
+      Token tok = new Token();
+      tok.kind = lexer.kind;
+      tok.left = lexer.left;
+      tok.right = lexer.right;
+      tok.value = lexer.value;
+      result.add(tok);
+    } while (lexer.kind != TokenKind.EOF);
 
     for (SyntaxError error : errors) {
       lastError = error.location().file() + ":" + error.location().line() + ": " + error.message();
@@ -76,7 +93,7 @@ public class LexerTest {
       if (buf.length() > 0) {
         buf.append(' ');
       }
-      int line = lexer.createLocation(tok.left, tok.left).line();
+      int line = lexer.lnt.getLocation(tok.left).line();
       buf.append(line);
     }
     return buf.toString();
@@ -509,11 +526,6 @@ public class LexerTest {
         .isEqualTo(
             "/some/path.txt:1: Tab characters are not allowed for indentation. Use spaces"
                 + " instead.");
-  }
-
-  @Test
-  public void testLexerLocationCodec() throws Exception {
-    new SerializationTester(createLexer("foo").createLocation(0, 2)).runTests();
   }
 
   /**

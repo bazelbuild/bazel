@@ -81,8 +81,7 @@ final class Eval {
       try {
         assign(fr, node.getLHS(), rvalue);
       } catch (EvalException ex) {
-        // TODO(adonovan): use location of = operator.
-        throw ex.ensureLocation(node.getStartLocation());
+        throw ex.ensureLocation(node.getOperatorLocation());
       }
     }
   }
@@ -113,7 +112,7 @@ final class Eval {
         }
       }
     } catch (EvalException ex) {
-      throw ex.ensureLocation(node.getLHS().getStartLocation());
+      throw ex.ensureLocation(node.getStartLocation());
     } finally {
       EvalUtils.removeIterator(o);
     }
@@ -173,7 +172,7 @@ final class Eval {
       StarlarkThread.Extension module = fr.thread.getExtension(moduleName);
       if (module == null) {
         throw new EvalException(
-            node.getImport().getStartLocation(),
+            node.getStartLocation(),
             String.format(
                 "file '%s' was not correctly loaded. "
                     + "Make sure the 'load' statement appears in the global scope in your file",
@@ -220,7 +219,7 @@ final class Eval {
   private static TokenKind exec(StarlarkThread.Frame fr, Statement st)
       throws EvalException, InterruptedException {
     if (fr.dbg != null) {
-      Location loc = st.getStartLocation();
+      Location loc = st.getStartLocation(); // not very precise
       fr.setLocation(loc);
       fr.dbg.before(fr.thread, loc); // location is now redundant since it's in the thread
     }
@@ -385,19 +384,18 @@ final class Eval {
       try {
         EvalUtils.setIndex(object, key, z);
       } catch (EvalException ex) {
-        Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
-        throw ex.ensureLocation(loc);
+        throw ex.ensureLocation(stmt.getOperatorLocation());
       }
 
     } else if (lhs instanceof ListExpression) {
       // TODO(adonovan): make this a static error.
-      Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
-      throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
+      throw new EvalException(
+          stmt.getOperatorLocation(), "cannot perform augmented assignment on a list literal");
 
     } else {
       // Not possible for validated ASTs.
-      Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
-      throw new EvalException(loc, "cannot perform augmented assignment on '" + lhs + "'");
+      throw new EvalException(
+          stmt.getOperatorLocation(), "cannot perform augmented assignment on '" + lhs + "'");
     }
   }
 
@@ -445,8 +443,7 @@ final class Eval {
                 return EvalUtils.binaryOp(
                     binop.getOperator(), x, y, fr.thread.getSemantics(), fr.thread.mutability());
               } catch (EvalException ex) {
-                // TODO(adonovan): use operator location
-                ex.ensureLocation(binop.getStartLocation());
+                ex.ensureLocation(binop.getOperatorLocation());
                 throw ex;
               }
           }
@@ -473,13 +470,11 @@ final class Eval {
             try {
               dict.put(k, v, (Location) null);
             } catch (EvalException ex) {
-              // TODO(adonovan): use colon location
-              throw ex.ensureLocation(entry.getKey().getStartLocation());
+              throw ex.ensureLocation(entry.getColonLocation());
             }
             if (dict.size() == before) {
-              // TODO(adonovan): use colon location
               throw new EvalException(
-                  entry.getKey().getStartLocation(),
+                  entry.getColonLocation(),
                   "Duplicated key " + Starlark.repr(k) + " when creating dictionary");
             }
           }
@@ -498,7 +493,7 @@ final class Eval {
             }
             return result;
           } catch (EvalException ex) {
-            throw ex.ensureLocation(dot.getStartLocation()); // TODO(adonovan): use dot token
+            throw ex.ensureLocation(dot.getDotLocation());
           }
         }
 
@@ -582,7 +577,7 @@ final class Eval {
             }
           }
 
-          Location loc = call.getStartLocation(); // TODO(adonovan): use call lparen
+          Location loc = call.getLparenLocation(); // (Location is prematerialized)
           fr.setLocation(loc);
           try {
             return Starlark.fastcall(fr.thread, fn, positional, named);
@@ -657,8 +652,7 @@ final class Eval {
           try {
             return EvalUtils.index(fr.thread.mutability(), fr.thread.getSemantics(), object, key);
           } catch (EvalException ex) {
-            // TODO(adonovan): use location of lbracket token
-            throw ex.ensureLocation(index.getStartLocation());
+            throw ex.ensureLocation(index.getLbracketLocation());
           }
         }
 
@@ -688,8 +682,7 @@ final class Eval {
           try {
             return Starlark.slice(fr.thread.mutability(), x, start, stop, step);
           } catch (EvalException ex) {
-            // TODO(adonovan): use lbracket location
-            throw ex.ensureLocation(slice.getStartLocation());
+            throw ex.ensureLocation(slice.getLbracketLocation());
           }
         }
 
@@ -754,8 +747,7 @@ final class Eval {
                 execClauses(index + 1);
               }
             } catch (EvalException ex) {
-              // TODO(adonovan): use location of 'for' token
-              throw ex.ensureLocation(comp.getStartLocation());
+              throw ex.ensureLocation(forClause.getStartLocation());
             } finally {
               EvalUtils.removeIterator(iterable);
             }
@@ -778,8 +770,7 @@ final class Eval {
           try {
             dict.put(k, v, (Location) null);
           } catch (EvalException ex) {
-            // TODO(adonovan): use colon location
-            throw ex.ensureLocation(comp.getStartLocation());
+            throw ex.ensureLocation(body.getColonLocation());
           }
         } else {
           list.add(eval(fr, ((Expression) comp.getBody())));

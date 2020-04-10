@@ -13,20 +13,45 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import javax.annotation.Nullable;
 
-/** A wrapper Statement class for return expressions. */
+/** A syntax node for return statements. */
 public final class ReturnStatement extends Statement {
 
-  @Nullable private final Expression returnExpression;
+  private final int returnOffset;
+  @Nullable private final Expression result;
 
-  ReturnStatement(@Nullable Expression returnExpression) {
-    this.returnExpression = returnExpression;
+  ReturnStatement(int returnOffset, @Nullable Expression result) {
+    this.returnOffset = returnOffset;
+    this.result = result;
   }
 
+  /**
+   * Returns a new return statement that returns expr. It has a dummy file offset and line number
+   * table. It is provided only for use by the evaluator, and will be removed when it switches to a
+   * compiled representation.
+   */
+  public static ReturnStatement make(Expression expr) {
+    ReturnStatement stmt = new ReturnStatement(0, expr);
+    stmt.lnt = Preconditions.checkNotNull(expr.lnt);
+    return stmt;
+  }
+
+  // TODO(adonovan): rename to getResult.
   @Nullable
   public Expression getReturnExpression() {
-    return returnExpression;
+    return result;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return returnOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return result != null ? result.getEndOffset() : returnOffset + "return".length();
   }
 
   @Override

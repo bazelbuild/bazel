@@ -13,43 +13,51 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.syntax.Location.LineAndColumn;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link LineNumberTable}.
- */
+/** Tests for {@link LineNumberTable}. */
+// TODO(adonovan): express this test in terms of the public API.
 @RunWith(JUnit4.class)
 public class LineNumberTableTest {
 
-  private LineNumberTable create(String buffer) {
+  private static LineNumberTable create(String buffer) {
     return LineNumberTable.create(buffer.toCharArray(), "/fake/file");
+  }
+
+  // Asserts that the specified offset results in a line/column pair of the form "1:2".
+  private static void checkOffset(LineNumberTable table, int offset, String wantLineCol) {
+    Location loc = table.getLocation(offset);
+    String got = String.format("%d:%d", loc.line(), loc.column());
+    if (!got.equals(wantLineCol)) {
+      throw new AssertionError(
+          String.format("location(%d) = %s, want %s", offset, got, wantLineCol));
+    }
   }
 
   @Test
   public void testEmpty() {
     LineNumberTable table = create("");
-    assertThat(table.getLineAndColumn(0)).isEqualTo(new LineAndColumn(1, 1));
+    checkOffset(table, 0, "1:1");
   }
 
   @Test
   public void testNewline() {
     LineNumberTable table = create("\n");
-    assertThat(table.getLineAndColumn(0)).isEqualTo(new LineAndColumn(1, 1));
-    assertThat(table.getLineAndColumn(1)).isEqualTo(new LineAndColumn(2, 1));
+    checkOffset(table, 0, "1:1");
+    checkOffset(table, 1, "2:1"); // EOF
   }
 
   @Test
   public void testOneLiner() {
     LineNumberTable table = create("foo");
-    assertThat(table.getLineAndColumn(0)).isEqualTo(new LineAndColumn(1, 1));
-    assertThat(table.getLineAndColumn(1)).isEqualTo(new LineAndColumn(1, 2));
-    assertThat(table.getLineAndColumn(2)).isEqualTo(new LineAndColumn(1, 3));
+    checkOffset(table, 0, "1:1");
+    checkOffset(table, 1, "1:2");
+    checkOffset(table, 2, "1:3");
+    checkOffset(table, 3, "1:4"); // EOF
   }
 
   @Test
@@ -57,24 +65,27 @@ public class LineNumberTableTest {
     LineNumberTable table = create("\ntwo\nthree\n\nfive\n");
 
     // \n
-    assertThat(table.getLineAndColumn(0)).isEqualTo(new LineAndColumn(1, 1));
+    checkOffset(table, 0, "1:1");
 
     // two\n
-    assertThat(table.getLineAndColumn(1)).isEqualTo(new LineAndColumn(2, 1));
-    assertThat(table.getLineAndColumn(2)).isEqualTo(new LineAndColumn(2, 2));
-    assertThat(table.getLineAndColumn(3)).isEqualTo(new LineAndColumn(2, 3));
-    assertThat(table.getLineAndColumn(4)).isEqualTo(new LineAndColumn(2, 4));
+    checkOffset(table, 1, "2:1");
+    checkOffset(table, 2, "2:2");
+    checkOffset(table, 3, "2:3");
+    checkOffset(table, 4, "2:4");
 
     // three\n
-    assertThat(table.getLineAndColumn(5)).isEqualTo(new LineAndColumn(3, 1));
-    assertThat(table.getLineAndColumn(10)).isEqualTo(new LineAndColumn(3, 6));
+    checkOffset(table, 5, "3:1");
+    checkOffset(table, 10, "3:6");
 
     // \n
-    assertThat(table.getLineAndColumn(11)).isEqualTo(new LineAndColumn(4, 1));
+    checkOffset(table, 11, "4:1");
 
     // five\n
-    assertThat(table.getLineAndColumn(12)).isEqualTo(new LineAndColumn(5, 1));
-    assertThat(table.getLineAndColumn(16)).isEqualTo(new LineAndColumn(5, 5));
+    checkOffset(table, 12, "5:1");
+    checkOffset(table, 16, "5:5");
+
+    // start of final empty line
+    checkOffset(table, 17, "6:1"); // EOF
   }
 
   @Test

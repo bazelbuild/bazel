@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -292,14 +291,9 @@ public final class PrettyPrintTest {
 
   @Test
   public void flowStatement() throws SyntaxError.Exception {
-    // The parser would complain if we tried to construct them from source.
-    Node breakNode = new FlowStatement(TokenKind.BREAK);
-    assertIndentedPrettyMatches(breakNode, "  break\n");
-    assertTostringMatches(breakNode, "break\n");
-
-    Node continueNode = new FlowStatement(TokenKind.CONTINUE);
-    assertIndentedPrettyMatches(continueNode, "  continue\n");
-    assertTostringMatches(continueNode, "continue\n");
+    assertStmtIndentedPrettyMatches(
+        join("def f():", "     pass", "     continue", "     break"),
+        join("  def f():", "    pass", "    continue", "    break", ""));
   }
 
   @Test
@@ -366,41 +360,28 @@ public final class PrettyPrintTest {
 
   @Test
   public void loadStatement() throws SyntaxError.Exception {
-    // load("foo.bzl", a="A", "B")
-    Node loadStatement =
-        new LoadStatement(
-            new StringLiteral("foo.bzl"),
-            ImmutableList.of(
-                new LoadStatement.Binding(Identifier.of("a"), Identifier.of("A")),
-                new LoadStatement.Binding(Identifier.of("B"), Identifier.of("B"))));
-    assertIndentedPrettyMatches(
-        loadStatement,
-        "  load(\"foo.bzl\", a=\"A\", \"B\")\n");
-    assertTostringMatches(
-        loadStatement,
-        "load(\"foo.bzl\", a=\"A\", \"B\")\n");
+    assertStmtIndentedPrettyMatches(
+        "load(\"foo.bzl\", a=\"A\", \"B\")", "  load(\"foo.bzl\", a=\"A\", \"B\")\n");
+    assertStmtTostringMatches(
+        "load(\"foo.bzl\", a=\"A\", \"B\")\n", "load(\"foo.bzl\", a=\"A\", \"B\")\n");
   }
 
   @Test
   public void returnStatement() throws SyntaxError.Exception {
-    assertIndentedPrettyMatches(
-        new ReturnStatement(new StringLiteral("foo")),
-        "  return \"foo\"\n");
-    assertTostringMatches(
-        new ReturnStatement(new StringLiteral("foo")),
-        "return \"foo\"\n");
+    assertStmtIndentedPrettyMatches("return \"foo\"", "  return \"foo\"\n");
+    assertStmtTostringMatches("return \"foo\"", "return \"foo\"\n");
 
-    assertIndentedPrettyMatches(new ReturnStatement(Identifier.of("None")), "  return None\n");
-    assertTostringMatches(new ReturnStatement(Identifier.of("None")), "return None\n");
+    assertStmtIndentedPrettyMatches("return None", "  return None\n");
+    assertStmtTostringMatches("return None", "return None\n");
 
-    assertIndentedPrettyMatches(new ReturnStatement(null), "  return\n");
-    assertTostringMatches(new ReturnStatement(null), "return\n");
+    assertStmtIndentedPrettyMatches("return", "  return\n");
+    assertStmtTostringMatches("return", "return\n");
   }
 
   // Miscellaneous.
 
   @Test
-  public void buildFileAST() throws SyntaxError.Exception {
+  public void file() throws SyntaxError.Exception {
     Node node = parseFile("print(x)\nprint(y)");
     assertIndentedPrettyMatches(
         node,
@@ -412,7 +393,7 @@ public final class PrettyPrintTest {
 
   @Test
   public void comment() throws SyntaxError.Exception {
-    Comment node = new Comment("foo");
+    Comment node = new Comment(0, "foo");
     assertIndentedPrettyMatches(node, "  # foo");
     assertTostringMatches(node, "foo");
   }

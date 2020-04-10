@@ -467,7 +467,7 @@ public class SkylarkDebugServerTest {
                 Location.newBuilder()
                     .setPath("/a/build/file/test.bzl")
                     .setLineNumber(7)
-                    .setColumnNumber(1))
+                    .setColumnNumber(3))
             .addScope(
                 Scope.newBuilder()
                     .setName("global")

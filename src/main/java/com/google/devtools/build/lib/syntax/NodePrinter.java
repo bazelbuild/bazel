@@ -56,7 +56,7 @@ final class NodePrinter {
       // it on a single line.
       printIndent();
       buf.append("# ");
-      buf.append(comment.getValue());
+      buf.append(comment.getText());
 
     } else if (n instanceof Argument) {
       printArgument((Argument) n);

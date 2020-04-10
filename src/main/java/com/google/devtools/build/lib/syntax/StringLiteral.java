@@ -24,15 +24,37 @@ import java.io.IOException;
 /** Syntax node for a string literal. */
 public final class StringLiteral extends Expression {
 
+  private final int startOffset;
   private final String value;
+  private final int endOffset;
 
-  StringLiteral(String value) {
+  StringLiteral(int startOffset, String value, int endOffset) {
+    this.startOffset = startOffset;
     this.value = value;
+    this.endOffset = endOffset;
   }
 
   /** Returns the value denoted by the string literal */
   public String getValue() {
     return value;
+  }
+
+  public Location getLocation() {
+    return lnt.getLocation(startOffset);
+  }
+
+  @Override
+  public int getStartOffset() {
+    return startOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    // TODO(adonovan): when we switch to compilation,
+    // making syntax trees ephemeral, we can afford to
+    // record the raw literal. This becomes:
+    //   return startOffset + raw.length().
+    return endOffset;
   }
 
   @Override
@@ -52,26 +74,29 @@ public final class StringLiteral extends Expression {
     }
 
     @Override
-    public void serialize(
-        SerializationContext context, StringLiteral stringLiteral, CodedOutputStream codedOut)
+    public void serialize(SerializationContext context, StringLiteral lit, CodedOutputStream out)
         throws SerializationException, IOException {
       // The String instances referred to by StringLiterals are deduped by Parser, so therefore
       // memoization is guaranteed to be profitable.
       context.serializeWithAdHocMemoizationStrategy(
-          stringLiteral.getValue(), MemoizationStrategy.MEMOIZE_AFTER, codedOut);
-      context.serialize(stringLiteral.getStartLocation(), codedOut);
+          lit.getValue(), MemoizationStrategy.MEMOIZE_AFTER, out);
+      out.writeInt32NoTag(lit.startOffset);
+      out.writeInt32NoTag(lit.endOffset);
+      context.serializeWithAdHocMemoizationStrategy(
+          lit.lnt, MemoizationStrategy.MEMOIZE_AFTER, out);
     }
 
     @Override
-    public StringLiteral deserialize(DeserializationContext context, CodedInputStream codedIn)
+    public StringLiteral deserialize(DeserializationContext context, CodedInputStream in)
         throws SerializationException, IOException {
       String value =
-          context.deserializeWithAdHocMemoizationStrategy(
-              codedIn, MemoizationStrategy.MEMOIZE_AFTER);
-      Lexer.LexerLocation location = context.deserialize(codedIn);
-      StringLiteral stringLiteral = new StringLiteral(value);
-      stringLiteral.setLocation(location);
-      return stringLiteral;
+          context.deserializeWithAdHocMemoizationStrategy(in, MemoizationStrategy.MEMOIZE_AFTER);
+      int startOffset = in.readInt32();
+      int endOffset = in.readInt32();
+      StringLiteral lit = new StringLiteral(startOffset, value, endOffset);
+      lit.lnt =
+          context.deserializeWithAdHocMemoizationStrategy(in, MemoizationStrategy.MEMOIZE_AFTER);
+      return lit;
     }
   }
 }

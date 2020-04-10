@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  */
 public abstract class Argument extends Node {
 
-  private final Expression value;
+  protected final Expression value;
 
   Argument(Expression value) {
     this.value = Preconditions.checkNotNull(value);
@@ -32,6 +32,11 @@ public abstract class Argument extends Node {
 
   public final Expression getValue() {
     return value;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return value.getEndOffset();
   }
 
   /** Return the name of this argument's parameter, or null if it is not a Keyword argument. */
@@ -45,6 +50,11 @@ public abstract class Argument extends Node {
     Positional(Expression value) {
       super(value);
     }
+
+    @Override
+    public int getStartOffset() {
+      return value.getStartOffset();
+    }
   }
 
   /** Syntax node for a keyword argument, {@code f(id=expr)}. */
@@ -53,34 +63,55 @@ public abstract class Argument extends Node {
     // Unlike in Python, keyword arguments in Bazel BUILD files
     // are about 10x more numerous than positional arguments.
 
-    final Identifier identifier;
+    final Identifier id;
 
-    Keyword(Identifier identifier, Expression value) {
+    Keyword(Identifier id, Expression value) {
       super(value);
-      this.identifier = identifier;
+      this.id = id;
     }
 
     public Identifier getIdentifier() {
-      return identifier;
+      return id;
     }
 
     @Override
     public String getName() {
-      return identifier.getName();
+      return id.getName();
+    }
+
+    @Override
+    public int getStartOffset() {
+      return id.getStartOffset();
     }
   }
 
   /** Syntax node for an argument of the form {@code f(*expr)}. */
   public static final class Star extends Argument {
-    Star(Expression value) {
+    private final int starOffset;
+
+    Star(int starOffset, Expression value) {
       super(value);
+      this.starOffset = starOffset;
+    }
+
+    @Override
+    public int getStartOffset() {
+      return starOffset;
     }
   }
 
   /** Syntax node for an argument of the form {@code f(**expr)}. */
   public static final class StarStar extends Argument {
-    StarStar(Expression value) {
+    private final int starStarOffset;
+
+    StarStar(int starStarOffset, Expression value) {
       super(value);
+      this.starStarOffset = starStarOffset;
+    }
+
+    @Override
+    public int getStartOffset() {
+      return starStarOffset;
     }
   }
 

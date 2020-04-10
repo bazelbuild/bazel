@@ -782,7 +782,7 @@ public final class EvalUtils {
             expr.getStartLocation(),
             FunctionSignature.NOARGS,
             /*defaultValues=*/ Tuple.empty(),
-            ImmutableList.<Statement>of(new ReturnStatement(expr)),
+            ImmutableList.<Statement>of(ReturnStatement.make(expr)),
             module);
 
     return Starlark.fastcall(thread, fn, NOARGS, NOARGS);
@@ -816,7 +816,7 @@ public final class EvalUtils {
       stmts =
           ImmutableList.<Statement>builder()
               .addAll(stmts.subList(0, n - 1))
-              .add(new ReturnStatement(expr))
+              .add(ReturnStatement.make(expr))
               .build();
     }
 
