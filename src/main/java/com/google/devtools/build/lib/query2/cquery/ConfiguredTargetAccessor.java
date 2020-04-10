@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -170,10 +169,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
       ConfiguredTarget configuredTarget, WalkableGraph walkableGraph) {
     Target target = null;
     try {
-      Label label =
-          configuredTarget instanceof AliasConfiguredTarget
-              ? ((AliasConfiguredTarget) configuredTarget).getOriginalLabel()
-              : configuredTarget.getLabel();
+      // Dereference any aliases that might be present.
+      Label label = configuredTarget.getOriginalLabel();
       target =
           ((PackageValue) walkableGraph.getValue(PackageValue.key(label.getPackageIdentifier())))
               .getPackage()

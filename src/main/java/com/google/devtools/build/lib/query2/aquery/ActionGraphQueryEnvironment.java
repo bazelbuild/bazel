@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -231,10 +230,8 @@ public class ActionGraphQueryEnvironment
   @Override
   public Label getCorrectLabel(ConfiguredTargetValue configuredTargetValue) {
     ConfiguredTarget target = configuredTargetValue.getConfiguredTarget();
-    if (target instanceof AliasConfiguredTarget) {
-      return ((AliasConfiguredTarget) target).getOriginalLabel();
-    }
-    return target.getLabel();
+    // Dereference any aliases that might be present.
+    return target.getOriginalLabel();
   }
 
   @Nullable

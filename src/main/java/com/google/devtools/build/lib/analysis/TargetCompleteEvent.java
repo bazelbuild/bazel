@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -135,12 +134,7 @@ public final class TargetCompleteEvent
     this.executableTargetData = new ExecutableTargetData(targetAndData);
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
     this.label = targetAndData.getConfiguredTarget().getLabel();
-    if (targetAndData.getConfiguredTarget() instanceof AliasConfiguredTarget) {
-      this.aliasLabel =
-          ((AliasConfiguredTarget) targetAndData.getConfiguredTarget()).getOriginalLabel();
-    } else {
-      this.aliasLabel = label;
-    }
+    this.aliasLabel = targetAndData.getConfiguredTarget().getOriginalLabel();
     this.configuredTargetKey =
         ConfiguredTargetKey.of(
             targetAndData.getConfiguredTarget(), targetAndData.getConfiguration());
