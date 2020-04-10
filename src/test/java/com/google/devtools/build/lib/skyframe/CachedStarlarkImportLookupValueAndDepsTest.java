@@ -18,7 +18,6 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
@@ -29,7 +28,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link CachedSkylarkImportLookupValueAndDeps}. */
+/** Tests for {@link CachedStarlarkImportLookupValueAndDeps}. */
 @RunWith(JUnit4.class)
 public class CachedStarlarkImportLookupValueAndDepsTest {
   @Test
@@ -43,51 +42,51 @@ public class CachedStarlarkImportLookupValueAndDepsTest {
     //    gc
 
     StarlarkImportLookupValue dummyValue = mock(StarlarkImportLookupValue.class);
-    CachedSkylarkImportLookupValueAndDepsBuilderFactory
+    CachedStarlarkImportLookupValueAndDepsBuilderFactory
         cachedStarlarkImportLookupValueAndDepsBuilderFactory =
-            new CachedSkylarkImportLookupValueAndDepsBuilderFactory();
+            new CachedStarlarkImportLookupValueAndDepsBuilderFactory();
 
-    SkylarkImportLookupKey gcKey = createStarlarkKey("//gc");
+    StarlarkImportLookupValue.Key gcKey = createStarlarkKey("//gc");
     SkyKey gcKey1 = createKey("gc key1");
     SkyKey gcKey2 = createKey("gc key2");
     SkyKey gcKey3 = createKey("gc key3");
-    CachedSkylarkImportLookupValueAndDeps gc =
+    CachedStarlarkImportLookupValueAndDeps gc =
         cachedStarlarkImportLookupValueAndDepsBuilderFactory
-            .newCachedSkylarkImportLookupValueAndDepsBuilder()
+            .newCachedStarlarkImportLookupValueAndDepsBuilder()
             .addDep(gcKey1)
             .addDeps(ImmutableList.of(gcKey2, gcKey3))
             .setKey(gcKey)
             .setValue(dummyValue)
             .build();
 
-    SkylarkImportLookupKey c1Key = createStarlarkKey("//c1");
+    StarlarkImportLookupValue.Key c1Key = createStarlarkKey("//c1");
     SkyKey c1Key1 = createKey("c1 key1");
-    CachedSkylarkImportLookupValueAndDeps c1 =
+    CachedStarlarkImportLookupValueAndDeps c1 =
         cachedStarlarkImportLookupValueAndDepsBuilderFactory
-            .newCachedSkylarkImportLookupValueAndDepsBuilder()
+            .newCachedStarlarkImportLookupValueAndDepsBuilder()
             .addDep(c1Key1)
             .addTransitiveDeps(gc)
             .setValue(dummyValue)
             .setKey(c1Key)
             .build();
 
-    SkylarkImportLookupKey c2Key = createStarlarkKey("//c2");
+    StarlarkImportLookupValue.Key c2Key = createStarlarkKey("//c2");
     SkyKey c2Key1 = createKey("c2 key1");
     SkyKey c2Key2 = createKey("c2 key2");
-    CachedSkylarkImportLookupValueAndDeps c2 =
+    CachedStarlarkImportLookupValueAndDeps c2 =
         cachedStarlarkImportLookupValueAndDepsBuilderFactory
-            .newCachedSkylarkImportLookupValueAndDepsBuilder()
+            .newCachedStarlarkImportLookupValueAndDepsBuilder()
             .addDeps(ImmutableList.of(c2Key1, c2Key2))
             .addTransitiveDeps(gc)
             .setValue(dummyValue)
             .setKey(c2Key)
             .build();
 
-    SkylarkImportLookupKey pKey = createStarlarkKey("//p");
+    StarlarkImportLookupValue.Key pKey = createStarlarkKey("//p");
     SkyKey pKey1 = createKey("p key1");
-    CachedSkylarkImportLookupValueAndDeps p =
+    CachedStarlarkImportLookupValueAndDeps p =
         cachedStarlarkImportLookupValueAndDepsBuilderFactory
-            .newCachedSkylarkImportLookupValueAndDepsBuilder()
+            .newCachedStarlarkImportLookupValueAndDepsBuilder()
             .addDep(pKey1)
             .addTransitiveDeps(c1)
             .addTransitiveDeps(c2)
@@ -96,8 +95,8 @@ public class CachedStarlarkImportLookupValueAndDepsTest {
             .build();
 
     List<Iterable<SkyKey>> registeredDeps = new ArrayList<>();
-    Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps> visitedDepsInToplevelLoad =
-        new HashMap<>();
+    Map<StarlarkImportLookupValue.Key, CachedStarlarkImportLookupValueAndDeps>
+        visitedDepsInToplevelLoad = new HashMap<>();
     p.traverse(registeredDeps::add, visitedDepsInToplevelLoad);
 
     assertThat(registeredDeps)
@@ -128,8 +127,8 @@ public class CachedStarlarkImportLookupValueAndDepsTest {
     };
   }
 
-  private static SkylarkImportLookupKey createStarlarkKey(String name) {
-    return SkylarkImportLookupKey.create(
+  private static StarlarkImportLookupValue.Key createStarlarkKey(String name) {
+    return StarlarkImportLookupValue.Key.create(
         Label.parseAbsoluteUnchecked(name),
         /*inWorkspace=*/ false,
         /*workspaceChunk=*/ 0,

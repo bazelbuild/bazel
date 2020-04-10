@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.SkylarkImportFailedException;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.StarlarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -85,7 +85,7 @@ public class StarlarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkImportLabelsAlternativeRoot() throws Exception {
+  public void testStarlarkImportLabelsAlternativeRoot() throws Exception {
     scratch.file("/root_2/pkg4/BUILD");
     scratch.file("/root_2/pkg4/ext.bzl");
     checkSuccessfulLookup("//pkg4:ext.bzl");
@@ -331,7 +331,7 @@ public class StarlarkImportLookupFunctionTest extends BuildViewTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(starlarkImportLookupKey)
         .hasExceptionThat()
-        .isInstanceOf(SkylarkImportFailedException.class);
+        .isInstanceOf(StarlarkImportFailedException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(starlarkImportLookupKey)
         .hasExceptionThat()
@@ -352,7 +352,7 @@ public class StarlarkImportLookupFunctionTest extends BuildViewTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(starlarkImportLookupKey)
         .hasExceptionThat()
-        .isInstanceOf(SkylarkImportFailedException.class);
+        .isInstanceOf(StarlarkImportFailedException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(starlarkImportLookupKey)
         .hasExceptionThat()

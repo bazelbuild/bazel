@@ -15,28 +15,27 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SkylarkImportLookupKey_AutoCodec}. */
+/** Tests for {@link StarlarkImportLookupKey_AutoCodec}. */
 @RunWith(JUnit4.class)
-public final class SkylarkImportLookupKeyCodecTest {
+public final class StarlarkImportLookupKeyCodecTest {
 
   @Test
   public void testCodec() throws Exception {
     SerializationTester serializationTester =
         new SerializationTester(
-            SkylarkImportLookupKey.create(
+            StarlarkImportLookupValue.Key.create(
                 Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()), false, -1, null),
-            SkylarkImportLookupKey.create(
+            StarlarkImportLookupValue.Key.create(
                 Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()), true, -1, null),
-            SkylarkImportLookupKey.create(
+            StarlarkImportLookupValue.Key.create(
                 Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()), true, 8, null),
-            SkylarkImportLookupKey.create(
+            StarlarkImportLookupValue.Key.create(
                 Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()),
                 true,
                 4,

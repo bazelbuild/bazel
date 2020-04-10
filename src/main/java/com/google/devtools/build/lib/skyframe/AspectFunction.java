@@ -66,7 +66,7 @@ import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredTargetFunctionException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.SkylarkImportFailedException;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.StarlarkImportFailedException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -159,7 +159,7 @@ public final class AspectFunction implements SkyFunction {
     try {
       StarlarkImportLookupValue starlarkImportLookupValue =
           (StarlarkImportLookupValue)
-              env.getValueOrThrow(importFileKey, SkylarkImportFailedException.class);
+              env.getValueOrThrow(importFileKey, StarlarkImportFailedException.class);
       if (starlarkImportLookupValue == null) {
         Preconditions.checkState(
             env.valuesMissing(), "no Starlark import value for %s", importFileKey);
@@ -179,7 +179,7 @@ public final class AspectFunction implements SkyFunction {
                 "%s from %s is not an aspect", skylarkValueName, extensionLabel.toString()));
       }
       return (SkylarkAspect) skylarkValue;
-    } catch (SkylarkImportFailedException | ConversionException e) {
+    } catch (StarlarkImportFailedException | ConversionException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new AspectCreationException(e.getMessage(), extensionLabel);
     }

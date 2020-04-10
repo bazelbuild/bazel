@@ -170,7 +170,7 @@ public class FilesystemValueCheckerTest {
                 .builder(directories)
                 .build(TestRuleClassProvider.getRuleClassProvider(), fs),
             directories,
-            /*skylarkImportLookupFunctionForInlining=*/ null));
+            /*starlarkImportLookupFunctionForInlining=*/ null));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
 
     differencer = new SequencedRecordingDifferencer();

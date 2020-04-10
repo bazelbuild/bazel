@@ -97,9 +97,8 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
           new Function<SkyKey, String>() {
             @Override
             public String apply(SkyKey input) {
-              if (input.argument() instanceof StarlarkImportLookupValue.SkylarkImportLookupKey) {
-                return ((StarlarkImportLookupValue.SkylarkImportLookupKey) input.argument())
-                    .importLabel.toString();
+              if (input.argument() instanceof StarlarkImportLookupValue.Key) {
+                return ((StarlarkImportLookupValue.Key) input.argument()).importLabel.toString();
               } else if (input.argument() instanceof PackageIdentifier) {
                 return ((PackageIdentifier) input.argument()) + "/BUILD";
               } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
@@ -163,7 +162,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
 
       if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
         Label fileLabel =
-            ((StarlarkImportLookupValue.SkylarkImportLookupKey)
+            ((StarlarkImportLookupValue.Key)
                     Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
                 .getImportLabel();
         message.append("Failed to load Starlark extension '").append(fileLabel).append("'.\n");
@@ -198,7 +197,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       return true;
     } else if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
       Label fileLabel =
-          ((StarlarkImportLookupValue.SkylarkImportLookupKey)
+          ((StarlarkImportLookupValue.Key)
                   Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
               .getImportLabel();
       eventHandler.handle(

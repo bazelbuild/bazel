@@ -438,7 +438,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 ruleClassProvider,
                 pkgFactory,
                 directories,
-                /*skylarkImportLookupFunctionForInlining=*/ null))
+                /*starlarkImportLookupFunctionForInlining=*/ null))
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
         .put(
@@ -450,7 +450,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 packageFunctionCache,
                 astCache,
                 /*numPackagesLoaded=*/ new AtomicInteger(0),
-                /*skylarkImportLookupFunctionForInlining=*/ null,
+                /*starlarkImportLookupFunctionForInlining=*/ null,
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.

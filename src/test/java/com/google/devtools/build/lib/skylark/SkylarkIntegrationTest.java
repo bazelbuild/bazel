@@ -3067,7 +3067,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
               /*starlarkImportLookupValueCacheSize=*/ 2);
       starlarkImportLookupFunction.resetCache();
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
-          .setSkylarkImportLookupFunctionForInliningForTesting(starlarkImportLookupFunction);
+          .setStarlarkImportLookupFunctionForInliningForTesting(starlarkImportLookupFunction);
     }
 
     @Override

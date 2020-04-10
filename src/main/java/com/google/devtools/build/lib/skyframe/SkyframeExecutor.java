@@ -458,7 +458,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     ConfiguredRuleClassProvider ruleClassProvider =
         (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
     StarlarkImportLookupFunction starlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes =
-        getSkylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes();
+        getStarlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes();
     // TODO(janakr): use this semaphore to bound memory usage for SkyFunctions besides
     // ConfiguredTargetFunction that may have a large temporary memory blow-up.
     Semaphore cpuBoundSemaphore = new Semaphore(ResourceUsage.getAvailableProcessors());
@@ -485,7 +485,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider));
     map.put(
         SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
-        newSkylarkImportLookupFunction(ruleClassProvider, pkgFactory));
+        newStarlarkImportLookupFunction(ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.GLOB, newGlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
@@ -636,11 +636,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @Nullable
   protected StarlarkImportLookupFunction
-      getSkylarkImportLookupFunctionForInliningPackageAndWorkspaceNodes() {
+      getStarlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes() {
     return null;
   }
 
-  protected SkyFunction newSkylarkImportLookupFunction(
+  protected SkyFunction newStarlarkImportLookupFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
     return new StarlarkImportLookupFunction(ruleClassProvider, this.pkgFactory);
   }
