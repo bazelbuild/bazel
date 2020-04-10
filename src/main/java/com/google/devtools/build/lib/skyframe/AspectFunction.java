@@ -155,19 +155,19 @@ public final class AspectFunction implements SkyFunction {
   static SkylarkAspect loadSkylarkAspect(
       Environment env, Label extensionLabel, String skylarkValueName)
       throws AspectCreationException, InterruptedException {
-    SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel);
+    SkyKey importFileKey = StarlarkImportLookupValue.key(extensionLabel);
     try {
-      SkylarkImportLookupValue skylarkImportLookupValue =
-          (SkylarkImportLookupValue)
+      StarlarkImportLookupValue starlarkImportLookupValue =
+          (StarlarkImportLookupValue)
               env.getValueOrThrow(importFileKey, SkylarkImportFailedException.class);
-      if (skylarkImportLookupValue == null) {
+      if (starlarkImportLookupValue == null) {
         Preconditions.checkState(
             env.valuesMissing(), "no Starlark import value for %s", importFileKey);
         return null;
       }
 
-      Object skylarkValue = skylarkImportLookupValue.getEnvironmentExtension().getBindings()
-          .get(skylarkValueName);
+      Object skylarkValue =
+          starlarkImportLookupValue.getEnvironmentExtension().getBindings().get(skylarkValueName);
       if (skylarkValue == null) {
         throw new ConversionException(
             String.format(

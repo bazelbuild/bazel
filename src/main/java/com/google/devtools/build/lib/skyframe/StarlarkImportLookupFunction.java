@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
@@ -72,7 +72,7 @@ import javax.annotation.Nullable;
  *
  * <p>Given a {@link Label} referencing a Starlark file, attempts to locate the file and load it.
  * The Label must be absolute, and must not reference the special {@code external} package. If
- * loading is successful, returns a {@link SkylarkImportLookupValue} that encapsulates the loaded
+ * loading is successful, returns a {@link StarlarkImportLookupValue} that encapsulates the loaded
  * {@link Extension} and {@link SkylarkFileDependency} information. If loading is unsuccessful,
  * throws a {@link StarlarkImportLookupFunctionException} that encapsulates the cause of the
  * failure.
@@ -127,7 +127,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
   }
 
   @Nullable
-  SkylarkImportLookupValue computeWithInlineCallsForPackageAndWorkspaceNodes(
+  StarlarkImportLookupValue computeWithInlineCallsForPackageAndWorkspaceNodes(
       SkyKey skyKey,
       Environment env,
       Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps> visitedDepsInToplevelLoad)
@@ -197,7 +197,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
             inlineCachedValueBuilder::addDep,
             inlineCachedValueBuilder::addDeps,
             inlineCachedValueBuilder::noteException);
-    SkylarkImportLookupValue value =
+    StarlarkImportLookupValue value =
         computeInternal(
             importLabel,
             key.inWorkspace,
@@ -279,7 +279,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
   // exception. We are allowed to wrap the thrown exception and rethrow it for any calling functions
   // to handle though.
   @Nullable
-  private SkylarkImportLookupValue computeInternal(
+  private StarlarkImportLookupValue computeInternal(
       Label fileLabel,
       boolean inWorkspace,
       int workspaceChunk,
@@ -342,9 +342,9 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     for (Label importLabel : loadMap.values()) {
       if (inWorkspace) {
         importLookupKeys.add(
-            SkylarkImportLookupValue.keyInWorkspace(importLabel, workspaceChunk, workspacePath));
+            StarlarkImportLookupValue.keyInWorkspace(importLabel, workspaceChunk, workspacePath));
       } else {
-        importLookupKeys.add(SkylarkImportLookupValue.key(importLabel));
+        importLookupKeys.add(StarlarkImportLookupValue.key(importLabel));
       }
     }
     Map<SkyKey, SkyValue> starlarkImportMap =
@@ -372,12 +372,12 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       SkyKey keyForLabel;
       if (inWorkspace) {
         keyForLabel =
-            SkylarkImportLookupValue.keyInWorkspace(importLabel, workspaceChunk, workspacePath);
+            StarlarkImportLookupValue.keyInWorkspace(importLabel, workspaceChunk, workspacePath);
       } else {
-        keyForLabel = SkylarkImportLookupValue.key(importLabel);
+        keyForLabel = StarlarkImportLookupValue.key(importLabel);
       }
-      SkylarkImportLookupValue importLookupValue =
-          (SkylarkImportLookupValue) starlarkImportMap.get(keyForLabel);
+      StarlarkImportLookupValue importLookupValue =
+          (StarlarkImportLookupValue) starlarkImportMap.get(keyForLabel);
       extensionsForImports.put(importString, importLookupValue.getEnvironmentExtension());
       fileDependencies.add(importLookupValue.getDependency());
     }
@@ -393,8 +393,8 @@ public class StarlarkImportLookupFunction implements SkyFunction {
             env,
             inWorkspace,
             repoMapping);
-    SkylarkImportLookupValue result =
-        new SkylarkImportLookupValue(
+    StarlarkImportLookupValue result =
+        new StarlarkImportLookupValue(
             extension, new SkylarkFileDependency(fileLabel, fileDependencies.build()));
     return result;
   }

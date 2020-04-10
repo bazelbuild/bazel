@@ -18,7 +18,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
@@ -31,10 +31,10 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link CachedSkylarkImportLookupValueAndDeps}. */
 @RunWith(JUnit4.class)
-public class CachedSkylarkImportLookupValueAndDepsTest {
+public class CachedStarlarkImportLookupValueAndDepsTest {
   @Test
   public void testDepsAreNotVisitedMultipleTimesForDiamondDependencies() throws Exception {
-    // Graph structure of SkylarkImportLookupValues:
+    // Graph structure of StarlarkImportLookupValues:
     //
     //     p
     //   /  \
@@ -42,17 +42,17 @@ public class CachedSkylarkImportLookupValueAndDepsTest {
     //   \  /
     //    gc
 
-    SkylarkImportLookupValue dummyValue = mock(SkylarkImportLookupValue.class);
+    StarlarkImportLookupValue dummyValue = mock(StarlarkImportLookupValue.class);
     CachedSkylarkImportLookupValueAndDepsBuilderFactory
-        cachedSkylarkImportLookupValueAndDepsBuilderFactory =
+        cachedStarlarkImportLookupValueAndDepsBuilderFactory =
             new CachedSkylarkImportLookupValueAndDepsBuilderFactory();
 
-    SkylarkImportLookupKey gcKey = createSkylarkKey("//gc");
+    SkylarkImportLookupKey gcKey = createStarlarkKey("//gc");
     SkyKey gcKey1 = createKey("gc key1");
     SkyKey gcKey2 = createKey("gc key2");
     SkyKey gcKey3 = createKey("gc key3");
     CachedSkylarkImportLookupValueAndDeps gc =
-        cachedSkylarkImportLookupValueAndDepsBuilderFactory
+        cachedStarlarkImportLookupValueAndDepsBuilderFactory
             .newCachedSkylarkImportLookupValueAndDepsBuilder()
             .addDep(gcKey1)
             .addDeps(ImmutableList.of(gcKey2, gcKey3))
@@ -60,10 +60,10 @@ public class CachedSkylarkImportLookupValueAndDepsTest {
             .setValue(dummyValue)
             .build();
 
-    SkylarkImportLookupKey c1Key = createSkylarkKey("//c1");
+    SkylarkImportLookupKey c1Key = createStarlarkKey("//c1");
     SkyKey c1Key1 = createKey("c1 key1");
     CachedSkylarkImportLookupValueAndDeps c1 =
-        cachedSkylarkImportLookupValueAndDepsBuilderFactory
+        cachedStarlarkImportLookupValueAndDepsBuilderFactory
             .newCachedSkylarkImportLookupValueAndDepsBuilder()
             .addDep(c1Key1)
             .addTransitiveDeps(gc)
@@ -71,11 +71,11 @@ public class CachedSkylarkImportLookupValueAndDepsTest {
             .setKey(c1Key)
             .build();
 
-    SkylarkImportLookupKey c2Key = createSkylarkKey("//c2");
+    SkylarkImportLookupKey c2Key = createStarlarkKey("//c2");
     SkyKey c2Key1 = createKey("c2 key1");
     SkyKey c2Key2 = createKey("c2 key2");
     CachedSkylarkImportLookupValueAndDeps c2 =
-        cachedSkylarkImportLookupValueAndDepsBuilderFactory
+        cachedStarlarkImportLookupValueAndDepsBuilderFactory
             .newCachedSkylarkImportLookupValueAndDepsBuilder()
             .addDeps(ImmutableList.of(c2Key1, c2Key2))
             .addTransitiveDeps(gc)
@@ -83,10 +83,10 @@ public class CachedSkylarkImportLookupValueAndDepsTest {
             .setKey(c2Key)
             .build();
 
-    SkylarkImportLookupKey pKey = createSkylarkKey("//p");
+    SkylarkImportLookupKey pKey = createStarlarkKey("//p");
     SkyKey pKey1 = createKey("p key1");
     CachedSkylarkImportLookupValueAndDeps p =
-        cachedSkylarkImportLookupValueAndDepsBuilderFactory
+        cachedStarlarkImportLookupValueAndDepsBuilderFactory
             .newCachedSkylarkImportLookupValueAndDepsBuilder()
             .addDep(pKey1)
             .addTransitiveDeps(c1)
@@ -128,7 +128,7 @@ public class CachedSkylarkImportLookupValueAndDepsTest {
     };
   }
 
-  private static SkylarkImportLookupKey createSkylarkKey(String name) {
+  private static SkylarkImportLookupKey createStarlarkKey(String name) {
     return SkylarkImportLookupKey.create(
         Label.parseAbsoluteUnchecked(name),
         /*inWorkspace=*/ false,

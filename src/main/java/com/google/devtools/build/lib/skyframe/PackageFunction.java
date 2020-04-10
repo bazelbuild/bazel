@@ -54,8 +54,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.SkylarkImportFailedException;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Location;
@@ -610,9 +610,9 @@ public class PackageFunction implements SkyFunction {
           getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, importLabel);
       if (inWorkspace) {
         importLookupKeys.add(
-            SkylarkImportLookupValue.keyInWorkspace(importLabel, originalChunk, buildFilePath));
+            StarlarkImportLookupValue.keyInWorkspace(importLabel, originalChunk, buildFilePath));
       } else {
-        importLookupKeys.add(SkylarkImportLookupValue.key(importLabel));
+        importLookupKeys.add(StarlarkImportLookupValue.key(importLabel));
       }
     }
     Map<SkyKey, SkyValue> skylarkImportMap;
@@ -644,12 +644,12 @@ public class PackageFunction implements SkyFunction {
       SkyKey keyForLabel;
       if (inWorkspace) {
         keyForLabel =
-            SkylarkImportLookupValue.keyInWorkspace(importLabel, originalChunk, buildFilePath);
+            StarlarkImportLookupValue.keyInWorkspace(importLabel, originalChunk, buildFilePath);
       } else {
-        keyForLabel = SkylarkImportLookupValue.key(importLabel);
+        keyForLabel = StarlarkImportLookupValue.key(importLabel);
       }
-      SkylarkImportLookupValue importLookupValue =
-          (SkylarkImportLookupValue) skylarkImportMap.get(keyForLabel);
+      StarlarkImportLookupValue importLookupValue =
+          (StarlarkImportLookupValue) skylarkImportMap.get(keyForLabel);
       importMap.put(importString, importLookupValue.getEnvironmentExtension());
       fileDependencies.add(importLookupValue.getDependency());
     }

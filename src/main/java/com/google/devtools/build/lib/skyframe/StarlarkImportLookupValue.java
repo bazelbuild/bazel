@@ -28,23 +28,23 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
 /**
- * A value that represents a Skylark import lookup result. The lookup value corresponds to exactly
- * one Skylark file, identified by an absolute {@link Label} {@link SkyKey} argument. The Label
+ * A value that represents a Starlark import lookup result. The lookup value corresponds to exactly
+ * one Starlark file, identified by an absolute {@link Label} {@link SkyKey} argument. The Label
  * should not reference the special {@code external} package.
  */
 @AutoCodec
-public class SkylarkImportLookupValue implements SkyValue {
+public class StarlarkImportLookupValue implements SkyValue {
 
   private final Extension environmentExtension;
   /**
-   * The immediate Skylark file dependency descriptor class corresponding to this value.
-   * Using this reference it's possible to reach the transitive closure of Skylark files
-   * on which this Skylark file depends.
+   * The immediate Starlark file dependency descriptor class corresponding to this value.
+   * Using this reference it's possible to reach the transitive closure of Starlark files
+   * on which this Starlark file depends.
    */
   private final SkylarkFileDependency dependency;
 
   @VisibleForTesting
-  public SkylarkImportLookupValue(
+  public StarlarkImportLookupValue(
       Extension environmentExtension, SkylarkFileDependency dependency) {
     this.environmentExtension = Preconditions.checkNotNull(environmentExtension);
     this.dependency = Preconditions.checkNotNull(dependency);
@@ -58,14 +58,14 @@ public class SkylarkImportLookupValue implements SkyValue {
   }
 
   /**
-   * Returns the immediate Skylark file dependency corresponding to this import lookup value.
+   * Returns the immediate Starlark file dependency corresponding to this import lookup value.
    */
   public SkylarkFileDependency getDependency() {
     return dependency;
   }
 
   /**
-   * SkyKey for a Skylark import composed of the label of the Skylark extension and wether it is
+   * SkyKey for a Starlark import composed of the label of the Starlark extension and whether it is
    * loaded from the WORKSPACE file or from a BUILD file.
    */
   @Immutable
@@ -165,10 +165,10 @@ public class SkylarkImportLookupValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof SkylarkImportLookupValue)) {
+    if (!(obj instanceof StarlarkImportLookupValue)) {
       return false;
     }
-    SkylarkImportLookupValue other = (SkylarkImportLookupValue) obj;
+    StarlarkImportLookupValue other = (StarlarkImportLookupValue) obj;
     return environmentExtension.equals(other.getEnvironmentExtension())
         && dependency.equals(other.getDependency());
   }

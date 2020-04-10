@@ -97,8 +97,8 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
           new Function<SkyKey, String>() {
             @Override
             public String apply(SkyKey input) {
-              if (input.argument() instanceof SkylarkImportLookupValue.SkylarkImportLookupKey) {
-                return ((SkylarkImportLookupValue.SkylarkImportLookupKey) input.argument())
+              if (input.argument() instanceof StarlarkImportLookupValue.SkylarkImportLookupKey) {
+                return ((StarlarkImportLookupValue.SkylarkImportLookupKey) input.argument())
                     .importLabel.toString();
               } else if (input.argument() instanceof PackageIdentifier) {
                 return ((PackageIdentifier) input.argument()) + "/BUILD";
@@ -163,7 +163,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
 
       if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
         Label fileLabel =
-            ((SkylarkImportLookupValue.SkylarkImportLookupKey)
+            ((StarlarkImportLookupValue.SkylarkImportLookupKey)
                     Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
                 .getImportLabel();
         message.append("Failed to load Starlark extension '").append(fileLabel).append("'.\n");
@@ -197,10 +197,10 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       requestRepoDefinitions(eventHandler, repos);
       return true;
     } else if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
-        Label fileLabel =
-            ((SkylarkImportLookupValue.SkylarkImportLookupKey)
-                    Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
-                .getImportLabel();
+      Label fileLabel =
+          ((StarlarkImportLookupValue.SkylarkImportLookupKey)
+                  Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
+              .getImportLabel();
       eventHandler.handle(
           Event.error(null, "Failed to load Starlark extension '" + fileLabel + "'.\n"));
         return true;

@@ -18,7 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -28,13 +28,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 class CachedSkylarkImportLookupValueAndDeps {
   private final SkylarkImportLookupKey key;
-  private final SkylarkImportLookupValue value;
+  private final StarlarkImportLookupValue value;
   private final ImmutableList<Iterable<SkyKey>> directDeps;
   private final ImmutableList<CachedSkylarkImportLookupValueAndDeps> transitiveDeps;
 
   private CachedSkylarkImportLookupValueAndDeps(
       SkylarkImportLookupKey key,
-      SkylarkImportLookupValue value,
+      StarlarkImportLookupValue value,
       ImmutableList<Iterable<SkyKey>> directDeps,
       ImmutableList<CachedSkylarkImportLookupValueAndDeps> transitiveDeps) {
     this.key = key;
@@ -58,7 +58,7 @@ class CachedSkylarkImportLookupValueAndDeps {
     }
   }
 
-  SkylarkImportLookupValue getValue() {
+  StarlarkImportLookupValue getValue() {
     return value;
   }
 
@@ -91,7 +91,7 @@ class CachedSkylarkImportLookupValueAndDeps {
     private final List<Iterable<SkyKey>> directDeps = new ArrayList<>();
     private final List<CachedSkylarkImportLookupValueAndDeps> transitiveDeps = new ArrayList<>();
     private final AtomicReference<Exception> exceptionSeen = new AtomicReference<>(null);
-    private SkylarkImportLookupValue value;
+    private StarlarkImportLookupValue value;
     private SkylarkImportLookupKey key;
 
     @CanIgnoreReturnValue
@@ -123,7 +123,7 @@ class CachedSkylarkImportLookupValueAndDeps {
     }
 
     @CanIgnoreReturnValue
-    Builder setValue(SkylarkImportLookupValue value) {
+    Builder setValue(StarlarkImportLookupValue value) {
       this.value = value;
       return this;
     }
