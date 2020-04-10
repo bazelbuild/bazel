@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LogHandlerQuerier;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -560,8 +561,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   @Override
-  public void cleanUpForCrash(ExitCode exitCode) {
-    if (declareExitCode(exitCode)) {
+  public void cleanUpForCrash(DetailedExitCode exitCode) {
+    if (declareExitCode(exitCode.getExitCode())) {
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
@@ -578,7 +579,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                   @Override
                   public void handle(Event event) {}
                 });
-        eventBus.post(new CommandCompleteEvent(exitCode.getNumericExitCode()));
+        eventBus.post(new CommandCompleteEvent(exitCode));
       }
     }
     // We don't call #shutDown() here because all it does is shut down the modules, and who knows if
@@ -599,17 +600,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * to use if another thread already registered an exit code.
    */
   @Nullable
-  private ExitCode notifyCommandComplete(ExitCode exitCode) {
-    if (!declareExitCode(exitCode)) {
+  private ExitCode notifyCommandComplete(DetailedExitCode exitCode) {
+    if (!declareExitCode(exitCode.getExitCode())) {
       // This command has already been called, presumably because there is a race between the main
       // thread and a worker thread that crashed. Don't try to arbitrate the dispute. If the main
       // thread won the race (unlikely, but possible), this may be incorrectly logged as a success.
       return storedExitCode.get();
     }
-    workspace
-        .getSkyframeExecutor()
-        .getEventBus()
-        .post(new CommandCompleteEvent(exitCode.getNumericExitCode()));
+    workspace.getSkyframeExecutor().getEventBus().post(new CommandCompleteEvent(exitCode));
     return null;
   }
 
@@ -661,7 +659,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } else {
       finalCommandResult = commandResult;
     }
-    ExitCode otherThreadWonExitCode = notifyCommandComplete(finalCommandResult.getExitCode());
+    ExitCode otherThreadWonExitCode =
+        notifyCommandComplete(finalCommandResult.getDetailedExitCode());
     if (otherThreadWonExitCode != null) {
       finalCommandResult = BlazeCommandResult.exitCode(otherThreadWonExitCode);
     }
@@ -1343,8 +1342,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     CustomExitCodePublisher.setAbruptExitStatusFileDir(
         serverDirectories.getOutputBase().getPathString());
 
-    AutoProfiler.setClock(runtime.getClock());
-    BugReport.setRuntime(runtime);
     BlazeDirectories directories =
         new BlazeDirectories(
             serverDirectories, workspaceDirectoryPath, defaultSystemJavabasePath, productName);
@@ -1485,6 +1482,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     private ActionKeyContext actionKeyContext;
     private BugReporter bugReporter = BugReporter.defaultInstance();
 
+    @VisibleForTesting
     public BlazeRuntime build() throws AbruptExitException {
       Preconditions.checkNotNull(productName);
       Preconditions.checkNotNull(serverDirectories);
@@ -1582,30 +1580,34 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         queryRuntimeHelperFactory = QueryRuntimeHelper.StdoutQueryRuntimeHelperFactory.INSTANCE;
       }
 
-      return new BlazeRuntime(
-          fileSystem,
-          serverBuilder.getQueryEnvironmentFactory(),
-          serverBuilder.getQueryFunctions(),
-          serverBuilder.getQueryOutputFormatters(),
-          packageFactory,
-          ruleClassProvider,
-          serverBuilder.getInfoItems(),
-          actionKeyContext,
-          clock,
-          abruptShutdownHandler,
-          startupOptionsProvider,
-          ImmutableList.copyOf(blazeModules),
-          eventBusExceptionHandler,
-          bugReporter,
-          projectFileProvider,
-          queryRuntimeHelperFactory,
-          serverBuilder.getInvocationPolicy(),
-          serverBuilder.getCommands(),
-          productName,
-          serverBuilder.getBuildEventArtifactUploaderMap(),
-          serverBuilder.getAuthHeadersProvidersMap(),
-          serverBuilder.getRepositoryRemoteExecutorFactory(),
-          serverBuilder.getDownloaderSupplier());
+      BlazeRuntime runtime =
+          new BlazeRuntime(
+              fileSystem,
+              serverBuilder.getQueryEnvironmentFactory(),
+              serverBuilder.getQueryFunctions(),
+              serverBuilder.getQueryOutputFormatters(),
+              packageFactory,
+              ruleClassProvider,
+              serverBuilder.getInfoItems(),
+              actionKeyContext,
+              clock,
+              abruptShutdownHandler,
+              startupOptionsProvider,
+              ImmutableList.copyOf(blazeModules),
+              eventBusExceptionHandler,
+              bugReporter,
+              projectFileProvider,
+              queryRuntimeHelperFactory,
+              serverBuilder.getInvocationPolicy(),
+              serverBuilder.getCommands(),
+              productName,
+              serverBuilder.getBuildEventArtifactUploaderMap(),
+              serverBuilder.getAuthHeadersProvidersMap(),
+              serverBuilder.getRepositoryRemoteExecutorFactory(),
+              serverBuilder.getDownloaderSupplier());
+      AutoProfiler.setClock(runtime.getClock());
+      BugReport.setRuntime(runtime);
+      return runtime;
     }
 
     public Builder setProductName(String productName) {

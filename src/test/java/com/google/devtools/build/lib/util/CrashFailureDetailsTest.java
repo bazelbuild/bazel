@@ -114,6 +114,17 @@ public class CrashFailureDetailsTest {
     }
   }
 
+  @Test
+  public void detailedExitConstruction() {
+    assertThat(
+            CrashFailureDetails.detailedExitCodeForThrowable(new OutOfMemoryError()).getExitCode())
+        .isEqualTo(ExitCode.OOM_ERROR);
+    assertThat(
+            CrashFailureDetails.detailedExitCodeForThrowable(new InterruptedException())
+                .getExitCode())
+        .isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR);
+  }
+
   private static TestException functionForStackFrameTests_A(TestException cause) {
     return new TestException("myMessage_A", cause);
   }

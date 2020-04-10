@@ -161,7 +161,10 @@ message ClientEnvironment {
 }
 
 message Crash {
-  enum Code { CRASH_UNKNOWN = 0 [(metadata) = { exit_code: 37 }]; }
+  enum Code {
+    CRASH_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    CRASH_OOM = 1 [(metadata) = { exit_code: 33 }];
+  }
 
   Code code = 1;
 

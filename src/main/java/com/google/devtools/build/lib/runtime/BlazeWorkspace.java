@@ -78,7 +78,7 @@ public final class BlazeWorkspace {
       BinTools binTools,
       @Nullable AllocationTracker allocationTracker) {
     this.runtime = runtime;
-    this.eventBusExceptionHandler = eventBusExceptionHandler;
+    this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.binTools = binTools;
     this.allocationTracker = allocationTracker;
