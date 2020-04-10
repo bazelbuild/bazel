@@ -21,7 +21,8 @@ public final class FlowStatement extends Statement {
   private final int offset;
 
   /** @param kind The label of the statement (break, continue, or pass) */
-  FlowStatement(TokenKind kind, int offset) {
+  FlowStatement(FileLocations locs, TokenKind kind, int offset) {
+    super(locs);
     this.kind = kind;
     this.offset = offset;
   }

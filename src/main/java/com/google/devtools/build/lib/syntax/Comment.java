@@ -20,11 +20,13 @@ public final class Comment extends Node {
   private final int offset;
   private final String text;
 
-  Comment(int offset, String text) {
+  Comment(FileLocations locs, int offset, String text) {
+    super(locs);
     this.offset = offset;
     this.text = text;
   }
 
+  /** Returns the text of the comment, including the leading '#' but not the trailing newline. */
   public String getText() {
     return text;
   }

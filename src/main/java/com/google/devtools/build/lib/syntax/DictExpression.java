@@ -26,7 +26,8 @@ public final class DictExpression extends Expression {
     private final int colonOffset;
     private final Expression value;
 
-    Entry(Expression key, int colonOffset, Expression value) {
+    Entry(FileLocations locs, Expression key, int colonOffset, Expression value) {
+      super(locs);
       this.key = key;
       this.colonOffset = colonOffset;
       this.value = value;
@@ -51,7 +52,7 @@ public final class DictExpression extends Expression {
     }
 
     public Location getColonLocation() {
-      return lnt.getLocation(colonOffset);
+      return locs.getLocation(colonOffset);
     }
 
     @Override
@@ -64,7 +65,8 @@ public final class DictExpression extends Expression {
   private final ImmutableList<Entry> entries;
   private final int rbraceOffset;
 
-  DictExpression(int lbraceOffset, List<Entry> entries, int rbraceOffset) {
+  DictExpression(FileLocations locs, int lbraceOffset, List<Entry> entries, int rbraceOffset) {
+    super(locs);
     this.lbraceOffset = lbraceOffset;
     this.entries = ImmutableList.copyOf(entries);
     this.rbraceOffset = rbraceOffset;

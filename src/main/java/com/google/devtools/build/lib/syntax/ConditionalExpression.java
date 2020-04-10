@@ -33,7 +33,8 @@ public final class ConditionalExpression extends Expression {
   }
 
   /** Constructor for a conditional expression */
-  ConditionalExpression(Expression t, Expression cond, Expression f) {
+  ConditionalExpression(FileLocations locs, Expression t, Expression cond, Expression f) {
+    super(locs);
     this.t = t;
     this.cond = cond;
     this.f = f;

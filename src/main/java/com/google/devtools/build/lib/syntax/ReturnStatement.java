@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
 import javax.annotation.Nullable;
 
 /** A syntax node for return statements. */
@@ -22,7 +21,8 @@ public final class ReturnStatement extends Statement {
   private final int returnOffset;
   @Nullable private final Expression result;
 
-  ReturnStatement(int returnOffset, @Nullable Expression result) {
+  ReturnStatement(FileLocations locs, int returnOffset, @Nullable Expression result) {
+    super(locs);
     this.returnOffset = returnOffset;
     this.result = result;
   }
@@ -33,9 +33,7 @@ public final class ReturnStatement extends Statement {
    * compiled representation.
    */
   public static ReturnStatement make(Expression expr) {
-    ReturnStatement stmt = new ReturnStatement(0, expr);
-    stmt.lnt = Preconditions.checkNotNull(expr.lnt);
-    return stmt;
+    return new ReturnStatement(expr.locs, 0, expr);
   }
 
   // TODO(adonovan): rename to getResult.

@@ -20,7 +20,8 @@ public final class IntegerLiteral extends Expression {
   private final int tokenOffset;
   private final int value;
 
-  IntegerLiteral(String raw, int tokenOffset, int value) {
+  IntegerLiteral(FileLocations locs, String raw, int tokenOffset, int value) {
+    super(locs);
     this.raw = raw;
     this.tokenOffset = tokenOffset;
     this.value = value;

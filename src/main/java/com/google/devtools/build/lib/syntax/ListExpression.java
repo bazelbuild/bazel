@@ -29,7 +29,12 @@ public final class ListExpression extends Expression {
   private final int rbracketOffset; // -1 => unparenthesized non-empty tuple
 
   ListExpression(
-      boolean isTuple, int lbracketOffset, List<Expression> elements, int rbracketOffset) {
+      FileLocations locs,
+      boolean isTuple,
+      int lbracketOffset,
+      List<Expression> elements,
+      int rbracketOffset) {
+    super(locs);
     // An unparenthesized tuple must be non-empty.
     Preconditions.checkArgument(
         !elements.isEmpty() || (lbracketOffset >= 0 && rbracketOffset >= 0));

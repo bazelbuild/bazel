@@ -28,7 +28,7 @@ final class Lexer {
   // --- These fields are accessed directly by the parser: ---
 
   // Mapping from file offsets to Locations.
-  final LineNumberTable lnt;
+  final FileLocations locs;
 
   // Information about current token. Updated by nextToken.
   // raw and value are defined only for STRING, INT, IDENTIFIER, and COMMENT.
@@ -87,7 +87,7 @@ final class Lexer {
   // Constructs a lexer which tokenizes the parser input.
   // Errors are appended to errors.
   Lexer(ParserInput input, FileOptions options, List<SyntaxError> errors) {
-    this.lnt = LineNumberTable.create(input.getContent(), input.getFile());
+    this.locs = FileLocations.create(input.getContent(), input.getFile());
     this.options = options;
     this.buffer = input.getContent();
     this.pos = 0;
@@ -128,7 +128,7 @@ final class Lexer {
   }
 
   private void error(String message, int pos) {
-    errors.add(new SyntaxError(lnt.getLocation(pos), message));
+    errors.add(new SyntaxError(locs.getLocation(pos), message));
   }
 
   private void setToken(TokenKind kind, int left, int right) {
@@ -867,8 +867,6 @@ final class Lexer {
   // TODO(adonovan): don't retain comments unconditionally.
   private void addComment(int start, int end) {
     String content = bufferSlice(start, end);
-    Comment c = new Comment(start, content);
-    c.lnt = lnt;
-    comments.add(c);
+    comments.add(new Comment(locs, start, content));
   }
 }

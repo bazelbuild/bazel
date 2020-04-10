@@ -19,17 +19,17 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link LineNumberTable}. */
+/** Tests for {@link FileLocations}. */
 // TODO(adonovan): express this test in terms of the public API.
 @RunWith(JUnit4.class)
-public class LineNumberTableTest {
+public class FileLocationsTest {
 
-  private static LineNumberTable create(String buffer) {
-    return LineNumberTable.create(buffer.toCharArray(), "/fake/file");
+  private static FileLocations create(String buffer) {
+    return FileLocations.create(buffer.toCharArray(), "/fake/file");
   }
 
   // Asserts that the specified offset results in a line/column pair of the form "1:2".
-  private static void checkOffset(LineNumberTable table, int offset, String wantLineCol) {
+  private static void checkOffset(FileLocations table, int offset, String wantLineCol) {
     Location loc = table.getLocation(offset);
     String got = String.format("%d:%d", loc.line(), loc.column());
     if (!got.equals(wantLineCol)) {
@@ -40,20 +40,20 @@ public class LineNumberTableTest {
 
   @Test
   public void testEmpty() {
-    LineNumberTable table = create("");
+    FileLocations table = create("");
     checkOffset(table, 0, "1:1");
   }
 
   @Test
   public void testNewline() {
-    LineNumberTable table = create("\n");
+    FileLocations table = create("\n");
     checkOffset(table, 0, "1:1");
     checkOffset(table, 1, "2:1"); // EOF
   }
 
   @Test
   public void testOneLiner() {
-    LineNumberTable table = create("foo");
+    FileLocations table = create("foo");
     checkOffset(table, 0, "1:1");
     checkOffset(table, 1, "1:2");
     checkOffset(table, 2, "1:3");
@@ -62,7 +62,7 @@ public class LineNumberTableTest {
 
   @Test
   public void testMultiLiner() {
-    LineNumberTable table = create("\ntwo\nthree\n\nfive\n");
+    FileLocations table = create("\ntwo\nthree\n\nfive\n");
 
     // \n
     checkOffset(table, 0, "1:1");

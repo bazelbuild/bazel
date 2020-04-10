@@ -41,15 +41,17 @@ public final class StarlarkFile extends Node {
 
   @Override
   public int getEndOffset() {
-    return lnt.size();
+    return locs.size();
   }
 
   private StarlarkFile(
+      FileLocations locs,
       ImmutableList<Statement> statements,
       FileOptions options,
       ImmutableList<Comment> comments,
       List<SyntaxError> errors,
       String contentHashCode) {
+    super(locs);
     this.statements = statements;
     this.options = options;
     this.comments = comments;
@@ -60,35 +62,30 @@ public final class StarlarkFile extends Node {
   // Creates a StarlarkFile from the given effective list of statements,
   // which may include the prelude.
   private static StarlarkFile create(
-      LineNumberTable lnt,
+      FileLocations locs,
       ImmutableList<Statement> statements,
       FileOptions options,
       Parser.ParseResult result,
       String contentHashCode) {
-    StarlarkFile file =
-        new StarlarkFile(
-            statements,
-            options,
-            ImmutableList.copyOf(result.comments),
-            result.errors,
-            contentHashCode);
-    file.lnt = lnt;
-    return file;
+    return new StarlarkFile(
+        locs,
+        statements,
+        options,
+        ImmutableList.copyOf(result.comments),
+        result.errors,
+        contentHashCode);
   }
 
   /** Extract a subtree containing only statements from i (included) to j (excluded). */
   public StarlarkFile subTree(int i, int j) {
-    StarlarkFile file =
-        new StarlarkFile(
-            this.statements.subList(i, j),
-            this.options,
-            /*comments=*/ ImmutableList.of(),
-            errors,
-            /*contentHashCode=*/ null);
-    file.lnt = this.lnt;
-    return file;
+    return new StarlarkFile(
+        this.locs,
+        this.statements.subList(i, j),
+        this.options,
+        /*comments=*/ ImmutableList.of(),
+        errors,
+        /*contentHashCode=*/ null);
   }
-
   /**
    * Returns an unmodifiable view of the list of scanner, parser, and (perhaps) resolver errors
    * accumulated in this Starlark file.
@@ -134,7 +131,7 @@ public final class StarlarkFile extends Node {
     stmts.addAll(prelude);
     stmts.addAll(result.statements);
 
-    return create(result.lnt, stmts.build(), options, result, /*contentHashCode=*/ null);
+    return create(result.locs, stmts.build(), options, result, /*contentHashCode=*/ null);
   }
 
   // TODO(adonovan): make the digest publicly settable, and delete this.
@@ -142,7 +139,7 @@ public final class StarlarkFile extends Node {
       throws IOException {
     Parser.ParseResult result = Parser.parseFile(input, options);
     return create(
-        result.lnt,
+        result.locs,
         ImmutableList.copyOf(result.statements),
         options,
         result,
@@ -166,7 +163,7 @@ public final class StarlarkFile extends Node {
   public static StarlarkFile parse(ParserInput input, FileOptions options) {
     Parser.ParseResult result = Parser.parseFile(input, options);
     return create(
-        result.lnt,
+        result.locs,
         ImmutableList.copyOf(result.statements),
         options,
         result,

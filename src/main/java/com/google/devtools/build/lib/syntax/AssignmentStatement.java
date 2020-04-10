@@ -33,7 +33,9 @@ public final class AssignmentStatement extends Statement {
    * {@code (e, ...)}, where x, i, and e are arbitrary expressions. For an augmented assignment, the
    * list and tuple forms are disallowed.
    */
-  AssignmentStatement(Expression lhs, @Nullable TokenKind op, int opOffset, Expression rhs) {
+  AssignmentStatement(
+      FileLocations locs, Expression lhs, @Nullable TokenKind op, int opOffset, Expression rhs) {
+    super(locs);
     this.lhs = lhs;
     this.op = op;
     this.opOffset = opOffset;
@@ -53,7 +55,7 @@ public final class AssignmentStatement extends Statement {
 
   /** Returns the location of the assignment operator. */
   public Location getOperatorLocation() {
-    return lnt.getLocation(opOffset);
+    return locs.getLocation(opOffset);
   }
 
   @Override

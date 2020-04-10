@@ -31,7 +31,8 @@ public abstract class Parameter extends Node {
 
   @Nullable private final Identifier id;
 
-  private Parameter(@Nullable Identifier id) {
+  private Parameter(FileLocations locs, @Nullable Identifier id) {
+    super(locs);
     this.id = id;
   }
 
@@ -55,8 +56,8 @@ public abstract class Parameter extends Node {
    * depending on its position.
    */
   public static final class Mandatory extends Parameter {
-    Mandatory(Identifier id) {
-      super(id);
+    Mandatory(FileLocations locs, Identifier id) {
+      super(locs, id);
     }
 
     @Override
@@ -78,8 +79,8 @@ public abstract class Parameter extends Node {
 
     public final Expression defaultValue;
 
-    Optional(Identifier id, @Nullable Expression defaultValue) {
-      super(id);
+    Optional(FileLocations locs, Identifier id, @Nullable Expression defaultValue) {
+      super(locs, id);
       this.defaultValue = defaultValue;
     }
 
@@ -109,8 +110,8 @@ public abstract class Parameter extends Node {
   public static final class Star extends Parameter {
     private final int starOffset;
 
-    Star(int starOffset, @Nullable Identifier id) {
-      super(id);
+    Star(FileLocations locs, int starOffset, @Nullable Identifier id) {
+      super(locs, id);
       this.starOffset = starOffset;
     }
 
@@ -129,8 +130,8 @@ public abstract class Parameter extends Node {
   public static final class StarStar extends Parameter {
     private final int starStarOffset;
 
-    StarStar(int starStarOffset, Identifier id) {
-      super(id);
+    StarStar(FileLocations locs, int starStarOffset, Identifier id) {
+      super(locs, id);
       this.starStarOffset = starStarOffset;
     }
 

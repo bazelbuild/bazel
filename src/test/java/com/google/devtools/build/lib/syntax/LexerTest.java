@@ -83,8 +83,8 @@ public class LexerTest {
   }
 
   /**
-   * Lexes the specified input string, and returns a string containing just the
-   * linenumbers of each token.
+   * Lexes the specified input string, and returns a string containing just the line numbers of each
+   * token.
    */
   private String linenums(String input) {
     Lexer lexer = createLexer(input);
@@ -93,7 +93,7 @@ public class LexerTest {
       if (buf.length() > 0) {
         buf.append(' ');
       }
-      int line = lexer.lnt.getLocation(tok.left).line();
+      int line = lexer.locs.getLocation(tok.left).line();
       buf.append(line);
     }
     return buf.toString();

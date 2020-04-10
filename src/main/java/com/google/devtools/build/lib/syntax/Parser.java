@@ -33,7 +33,7 @@ final class Parser {
   /** Combines the parser result into a single value object. */
   static final class ParseResult {
     // Maps char offsets in the file to Locations.
-    final LineNumberTable lnt;
+    final FileLocations locs;
 
     /** The statements (rules, basically) from the parsed file. */
     final List<Statement> statements;
@@ -46,11 +46,11 @@ final class Parser {
     final List<SyntaxError> errors;
 
     ParseResult(
-        LineNumberTable lnt,
+        FileLocations locs,
         List<Statement> statements,
         List<Comment> comments,
         List<SyntaxError> errors) {
-      this.lnt = lnt;
+      this.locs = locs;
       // No need to copy here; when the object is created, the parser instance is just about to go
       // out of scope and be garbage collected.
       this.statements = Preconditions.checkNotNull(statements);
@@ -97,6 +97,7 @@ final class Parser {
   private static final boolean DEBUGGING = false;
 
   private final Lexer lexer;
+  private final FileLocations locs;
   private final List<SyntaxError> errors;
 
   // TODO(adonovan): opt: compute this by subtraction.
@@ -148,6 +149,7 @@ final class Parser {
 
   private Parser(Lexer lexer, List<SyntaxError> errors) {
     this.lexer = lexer;
+    this.locs = lexer.locs;
     this.errors = errors;
     this.token = lexer;
     nextToken();
@@ -175,7 +177,7 @@ final class Parser {
         Profiler.instance().profile(ProfilerTask.STARLARK_PARSER, input.getFile())) {
       statements = parser.parseFileInput();
     }
-    return new ParseResult(lexer.lnt, statements, lexer.getComments(), errors);
+    return new ParseResult(lexer.locs, statements, lexer.getComments(), errors);
   }
 
   // stmt = simple_stmt
@@ -228,14 +230,14 @@ final class Parser {
     List<Expression> elems = new ArrayList<>();
     elems.add(e);
     parseExprList(elems, /*trailingCommaAllowed=*/ false);
-    return setLNT(new ListExpression(/*isTuple=*/ true, -1, elems, -1));
+    return new ListExpression(locs, /*isTuple=*/ true, -1, elems, -1);
   }
 
   private void reportError(int offset, String message) {
     errorsCount++;
     // Limit the number of reported errors to avoid spamming output.
     if (errorsCount <= 5) {
-      Location location = lexer.lnt.getLocation(offset);
+      Location location = locs.getLocation(offset);
       errors.add(new SyntaxError(location, message));
     }
   }
@@ -367,16 +369,9 @@ final class Parser {
     // It's tempting to define a dedicated BadExpression type,
     // but it is convenient for parseIdent to return an Identifier
     // even when it fails.
-    return setLNT(new Identifier(lexer.bufferSlice(start, end), start));
+    return new Identifier(locs, lexer.bufferSlice(start, end), start);
   }
 
-  // setLNT sets the LineNumberTable associated with a newly created Node.
-  // TODO(adonovan): experiment with making this an explicit parameter
-  // to all Node subclass constructors.
-  private <N extends Node> N setLNT(N n) {
-    n.lnt = lexer.lnt;
-    return n;
-  }
 
   // arg = IDENTIFIER '=' test
   //     | expr
@@ -389,14 +384,14 @@ final class Parser {
     if (token.kind == TokenKind.STAR_STAR) {
       int starStarOffset = nextToken();
       expr = parseTest();
-      return setLNT(new Argument.StarStar(starStarOffset, expr));
+      return new Argument.StarStar(locs, starStarOffset, expr);
     }
 
     // parse *expr
     if (token.kind == TokenKind.STAR) {
       int starOffset = nextToken();
       expr = parseTest();
-      return setLNT(new Argument.Star(starOffset, expr));
+      return new Argument.Star(locs, starOffset, expr);
     }
 
     // IDENTIFIER  or  IDENTIFIER = test
@@ -407,12 +402,12 @@ final class Parser {
       if (token.kind == TokenKind.EQUALS) {
         nextToken();
         Expression arg = parseTest();
-        return setLNT(new Argument.Keyword(id, arg));
+        return new Argument.Keyword(locs, id, arg);
       }
     }
 
     // parse a positional argument
-    return setLNT(new Argument.Positional(expr));
+    return new Argument.Positional(locs, expr);
   }
 
   // arg = IDENTIFIER '=' test
@@ -422,7 +417,7 @@ final class Parser {
     if (token.kind == TokenKind.STAR_STAR) {
       int starStarOffset = nextToken();
       Identifier id = parseIdent();
-      return setLNT(new Parameter.StarStar(starStarOffset, id));
+      return new Parameter.StarStar(locs, starStarOffset, id);
     }
 
     // * or *args
@@ -430,9 +425,9 @@ final class Parser {
       int starOffset = nextToken();
       if (token.kind == TokenKind.IDENTIFIER) {
         Identifier id = parseIdent();
-        return setLNT(new Parameter.Star(starOffset, id));
+        return new Parameter.Star(locs, starOffset, id);
       }
-      return setLNT(new Parameter.Star(starOffset, null));
+      return new Parameter.Star(locs, starOffset, null);
     }
 
     // name=default
@@ -440,11 +435,11 @@ final class Parser {
     if (token.kind == TokenKind.EQUALS) {
       nextToken(); // TODO: save token pos?
       Expression expr = parseTest();
-      return setLNT(new Parameter.Optional(id, expr));
+      return new Parameter.Optional(locs, id, expr);
     }
 
     // name
-    return setLNT(new Parameter.Mandatory(id));
+    return new Parameter.Mandatory(locs, id);
   }
 
   // call_suffix = '(' arg_list? ')'
@@ -455,7 +450,7 @@ final class Parser {
       args = parseArguments(); // (includes optional trailing comma)
     }
     int rparenOffset = expect(TokenKind.RPAREN);
-    return setLNT(new CallExpression(fn, lexer.lnt.getLocation(lparenOffset), args, rparenOffset));
+    return new CallExpression(locs, fn, locs.getLocation(lparenOffset), args, rparenOffset);
   }
 
   // Parse a list of call arguments.
@@ -548,7 +543,7 @@ final class Parser {
     int dotOffset = expect(TokenKind.DOT);
     if (token.kind == TokenKind.IDENTIFIER) {
       Identifier id = parseIdent();
-      return setLNT(new DotExpression(e, dotOffset, id));
+      return new DotExpression(locs, e, dotOffset, id);
     }
 
     syntaxError("expected identifier after dot");
@@ -595,14 +590,14 @@ final class Parser {
     Expression key = parseTest();
     int colonOffset = expect(TokenKind.COLON);
     Expression value = parseTest();
-    return setLNT(new DictExpression.Entry(key, colonOffset, value));
+    return new DictExpression.Entry(locs, key, colonOffset, value);
   }
 
   // expr = STRING
   private StringLiteral parseStringLiteral() {
     Preconditions.checkState(token.kind == TokenKind.STRING);
     StringLiteral literal =
-        setLNT(new StringLiteral(token.left, intern((String) token.value), token.right));
+        new StringLiteral(locs, token.left, intern((String) token.value), token.right);
     nextToken();
     if (token.kind == TokenKind.STRING) {
       reportError(token.left, "Implicit string concatenation is forbidden, use the + operator");
@@ -623,7 +618,7 @@ final class Parser {
       case INT:
         {
           IntegerLiteral literal =
-              setLNT(new IntegerLiteral(token.raw, token.left, (Integer) token.value));
+              new IntegerLiteral(locs, token.raw, token.left, (Integer) token.value);
           nextToken();
           return literal;
         }
@@ -647,8 +642,8 @@ final class Parser {
           // empty tuple: ()
           if (token.kind == TokenKind.RPAREN) {
             int rparen = nextToken();
-            return setLNT(
-                new ListExpression(/*isTuple=*/ true, lparenOffset, ImmutableList.of(), rparen));
+            return new ListExpression(
+                locs, /*isTuple=*/ true, lparenOffset, ImmutableList.of(), rparen);
           }
 
           Expression e = parseTest();
@@ -666,7 +661,7 @@ final class Parser {
             elems.add(e);
             parseExprList(elems, /*trailingCommaAllowed=*/ true);
             int rparenOffset = expect(TokenKind.RPAREN);
-            return setLNT(new ListExpression(/*isTuple=*/ true, lparenOffset, elems, rparenOffset));
+            return new ListExpression(locs, /*isTuple=*/ true, lparenOffset, elems, rparenOffset);
           }
 
           expect(TokenKind.RPAREN);
@@ -681,7 +676,7 @@ final class Parser {
           TokenKind op = token.kind;
           int offset = nextToken();
           Expression x = parsePrimaryWithSuffix();
-          return setLNT(new UnaryOperatorExpression(op, offset, x));
+          return new UnaryOperatorExpression(locs, op, offset, x);
         }
 
       default:
@@ -725,7 +720,7 @@ final class Parser {
       // index x[i]
       if (token.kind == TokenKind.RBRACKET) {
         int rbracketOffset = expect(TokenKind.RBRACKET);
-        return setLNT(new IndexExpression(e, lbracketOffset, start, rbracketOffset));
+        return new IndexExpression(locs, e, lbracketOffset, start, rbracketOffset);
       }
     }
 
@@ -741,7 +736,7 @@ final class Parser {
       }
     }
     int rbracketOffset = expect(TokenKind.RBRACKET);
-    return setLNT(new SliceExpression(e, lbracketOffset, start, end, step, rbracketOffset));
+    return new SliceExpression(locs, e, lbracketOffset, start, end, step, rbracketOffset);
   }
 
   // Equivalent to 'exprlist' rule in Python grammar.
@@ -764,7 +759,7 @@ final class Parser {
       }
       elems.add(parsePrimaryWithSuffix());
     }
-    return setLNT(new ListExpression(/*isTuple=*/ true, -1, elems, -1));
+    return new ListExpression(locs, /*isTuple=*/ true, -1, elems, -1);
   }
 
   // comprehension_suffix = 'FOR' loop_variables 'IN' expr comprehension_suffix
@@ -780,13 +775,13 @@ final class Parser {
         // The expression cannot be a ternary expression ('x if y else z') due to
         // conflicts in Python grammar ('if' is used by the comprehension).
         Expression seq = parseTest(0);
-        clauses.add(setLNT(new Comprehension.For(forOffset, vars, seq)));
+        clauses.add(new Comprehension.For(locs, forOffset, vars, seq));
       } else if (token.kind == TokenKind.IF) {
         int ifOffset = nextToken();
         // [x for x in li if 1, 2]  # parse error
         // [x for x in li if (1, 2)]  # ok
         Expression cond = parseTest(0);
-        clauses.add(setLNT(new Comprehension.If(ifOffset, cond)));
+        clauses.add(new Comprehension.If(locs, ifOffset, cond));
       } else if (token.kind == closingBracket) {
         break;
       } else {
@@ -798,7 +793,7 @@ final class Parser {
 
     boolean isDict = closingBracket == TokenKind.RBRACE;
     int roffset = expect(closingBracket);
-    return setLNT(new Comprehension(isDict, loffset, body, clauses.build(), roffset));
+    return new Comprehension(locs, isDict, loffset, body, clauses.build(), roffset);
   }
 
   // list_maker = '[' ']'
@@ -809,9 +804,8 @@ final class Parser {
     int lbracketOffset = expect(TokenKind.LBRACKET);
     if (token.kind == TokenKind.RBRACKET) { // empty List
       int rbracketOffset = nextToken();
-      return setLNT(
-          new ListExpression(
-              /*isTuple=*/ false, lbracketOffset, ImmutableList.of(), rbracketOffset));
+      return new ListExpression(
+          locs, /*isTuple=*/ false, lbracketOffset, ImmutableList.of(), rbracketOffset);
     }
 
     Expression expression = parseTest();
@@ -820,12 +814,12 @@ final class Parser {
         // [e], singleton list
         {
           int rbracketOffset = nextToken();
-          return setLNT(
-              new ListExpression(
-                  /*isTuple=*/ false,
-                  lbracketOffset,
-                  ImmutableList.of(expression),
-                  rbracketOffset));
+          return new ListExpression(
+              locs,
+              /*isTuple=*/ false,
+              lbracketOffset,
+              ImmutableList.of(expression),
+              rbracketOffset);
         }
 
       case FOR:
@@ -840,8 +834,8 @@ final class Parser {
           parseExprList(elems, /*trailingCommaAllowed=*/ true);
           if (token.kind == TokenKind.RBRACKET) {
             int rbracketOffset = nextToken();
-            return setLNT(
-                new ListExpression(/*isTuple=*/ false, lbracketOffset, elems, rbracketOffset));
+            return new ListExpression(
+                locs, /*isTuple=*/ false, lbracketOffset, elems, rbracketOffset);
           }
 
           expect(TokenKind.RBRACKET);
@@ -865,7 +859,7 @@ final class Parser {
     int lbraceOffset = expect(TokenKind.LBRACE);
     if (token.kind == TokenKind.RBRACE) { // empty Dict
       int rbraceOffset = nextToken();
-      return setLNT(new DictExpression(lbraceOffset, ImmutableList.of(), rbraceOffset));
+      return new DictExpression(locs, lbraceOffset, ImmutableList.of(), rbraceOffset);
     }
 
     DictExpression.Entry entry = parseDictEntry();
@@ -882,7 +876,7 @@ final class Parser {
     }
     if (token.kind == TokenKind.RBRACE) {
       int rbraceOffset = nextToken();
-      return setLNT(new DictExpression(lbraceOffset, entries, rbraceOffset));
+      return new DictExpression(locs, lbraceOffset, entries, rbraceOffset);
     }
 
     expect(TokenKind.RBRACE);
@@ -899,7 +893,7 @@ final class Parser {
 
     String name = (String) token.value;
     int offset = nextToken();
-    return setLNT(new Identifier(name, offset));
+    return new Identifier(locs, name, offset);
   }
 
   // binop_expression = binop_expression OP binop_expression
@@ -949,13 +943,13 @@ final class Parser {
   private Expression optimizeBinOpExpression(
       Expression x, TokenKind op, int opOffset, Expression y) {
     if (op == TokenKind.PLUS && x instanceof StringLiteral && y instanceof StringLiteral) {
-      return setLNT(
-          new StringLiteral(
-              x.getStartOffset(),
-              intern(((StringLiteral) x).getValue() + ((StringLiteral) y).getValue()),
-              y.getEndOffset()));
+      return new StringLiteral(
+          locs,
+          x.getStartOffset(),
+          intern(((StringLiteral) x).getValue() + ((StringLiteral) y).getValue()),
+          y.getEndOffset());
     }
-    return setLNT(new BinaryOperatorExpression(x, op, opOffset, y));
+    return new BinaryOperatorExpression(locs, x, op, opOffset, y);
   }
 
   // Parses a non-tuple expression ("test" in Python terminology).
@@ -968,7 +962,7 @@ final class Parser {
       if (token.kind == TokenKind.ELSE) {
         nextToken();
         Expression elseClause = parseTest();
-        return setLNT(new ConditionalExpression(expr, condition, elseClause));
+        return new ConditionalExpression(locs, expr, condition, elseClause);
       } else {
         reportError(start, "missing else clause in conditional expression or semicolon before if");
         return expr; // Try to recover from error: drop the if and the expression after it. Ouch.
@@ -991,7 +985,7 @@ final class Parser {
   private Expression parseNotExpression(int prec) {
     int notOffset = expect(TokenKind.NOT);
     Expression x = parseTest(prec);
-    return setLNT(new UnaryOperatorExpression(TokenKind.NOT, notOffset, x));
+    return new UnaryOperatorExpression(locs, TokenKind.NOT, notOffset, x);
   }
 
   // file_input = ('\n' | stmt)* EOF
@@ -1018,15 +1012,15 @@ final class Parser {
     expect(TokenKind.LPAREN);
     if (token.kind != TokenKind.STRING) {
       // error: module is not a string literal.
-      StringLiteral module = setLNT(new StringLiteral(token.left, "", token.right));
+      StringLiteral module = new StringLiteral(locs, token.left, "", token.right);
       expect(TokenKind.STRING);
-      return setLNT(new LoadStatement(loadOffset, module, ImmutableList.of(), token.right));
+      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.right);
     }
 
     StringLiteral module = parseStringLiteral();
     if (token.kind == TokenKind.RPAREN) {
       syntaxError("expected at least one symbol to load");
-      return setLNT(new LoadStatement(loadOffset, module, ImmutableList.of(), token.right));
+      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.right);
     }
     expect(TokenKind.COMMA);
 
@@ -1043,7 +1037,7 @@ final class Parser {
     }
 
     int rparen = expect(TokenKind.RPAREN);
-    return setLNT(new LoadStatement(loadOffset, module, bindings.build(), rparen));
+    return new LoadStatement(locs, loadOffset, module, bindings.build(), rparen);
   }
 
   /**
@@ -1061,7 +1055,7 @@ final class Parser {
 
     String name = (String) token.value;
     int nameOffset = token.left + (token.kind == TokenKind.STRING ? 1 : 0);
-    Identifier local = setLNT(new Identifier(name, nameOffset));
+    Identifier local = new Identifier(locs, name, nameOffset);
 
     Identifier original;
     if (token.kind == TokenKind.STRING) {
@@ -1078,7 +1072,7 @@ final class Parser {
         syntaxError("expected string");
         return;
       }
-      original = setLNT(new Identifier((String) token.value, token.left + 1));
+      original = new Identifier(locs, (String) token.value, token.left + 1);
     }
     nextToken();
     symbols.add(new LoadStatement.Binding(local, original));
@@ -1119,7 +1113,7 @@ final class Parser {
         || token.kind == TokenKind.PASS) {
       TokenKind kind = token.kind;
       int offset = nextToken();
-      return setLNT(new FlowStatement(kind, offset));
+      return new FlowStatement(locs, kind, offset);
     }
 
     // load
@@ -1135,9 +1129,9 @@ final class Parser {
       int opOffset = nextToken();
       Expression rhs = parseExpression();
       // op == null for ordinary assignment. TODO(adonovan): represent as EQUALS.
-      return setLNT(new AssignmentStatement(lhs, op, opOffset, rhs));
+      return new AssignmentStatement(locs, lhs, op, opOffset, rhs);
     } else {
-      return setLNT(new ExpressionStatement(lhs));
+      return new ExpressionStatement(locs, lhs);
     }
   }
 
@@ -1147,14 +1141,14 @@ final class Parser {
     Expression cond = parseTest();
     expect(TokenKind.COLON);
     List<Statement> body = parseSuite();
-    IfStatement ifStmt = setLNT(new IfStatement(TokenKind.IF, ifOffset, cond, body));
+    IfStatement ifStmt = new IfStatement(locs, TokenKind.IF, ifOffset, cond, body);
     IfStatement tail = ifStmt;
     while (token.kind == TokenKind.ELIF) {
       int elifOffset = expect(TokenKind.ELIF);
       cond = parseTest();
       expect(TokenKind.COLON);
       body = parseSuite();
-      IfStatement elif = setLNT(new IfStatement(TokenKind.ELIF, elifOffset, cond, body));
+      IfStatement elif = new IfStatement(locs, TokenKind.ELIF, elifOffset, cond, body);
       tail.setElseBlock(ImmutableList.of(elif));
       tail = elif;
     }
@@ -1175,7 +1169,7 @@ final class Parser {
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
     List<Statement> block = parseSuite();
-    return setLNT(new ForStatement(forOffset, lhs, collection, block));
+    return new ForStatement(locs, forOffset, lhs, collection, block);
   }
 
   // def_stmt = DEF IDENTIFIER '(' arguments ')' ':' suite
@@ -1197,7 +1191,7 @@ final class Parser {
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = ImmutableList.copyOf(parseSuite());
-    return setLNT(new DefStatement(defOffset, ident, params, signature, block));
+    return new DefStatement(locs, defOffset, ident, params, signature, block);
   }
 
   // Parse a list of function parameters.
@@ -1264,6 +1258,6 @@ final class Parser {
     if (!STATEMENT_TERMINATOR_SET.contains(token.kind)) {
       result = parseExpression();
     }
-    return setLNT(new ReturnStatement(returnOffset, result));
+    return new ReturnStatement(locs, returnOffset, result);
   }
 }

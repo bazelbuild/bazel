@@ -21,7 +21,8 @@ public final class DotExpression extends Expression {
   private final int dotOffset;
   private final Identifier field;
 
-  DotExpression(Expression object, int dotOffset, Identifier field) {
+  DotExpression(FileLocations locs, Expression object, int dotOffset, Identifier field) {
+    super(locs);
     this.object = object;
     this.dotOffset = dotOffset;
     this.field = field;
@@ -46,7 +47,7 @@ public final class DotExpression extends Expression {
   }
 
   public Location getDotLocation() {
-    return lnt.getLocation(dotOffset);
+    return locs.getLocation(dotOffset);
   }
 
   @Override

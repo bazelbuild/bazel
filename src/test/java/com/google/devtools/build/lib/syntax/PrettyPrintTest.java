@@ -23,6 +23,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests the {@code toString} and pretty printing methods for {@link Node} subclasses. */
 @RunWith(JUnit4.class)
+// TODO(adonovan): rename to NodePrinterTest.
 public final class PrettyPrintTest {
 
   private static StarlarkFile parseFile(String... lines) throws SyntaxError.Exception {
@@ -393,9 +394,17 @@ public final class PrettyPrintTest {
 
   @Test
   public void comment() throws SyntaxError.Exception {
-    Comment node = new Comment(0, "foo");
-    assertIndentedPrettyMatches(node, "  # foo");
-    assertTostringMatches(node, "foo");
+    ParserInput input =
+        ParserInput.fromLines(
+            "# foo", //
+            "expr # bar");
+    Parser.ParseResult r = Parser.parseFile(input, FileOptions.DEFAULT);
+    Comment c0 = r.comments.get(0);
+    assertIndentedPrettyMatches(c0, "  # foo");
+    assertTostringMatches(c0, "# foo");
+    Comment c1 = r.comments.get(1);
+    assertIndentedPrettyMatches(c1, "  # bar");
+    assertTostringMatches(c1, "# bar");
   }
 
   /* Not tested explicitly because they're covered implicitly by tests for other nodes:

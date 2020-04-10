@@ -33,7 +33,8 @@ public final class Identifier extends Expression {
   // ValidationEnvironment.
   @Nullable private ValidationEnvironment.Scope scope;
 
-  Identifier(String name, int nameOffset) {
+  Identifier(FileLocations locs, String name, int nameOffset) {
+    super(locs);
     this.name = name;
     this.nameOffset = nameOffset;
   }

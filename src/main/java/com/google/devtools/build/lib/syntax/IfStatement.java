@@ -27,7 +27,13 @@ public final class IfStatement extends Statement {
   private final ImmutableList<Statement> thenBlock; // non-empty
   @Nullable ImmutableList<Statement> elseBlock; // non-empty if non-null; set after construction
 
-  IfStatement(TokenKind token, int ifOffset, Expression condition, List<Statement> thenBlock) {
+  IfStatement(
+      FileLocations locs,
+      TokenKind token,
+      int ifOffset,
+      Expression condition,
+      List<Statement> thenBlock) {
+    super(locs);
     this.token = token;
     this.ifOffset = ifOffset;
     this.condition = condition;

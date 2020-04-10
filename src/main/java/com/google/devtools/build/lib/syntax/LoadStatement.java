@@ -47,7 +47,12 @@ public final class LoadStatement extends Statement {
   private final int rparenOffset;
 
   LoadStatement(
-      int loadOffset, StringLiteral module, ImmutableList<Binding> bindings, int rparenOffset) {
+      FileLocations locs,
+      int loadOffset,
+      StringLiteral module,
+      ImmutableList<Binding> bindings,
+      int rparenOffset) {
+    super(locs);
     this.loadOffset = loadOffset;
     this.module = module;
     this.bindings = bindings;

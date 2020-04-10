@@ -21,7 +21,8 @@ public final class UnaryOperatorExpression extends Expression {
   private final int opOffset;
   private final Expression x;
 
-  UnaryOperatorExpression(TokenKind op, int opOffset, Expression x) {
+  UnaryOperatorExpression(FileLocations locs, TokenKind op, int opOffset, Expression x) {
+    super(locs);
     this.op = op;
     this.opOffset = opOffset;
     this.x = x;

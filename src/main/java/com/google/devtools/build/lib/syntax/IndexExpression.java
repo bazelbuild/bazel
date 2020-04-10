@@ -26,7 +26,13 @@ public final class IndexExpression extends Expression {
   private final Expression key;
   private final int rbracketOffset;
 
-  IndexExpression(Expression object, int lbracketOffset, Expression key, int rbracketOffset) {
+  IndexExpression(
+      FileLocations locs,
+      Expression object,
+      int lbracketOffset,
+      Expression key,
+      int rbracketOffset) {
+    super(locs);
     this.object = object;
     this.lbracketOffset = lbracketOffset;
     this.key = key;
@@ -52,7 +58,7 @@ public final class IndexExpression extends Expression {
   }
 
   public Location getLbracketLocation() {
-    return lnt.getLocation(lbracketOffset);
+    return locs.getLocation(lbracketOffset);
   }
 
   @Override

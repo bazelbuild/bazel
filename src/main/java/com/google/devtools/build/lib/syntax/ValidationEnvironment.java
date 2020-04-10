@@ -90,7 +90,15 @@ public final class ValidationEnvironment extends NodeVisitor {
     String getUndeclaredNameError(String name);
   }
 
-  private static final Identifier PREDECLARED = new Identifier("", 0);
+  private static final Identifier PREDECLARED; // sentinel for predeclared names
+
+  static {
+    try {
+      PREDECLARED = (Identifier) Expression.parse(ParserInput.fromLines("PREDECLARED"));
+    } catch (SyntaxError.Exception ex) {
+      throw new IllegalStateException(ex); // can't happen
+    }
+  }
 
   private static class Block {
     private final Map<String, Identifier> variables = new HashMap<>();

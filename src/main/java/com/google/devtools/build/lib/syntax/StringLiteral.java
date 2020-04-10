@@ -28,7 +28,8 @@ public final class StringLiteral extends Expression {
   private final String value;
   private final int endOffset;
 
-  StringLiteral(int startOffset, String value, int endOffset) {
+  StringLiteral(FileLocations locs, int startOffset, String value, int endOffset) {
+    super(locs);
     this.startOffset = startOffset;
     this.value = value;
     this.endOffset = endOffset;
@@ -40,7 +41,7 @@ public final class StringLiteral extends Expression {
   }
 
   public Location getLocation() {
-    return lnt.getLocation(startOffset);
+    return locs.getLocation(startOffset);
   }
 
   @Override
@@ -83,7 +84,7 @@ public final class StringLiteral extends Expression {
       out.writeInt32NoTag(lit.startOffset);
       out.writeInt32NoTag(lit.endOffset);
       context.serializeWithAdHocMemoizationStrategy(
-          lit.lnt, MemoizationStrategy.MEMOIZE_AFTER, out);
+          lit.locs, MemoizationStrategy.MEMOIZE_AFTER, out);
     }
 
     @Override
@@ -93,10 +94,9 @@ public final class StringLiteral extends Expression {
           context.deserializeWithAdHocMemoizationStrategy(in, MemoizationStrategy.MEMOIZE_AFTER);
       int startOffset = in.readInt32();
       int endOffset = in.readInt32();
-      StringLiteral lit = new StringLiteral(startOffset, value, endOffset);
-      lit.lnt =
+      FileLocations locs =
           context.deserializeWithAdHocMemoizationStrategy(in, MemoizationStrategy.MEMOIZE_AFTER);
-      return lit;
+      return new StringLiteral(locs, startOffset, value, endOffset);
     }
   }
 }

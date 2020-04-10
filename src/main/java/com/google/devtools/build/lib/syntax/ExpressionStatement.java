@@ -19,7 +19,8 @@ public final class ExpressionStatement extends Statement {
 
   private final Expression expression;
 
-  ExpressionStatement(Expression expression) {
+  ExpressionStatement(FileLocations locs, Expression expression) {
+    super(locs);
     this.expression = expression;
   }
 

@@ -26,12 +26,14 @@ public final class SliceExpression extends Expression {
   private final int rbracketOffset;
 
   SliceExpression(
+      FileLocations locs,
       Expression object,
       int lbracketOffset,
       Expression start,
       Expression stop,
       Expression step,
       int rbracketOffset) {
+    super(locs);
     this.object = object;
     this.lbracketOffset = lbracketOffset;
     this.start = start;
@@ -70,7 +72,7 @@ public final class SliceExpression extends Expression {
   }
 
   public Location getLbracketLocation() {
-    return lnt.getLocation(lbracketOffset);
+    return locs.getLocation(lbracketOffset);
   }
 
   @Override

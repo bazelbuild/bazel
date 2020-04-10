@@ -26,7 +26,13 @@ public final class ForStatement extends Statement {
   private final ImmutableList<Statement> block; // non-empty if well formed
 
   /** Constructs a for loop statement. */
-  ForStatement(int forOffset, Expression lhs, Expression collection, List<Statement> block) {
+  ForStatement(
+      FileLocations locs,
+      int forOffset,
+      Expression lhs,
+      Expression collection,
+      List<Statement> block) {
+    super(locs);
     this.forOffset = forOffset;
     this.lhs = Preconditions.checkNotNull(lhs);
     this.collection = Preconditions.checkNotNull(collection);

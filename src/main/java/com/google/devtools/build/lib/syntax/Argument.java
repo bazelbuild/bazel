@@ -26,7 +26,8 @@ public abstract class Argument extends Node {
 
   protected final Expression value;
 
-  Argument(Expression value) {
+  Argument(FileLocations locs, Expression value) {
+    super(locs);
     this.value = Preconditions.checkNotNull(value);
   }
 
@@ -47,8 +48,8 @@ public abstract class Argument extends Node {
 
   /** Syntax node for a positional argument, {@code f(expr)}. */
   public static final class Positional extends Argument {
-    Positional(Expression value) {
-      super(value);
+    Positional(FileLocations locs, Expression value) {
+      super(locs, value);
     }
 
     @Override
@@ -65,8 +66,8 @@ public abstract class Argument extends Node {
 
     final Identifier id;
 
-    Keyword(Identifier id, Expression value) {
-      super(value);
+    Keyword(FileLocations locs, Identifier id, Expression value) {
+      super(locs, value);
       this.id = id;
     }
 
@@ -89,8 +90,8 @@ public abstract class Argument extends Node {
   public static final class Star extends Argument {
     private final int starOffset;
 
-    Star(int starOffset, Expression value) {
-      super(value);
+    Star(FileLocations locs, int starOffset, Expression value) {
+      super(locs, value);
       this.starOffset = starOffset;
     }
 
@@ -104,8 +105,8 @@ public abstract class Argument extends Node {
   public static final class StarStar extends Argument {
     private final int starStarOffset;
 
-    StarStar(int starStarOffset, Expression value) {
-      super(value);
+    StarStar(FileLocations locs, int starStarOffset, Expression value) {
+      super(locs, value);
       this.starStarOffset = starStarOffset;
     }
 

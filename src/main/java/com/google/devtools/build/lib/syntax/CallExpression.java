@@ -28,10 +28,12 @@ public final class CallExpression extends Expression {
   private final int numPositionalArgs;
 
   CallExpression(
+      FileLocations locs,
       Expression function,
       Location lparenLocation,
       ImmutableList<Argument> arguments,
       int rparenOffset) {
+    super(locs);
     this.function = Preconditions.checkNotNull(function);
     this.lparenLocation = lparenLocation;
     this.arguments = arguments;

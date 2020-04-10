@@ -26,11 +26,13 @@ public final class DefStatement extends Statement {
   private final ImmutableList<Parameter> parameters;
 
   DefStatement(
+      FileLocations locs,
       int defOffset,
       Identifier identifier,
       ImmutableList<Parameter> parameters,
       FunctionSignature signature,
       ImmutableList<Statement> body) {
+    super(locs);
     this.defOffset = defOffset;
     this.identifier = identifier;
     this.parameters = Preconditions.checkNotNull(parameters);

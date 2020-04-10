@@ -37,7 +37,11 @@ import com.google.common.collect.ImmutableList;
 public final class Comprehension extends Expression {
 
   /** For or If */
-  public abstract static class Clause extends Node {}
+  public abstract static class Clause extends Node {
+    Clause(FileLocations locs) {
+      super(locs);
+    }
+  }
 
   /** A for clause in a comprehension, e.g. "for a in b" in the example above. */
   public static final class For extends Clause {
@@ -45,7 +49,8 @@ public final class Comprehension extends Expression {
     private final Expression vars;
     private final Expression iterable;
 
-    For(int forOffset, Expression vars, Expression iterable) {
+    For(FileLocations locs, int forOffset, Expression vars, Expression iterable) {
+      super(locs);
       this.forOffset = forOffset;
       this.vars = vars;
       this.iterable = iterable;
@@ -80,7 +85,8 @@ public final class Comprehension extends Expression {
     private final int ifOffset;
     private final Expression condition;
 
-    If(int ifOffset, Expression condition) {
+    If(FileLocations locs, int ifOffset, Expression condition) {
+      super(locs);
       this.ifOffset = ifOffset;
       this.condition = condition;
     }
@@ -112,11 +118,13 @@ public final class Comprehension extends Expression {
   private final int rbracketOffset;
 
   Comprehension(
+      FileLocations locs,
       boolean isDict,
       int lbracketOffset,
       Node body,
       ImmutableList<Clause> clauses,
       int rbracketOffset) {
+    super(locs);
     this.isDict = isDict;
     this.lbracketOffset = lbracketOffset;
     this.body = body;

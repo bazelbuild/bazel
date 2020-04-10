@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
+
 /**
  * A Node is a node in a Starlark syntax tree.
  *
@@ -59,13 +61,14 @@ public abstract class Node {
   //   1.0% Comprehension
   //   6  % all others
 
-  // The LNT holds the file name and a compressed mapping from
-  // token char offsets to Locations. It is shared by all nodes
-  // from the same file. For convenience of the parser, it is
-  // set immediately after construction.
-  protected LineNumberTable lnt;
+  // The FileLocations table holds the file name and a compressed
+  // mapping from token char offsets to Locations.
+  // It is shared by all nodes from the same file.
+  final FileLocations locs;
 
-  Node() {}
+  Node(FileLocations locs) {
+    this.locs = Preconditions.checkNotNull(locs);
+  }
 
   /**
    * Returns the node's start offset, as a char index (zero-based count of UTF-16 codes) from the
@@ -75,7 +78,7 @@ public abstract class Node {
 
   /** Returns the location of the start of this syntax node. */
   public final Location getStartLocation() {
-    return lnt.getLocation(getStartOffset());
+    return locs.getLocation(getStartOffset());
   }
 
   /** Returns the char offset of the source position immediately after this syntax node. */
@@ -83,7 +86,7 @@ public abstract class Node {
 
   /** Returns the location of the source position immediately after this syntax node. */
   public final Location getEndLocation() {
-    return lnt.getLocation(getEndOffset());
+    return locs.getLocation(getEndOffset());
   }
 
   /**

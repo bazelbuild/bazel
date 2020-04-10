@@ -22,40 +22,32 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * A LineNumberTable maps each UTF-16 index within a source file to its (file, line, column) triple.
- * An offset is valid if {@code 0 <= offset <= size}.
+ * FileLocations maps each source offset within a file to a Location. An offset is a (UTF-16) char
+ * index such that {@code 0 <= offset <= size}. A Location is a (file, line, column) triple.
  */
 @AutoCodec
 @Immutable
-// TODO(adonovan): rename to FileLocations.
-final class LineNumberTable {
+final class FileLocations {
 
-  private static final Interner<LineNumberTable> LINE_NUMBER_TABLE_INTERNER =
-      BlazeInterners.newWeakInterner();
+  private static final Interner<FileLocations> INTERNER = BlazeInterners.newWeakInterner();
 
-  /** A mapping from line number (line >= 1) to character offset into the file. */
-  private final int[] linestart;
-
+  private final int[] linestart; // maps line number (line >= 1) to char offset
   private final String file;
   private final int size; // size of file in chars
 
-  private LineNumberTable(char[] buffer, String file) {
-    this(computeLinestart(buffer), file, buffer.length);
-  }
-
-  private LineNumberTable(int[] linestart, String file, int size) {
+  private FileLocations(int[] linestart, String file, int size) {
     this.linestart = linestart;
     this.file = file;
     this.size = size;
   }
 
   @AutoCodec.Instantiator
-  static LineNumberTable createForSerialization(int[] linestart, String file, int size) {
-    return LINE_NUMBER_TABLE_INTERNER.intern(new LineNumberTable(linestart, file, size));
+  static FileLocations createForSerialization(int[] linestart, String file, int size) {
+    return INTERNER.intern(new FileLocations(linestart, file, size));
   }
 
-  static LineNumberTable create(char[] buffer, String file) {
-    return new LineNumberTable(buffer, file);
+  static FileLocations create(char[] buffer, String file) {
+    return new FileLocations(computeLinestart(buffer), file, buffer.length);
   }
 
   private int getLineAt(int offset) {
@@ -98,10 +90,10 @@ final class LineNumberTable {
 
   @Override
   public boolean equals(Object other) {
-    if (!(other instanceof LineNumberTable)) {
+    if (!(other instanceof FileLocations)) {
       return false;
     }
-    LineNumberTable that = (LineNumberTable) other;
+    FileLocations that = (FileLocations) other;
     return this.size == that.size
         && Arrays.equals(this.linestart, that.linestart)
         && this.file.equals(that.file);

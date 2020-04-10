@@ -44,7 +44,9 @@ public final class BinaryOperatorExpression extends Expression {
           TokenKind.PIPE,
           TokenKind.STAR);
 
-  BinaryOperatorExpression(Expression x, TokenKind op, int opOffset, Expression y) {
+  BinaryOperatorExpression(
+      FileLocations locs, Expression x, TokenKind op, int opOffset, Expression y) {
+    super(locs);
     this.x = x;
     this.op = op;
     this.opOffset = opOffset;
@@ -62,7 +64,7 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   public Location getOperatorLocation() {
-    return lnt.getLocation(opOffset);
+    return locs.getLocation(opOffset);
   }
 
   /** Returns the right operand. */
