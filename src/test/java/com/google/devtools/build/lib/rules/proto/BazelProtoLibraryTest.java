@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -450,7 +451,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // of its exports and nothing else (not the exports of its exports or the deps of its exports
     // or the exports of its deps)
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    assertThat(c.get(ProtoInfo.PROVIDER).getExportedProtoSourceRoots().toList())
+    assertThat(Iterables.transform(c.get(ProtoInfo.PROVIDER).getPublicImportSources().toList(), s -> s.getSourceRoot().getSafePathString()))
         .containsExactly(genfiles + "/a/_virtual_imports/a", genfiles + "/c/_virtual_imports/c");
   }
 
@@ -490,12 +491,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  deps = ['@yolo_repo//yolo_pkg:yolo_proto'],",
         ")");
 
-    ConfiguredTarget main = getConfiguredTarget("//:main_proto");
-    ProtoInfo protoInfo = main.get(ProtoInfo.PROVIDER);
-    ImmutableList<Pair<Artifact, String>> importPaths =
-        protoInfo.getStrictImportableProtoSourcesImportPaths().toList();
-    assertThat(importPaths).isNotEmpty();
-    assertThat(importPaths.get(0).second).isEqualTo("bazel.build/yolo/yolo_pkg/yolo.proto");
+    ConfiguredTarget target = getConfiguredTarget("//:main_proto");
+    assertThat(
+        Iterables.transform(
+            target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+            s -> s.getImportPath().getPathString()))
+        .contains("bazel.build/yolo/yolo_pkg/yolo.proto");
   }
 
   @Test
@@ -545,12 +546,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  deps = ['@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto'],",
         ")");
 
-    ConfiguredTarget main = getConfiguredTarget("//:main_proto");
-    ProtoInfo protoInfo = main.get(ProtoInfo.PROVIDER);
-    ImmutableList<Pair<Artifact, String>> importPaths =
-        protoInfo.getStrictImportableProtoSourcesImportPaths().toList();
-    assertThat(importPaths).isNotEmpty();
-    assertThat(importPaths.get(0).second).isEqualTo("bazel.build/yolo/yolo_pkg/yolo.proto");
+    ConfiguredTarget target = getConfiguredTarget("//:main_proto");
+    assertThat(
+        Iterables.transform(
+            target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+            s -> s.getImportPath().getPathString()))
+        .contains("bazel.build/yolo/yolo_pkg/yolo.proto");
   }
 
   @Test
@@ -598,12 +599,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  deps = ['@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto'],",
         ")");
 
-    ConfiguredTarget main = getConfiguredTarget("//:main_proto");
-    ProtoInfo protoInfo = main.get(ProtoInfo.PROVIDER);
-    ImmutableList<Pair<Artifact, String>> importPaths =
-        protoInfo.getStrictImportableProtoSourcesImportPaths().toList();
-    assertThat(importPaths).isNotEmpty();
-    assertThat(importPaths.get(0).second).isEqualTo("yolo_pkg/yolo.proto");
+    ConfiguredTarget target = getConfiguredTarget("//:main_proto");
+    assertThat(
+        Iterables.transform(
+            target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+            s -> s.getImportPath().getPathString()))
+        .contains("yolo_pkg/yolo.proto");
   }
 
   @Test
@@ -652,12 +653,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  deps = ['@yolo_repo//:yolo_proto'],",
         ")");
 
-    ConfiguredTarget main = getConfiguredTarget("//:main_proto");
-    ProtoInfo protoInfo = main.get(ProtoInfo.PROVIDER);
-    ImmutableList<Pair<Artifact, String>> importPaths =
-        protoInfo.getStrictImportableProtoSourcesImportPaths().toList();
-    assertThat(importPaths).isNotEmpty();
-    assertThat(importPaths.get(0).second).isEqualTo("yolo_pkg/yolo.proto");
+    ConfiguredTarget target = getConfiguredTarget("//:main_proto");
+    assertThat(
+            Iterables.transform(
+                target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+                s -> s.getImportPath().getPathString()))
+        .contains("yolo_pkg/yolo.proto");
   }
 
   @Test
@@ -985,7 +986,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file("a/BUILD", "proto_library(", "    name = 'a',", "    srcs = ['a.proto'],", ")");
+    scratch.file(
+        "a/BUILD",
+        "proto_library(",
+        "    name = 'a',",
+        "    srcs = ['a.proto'],",
+        ")");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a");
@@ -999,7 +1005,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     useConfiguration("--noincompatible_load_proto_rules_from_bzl");
-    scratch.file("a/BUILD", "proto_library(", "    name = 'a',", "    srcs = ['a.proto'],", ")");
+    scratch.file(
+        "a/BUILD",
+        "proto_library(",
+        "    name = 'a',",
+        "    srcs = ['a.proto'],",
+        ")");
 
     getConfiguredTarget("//a");
   }
@@ -1039,5 +1050,44 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a_proto"));
     assertThat(commandLine).contains("--include_source_info");
+  }
+
+  @Test
+  public void testSourceAndGeneratedProtoFiles_Bazel() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file("a/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "genrule(name='g', srcs=[], outs=['g.proto'], cmd = '')",
+        "proto_library(name='p', srcs=['s.proto', 'g.proto'])");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:p"));
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    assertThat(commandLine).containsAtLeast(
+        "-Ia/s.proto=" + genfiles + "/a/_virtual_imports/p/a/s.proto",
+        "-Ia/g.proto=" + genfiles + "/a/_virtual_imports/p/a/g.proto");
+  }
+
+  @Test
+  public void testSourceAndGeneratedProtoFiles_Blaze() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    // Simulate behavoiur of Blaze's `proto_library` in Bazel.
+    useConfiguration("--incompatible_generated_protos_in_virtual_imports=false");
+
+    scratch.file("a/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "genrule(name='g', srcs=[], outs=['g.proto'], cmd = '')",
+        "proto_library(name='p', srcs=['s.proto', 'g.proto'])");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:p"));
+    String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+    assertThat(commandLine).containsAtLeast(
+        "-Ia/s.proto=a/s.proto",
+        "-Ia/g.proto=" + genfiles + "/a/g.proto");
   }
 }

@@ -39,8 +39,10 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Toolc
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,27 +58,48 @@ public class ProtoCompileActionBuilderTest {
   private final ArtifactRoot derivedRoot =
       ArtifactRoot.asDerivedRoot(FILE_SYSTEM.getPath("/"), "out");
 
+  private ProtoSource protoSource(Artifact protoSource) {
+    return new ProtoSource(
+        protoSource, PathFragment.EMPTY_FRAGMENT, Optional.of(protoSource.getExecPath()));
+  }
+
+  private ProtoSource protoSource(String importPath) {
+    return new ProtoSource(
+        artifact("//:dont-care", importPath),
+        PathFragment.EMPTY_FRAGMENT,
+        Optional.of(PathFragment.create(importPath)));
+  }
+
+  private ProtoSource protoSource(Artifact protoSource, String importPath) {
+    return new ProtoSource(
+        protoSource, PathFragment.EMPTY_FRAGMENT, Optional.of(PathFragment.create(importPath)));
+  }
+
   private ProtoInfo protoInfo(
-      ImmutableList<Artifact> directProtos,
-      NestedSet<Artifact> transitiveProtos,
+      ImmutableList<ProtoSource> directProtoSources,
+      ImmutableList<ProtoSource> transitiveProtoSources,
+      ImmutableList<ProtoSource> publicImportProtoSources,
       NestedSet<String> transitiveProtoSourceRoots,
-      NestedSet<String> strictImportableProtoSourceRoots,
-      NestedSet<Pair<Artifact, String>> strictImportableProtos,
-      NestedSet<Pair<Artifact, String>> exportedProtos) {
+      ImmutableList<ProtoSource> strictImportableSources) {
     return new ProtoInfo(
-        directProtos,
-        directProtos,
-        /* directProtoSourceRoot= */ "",
-        transitiveProtos,
-        transitiveProtos,
-        transitiveProtoSourceRoots,
+        /* directSources */ directProtoSources,
+        /* directDescriptorSet */ artifact("//:direct-descriptor-set", "direct-descriptor-set"),
+        /* directProtoSourceRoot */ PathFragment.EMPTY_FRAGMENT,
+        /* transitiveSources */  NestedSetBuilder.wrap(Order.STABLE_ORDER, transitiveProtoSources),
+        /* transitiveDescriptorSets */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* transitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* originalTransitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* transitiveProtoSourceRoots */ transitiveProtoSourceRoots,
+
+        /* exportedSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* strictImportableSources */ NestedSetBuilder.wrap(
+            Order.STABLE_ORDER, strictImportableSources),
+        /* publicImportSources */ NestedSetBuilder.wrap(
+            Order.STABLE_ORDER, publicImportProtoSources),
+
+        //
+
         /* strictImportableProtosForDependents */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        strictImportableProtos,
-        strictImportableProtos,
-        strictImportableProtoSourceRoots,
-        exportedProtos,
-        /* exportedProtoSourceRoots */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        artifact("//:direct-descriptor-set", "direct-descriptor-set"),
         /* getTransitiveDescriptorSets */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         Location.BUILTIN);
   }
@@ -111,17 +134,15 @@ public class ProtoCompileActionBuilderTest {
                 new ToolchainInvocation("pluginName", toolchainWithPlugin, "bar.srcjar")),
             "bazel-out",
             protoInfo(
-                /* directProtos */ ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
-                /* transitiveProtos */ NestedSetBuilder.create(
-                    STABLE_ORDER,
-                    artifact("//:dont-care", "import1.proto"),
-                    artifact("//:dont-care", "import2.proto")),
+                /* directProtoSources */ ImmutableList.of(
+                    protoSource(artifact("//:dont-care", "source_file.proto"))),
+                /* transitiveProtoSources */ ImmutableList.of(
+                    protoSource(artifact("//:dont-care", "import1.proto")),
+                    protoSource(artifact("//:dont-care", "import2.proto"))),
+                /* publicImportProtoSources */ ImmutableList.of(),
 
                 /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(STABLE_ORDER, "."),
-                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(
-                    Order.STABLE_ORDER, "."),
-                /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* exportedProtos = */ NestedSetBuilder.emptySet(STABLE_ORDER)),
+                /* strictImportableSources */ ImmutableList.of()),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             Deps.NON_STRICT,
             Exports.DO_NOT_USE,
@@ -148,13 +169,12 @@ public class ProtoCompileActionBuilderTest {
             /* toolchainInvocations= */ ImmutableList.of(),
             "bazel-out",
             protoInfo(
-                /* directProtos */ ImmutableList.of(derivedArtifact("source_file.proto")),
-                /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
+                /* directProtoSources */ ImmutableList.of(
+                    protoSource(derivedArtifact("source_file.proto"))),
+                /* transitiveProtos */ ImmutableList.of(),
+                /* publicImportProtoSources */ ImmutableList.of(),
                 /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(Order.STABLE_ORDER, "."),
-                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(
-                    Order.STABLE_ORDER, "."),
-                /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* exportedProtos = */ NestedSetBuilder.emptySet(STABLE_ORDER)),
+                /* strictImportableSources */ ImmutableList.of()),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             Deps.NON_STRICT,
             Exports.DO_NOT_USE,
@@ -179,18 +199,16 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.of(new ToolchainInvocation("dontcare", toolchain, "foo.srcjar")),
             "bazel-out",
             protoInfo(
-                /* directProtos */ ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
-                /* transitiveProtos */ NestedSetBuilder.create(
-                    STABLE_ORDER,
-                    artifact("//:dont-care", "import1.proto"),
-                    artifact("//:dont-care", "import2.proto")),
+                /* directProtoSources */ ImmutableList.of(
+                    protoSource(artifact("//:dont-care", "source_file.proto"))),
+                /* transitiveProtos */ ImmutableList.of(
+                    protoSource(artifact("//:dont-care", "import1.proto")),
+                    protoSource(artifact("//:dont-care", "import2.proto"))),
+                /* publicImportProtoSources */ ImmutableList.of(),
 
                 /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(STABLE_ORDER, "."),
-                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(STABLE_ORDER, "."),
-                NestedSetBuilder.create(
-                    STABLE_ORDER,
-                    Pair.of(artifact("//:dont-care", "import1.proto"), "import1.proto")),
-                /* exportedProtos = */ NestedSetBuilder.emptySet(STABLE_ORDER)),
+                /* strictImportableSources */ ImmutableList.of(
+                    protoSource(artifact("//:dont-care", "import1.proto")))),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             Deps.STRICT,
             Exports.DO_NOT_USE,
@@ -224,18 +242,14 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.of(new ToolchainInvocation("dontcare", toolchain, "foo.srcjar")),
             "bazel-out",
             protoInfo(
-                /* directProtos */ ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
-                /* transitiveProtos */ NestedSetBuilder.create(
-                    STABLE_ORDER,
-                    artifact("//:dont-care", "import1.proto"),
-                    artifact("//:dont-care", "import2.proto")),
+                /* directProtoSources */ ImmutableList.of(protoSource(artifact("//:dont-care", "source_file.proto"))),
+                /* transitiveProtos */ ImmutableList.of(
+                    protoSource(artifact("//:dont-care", "import1.proto")),
+                    protoSource(artifact("//:dont-care", "import2.proto"))),
+                /* publicImportProtoSources */ ImmutableList.of(protoSource("export1.proto")),
 
                 /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(STABLE_ORDER, "."),
-                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(STABLE_ORDER, "."),
-                /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* exportedProtos = */ NestedSetBuilder.create(
-                    STABLE_ORDER,
-                    Pair.of(artifact("//:dont-care", "foo/export1.proto"), "export1.proto"))),
+                /* strictImportableSources */ ImmutableList.of()),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             Deps.NON_STRICT,
             Exports.USE,
@@ -262,11 +276,10 @@ public class ProtoCompileActionBuilderTest {
             "bazel-out",
             protoInfo(
                 /* directProtos */ ImmutableList.of(),
-                /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
+                /* transitiveProtos */ ImmutableList.of(),
+                /* publicImportProtoSources */ ImmutableList.of(),
                 /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* strictImportableProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* exportedProtos = */ NestedSetBuilder.emptySet(STABLE_ORDER)),
+                /* strictImportableSources */ ImmutableList.of()),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             Deps.STRICT,
             Exports.DO_NOT_USE,
@@ -304,11 +317,10 @@ public class ProtoCompileActionBuilderTest {
             "bazel-out",
             protoInfo(
                 /* directProtos*/ ImmutableList.of(),
-                /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
+                /* transitiveProtos */ ImmutableList.of(),
+                /* publicImportProtoSources */ ImmutableList.of(),
                 /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* exportedProtos = */ NestedSetBuilder.emptySet(STABLE_ORDER)),
+                /* strictImportableSources */ ImmutableList.of()),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             Deps.STRICT,
             Exports.DO_NOT_USE,
@@ -352,12 +364,10 @@ public class ProtoCompileActionBuilderTest {
                     "bazel-out",
                     protoInfo(
                         /* directProtos */ ImmutableList.of(),
-                        /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
+                        /* transitiveProtos */ ImmutableList.of(),
+                        /* publicImportProtoSources */ ImmutableList.of(),
                         /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                        /* strictImportableProtoSourceRoots= */ NestedSetBuilder.emptySet(
-                            STABLE_ORDER),
-                        /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                        /* exportedProtos = */ NestedSetBuilder.emptySet(STABLE_ORDER)),
+                        /* strictImportableSources */ ImmutableList.of()),
                     Label.parseAbsoluteUnchecked("//foo:bar"),
                     Deps.STRICT,
                     Exports.DO_NOT_USE,
@@ -374,34 +384,34 @@ public class ProtoCompileActionBuilderTest {
   @Test
   public void testProtoCommandLineArgv() throws Exception {
     assertThat(
-            protoArgv(
-                null /* directDependencies */,
-                ImmutableList.of(derivedArtifact("foo.proto")),
-                ImmutableList.of(".")))
+        protoArgv(
+            /* transitiveSources */ ImmutableList.of(
+                protoSource(derivedArtifact("foo.proto"), "foo.proto")),
+            /* importableProtoSources */ null))
         .containsExactly("-Ifoo.proto=out/foo.proto");
 
     assertThat(
-            protoArgv(
-                ImmutableList.of() /* directDependencies */,
-                ImmutableList.of(derivedArtifact("foo.proto")),
-                ImmutableList.of(".")))
+        protoArgv(
+            /* transitiveSources */ ImmutableList.of(
+                protoSource(derivedArtifact("foo.proto"), "foo.proto")),
+            /* importableProtoSources */ ImmutableList.of()))
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=");
 
     assertThat(
-            protoArgv(
-                ImmutableList.of(
-                    Pair.of(derivedArtifact("foo.proto"), null)) /* directDependencies */,
-                ImmutableList.of(derivedArtifact("foo.proto")),
-                ImmutableList.of(".")))
+        protoArgv(
+            /* transitiveSources */ ImmutableList.of(
+                protoSource(derivedArtifact("foo.proto"), "foo.proto")),
+            /* importableProtoSources */ ImmutableList.of(
+                protoSource(derivedArtifact("foo.proto"), "foo.proto"))))
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto");
 
     assertThat(
-            protoArgv(
-                ImmutableList.of(
-                    Pair.of(derivedArtifact("foo.proto"), null),
-                    Pair.of(derivedArtifact("bar.proto"), null)) /* directDependencies */,
-                ImmutableList.of(derivedArtifact("foo.proto")),
-                ImmutableList.of(".")))
+        protoArgv(
+            /* transitiveSources */ ImmutableList.of(
+                protoSource(derivedArtifact("foo.proto"), "foo.proto")),
+            /* importableProtoSources */ ImmutableList.of(
+                protoSource(derivedArtifact("foo.proto"), "foo.proto"),
+                protoSource(derivedArtifact("bar.proto"), "bar.proto"))))
         .containsExactly(
             "-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto:bar.proto");
   }
@@ -416,19 +426,23 @@ public class ProtoCompileActionBuilderTest {
   public void testIncludeMapsOfExternalFiles() throws Exception {
     assertThat(
             protoArgv(
-                null /* protosInDirectoDependencies */,
-                ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto")),
-                ImmutableList.of("external/bla")))
-        .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto");
+                /* transitiveSources */ ImmutableList.of(
+                    protoSource(
+                        artifact("@bla//foo:bar", "external/bla/foo/bar.proto"),
+                        "foo/bar.proto")),
+                /* importableProtoSources */ ImmutableList.of()))
+        .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies=");
   }
 
   @Test
   public void directDependenciesOnExternalFiles() throws Exception {
-    ImmutableList<Artifact> protos =
-        ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto"));
-    ImmutableList<Pair<Artifact, String>> protosImports =
-        ImmutableList.of(Pair.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto"), null));
-    assertThat(protoArgv(protosImports, protos, ImmutableList.of("external/bla")))
+    Artifact protoSource = artifact("@bla//foo:bar", "external/bla/foo/bar.proto");
+    assertThat(
+            protoArgv(
+                /* transitiveSources */ ImmutableList.of(
+                    protoSource(protoSource, "foo/bar.proto")),
+                /* importableProtoSources */ ImmutableList.of(
+                    protoSource(protoSource, "foo/bar.proto") )))
         .containsExactly(
             "-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies", "foo/bar.proto");
   }
@@ -452,23 +466,17 @@ public class ProtoCompileActionBuilderTest {
   }
 
   private static Iterable<String> protoArgv(
-      @Nullable Iterable<Pair<Artifact, String>> protosInDirectDependencies,
-      Iterable<Artifact> transitiveImports,
-      Iterable<String> protoSourceRoots) {
+      Iterable<ProtoSource> transitiveSources,
+      @Nullable Iterable<ProtoSource> importableProtoSources) {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-    NestedSet<Pair<Artifact, String>> protosInDirectDependenciesBuilder =
-        protosInDirectDependencies != null
-            ? NestedSetBuilder.wrap(STABLE_ORDER, protosInDirectDependencies)
+    NestedSet<ProtoSource> importableProtoSourceSet =
+        importableProtoSources != null
+            ? NestedSetBuilder.wrap(STABLE_ORDER, importableProtoSources)
             : null;
-    NestedSet<Artifact> transitiveImportsNestedSet =
-        NestedSetBuilder.wrap(STABLE_ORDER, transitiveImports);
     ProtoCompileActionBuilder.addIncludeMapArguments(
-        "blaze-out",
         commandLine,
-        protosInDirectDependenciesBuilder,
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, protoSourceRoots),
-        transitiveImportsNestedSet,
-        false);
+        importableProtoSourceSet,
+        NestedSetBuilder.wrap(STABLE_ORDER, transitiveSources));
     return commandLine.build().arguments();
   }
 }
