@@ -97,6 +97,7 @@ message FailureDetail {
 
   reserved 102; // For internal use
   reserved 105; // For internal use
+  reserved 109; // For internal use
 }
 
 message Interrupted {
@@ -141,6 +142,10 @@ message RemoteOptions {
     REMOTE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     REMOTE_DEFAULT_EXEC_PROPERTIES_LOGIC_ERROR = 1
         [(metadata) = { exit_code: 2 }];
+    // Credentials could not be read from the requested file/socket/process/etc.
+    CREDENTIALS_READ_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+    // Credentials could not be written to a shared, temporary file.
+    CREDENTIALS_WRITE_FAILURE = 3 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -156,7 +161,10 @@ message ClientEnvironment {
 }
 
 message Crash {
-  enum Code { CRASH_UNKNOWN = 0 [(metadata) = { exit_code: 37 }]; }
+  enum Code {
+    CRASH_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    CRASH_OOM = 1 [(metadata) = { exit_code: 33 }];
+  }
 
   Code code = 1;
 

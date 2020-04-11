@@ -74,6 +74,11 @@ public final class CqueryCommand implements BlazeCommand {
           PriorityCategory.COMPUTED_DEFAULT,
           "cquery should include 'tags = [\"manual\"]' targets by default",
           ImmutableList.of("--build_manual_tests"));
+      optionsParser.parse(
+          PriorityCategory.COMPUTED_DEFAULT,
+          // https://github.com/bazelbuild/bazel/issues/11078
+          "cquery should not exclude test_suite rules",
+          ImmutableList.of("--noexpand_test_suites"));
       if (cqueryOptions.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
         optionsParser.parse(
             PriorityCategory.COMPUTED_DEFAULT,

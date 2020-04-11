@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
@@ -68,33 +67,34 @@ import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
- * A Skyframe function to look up and import a single Skylark extension.
+ * A Skyframe function to look up and import a single Starlark extension.
  *
- * <p>Given a {@link Label} referencing a Skylark file, attempts to locate the file and load it. The
- * Label must be absolute, and must not reference the special {@code external} package. If loading
- * is successful, returns a {@link SkylarkImportLookupValue} that encapsulates the loaded {@link
- * Extension} and {@link SkylarkFileDependency} information. If loading is unsuccessful, throws a
- * {@link SkylarkImportLookupFunctionException} that encapsulates the cause of the failure.
+ * <p>Given a {@link Label} referencing a Starlark file, attempts to locate the file and load it.
+ * The Label must be absolute, and must not reference the special {@code external} package. If
+ * loading is successful, returns a {@link StarlarkImportLookupValue} that encapsulates the loaded
+ * {@link Extension} and {@link SkylarkFileDependency} information. If loading is unsuccessful,
+ * throws a {@link StarlarkImportLookupFunctionException} that encapsulates the cause of the
+ * failure.
  */
-public class SkylarkImportLookupFunction implements SkyFunction {
+public class StarlarkImportLookupFunction implements SkyFunction {
 
   private final RuleClassProvider ruleClassProvider;
   private final PackageFactory packageFactory;
   private final int starlarkImportLookupValueCacheSize;
-  private Cache<SkyKey, CachedSkylarkImportLookupValueAndDeps> skylarkImportLookupValueCache;
-  private CachedSkylarkImportLookupValueAndDepsBuilderFactory
-      cachedSkylarkImportLookupValueAndDepsBuilderFactory =
-          new CachedSkylarkImportLookupValueAndDepsBuilderFactory();
+  private Cache<SkyKey, CachedStarlarkImportLookupValueAndDeps> starlarkImportLookupValueCache;
+  private CachedStarlarkImportLookupValueAndDepsBuilderFactory
+      cachedStarlarkImportLookupValueAndDepsBuilderFactory =
+          new CachedStarlarkImportLookupValueAndDepsBuilderFactory();
 
   private static final Logger logger =
-      Logger.getLogger(SkylarkImportLookupFunction.class.getName());
+      Logger.getLogger(StarlarkImportLookupFunction.class.getName());
 
-  public SkylarkImportLookupFunction(
+  public StarlarkImportLookupFunction(
       RuleClassProvider ruleClassProvider, PackageFactory packageFactory) {
     this(ruleClassProvider, packageFactory, /*starlarkImportLookupValueCacheSize=*/ -1);
   }
 
-  public SkylarkImportLookupFunction(
+  public StarlarkImportLookupFunction(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       int starlarkImportLookupValueCacheSize) {
@@ -107,7 +107,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    SkylarkImportLookupKey key = (SkylarkImportLookupKey) skyKey.argument();
+    StarlarkImportLookupValue.Key key = (StarlarkImportLookupValue.Key) skyKey.argument();
     try {
       return computeInternal(
           key.importLabel,
@@ -119,73 +119,75 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           /*inlineCachedValueBuilder=*/ null,
           /*visitedDepsInToplevelLoad=*/ null);
     } catch (InconsistentFilesystemException e) {
-      throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
-    } catch (SkylarkImportFailedException e) {
-      throw new SkylarkImportLookupFunctionException(e);
+      throw new StarlarkImportLookupFunctionException(e, Transience.PERSISTENT);
+    } catch (StarlarkImportFailedException e) {
+      throw new StarlarkImportLookupFunctionException(e);
     }
   }
 
   @Nullable
-  SkylarkImportLookupValue computeWithInlineCallsForPackageAndWorkspaceNodes(
+  StarlarkImportLookupValue computeWithInlineCallsForPackageAndWorkspaceNodes(
       SkyKey skyKey,
       Environment env,
-      Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps> visitedDepsInToplevelLoad)
-      throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
+      Map<StarlarkImportLookupValue.Key, CachedStarlarkImportLookupValueAndDeps>
+          visitedDepsInToplevelLoad)
+      throws InconsistentFilesystemException, StarlarkImportFailedException, InterruptedException {
     // We use the visitedNested set to track if there are any cyclic dependencies when loading the
-    // skylark file and the visitedDepsInToplevelLoad set to avoid re-registering previously seen
+    // Starlark file and the visitedDepsInToplevelLoad set to avoid re-registering previously seen
     // dependencies. Note that the visitedNested set must use insertion order to display the correct
     // error.
-    CachedSkylarkImportLookupValueAndDeps cachedSkylarkImportLookupValueAndDeps =
+    CachedStarlarkImportLookupValueAndDeps cachedStarlarkImportLookupValueAndDeps =
         computeWithInlineCallsInternal(
             skyKey,
             env,
             /*visitedNested=*/ new LinkedHashSet<>(),
             /*visitedDepsInToplevelLoad=*/ visitedDepsInToplevelLoad);
-    if (cachedSkylarkImportLookupValueAndDeps == null) {
+    if (cachedStarlarkImportLookupValueAndDeps == null) {
       return null;
     }
-    return cachedSkylarkImportLookupValueAndDeps.getValue();
+    return cachedStarlarkImportLookupValueAndDeps.getValue();
   }
 
   @Nullable
-  private CachedSkylarkImportLookupValueAndDeps computeWithInlineCallsInternal(
+  private CachedStarlarkImportLookupValueAndDeps computeWithInlineCallsInternal(
       SkyKey skyKey,
       Environment env,
       Set<Label> visitedNested,
-      Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps> visitedDepsInToplevelLoad)
-      throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
-    SkylarkImportLookupKey key = (SkylarkImportLookupKey) skyKey.argument();
+      Map<StarlarkImportLookupValue.Key, CachedStarlarkImportLookupValueAndDeps>
+          visitedDepsInToplevelLoad)
+      throws InconsistentFilesystemException, StarlarkImportFailedException, InterruptedException {
+    StarlarkImportLookupValue.Key key = (StarlarkImportLookupValue.Key) skyKey.argument();
     Label importLabel = key.importLabel;
 
-    // If we've visited a SkylarkImportLookupValue through some other load path for a given package,
-    // we must use the existing value to preserve reference equality between Starlark values that
-    // ought to be the same. See b/138598337 for details.
-    CachedSkylarkImportLookupValueAndDeps cachedSkylarkImportLookupValueAndDeps =
+    // If we've visited a StarlarkImportLookupValue through some other load path for a given
+    // package, we must use the existing value to preserve reference equality between Starlark
+    //  values that ought to be the same. See b/138598337 for details.
+    CachedStarlarkImportLookupValueAndDeps cachedStarlarkImportLookupValueAndDeps =
         visitedDepsInToplevelLoad.get(key);
-    if (cachedSkylarkImportLookupValueAndDeps == null) {
+    if (cachedStarlarkImportLookupValueAndDeps == null) {
       // Note that we can't block other threads on the computation of this value due to a potential
       // deadlock on a cycle. Although we are repeating some work, it is possible we have an import
       // cycle where one thread starts at one side of the cycle and the other thread starts at the
       // other side, and they then wait forever on the results of each others computations.
-      cachedSkylarkImportLookupValueAndDeps = skylarkImportLookupValueCache.getIfPresent(skyKey);
-      if (cachedSkylarkImportLookupValueAndDeps != null) {
-        cachedSkylarkImportLookupValueAndDeps.traverse(
+      cachedStarlarkImportLookupValueAndDeps = starlarkImportLookupValueCache.getIfPresent(skyKey);
+      if (cachedStarlarkImportLookupValueAndDeps != null) {
+        cachedStarlarkImportLookupValueAndDeps.traverse(
             env::registerDependencies, visitedDepsInToplevelLoad);
       }
     }
-    if (cachedSkylarkImportLookupValueAndDeps != null) {
-      return cachedSkylarkImportLookupValueAndDeps;
+    if (cachedStarlarkImportLookupValueAndDeps != null) {
+      return cachedStarlarkImportLookupValueAndDeps;
     }
 
     if (!visitedNested.add(importLabel)) {
       ImmutableList<Label> cycle =
           CycleUtils.splitIntoPathAndChain(Predicates.equalTo(importLabel), visitedNested).second;
-      throw new SkylarkImportFailedException("Starlark import cycle: " + cycle);
+      throw new StarlarkImportFailedException("Starlark import cycle: " + cycle);
     }
 
-    CachedSkylarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder =
-        cachedSkylarkImportLookupValueAndDepsBuilderFactory
-            .newCachedSkylarkImportLookupValueAndDepsBuilder();
+    CachedStarlarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder =
+        cachedStarlarkImportLookupValueAndDepsBuilderFactory
+            .newCachedStarlarkImportLookupValueAndDepsBuilder();
     Preconditions.checkState(
         !(env instanceof RecordingSkyFunctionEnvironment),
         "Found nested RecordingSkyFunctionEnvironment but it should have been stripped: %s",
@@ -196,7 +198,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
             inlineCachedValueBuilder::addDep,
             inlineCachedValueBuilder::addDeps,
             inlineCachedValueBuilder::noteException);
-    SkylarkImportLookupValue value =
+    StarlarkImportLookupValue value =
         computeInternal(
             importLabel,
             key.inWorkspace,
@@ -212,26 +214,26 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     if (value != null) {
       inlineCachedValueBuilder.setValue(value);
       inlineCachedValueBuilder.setKey(key);
-      cachedSkylarkImportLookupValueAndDeps = inlineCachedValueBuilder.build();
-      visitedDepsInToplevelLoad.put(key, cachedSkylarkImportLookupValueAndDeps);
-      skylarkImportLookupValueCache.put(skyKey, cachedSkylarkImportLookupValueAndDeps);
+      cachedStarlarkImportLookupValueAndDeps = inlineCachedValueBuilder.build();
+      visitedDepsInToplevelLoad.put(key, cachedStarlarkImportLookupValueAndDeps);
+      starlarkImportLookupValueCache.put(skyKey, cachedStarlarkImportLookupValueAndDeps);
     }
-    return cachedSkylarkImportLookupValueAndDeps;
+    return cachedStarlarkImportLookupValueAndDeps;
   }
 
   public void resetCache() {
-    if (skylarkImportLookupValueCache != null) {
+    if (starlarkImportLookupValueCache != null) {
       logger.info(
           "Starlark inlining cache stats from earlier build: "
-              + skylarkImportLookupValueCache.stats());
+              + starlarkImportLookupValueCache.stats());
     }
-    cachedSkylarkImportLookupValueAndDepsBuilderFactory =
-        new CachedSkylarkImportLookupValueAndDepsBuilderFactory();
+    cachedStarlarkImportLookupValueAndDepsBuilderFactory =
+        new CachedStarlarkImportLookupValueAndDepsBuilderFactory();
     Preconditions.checkState(
         starlarkImportLookupValueCacheSize >= 0,
-        "Expected positive skylark cache size if caching. %s",
+        "Expected positive Starlark cache size if caching. %s",
         starlarkImportLookupValueCacheSize);
-    skylarkImportLookupValueCache =
+    starlarkImportLookupValueCache =
         CacheBuilder.newBuilder()
             .concurrencyLevel(BlazeInterners.concurrencyLevel())
             .maximumSize(starlarkImportLookupValueCacheSize)
@@ -241,7 +243,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
   private static ContainingPackageLookupValue getContainingPackageLookupValue(
       Environment env, Label fileLabel)
-      throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
+      throws InconsistentFilesystemException, StarlarkImportFailedException, InterruptedException {
     PathFragment dir = Label.getContainingDirectory(fileLabel);
     PackageIdentifier dirId =
         PackageIdentifier.create(fileLabel.getPackageIdentifier().getRepository(), dir);
@@ -254,7 +256,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
                   BuildFileNotFoundException.class,
                   InconsistentFilesystemException.class);
     } catch (BuildFileNotFoundException e) {
-      throw SkylarkImportFailedException.errorReadingFile(
+      throw StarlarkImportFailedException.errorReadingFile(
           fileLabel.toPathFragment(), new ErrorReadingSkylarkExtensionException(e));
     }
     if (containingPackageLookupValue == null) {
@@ -262,13 +264,13 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     }
     // Ensure the label doesn't cross package boundaries.
     if (!containingPackageLookupValue.hasContainingPackage()) {
-      throw SkylarkImportFailedException.noBuildFile(
+      throw StarlarkImportFailedException.noBuildFile(
           fileLabel, containingPackageLookupValue.getReasonForNoContainingPackage());
     }
     if (!containingPackageLookupValue
         .getContainingPackageName()
         .equals(fileLabel.getPackageIdentifier())) {
-      throw SkylarkImportFailedException.labelCrossesPackageBoundary(
+      throw StarlarkImportFailedException.labelCrossesPackageBoundary(
           fileLabel, containingPackageLookupValue);
     }
     return containingPackageLookupValue;
@@ -278,18 +280,18 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   // exception. We are allowed to wrap the thrown exception and rethrow it for any calling functions
   // to handle though.
   @Nullable
-  private SkylarkImportLookupValue computeInternal(
+  private StarlarkImportLookupValue computeInternal(
       Label fileLabel,
       boolean inWorkspace,
       int workspaceChunk,
       RootedPath workspacePath,
       Environment env,
       @Nullable Set<Label> visitedNested,
-      @Nullable CachedSkylarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder,
+      @Nullable CachedStarlarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder,
       @Nullable
-          Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps>
+          Map<StarlarkImportLookupValue.Key, CachedStarlarkImportLookupValueAndDeps>
               visitedDepsInToplevelLoad)
-      throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
+      throws InconsistentFilesystemException, StarlarkImportFailedException, InterruptedException {
     PathFragment filePath = fileLabel.toPathFragment();
 
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
@@ -308,18 +310,18 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
           ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
     } catch (ErrorReadingSkylarkExtensionException e) {
-      throw SkylarkImportFailedException.errorReadingFile(filePath, e);
+      throw StarlarkImportFailedException.errorReadingFile(filePath, e);
     }
     if (astLookupValue == null) {
       return null;
     }
     if (!astLookupValue.lookupSuccessful()) {
-      // Skylark import files have to exist.
-      throw new SkylarkImportFailedException(astLookupValue.getErrorMsg());
+      // Starlark import files have to exist.
+      throw new StarlarkImportFailedException(astLookupValue.getErrorMsg());
     }
     StarlarkFile file = astLookupValue.getAST();
     if (!file.ok()) {
-      throw SkylarkImportFailedException.skylarkErrors(filePath);
+      throw StarlarkImportFailedException.skylarkErrors(filePath);
     }
 
     // Process the load statements in the file,
@@ -333,7 +335,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         getLoadMap(env.getListener(), file, fileLabel.getPackageIdentifier(), repoMapping);
     if (loadMap == null) {
       // malformed load statements
-      throw SkylarkImportFailedException.skylarkErrors(filePath);
+      throw StarlarkImportFailedException.skylarkErrors(filePath);
     }
 
     // Look up and load the imports.
@@ -341,23 +343,23 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     for (Label importLabel : loadMap.values()) {
       if (inWorkspace) {
         importLookupKeys.add(
-            SkylarkImportLookupValue.keyInWorkspace(importLabel, workspaceChunk, workspacePath));
+            StarlarkImportLookupValue.keyInWorkspace(importLabel, workspaceChunk, workspacePath));
       } else {
-        importLookupKeys.add(SkylarkImportLookupValue.key(importLabel));
+        importLookupKeys.add(StarlarkImportLookupValue.key(importLabel));
       }
     }
-    Map<SkyKey, SkyValue> skylarkImportMap =
+    Map<SkyKey, SkyValue> starlarkImportMap =
         (visitedNested == null)
-            ? computeSkylarkImportMapNoInlining(env, importLookupKeys, file.getStartLocation())
-            : computeSkylarkImportMapWithInlining(
+            ? computeStarlarkImportMapNoInlining(env, importLookupKeys, file.getStartLocation())
+            : computeStarlarkImportMapWithInlining(
                 env,
                 importLookupKeys,
                 fileLabel,
                 visitedNested,
                 inlineCachedValueBuilder,
                 visitedDepsInToplevelLoad);
-    // skylarkImportMap is null when skyframe deps are unavailable.
-    if (skylarkImportMap == null) {
+    // starlarkImportMap is null when skyframe deps are unavailable.
+    if (starlarkImportMap == null) {
       return null;
     }
 
@@ -371,18 +373,18 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       SkyKey keyForLabel;
       if (inWorkspace) {
         keyForLabel =
-            SkylarkImportLookupValue.keyInWorkspace(importLabel, workspaceChunk, workspacePath);
+            StarlarkImportLookupValue.keyInWorkspace(importLabel, workspaceChunk, workspacePath);
       } else {
-        keyForLabel = SkylarkImportLookupValue.key(importLabel);
+        keyForLabel = StarlarkImportLookupValue.key(importLabel);
       }
-      SkylarkImportLookupValue importLookupValue =
-          (SkylarkImportLookupValue) skylarkImportMap.get(keyForLabel);
+      StarlarkImportLookupValue importLookupValue =
+          (StarlarkImportLookupValue) starlarkImportMap.get(keyForLabel);
       extensionsForImports.put(importString, importLookupValue.getEnvironmentExtension());
       fileDependencies.add(importLookupValue.getDependency());
     }
 
     // #createExtension does not request values from the Environment. It may post events to the
-    // Environment, but events do not matter when caching SkylarkImportLookupValues.
+    // Environment, but events do not matter when caching StarlarkImportLookupValues.
     Extension extension =
         createExtension(
             file,
@@ -392,8 +394,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
             env,
             inWorkspace,
             repoMapping);
-    SkylarkImportLookupValue result =
-        new SkylarkImportLookupValue(
+    StarlarkImportLookupValue result =
+        new StarlarkImportLookupValue(
             extension, new SkylarkFileDependency(fileLabel, fileDependencies.build()));
     return result;
   }
@@ -490,63 +492,64 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   }
 
   /**
-   * Compute the SkylarkImportLookupValue for all given SkyKeys using vanilla skyframe evaluation,
+   * Compute the StarlarkImportLookupValue for all given SkyKeys using vanilla skyframe evaluation,
    * returning {@code null} if skyframe deps were missing and have been requested.
    */
   @Nullable
-  private static Map<SkyKey, SkyValue> computeSkylarkImportMapNoInlining(
+  private static Map<SkyKey, SkyValue> computeStarlarkImportMapNoInlining(
       Environment env, List<SkyKey> importLookupKeys, Location locationForErrors)
-      throws SkylarkImportFailedException, InterruptedException {
-    Map<SkyKey, SkyValue> skylarkImportMap =
+      throws StarlarkImportFailedException, InterruptedException {
+    Map<SkyKey, SkyValue> starlarkImportMap =
         Maps.newHashMapWithExpectedSize(importLookupKeys.size());
-    Map<SkyKey, ValueOrException<SkylarkImportFailedException>> values =
-        env.getValuesOrThrow(importLookupKeys, SkylarkImportFailedException.class);
+    Map<SkyKey, ValueOrException<StarlarkImportFailedException>> values =
+        env.getValuesOrThrow(importLookupKeys, StarlarkImportFailedException.class);
     // NOTE: Iterating over imports in the order listed in the file.
     for (SkyKey key : importLookupKeys) {
       try {
-        skylarkImportMap.put(key, values.get(key).get());
-      } catch (SkylarkImportFailedException exn) {
-        throw new SkylarkImportFailedException(
+        starlarkImportMap.put(key, values.get(key).get());
+      } catch (StarlarkImportFailedException exn) {
+        throw new StarlarkImportFailedException(
             "in " + locationForErrors.file() + ": " + exn.getMessage());
       }
     }
-    return env.valuesMissing() ? null : skylarkImportMap;
+    return env.valuesMissing() ? null : starlarkImportMap;
   }
 
   /**
-   * Compute the SkylarkImportLookupValue for all given SkyKeys by reusing this instance of the
-   * SkylarkImportLookupFunction, bypassing traditional skyframe evaluation, returning {@code null}
+   * Compute the StarlarkImportLookupValue for all given SkyKeys by reusing this instance of the
+   * StarlarkImportLookupFunction, bypassing traditional skyframe evaluation, returning {@code null}
    * if skyframe deps were missing and have been requested.
    */
   @Nullable
-  private Map<SkyKey, SkyValue> computeSkylarkImportMapWithInlining(
+  private Map<SkyKey, SkyValue> computeStarlarkImportMapWithInlining(
       Environment env,
       List<SkyKey> importLookupKeys,
       Label fileLabel,
       Set<Label> visitedNested,
-      CachedSkylarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder,
-      Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps> visitedDepsInToplevelLoad)
-      throws InterruptedException, SkylarkImportFailedException, InconsistentFilesystemException {
+      CachedStarlarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder,
+      Map<StarlarkImportLookupValue.Key, CachedStarlarkImportLookupValueAndDeps>
+          visitedDepsInToplevelLoad)
+      throws InterruptedException, StarlarkImportFailedException, InconsistentFilesystemException {
     Preconditions.checkNotNull(
         inlineCachedValueBuilder,
         "Expected inline cached value builder to be not-null when inlining.");
     Preconditions.checkState(
         env instanceof RecordingSkyFunctionEnvironment,
-        "Expected to be recording dep requests when inlining SkylarkImportLookupFunction: %s",
+        "Expected to be recording dep requests when inlining StarlarkImportLookupFunction: %s",
         fileLabel);
     Environment strippedEnv = ((RecordingSkyFunctionEnvironment) env).getDelegate();
-    Map<SkyKey, SkyValue> skylarkImportMap =
+    Map<SkyKey, SkyValue> starlarkImportMap =
         Maps.newHashMapWithExpectedSize(importLookupKeys.size());
     Exception deferredException = null;
     boolean valuesMissing = false;
     // NOTE: Iterating over imports in the order listed in the file.
     for (SkyKey importLookupKey : importLookupKeys) {
-      CachedSkylarkImportLookupValueAndDeps cachedValue;
+      CachedStarlarkImportLookupValueAndDeps cachedValue;
       try {
         cachedValue =
             computeWithInlineCallsInternal(
                 importLookupKey, strippedEnv, visitedNested, visitedDepsInToplevelLoad);
-      } catch (SkylarkImportFailedException | InconsistentFilesystemException e) {
+      } catch (StarlarkImportFailedException | InconsistentFilesystemException e) {
         // For determinism's sake while inlining, preserve the first exception and continue to run
         // subsequently listed imports to completion/exception, loading all transitive deps anyway.
         deferredException = MoreObjects.firstNonNull(deferredException, e);
@@ -561,17 +564,17 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         valuesMissing = true;
       } else {
         SkyValue skyValue = cachedValue.getValue();
-        skylarkImportMap.put(importLookupKey, skyValue);
+        starlarkImportMap.put(importLookupKey, skyValue);
         inlineCachedValueBuilder.addTransitiveDeps(cachedValue);
       }
     }
     if (deferredException != null) {
-      Throwables.throwIfInstanceOf(deferredException, SkylarkImportFailedException.class);
+      Throwables.throwIfInstanceOf(deferredException, StarlarkImportFailedException.class);
       Throwables.throwIfInstanceOf(deferredException, InconsistentFilesystemException.class);
       throw new IllegalStateException(
           "caught a checked exception of unexpected type", deferredException);
     }
-    return valuesMissing ? null : skylarkImportMap;
+    return valuesMissing ? null : starlarkImportMap;
   }
 
   /** Creates the Extension to be imported. */
@@ -583,7 +586,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       Environment env,
       boolean inWorkspace,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
-      throws SkylarkImportFailedException, InterruptedException {
+      throws StarlarkImportFailedException, InterruptedException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     // Any change to an input file may affect program behavior,
     // even if only by changing line numbers in error messages.
@@ -606,7 +609,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         env.getListener().post(post);
       }
       if (eventHandler.hasErrors()) {
-        throw SkylarkImportFailedException.errors(extensionFile);
+        throw StarlarkImportFailedException.errors(extensionFile);
       }
       return new Extension(thread);
     }
@@ -646,45 +649,45 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     return null;
   }
 
-  static final class SkylarkImportFailedException extends Exception {
-    private SkylarkImportFailedException(String errorMessage) {
+  static final class StarlarkImportFailedException extends Exception
+      implements SaneAnalysisException {
+    private StarlarkImportFailedException(String errorMessage) {
       super(errorMessage);
     }
 
-    private SkylarkImportFailedException(String errorMessage, Exception cause) {
+    private StarlarkImportFailedException(String errorMessage, Exception cause) {
       super(errorMessage, cause);
     }
 
-    static SkylarkImportFailedException errors(PathFragment file) {
-      return new SkylarkImportFailedException(
+    static StarlarkImportFailedException errors(PathFragment file) {
+      return new StarlarkImportFailedException(
           String.format("Extension file '%s' has errors", file));
     }
 
-    static SkylarkImportFailedException errorReadingFile(
+    static StarlarkImportFailedException errorReadingFile(
         PathFragment file, ErrorReadingSkylarkExtensionException cause) {
-      return new SkylarkImportFailedException(
+      return new StarlarkImportFailedException(
           String.format(
-              "Encountered error while reading extension file '%s': %s",
-              file,
-              cause.getMessage()),
+              "Encountered error while reading extension file '%s': %s", file, cause.getMessage()),
           cause);
     }
 
-    static SkylarkImportFailedException noBuildFile(Label file, @Nullable String reason) {
+    static StarlarkImportFailedException noBuildFile(Label file, @Nullable String reason) {
       if (reason != null) {
-        return new SkylarkImportFailedException(
+        return new StarlarkImportFailedException(
             String.format("Unable to find package for %s: %s.", file, reason));
       }
-      return new SkylarkImportFailedException(
-          String.format("Every .bzl file must have a corresponding package, but '%s' "
-              + "does not have one. Please create a BUILD file in the same or any parent directory."
-              + " Note that this BUILD file does not need to do anything except exist.", file));
+      return new StarlarkImportFailedException(
+          String.format(
+              "Every .bzl file must have a corresponding package, but '%s' does not have one."
+                  + " Please create a BUILD file in the same or any parent directory. Note that"
+                  + " this BUILD file does not need to do anything except exist.",
+              file));
     }
 
-    static SkylarkImportFailedException labelCrossesPackageBoundary(
-        Label fileLabel,
-        ContainingPackageLookupValue containingPackageLookupValue) {
-      return new SkylarkImportFailedException(
+    static StarlarkImportFailedException labelCrossesPackageBoundary(
+        Label fileLabel, ContainingPackageLookupValue containingPackageLookupValue) {
+      return new StarlarkImportFailedException(
           ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
               // We don't actually know the proper Root to pass in here (since we don't e.g. know
               // the root of the bzl/BUILD file that is trying to load 'fileLabel'). Therefore we
@@ -695,17 +698,17 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               containingPackageLookupValue));
     }
 
-    static SkylarkImportFailedException skylarkErrors(PathFragment file) {
-      return new SkylarkImportFailedException(String.format("Extension '%s' has errors", file));
+    static StarlarkImportFailedException skylarkErrors(PathFragment file) {
+      return new StarlarkImportFailedException(String.format("Extension '%s' has errors", file));
     }
   }
 
-  private static final class SkylarkImportLookupFunctionException extends SkyFunctionException {
-    private SkylarkImportLookupFunctionException(SkylarkImportFailedException cause) {
+  private static final class StarlarkImportLookupFunctionException extends SkyFunctionException {
+    private StarlarkImportLookupFunctionException(StarlarkImportFailedException cause) {
       super(cause, Transience.PERSISTENT);
     }
 
-    private SkylarkImportLookupFunctionException(InconsistentFilesystemException e,
+    private StarlarkImportLookupFunctionException(InconsistentFilesystemException e,
         Transience transience) {
       super(e, transience);
     }

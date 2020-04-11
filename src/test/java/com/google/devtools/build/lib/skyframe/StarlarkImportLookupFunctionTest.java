@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.StarlarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,9 +44,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for SkylarkImportLookupFunction. */
+/** Tests for StarlarkImportLookupFunction. */
 @RunWith(JUnit4.class)
-public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
+public class StarlarkImportLookupFunctionTest extends BuildViewTestCase {
 
   @Before
   public final void preparePackageLoading() throws Exception {
@@ -70,7 +70,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkImportLabels() throws Exception {
+  public void testStarlarkImportLabels() throws Exception {
     scratch.file("pkg1/BUILD");
     scratch.file("pkg1/ext.bzl");
     checkSuccessfulLookup("//pkg1:ext.bzl");
@@ -85,14 +85,14 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkImportLabelsAlternativeRoot() throws Exception {
+  public void testStarlarkImportLabelsAlternativeRoot() throws Exception {
     scratch.file("/root_2/pkg4/BUILD");
     scratch.file("/root_2/pkg4/ext.bzl");
     checkSuccessfulLookup("//pkg4:ext.bzl");
   }
 
   @Test
-  public void testSkylarkImportLabelsMultipleBuildFiles() throws Exception {
+  public void testStarlarkImportLabelsMultipleBuildFiles() throws Exception {
     scratch.file("dir1/BUILD");
     scratch.file("dir1/dir2/BUILD");
     scratch.file("dir1/dir2/ext.bzl");
@@ -100,7 +100,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadFromSkylarkFileInRemoteRepo() throws Exception {
+  public void testLoadFromStarlarkFileInRemoteRepo() throws Exception {
     scratch.overwriteFile(
         "WORKSPACE",
         "local_repository(",
@@ -156,39 +156,39 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     checkSuccessfulLookup("//pkg:subdir/ext2.bzl");
   }
 
-  private EvaluationResult<SkylarkImportLookupValue> get(SkyKey skylarkImportLookupKey)
+  private EvaluationResult<StarlarkImportLookupValue> get(SkyKey starlarkImportLookupKey)
       throws Exception {
-    EvaluationResult<SkylarkImportLookupValue> result =
+    EvaluationResult<StarlarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), starlarkImportLookupKey, /*keepGoing=*/ false, reporter);
     if (result.hasError()) {
-      fail(result.getError(skylarkImportLookupKey).getException().getMessage());
+      fail(result.getError(starlarkImportLookupKey).getException().getMessage());
     }
     return result;
   }
 
-  private SkyKey key(String label) {
-    return SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked(label));
+  private static SkyKey key(String label) {
+    return StarlarkImportLookupValue.key(Label.parseAbsoluteUnchecked(label));
   }
 
-  // Ensures that a Skylark file has been successfully processed by checking that the
+  // Ensures that a Starlark file has been successfully processed by checking that the
   // the label in its dependency set corresponds to the requested label.
   private void checkSuccessfulLookup(String label) throws Exception {
-    SkyKey skylarkImportLookupKey = key(label);
-    EvaluationResult<SkylarkImportLookupValue> result = get(skylarkImportLookupKey);
+    SkyKey starlarkImportLookupKey = key(label);
+    EvaluationResult<StarlarkImportLookupValue> result = get(starlarkImportLookupKey);
     assertThat(label)
-        .isEqualTo(result.get(skylarkImportLookupKey).getDependency().getLabel().toString());
+        .isEqualTo(result.get(starlarkImportLookupKey).getDependency().getLabel().toString());
   }
 
   @Test
-  public void testSkylarkImportLookupNoBuildFile() throws Exception {
+  public void testStarlarkImportLookupNoBuildFile() throws Exception {
     scratch.file("pkg/ext.bzl", "");
-    SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
-    EvaluationResult<SkylarkImportLookupValue> result =
+    SkyKey starlarkImportLookupKey = key("//pkg:ext.bzl");
+    EvaluationResult<StarlarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), starlarkImportLookupKey, /*keepGoing=*/ false, reporter);
     assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
+    ErrorInfo errorInfo = result.getError(starlarkImportLookupKey);
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage)
         .contains(
@@ -196,31 +196,32 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkImportLookupNoBuildFileForLoad() throws Exception {
+  public void testStarlarkImportLookupNoBuildFileForLoad() throws Exception {
     scratch.file("pkg2/BUILD");
     scratch.file("pkg1/ext.bzl", "a = 1");
     scratch.file("pkg2/ext.bzl", "load('//pkg1:ext.bzl', 'a')");
-    SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
-    EvaluationResult<SkylarkImportLookupValue> result =
+    SkyKey starlarkImportLookupKey = key("//pkg:ext.bzl");
+    EvaluationResult<StarlarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), starlarkImportLookupKey, /*keepGoing=*/ false, reporter);
     assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
+    ErrorInfo errorInfo = result.getError(starlarkImportLookupKey);
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Every .bzl file must have a corresponding package");
   }
 
   @Test
-  public void testSkylarkImportFilenameWithControlChars() throws Exception {
+  public void testStarlarkImportFilenameWithControlChars() throws Exception {
     scratch.file("pkg/BUILD", "");
     scratch.file("pkg/ext.bzl", "load('//pkg:oops\u0000.bzl', 'a')");
-    SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
+    SkyKey starlarkImportLookupKey = key("//pkg:ext.bzl");
     AssertionError e =
         assertThrows(
             AssertionError.class,
             () ->
                 SkyframeExecutorTestUtils.evaluate(
-                    getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter));
+                    getSkyframeExecutor(), starlarkImportLookupKey, /*keepGoing=*/ false,
+                    reporter));
     String errorMessage = e.getMessage();
     assertThat(errorMessage)
         .contains(
@@ -245,15 +246,15 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         RootedPath.toRootedPath(
             Root.fromPath(p.getParentDirectory()), PathFragment.create("WORKSPACE"));
 
-    SkyKey skylarkImportLookupKey =
-        SkylarkImportLookupValue.keyInWorkspace(
+    SkyKey starlarkImportLookupKey =
+        StarlarkImportLookupValue.keyInWorkspace(
             Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:ext.bzl"),
             /* inWorkspace= */
             /* workspaceChunk= */ 0,
             rootedPath);
-    EvaluationResult<SkylarkImportLookupValue> result =
+    EvaluationResult<StarlarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), starlarkImportLookupKey, /*keepGoing=*/ false, reporter);
 
     assertThat(result.hasError()).isFalse();
   }
@@ -322,17 +323,17 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   // checkStrayLabel checks that execution of target fails because
   // the label of its load statement strays into a subpackage.
   private void checkStrayLabel(String target, String expectedMessage) throws InterruptedException {
-    SkyKey skylarkImportLookupKey = key(target);
-    EvaluationResult<SkylarkImportLookupValue> result =
+    SkyKey starlarkImportLookupKey = key(target);
+    EvaluationResult<StarlarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), starlarkImportLookupKey, /*keepGoing=*/ false, reporter);
     assertThat(result.hasError()).isTrue();
     assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasErrorEntryForKeyThat(starlarkImportLookupKey)
         .hasExceptionThat()
-        .isInstanceOf(SkylarkImportFailedException.class);
+        .isInstanceOf(StarlarkImportFailedException.class);
     assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasErrorEntryForKeyThat(starlarkImportLookupKey)
         .hasExceptionThat()
         .hasMessageThat()
         .contains(expectedMessage);
@@ -343,17 +344,17 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
       throws Exception {
     scratch.file("BUILD", "load(\"@repository//dir:file.bzl\", \"foo\")");
 
-    SkyKey skylarkImportLookupKey = key("@repository//dir:file.bzl");
-    EvaluationResult<com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue> result =
+    SkyKey starlarkImportLookupKey = key("@repository//dir:file.bzl");
+    EvaluationResult<StarlarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), starlarkImportLookupKey, /*keepGoing=*/ false, reporter);
     assertThat(result.hasError()).isTrue();
     assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasErrorEntryForKeyThat(starlarkImportLookupKey)
         .hasExceptionThat()
-        .isInstanceOf(SkylarkImportFailedException.class);
+        .isInstanceOf(StarlarkImportFailedException.class);
     assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasErrorEntryForKeyThat(starlarkImportLookupKey)
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
@@ -388,15 +389,15 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     Root root = Root.fromPath(p.getParentDirectory());
     RootedPath rootedPath = RootedPath.toRootedPath(root, PathFragment.create("WORKSPACE"));
 
-    SkyKey skylarkImportLookupKey =
-        SkylarkImportLookupValue.keyInWorkspace(
+    SkyKey starlarkImportLookupKey =
+        StarlarkImportLookupValue.keyInWorkspace(
             Label.parseAbsoluteUnchecked("@a//:a.bzl"), 1, rootedPath);
 
-    EvaluationResult<SkylarkImportLookupValue> result =
+    EvaluationResult<StarlarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), starlarkImportLookupKey, /*keepGoing=*/ false, reporter);
 
-    assertThat(result.get(skylarkImportLookupKey).getEnvironmentExtension().getBindings())
+    assertThat(result.get(starlarkImportLookupKey).getEnvironmentExtension().getBindings())
         .containsEntry("a_symbol", 5);
   }
 }

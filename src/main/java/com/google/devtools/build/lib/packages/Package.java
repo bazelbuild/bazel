@@ -62,6 +62,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -110,9 +111,10 @@ public class Package {
 
   /**
    * The root of the source tree in which this package was found. It is an invariant that {@code
-   * sourceRoot.getRelative(packageId.getSourceRoot()).equals(packageDirectory)}.
+   * sourceRoot.getRelative(packageId.getSourceRoot()).equals(packageDirectory)}. Returns {@link
+   * Optional#empty} if this {@link Package} is derived from a WORKSPACE file.
    */
-  private Root sourceRoot;
+  private Optional<Root> sourceRoot;
 
   /**
    * The "Make" environment of this package, containing package-local
@@ -331,12 +333,13 @@ public class Package {
   }
 
   /**
-   * Returns the source root (a directory) beneath which this package's BUILD file was found.
+   * Returns the source root (a directory) beneath which this package's BUILD file was found, or
+   * {@link Optional#empty} if this package was derived from a workspace file.
    *
-   * <p>Assumes invariant: {@code
-   * getSourceRoot().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
+   * <p>Assumes invariant: If non-empty, {@code
+   * getSourceRoot().get().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
    */
-  public Root getSourceRoot() {
+  public Optional<Root> getSourceRoot() {
     return sourceRoot;
   }
 
@@ -378,25 +381,30 @@ public class Package {
     }
     this.filename = builder.getFilename();
     this.packageDirectory = filename.asPath().getParentDirectory();
-
-    this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
     String baseName = filename.getRootRelativePath().getBaseName();
-    if ((sourceRoot.asPath() == null
-            || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
-        && !(baseName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
-            || baseName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString()))) {
-      throw new IllegalArgumentException(
-          "Invalid BUILD file name for package '"
-              + packageIdentifier
-              + "': "
-              + filename
-              + " (in source "
-              + sourceRoot
-              + " with packageDirectory "
-              + packageDirectory
-              + " and package identifier source root "
-              + packageIdentifier.getSourceRoot()
-              + ")");
+
+    if (isWorkspaceFile(baseName)) {
+      Preconditions.checkState(
+          packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
+      this.sourceRoot = Optional.empty();
+    } else {
+      Root sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
+      if (sourceRoot.asPath() == null
+          || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory)) {
+        throw new IllegalArgumentException(
+            "Invalid BUILD file name for package '"
+                + packageIdentifier
+                + "': "
+                + filename
+                + " (in source "
+                + sourceRoot
+                + " with packageDirectory "
+                + packageDirectory
+                + " and package identifier source root "
+                + packageIdentifier.getSourceRoot()
+                + ")");
+      }
+      this.sourceRoot = Optional.of(sourceRoot);
     }
 
     this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
@@ -432,6 +440,11 @@ public class Package {
     builder.externalPackageRepositoryMappings.forEach((k, v) ->
         repositoryMappingsBuilder.put(k, ImmutableMap.copyOf(v)));
     this.externalPackageRepositoryMappings = repositoryMappingsBuilder.build();
+  }
+
+  private static boolean isWorkspaceFile(String baseFileName) {
+    return baseFileName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
+        || baseFileName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString());
   }
 
   /**

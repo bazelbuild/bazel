@@ -91,11 +91,12 @@ public class StarlarkFileTest {
 
   @Test
   public void testImplicitStringConcatenationFails() throws Exception {
+    // TODO(adonovan): move to ParserTest.
     StarlarkFile file = parseFile("a = 'foo' 'bar'");
     SyntaxError error =
         LexerTest.assertContainsError(
             file.errors(), "Implicit string concatenation is forbidden, use the + operator");
-    assertThat(error.location().toString()).isEqualTo("foo.star:1:10");
+    assertThat(error.location().toString()).isEqualTo("foo.star:1:11"); // start of 'bar'
   }
 
   @Test

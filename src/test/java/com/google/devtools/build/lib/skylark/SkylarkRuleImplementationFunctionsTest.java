@@ -2521,7 +2521,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  return [MyInfo(dep_arg = args)]",
         "dep_rule = rule(implementation = _dep_impl)");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
-    assertThat(e).hasMessageThat().contains("trying to mutate a frozen object");
+    assertThat(e).hasMessageThat().contains("trying to mutate a frozen Args value");
   }
 
   @Test

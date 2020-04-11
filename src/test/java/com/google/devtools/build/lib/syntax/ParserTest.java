@@ -362,7 +362,8 @@ public final class ParserTest {
 
     assertContainsError("syntax error at 'foo'");
 
-    // Test that the actual parameters are: (1, $error$, 3):
+    // Test that the arguments are (1, '[x for foo foo foo foo]', 3),
+    // where the second, errant one is represented as an Identifier.
 
     Identifier ident = (Identifier) e.getFunction();
     assertThat(ident.getName()).isEqualTo("f");
@@ -375,9 +376,9 @@ public final class ParserTest {
 
     Argument arg1 = e.getArguments().get(1);
     Identifier arg1val = ((Identifier) arg1.getValue());
-    assertThat(arg1val.getName()).isEqualTo("$error$");
+    assertThat(arg1val.getName()).isEqualTo("[x for foo foo foo foo]");
 
-    assertLocation(5, 29, arg1val);
+    assertLocation(5, 28, arg1val);
     assertThat(src.substring(5, 28)).isEqualTo("[x for foo foo foo foo]");
     assertThat(arg1val.getEndLocation().column()).isEqualTo(29);
 
@@ -396,14 +397,6 @@ public final class ParserTest {
     parseExpressionError("f(1, ], 3)");
     parseExpressionError("f(1, ), 3)");
     parseExpressionError("[ ) for v in 3)");
-  }
-
-  @Test
-  public void testSecondaryLocation() throws SyntaxError.Exception {
-    String expr = "f(1 % 2)";
-    CallExpression call = (CallExpression) parseExpression(expr);
-    Argument arg = call.getArguments().get(0);
-    assertThat(arg.getEndLocation()).isLessThan(call.getEndLocation());
   }
 
   @Test
@@ -494,10 +487,11 @@ public final class ParserTest {
   }
 
   @Test
-  public void testEndLineAndColumnIsInclusive() // <-- this behavior is a mistake
-      throws Exception {
+  public void testEndLineAndColumnIsExclusive() throws Exception {
+    // The behavior was 'inclusive' for a couple of years (see CL 170723732),
+    // but this was a mistake. Arithmetic on half-open intervals is much simpler.
     AssignmentStatement stmt = (AssignmentStatement) parseStatement("a = b");
-    assertThat(stmt.getLHS().getEndLocation().toString()).isEqualTo(":1:1");
+    assertThat(stmt.getLHS().getEndLocation().toString()).isEqualTo(":1:2");
   }
 
   @Test
@@ -549,9 +543,11 @@ public final class ParserTest {
     String input = "for a,b in []: pass";
     ForStatement stmt = (ForStatement) parseStatement(input);
     assertThat(getText(input, stmt.getLHS())).isEqualTo("a,b");
+
     input = "for (a,b) in []: pass";
     stmt = (ForStatement) parseStatement(input);
     assertThat(getText(input, stmt.getLHS())).isEqualTo("(a,b)");
+
     assertExpressionLocationCorrect("a, b");
     assertExpressionLocationCorrect("(a, b)");
   }
@@ -1099,14 +1095,13 @@ public final class ParserTest {
 
   @Test
   public void testLoadOneSymbol() throws Exception {
-    List<Statement> statements = parseStatements("load('//foo/bar:file.bzl', 'fun_test')\n");
+    String text = "load('//foo/bar:file.bzl', 'fun_test')\n";
+    List<Statement> statements = parseStatements(text);
     LoadStatement stmt = (LoadStatement) statements.get(0);
     assertThat(stmt.getImport().getValue()).isEqualTo("//foo/bar:file.bzl");
     assertThat(stmt.getBindings()).hasSize(1);
     Identifier sym = stmt.getBindings().get(0).getLocalName();
-    int startOffset = sym.getStartOffset();
-    assertWithMessage("getStartOffset()").that(startOffset).isEqualTo(27);
-    assertWithMessage("getEndOffset()").that(sym.getEndOffset()).isEqualTo(startOffset + 10);
+    assertThat(getText(text, sym)).isEqualTo("fun_test"); // apparent location within string literal
   }
 
   @Test

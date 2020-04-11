@@ -28,23 +28,23 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
 /**
- * A value that represents a Skylark import lookup result. The lookup value corresponds to exactly
- * one Skylark file, identified by an absolute {@link Label} {@link SkyKey} argument. The Label
+ * A value that represents a Starlark import lookup result. The lookup value corresponds to exactly
+ * one Starlark file, identified by an absolute {@link Label} {@link SkyKey} argument. The Label
  * should not reference the special {@code external} package.
  */
 @AutoCodec
-public class SkylarkImportLookupValue implements SkyValue {
+public class StarlarkImportLookupValue implements SkyValue {
 
   private final Extension environmentExtension;
   /**
-   * The immediate Skylark file dependency descriptor class corresponding to this value.
-   * Using this reference it's possible to reach the transitive closure of Skylark files
-   * on which this Skylark file depends.
+   * The immediate Starlark file dependency descriptor class corresponding to this value.
+   * Using this reference it's possible to reach the transitive closure of Starlark files
+   * on which this Starlark file depends.
    */
   private final SkylarkFileDependency dependency;
 
   @VisibleForTesting
-  public SkylarkImportLookupValue(
+  public StarlarkImportLookupValue(
       Extension environmentExtension, SkylarkFileDependency dependency) {
     this.environmentExtension = Preconditions.checkNotNull(environmentExtension);
     this.dependency = Preconditions.checkNotNull(dependency);
@@ -58,22 +58,21 @@ public class SkylarkImportLookupValue implements SkyValue {
   }
 
   /**
-   * Returns the immediate Skylark file dependency corresponding to this import lookup value.
+   * Returns the immediate Starlark file dependency corresponding to this import lookup value.
    */
   public SkylarkFileDependency getDependency() {
     return dependency;
   }
 
   /**
-   * SkyKey for a Skylark import composed of the label of the Skylark extension and wether it is
+   * SkyKey for a Starlark import composed of the label of the Starlark extension and whether it is
    * loaded from the WORKSPACE file or from a BUILD file.
    */
   @Immutable
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static final class SkylarkImportLookupKey implements SkyKey {
-    private static final Interner<SkylarkImportLookupKey> interner =
-        BlazeInterners.newWeakInterner();
+  static final class Key implements SkyKey {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     public final Label importLabel;
     public final boolean inWorkspace;
@@ -82,7 +81,7 @@ public class SkylarkImportLookupValue implements SkyValue {
     // a null rooted workspace path means inWorkspace is false
     public final RootedPath workspacePath;
 
-    private SkylarkImportLookupKey(
+    private Key(
         Label importLabel, boolean inWorkspace, int workspaceChunk, RootedPath workspacePath) {
       Preconditions.checkNotNull(importLabel);
       Preconditions.checkArgument(!importLabel.getPackageIdentifier().getRepository().isDefault());
@@ -94,10 +93,9 @@ public class SkylarkImportLookupValue implements SkyValue {
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static SkylarkImportLookupKey create(
+    static Key create(
         Label importLabel, boolean inWorkspace, int workspaceChunk, RootedPath workspacePath) {
-      return interner.intern(
-          new SkylarkImportLookupKey(importLabel, inWorkspace, workspaceChunk, workspacePath));
+      return interner.intern(new Key(importLabel, inWorkspace, workspaceChunk, workspacePath));
     }
 
     @Override
@@ -119,10 +117,10 @@ public class SkylarkImportLookupValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof SkylarkImportLookupKey)) {
+      if (!(obj instanceof Key)) {
         return false;
       }
-      SkylarkImportLookupKey other = (SkylarkImportLookupKey) obj;
+      Key other = (Key) obj;
       return importLabel.equals(other.importLabel)
           && inWorkspace == other.inWorkspace
           && workspaceChunk == other.workspaceChunk
@@ -136,27 +134,25 @@ public class SkylarkImportLookupValue implements SkyValue {
   }
 
   /**
-   * Creates a SkylarkImportLookupKey.
+   * Creates a {@link StarlarkImportLookupValue.Key}.
    *
    * @param importLabel the label of the bzl file being loaded
    * @param workspaceChunk the workspace chunk that the load statement originated from. If the bzl
    *     file is loaded more than once, this is the chunk that it was first loaded from
    * @param workspacePath the path of the workspace file for the project
    */
-  static SkylarkImportLookupKey keyInWorkspace(
-      Label importLabel, int workspaceChunk, RootedPath workspacePath) {
-    return SkylarkImportLookupKey.create(
-        importLabel, /* inWorkspace= */ true, workspaceChunk, workspacePath);
+  static Key keyInWorkspace(Label importLabel, int workspaceChunk, RootedPath workspacePath) {
+    return Key.create(importLabel, /* inWorkspace= */ true, workspaceChunk, workspacePath);
   }
 
   /**
-   * Convenience method to construct a SkylarkImportLookupKey for load statements that do not
-   * originate from a workspace file.
+   * Convenience method to construct a key for load statements that do not originate from a
+   * workspace file.
    *
    * @param importLabel the label of the bzl file being loaded
    */
-  static SkylarkImportLookupKey key(Label importLabel) {
-    return SkylarkImportLookupKey.create(
+  static Key key(Label importLabel) {
+    return Key.create(
         importLabel, /* inWorkspace= */ false, /* workspaceChunk= */ -1, /* workspacePath= */ null);
   }
 
@@ -165,10 +161,10 @@ public class SkylarkImportLookupValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof SkylarkImportLookupValue)) {
+    if (!(obj instanceof StarlarkImportLookupValue)) {
       return false;
     }
-    SkylarkImportLookupValue other = (SkylarkImportLookupValue) obj;
+    StarlarkImportLookupValue other = (StarlarkImportLookupValue) obj;
     return environmentExtension.equals(other.getEnvironmentExtension())
         && dependency.equals(other.getDependency());
   }

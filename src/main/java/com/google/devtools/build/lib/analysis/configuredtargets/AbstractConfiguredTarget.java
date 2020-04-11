@@ -61,6 +61,14 @@ public abstract class AbstractConfiguredTarget
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
   private static final String DEFAULT_RUNFILES_FIELD = "default_runfiles";
 
+  /**
+   * The name of the key for the 'actions' synthesized provider.
+   *
+   * <p>If you respond to this key you are expected to return a list of actions belonging to this
+   * configured target.
+   */
+  public static final String ACTIONS_FIELD_NAME = "actions";
+
   // A set containing all field names which may be specially handled (and thus may not be
   // attributed to normal user-specified providers).
   private static final ImmutableSet<String> SPECIAL_FIELD_NAMES =
@@ -71,7 +79,7 @@ public abstract class AbstractConfiguredTarget
           DATA_RUNFILES_FIELD,
           FilesToRunProvider.SKYLARK_NAME,
           OutputGroupInfo.SKYLARK_NAME,
-          RuleConfiguredTarget.ACTIONS_FIELD_NAME);
+          ACTIONS_FIELD_NAME);
 
   public AbstractConfiguredTarget(Label label, BuildConfigurationValue.Key configurationKey) {
     this(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -134,7 +142,7 @@ public abstract class AbstractConfiguredTarget
     switch (name) {
       case LABEL_FIELD:
         return getLabel();
-      case RuleConfiguredTarget.ACTIONS_FIELD_NAME:
+      case ACTIONS_FIELD_NAME:
         // Depending on subclass, the 'actions' field will either be unsupported or of type
         // java.util.List, which needs to be converted to Sequence before being returned.
         Object result = get(name);

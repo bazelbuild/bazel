@@ -262,17 +262,15 @@ public final class EvalUtils {
     }
   }
 
-  public static void lock(Object object, Location loc) {
-    if (object instanceof Mutability.Freezable) {
-      Mutability.Freezable x = (Mutability.Freezable) object;
-      x.mutability().lock(x, loc);
+  static void addIterator(Object x) {
+    if (x instanceof Mutability.Freezable) {
+      ((Mutability.Freezable) x).updateIteratorCount(+1);
     }
   }
 
-  public static void unlock(Object object, Location loc) {
-    if (object instanceof Mutability.Freezable) {
-      Mutability.Freezable x = (Mutability.Freezable) object;
-      x.mutability().unlock(x, loc);
+  static void removeIterator(Object x) {
+    if (x instanceof Mutability.Freezable) {
+      ((Mutability.Freezable) x).updateIteratorCount(-1);
     }
   }
 
@@ -784,7 +782,7 @@ public final class EvalUtils {
             expr.getStartLocation(),
             FunctionSignature.NOARGS,
             /*defaultValues=*/ Tuple.empty(),
-            ImmutableList.<Statement>of(new ReturnStatement(expr)),
+            ImmutableList.<Statement>of(ReturnStatement.make(expr)),
             module);
 
     return Starlark.fastcall(thread, fn, NOARGS, NOARGS);
@@ -818,7 +816,7 @@ public final class EvalUtils {
       stmts =
           ImmutableList.<Statement>builder()
               .addAll(stmts.subList(0, n - 1))
-              .add(new ReturnStatement(expr))
+              .add(ReturnStatement.make(expr))
               .build();
     }
 

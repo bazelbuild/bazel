@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.syntax.LexerTest.assertContainsError;
 
 import java.util.List;
@@ -80,10 +79,9 @@ public class ValidationTest {
   @Test
   public void testLoadAfterStatement() throws Exception {
     options.requireLoadStatementsFirst(true);
-    assertInvalid(
-        "load() statements must be called before any other statement", //
-        "a = 5",
-        "load(':b.bzl', 'c')");
+    List<SyntaxError> errors = getValidationErrors("a = 5", "load(':b.bzl', 'c')");
+    assertContainsError(errors, ":2:1: load statements must appear before any other statement");
+    assertContainsError(errors, ":1:1: \tfirst non-load statement appears here");
   }
 
   @Test
@@ -301,23 +299,6 @@ public class ValidationTest {
   public void testTypeForBooleanLiterals() throws Exception {
     assertValid("len([1, 2]) == 0 and True");
     assertValid("len([1, 2]) == 0 and False");
-  }
-
-  @Test
-  public void testDollarErrorDoesNotLeak() throws Exception {
-    List<SyntaxError> errors =
-        getValidationErrors(
-            "def GenerateMapNames():", //
-            "  a = 2",
-            "  b = [3, 4]",
-            "  if a not b:",
-            "    print(a)");
-    assertContainsError(errors, "syntax error at 'b': expected 'in'");
-    // Parser uses "$error" symbol for error recovery.
-    // It should not be used in error messages.
-    for (SyntaxError event : errors) {
-      assertThat(event.message()).doesNotContain("$error$");
-    }
   }
 
   @Test

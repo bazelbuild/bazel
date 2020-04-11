@@ -638,7 +638,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * See value(TYPE) above. This method is only meant for Skylark usage.
+     * See value(TYPE) above. This method is only meant for Starlark usage.
      *
      * <p>The parameter {@code context} is relevant iff the default value is a Label string. In this
      * case, {@code context} must point to the parent Label in order to be able to convert the

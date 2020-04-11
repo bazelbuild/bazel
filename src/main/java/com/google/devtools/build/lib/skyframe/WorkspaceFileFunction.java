@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.skyframe.PackageFunction.StarlarkImportResult;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -47,18 +48,18 @@ public class WorkspaceFileFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final BlazeDirectories directories;
   private final RuleClassProvider ruleClassProvider;
-  private final SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
+  private final StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining;
   private static final PackageIdentifier rootPackage = PackageIdentifier.createInMainRepo("");
 
   public WorkspaceFileFunction(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       BlazeDirectories directories,
-      SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
+      StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining) {
     this.packageFactory = packageFactory;
     this.directories = directories;
     this.ruleClassProvider = ruleClassProvider;
-    this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
+    this.starlarkImportLookupFunctionForInlining = starlarkImportLookupFunctionForInlining;
   }
 
   @Override
@@ -124,7 +125,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
       }
       StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
-      PackageFunction.SkylarkImportResult importResult =
+      StarlarkImportResult importResult =
           PackageFunction.fetchImportsFromBuildFile(
               workspaceFile,
               rootPackage,
@@ -132,7 +133,7 @@ public class WorkspaceFileFunction implements SkyFunction {
               ast,
               key.getIndex(),
               env,
-              skylarkImportLookupFunctionForInlining);
+              starlarkImportLookupFunctionForInlining);
       if (importResult == null) {
         return null;
       }

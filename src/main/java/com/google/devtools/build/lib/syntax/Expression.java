@@ -45,6 +45,10 @@ public abstract class Expression extends Node {
     UNARY_OPERATOR,
   }
 
+  Expression(FileLocations locs) {
+    super(locs);
+  }
+
   /**
    * Kind of the expression. This is similar to using instanceof, except that it's more efficient
    * and can be used in a switch/case.

@@ -36,6 +36,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations:srcs",
         "//src/main/java/com/google/devtools/build/lib/authandtls:srcs",
@@ -244,7 +245,6 @@ java_library(
             "analysis/extra/*.java",
             "analysis/fileset/*.java",
             "analysis/skylark/*.java",
-            "analysis/stringtemplate/*.java",
             "analysis/test/*.java",
             "exec/*.java",
             "repository/*.java",
@@ -265,6 +265,7 @@ java_library(
             "analysis/TransitiveInfoProvider.java",
             "analysis/config/BuildConfigurationOptionDetails.java",
             "rules/repository/CoreWorkspaceRules.java",
+            "skyframe/SaneAnalysisException.java",
         ],
     ) + [
         "runtime/BlazeServerStartupOptions.java",
@@ -272,13 +273,16 @@ java_library(
     ],
     exports = [
         ":rule-definition-context",
+        ":sane_analysis_exception",
         ":transitive-info-provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
     ],
     deps = [
         ":bug-report",
         ":build-request-options",
         ":keep-going-option",
         ":provider-collection",
+        ":sane_analysis_exception",
         ":transitive-info-provider",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -288,6 +292,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations",
+        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/causes",
@@ -525,7 +530,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:logging",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -596,6 +600,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:command",
+        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -711,6 +716,21 @@ java_library(
     ],
 )
 
+########################################################################
+#
+# Documentation generation
+#
+
+filegroup(
+    name = "generated_docs",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia",
+        "//src/main/java/com/google/devtools/build/lib:gen_command-line-reference",
+        "//src/main/java/com/google/devtools/build/lib:gen_skylarklibrary",
+    ],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
 filegroup(
     name = "docs_embedded_in_sources",
     srcs = glob(["**/*.java"]) + [
@@ -747,10 +767,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/docgen:docgen_bin",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
     ],
-    visibility = [
-        "//site:__pkg__",
-        "//src/test/shell/bazel:__pkg__",
-    ],
+    visibility = ["//site:__pkg__"],
 )
 
 genrule(
@@ -766,15 +783,14 @@ genrule(
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
         "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
+        "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
         "help everything-as-html >> $@ 2>/dev/null && " +
         "cat $(location //site:command-line-reference-suffix.html) >> $@"
     ),
     tools = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer",
     ],
-    visibility = [
-        "//site:__pkg__",
-    ],
+    visibility = ["//site:__pkg__"],
 )
 
 genrule(
@@ -800,4 +816,10 @@ java_library(
     srcs = [
         "analysis/BuildInfo.java",
     ],
+)
+
+# TODO(b/144899336): This belongs in skyframe/BUILD once it exists.
+java_library(
+    name = "sane_analysis_exception",
+    srcs = ["skyframe/SaneAnalysisException.java"],
 )

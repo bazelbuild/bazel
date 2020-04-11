@@ -117,10 +117,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
    */
   @VisibleForTesting
   public BlazeCommandDispatcher(BlazeRuntime runtime) {
-    this(runtime, BugReporter.defaultInstance());
+    this(runtime, runtime.getBugReporter());
   }
 
-  private BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
+  @VisibleForTesting
+  public BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
     this.runtime = runtime;
     this.bugReporter = bugReporter;
     this.commandLock = new Object();
@@ -573,7 +574,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       BugReport.printBug(outErr, e, commonOptions.oomMessage);
       bugReporter.sendBugReport(e, args);
       logger.log(Level.SEVERE, "Shutting down due to exception", e);
-      result = BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
+      result = BlazeCommandResult.createShutdown(e);
       return result;
     } finally {
       if (!afterCommandCalled) {

@@ -199,7 +199,7 @@ public final class RuleContext extends TargetContext
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
   private final RuleErrorConsumer reporter;
-  @Nullable private final ResolvedToolchainContext toolchainContext;
+  @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ConstraintSemantics constraintSemantics;
   private final ImmutableSet<String> requiredConfigFragments;
 
@@ -219,7 +219,7 @@ public final class RuleContext extends TargetContext
       String ruleClassNameForLogging,
       ActionLookupValue.ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
-      @Nullable ResolvedToolchainContext toolchainContext,
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ConstraintSemantics constraintSemantics,
       ImmutableSet<String> requiredConfigFragments) {
     super(
@@ -251,7 +251,7 @@ public final class RuleContext extends TargetContext
     this.hostConfiguration = builder.hostConfiguration;
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
     reporter = builder.reporter;
-    this.toolchainContext = toolchainContext;
+    this.toolchainContexts = toolchainContexts;
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
   }
@@ -512,7 +512,6 @@ public final class RuleContext extends TargetContext
   public <T extends Fragment> boolean isLegalFragment(
       Class<T> fragment, ConfigurationTransition transition) {
     return universalFragments.contains(fragment)
-        || fragment == PlatformConfiguration.class
         || configurationFragmentPolicy.isLegalConfigurationFragment(fragment, transition);
   }
 
@@ -1225,16 +1224,28 @@ public final class RuleContext extends TargetContext
     return configurationMakeVariableContext;
   }
 
+  // TODO(b/151742236): provide access to other non-default toolchain contexts.
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {
-    return toolchainContext;
+    return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
+  }
+
+  @Nullable
+  public ToolchainCollection<ResolvedToolchainContext> getToolchainContextsForTesting() {
+    return toolchainContexts;
   }
 
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
-    if (toolchainContext == null || toolchainContext.targetPlatform() == null) {
+    if (toolchainContexts == null
+        || toolchainContexts.getDefaultToolchainContext().targetPlatform() == null) {
       return false;
     }
-    return toolchainContext.targetPlatform().constraints().hasConstraintValue(constraintValue);
+    // All toolchain contexts should have the same target platform so we access via the default.
+    return toolchainContexts
+        .getDefaultToolchainContext()
+        .targetPlatform()
+        .constraints()
+        .hasConstraintValue(constraintValue);
   }
 
   public ConstraintSemantics getConstraintSemantics() {
@@ -1616,7 +1627,7 @@ public final class RuleContext extends TargetContext
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
-    private ResolvedToolchainContext toolchainContext;
+    private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ConstraintSemantics constraintSemantics;
     private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
 
@@ -1669,7 +1680,7 @@ public final class RuleContext extends TargetContext
           getRuleClassNameForLogging(),
           actionOwnerSymbol,
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
-          toolchainContext,
+          toolchainContexts,
           constraintSemantics,
           requiredConfigFragments);
     }
@@ -1729,7 +1740,24 @@ public final class RuleContext extends TargetContext
 
     /** Sets the {@link ResolvedToolchainContext} used to access toolchains used by this rule. */
     public Builder setToolchainContext(ResolvedToolchainContext toolchainContext) {
-      this.toolchainContext = toolchainContext;
+      Preconditions.checkState(
+          this.toolchainContexts == null,
+          "toolchainContexts has already been set for this Builder");
+      this.toolchainContexts =
+          new ToolchainCollection.Builder<ResolvedToolchainContext>()
+              .addDefaultContext(toolchainContext)
+              .build();
+      return this;
+    }
+
+    /** Sets the collection of {@link ResolvedToolchainContext}s available to this rule. */
+    @VisibleForTesting
+    public Builder setToolchainContexts(
+        ToolchainCollection<ResolvedToolchainContext> toolchainContexts) {
+      Preconditions.checkState(
+          this.toolchainContexts == null,
+          "toolchainContexts has already been set for this Builder");
+      this.toolchainContexts = toolchainContexts;
       return this;
     }
 

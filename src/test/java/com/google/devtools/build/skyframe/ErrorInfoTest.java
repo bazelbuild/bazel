@@ -46,7 +46,8 @@ public class ErrorInfoTest {
     }
   }
 
-  private void runTestFromException(boolean isDirectlyTransient, boolean isTransitivelyTransient) {
+  private static void runTestFromException(
+      boolean isDirectlyTransient, boolean isTransitivelyTransient) {
     Exception exception = new IOException("ehhhhh");
     SkyKey causeOfException = GraphTester.toSkyKey("CAUSE, 1234");
     DummySkyFunctionException dummyException =

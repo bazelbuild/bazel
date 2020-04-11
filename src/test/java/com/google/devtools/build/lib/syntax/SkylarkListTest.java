@@ -275,17 +275,17 @@ public final class SkylarkListTest extends EvaluationTestCase {
     // report failures using unchecked exceptions.
     EvalException e =
         assertThrows(EvalException.class, () -> list.add((Object) 4, (Location) null));
-    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
+    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
     e = assertThrows(EvalException.class, () -> list.add(0, (Object) 4, (Location) null));
-    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
+    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
     e =
         assertThrows(
             EvalException.class, () -> list.addAll(ImmutableList.of(4, 5, 6), (Location) null));
-    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
+    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
     e = assertThrows(EvalException.class, () -> list.remove(0, (Location) null));
-    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
+    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
     e = assertThrows(EvalException.class, () -> list.set(0, 10, (Location) null));
-    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
+    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
   }
 
   @Test
@@ -295,7 +295,7 @@ public final class SkylarkListTest extends EvaluationTestCase {
     list.unsafeShallowFreeze();
 
     EvalException e = assertThrows(EvalException.class, () -> list.add((Object) 4, null));
-    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen object");
+    assertThat(e).hasMessageThat().isEqualTo("trying to mutate a frozen list value");
   }
 
   @Test

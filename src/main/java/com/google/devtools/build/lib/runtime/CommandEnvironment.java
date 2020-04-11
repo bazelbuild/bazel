@@ -593,7 +593,7 @@ public class CommandEnvironment {
 
   /**
    * Initializes the package cache using the given options, and syncs the package cache. Also
-   * injects the skylark semantics using the options for the {@link
+   * injects the Starlark semantics using the options for the {@link
    * com.google.devtools.build.lib.analysis.config.BuildConfiguration}.
    */
   public void setupPackageCache(OptionsProvider options)

@@ -10,6 +10,9 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+# There is no config_setting for "linux".
+# See https://github.com/bazelbuild/bazel/issues/11107
+
 config_setting(
     name = "linux_ppc",
     values = {"cpu": "ppc"},

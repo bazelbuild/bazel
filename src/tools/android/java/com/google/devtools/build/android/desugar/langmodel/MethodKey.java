@@ -79,12 +79,10 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
   }
 
   public MethodKey toAdapterMethodForArgsAndReturnTypes(boolean fromStaticOrigin) {
-    ClassName typeAdapterOwner = owner().typeAdapterOwner();
     checkState(
         !isConstructor(), "Argument type adapter for constructor is not supported: %s. ", this);
-
     return MethodKey.create(
-            typeAdapterOwner,
+            owner().typeAdapterOwner(encode()),
             name(),
             fromStaticOrigin ? descriptor() : instanceMethodToStaticDescriptor())
         .acceptTypeMapper(ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER);

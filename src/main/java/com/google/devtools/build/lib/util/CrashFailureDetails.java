@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
-import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ThrowableOrBuilder;
 import java.util.Set;
@@ -40,12 +40,21 @@ public class CrashFailureDetails {
 
   private CrashFailureDetails() {}
 
+  public static DetailedExitCode detailedExitCodeForThrowable(Throwable throwable) {
+    return DetailedExitCode.of(forThrowable(throwable));
+  }
+
   /**
    * Returns a {@link Crash}-type {@link FailureDetail} with {@link Crash.Code#CRASH_UNKNOWN}, with
    * its cause chain filled out.
    */
   public static FailureDetail forThrowable(Throwable throwable) {
-    Crash.Builder crashBuilder = Crash.newBuilder().setCode(Code.CRASH_UNKNOWN);
+    Crash.Builder crashBuilder =
+        Crash.newBuilder()
+            .setCode(
+                (getRootCauseToleratingCycles(throwable) instanceof OutOfMemoryError)
+                    ? Crash.Code.CRASH_OOM
+                    : Crash.Code.CRASH_UNKNOWN);
     addCause(crashBuilder, throwable, Sets.newIdentityHashSet());
     return FailureDetail.newBuilder()
         .setMessage("Crashed: " + joinCauseMessages(crashBuilder))
@@ -88,5 +97,38 @@ public class CrashFailureDetails {
       throwableBuilder.addStackTrace(stackTraceElement.toString());
     }
     return throwableBuilder.build();
+  }
+
+  /**
+   * Returns the innermost cause of {@code throwable}. The first throwable in a chain provides
+   * context from when the error or exception was initially detected. Example usage:
+   *
+   * <pre>
+   * assertEquals("Unable to assign a customer id", Throwables.getRootCause(e).getMessage());
+   * </pre>
+   *
+   * Cloned from {@link Throwables#getRootCause} with a modification to return an arbitrary element
+   * of the cycle rather than throw if there is a causal cycle.
+   */
+  private static Throwable getRootCauseToleratingCycles(Throwable throwable) {
+    // Keep a second pointer that slowly walks the causal chain. If the fast pointer ever catches
+    // the slower pointer, then there's a loop.
+    Throwable slowPointer = throwable;
+    boolean advanceSlowPointer = false;
+
+    Throwable cause;
+    while ((cause = throwable.getCause()) != null) {
+      throwable = cause;
+
+      if (throwable == slowPointer) {
+        // There's a cycle: choose an arbitrary element in that cycle.
+        return throwable;
+      }
+      if (advanceSlowPointer) {
+        slowPointer = slowPointer.getCause();
+      }
+      advanceSlowPointer = !advanceSlowPointer; // only advance every other iteration
+    }
+    return throwable;
   }
 }

@@ -41,6 +41,7 @@ java_library(
         "DotExpression.java",
         "Expression.java",
         "ExpressionStatement.java",
+        "FileLocations.java",
         "FileOptions.java",
         "FlowStatement.java",
         "ForStatement.java",
@@ -50,7 +51,6 @@ java_library(
         "IndexExpression.java",
         "IntegerLiteral.java",
         "Lexer.java",
-        "LineNumberTable.java",
         "ListExpression.java",
         "LoadStatement.java",
         "Location.java",
@@ -66,7 +66,6 @@ java_library(
         "Statement.java",
         "StringLiteral.java",
         "SyntaxError.java",
-        "Token.java",
         "TokenKind.java",
         "UnaryOperatorExpression.java",
         "ValidationEnvironment.java",
@@ -152,34 +151,14 @@ cc_binary(
     name = "libcpu_profiler.so",
     srcs = select({
         "//src/conditions:darwin": ["cpu_profiler_posix.cc"],
+        # There is no config_setting for Linux.
+        # See https://github.com/bazelbuild/bazel/issues/11107
+        "//src/conditions:linux_aarch64": ["cpu_profiler_posix.cc"],
+        "//src/conditions:linux_ppc": ["cpu_profiler_posix.cc"],
+        "//src/conditions:linux_s390x": ["cpu_profiler_posix.cc"],
         "//src/conditions:linux_x86_64": ["cpu_profiler_posix.cc"],
         "//conditions:default": ["cpu_profiler_unimpl.cc"],
     }),
     linkshared = 1,
-    deps = [":jni"],  # TODO(adonovan): use @bazel_tools//tools/jdk:jni when released
-)
-
-# This has been copied to @bazel_tools//tools/jdk:jni and will appear in the next release.
-cc_library(
-    name = "jni",
-    hdrs = ["@bazel_tools//tools/jdk:jni_header"] + select({
-        "//src/conditions:linux_x86_64": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
-        "//src/conditions:linux_aarch64": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
-        "//src/conditions:linux_ppc": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
-        "//src/conditions:darwin": ["@bazel_tools//tools/jdk:jni_md_header-darwin"],
-        "//src/conditions:freebsd": ["@bazel_tools//tools/jdk:jni_md_header-freebsd"],
-        "//src/conditions:openbsd": ["@bazel_tools//tools/jdk:jni_md_header-openbsd"],
-        "//src/conditions:windows": ["@bazel_tools//tools/jdk:jni_md_header-windows"],
-        "//conditions:default": [],
-    }),
-    includes = ["../../../../../../../../../external/bazel_tools/tools/jdk/include"] + select({
-        "//src/conditions:linux_x86_64": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/linux"],
-        "//src/conditions:linux_aarch64": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/linux"],
-        "//src/conditions:linux_ppc": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/linux"],
-        "//src/conditions:darwin": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/darwin"],
-        "//src/conditions:freebsd": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/freebsd"],
-        "//src/conditions:openbsd": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/openbsd"],
-        "//src/conditions:windows": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/win32"],
-        "//conditions:default": [],
-    }),
+    deps = ["@bazel_tools//tools/jdk:jni"],
 )

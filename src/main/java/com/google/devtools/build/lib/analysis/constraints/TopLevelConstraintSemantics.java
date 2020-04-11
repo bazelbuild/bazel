@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
 import java.util.Collection;
 import java.util.List;
@@ -216,10 +215,9 @@ public class TopLevelConstraintSemantics {
     }
     EnvironmentCollection expectedEnvironments = expectedEnvironmentsBuilder.build();
 
+    // Dereference any aliases that might be present.
+    topLevelTarget = topLevelTarget.getActual();
     // Now check the target against expected environments.
-    if (topLevelTarget instanceof AliasConfiguredTarget) {
-      topLevelTarget = ((AliasConfiguredTarget) topLevelTarget).getActual();
-    }
     TransitiveInfoCollection asProvider;
     if (topLevelTarget instanceof OutputFileConfiguredTarget) {
       asProvider = ((OutputFileConfiguredTarget) topLevelTarget).getGeneratingRule();

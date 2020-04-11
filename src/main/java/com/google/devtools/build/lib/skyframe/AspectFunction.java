@@ -32,9 +32,11 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
@@ -63,10 +65,8 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredTargetFunctionException;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.DependencyEvaluationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.StarlarkImportFailedException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -155,19 +155,19 @@ public final class AspectFunction implements SkyFunction {
   static SkylarkAspect loadSkylarkAspect(
       Environment env, Label extensionLabel, String skylarkValueName)
       throws AspectCreationException, InterruptedException {
-    SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel);
+    SkyKey importFileKey = StarlarkImportLookupValue.key(extensionLabel);
     try {
-      SkylarkImportLookupValue skylarkImportLookupValue =
-          (SkylarkImportLookupValue)
-              env.getValueOrThrow(importFileKey, SkylarkImportFailedException.class);
-      if (skylarkImportLookupValue == null) {
+      StarlarkImportLookupValue starlarkImportLookupValue =
+          (StarlarkImportLookupValue)
+              env.getValueOrThrow(importFileKey, StarlarkImportFailedException.class);
+      if (starlarkImportLookupValue == null) {
         Preconditions.checkState(
             env.valuesMissing(), "no Starlark import value for %s", importFileKey);
         return null;
       }
 
-      Object skylarkValue = skylarkImportLookupValue.getEnvironmentExtension().getBindings()
-          .get(skylarkValueName);
+      Object skylarkValue =
+          starlarkImportLookupValue.getEnvironmentExtension().getBindings().get(skylarkValueName);
       if (skylarkValue == null) {
         throw new ConversionException(
             String.format(
@@ -179,7 +179,7 @@ public final class AspectFunction implements SkyFunction {
                 "%s from %s is not an aspect", skylarkValueName, extensionLabel.toString()));
       }
       return (SkylarkAspect) skylarkValue;
-    } catch (SkylarkImportFailedException | ConversionException e) {
+    } catch (StarlarkImportFailedException | ConversionException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new AspectCreationException(e.getMessage(), extensionLabel);
     }
@@ -421,7 +421,11 @@ public final class AspectFunction implements SkyFunction {
                 originalTargetAndAspectConfiguration,
                 aspectPath,
                 configConditions,
-                unloadedToolchainContext,
+                unloadedToolchainContext == null
+                    ? null
+                    : new ToolchainCollection.Builder<>()
+                        .addDefaultContext(unloadedToolchainContext)
+                        .build(),
                 ruleClassProvider,
                 view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
                 transitivePackagesForPackageRootResolution,
@@ -640,6 +644,8 @@ public final class AspectFunction implements SkyFunction {
       } catch (MissingDepException e) {
         Preconditions.checkState(env.valuesMissing());
         return null;
+      } catch (ActionConflictException e) {
+        throw new AspectFunctionException(e);
       } finally {
         CurrentRuleTracker.endConfiguredAspect();
       }
@@ -681,10 +687,9 @@ public final class AspectFunction implements SkyFunction {
     return Label.print(aspectKey.getLabel());
   }
 
-  /**
-   * An exception indicating that there was a problem creating an aspect.
-   */
-  public static final class AspectCreationException extends Exception {
+  /** An exception indicating that there was a problem creating an aspect. */
+  public static final class AspectCreationException extends Exception
+      implements SaneAnalysisException {
     private static ConfigurationId toId(BuildConfiguration config) {
       return config == null ? null : config.getEventId().getConfiguration();
     }

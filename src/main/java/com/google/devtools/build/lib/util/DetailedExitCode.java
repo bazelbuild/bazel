@@ -24,6 +24,7 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.MessageOrBuilder;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** An {@link ExitCode} and an optional {@link FailureDetail}. */
@@ -98,6 +99,24 @@ public class DetailedExitCode {
    */
   public static DetailedExitCode of(FailureDetail failureDetail) {
     return new DetailedExitCode(getExitCode(failureDetail), failureDetail);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(exitCode, failureDetail);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof DetailedExitCode)) {
+      return false;
+    }
+    DetailedExitCode that = (DetailedExitCode) obj;
+    return this.exitCode.equals(that.exitCode)
+        && Objects.equals(this.failureDetail, that.failureDetail);
   }
 
   @Override

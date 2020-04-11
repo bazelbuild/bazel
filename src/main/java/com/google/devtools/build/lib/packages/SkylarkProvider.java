@@ -31,7 +31,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A provider defined in Skylark rather than in native code.
+ * A provider defined in Starlark rather than in native code.
  *
  * <p>This is a result of calling the {@code provider()} function from Skylark ({@link
  * com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions#provider}).

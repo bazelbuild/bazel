@@ -18,7 +18,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -26,17 +25,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-class CachedSkylarkImportLookupValueAndDeps {
-  private final SkylarkImportLookupKey key;
-  private final SkylarkImportLookupValue value;
+class CachedStarlarkImportLookupValueAndDeps {
+  private final StarlarkImportLookupValue.Key key;
+  private final StarlarkImportLookupValue value;
   private final ImmutableList<Iterable<SkyKey>> directDeps;
-  private final ImmutableList<CachedSkylarkImportLookupValueAndDeps> transitiveDeps;
+  private final ImmutableList<CachedStarlarkImportLookupValueAndDeps> transitiveDeps;
 
-  private CachedSkylarkImportLookupValueAndDeps(
-      SkylarkImportLookupKey key,
-      SkylarkImportLookupValue value,
+  private CachedStarlarkImportLookupValueAndDeps(
+      StarlarkImportLookupValue.Key key,
+      StarlarkImportLookupValue value,
       ImmutableList<Iterable<SkyKey>> directDeps,
-      ImmutableList<CachedSkylarkImportLookupValueAndDeps> transitiveDeps) {
+      ImmutableList<CachedStarlarkImportLookupValueAndDeps> transitiveDeps) {
     this.key = key;
     this.value = value;
     this.directDeps = directDeps;
@@ -45,12 +44,12 @@ class CachedSkylarkImportLookupValueAndDeps {
 
   void traverse(
       DepGroupConsumer depGroupConsumer,
-      Map<SkylarkImportLookupKey, CachedSkylarkImportLookupValueAndDeps> visitedDeps)
+      Map<StarlarkImportLookupValue.Key, CachedStarlarkImportLookupValueAndDeps> visitedDeps)
       throws InterruptedException {
     for (Iterable<SkyKey> directDepGroup : directDeps) {
       depGroupConsumer.accept(directDepGroup);
     }
-    for (CachedSkylarkImportLookupValueAndDeps indirectDeps : transitiveDeps) {
+    for (CachedStarlarkImportLookupValueAndDeps indirectDeps : transitiveDeps) {
       if (!visitedDeps.containsKey(indirectDeps.key)) {
         visitedDeps.put(indirectDeps.key, indirectDeps);
         indirectDeps.traverse(depGroupConsumer, visitedDeps);
@@ -58,16 +57,16 @@ class CachedSkylarkImportLookupValueAndDeps {
     }
   }
 
-  SkylarkImportLookupValue getValue() {
+  StarlarkImportLookupValue getValue() {
     return value;
   }
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof CachedSkylarkImportLookupValueAndDeps) {
+    if (obj instanceof CachedStarlarkImportLookupValueAndDeps) {
       // With the interner, force there to be exactly one cached value per key at any given point
       // in time.
-      return this.key.equals(((CachedSkylarkImportLookupValueAndDeps) obj).key);
+      return this.key.equals(((CachedStarlarkImportLookupValueAndDeps) obj).key);
     }
     return false;
   }
@@ -83,16 +82,16 @@ class CachedSkylarkImportLookupValueAndDeps {
   }
 
   static class Builder {
-    Builder(Interner<CachedSkylarkImportLookupValueAndDeps> interner) {
+    Builder(Interner<CachedStarlarkImportLookupValueAndDeps> interner) {
       this.interner = interner;
     }
 
-    private final Interner<CachedSkylarkImportLookupValueAndDeps> interner;
+    private final Interner<CachedStarlarkImportLookupValueAndDeps> interner;
     private final List<Iterable<SkyKey>> directDeps = new ArrayList<>();
-    private final List<CachedSkylarkImportLookupValueAndDeps> transitiveDeps = new ArrayList<>();
+    private final List<CachedStarlarkImportLookupValueAndDeps> transitiveDeps = new ArrayList<>();
     private final AtomicReference<Exception> exceptionSeen = new AtomicReference<>(null);
-    private SkylarkImportLookupValue value;
-    private SkylarkImportLookupKey key;
+    private StarlarkImportLookupValue value;
+    private StarlarkImportLookupValue.Key key;
 
     @CanIgnoreReturnValue
     Builder addDep(SkyKey key) {
@@ -117,36 +116,36 @@ class CachedSkylarkImportLookupValueAndDeps {
     }
 
     @CanIgnoreReturnValue
-    Builder addTransitiveDeps(CachedSkylarkImportLookupValueAndDeps transitiveDeps) {
+    Builder addTransitiveDeps(CachedStarlarkImportLookupValueAndDeps transitiveDeps) {
       this.transitiveDeps.add(transitiveDeps);
       return this;
     }
 
     @CanIgnoreReturnValue
-    Builder setValue(SkylarkImportLookupValue value) {
+    Builder setValue(StarlarkImportLookupValue value) {
       this.value = value;
       return this;
     }
 
     @CanIgnoreReturnValue
-    Builder setKey(SkylarkImportLookupKey key) {
+    Builder setKey(StarlarkImportLookupValue.Key key) {
       this.key = key;
       return this;
     }
 
-    CachedSkylarkImportLookupValueAndDeps build() {
+    CachedStarlarkImportLookupValueAndDeps build() {
       // We expect that we don't handle any exceptions in SkylarkLookupImportFunction directly.
       Preconditions.checkState(exceptionSeen.get() == null, "Caching a value in error?: %s", this);
       Preconditions.checkNotNull(value, "Expected value to be set: %s", this);
       Preconditions.checkNotNull(key, "Expected key to be set: %s", this);
       return interner.intern(
-          new CachedSkylarkImportLookupValueAndDeps(
+          new CachedStarlarkImportLookupValueAndDeps(
               key, value, ImmutableList.copyOf(directDeps), ImmutableList.copyOf(transitiveDeps)));
     }
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(CachedSkylarkImportLookupValueAndDeps.Builder.class)
+      return MoreObjects.toStringHelper(CachedStarlarkImportLookupValueAndDeps.Builder.class)
           .add("key", key)
           .add("value", value)
           .add("directDeps", directDeps)

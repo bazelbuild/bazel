@@ -115,7 +115,7 @@ public class FilesystemValueCheckerTest {
   private MockFileSystem fs;
   private Path pkgRoot;
 
-  private static final int FSVC_THREADS_FOR_TEST = 20;
+  private static final int FSVC_THREADS_FOR_TEST = 200;
 
   @Before
   public final void setUp() throws Exception  {
@@ -170,7 +170,7 @@ public class FilesystemValueCheckerTest {
                 .builder(directories)
                 .build(TestRuleClassProvider.getRuleClassProvider(), fs),
             directories,
-            /*skylarkImportLookupFunctionForInlining=*/ null));
+            /*starlarkImportLookupFunctionForInlining=*/ null));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
 
     differencer = new SequencedRecordingDifferencer();
@@ -848,7 +848,7 @@ public class FilesystemValueCheckerTest {
   // TODO(bazel-team): Add some tests for FileSystemValueChecker#changedKeys*() methods.
   // Presently these appear to be untested.
 
-  private ActionExecutionValue actionValue(Action action) {
+  private static ActionExecutionValue actionValue(Action action) {
     Map<Artifact, FileArtifactValue> artifactData = new HashMap<>();
     for (Artifact output : action.getOutputs()) {
       try {
@@ -874,7 +874,7 @@ public class FilesystemValueCheckerTest {
         /*actionDependsOnBuildId=*/ false);
   }
 
-  private ActionExecutionValue actionValueWithEmptyDirectory(Artifact emptyDir) {
+  private static ActionExecutionValue actionValueWithEmptyDirectory(Artifact emptyDir) {
     TreeArtifactValue emptyValue = TreeArtifactValue.create
         (ImmutableMap.<TreeFileArtifact, FileArtifactValue>of());
 
@@ -886,7 +886,8 @@ public class FilesystemValueCheckerTest {
         /*actionDependsOnBuildId=*/ false);
   }
 
-  private ActionExecutionValue actionValueWithTreeArtifacts(List<TreeFileArtifact> contents) {
+  private static ActionExecutionValue actionValueWithTreeArtifacts(
+      List<TreeFileArtifact> contents) {
     Map<Artifact, FileArtifactValue> fileData = new HashMap<>();
     Map<Artifact, Map<TreeFileArtifact, FileArtifactValue>> directoryData = new HashMap<>();
 
@@ -928,7 +929,7 @@ public class FilesystemValueCheckerTest {
         /*actionDependsOnBuildId=*/ false);
   }
 
-  private ActionExecutionValue actionValueWithRemoteTreeArtifact(
+  private static ActionExecutionValue actionValueWithRemoteTreeArtifact(
       SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
     ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> childFileValues =
         ImmutableMap.builder();
@@ -947,7 +948,7 @@ public class FilesystemValueCheckerTest {
         /* actionDependsOnBuildId= */ false);
   }
 
-  private ActionExecutionValue actionValueWithRemoteArtifact(
+  private static ActionExecutionValue actionValueWithRemoteArtifact(
       Artifact output, RemoteFileArtifactValue value) {
     return ActionExecutionValue.create(
         Collections.singletonMap(output, value),

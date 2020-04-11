@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bugreport;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.bugreport.BugReport.BlazeRuntimeInterface;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Throwable;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.File;
@@ -39,6 +41,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 
 /** Tests for {@link BugReport}. */
 @RunWith(JUnit4.class)
@@ -92,6 +95,12 @@ public class BugReportTest {
     assertThat(cause.getStackTrace(0))
         .contains(
             "com.google.devtools.build.lib.bugreport.BugReportTest.functionForStackFrameTest");
+    ArgumentCaptor<DetailedExitCode> exitCodeCaptor =
+        ArgumentCaptor.forClass(DetailedExitCode.class);
+    verify(mockRuntime).cleanUpForCrash(exitCodeCaptor.capture());
+    DetailedExitCode exitCode = exitCodeCaptor.getValue();
+    assertThat(exitCode.getExitCode()).isEqualTo(ExitCode.RESERVED);
+    assertThat(exitCode.getFailureDetail()).isEqualTo(failureDetail);
   }
 
   private TestException functionForStackFrameTest() {

@@ -45,7 +45,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests Skylark API for Java rules. */
+/** Tests Starlark API for Java rules. */
 @RunWith(JUnit4.class)
 public class JavaSkylarkApiTest extends BuildViewTestCase {
   private static final String HOST_JAVA_RUNTIME_LABEL =
@@ -432,7 +432,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void testJavaCommonCompileExposesAnnotationProcessingInfo() throws Exception {
-    // Set up a Skylark rule that uses java_common.compile and supports annotation processing in
+    // Set up a Starlark rule that uses java_common.compile and supports annotation processing in
     // the same way as java_library, then use a helper method to test that the custom rule produces
     // the same annotation processing information as java_library would.
     writeBuildFileForJavaToolchain();

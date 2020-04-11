@@ -24,15 +24,11 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
-import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,7 +37,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifactValue;
-import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -114,171 +109,6 @@ public final class CompletionFunction<
     TopLevelArtifactContext topLevelArtifactContext();
   }
 
-  private static class TargetCompletor
-      implements Completor<ConfiguredTargetValue, TargetCompletionValue> {
-    @Override
-    public Event getRootCauseError(ConfiguredTargetValue ctValue, Cause rootCause, Environment env)
-        throws InterruptedException {
-      ConfiguredTargetAndData configuredTargetAndData =
-          ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(
-              ctValue.getConfiguredTarget(), env);
-      return Event.error(
-          configuredTargetAndData == null
-              ? null
-              : configuredTargetAndData.getTarget().getLocation(),
-          String.format(
-              "%s: missing input file '%s'", ctValue.getConfiguredTarget().getLabel(), rootCause));
-    }
-
-    @Override
-    @Nullable
-    public MissingInputFileException getMissingFilesException(
-        ConfiguredTargetValue value, int missingCount, Environment env)
-        throws InterruptedException {
-      ConfiguredTargetAndData configuredTargetAndData =
-          ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(value.getConfiguredTarget(), env);
-      if (configuredTargetAndData == null) {
-        return null;
-      }
-      return new MissingInputFileException(
-          configuredTargetAndData.getTarget().getLocation()
-              + " "
-              + missingCount
-              + " input file(s) do not exist",
-          configuredTargetAndData.getTarget().getLocation());
-    }
-
-    @Override
-    public TargetCompletionValue getResult() {
-      return TargetCompletionValue.INSTANCE;
-    }
-
-    @Override
-    @Nullable
-    public ExtendedEventHandler.Postable createFailed(
-        ConfiguredTargetValue value,
-        NestedSet<Cause> rootCauses,
-        NestedSet<ArtifactsInOutputGroup> outputs,
-        Environment env,
-        TopLevelArtifactContext topLevelArtifactContext)
-        throws InterruptedException {
-      ConfiguredTarget target = value.getConfiguredTarget();
-      ConfiguredTargetAndData configuredTargetAndData =
-          ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(target, env);
-      if (configuredTargetAndData == null) {
-        return null;
-      }
-      return TargetCompleteEvent.createFailed(configuredTargetAndData, rootCauses, outputs);
-    }
-
-    @Override
-    @Nullable
-    public ExtendedEventHandler.Postable createSucceeded(
-        SkyKey skyKey,
-        ConfiguredTargetValue value,
-        CompletionContext completionContext,
-        ArtifactsToBuild artifactsToBuild,
-        Environment env)
-        throws InterruptedException {
-      ConfiguredTarget target = value.getConfiguredTarget();
-      ConfiguredTargetAndData configuredTargetAndData =
-          ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(target, env);
-      if (configuredTargetAndData == null) {
-        return null;
-      }
-      if (((TargetCompletionKey) skyKey.argument()).willTest()) {
-        return TargetCompleteEvent.successfulBuildSchedulingTest(
-            configuredTargetAndData,
-            completionContext,
-            artifactsToBuild.getAllArtifactsByOutputGroup());
-      } else {
-        return TargetCompleteEvent.successfulBuild(
-            configuredTargetAndData,
-            completionContext,
-            artifactsToBuild.getAllArtifactsByOutputGroup());
-      }
-    }
-  }
-
-  private static class AspectCompletor implements Completor<AspectValue, AspectCompletionValue> {
-    @Override
-    public Event getRootCauseError(AspectValue value, Cause rootCause, Environment env) {
-      return Event.error(
-          value.getLocation(),
-          String.format(
-              "%s, aspect %s: missing input file '%s'",
-              value.getLabel(), value.getConfiguredAspect().getName(), rootCause));
-    }
-
-    @Override
-    public MissingInputFileException getMissingFilesException(
-        AspectValue value, int missingCount, Environment env) {
-      return new MissingInputFileException(
-          value.getLabel()
-              + ", aspect "
-              + value.getConfiguredAspect().getName()
-              + missingCount
-              + " input file(s) do not exist",
-          value.getLocation());
-    }
-
-    @Override
-    public AspectCompletionValue getResult() {
-      return AspectCompletionValue.INSTANCE;
-    }
-
-    @Override
-    public ExtendedEventHandler.Postable createFailed(
-        AspectValue value,
-        NestedSet<Cause> rootCauses,
-        NestedSet<ArtifactsInOutputGroup> outputs,
-        Environment env,
-        TopLevelArtifactContext topLevelArtifactContext)
-        throws InterruptedException {
-      BuildEventId configurationEventId = getConfigurationEventIdFromAspectValue(value, env);
-      if (configurationEventId == null) {
-        return null;
-      }
-      return AspectCompleteEvent.createFailed(value, rootCauses, configurationEventId, outputs);
-    }
-
-    @Nullable
-    private BuildEventId getConfigurationEventIdFromAspectValue(AspectValue value, Environment env)
-        throws InterruptedException {
-      if (value.getKey().getBaseConfiguredTargetKey().getConfigurationKey() == null) {
-        return BuildEventIdUtil.nullConfigurationId();
-      } else {
-        BuildConfigurationValue buildConfigurationValue =
-            (BuildConfigurationValue)
-                env.getValue(value.getKey().getBaseConfiguredTargetKey().getConfigurationKey());
-        if (buildConfigurationValue == null) {
-          return null;
-        }
-        return buildConfigurationValue.getConfiguration().getEventId();
-      }
-    }
-
-    @Override
-    public ExtendedEventHandler.Postable createSucceeded(
-        SkyKey skyKey,
-        AspectValue value,
-        CompletionContext completionContext,
-        ArtifactsToBuild artifactsToBuild,
-        Environment env)
-        throws InterruptedException {
-      BuildEventId configurationEventId = getConfigurationEventIdFromAspectValue(value, env);
-      if (configurationEventId == null) {
-        return null;
-      }
-
-      return AspectCompleteEvent.createSuccessful(
-          value,
-          completionContext,
-          artifactsToBuild.getAllArtifactsByOutputGroup(),
-          configurationEventId);
-    }
-  }
-
   /**
    * Reduce an ArtifactsToBuild to only the Artifacts that were actually built (used when reporting
    * a failed target/aspect's completed outputs).
@@ -308,21 +138,11 @@ public final class CompletionFunction<
     return Optional.empty();
   }
 
-  public static SkyFunction targetCompletionFunction(
-      PathResolverFactory pathResolverFactory, Supplier<Path> execRootSupplier) {
-    return new CompletionFunction<>(pathResolverFactory, new TargetCompletor(), execRootSupplier);
-  }
-
-  public static SkyFunction aspectCompletionFunction(
-      PathResolverFactory pathResolverFactory, Supplier<Path> execRootSupplier) {
-    return new CompletionFunction<>(pathResolverFactory, new AspectCompletor(), execRootSupplier);
-  }
-
   private final PathResolverFactory pathResolverFactory;
   private final Completor<ValueT, ResultT> completor;
   private final Supplier<Path> execRootSupplier;
 
-  private CompletionFunction(
+  CompletionFunction(
       PathResolverFactory pathResolverFactory,
       Completor<ValueT, ResultT> completor,
       Supplier<Path> execRootSupplier) {

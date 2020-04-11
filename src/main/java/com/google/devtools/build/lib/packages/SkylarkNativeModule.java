@@ -51,7 +51,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
-/** The Skylark native module. */
+/** The Starlark native module. */
 // TODO(cparsons): Move the definition of native.package() to this class.
 public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 

@@ -937,8 +937,7 @@ public final class PackageFactory {
                   && arg.getName().equals("name")
                   && arg.getValue() instanceof StringLiteral) {
                 generatorNameByLocation.put(
-                    // TODO(adonovan): use lparen location
-                    call.getStartLocation(), ((StringLiteral) arg.getValue()).getValue());
+                    call.getLparenLocation(), ((StringLiteral) arg.getValue()).getValue());
               }
             }
           }

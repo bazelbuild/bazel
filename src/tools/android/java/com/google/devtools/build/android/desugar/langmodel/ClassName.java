@@ -214,10 +214,14 @@ public abstract class ClassName implements TypeMappable<ClassName> {
   }
 
   /**
-   * Returns a new instance of {@code ClassName} that represents the owner class with adapter
-   * methods for an Android SDK APIs.
+   * Returns a new instance of {@link ClassName} that represents the owner class of a single adapter
+   * method for an Android SDK API.
+   *
+   * <p>The implementation has to guarantee generating different class names for different target
+   * methods to be adapted, including overloaded API methods, in order to avoid adapter class name
+   * clashing from separate compilation units.
    */
-  public final ClassName typeAdapterOwner() {
+  final ClassName typeAdapterOwner(String encodedMethodTag) {
     checkState(
         !hasInProcessLabel() && !hasImmutableLabel(),
         "Expected a label-free type: Actual(%s)",
@@ -226,7 +230,14 @@ public abstract class ClassName implements TypeMappable<ClassName> {
         isInPackageEligibleForTypeAdapter(),
         "Expected an Android SDK type to have an adapter: Actual (%s)",
         this);
-    return withSimpleNameSuffix(TYPE_ADAPTER_SUFFIX).withPackagePrefix(TYPE_ADAPTER_PACKAGE_ROOT);
+    String binaryName =
+        String.format(
+            "%s%s$%x$%s",
+            TYPE_ADAPTER_PACKAGE_ROOT,
+            binaryName(),
+            encodedMethodTag.hashCode(),
+            TYPE_ADAPTER_SUFFIX);
+    return ClassName.create(binaryName);
   }
 
   /**

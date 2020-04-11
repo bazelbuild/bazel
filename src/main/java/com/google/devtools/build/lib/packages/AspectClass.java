@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-
 /**
  * A class of aspects.
  *
@@ -45,7 +44,7 @@ package com.google.devtools.build.lib.packages;
  * on a rule so that it can do meaningful work (for example, dexing only makes sense for configured
  * targets that produce Java code).
  *
- * <p>Aspects can be defined natively, in Java ({@link NativeAspectClass}) or in Skylark ({@link
+ * <p>Aspects can be defined natively, in Java ({@link NativeAspectClass}) or in Starlark ({@link
  * SkylarkAspectClass}).
  *
  * <p>Bazel propagates aspects through a multistage process. The general pipeline is as follows:
@@ -57,7 +56,7 @@ package com.google.devtools.build.lib.packages;
  *  {@code AspectDescriptor} <- {@link AspectParameters}
  *   \
  *   V
- *  {@link Aspect} <- {@link AspectDefinition} (might require loading Skylark files)
+ *  {@link Aspect} <- {@link AspectDefinition} (might require loading Starlark files)
  *   |
  *   V
  *  {@code ConfiguredAspect}  <- {@code ConfiguredTarget}

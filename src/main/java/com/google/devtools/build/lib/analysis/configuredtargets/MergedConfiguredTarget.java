@@ -88,7 +88,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         result.accept((String) classAt);
       }
     }
-    result.accept(RuleConfiguredTarget.ACTIONS_FIELD_NAME);
+    result.accept(AbstractConfiguredTarget.ACTIONS_FIELD_NAME);
   }
 
   @Override
@@ -102,7 +102,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   protected Object rawGetSkylarkProvider(String providerKey) {
-    if (providerKey.equals(RuleConfiguredTarget.ACTIONS_FIELD_NAME)) {
+    if (providerKey.equals(AbstractConfiguredTarget.ACTIONS_FIELD_NAME)) {
       ImmutableList.Builder<ActionAnalysisMetadata> actions = ImmutableList.builder();
       // Only expose actions which are SkylarkValues.
       // TODO(cparsons): Expose all actions to Starlark.

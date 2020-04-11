@@ -61,7 +61,8 @@ import java.util.Set;
 public abstract class ImplicitOutputsFunction {
 
   /**
-   * Implicit output functions for Skylark supporting key value access of expanded implicit outputs.
+   * Implicit output functions for Starlark supporting key value access of expanded implicit
+   * outputs.
    */
   public abstract static class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
 
@@ -75,7 +76,7 @@ public abstract class ImplicitOutputsFunction {
     }
   }
 
-  /** Implicit output functions executing Skylark code. */
+  /** Implicit output functions executing Starlark code. */
   @AutoCodec
   public static final class SkylarkImplicitOutputsFunctionWithCallback
       extends SkylarkImplicitOutputsFunction {

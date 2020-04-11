@@ -169,7 +169,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /*
-   * Returns a BuildOptions class that only has skylark options.
+   * Returns a BuildOptions class that only has Starlark options.
    */
   @VisibleForTesting
   public static BuildOptions of(Map<Label, Object> skylarkOptions) {
@@ -231,7 +231,7 @@ public final class BuildOptions implements Cloneable, Serializable {
 
   /**
    * Creates a copy of the BuildOptions object that contains copies of the FragmentOptions and
-   * skylark options.
+   * Starlark options.
    */
   @Override
   public BuildOptions clone() {
@@ -307,7 +307,7 @@ public final class BuildOptions implements Cloneable, Serializable {
 
   /** Maps options class definitions to FragmentOptions objects. */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
-  /** Maps skylark options names to skylark options values. */
+  /** Maps Starlark options names to Starlark options values. */
   private final ImmutableMap<Label, Object> skylarkOptionsMap;
 
   @AutoCodec.VisibleForSerialization
@@ -634,7 +634,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       }
     }
 
-    // Compare skylark options for the two classes.
+    // Compare Starlark options for the two classes.
     Map<Label, Object> skylarkFirst = first.getStarlarkOptions();
     Map<Label, Object> skylarkSecond = second.getStarlarkOptions();
     for (Label buildSetting : Sets.union(skylarkFirst.keySet(), skylarkSecond.keySet())) {
@@ -754,7 +754,7 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     private final Map<Label, Object> skylarkFirst = new LinkedHashMap<>();
     // TODO(b/112041323): This should also be multimap but we don't diff multiple times with
-    // skylark options anywhere yet so add that feature when necessary.
+    // Starlark options anywhere yet so add that feature when necessary.
     private final Map<Label, Object> skylarkSecond = new LinkedHashMap<>();
 
     private final List<Label> extraStarlarkOptionsFirst = new ArrayList<>();

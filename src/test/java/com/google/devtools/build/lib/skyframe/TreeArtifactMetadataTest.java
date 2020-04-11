@@ -222,7 +222,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     assertThat(Throwables.getRootCause(e)).hasMessageThat().contains(exception.getMessage());
   }
 
-  private void file(Path path, String contents) throws Exception {
+  private static void file(Path path, String contents) throws Exception {
     FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
     writeFile(path, contents);
   }

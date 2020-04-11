@@ -177,25 +177,23 @@ public class TestConfiguration extends Fragment {
     public boolean persistentTestRunner;
 
     @Option(
-      name = "runs_per_test",
-      allowMultiple = true,
-      defaultValue = "1",
-      converter = RunsPerTestConverter.class,
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies number of times to run each test. If any of those attempts "
-              + "fail for any reason, the whole test would be considered failed. "
-              + "Normally the value specified is just an integer. Example: --runs_per_test=3 "
-              + "will run all tests 3 times. "
-              + "Alternate syntax: regex_filter@runs_per_test. Where runs_per_test stands for "
-              + "an integer value and regex_filter stands "
-              + "for a list of include and exclude regular expression patterns (Also see "
-              + "--instrumentation_filter). Example: "
-              + "--runs_per_test=//foo/.*,-//foo/bar/.*@3 runs all tests in //foo/ "
-              + "except those under foo/bar three times. "
-              + "This option can be passed multiple times. "
-    )
+        name = "runs_per_test",
+        allowMultiple = true,
+        defaultValue = "1",
+        converter = RunsPerTestConverter.class,
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specifies number of times to run each test. If any of those attempts fail for any"
+                + " reason, the whole test is considered failed. Normally the value specified is"
+                + " just an integer. Example: --runs_per_test=3 will run all tests 3 times."
+                + " Alternate syntax: regex_filter@runs_per_test. Where runs_per_test stands for"
+                + " an integer value and regex_filter stands for a list of include and exclude"
+                + " regular expression patterns (Also see --instrumentation_filter). Example:"
+                + " --runs_per_test=//foo/.*,-//foo/bar/.*@3 runs all tests in //foo/ except those"
+                + " under foo/bar three times. This option can be passed multiple times. The most"
+                + " recently passed argument that matches takes precedence. If nothing matches,"
+                + " the test is only run once.")
     public List<PerLabelOptions> runsPerTest;
 
     @Option(

@@ -23,7 +23,8 @@ import javax.annotation.Nullable;
 public final class AssignmentStatement extends Statement {
 
   private final Expression lhs; // = IDENTIFIER | DOT | INDEX | LIST_EXPR
-  @Nullable private final TokenKind op;
+  @Nullable private final TokenKind op; // TODO(adonovan): make this mandatory even when '='.
+  private final int opOffset;
   private final Expression rhs;
 
   /**
@@ -32,9 +33,12 @@ public final class AssignmentStatement extends Statement {
    * {@code (e, ...)}, where x, i, and e are arbitrary expressions. For an augmented assignment, the
    * list and tuple forms are disallowed.
    */
-  AssignmentStatement(Expression lhs, @Nullable TokenKind op, Expression rhs) {
+  AssignmentStatement(
+      FileLocations locs, Expression lhs, @Nullable TokenKind op, int opOffset, Expression rhs) {
+    super(locs);
     this.lhs = lhs;
     this.op = op;
+    this.opOffset = opOffset;
     this.rhs = rhs;
   }
 
@@ -47,6 +51,21 @@ public final class AssignmentStatement extends Statement {
   @Nullable
   public TokenKind getOperator() {
     return op;
+  }
+
+  /** Returns the location of the assignment operator. */
+  public Location getOperatorLocation() {
+    return locs.getLocation(opOffset);
+  }
+
+  @Override
+  public int getStartOffset() {
+    return lhs.getStartOffset();
+  }
+
+  @Override
+  public int getEndOffset() {
+    return rhs.getEndOffset();
   }
 
   /** Reports whether this is an augmented assignment ({@code getOperator() != null}). */

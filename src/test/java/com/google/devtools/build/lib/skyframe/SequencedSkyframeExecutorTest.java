@@ -2227,7 +2227,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         eventCollector, ".*after scanning.*\n.*Scanning.*\n.*Test dir/top.*");
   }
 
-  private AnalysisProtos.Artifact getArtifact(
+  private static AnalysisProtos.Artifact getArtifact(
       String execPath, ActionGraphContainer actionGraphContainer) {
     for (AnalysisProtos.Artifact artifact : actionGraphContainer.getArtifactsList()) {
       if (execPath.equals(artifact.getExecPath())) {
@@ -2248,7 +2248,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         actionGraphContainer);
   }
 
-  private AnalysisProtos.Action getGeneratingAction(
+  private static AnalysisProtos.Action getGeneratingAction(
       String outputArtifactId, ActionGraphContainer actionGraphContainer) {
     for (AnalysisProtos.Action action : actionGraphContainer.getActionsList()) {
       for (String outputId : action.getOutputIdsList()) {
@@ -2260,7 +2260,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     return null;
   }
 
-  private AnalysisProtos.Target getTarget(String label, ActionGraphContainer actionGraphContainer) {
+  private static AnalysisProtos.Target getTarget(
+      String label, ActionGraphContainer actionGraphContainer) {
     for (AnalysisProtos.Target target : actionGraphContainer.getTargetsList()) {
       if (label.equals(target.getLabel())) {
         return target;
@@ -2269,7 +2270,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     return null;
   }
 
-  private AnalysisProtos.AspectDescriptor getAspectDescriptor(
+  private static AnalysisProtos.AspectDescriptor getAspectDescriptor(
       String aspectDescriptorId, ActionGraphContainer actionGraphContainer) {
     for (AnalysisProtos.AspectDescriptor aspectDescriptor :
         actionGraphContainer.getAspectDescriptorsList()) {
@@ -2280,7 +2281,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     return null;
   }
 
-  private AnalysisProtos.RuleClass getRuleClass(
+  private static AnalysisProtos.RuleClass getRuleClass(
       String ruleClassId, ActionGraphContainer actionGraphContainer) {
     for (AnalysisProtos.RuleClass ruleClass : actionGraphContainer.getRuleClassesList()) {
       if (ruleClassId.equals(ruleClass.getId())) {

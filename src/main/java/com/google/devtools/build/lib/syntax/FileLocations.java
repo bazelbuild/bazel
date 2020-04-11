@@ -22,43 +22,36 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * A table to keep track of line numbers in source files. The client creates a LineNumberTable for
- * their buffer using {@link #create}. The client can then ask for the line and column given a
- * position using ({@link #getLineAndColumn(int)}).
+ * FileLocations maps each source offset within a file to a Location. An offset is a (UTF-16) char
+ * index such that {@code 0 <= offset <= size}. A Location is a (file, line, column) triple.
  */
 @AutoCodec
 @Immutable
-final class LineNumberTable {
-  private static final Interner<LineNumberTable> LINE_NUMBER_TABLE_INTERNER =
-      BlazeInterners.newWeakInterner();
+final class FileLocations {
 
-  /** A mapping from line number (line >= 1) to character offset into the file. */
-  private final int[] linestart;
+  private static final Interner<FileLocations> INTERNER = BlazeInterners.newWeakInterner();
 
+  private final int[] linestart; // maps line number (line >= 1) to char offset
   private final String file;
-  private final int bufferLength;
+  private final int size; // size of file in chars
 
-  private LineNumberTable(char[] buffer, String file) {
-    this(computeLinestart(buffer), file, buffer.length);
-  }
-
-  private LineNumberTable(int[] linestart, String file, int bufferLength) {
+  private FileLocations(int[] linestart, String file, int size) {
     this.linestart = linestart;
     this.file = file;
-    this.bufferLength = bufferLength;
+    this.size = size;
   }
 
   @AutoCodec.Instantiator
-  static LineNumberTable createForSerialization(int[] linestart, String file, int bufferLength) {
-    return LINE_NUMBER_TABLE_INTERNER.intern(new LineNumberTable(linestart, file, bufferLength));
+  static FileLocations createForSerialization(int[] linestart, String file, int size) {
+    return INTERNER.intern(new FileLocations(linestart, file, size));
   }
 
-  static LineNumberTable create(char[] buffer, String file) {
-    return new LineNumberTable(buffer, file);
+  static FileLocations create(char[] buffer, String file) {
+    return new FileLocations(computeLinestart(buffer), file, buffer.length);
   }
 
   private int getLineAt(int offset) {
-    if (offset < 0) {
+    if (offset < 0 || offset > size) {
       throw new IllegalStateException("Illegal position: " + offset);
     }
     int lowBoundary = 1;
@@ -80,28 +73,28 @@ final class LineNumberTable {
     }
   }
 
-  Location.LineAndColumn getLineAndColumn(int offset) {
+  Location getLocation(int offset) {
     int line = getLineAt(offset);
     int column = offset - linestart[line] + 1;
-    return new Location.LineAndColumn(line, column);
+    return new Location(file, line, column);
   }
 
-  String getFile() {
-    return file;
+  int size() {
+    return size;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(Arrays.hashCode(linestart), file, bufferLength);
+    return Objects.hash(Arrays.hashCode(linestart), file, size);
   }
 
   @Override
   public boolean equals(Object other) {
-    if (!(other instanceof LineNumberTable)) {
+    if (!(other instanceof FileLocations)) {
       return false;
     }
-    LineNumberTable that = (LineNumberTable) other;
-    return this.bufferLength == that.bufferLength
+    FileLocations that = (FileLocations) other;
+    return this.size == that.size
         && Arrays.equals(this.linestart, that.linestart)
         && this.file.equals(that.file);
   }
