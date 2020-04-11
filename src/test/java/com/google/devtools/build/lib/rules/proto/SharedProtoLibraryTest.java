@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@code proto_library}. */
+/** Unit tests for Bazel's *AND* Blaze's {@code proto_library}. */
 @RunWith(JUnit4.class)
-public class ProtoSourceTest extends BuildViewTestCase {
+public class SharedProtoLibraryTest extends BuildViewTestCase {
   private boolean isThisBazel() {
     return getAnalysisMock().isThisBazel();
   }

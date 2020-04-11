@@ -48,8 +48,6 @@ public class ProtoCommon {
     throw new UnsupportedOperationException();
   }
 
-  private static final PathFragment WORKSPACE_PROTO_SOURCE_ROOT = PathFragment.create(".");
-
   // Keep in sync with the migration label in
   // https://github.com/bazelbuild/rules_proto/blob/master/proto/defs.bzl.
   @VisibleForTesting
@@ -226,8 +224,6 @@ public class ProtoCommon {
    * <p>Assumes that <code>strip_import_prefix</code> and <code>import_prefix</code> are unset and
    * that there are no generated .proto files that need to be compiled.
    */
-  // TODO(lberki): This should really be a PathFragment. Unfortunately, it's on the Starlark API of
-  // ProtoInfo so it's not an easy change :(
   @Nullable
   public static Library createLibraryWithoutVirtualSourceRoot(
       PathFragment protoSourceRoot, ImmutableList<Artifact> directSources) {

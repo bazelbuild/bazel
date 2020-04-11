@@ -113,34 +113,6 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void protoToolchainBlacklistTransitiveProtos() throws Exception {
-    scratch.file(
-        "third_party/x/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "licenses(['unencumbered'])",
-        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
-        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
-        "proto_library(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
-        "proto_library(name = 'any', srcs = ['any.proto'], deps = [':descriptors'])");
-
-    scratch.file(
-        "foo/BUILD",
-        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
-        "proto_lang_toolchain(",
-        "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
-        "    plugin = '//third_party/x:plugin',",
-        "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:any']",
-        ")");
-
-    update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
-
-    validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
-  }
-
-  @Test
   public void protoToolchainMixedBlacklist() throws Exception {
     scratch.file(
         "third_party/x/BUILD",

@@ -91,8 +91,8 @@ java_test(
 )
 
 java_test(
-    name = "ProtoSourceTest",
-    srcs = ["ProtoSourceTest.java"],
+    name = "SharedProtoLibraryTest",
+    srcs = ["SharedProtoLibraryTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",

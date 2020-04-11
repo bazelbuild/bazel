@@ -51,6 +51,7 @@ class ProtoSource {
   }
 
   /** Returns the original source file. Only for blacklisting protos! */
+  @Deprecated
   Artifact getOriginalSourceFile() {
     return originalSourceFile;
   }
