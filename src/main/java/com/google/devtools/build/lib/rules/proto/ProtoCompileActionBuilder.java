@@ -42,13 +42,10 @@ import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.LazyString;
-import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -598,9 +595,7 @@ public class ProtoCompileActionBuilder {
     // For each import, include both the import as well as the import relativized against its
     // protoSourceRoot. This ensures that protos can reference either the full path or the short
     // path when including other protos.
-    commandLine.addAll(
-        VectorArg.of(transitiveSources)
-            .mapped(new ExpandImportArgsFn()));
+    commandLine.addAll(VectorArg.of(transitiveSources).mapped(new ExpandImportArgsFn()));
     if (strictImportableProtoSources != null) {
       if (!strictImportableProtoSources.isEmpty()) {
         commandLine.addAll(
@@ -623,7 +618,6 @@ public class ProtoCompileActionBuilder {
           args.accept("--proto_path=" + flag);
         }
       };
-
 
   @AutoCodec
   @AutoCodec.VisibleForSerialization

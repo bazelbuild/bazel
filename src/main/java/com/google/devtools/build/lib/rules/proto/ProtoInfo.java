@@ -138,9 +138,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     this.originalDirectProtoSources = extractOriginalProtoSources(directSources);
   }
 
-  /**
-   * The {@code .proto} source files in this {@code proto_library}'s {@code srcs}.
-   */
+  /** The {@code .proto} source files in this {@code proto_library}'s {@code srcs}. */
   public ImmutableList<ProtoSource> getDirectSources() {
     return directSources;
   }

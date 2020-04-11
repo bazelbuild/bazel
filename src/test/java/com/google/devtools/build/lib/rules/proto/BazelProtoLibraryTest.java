@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -451,7 +450,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // of its exports and nothing else (not the exports of its exports or the deps of its exports
     // or the exports of its deps)
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    assertThat(Iterables.transform(c.get(ProtoInfo.PROVIDER).getPublicImportSources().toList(), s -> s.getSourceRoot().getSafePathString()))
+    assertThat(
+            Iterables.transform(
+                c.get(ProtoInfo.PROVIDER).getPublicImportSources().toList(),
+                s -> s.getSourceRoot().getSafePathString()))
         .containsExactly(genfiles + "/a/_virtual_imports/a", genfiles + "/c/_virtual_imports/c");
   }
 
@@ -493,9 +495,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//:main_proto");
     assertThat(
-        Iterables.transform(
-            target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
-            s -> s.getImportPath().getPathString()))
+            Iterables.transform(
+                target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+                s -> s.getImportPath().getPathString()))
         .contains("bazel.build/yolo/yolo_pkg/yolo.proto");
   }
 
@@ -548,9 +550,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//:main_proto");
     assertThat(
-        Iterables.transform(
-            target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
-            s -> s.getImportPath().getPathString()))
+            Iterables.transform(
+                target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+                s -> s.getImportPath().getPathString()))
         .contains("bazel.build/yolo/yolo_pkg/yolo.proto");
   }
 
@@ -601,9 +603,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//:main_proto");
     assertThat(
-        Iterables.transform(
-            target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
-            s -> s.getImportPath().getPathString()))
+            Iterables.transform(
+                target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+                s -> s.getImportPath().getPathString()))
         .contains("yolo_pkg/yolo.proto");
   }
 
@@ -986,12 +988,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     useConfiguration("--incompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_library(",
-        "    name = 'a',",
-        "    srcs = ['a.proto'],",
-        ")");
+    scratch.file("a/BUILD", "proto_library(", "    name = 'a',", "    srcs = ['a.proto'],", ")");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a");
@@ -1005,12 +1002,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     useConfiguration("--noincompatible_load_proto_rules_from_bzl");
-    scratch.file(
-        "a/BUILD",
-        "proto_library(",
-        "    name = 'a',",
-        "    srcs = ['a.proto'],",
-        ")");
+    scratch.file("a/BUILD", "proto_library(", "    name = 'a',", "    srcs = ['a.proto'],", ")");
 
     getConfiguredTarget("//a");
   }
@@ -1058,16 +1050,18 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       return;
     }
 
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
         "genrule(name='g', srcs=[], outs=['g.proto'], cmd = '')",
         "proto_library(name='p', srcs=['s.proto', 'g.proto'])");
 
     Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:p"));
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    assertThat(commandLine).containsAtLeast(
-        "-Ia/s.proto=" + genfiles + "/a/_virtual_imports/p/a/s.proto",
-        "-Ia/g.proto=" + genfiles + "/a/_virtual_imports/p/a/g.proto");
+    assertThat(commandLine)
+        .containsAtLeast(
+            "-Ia/s.proto=" + genfiles + "/a/_virtual_imports/p/a/s.proto",
+            "-Ia/g.proto=" + genfiles + "/a/_virtual_imports/p/a/g.proto");
   }
 
   @Test
@@ -1079,15 +1073,15 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // Simulate behavoiur of Blaze's `proto_library` in Bazel.
     useConfiguration("--incompatible_generated_protos_in_virtual_imports=false");
 
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
         "genrule(name='g', srcs=[], outs=['g.proto'], cmd = '')",
         "proto_library(name='p', srcs=['s.proto', 'g.proto'])");
 
     Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a:p"));
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    assertThat(commandLine).containsAtLeast(
-        "-Ia/s.proto=a/s.proto",
-        "-Ia/g.proto=" + genfiles + "/a/g.proto");
+    assertThat(commandLine)
+        .containsAtLeast("-Ia/s.proto=a/s.proto", "-Ia/g.proto=" + genfiles + "/a/g.proto");
   }
 }

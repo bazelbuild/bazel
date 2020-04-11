@@ -106,8 +106,7 @@ public class ProtoCommon {
    */
   private static NestedSet<Pair<Artifact, String>>
       computeStrictImportableProtosImportPathsForDependents(
-          ImmutableList<ProtoSource> sources,
-          ImmutableList<ProtoInfo> deps) {
+          ImmutableList<ProtoSource> sources, ImmutableList<ProtoInfo> deps) {
     if (sources.isEmpty()) {
       /* a proxy/alias library, return the sources of the direct deps */
       NestedSetBuilder<Pair<Artifact, String>> builder = NestedSetBuilder.stableOrder();
@@ -207,9 +206,7 @@ public class ProtoCommon {
     private final ImmutableList<ProtoSource> sources;
     private final PathFragment sourceRoot;
 
-    Library(
-        ImmutableList<ProtoSource> sources,
-        PathFragment sourceRoot) {
+    Library(ImmutableList<ProtoSource> sources, PathFragment sourceRoot) {
       this.sources = sources;
       this.sourceRoot = sourceRoot;
     }
@@ -233,14 +230,14 @@ public class ProtoCommon {
   // ProtoInfo so it's not an easy change :(
   @Nullable
   public static Library createLibraryWithoutVirtualSourceRoot(
-      PathFragment protoSourceRoot,
-      ImmutableList<Artifact> directSources) {
+      PathFragment protoSourceRoot, ImmutableList<Artifact> directSources) {
     ImmutableList.Builder<ProtoSource> sources = ImmutableList.builder();
     for (Artifact protoSource : directSources) {
-      sources.add(new ProtoSource(
-          /* sourceFile */ protoSource,
-          /* sourceRoot */ protoSource.getRoot().getExecPath(),
-          /* importPath */ Optional.empty()));
+      sources.add(
+          new ProtoSource(
+              /* sourceFile */ protoSource,
+              /* sourceRoot */ protoSource.getRoot().getExecPath(),
+              /* importPath */ Optional.empty()));
     }
     return new Library(sources.build(), protoSourceRoot);
   }
@@ -346,10 +343,7 @@ public class ProtoCommon {
 
     PathFragment sourceRootPath = ruleContext.getUniqueDirectory("_virtual_imports");
     PathFragment sourceRoot =
-        ruleContext
-            .getBinOrGenfilesDirectory()
-            .getExecPath()
-            .getRelative(sourceRootPath);
+        ruleContext.getBinOrGenfilesDirectory().getExecPath().getRelative(sourceRootPath);
 
     ImmutableList.Builder<ProtoSource> sources = ImmutableList.builder();
     for (Artifact realProtoSource : protoSources) {
@@ -370,11 +364,12 @@ public class ProtoCommon {
               importPrefix,
               stripImportPrefix,
               starlarkSemantics.experimentalSiblingRepositoryLayout());
-      sources.add(new ProtoSource(
-          /* sourceFile */ importsPair.second,
-          /* originalSourceFile */ realProtoSource,
-          /* sourceRoot */ sourceRoot,
-          /* importPath */ Optional.of(importsPair.first)));
+      sources.add(
+          new ProtoSource(
+              /* sourceFile */ importsPair.second,
+              /* originalSourceFile */ realProtoSource,
+              /* sourceRoot */ sourceRoot,
+              /* importPath */ Optional.of(importsPair.first)));
     }
     return new Library(sources.build(), sourceRoot);
   }

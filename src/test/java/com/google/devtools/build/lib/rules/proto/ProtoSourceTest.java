@@ -48,10 +48,7 @@ public class ProtoSourceTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     useConfiguration("--proto_compiler=//proto:compiler");
-    scratch.file(
-        "proto/BUILD",
-        "licenses(['notice'])",
-        "exports_files(['compiler'])");
+    scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
 
     if (isThisBazel()) {
       scratch.file(
@@ -61,9 +58,8 @@ public class ProtoSourceTest extends BuildViewTestCase {
           "  proto_lib(**kwargs)");
     } else {
       // This is Blaze.
-      scratch.file("proto/defs.bzl",
-          "def proto_library(**kwargs):",
-          "  native.proto_library(**kwargs)");
+      scratch.file(
+          "proto/defs.bzl", "def proto_library(**kwargs):", "  native.proto_library(**kwargs)");
     }
 
     MockProtoSupport.setupWorkspace(scratch);
@@ -77,34 +73,32 @@ public class ProtoSourceTest extends BuildViewTestCase {
         "load('//proto:defs.bzl', 'proto_library')",
         "proto_library(name='foo', srcs=['a.proto', 'b.proto', 'c.proto'])");
 
-    ProtoInfo provider =
-        getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(Iterables.transform(
-                   provider.getDirectSources(),
-                   s -> s.getSourceFile().getExecPath().getPathString()))
+    ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
         .containsExactly("x/a.proto", "x/b.proto", "x/c.proto");
     assertThat(
-        Iterables.transform(
-            provider.getDirectSources(),
-            s -> s.getOriginalSourceFile().getExecPath().getPathString()))
+            Iterables.transform(
+                provider.getDirectSources(),
+                s -> s.getOriginalSourceFile().getExecPath().getPathString()))
         .containsExactly("x/a.proto", "x/b.proto", "x/c.proto");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-                                   s -> s.getSourceRoot().getSafePathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
         .containsExactly(".", ".", ".");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-                                   s -> s.getImportPath().getPathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
         .containsExactly("x/a.proto", "x/b.proto", "x/c.proto");
   }
 
   @Test
   public void testProtoLibraryWithoutSources() throws Exception {
     scratch.file(
-        "x/BUILD",
-        "load('//proto:defs.bzl', 'proto_library')",
-        "proto_library(name='foo')");
+        "x/BUILD", "load('//proto:defs.bzl', 'proto_library')", "proto_library(name='foo')");
 
-    ProtoInfo provider =
-        getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+    ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
     assertThat(provider.getDirectSources()).isEmpty();
   }
 
@@ -116,22 +110,23 @@ public class ProtoSourceTest extends BuildViewTestCase {
         "proto_library(name='foo', srcs=['a.proto'], import_prefix='foo')");
 
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    ProtoInfo provider =
-        getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(Iterables.transform(
-        provider.getDirectSources(),
-        s -> s.getSourceFile().getExecPath().getPathString()))
+    ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
         .containsExactly(genfiles + "/x/_virtual_imports/foo/foo/x/a.proto");
     assertThat(
-        Iterables.transform(
-            provider.getDirectSources(),
-            s -> s.getOriginalSourceFile().getExecPath().getPathString()))
+            Iterables.transform(
+                provider.getDirectSources(),
+                s -> s.getOriginalSourceFile().getExecPath().getPathString()))
         .containsExactly("x/a.proto");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getSourceRoot().getSafePathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
         .containsExactly(genfiles + "/x/_virtual_imports/foo");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getImportPath().getPathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
         .containsExactly("foo/x/a.proto");
   }
 
@@ -146,22 +141,23 @@ public class ProtoSourceTest extends BuildViewTestCase {
         "proto_library(name='foo', srcs=['generated.proto'])");
 
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    ProtoInfo provider =
-        getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(Iterables.transform(
-        provider.getDirectSources(),
-        s -> s.getSourceFile().getExecPath().getPathString()))
+    ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
         .containsExactly(genfiles + "/x/_virtual_imports/foo/x/generated.proto");
     assertThat(
-        Iterables.transform(
-            provider.getDirectSources(),
-            s -> s.getOriginalSourceFile().getExecPath().getPathString()))
+            Iterables.transform(
+                provider.getDirectSources(),
+                s -> s.getOriginalSourceFile().getExecPath().getPathString()))
         .containsExactly(genfiles + "/x/generated.proto");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getSourceRoot().getSafePathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
         .containsExactly(genfiles + "/x/_virtual_imports/foo");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getImportPath().getPathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
         .containsExactly("x/generated.proto");
   }
 
@@ -176,22 +172,23 @@ public class ProtoSourceTest extends BuildViewTestCase {
         "proto_library(name='foo', srcs=['generated.proto'])");
 
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    ProtoInfo provider =
-        getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(Iterables.transform(
-        provider.getDirectSources(),
-        s -> s.getSourceFile().getExecPath().getPathString()))
+    ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
         .containsExactly(genfiles + "/x/generated.proto");
     assertThat(
-        Iterables.transform(
-            provider.getDirectSources(),
-            s -> s.getOriginalSourceFile().getExecPath().getPathString()))
+            Iterables.transform(
+                provider.getDirectSources(),
+                s -> s.getOriginalSourceFile().getExecPath().getPathString()))
         .containsExactly(genfiles + "/x/generated.proto");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getSourceRoot().getSafePathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
         .containsExactly(genfiles);
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getImportPath().getPathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
         .containsExactly("x/generated.proto");
   }
 
@@ -206,24 +203,26 @@ public class ProtoSourceTest extends BuildViewTestCase {
         "proto_library(name='foo', srcs=['generated.proto', 'a.proto'])");
 
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    ProtoInfo provider =
-        getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(Iterables.transform(
-        provider.getDirectSources(),
-        s -> s.getSourceFile().getExecPath().getPathString()))
-        .containsExactly(genfiles + "/x/_virtual_imports/foo/x/generated.proto",
+    ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
+        .containsExactly(
+            genfiles + "/x/_virtual_imports/foo/x/generated.proto",
             genfiles + "/x/_virtual_imports/foo/x/a.proto");
     assertThat(
-        Iterables.transform(
-            provider.getDirectSources(),
-            s -> s.getOriginalSourceFile().getExecPath().getPathString()))
+            Iterables.transform(
+                provider.getDirectSources(),
+                s -> s.getOriginalSourceFile().getExecPath().getPathString()))
         .containsExactly(genfiles + "/x/generated.proto", "x/a.proto");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getSourceRoot().getSafePathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
         .containsExactly(
             genfiles + "/x/_virtual_imports/foo", genfiles + "/x/_virtual_imports/foo");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getImportPath().getPathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
         .containsExactly("x/generated.proto", "x/a.proto");
   }
 
@@ -238,22 +237,23 @@ public class ProtoSourceTest extends BuildViewTestCase {
         "proto_library(name='foo', srcs=['generated.proto', 'a.proto'])");
 
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    ProtoInfo provider =
-        getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(Iterables.transform(
-        provider.getDirectSources(),
-        s -> s.getSourceFile().getExecPath().getPathString()))
+    ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
         .containsExactly(genfiles + "/x/generated.proto", "x/a.proto");
     assertThat(
-        Iterables.transform(
-            provider.getDirectSources(),
-            s -> s.getOriginalSourceFile().getExecPath().getPathString()))
+            Iterables.transform(
+                provider.getDirectSources(),
+                s -> s.getOriginalSourceFile().getExecPath().getPathString()))
         .containsExactly(genfiles + "/x/generated.proto", "x/a.proto");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getSourceRoot().getSafePathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
         .containsExactly(genfiles, ".");
-    assertThat(Iterables.transform(provider.getDirectSources(),
-        s -> s.getImportPath().getPathString()))
+    assertThat(
+            Iterables.transform(
+                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
         .containsExactly("x/generated.proto", "x/a.proto");
   }
 }
