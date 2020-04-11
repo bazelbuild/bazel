@@ -134,36 +134,36 @@ public abstract class CcModule
       Sequence<?> unsupportedFeatures)
       throws EvalException {
     SkylarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, SkylarkRuleContext.class);
-    if (ruleContext == null
-        && toolchain
-            .requireCtxInConfigureFeatures()) {
-      throw Starlark.errorf(
-          "Incompatible flag --incompatible_require_ctx_in_configure_features has been flipped, "
-              + "and the mandatory parameter 'ctx' of cc_common.configure_features is missing. "
-              + "Please add 'ctx' as a named parameter. See "
-              + "https://github.com/bazelbuild/bazel/issues/7793 for details.");
-    }
-    if (ruleContext != null
-        && !ruleContext.getRuleContext().isLegalFragment(CppConfiguration.class)) {
-      throw Starlark.errorf(
-          "%s must declare '%s' as a required configuration fragment to access it.",
-          ruleContext.getRuleContext().getRuleClassNameForLogging(),
-          CppConfiguration.class.getSimpleName());
-    }
-    CppConfiguration cppConfiguration =
-        ruleContext == null
-            ? toolchain.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
-            : ruleContext.getRuleContext().getFragment(CppConfiguration.class);
-    // buildOptions are only used when --incompatible_enable_cc_toolchain_resolution is flipped,
-    // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
-    // flipped.
-    BuildOptions buildOptions =
-        ruleContext == null ? null : ruleContext.getConfiguration().getOptions();
     ImmutableSet<String> unsupportedFeaturesSet =
         ImmutableSet.copyOf(unsupportedFeatures.getContents(String.class, "unsupported_features"));
-    getSemantics()
-        .validateLayeringCheckFeatures(
-            ruleContext.getRuleContext(), toolchain, unsupportedFeaturesSet);
+    final CppConfiguration cppConfiguration;
+    final BuildOptions buildOptions;
+    if (ruleContext == null) {
+      if (toolchain.requireCtxInConfigureFeatures()) {
+        throw Starlark.errorf(
+            "Incompatible flag --incompatible_require_ctx_in_configure_features has been flipped, "
+                + "and the mandatory parameter 'ctx' of cc_common.configure_features is missing. "
+                + "Please add 'ctx' as a named parameter. See "
+                + "https://github.com/bazelbuild/bazel/issues/7793 for details.");
+      }
+      cppConfiguration = toolchain.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas();
+      buildOptions = null;
+    } else {
+      if (!ruleContext.getRuleContext().isLegalFragment(CppConfiguration.class)) {
+        throw Starlark.errorf(
+            "%s must declare '%s' as a required configuration fragment to access it.",
+            ruleContext.getRuleContext().getRuleClassNameForLogging(),
+            CppConfiguration.class.getSimpleName());
+      }
+      cppConfiguration = ruleContext.getRuleContext().getFragment(CppConfiguration.class);
+      // buildOptions are only used when --incompatible_enable_cc_toolchain_resolution is flipped,
+      // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
+      // flipped.
+      buildOptions = ruleContext.getConfiguration().getOptions();
+      getSemantics()
+          .validateLayeringCheckFeatures(
+              ruleContext.getRuleContext(), toolchain, unsupportedFeaturesSet);
+    }
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.copyOf(requestedFeatures.getContents(String.class, "requested_features")),
