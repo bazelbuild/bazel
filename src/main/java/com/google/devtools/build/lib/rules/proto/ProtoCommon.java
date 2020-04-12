@@ -232,7 +232,7 @@ public class ProtoCommon {
       sources.add(
           new ProtoSource(
               /* sourceFile */ protoSource,
-              /* sourceRoot */ protoSource.getRoot().getExecPath(),
+              /* sourceRoot */ protoSourceRoot.getRelative(protoSource.getRoot().getExecPath()),
               /* importPath */ Optional.empty()));
     }
     return new Library(sources.build(), protoSourceRoot);

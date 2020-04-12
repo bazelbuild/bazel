@@ -1084,4 +1084,45 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(commandLine)
         .containsAtLeast("-Ia/s.proto=a/s.proto", "-Ia/g.proto=" + genfiles + "/a/g.proto");
   }
+
+  @Test
+  public void testDependencyOnProtoSourceInExternalRepo() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file("third_party/foo/WORKSPACE");
+    scratch.file(
+        "third_party/foo/BUILD.bazel",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(name='a', srcs=['a.proto'])",
+        "proto_library(name='c', srcs=['a/b/c.proto'])");
+    scratch.appendFile(
+        "WORKSPACE",
+        "local_repository(",
+        "    name = 'foo',",
+        "    path = 'third_party/foo',",
+        ")");
+    invalidatePackages();
+
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(name='a', srcs=['a.proto'], deps=['@foo//:a'])",
+        "proto_library(name='c', srcs=['c.proto'], deps=['@foo//:c'])");
+
+    {
+      Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a"));
+      String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+      assertThat(commandLine)
+          .containsAtLeast("-Ix/a.proto=x/a.proto", "-Ia.proto=external/foo/a.proto");
+    }
+
+    {
+      Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:c"));
+      String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
+      assertThat(commandLine)
+          .containsAtLeast("-Ix/c.proto=x/c.proto", "-Ia/b/c.proto=external/foo/a/b/c.proto");
+    }
+  }
 }
