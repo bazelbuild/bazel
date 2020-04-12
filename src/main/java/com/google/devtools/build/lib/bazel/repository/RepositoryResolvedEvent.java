@@ -248,8 +248,8 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
    * Attributes that may be defined on a repository rule without affecting its canonical
    * representation. These may be created implicitly by Bazel.
    */
-  private static final ImmutableList<String> IGNORED_ATTRIBUTE_NAMES =
-      ImmutableList.of("generator_name", "generator_function", "generator_location");
+  private static final ImmutableSet<String> IGNORED_ATTRIBUTE_NAMES =
+      ImmutableSet.of("generator_name", "generator_function", "generator_location");
 
   /**
    * Compare two maps from Strings to objects, returning a pair of the map with all entries not in

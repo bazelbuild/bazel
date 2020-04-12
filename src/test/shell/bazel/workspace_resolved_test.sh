@@ -1216,6 +1216,8 @@ EOF
   expect_log "  TEST_TMPDIR/.*/external/bazel_tools/tools/build_defs/repo/http.bzl:"
 }
 
+# Regression test for #11040.
+#
 # Test that a canonical repo warning is generated for explicitly specified
 # attributes whose values differ, and that it is never generated for implicitly
 # created attributes (in particular, the generator_* attributes).
@@ -1254,7 +1256,7 @@ EOF
   cd main
   # We should get a warning for "myattr" having a changed value and for "name"
   # being dropped, but not for the generator_* attributes.
-  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir > $TEST_log 2>&1
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir >/dev/null 2>$TEST_log
   expect_log "Rule 'myrepo' indicated that a canonical reproducible form \
 can be obtained by modifying arguments myattr = \"bar\" and dropping \
 \[.*\"name\".*\]"
