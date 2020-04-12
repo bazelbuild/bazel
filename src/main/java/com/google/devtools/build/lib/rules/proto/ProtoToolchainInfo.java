@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.rules.proto;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoToolchainInfoApi;
+import com.google.devtools.build.lib.syntax.Location;
 
 /**
  * Information about the tools used by the <code>proto_*</code> and <code>LANG_proto_*</code> rules.
@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoToolchainInfoApi
 @Immutable
 @AutoCodec
 public class ProtoToolchainInfo extends ToolchainInfo implements ProtoToolchainInfoApi {
+  @AutoCodec.Instantiator
   public ProtoToolchainInfo() {
     super(ImmutableMap.of(), Location.BUILTIN);
   }

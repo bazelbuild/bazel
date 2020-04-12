@@ -29,9 +29,10 @@ public class ProtoToolchain implements RuleConfiguredTargetFactory {
       throws ActionConflictException, RuleErrorException, InterruptedException {
     ProtoCommon.checkRuleHasValidMigrationTag(ruleContext);
 
+    ProtoToolchainInfo toolchain = new ProtoToolchainInfo();
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .addNativeDeclaredProvider(new ProtoToolchainInfo())
+            .addNativeDeclaredProvider(toolchain)
             .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
     return builder.build();
