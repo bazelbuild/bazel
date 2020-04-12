@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -96,7 +96,7 @@ public class PyInfoTest extends SkylarkTestCase {
         "    has_py3_only_sources = True,",
         ")");
     PyInfo info = (PyInfo) lookup("info");
-    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:14");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isTrue();
@@ -110,7 +110,7 @@ public class PyInfoTest extends SkylarkTestCase {
   public void starlarkConstructorDefaults() throws Exception {
     exec("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
     PyInfo info = (PyInfo) lookup("info");
-    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:14");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isFalse();

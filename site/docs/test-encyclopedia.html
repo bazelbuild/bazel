@@ -158,7 +158,7 @@ flakiness.</p>
 </table>
 
 <p>For example, if a "moderate" test completes in 5.5s, consider setting
-<code>timeout</code>="short" or <code>size</code>="small". Using the bazel
+<code>timeout = "short"</code> or <code>size = "small"</code>. Using the bazel
 <code>--test_verbose_timeout_warnings</code> command line option will show the
 tests whose specified size is too big.</p>
 
@@ -190,10 +190,10 @@ success or failure based on the exit code observed from the main process.  The
 test runner may kill any stray processes.  Tests should not leak processes in
 this fashion.</p>
 
+<h2>Initial conditions</h2>
+
 <p>When executing a test, the test runner must establish certain initial
 conditions.</p>
-
-<h2>Initial conditions</h2>
 
 <p>The test runner must invoke each test with the path to the test
 executable in <code>argv[0]</code>.  This path must be relative and
@@ -228,6 +228,8 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>PATH</code></td><td><code>/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:.</code></td><td>recommended</td></tr>
     <tr><td><code>PWD</code></td><td><code>$TEST_SRCDIR/<i>workspace-name</i></code></td><td>recommended</td></tr>
     <tr><td><code>SHLVL</code></td><td><code>2</code></td><td>recommended</td></tr>
+    <tr><td><code>TEST_INFRASTRUCTURE_FAILURE_FILE</code></td><td>absolute path to a private file in a writable directory (This file should only be used to report failures originating from the testing infrastructure, not as a general mechanism for reporting flaky failures of tests. In this context, testing infrastructure is defined as systems or libraries that are not test-specific, but can cause test failures by malfunctioning. The first line is the name of the testing infrastructure component that caused the failure, the second one a human-readable description of the failure. Additional lines are ignored.)</td><td>optional</td></tr>
+    <tr><td><code>TEST_LOGSPLITTER_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write Logsplitter protobuffer log)</td><td>optional</td></tr>
     <tr><td><code>TEST_PREMATURE_EXIT_FILE</code></td><td>absolute path to a private file in a writable directory (used for catching calls to exit())</td><td>optional</td></tr>
     <tr>
       <td><code>TEST_RANDOM_SEED</code></td>
@@ -243,7 +245,13 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
     <tr><td><code>TEST_TOTAL_SHARDS</code></td><td>total shard count, if sharding is used</td><td>optional</td></tr>
     <tr><td><code>TEST_TMPDIR</code></td><td>absolute path to a private writable directory</td><td>required</td></tr>
+
+    <tr><td><code>TEST_WORKSPACE</code></td><td>the local repository's workspace name</td><td>optional</td></tr>
+    <tr><td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test outputs)</td><td>optional</td></tr>
+
+    <tr><td><code>TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test output annotation .part files).
     </td><td>optional</td></tr>
+
     <tr><td><code>TEST_WARNINGS_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write test target warnings)</td><td>optional</td></tr>
     <tr><td><code>TESTBRIDGE_TEST_ONLY</code></td><td>value of <a href="user-manual.html#flag--test_filter"><code>--test_filter</code></a>, if specified</td><td>optional</td></tr>
 
@@ -251,7 +259,6 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>USER</code></td><td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td><td>required</td></tr>
 
     <tr><td><code>XML_OUTPUT_FILE</code></td><td>Location of the <code>ANT</code>-like XML output file</td><td>optional</td></tr>
-    <tr><td><code>TEST_WORKSPACE</code></td><td>the local repository's workspace name</td><td>optional</td></tr>
   </tbody>
 </table>
 <br>

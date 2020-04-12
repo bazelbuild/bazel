@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import java.util.Collection;
 
 /**
@@ -44,9 +45,9 @@ public class GenericBuildEvent implements BuildEvent {
   public static BuildEventStreamProtos.BuildEvent.Builder protoChaining(ChainableEvent event) {
     BuildEventStreamProtos.BuildEvent.Builder builder =
         BuildEventStreamProtos.BuildEvent.newBuilder();
-    builder.setId(event.getEventId().asStreamProto());
+    builder.setId(event.getEventId());
     for (BuildEventId childId : event.getChildrenEvents()) {
-      builder.addChildren(childId.asStreamProto());
+      builder.addChildren(childId);
     }
     return builder;
   }

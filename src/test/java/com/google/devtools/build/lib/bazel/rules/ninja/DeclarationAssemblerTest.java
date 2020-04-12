@@ -24,7 +24,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationAssembler;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -73,8 +72,7 @@ public class DeclarationAssemblerTest {
             fragment -> {
               offsetStringPairList.add(
                   new Pair<>(fragment.getFragmentOffset(), fragment.toString()));
-            },
-            NinjaSeparatorFinder.INSTANCE);
+            });
 
     assembler.wrapUp(
         Lists.newArrayList(
@@ -98,8 +96,7 @@ public class DeclarationAssemblerTest {
             fragment -> {
               list.add(fragment.toString());
               assertThat(fragment.getFileOffset()).isAnyOf(0L, (long) chars1.length);
-            },
-            NinjaSeparatorFinder.INSTANCE);
+            });
 
     assembler.wrapUp(
         Lists.newArrayList(
@@ -118,8 +115,7 @@ public class DeclarationAssemblerTest {
             fragment -> {
               list.add(fragment.toString());
               assertThat(fragment.getFileOffset()).isEqualTo(0);
-            },
-            NinjaSeparatorFinder.INSTANCE);
+            });
 
     byte[] chars = s.getBytes(StandardCharsets.ISO_8859_1);
     ByteBuffer bytes = ByteBuffer.wrap(chars);

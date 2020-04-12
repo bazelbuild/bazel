@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -42,7 +41,10 @@ public class RecursivePkgFunction implements SkyFunction {
     this.directories = directories;
   }
 
-  /** N.B.: May silently throw {@link NoSuchPackageException} in nokeep_going mode! */
+  /**
+   * N.B.: May silently throw {@link com.google.devtools.build.lib.packages.NoSuchPackageException}
+   * in nokeep_going mode!
+   */
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     return new MyTraversalFunction().visitDirectory((RecursivePkgKey) skyKey.argument(), env);

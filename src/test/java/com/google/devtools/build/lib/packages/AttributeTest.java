@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.FileType;
@@ -286,7 +287,7 @@ public class AttributeTest {
 
   private static class TestSplitTransition implements SplitTransition {
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
       return ImmutableMap.of("test0", buildOptions.clone(), "test1", buildOptions.clone());
     }
   }

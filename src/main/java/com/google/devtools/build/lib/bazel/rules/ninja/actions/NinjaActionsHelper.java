@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Helper class for creating {@link NinjaAction} for each {@link NinjaTarget}, and linking the file
@@ -150,7 +151,7 @@ public class NinjaActionsHelper {
         }
       } else {
         PhonyTarget phonyTarget = phonyTargets.get(fragment);
-        // Phony target can be null, if the path in neither regular or phony target,
+        // Phony target can be null, if the path in neither usual or phony target,
         // but the source file.
         if (phonyTarget != null) {
           phonyTarget.visitUsualInputs(phonyTargets, enqueuer::accept);
@@ -172,15 +173,19 @@ public class NinjaActionsHelper {
         resolveRuleVariables(targetScope, targetOffset, rule);
     String command = map.get(NinjaRuleVariable.COMMAND.lowerCaseName()).get(0).getSecond();
     maybeCreateRspFile(rule, inputsBuilder, map);
-
     if (!artifactsHelper.getWorkingDirectory().isEmpty()) {
       command = String.format("cd %s && ", artifactsHelper.getWorkingDirectory()) + command;
     }
     CommandLines commandLines =
         CommandLines.of(ImmutableList.of(shellExecutable.getPathString(), "-c", command));
+    Artifact depFile = getDepfile(map);
+    if (depFile != null) {
+      outputsBuilder.add(depFile);
+    }
     ruleContext.registerAction(
         new NinjaAction(
             ruleContext.getActionOwner(),
+            artifactsHelper.getSourceRoot(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             inputsBuilder.build(),
             outputsBuilder.build(),
@@ -188,7 +193,8 @@ public class NinjaActionsHelper {
             Preconditions.checkNotNull(ruleContext.getConfiguration()).getActionEnvironment(),
             executionInfo,
             EmptyRunfilesSupplier.INSTANCE,
-            isAlwaysDirty));
+            isAlwaysDirty,
+            depFile));
   }
 
   /** Returns true is the action shpould be marked as always dirty. */
@@ -213,6 +219,20 @@ public class NinjaActionsHelper {
       outputsBuilder.add(artifactsHelper.createOutputArtifact(output));
     }
     return isAlwaysDirty;
+  }
+
+  @Nullable
+  private Artifact getDepfile(ImmutableSortedMap<String, List<Pair<Long, String>>> ruleVariables)
+      throws GenericParsingException {
+    List<Pair<Long, String>> depfilePair =
+        ruleVariables.get(NinjaRuleVariable.DEPFILE.lowerCaseName());
+    if (depfilePair != null) {
+      String depfileName = depfilePair.get(0).getSecond();
+      if (!depfileName.trim().isEmpty()) {
+        return artifactsHelper.createOutputArtifact(PathFragment.create(depfileName));
+      }
+    }
+    return null;
   }
 
   private void maybeCreateRspFile(
@@ -259,6 +279,7 @@ public class NinjaActionsHelper {
    *
    * <p>See {@link NinjaRuleVariable} for the list.
    */
+  // TODO(cparsons): Refactor rule variables so that they are encapsulated by NinjaRule.
   private static ImmutableSortedMap<String, List<Pair<Long, String>>> resolveRuleVariables(
       NinjaScope targetScope, long targetOffset, NinjaRule rule) {
     ImmutableSortedMap.Builder<String, List<Pair<Long, String>>> builder =

@@ -166,6 +166,16 @@ public class RemoteWorkerOptions extends OptionsBase {
       help = "Specify the TLS private key to be used.")
   public String tlsPrivateKey;
 
+  @Option(
+      name = "tls_ca_certificate",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a CA certificate to use for authenticating clients; setting this implicitly "
+              + "requires client authentication (aka mTLS).")
+  public String tlsCaCertificate;
+
   private static final int MAX_JOBS = 16384;
 
   /**

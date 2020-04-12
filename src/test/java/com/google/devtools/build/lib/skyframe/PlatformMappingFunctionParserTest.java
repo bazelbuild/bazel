@@ -391,7 +391,7 @@ public class PlatformMappingFunctionParserTest {
         .contains("--compilation_mode=dbg");
   }
 
-  private PlatformMappingFunction.Mappings parse(String... lines)
+  private static PlatformMappingFunction.Mappings parse(String... lines)
       throws PlatformMappingFunction.PlatformMappingException {
     return new PlatformMappingFunction.Parser(ImmutableList.copyOf(lines).iterator()).parse();
   }

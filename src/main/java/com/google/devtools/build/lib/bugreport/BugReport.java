@@ -20,7 +20,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
+import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -68,12 +71,13 @@ public abstract class BugReport {
      * Perform all possible clean-up before crashing, posting events etc. so long as crashing isn't
      * significantly delayed or another crash isn't triggered.
      */
-    void cleanUpForCrash(ExitCode exitCode);
+    void cleanUpForCrash(DetailedExitCode exitCode);
   }
 
   public static void setRuntime(BlazeRuntimeInterface newRuntime) {
     Preconditions.checkNotNull(newRuntime);
-    Preconditions.checkState(runtime == null, "runtime already set: %s, %s", runtime, newRuntime);
+    Preconditions.checkState(
+        runtime == null || IN_TEST, "runtime already set: %s, %s", runtime, newRuntime);
     runtime = newRuntime;
   }
 
@@ -146,7 +150,12 @@ public abstract class BugReport {
    */
   public static void handleCrashWithoutSendingBugReport(
       Throwable throwable, ExitCode exitCode, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ false, exitCode, args);
+    // TODO(b/78555988): allow call sites to specialize DetailedExitCode
+    handleCrash(
+        throwable,
+        /*sendBugReport=*/ false,
+        DetailedExitCode.of(exitCode, CrashFailureDetails.forThrowable(throwable)),
+        args);
   }
 
   /**
@@ -156,7 +165,12 @@ public abstract class BugReport {
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
   public static void handleCrash(Throwable throwable, ExitCode exitCode, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ true, exitCode, args);
+    // TODO(b/78555988): allow call sites to specialize DetailedExitCode
+    handleCrash(
+        throwable,
+        /*sendBugReport=*/ true,
+        DetailedExitCode.of(exitCode, CrashFailureDetails.forThrowable(throwable)),
+        args);
   }
 
   /**
@@ -166,12 +180,19 @@ public abstract class BugReport {
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
   public static RuntimeException handleCrash(Throwable throwable, String... args) {
-    throw handleCrash(throwable, /*sendBugReport=*/ true, /*exitCode=*/ null, args);
+    throw handleCrash(
+        throwable,
+        /*sendBugReport=*/ true,
+        CrashFailureDetails.detailedExitCodeForThrowable(throwable),
+        args);
   }
 
   private static RuntimeException handleCrash(
-      Throwable throwable, boolean sendBugReport, @Nullable ExitCode exitCode, String... args) {
-    ExitCode exitCodeToUse = exitCode == null ? getExitCodeForThrowable(throwable) : exitCode;
+      Throwable throwable,
+      boolean sendBugReport,
+      DetailedExitCode detailedExitCode,
+      String... args) {
+    ExitCode exitCodeToUse = detailedExitCode.getExitCode();
     int numericExitCode = exitCodeToUse.getNumericExitCode();
     try {
       synchronized (LOCK) {
@@ -184,9 +205,11 @@ public abstract class BugReport {
         }
         try {
           if (runtime != null) {
-            runtime.cleanUpForCrash(exitCodeToUse);
+            runtime.cleanUpForCrash(detailedExitCode);
           }
           CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode);
+          CustomFailureDetailPublisher.maybeWriteFailureDetailFile(
+              detailedExitCode.getFailureDetail());
         } finally {
           // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
           // trigger our Blaze crash handler (this method). Calling System#exit() here, would

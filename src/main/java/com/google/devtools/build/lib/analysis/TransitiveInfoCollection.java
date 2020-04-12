@@ -15,19 +15,14 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RequiredProviders;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import javax.annotation.Nullable;
 
 /**
  * Multiple {@link TransitiveInfoProvider}s bundled together.
@@ -60,15 +55,6 @@ public interface TransitiveInfoCollection
    * Returns the label associated with this prerequisite.
    */
   Label getLabel();
-
-  /**
-   * Returns the {@link BuildConfigurationValue.Key} naming the {@link BuildConfiguration} for which
-   * this transitive info collection is defined. Configuration is defined for all configured targets
-   * with exception of {@link InputFileConfiguredTarget} and {@link PackageGroupConfiguredTarget}
-   * for which it is always <b>null</b>.
-   */
-  @Nullable
-  BuildConfigurationValue.Key getConfigurationKey();
 
   /**
    * Checks whether this {@link TransitiveInfoCollection} satisfies given {@link RequiredProviders}.

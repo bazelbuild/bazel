@@ -16,8 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.util.SpellChecker;
+import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,7 +55,7 @@ final class Eval {
         return flow;
       }
 
-      // Hack for SkylarkImportLookupFunction's "export" semantics.
+      // Hack for StarlarkImportLookupFunction's "export" semantics.
       // We enable it only for statements outside any function (isToplevelFunction)
       // and outside any if- or for- statements (!indented).
       if (isToplevelFunction && !indented && fr.thread.postAssignHook != null) {
@@ -82,8 +81,7 @@ final class Eval {
       try {
         assign(fr, node.getLHS(), rvalue);
       } catch (EvalException ex) {
-        // TODO(adonovan): use location of = operator.
-        throw ex.ensureLocation(node.getStartLocation());
+        throw ex.ensureLocation(node.getOperatorLocation());
       }
     }
   }
@@ -92,7 +90,7 @@ final class Eval {
       throws EvalException, InterruptedException {
     Object o = eval(fr, node.getCollection());
     Iterable<?> seq = Starlark.toIterable(o);
-    EvalUtils.lock(o, node.getStartLocation());
+    EvalUtils.addIterator(o);
     try {
       for (Object it : seq) {
         assign(fr, node.getLHS(), it);
@@ -114,9 +112,9 @@ final class Eval {
         }
       }
     } catch (EvalException ex) {
-      throw ex.ensureLocation(node.getLHS().getStartLocation());
+      throw ex.ensureLocation(node.getStartLocation());
     } finally {
-      EvalUtils.unlock(o, node.getStartLocation());
+      EvalUtils.removeIterator(o);
     }
     return TokenKind.PASS;
   }
@@ -174,7 +172,7 @@ final class Eval {
       StarlarkThread.Extension module = fr.thread.getExtension(moduleName);
       if (module == null) {
         throw new EvalException(
-            node.getImport().getStartLocation(),
+            node.getStartLocation(),
             String.format(
                 "file '%s' was not correctly loaded. "
                     + "Make sure the 'load' statement appears in the global scope in your file",
@@ -203,7 +201,7 @@ final class Eval {
       // changing it to fr.locals.put breaks a test. TODO(adonovan): find out why.
       try {
         fn(fr).getModule().put(binding.getLocalName().getName(), value);
-      } catch (Mutability.MutabilityException ex) {
+      } catch (EvalException ex) {
         throw new AssertionError(ex);
       }
     }
@@ -221,7 +219,7 @@ final class Eval {
   private static TokenKind exec(StarlarkThread.Frame fr, Statement st)
       throws EvalException, InterruptedException {
     if (fr.dbg != null) {
-      Location loc = st.getStartLocation();
+      Location loc = st.getStartLocation(); // not very precise
       fr.setLocation(loc);
       fr.dbg.before(fr.thread, loc); // location is now redundant since it's in the thread
     }
@@ -326,7 +324,7 @@ final class Eval {
         try {
           module.put(name, value);
           module.exportedBindings.add(name);
-        } catch (Mutability.MutabilityException ex) {
+        } catch (EvalException ex) {
           throw new IllegalStateException(ex);
         }
         break;
@@ -386,19 +384,18 @@ final class Eval {
       try {
         EvalUtils.setIndex(object, key, z);
       } catch (EvalException ex) {
-        Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
-        throw ex.ensureLocation(loc);
+        throw ex.ensureLocation(stmt.getOperatorLocation());
       }
 
     } else if (lhs instanceof ListExpression) {
       // TODO(adonovan): make this a static error.
-      Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
-      throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
+      throw new EvalException(
+          stmt.getOperatorLocation(), "cannot perform augmented assignment on a list literal");
 
     } else {
       // Not possible for validated ASTs.
-      Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
-      throw new EvalException(loc, "cannot perform augmented assignment on '" + lhs + "'");
+      throw new EvalException(
+          stmt.getOperatorLocation(), "cannot perform augmented assignment on '" + lhs + "'");
     }
   }
 
@@ -446,8 +443,7 @@ final class Eval {
                 return EvalUtils.binaryOp(
                     binop.getOperator(), x, y, fr.thread.getSemantics(), fr.thread.mutability());
               } catch (EvalException ex) {
-                // TODO(adonovan): use operator location
-                ex.ensureLocation(binop.getStartLocation());
+                ex.ensureLocation(binop.getOperatorLocation());
                 throw ex;
               }
           }
@@ -474,13 +470,11 @@ final class Eval {
             try {
               dict.put(k, v, (Location) null);
             } catch (EvalException ex) {
-              // TODO(adonovan): use colon location
-              throw ex.ensureLocation(entry.getKey().getStartLocation());
+              throw ex.ensureLocation(entry.getColonLocation());
             }
             if (dict.size() == before) {
-              // TODO(adonovan): use colon location
               throw new EvalException(
-                  entry.getKey().getStartLocation(),
+                  entry.getColonLocation(),
                   "Duplicated key " + Starlark.repr(k) + " when creating dictionary");
             }
           }
@@ -499,7 +493,7 @@ final class Eval {
             }
             return result;
           } catch (EvalException ex) {
-            throw ex.ensureLocation(dot.getStartLocation()); // TODO(adonovan): use dot token
+            throw ex.ensureLocation(dot.getDotLocation());
           }
         }
 
@@ -583,7 +577,7 @@ final class Eval {
             }
           }
 
-          Location loc = call.getStartLocation(); // TODO(adonovan): use call lparen
+          Location loc = call.getLparenLocation(); // (Location is prematerialized)
           fr.setLocation(loc);
           try {
             return Starlark.fastcall(fr.thread, fn, positional, named);
@@ -658,8 +652,7 @@ final class Eval {
           try {
             return EvalUtils.index(fr.thread.mutability(), fr.thread.getSemantics(), object, key);
           } catch (EvalException ex) {
-            // TODO(adonovan): use location of lbracket token
-            throw ex.ensureLocation(index.getStartLocation());
+            throw ex.ensureLocation(index.getLbracketLocation());
           }
         }
 
@@ -689,8 +682,7 @@ final class Eval {
           try {
             return Starlark.slice(fr.thread.mutability(), x, start, stop, step);
           } catch (EvalException ex) {
-            // TODO(adonovan): use lbracket location
-            throw ex.ensureLocation(slice.getStartLocation());
+            throw ex.ensureLocation(slice.getLbracketLocation());
           }
         }
 
@@ -747,19 +739,17 @@ final class Eval {
             Comprehension.For forClause = (Comprehension.For) clause;
 
             Object iterable = eval(fr, forClause.getIterable());
-            Location loc = comp.getStartLocation(); // TODO(adonovan): use location of 'for' token
             Iterable<?> listValue = Starlark.toIterable(iterable);
-            // TODO(adonovan): lock should not need loc.
-            EvalUtils.lock(iterable, loc);
+            EvalUtils.addIterator(iterable);
             try {
               for (Object elem : listValue) {
                 assign(fr, forClause.getVars(), elem);
                 execClauses(index + 1);
               }
             } catch (EvalException ex) {
-              throw ex.ensureLocation(loc);
+              throw ex.ensureLocation(forClause.getStartLocation());
             } finally {
-              EvalUtils.unlock(iterable, loc);
+              EvalUtils.removeIterator(iterable);
             }
 
           } else {
@@ -780,8 +770,7 @@ final class Eval {
           try {
             dict.put(k, v, (Location) null);
           } catch (EvalException ex) {
-            // TODO(adonovan): use colon location
-            throw ex.ensureLocation(comp.getStartLocation());
+            throw ex.ensureLocation(body.getColonLocation());
           }
         } else {
           list.add(eval(fr, ((Expression) comp.getBody())));

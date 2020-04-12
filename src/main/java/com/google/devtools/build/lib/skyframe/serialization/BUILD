@@ -12,12 +12,21 @@ filegroup(
 )
 
 java_library(
+    name = "codec-scanning-constants",
+    srcs = ["CodecScanningConstants.java"],
+)
+
+java_library(
     name = "serialization",
     srcs = glob(
         ["**/*.java"],
-        exclude = ["SerializationConstants.java"],
+        exclude = [
+            "SerializationConstants.java",
+            "CodecScanningConstants.java",
+        ],
     ),
     deps = [
+        ":codec-scanning-constants",
         "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
@@ -32,6 +41,6 @@ java_library(
     name = "constants",
     srcs = ["SerializationConstants.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:resource_usage",
+        "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
     ],
 )

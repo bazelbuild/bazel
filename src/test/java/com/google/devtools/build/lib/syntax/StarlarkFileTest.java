@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -86,25 +84,26 @@ public class StarlarkFileTest {
   public void testFailsIfNewlinesAreMissing() throws Exception {
     StarlarkFile file = parseFile("foo() bar() something = baz() bar()");
 
-    Event event =
-        MoreAsserts.assertContainsEvent(file.errors(), "syntax error at \'bar\': expected newline");
-    assertThat(event.getLocation().toString()).isEqualTo("foo.star:1:7");
+    SyntaxError error =
+        LexerTest.assertContainsError(file.errors(), "syntax error at \'bar\': expected newline");
+    assertThat(error.location().toString()).isEqualTo("foo.star:1:7");
   }
 
   @Test
   public void testImplicitStringConcatenationFails() throws Exception {
+    // TODO(adonovan): move to ParserTest.
     StarlarkFile file = parseFile("a = 'foo' 'bar'");
-    Event event =
-        MoreAsserts.assertContainsEvent(
+    SyntaxError error =
+        LexerTest.assertContainsError(
             file.errors(), "Implicit string concatenation is forbidden, use the + operator");
-    assertThat(event.getLocation().toString()).isEqualTo("foo.star:1:10");
+    assertThat(error.location().toString()).isEqualTo("foo.star:1:11"); // start of 'bar'
   }
 
   @Test
   public void testImplicitStringConcatenationAcrossLinesIsIllegal() throws Exception {
     StarlarkFile file = parseFile("a = 'foo'\n  'bar'");
 
-    Event event = MoreAsserts.assertContainsEvent(file.errors(), "indentation error");
-    assertThat(event.getLocation().toString()).isEqualTo("foo.star:2:2");
+    SyntaxError error = LexerTest.assertContainsError(file.errors(), "indentation error");
+    assertThat(error.location().toString()).isEqualTo("foo.star:2:2");
   }
 }

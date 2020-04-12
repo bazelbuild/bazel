@@ -35,7 +35,20 @@ public abstract class ClassName implements TypeMappable<ClassName> {
 
   public static final String IN_PROCESS_LABEL = "__desugar__/";
 
-  private static final String TYPE_ADAPTER_PACKAGE_ROOT = "desugar/runtime/typeadapter/";
+  private static final String IMMUTABLE_LABEL_LABEL = "__final__/";
+
+  private static final String TYPE_ADAPTER_PACKAGE_ROOT =
+      "com/google/devtools/build/android/desugar/typeadapter/";
+
+  public static final TypeMapper IN_PROCESS_LABEL_STRIPPER =
+      new TypeMapper(className -> className.stripPackagePrefix(IN_PROCESS_LABEL));
+
+  public static final TypeMapper IMMUTABLE_LABEL_STRIPPER =
+      new TypeMapper(className -> className.stripPackagePrefix(IMMUTABLE_LABEL_LABEL));
+
+  private static final String TYPE_ADAPTER_SUFFIX = "Adapter";
+
+  private static final String TYPE_CONVERTER_SUFFIX = "Converter";
 
   /**
    * The primitive type as specified at
@@ -53,7 +66,6 @@ public abstract class ClassName implements TypeMappable<ClassName> {
           .put("J", Type.LONG_TYPE)
           .put("D", Type.DOUBLE_TYPE)
           .build();
-
   /**
    * The primitive type as specified at
    * https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-2.html#jvms-2.3
@@ -71,26 +83,38 @@ public abstract class ClassName implements TypeMappable<ClassName> {
           .put(ClassName.create(Type.DOUBLE_TYPE), ClassName.create("java/lang/Double"))
           .build();
 
-  private static final ImmutableBiMap<String, String> DELIVERY_TYPE_MAPPINGS =
+  private static final ImmutableBiMap<String, String> SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS =
       ImmutableBiMap.<String, String>builder()
-          .put("java/", "j$/")
-          .put("javadesugar/", "jd$/")
+          .put("java/time/", "j$/time/")
+          .put("java/lang/Double8", "j$/lang/Double8")
+          .put("java/lang/Integer8", "j$/lang/Integer8")
+          .put("java/lang/Long8", "j$/lang/Long8")
+          .put("java/lang/Math8", "j$/lang/Math8")
+          .put("java/io/Desugar", "j$/io/Desugar")
+          .put("java/io/UncheckedIOException", "j$/io/UncheckedIOException")
+          .put("java/util/stream/", "j$/util/stream/")
+          .put("java/util/function/", "j$/util/function/")
+          .put("java/util/Desugar", "j$/util/Desugar")
+          .put("java/util/DoubleSummaryStatistics", "j$/util/DoubleSummaryStatistics")
+          .put("java/util/IntSummaryStatistics", "j$/util/IntSummaryStatistics")
+          .put("java/util/LongSummaryStatistics", "j$/util/LongSummaryStatistics")
+          .put("java/util/Objects", "j$/util/Objects")
+          .put("java/util/Optional", "j$/util/Optional")
+          .put("java/util/PrimitiveIterator", "j$/util/PrimitiveIterator")
+          .put("java/util/Spliterator", "j$/util/Spliterator")
+          .put("java/util/StringJoiner", "j$/util/StringJoiner")
+          .put("java/util/concurrent/ConcurrentHashMap", "j$/util/concurrent/ConcurrentHashMap")
+          .put("java/util/concurrent/ThreadLocalRandom", "j$/util/concurrent/ThreadLocalRandom")
+          .put(
+              "java/util/concurrent/atomic/DesugarAtomic",
+              "j$/util/concurrent/atomic/DesugarAtomic")
+          .put("javadesugar/testing/", "jd$/testing/")
           .build();
 
-  public static final TypeMapper IN_PROCESS_LABEL_STRIPPER =
-      new TypeMapper(ClassName::verbatimName);
-
-  public static final TypeMapper DELIVERY_TYPE_MAPPER =
-      new TypeMapper(ClassName::verbatimToDelivery);
-
-  public static final TypeMapper VERBATIM_TYPE_MAPPER =
-      new TypeMapper(ClassName::deliveryToVerbatim);
-
-  /**
-   * The textual binary name used to index the class name, as defined at,
-   * https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-4.html#jvms-4.2.1
-   */
-  public abstract String binaryName();
+  public static final TypeMapper SHADOWED_TO_MIRRORED_TYPE_MAPPER =
+      new TypeMapper(ClassName::shadowedToMirrored);
+  public static final TypeMapper IMMUTABLE_LABEL_ATTACHER =
+      new TypeMapper(ClassName::withCoreTypeImmutableLabel);
 
   public static ClassName create(String binaryName) {
     checkArgument(
@@ -108,6 +132,29 @@ public abstract class ClassName implements TypeMappable<ClassName> {
   public static ClassName create(Type asmType) {
     return create(asmType.getInternalName());
   }
+
+  public static ClassName fromClassFileName(String fileName) {
+    checkArgument(
+        fileName.endsWith(".class"), "Expected a class file (*.class). Actual: (%s).", fileName);
+    return ClassName.create(fileName.substring(0, fileName.length() - ".class".length()));
+  }
+
+  private static void checkPackagePrefixFormat(String prefix) {
+    checkArgument(
+        prefix.isEmpty() || prefix.endsWith("/"),
+        "Expected (%s) to be a package prefix of ending with '/'.",
+        prefix);
+    checkArgument(
+        !prefix.contains("."),
+        "Expected a '/'-delimited binary name instead of a '.'-delimited qualified name for %s",
+        prefix);
+  }
+
+  /**
+   * The textual binary name used to index the class name, as defined at,
+   * https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-4.html#jvms-4.2.1
+   */
+  public abstract String binaryName();
 
   public final Type toAsmObjectType() {
     return isPrimitive() ? PRIMITIVES_TYPES.get(binaryName()) : Type.getObjectType(binaryName());
@@ -162,39 +209,84 @@ public abstract class ClassName implements TypeMappable<ClassName> {
     return hasPackagePrefix(IN_PROCESS_LABEL);
   }
 
-  private ClassName stripInProcessLabel() {
-    return stripPackagePrefix(IN_PROCESS_LABEL);
+  public final boolean hasImmutableLabel() {
+    return hasPackagePrefix(IMMUTABLE_LABEL_LABEL);
   }
 
-  private ClassName stripInProcessLabelIfAny() {
-    return hasInProcessLabel() ? stripPackagePrefix(IN_PROCESS_LABEL) : this;
+  /**
+   * Returns a new instance of {@link ClassName} that represents the owner class of a single adapter
+   * method for an Android SDK API.
+   *
+   * <p>The implementation has to guarantee generating different class names for different target
+   * methods to be adapted, including overloaded API methods, in order to avoid adapter class name
+   * clashing from separate compilation units.
+   */
+  final ClassName typeAdapterOwner(String encodedMethodTag) {
+    checkState(
+        !hasInProcessLabel() && !hasImmutableLabel(),
+        "Expected a label-free type: Actual(%s)",
+        this);
+    checkState(
+        isInPackageEligibleForTypeAdapter(),
+        "Expected an Android SDK type to have an adapter: Actual (%s)",
+        this);
+    String binaryName =
+        String.format(
+            "%s%s$%x$%s",
+            TYPE_ADAPTER_PACKAGE_ROOT,
+            binaryName(),
+            encodedMethodTag.hashCode(),
+            TYPE_ADAPTER_SUFFIX);
+    return ClassName.create(binaryName);
   }
 
-  /** Strips out in-process labels if any. */
-  public final ClassName verbatimName() {
-    return stripInProcessLabelIfAny().deliveryToVerbatim();
-  }
-
-  public final ClassName typeAdapterOwner() {
-    return verbatimName().withSimpleNameSuffix("Adapter").prependPrefix(TYPE_ADAPTER_PACKAGE_ROOT);
-  }
-
+  /**
+   * Returns a new instance of {@code ClassName} that represents the owner class with conversion
+   * methods between JDK built-in types and desguar-mirrored types.
+   */
   public final ClassName typeConverterOwner() {
-    return verbatimName()
-        .withSimpleNameSuffix("Converter")
-        .prependPrefix(TYPE_ADAPTER_PACKAGE_ROOT);
+    checkState(
+        !hasInProcessLabel() && !hasImmutableLabel(),
+        "Expected a label-free type: Actual(%s)",
+        this);
+    checkState(
+        isDesugarShadowedType(),
+        "Expected an JDK built-in type to have an converter: Actual (%s)",
+        this);
+    return withSimpleNameSuffix(TYPE_CONVERTER_SUFFIX).withPackagePrefix(TYPE_ADAPTER_PACKAGE_ROOT);
   }
 
-  public final ClassName verbatimToDelivery() {
-    return DELIVERY_TYPE_MAPPINGS.keySet().stream()
+  /**
+   * Returns a new instance of {@code ClassName} attached with an immutable label which marks the
+   * type is not subject to further desugar operations until the final label striping.
+   */
+  public final ClassName withCoreTypeImmutableLabel() {
+    return isDesugarShadowedType() ? withPackagePrefix(IMMUTABLE_LABEL_LABEL) : this;
+  }
+
+  /**
+   * Returns a new instance of {@code ClassName} that is the desugar-mirrored core type (e.g. {@code
+   * j$/time/MonthDay}) of the current shadowed built-in core type, assuming {@code this} instance
+   * is a desugared-shadowed built-in core type.
+   */
+  public final ClassName shadowedToMirrored() {
+    return SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.keySet().stream()
         .filter(this::hasPackagePrefix)
-        .map(prefix -> replacePackagePrefix(prefix, DELIVERY_TYPE_MAPPINGS.get(prefix)))
+        .map(
+            prefix ->
+                replacePackagePrefix(prefix, SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.get(prefix)))
         .findAny()
         .orElse(this);
   }
 
-  public final ClassName deliveryToVerbatim() {
-    ImmutableBiMap<String, String> verbatimTypeMappings = DELIVERY_TYPE_MAPPINGS.inverse();
+  /**
+   * Returns a new instance of {@code ClassName} that is a shadowed built-in core type (e.g. {@code
+   * java/time/MonthDay}) of the current desugar-mirrored core type, assuming {@code this} instance
+   * is a desugar-mirrored core type.
+   */
+  public final ClassName mirroredToShadowed() {
+    ImmutableBiMap<String, String> verbatimTypeMappings =
+        SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.inverse();
     return verbatimTypeMappings.keySet().stream()
         .filter(this::hasPackagePrefix)
         .map(prefix -> replacePackagePrefix(prefix, verbatimTypeMappings.get(prefix)))
@@ -202,7 +294,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
         .orElse(this);
   }
 
-  public final ClassName prependPrefix(String prefix) {
+  public final ClassName withPackagePrefix(String prefix) {
     checkPackagePrefixFormat(prefix);
     return ClassName.create(prefix + binaryName());
   }
@@ -219,11 +311,52 @@ public abstract class ClassName implements TypeMappable<ClassName> {
     return prefixes.stream().anyMatch(this::hasPackagePrefix);
   }
 
-  public final ClassName stripPackagePrefix(String prefix) {
+  public final boolean isDesugarEligible() {
+    return !isInDesugarRuntimeLibrary();
+  }
+
+  public final boolean isInPackageEligibleForTypeAdapter() {
+    // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
+    // rollouts are complete.
+
+    return hasAnyPackagePrefix(
+        "android/testing/",
+        "android/accessibilityservice/AccessibilityService",
+        "android/app/admin/FreezePeriod",
+        "android/app/role/RoleManager",
+        "android/app/usage/UsageStatsManager",
+        "android/hardware/display/AmbientBrightnessDayStats",
+        "android/os/SystemClock",
+        "android/service/voice/VoiceInteractionSession",
+        "android/service/voice/VoiceInteractionSession",
+        "android/telephony/SubscriptionPlan$Builder",
+        "android/telephony/TelephonyManager",
+        "android/view/textclassifier/TextClassification$Request",
+        "android/view/textclassifier/TextLinks");
+  }
+
+  public final boolean isInDesugarRuntimeLibrary() {
+    return hasAnyPackagePrefix(
+        "com/google/devtools/build/android/desugar/runtime/", TYPE_ADAPTER_PACKAGE_ROOT);
+  }
+
+  public final boolean isDesugarShadowedType() {
+    return hasAnyPackagePrefix(SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.keySet());
+  }
+
+  public final boolean isDesugarMirroredType() {
+    return hasAnyPackagePrefix(SHADOWED_TO_MIRRORED_TYPE_PREFIX_MAPPINGS.values());
+  }
+
+  private ClassName stripPackagePrefix(String prefix) {
+    return hasPackagePrefix(prefix) ? stripRequiredPackagePrefix(prefix) : this;
+  }
+
+  private ClassName stripRequiredPackagePrefix(String prefix) {
     return replacePackagePrefix(/* originalPrefix= */ prefix, /* targetPrefix= */ "");
   }
 
-  public final ClassName replacePackagePrefix(String originalPrefix, String targetPrefix) {
+  private ClassName replacePackagePrefix(String originalPrefix, String targetPrefix) {
     checkState(
         hasPackagePrefix(originalPrefix),
         "Expected %s to have a package prefix of (%s) before stripping.",
@@ -236,28 +369,5 @@ public abstract class ClassName implements TypeMappable<ClassName> {
   @Override
   public ClassName acceptTypeMapper(TypeMapper typeMapper) {
     return typeMapper.map(this);
-  }
-
-  private static void checkPackagePrefixFormat(String prefix) {
-    checkArgument(
-        prefix.isEmpty() || prefix.endsWith("/"),
-        "Expected (%s) to be a package prefix of ending with '/'.",
-        prefix);
-    checkArgument(
-        !prefix.contains("."),
-        "Expected a '/'-delimited binary name instead of a '.'-delimited qualified name for %s",
-        prefix);
-  }
-
-  public boolean isInProcessCoreType() {
-    return hasInProcessLabel() && stripInProcessLabel().isVerbatimCoreType();
-  }
-
-  public boolean isVerbatimCoreType() {
-    return hasAnyPackagePrefix(DELIVERY_TYPE_MAPPINGS.keySet());
-  }
-
-  public boolean isDeliveryCoreType() {
-    return hasAnyPackagePrefix(DELIVERY_TYPE_MAPPINGS.values());
   }
 }

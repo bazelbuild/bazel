@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
-import com.google.common.collect.ImmutableList;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.getGeneratedName;
+
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -133,21 +134,6 @@ class AutoCodecUtil {
   }
 
   /**
-   * Returns a class name generated from the given {@code element}.
-   *
-   * <p>For {@code Foo.Bar} this is {@code Foo_Bar_suffix}.
-   */
-  static String getGeneratedName(Element element, String suffix) {
-    ImmutableList.Builder<String> classNamesBuilder = new ImmutableList.Builder<>();
-    classNamesBuilder.add(suffix);
-    do {
-      classNamesBuilder.add(element.getSimpleName().toString());
-      element = element.getEnclosingElement();
-    } while (element instanceof TypeElement);
-    return classNamesBuilder.build().reverse().stream().collect(Collectors.joining("_"));
-  }
-
-  /**
    * Name of the generated codec class.
    *
    * <p>For {@code Foo.Bar} this is {@code Foo_Bar_AutoCodec}.
@@ -158,9 +144,5 @@ class AutoCodecUtil {
 
   static TypeMirror getType(Class<?> clazz, ProcessingEnvironment env) {
     return env.getElementUtils().getTypeElement(clazz.getCanonicalName()).asType();
-  }
-
-  static boolean isSubType(TypeMirror type, Class<?> clazz, ProcessingEnvironment env) {
-    return env.getTypeUtils().isSubtype(type, getType(clazz, env));
   }
 }

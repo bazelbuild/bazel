@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.StarlarkThread.ReadyToPause;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Stepping;
 import org.junit.Test;
@@ -110,16 +109,16 @@ public class StarlarkThreadDebuggingTest {
     assertThat(buf.toString())
         .isEqualTo(
             ""
-                // location is start of g(4, 5, 6) call:
-                + "<toplevel> @ main.star:3:1 local={}\n"
-                // location is start of "f()" call:
-                + "g @ main.star:2:3 local={a=4, y=5, z=6}\n"
+                // location is paren of g(4, 5, 6) call:
+                + "<toplevel> @ main.star:3:2 local={}\n"
+                // location is paren of "f()" call:
+                + "g @ main.star:2:4 local={a=4, y=5, z=6}\n"
                 // location is "current PC" in f.
                 + "f @ builtin:12 local={}\n");
 
     // Same, with "lite" stack API.
     assertThat(result[1].toString()) // an ImmutableList<StarlarkThread.CallStackEntry>
-        .isEqualTo("[<toplevel>@main.star:3:1, g@main.star:2:3, f@builtin:12]");
+        .isEqualTo("[<toplevel>@main.star:3:2, g@main.star:2:4, f@builtin:12]");
 
     // TODO(adonovan): more tests:
     // - a stack containing functions defined in different modules.
@@ -227,9 +226,9 @@ public class StarlarkThreadDebuggingTest {
     Module module = thread.getGlobals();
     module.put("a", 1);
 
-    SyntaxError e =
+    SyntaxError.Exception e =
         assertThrows(
-            SyntaxError.class,
+            SyntaxError.Exception.class,
             () ->
                 EvalUtils.execAndEvalOptionalFinalExpression(
                     ParserInput.fromLines("b"), FileOptions.DEFAULT, module, thread));

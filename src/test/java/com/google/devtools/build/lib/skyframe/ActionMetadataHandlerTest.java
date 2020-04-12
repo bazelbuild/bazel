@@ -56,7 +56,8 @@ public class ActionMetadataHandlerTest {
   public final void setRootDir() throws Exception  {
     scratch = new Scratch();
     sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/workspace")));
-    outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/output"), scratch.dir("/output/bin"));
+    scratch.dir("/output/bin");
+    outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/output"), "bin");
   }
 
   @Test

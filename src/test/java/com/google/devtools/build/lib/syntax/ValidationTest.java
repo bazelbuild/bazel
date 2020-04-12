@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
+import static com.google.devtools.build.lib.syntax.LexerTest.assertContainsError;
 
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventCollector;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,36 +27,34 @@ public class ValidationTest {
   private final FileOptions.Builder options = FileOptions.builder();
 
   // Validates a file using the current options.
-  private StarlarkFile validateFile(String... lines) throws SyntaxError {
+  private StarlarkFile validateFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     Module module = Module.createForBuiltins(Starlark.UNIVERSE);
     return EvalUtils.parseAndValidate(input, options.build(), module);
   }
 
   // Assertions that parsing and validation succeeds.
-  private void assertValid(String... lines) throws SyntaxError {
+  private void assertValid(String... lines) throws SyntaxError.Exception {
     StarlarkFile file = validateFile(lines);
     if (!file.ok()) {
-      throw new SyntaxError(file.errors());
+      throw new SyntaxError.Exception(file.errors());
     }
   }
 
   // Asserts that parsing of the program succeeds but validation fails
   // with at least the specified error.
-  private void assertInvalid(String expectedError, String... lines) throws SyntaxError {
-    EventCollector errors = getValidationErrors(lines);
-    assertContainsEvent(errors, expectedError);
+  private void assertInvalid(String expectedError, String... lines) throws SyntaxError.Exception {
+    List<SyntaxError> errors = getValidationErrors(lines);
+    assertContainsError(errors, expectedError);
   }
 
   // Returns the non-empty list of validation errors of the program.
-  private EventCollector getValidationErrors(String... lines) throws SyntaxError {
+  private List<SyntaxError> getValidationErrors(String... lines) throws SyntaxError.Exception {
     StarlarkFile file = validateFile(lines);
     if (file.ok()) {
       throw new AssertionError("validation succeeded unexpectedly");
     }
-    EventCollector errors = new EventCollector();
-    Event.replayEventsOn(errors, file.errors());
-    return errors;
+    return file.errors();
   }
 
   @Test
@@ -83,10 +79,9 @@ public class ValidationTest {
   @Test
   public void testLoadAfterStatement() throws Exception {
     options.requireLoadStatementsFirst(true);
-    assertInvalid(
-        "load() statements must be called before any other statement", //
-        "a = 5",
-        "load(':b.bzl', 'c')");
+    List<SyntaxError> errors = getValidationErrors("a = 5", "load(':b.bzl', 'c')");
+    assertContainsError(errors, ":2:1: load statements must appear before any other statement");
+    assertContainsError(errors, ":1:1: \tfirst non-load statement appears here");
   }
 
   @Test
@@ -181,16 +176,16 @@ public class ValidationTest {
 
   @Test
   public void testNoGlobalReassign() throws Exception {
-    EventCollector errors = getValidationErrors("a = 1", "a = 2");
-    assertContainsEvent(errors, ":2:1: cannot reassign global 'a'");
-    assertContainsEvent(errors, ":1:1: 'a' previously declared here");
+    List<SyntaxError> errors = getValidationErrors("a = 1", "a = 2");
+    assertContainsError(errors, ":2:1: cannot reassign global 'a'");
+    assertContainsError(errors, ":1:1: 'a' previously declared here");
   }
 
   @Test
   public void testTwoFunctionsWithTheSameName() throws Exception {
-    EventCollector errors = getValidationErrors("def foo(): pass", "def foo(): pass");
-    assertContainsEvent(errors, ":2:5: cannot reassign global 'foo'");
-    assertContainsEvent(errors, ":1:5: 'foo' previously declared here");
+    List<SyntaxError> errors = getValidationErrors("def foo(): pass", "def foo(): pass");
+    assertContainsError(errors, ":2:5: cannot reassign global 'foo'");
+    assertContainsError(errors, ":1:5: 'foo' previously declared here");
   }
 
   @Test
@@ -304,23 +299,6 @@ public class ValidationTest {
   public void testTypeForBooleanLiterals() throws Exception {
     assertValid("len([1, 2]) == 0 and True");
     assertValid("len([1, 2]) == 0 and False");
-  }
-
-  @Test
-  public void testDollarErrorDoesNotLeak() throws Exception {
-    EventCollector errors =
-        getValidationErrors(
-            "def GenerateMapNames():", //
-            "  a = 2",
-            "  b = [3, 4]",
-            "  if a not b:",
-            "    print(a)");
-    assertContainsEvent(errors, "syntax error at 'b': expected 'in'");
-    // Parser uses "$error" symbol for error recovery.
-    // It should not be used in error messages.
-    for (Event event : errors) {
-      assertThat(event.getMessage()).doesNotContain("$error$");
-    }
   }
 
   @Test

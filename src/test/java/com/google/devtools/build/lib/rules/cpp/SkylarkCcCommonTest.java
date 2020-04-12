@@ -5995,7 +5995,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    for dep in ctx.attr._deps:",
         "        dep_compilation_contexts.append(dep[CcInfo].compilation_context)",
         "        dep_linking_contexts.append(dep[CcInfo].linking_context)",
-        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
         "    feature_configuration = cc_common.configure_features(",
         "        ctx = ctx,",
         "        cc_toolchain=toolchain,",
@@ -6047,7 +6047,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             + " default=['//foo:extra_compiler_input']),",
         "      '_deps': attr.label_list(default=['//foo:dep1', '//foo:dep2']),",
         "      'aspect_deps': attr.label_list(aspects=[_cc_aspect]),",
-        "      '_cc_toolchain': attr.label(default =",
+        "      '_my_cc_toolchain': attr.label(default =",
         "          configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
         "    },",
         fragments,
@@ -6341,5 +6341,34 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     Iterable<Artifact> barDirectTextualHeaders =
         getArtifactsFromMyInfo(barTarget, "direct_textual_headers");
     assertThat(baseArtifactNames(barDirectTextualHeaders)).containsExactly("bar.def");
+  }
+
+  /** Fixes #10580 */
+  @Test
+  public void testMixedLinkerInputsWithOwnerAndWithout() throws Exception {
+    setUpCcLinkingContextTest();
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'crule')", "crule(name='a')");
+    scratch.file(
+        "foo/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  linker_input = cc_common.create_linker_input(owner=ctx.label)",
+        "  linking_context = cc_common.create_linking_context(",
+        "     linker_inputs=depset([linker_input]))",
+        "  linking_context = cc_common.create_linking_context(",
+        "     libraries_to_link=[],)",
+        "  cc_info = CcInfo(linking_context=linking_context)",
+        "  if cc_info.linking_context.linker_inputs.to_list()[0] == linker_input:",
+        "     pass",
+        "  return [cc_info]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    assertThat(getConfiguredTarget("//foo:a")).isNotNull();
+    assertNoEvents();
   }
 }

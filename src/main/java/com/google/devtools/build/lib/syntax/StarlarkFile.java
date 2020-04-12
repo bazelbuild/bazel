@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.events.Event;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -32,56 +31,66 @@ public final class StarlarkFile extends Node {
   private final ImmutableList<Statement> statements;
   private final FileOptions options;
   private final ImmutableList<Comment> comments;
-  final List<Event> errors; // appended to by ValidationEnvironment
+  final List<SyntaxError> errors; // appended to by ValidationEnvironment
   @Nullable private final String contentHashCode;
 
+  @Override
+  public int getStartOffset() {
+    return 0;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return locs.size();
+  }
+
   private StarlarkFile(
+      FileLocations locs,
       ImmutableList<Statement> statements,
       FileOptions options,
       ImmutableList<Comment> comments,
-      List<Event> errors,
-      String contentHashCode,
-      Lexer.LexerLocation location) {
+      List<SyntaxError> errors,
+      String contentHashCode) {
+    super(locs);
     this.statements = statements;
     this.options = options;
     this.comments = comments;
     this.errors = errors;
     this.contentHashCode = contentHashCode;
-    this.setLocation(location);
   }
 
   // Creates a StarlarkFile from the given effective list of statements,
   // which may include the prelude.
   private static StarlarkFile create(
+      FileLocations locs,
       ImmutableList<Statement> statements,
       FileOptions options,
       Parser.ParseResult result,
       String contentHashCode) {
     return new StarlarkFile(
+        locs,
         statements,
         options,
         ImmutableList.copyOf(result.comments),
         result.errors,
-        contentHashCode,
-        result.location);
+        contentHashCode);
   }
 
   /** Extract a subtree containing only statements from i (included) to j (excluded). */
   public StarlarkFile subTree(int i, int j) {
     return new StarlarkFile(
+        this.locs,
         this.statements.subList(i, j),
         this.options,
         /*comments=*/ ImmutableList.of(),
         errors,
-        /*contentHashCode=*/ null,
-        (Lexer.LexerLocation) this.statements.get(i).getStartLocation());
+        /*contentHashCode=*/ null);
   }
-
   /**
    * Returns an unmodifiable view of the list of scanner, parser, and (perhaps) resolver errors
    * accumulated in this Starlark file.
    */
-  public List<Event> errors() {
+  public List<SyntaxError> errors() {
     return Collections.unmodifiableList(errors);
   }
 
@@ -122,7 +131,7 @@ public final class StarlarkFile extends Node {
     stmts.addAll(prelude);
     stmts.addAll(result.statements);
 
-    return create(stmts.build(), options, result, /*contentHashCode=*/ null);
+    return create(result.locs, stmts.build(), options, result, /*contentHashCode=*/ null);
   }
 
   // TODO(adonovan): make the digest publicly settable, and delete this.
@@ -130,6 +139,7 @@ public final class StarlarkFile extends Node {
       throws IOException {
     Parser.ParseResult result = Parser.parseFile(input, options);
     return create(
+        result.locs,
         ImmutableList.copyOf(result.statements),
         options,
         result,
@@ -153,7 +163,11 @@ public final class StarlarkFile extends Node {
   public static StarlarkFile parse(ParserInput input, FileOptions options) {
     Parser.ParseResult result = Parser.parseFile(input, options);
     return create(
-        ImmutableList.copyOf(result.statements), options, result, /*contentHashCode=*/ null);
+        result.locs,
+        ImmutableList.copyOf(result.statements),
+        options,
+        result,
+        /*contentHashCode=*/ null);
   }
 
   /** Parse a Starlark file with default options. */

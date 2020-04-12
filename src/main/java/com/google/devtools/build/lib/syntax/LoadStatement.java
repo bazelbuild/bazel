@@ -41,19 +41,22 @@ public final class LoadStatement extends Statement {
     }
   }
 
-  private final ImmutableList<Binding> bindings;
+  private final int loadOffset;
   private final StringLiteral module;
+  private final ImmutableList<Binding> bindings;
+  private final int rparenOffset;
 
-  /**
-   * Constructs an import statement.
-   *
-   * <p>{@code bindings} maps a symbol to the original name under which it was defined in the bzl
-   * file that should be loaded. If aliasing is used, the value differs from its key's {@code
-   * symbol.getName()}. Otherwise, both values are identical.
-   */
-  LoadStatement(StringLiteral module, ImmutableList<Binding> bindings) {
+  LoadStatement(
+      FileLocations locs,
+      int loadOffset,
+      StringLiteral module,
+      ImmutableList<Binding> bindings,
+      int rparenOffset) {
+    super(locs);
+    this.loadOffset = loadOffset;
     this.module = module;
     this.bindings = bindings;
+    this.rparenOffset = rparenOffset;
   }
 
   public ImmutableList<Binding> getBindings() {
@@ -62,6 +65,16 @@ public final class LoadStatement extends Statement {
 
   public StringLiteral getImport() {
     return module;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return loadOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return rparenOffset + 1;
   }
 
   @Override

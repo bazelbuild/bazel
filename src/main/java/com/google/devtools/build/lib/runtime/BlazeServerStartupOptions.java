@@ -163,6 +163,22 @@ public class BlazeServerStartupOptions extends OptionsBase {
   )
   public PathFragment serverJvmOut;
 
+  // Note: The help string in this option applies to the client code; not the server code. The
+  // server code will only accept a non-empty path; it's the responsibility of the client to compute
+  // a proper default if necessary.
+  @Option(
+      name = "failure_detail_out",
+      defaultValue = "null", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      valueHelp = "<path>",
+      help =
+          "If set, specifies a location to write a failure_detail protobuf message if the server"
+              + " experiences a failure and cannot report it via gRPC, as normal. Otherwise, the"
+              + " location will be ${OUTPUT_BASE}/failure_detail.rawproto.")
+  public PathFragment failureDetailOut;
+
   @Option(
       name = "workspace_directory",
       defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
@@ -237,30 +253,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
             + "$OUTPUT_BASE."
   )
   public boolean deepExecRoot;
-
-  @Option(
-    name = "experimental_oom_more_eagerly",
-    defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
-    help =
-        "If set, attempt to detect Java heap OOM conditions and exit before thrashing. Only "
-            + "honored when --batch is also passed. In some cases, builds that previously "
-            + "succeeded may OOM if they were close to OOMing before. Deprecated: "
-            + "Use the command argument --experimental_oom_more_eagerly_threshold instead."
-  )
-  public boolean oomMoreEagerly;
-
-  @Option(
-      name = "experimental_oom_more_eagerly_threshold",
-      defaultValue = "100", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help =
-          "If this flag is set, Bazel will OOM if, after two full GC's, more than this percentage "
-              + "of the (old gen) heap is still occupied. Deprecated: Use the command argument "
-              + "--experimental_oom_more_eagerly_threshold instead.")
-  public int oomMoreEagerlyThreshold;
 
   @Option(
       name = "block_for_lock",

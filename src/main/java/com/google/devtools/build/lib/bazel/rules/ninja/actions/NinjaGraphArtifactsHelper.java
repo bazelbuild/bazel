@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 
 /**
  * Helper class to create artifacts for {@link NinjaAction} to be used from {@link NinjaGraphRule}.
@@ -43,6 +44,7 @@ class NinjaGraphArtifactsHelper {
 
   private final ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact;
   private final ImmutableSortedSet<PathFragment> outputRootSymlinks;
+  private final Root sourceRoot;
 
   /**
    * Constructor
@@ -70,7 +72,9 @@ class NinjaGraphArtifactsHelper {
         Preconditions.checkNotNull(ruleContext.getConfiguration())
             .getDirectories()
             .getExecRoot(ruleContext.getWorkspaceName());
-    this.derivedOutputRoot = ArtifactRoot.asDerivedRoot(execRoot, outputRootPath);
+    this.derivedOutputRoot =
+        ArtifactRoot.asDerivedRoot(execRoot, outputRootPath.getSegments().toArray(new String[0]));
+    this.sourceRoot = ruleContext.getRule().getPackage().getSourceRoot().get();
   }
 
   DerivedArtifact createOutputArtifact(PathFragment pathRelativeToWorkingDirectory)
@@ -113,7 +117,8 @@ class NinjaGraphArtifactsHelper {
     if (!execPath.startsWith(ruleContext.getPackageDirectory())) {
       throw new GenericParsingException(
           String.format(
-              "Source artifact '%s' is not under the package of the ninja_build rule", execPath));
+              "Source artifact '%s' is not under the package directory '%s' of ninja_build rule",
+              execPath, ruleContext.getPackageDirectory()));
     }
 
     // Not a derived artifact. Create a corresponding source artifact. This isn't really great
@@ -133,7 +138,7 @@ class NinjaGraphArtifactsHelper {
     return ruleContext
         .getAnalysisEnvironment()
         .getSourceArtifactForNinjaBuild(
-            execPath, ruleContext.getRule().getPackage().getSourceRoot());
+            execPath, ruleContext.getRule().getPackage().getSourceRoot().get());
   }
 
   public PathFragment getOutputRootPath() {
@@ -142,5 +147,9 @@ class NinjaGraphArtifactsHelper {
 
   public PathFragment getWorkingDirectory() {
     return workingDirectory;
+  }
+
+  public Root getSourceRoot() {
+    return sourceRoot;
   }
 }

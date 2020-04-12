@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -72,12 +74,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction.InvalidExecutionPlatformLabelException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Root;
@@ -375,6 +373,7 @@ public final class SkyframeBuildView {
       List<ConfiguredTargetKey> ctKeys,
       List<AspectValueKey> aspectKeys,
       Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       EventBus eventBus,
       boolean keepGoing,
       int numThreads)
@@ -493,23 +492,43 @@ public final class SkyframeBuildView {
     if (!badActions.isEmpty()) {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
-      EvaluationResult<PostConfiguredTargetValue> actionConflictResult;
+      EvaluationResult<ActionLookupConflictFindingValue> actionConflictResult;
       enableAnalysis(true);
       try {
         actionConflictResult =
-            skyframeExecutor.postConfigureTargets(eventHandler, ctKeys, keepGoing, badActions);
+            skyframeExecutor.filterActionConflicts(
+                eventHandler,
+                Iterables.concat(ctKeys, aspectKeys),
+                keepGoing,
+                badActions,
+                topLevelArtifactContextForConflictPruning);
       } finally {
         enableAnalysis(false);
       }
 
-      cts = Lists.newArrayListWithCapacity(ctKeys.size());
-      for (ConfiguredTargetKey value : ctKeys) {
-        PostConfiguredTargetValue postCt =
-            actionConflictResult.get(PostConfiguredTargetValue.key(value));
-        if (postCt != null) {
-          cts.add(postCt.getCt());
+      ImmutableList.Builder<ConfiguredTarget> ctBuilder = ImmutableList.builder();
+
+      for (ConfiguredTargetKey key : ctKeys) {
+        TopLevelActionLookupConflictFindingFunction.Key conflictKey =
+            TopLevelActionLookupConflictFindingFunction.Key.create(
+                key, topLevelArtifactContextForConflictPruning);
+        if (actionConflictResult.get(conflictKey) != null) {
+          ctBuilder.add(
+              Preconditions.checkNotNull((ConfiguredTargetValue) result.get(key), key)
+                  .getConfiguredTarget());
         }
       }
+      cts = ctBuilder.build();
+
+      ImmutableList.Builder<AspectValue> aspectBuilder = ImmutableList.builder();
+
+      for (AspectValueKey key : aspectKeys) {
+        if (actionConflictResult.get(ActionLookupConflictFindingValue.key(key)) != null) {
+          aspectBuilder.add(Preconditions.checkNotNull((AspectValue) result.get(key), key));
+        }
+      }
+
+      aspects = aspectBuilder.build();
     }
 
     return new SkyframeAnalysisResult(
@@ -732,7 +751,9 @@ public final class SkyframeBuildView {
     // Make a map of the package names to their root paths.
     ImmutableMap.Builder<PackageIdentifier, Root> packageRoots = ImmutableMap.builder();
     for (Package pkg : packages) {
-      packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot());
+      if (pkg.getSourceRoot().isPresent()) {
+        packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot().get());
+      }
     }
     return packageRoots.build();
   }
@@ -796,22 +817,15 @@ public final class SkyframeBuildView {
   }
 
   private static boolean isSaneAnalysisError(Throwable cause) {
-    return cause instanceof ConfiguredValueCreationException
-        || cause instanceof ActionConflictException
-        || cause instanceof CcCrosstoolException
-        // For top-level aspects
-        || cause instanceof AspectCreationException
-        || cause instanceof SkylarkImportFailedException
+    return cause instanceof SaneAnalysisException
         // Only if we run the reduced loading phase and then analyze with --nokeep_going.
         || cause instanceof NoSuchTargetException
-        || cause instanceof NoSuchPackageException
-        // Platform-related:
-        || cause instanceof InvalidExecutionPlatformLabelException;
+        || cause instanceof NoSuchPackageException;
   }
 
   /** Special flake for error cases when loading CROSSTOOL for C++ rules */
   // TODO(b/110087561): Remove when CROSSTOOL file is not loaded anymore
-  public static class CcCrosstoolException extends Exception {
+  public static class CcCrosstoolException extends Exception implements SaneAnalysisException {
 
     public CcCrosstoolException(String message) {
       super(message);
@@ -856,7 +870,7 @@ public final class SkyframeBuildView {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext)
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException {
     Preconditions.checkState(
         enableAnalysis, "Already in execution phase %s %s", target, configuration);
@@ -872,7 +886,7 @@ public final class SkyframeBuildView {
         configuredTargetKey,
         prerequisiteMap,
         configConditions,
-        toolchainContext);
+        toolchainContexts);
   }
 
   /**

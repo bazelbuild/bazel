@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** Static helper class for creating and accessing instances of the legacy "py" struct provider. */
-// TODO(#7010): Remove this in favor of PyInfo.
+// TODO(b/153363654): Remove this file.
 public class PyStructUtils {
 
   // Disable construction.

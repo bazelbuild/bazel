@@ -225,6 +225,7 @@ public class PythonOptions extends FragmentOptions {
               + "Python target will be an error.")
   public boolean incompatibleDisallowLegacyPyProvider;
 
+  // TODO(b/153369373): Delete this flag.
   @Option(
       name = "incompatible_use_python_toolchains",
       defaultValue = "true",

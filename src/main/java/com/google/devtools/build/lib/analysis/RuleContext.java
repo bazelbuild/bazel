@@ -32,7 +32,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -65,7 +63,6 @@ import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -95,6 +92,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
@@ -115,10 +113,10 @@ import javax.annotation.Nullable;
 /**
  * The totality of data available during the analysis of a rule.
  *
- * <p>These objects should not outlast the analysis phase. Do not pass them to {@link Action}
- * objects or other persistent objects. There are internal tests to ensure that RuleContext objects
- * are not persisted that check the name of this class, so update those tests if you change this
- * class's name.
+ * <p>These objects should not outlast the analysis phase. Do not pass them to {@link
+ * com.google.devtools.build.lib.actions.Action} objects or other persistent objects. There are
+ * internal tests to ensure that RuleContext objects are not persisted that check the name of this
+ * class, so update those tests if you change this class's name.
  *
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
@@ -129,9 +127,20 @@ public final class RuleContext extends TargetContext
     return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
   }
 
-  /**
-   * The configured version of FilesetEntry.
-   */
+  /** Custom dependency validation logic. */
+  public interface PrerequisiteValidator {
+    /**
+     * Checks whether the rule in {@code contextBuilder} is allowed to depend on {@code
+     * prerequisite} through the attribute {@code attribute}.
+     *
+     * <p>Can be used for enforcing any organization-specific policies about the layout of the
+     * workspace.
+     */
+    void validate(
+        Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
+  }
+
+  /** The configured version of FilesetEntry. */
   @Immutable
   public static final class ConfiguredFilesetEntry {
     private final FilesetEntry entry;
@@ -190,7 +199,7 @@ public final class RuleContext extends TargetContext
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
   private final RuleErrorConsumer reporter;
-  @Nullable private final ResolvedToolchainContext toolchainContext;
+  @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ConstraintSemantics constraintSemantics;
   private final ImmutableSet<String> requiredConfigFragments;
 
@@ -210,7 +219,7 @@ public final class RuleContext extends TargetContext
       String ruleClassNameForLogging,
       ActionLookupValue.ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
-      @Nullable ResolvedToolchainContext toolchainContext,
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ConstraintSemantics constraintSemantics,
       ImmutableSet<String> requiredConfigFragments) {
     super(
@@ -242,7 +251,7 @@ public final class RuleContext extends TargetContext
     this.hostConfiguration = builder.hostConfiguration;
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
     reporter = builder.reporter;
-    this.toolchainContext = toolchainContext;
+    this.toolchainContexts = toolchainContexts;
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
   }
@@ -503,7 +512,6 @@ public final class RuleContext extends TargetContext
   public <T extends Fragment> boolean isLegalFragment(
       Class<T> fragment, ConfigurationTransition transition) {
     return universalFragments.contains(fragment)
-        || fragment == PlatformConfiguration.class
         || configurationFragmentPolicy.isLegalConfigurationFragment(fragment, transition);
   }
 
@@ -908,7 +916,8 @@ public final class RuleContext extends TargetContext
                         .executionPlatform(getToolchainContext().executionPlatform().label())
                         .build());
     BuildOptions fromOptions = getConfiguration().getOptions();
-    Map<String, BuildOptions> splitOptions = transition.split(fromOptions);
+    Map<String, BuildOptions> splitOptions =
+        transition.split(fromOptions, getAnalysisEnvironment().getEventHandler());
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
 
     if (SplitTransition.equals(fromOptions, splitOptions.values())) {
@@ -1215,16 +1224,28 @@ public final class RuleContext extends TargetContext
     return configurationMakeVariableContext;
   }
 
+  // TODO(b/151742236): provide access to other non-default toolchain contexts.
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {
-    return toolchainContext;
+    return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
+  }
+
+  @Nullable
+  public ToolchainCollection<ResolvedToolchainContext> getToolchainContextsForTesting() {
+    return toolchainContexts;
   }
 
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
-    if (toolchainContext == null || toolchainContext.targetPlatform() == null) {
+    if (toolchainContexts == null
+        || toolchainContexts.getDefaultToolchainContext().targetPlatform() == null) {
       return false;
     }
-    return toolchainContext.targetPlatform().constraints().hasConstraintValue(constraintValue);
+    // All toolchain contexts should have the same target platform so we access via the default.
+    return toolchainContexts
+        .getDefaultToolchainContext()
+        .targetPlatform()
+        .constraints()
+        .hasConstraintValue(constraintValue);
   }
 
   public ConstraintSemantics getConstraintSemantics() {
@@ -1544,8 +1565,7 @@ public final class RuleContext extends TargetContext
    * Returns true if {@code label} is visible from {@code prerequisite}.
    *
    * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by {@link
-   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   * whether a dependency is allowed is made by {@link PrerequisiteValidator}.
    */
   public static boolean isVisible(Label label, TransitiveInfoCollection prerequisite) {
     // Check visibility attribute
@@ -1563,8 +1583,7 @@ public final class RuleContext extends TargetContext
    * Returns true if {@code rule} is visible from {@code prerequisite}.
    *
    * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by {@link
-   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   * whether a dependency is allowed is made by {@link PrerequisiteValidator}.
    */
   public static boolean isVisible(Rule rule, TransitiveInfoCollection prerequisite) {
     return isVisible(rule.getLabel(), prerequisite);
@@ -1608,7 +1627,7 @@ public final class RuleContext extends TargetContext
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
-    private ResolvedToolchainContext toolchainContext;
+    private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ConstraintSemantics constraintSemantics;
     private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
 
@@ -1661,7 +1680,7 @@ public final class RuleContext extends TargetContext
           getRuleClassNameForLogging(),
           actionOwnerSymbol,
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
-          toolchainContext,
+          toolchainContexts,
           constraintSemantics,
           requiredConfigFragments);
     }
@@ -1721,7 +1740,24 @@ public final class RuleContext extends TargetContext
 
     /** Sets the {@link ResolvedToolchainContext} used to access toolchains used by this rule. */
     public Builder setToolchainContext(ResolvedToolchainContext toolchainContext) {
-      this.toolchainContext = toolchainContext;
+      Preconditions.checkState(
+          this.toolchainContexts == null,
+          "toolchainContexts has already been set for this Builder");
+      this.toolchainContexts =
+          new ToolchainCollection.Builder<ResolvedToolchainContext>()
+              .addDefaultContext(toolchainContext)
+              .build();
+      return this;
+    }
+
+    /** Sets the collection of {@link ResolvedToolchainContext}s available to this rule. */
+    @VisibleForTesting
+    public Builder setToolchainContexts(
+        ToolchainCollection<ResolvedToolchainContext> toolchainContexts) {
+      Preconditions.checkState(
+          this.toolchainContexts == null,
+          "toolchainContexts has already been set for this Builder");
+      this.toolchainContexts = toolchainContexts;
       return this;
     }
 
@@ -1989,11 +2025,10 @@ public final class RuleContext extends TargetContext
 
     /**
      * @return true if {@code rule} is visible from {@code prerequisite}.
-     *
-     * <p>This only computes the logic as implemented by the visibility system. The final decision
-     * whether a dependency is allowed is made by
-     * {@link ConfiguredRuleClassProvider.PrerequisiteValidator}, who is supposed to call this
-     * method to determine whether a dependency is allowed as per visibility rules.
+     *     <p>This only computes the logic as implemented by the visibility system. The final
+     *     decision whether a dependency is allowed is made by {@link PrerequisiteValidator}, who is
+     *     supposed to call this method to determine whether a dependency is allowed as per
+     *     visibility rules.
      */
     public boolean isVisible(TransitiveInfoCollection prerequisite) {
       return RuleContext.isVisible(target.getAssociatedRule(), prerequisite);

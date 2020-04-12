@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
-import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.Factory.CommandLineException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -46,11 +45,8 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
   }
 
   @Override
-  protected void postProcessAnalysisResult(
-      BuildRequest request,
-      AnalysisResult analysisResult)
-      throws InterruptedException, ViewCreationFailedException,
-          PostAnalysisQueryCommandLineException {
+  protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
+      throws InterruptedException, ViewCreationFailedException, QueryCommandLineException {
     // TODO: b/71905538 - this query will operate over the graph as constructed by analysis, but
     // will also pick up any nodes that are in the graph from prior builds. This makes the results
     // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
@@ -58,7 +54,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
     // (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
     if (queryExpression != null) {
       if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
-        throw new PostAnalysisQueryCommandLineException(
+        throw new QueryCommandLineException(
             "Queries based on analysis results are not allowed "
                 + "if incrementality state is not being kept");
       }
@@ -76,8 +72,8 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
           throw new ViewCreationFailedException("Error doing post analysis query", e);
         }
         env.getReporter().error(null, "Error doing post analysis query", e);
-      } catch (CommandLineException e) {
-        throw new PostAnalysisQueryCommandLineException(e.getMessage());
+      } catch (QueryRuntimeHelper.Factory.CommandLineException e) {
+        throw new QueryCommandLineException(e.getMessage());
       }
     }
   }
@@ -137,12 +133,5 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
       env.getReporter().handle(Event.info("Empty query results"));
     }
     queryRuntimeHelper.afterQueryOutputIsWritten();
-  }
-
-  /** Post analysis query specific command line exception. */
-  protected static class PostAnalysisQueryCommandLineException extends Exception {
-    PostAnalysisQueryCommandLineException(String message) {
-      super(message);
-    }
   }
 }

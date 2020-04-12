@@ -88,11 +88,11 @@ function test_execute() {
   set_workspace_command 'repository_ctx.execute(["echo", "testing!"])'
   build_and_process_log
 
-  ensure_contains_exactly "location: .*repos.bzl:2:3" 1
+  ensure_contains_exactly "location: .*repos.bzl:2:25" 1
 
   # Cached executions are not replayed
   build_and_process_log
-  ensure_contains_exactly "location: .*repos.bzl:2:3" 0
+  ensure_contains_exactly "location: .*repos.bzl:2:25" 0
 }
 
 # The workspace is set up so that the function is interrupted and re-executed.
@@ -139,7 +139,7 @@ EOF
 
   build_and_process_log
 
-  ensure_contains_atleast "location: .*repos.bzl:2:3" 2
+  ensure_contains_atleast "location: .*repos.bzl:2:" 2
 }
 
 
@@ -149,7 +149,7 @@ function test_execute2() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:25' 1
   ensure_contains_exactly 'arguments: "echo"' 1
   ensure_contains_exactly 'arguments: "test_contents"' 1
   ensure_contains_exactly 'timeout_seconds: 21' 1
@@ -165,7 +165,7 @@ function test_execute_quiet2() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:25' 1
   ensure_contains_exactly 'arguments: "echo"' 1
   ensure_contains_exactly 'arguments: "test2"' 1
   ensure_contains_exactly 'timeout_seconds: 32' 1
@@ -193,7 +193,7 @@ function test_download() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
@@ -221,7 +221,7 @@ function test_download_multiple() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file1.txt\"" 1
@@ -248,7 +248,7 @@ function test_download_integrity_sha256() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
@@ -277,7 +277,7 @@ function test_download_integrity_sha512() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
@@ -337,8 +337,8 @@ function test_download_then_extract() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
-  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:3:26' 1
+  ensure_contains_exactly 'location: .*repos.bzl:4:25' 1
   ensure_contains_atleast 'rule: "//external:repo"' 2
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.zip\"" 1
@@ -374,8 +374,8 @@ function test_download_then_extract_tar() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
-  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:3:26' 1
+  ensure_contains_exactly 'location: .*repos.bzl:4:25' 1
   ensure_contains_atleast 'rule: "//external:repo"' 2
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.tar.gz\"" 1
@@ -408,7 +408,7 @@ function test_download_and_extract() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:38' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'download_and_extract_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_and_extract.zip\"" 1
@@ -425,7 +425,7 @@ function test_file() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
 
   # There are 3 file_event in external:repo as it is currently set up
@@ -440,7 +440,7 @@ function test_file_nonascii() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
 
   # There are 3 file_event in external:repo as it is currently set up
@@ -471,8 +471,8 @@ function test_read() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
-  ensure_contains_exactly 'location: .*repos.bzl:5:17' 1
+  ensure_contains_exactly 'location: .*repos.bzl:4:22' 1
+  ensure_contains_exactly 'location: .*repos.bzl:5:36' 1
   ensure_contains_atleast 'rule: "//external:repo"' 2
 
   ensure_contains_exactly 'read_event' 1
@@ -521,7 +521,7 @@ function test_symlink() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'symlink_event' 1
   ensure_contains_exactly 'target: ".*symlink.txt"' 1
@@ -534,7 +534,7 @@ function test_template() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'template_event' 1
   ensure_contains_exactly 'path: ".*template_out.txt"' 1
@@ -549,7 +549,7 @@ function test_which() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:9' 1
+  ensure_contains_exactly 'location: .*repos.bzl:2:29' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'which_event' 1
   ensure_contains_exactly 'program: "which_prog"' 1

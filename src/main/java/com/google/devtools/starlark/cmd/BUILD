@@ -19,10 +19,7 @@ java_binary(
     ],
     main_class = "com.google.devtools.starlark.cmd.Starlark",
     visibility = ["//visibility:public"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib:syntax"],
 )
 
 filegroup(

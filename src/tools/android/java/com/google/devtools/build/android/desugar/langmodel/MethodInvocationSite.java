@@ -17,6 +17,7 @@
 package com.google.devtools.build.android.desugar.langmodel;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
 /** A value object that represents an method invocation site. */
@@ -65,6 +66,10 @@ public abstract class MethodInvocationSite implements TypeMappable<MethodInvocat
     return method().getReturnTypeName();
   }
 
+  public final ImmutableList<ClassName> argumentTypeNames() {
+    return method().getArgumentTypeNames();
+  }
+
   public final boolean isStaticInvocation() {
     return invocationKind() == MemberUseKind.INVOKESTATIC;
   }
@@ -81,14 +86,6 @@ public abstract class MethodInvocationSite implements TypeMappable<MethodInvocat
   @Override
   public MethodInvocationSite acceptTypeMapper(TypeMapper typeMapper) {
     return toBuilder().setMethod(method().acceptTypeMapper(typeMapper)).build();
-  }
-
-  public final MethodInvocationSite toAdapterInvocationSite() {
-    return MethodInvocationSite.builder()
-        .setInvocationKind(MemberUseKind.INVOKESTATIC)
-        .setMethod(method().toArgumentTypeAdapter(isStaticInvocation()))
-        .setIsInterface(false)
-        .build();
   }
 
   /** The builder for {@link MethodInvocationSite}. */

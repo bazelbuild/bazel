@@ -295,7 +295,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         .runTests();
   }
 
-  private void file(Path path, String contents) throws Exception {
+  private static void file(Path path, String contents) throws Exception {
     FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
     writeFile(path, contents);
   }
@@ -308,8 +308,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private Artifact.DerivedArtifact createDerivedArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     Artifact.DerivedArtifact output =
-        new Artifact.DerivedArtifact(
-            ArtifactRoot.asDerivedRoot(root, root.getRelative("out")), execPath, ALL_OWNER);
+        new Artifact.DerivedArtifact(ArtifactRoot.asDerivedRoot(root, "out"), execPath, ALL_OWNER);
     actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output));
     output.setGeneratingActionKey(ActionLookupData.create(ALL_OWNER, actions.size() - 1));
     return output;
@@ -331,17 +330,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private SpecialArtifact createDerivedTreeArtifactOnly(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     return new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(root, root.getRelative("out")),
-        execPath,
-        ALL_OWNER,
-        SpecialArtifactType.TREE);
+        ArtifactRoot.asDerivedRoot(root, "out"), execPath, ALL_OWNER, SpecialArtifactType.TREE);
   }
 
-  private TreeFileArtifact createFakeTreeFileArtifact(
-      SpecialArtifact treeArtifact,
-      String parentRelativePath,
-      String content)
-      throws Exception {
+  private static TreeFileArtifact createFakeTreeFileArtifact(
+      SpecialArtifact treeArtifact, String parentRelativePath, String content) throws Exception {
     TreeFileArtifact treeFileArtifact =
         ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
             treeArtifact, parentRelativePath);
@@ -351,7 +344,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     return treeFileArtifact;
   }
 
-  private void assertValueMatches(FileStatus file, byte[] digest, FileArtifactValue value)
+  private static void assertValueMatches(FileStatus file, byte[] digest, FileArtifactValue value)
       throws IOException {
     assertThat(value.getSize()).isEqualTo(file.getSize());
     if (digest == null) {
@@ -374,7 +367,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     }
     SkyValue value = result.get(key);
     if (value instanceof ActionExecutionValue) {
-      return ArtifactFunction.createSimpleFileArtifactValue(
+      return ActionExecutionValue.createSimpleFileArtifactValue(
           (Artifact.DerivedArtifact) artifact, (ActionExecutionValue) value);
     }
     return value;

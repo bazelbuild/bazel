@@ -18,16 +18,29 @@ package com.google.devtools.build.lib.syntax;
 public final class UnaryOperatorExpression extends Expression {
 
   private final TokenKind op; // NOT, TILDE, MINUS or PLUS
+  private final int opOffset;
   private final Expression x;
 
-  UnaryOperatorExpression(TokenKind op, Expression x) {
+  UnaryOperatorExpression(FileLocations locs, TokenKind op, int opOffset, Expression x) {
+    super(locs);
     this.op = op;
+    this.opOffset = opOffset;
     this.x = x;
   }
 
   /** Returns the operator. */
   public TokenKind getOperator() {
     return op;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return opOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return x.getEndOffset();
   }
 
   /** Returns the operand. */

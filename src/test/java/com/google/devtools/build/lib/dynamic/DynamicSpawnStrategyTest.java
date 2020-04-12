@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -316,16 +317,22 @@ public class DynamicSpawnStrategyTest {
     checkState(executorServiceForCleanup == null);
     executorServiceForCleanup = executorService;
 
-    ExecutorBuilder executorBuilder =
-        new ExecutorBuilder()
-            .addActionContext(SpawnStrategy.class, localStrategy, "mock-local")
-            .addActionContext(SpawnStrategy.class, remoteStrategy, "mock-remote");
+    ExecutorBuilder executorBuilder = new ExecutorBuilder();
+    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
+        executorBuilder.asSpawnStrategyRegistryBuilder();
+
+    spawnStrategyRegistryBuilder.registerStrategy(localStrategy, "mock-local");
+    spawnStrategyRegistryBuilder.registerStrategy(remoteStrategy, "mock-remote");
 
     if (sandboxedStrategy != null) {
-      executorBuilder.addActionContext(SpawnStrategy.class, sandboxedStrategy, "mock-sandboxed");
+      spawnStrategyRegistryBuilder.registerStrategy(sandboxedStrategy, "mock-sandboxed");
     }
 
-    new DynamicExecutionModule(executorService).initStrategies(executorBuilder, options);
+    DynamicExecutionModule dynamicExecutionModule = new DynamicExecutionModule(executorService);
+    // TODO(b/63987502): This only exists during the migration to SpawnStrategyRegistry.
+    executorBuilder.addStrategyByContext(SpawnStrategy.class, "dynamic");
+    dynamicExecutionModule.registerSpawnStrategies(spawnStrategyRegistryBuilder, options);
+
     SpawnActionContextMaps spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
 
     Executor executor =

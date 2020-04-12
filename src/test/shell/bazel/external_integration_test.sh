@@ -2325,11 +2325,11 @@ EOF
 
   # We expect to find the call stack for the definition of the repositories
   # a and b
-  expect_log "WORKSPACE:4:1"
-  expect_log "foo.bzl:4:3"
+  expect_log "WORKSPACE:4:4"
+  expect_log "foo.bzl:4:15"
 
-  expect_log "WORKSPACE:5:1"
-  expect_log "bar.bzl:4:3"
+  expect_log "WORKSPACE:5:4"
+  expect_log "bar.bzl:4:15"
 }
 
 function test_missing_repo_reported() {

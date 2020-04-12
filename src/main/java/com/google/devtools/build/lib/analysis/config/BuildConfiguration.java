@@ -20,7 +20,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -34,8 +33,9 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -107,8 +107,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * An interface for language-specific configurations.
    *
    * <p>All implementations must be immutable and communicate this as clearly as possible (e.g.
-   * declare {@link ImmutableList} signatures on their interfaces vs. {@link List}). This is because
-   * fragment instances may be shared across configurations.
+   * declare {@link com/google/devtools/build/lib/analysis/config/BuildConfiguration.java used only
+   * in javadoc: com.google.common.collect.ImmutableList} signatures on their interfaces vs. {@link
+   * List}). This is because fragment instances may be shared across configurations.
    *
    * <p>Fragments are Starlark values, as returned by {@code ctx.fragments.android}, for example.
    */
@@ -906,7 +907,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   public BuildEventId getEventId() {
-    return BuildEventId.configurationId(checksum());
+    return BuildEventIdUtil.configurationId(checksum());
   }
 
   public BuildConfigurationEvent toBuildEvent() {
@@ -918,7 +919,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     BuildEventStreamProtos.BuildEvent.Builder builder =
         BuildEventStreamProtos.BuildEvent.newBuilder();
     builder
-        .setId(eventId.asStreamProto())
+        .setId(eventId)
         .setConfiguration(
             BuildEventStreamProtos.Configuration.newBuilder()
                 .setMnemonic(getMnemonic())

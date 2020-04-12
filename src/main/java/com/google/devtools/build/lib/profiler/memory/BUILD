@@ -43,9 +43,9 @@ java_library(
     ],
     deps = [
         ":current_rule_tracker",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
         "//third_party:jsr305",

@@ -468,6 +468,12 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                      startup_options.server_jvm_out.AsCommandLineArgument());
   }
 
+  if (!startup_options.failure_detail_out.IsEmpty()) {
+    result.push_back(
+        "--failure_detail_out=" +
+        startup_options.failure_detail_out.AsCommandLineArgument());
+  }
+
   if (startup_options.deep_execroot) {
     result.push_back("--deep_execroot");
   } else {
@@ -488,14 +494,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   } else {
     result.push_back("--noidle_server_tasks");
   }
-  if (startup_options.oom_more_eagerly) {
-    result.push_back("--experimental_oom_more_eagerly");
-  } else {
-    result.push_back("--noexperimental_oom_more_eagerly");
-  }
-  result.push_back("--experimental_oom_more_eagerly_threshold=" +
-                   blaze_util::ToString(
-                       startup_options.oom_more_eagerly_threshold));
 
   if (startup_options.write_command_log) {
     result.push_back("--write_command_log");
@@ -1369,6 +1367,11 @@ static void UpdateConfiguration(
         << "blaze_util::MakeCanonical('"
         << startup_options->output_base.AsPrintablePath()
         << "') failed: " << err;
+  }
+
+  if (startup_options->failure_detail_out.IsEmpty()) {
+    startup_options->failure_detail_out =
+        startup_options->output_base.GetRelative("failure_detail.rawproto");
   }
 }
 

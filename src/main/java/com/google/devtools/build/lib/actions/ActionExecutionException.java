@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 
@@ -41,18 +41,18 @@ public class ActionExecutionException extends Exception {
   public ActionExecutionException(Throwable cause, Action action, boolean catastrophe) {
     super(cause.getMessage(), cause);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
-    this.catastrophe = catastrophe;
     this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
+    this.catastrophe = catastrophe;
   }
 
   public ActionExecutionException(String message,
                                   Throwable cause, Action action, boolean catastrophe) {
     super(message, cause);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
     this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
   }
 
   public ActionExecutionException(
@@ -63,26 +63,26 @@ public class ActionExecutionException extends Exception {
       DetailedExitCode detailedExitCode) {
     super(message, cause);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
     this.detailedExitCode = checkNotNull(detailedExitCode);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
   }
 
   public ActionExecutionException(String message, Action action, boolean catastrophe) {
     super(message);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
     this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
   }
 
   public ActionExecutionException(String message, Action action, boolean catastrophe,
                                   ExitCode exitCode) {
     super(message);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
     this.detailedExitCode = DetailedExitCode.justExitCode(exitCode);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
   }
 
   public ActionExecutionException(
@@ -108,15 +108,17 @@ public class ActionExecutionException extends Exception {
     this.detailedExitCode = checkNotNull(detailedExitCode);
   }
 
-  private static NestedSet<Cause> rootCausesFromAction(Action action) {
+  private static NestedSet<Cause> rootCausesFromAction(
+      Action action, DetailedExitCode detailedExitCode) {
     return action == null || action.getOwner() == null || action.getOwner().getLabel() == null
-        ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER)
-        : NestedSetBuilder.<Cause>create(
+        ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+        : NestedSetBuilder.create(
             Order.STABLE_ORDER,
             new ActionFailed(
                 action.getPrimaryOutput().getExecPath(),
                 action.getOwner().getLabel(),
-                action.getOwner().getConfigurationChecksum()));
+                action.getOwner().getConfigurationChecksum(),
+                detailedExitCode));
   }
 
   /**

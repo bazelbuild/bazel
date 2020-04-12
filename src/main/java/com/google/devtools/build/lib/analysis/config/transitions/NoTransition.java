@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** No-op configuration transition. */
@@ -25,7 +26,7 @@ public final class NoTransition implements PatchTransition {
   private NoTransition() {}
 
   @Override
-  public BuildOptions patch(BuildOptions options) {
+  public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
     return options;
   }
 

@@ -94,7 +94,6 @@ public class ProfilerTest {
         BlazeClock.nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
         /* slimProfile= */ false,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ false);
     return buffer;
   }
@@ -111,7 +110,6 @@ public class ProfilerTest {
         BlazeClock.nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
         /* slimProfile= */ false,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ false);
   }
 
@@ -153,6 +151,7 @@ public class ProfilerTest {
                 + 2 /* build phase marker */
                 + 1 /* VFS event, the first is too short */
                 + 2 /* action + action dependency checking */
+                + 1 /* action counters */
                 + 1 /* finishing */);
 
     assertThat(
@@ -184,6 +183,10 @@ public class ProfilerTest {
         .hasSize(2);
 
     assertThat(
+            Iterables.filter(jsonProfile.getTraceEvents(), t -> t.name().equals("action counters")))
+        .hasSize(1);
+
+    assertThat(
             jsonProfile.getTraceEvents().stream()
                 .filter(traceEvent -> "Finishing".equals(traceEvent.name()))
                 .collect(Collectors.toList()))
@@ -204,7 +207,6 @@ public class ProfilerTest {
         clock.nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
         /* slimProfile= */ false,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ false);
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
       // Next task takes less than 10 ms but should be recorded anyway.
@@ -216,7 +218,12 @@ public class ProfilerTest {
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
     assertThat(jsonProfile.getTraceEvents())
-        .hasSize(2 /* threads */ + 1 /* VFS */ + 1 /* action */ + 1 /* finishing */);
+        .hasSize(
+            2 /* threads */
+                + 1 /* VFS */
+                + 1 /* action */
+                + 1 /* action counters */
+                + 1 /* finishing */);
 
     TraceEvent vfsStat =
         Iterables.getOnlyElement(
@@ -225,6 +232,9 @@ public class ProfilerTest {
                     traceEvent -> ProfilerTask.VFS_STAT.description.equals(traceEvent.category()))
                 .collect(Collectors.toList()));
     assertThat(vfsStat.duration().toMillis()).isLessThan(ProfilerTask.VFS_STAT.minDuration);
+    assertThat(
+            Iterables.filter(jsonProfile.getTraceEvents(), t -> t.name().equals("action counters")))
+        .hasSize(1);
   }
 
   @Test
@@ -242,7 +252,6 @@ public class ProfilerTest {
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
         /* slimProfile= */ false,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ false);
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     // Unlike the VFS_STAT event above, the remote execution event will not be recorded since we
@@ -359,7 +368,6 @@ public class ProfilerTest {
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
         /* slimProfile= */ false,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ false);
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
@@ -541,7 +549,6 @@ public class ProfilerTest {
         initialNanoTime,
         /* enabledCpuUsageProfiling= */ false,
         /* slimProfile= */ false,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ false);
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
@@ -596,7 +603,6 @@ public class ProfilerTest {
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
         /* slimProfile= */ false,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
@@ -623,7 +629,6 @@ public class ProfilerTest {
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
         /* slimProfile= */ false,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
@@ -646,7 +651,6 @@ public class ProfilerTest {
         clock.nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
         /* slimProfile= */ false,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ true);
     try (SilentCloseable c = profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out")) {
       profiler.logEvent(ProfilerTask.PHASE, "event1");
@@ -675,7 +679,6 @@ public class ProfilerTest {
         BlazeClock.instance().nanoTime(),
         /* enabledCpuUsageProfiling= */ false,
         slimProfile,
-        /* enableActionCountProfile= */ false,
         /* includePrimaryOutput= */ false);
     long curTime = Profiler.nanoTimeMaybe();
     for (int i = 0; i < 100_000; i++) {

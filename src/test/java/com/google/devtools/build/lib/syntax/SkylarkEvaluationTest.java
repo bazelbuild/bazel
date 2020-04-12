@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -656,14 +655,16 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "  for x in xs:",
             "    if x == 1:",
             "      xs.append(10)")
-        .testIfErrorContains("trying to mutate a locked object", "foo()");
+        .testIfErrorContains(
+            "list value is temporarily immutable due to active for-loop iteration", "foo()");
   }
 
   @Test
   public void testForUpdateDict() throws Exception {
     new Scenario()
         .setUp("def foo():", "  d = {'a': 1, 'b': 2, 'c': 3}", "  for k in d:", "    d[k] *= 2")
-        .testIfErrorContains("trying to mutate a locked object", "foo()");
+        .testIfErrorContains(
+            "dict value is temporarily immutable due to active for-loop iteration", "foo()");
   }
 
   @Test
@@ -691,24 +692,8 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "      ys.append(x1 * x2)",
             "    xs.append(4)",
             "  return ys")
-        .testIfErrorContains("trying to mutate a locked object", "foo()");
-  }
-
-  @Test
-  public void testForNestedOnSameListErrorMessage() throws Exception {
-    new Scenario()
-        .setUp(
-            "def foo():",
-            "  xs = [1, 2]",
-            "  ys = []",
-            "  for x1 in xs:",
-            "    for x2 in xs:",
-            "      ys.append(x1 * x2)",
-            "      xs.append(4)",
-            "  return ys"
-            // No file name in message, due to how test is set up.
-            )
-        .testIfErrorContains("Object locked at the following location(s): :4:3, :5:5", "foo()");
+        .testIfErrorContains(
+            "list value is temporarily immutable due to active for-loop iteration", "foo()");
   }
 
   @Test
@@ -748,7 +733,8 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "  for x in xs:",
             "    zs = [None for x in xs for y in (xs.append(x) or ys)]",
             "  return ys")
-        .testIfErrorContains("trying to mutate a locked object", "foo()");
+        .testIfErrorContains(
+            "list value is temporarily immutable due to active for-loop iteration", "foo()");
   }
 
   @Test
@@ -946,7 +932,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
 
   // TODO(adonovan): move this and all tests that use it to Validation tests.
   private void assertValidationError(String expectedError, final String... lines) throws Exception {
-    SyntaxError error = assertThrows(SyntaxError.class, () -> exec(lines));
+    SyntaxError.Exception error = assertThrows(SyntaxError.Exception.class, () -> exec(lines));
     assertThat(error).hasMessageThat().contains(expectedError);
   }
 

@@ -30,18 +30,14 @@ import java.util.concurrent.Callable;
 public class FileFragmentSplitter implements Callable<List<FileFragment>> {
   private final FileFragment fileFragment;
   private final DeclarationConsumer consumer;
-  private final SeparatorFinder separatorFinder;
 
   /**
    * @param fileFragment {@link FileFragment}, fragment of which should be splitted
    * @param consumer declaration consumer
-   * @param separatorFinder finds declaration separators
    */
-  public FileFragmentSplitter(
-      FileFragment fileFragment, DeclarationConsumer consumer, SeparatorFinder separatorFinder) {
+  public FileFragmentSplitter(FileFragment fileFragment, DeclarationConsumer consumer) {
     this.fileFragment = fileFragment;
     this.consumer = consumer;
-    this.separatorFinder = separatorFinder;
   }
 
   /**
@@ -55,7 +51,7 @@ public class FileFragmentSplitter implements Callable<List<FileFragment>> {
     List<FileFragment> fragments = Lists.newArrayList();
     int start = 0;
     while (true) {
-      int end = separatorFinder.findNextSeparator(fileFragment, start, -1);
+      int end = NinjaSeparatorFinder.findNextSeparator(fileFragment, start, -1);
       if (end < 0) {
         break;
       }

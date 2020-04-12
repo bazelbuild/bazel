@@ -127,7 +127,7 @@ java_import(
 
 java_import(
     name = "apache_commons_pool2",
-    jars = ["apache_commons_pool2/commons-pool2-2.3.jar"],
+    jars = ["apache_commons_pool2/commons-pool2-2.8.0.jar"],
 )
 
 java_import(
@@ -394,18 +394,18 @@ java_import(
 java_import(
     name = "flogger",
     jars = [
-        "flogger/flogger-0.5.jar",
-        "flogger/flogger-system-backend-0.5.jar",
-        "flogger/google-extensions-0.5.jar",
+        "flogger/flogger-0.5.1.jar",
+        "flogger/flogger-system-backend-0.5.1.jar",
+        "flogger/google-extensions-0.5.1.jar",
     ],
 )
 
 filegroup(
     name = "flogger-jars",
     srcs = [
-        "flogger/flogger-0.5.jar",
-        "flogger/flogger-system-backend-0.5.jar",
-        "flogger/google-extensions-0.5.jar",
+        "flogger/flogger-0.5.1.jar",
+        "flogger/flogger-system-backend-0.5.1.jar",
+        "flogger/google-extensions-0.5.1.jar",
     ],
 )
 

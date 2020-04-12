@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylark;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
@@ -191,7 +193,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:m_skylark"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:4:1: in deps attribute of skylark_rule rule "
+        "ERROR /workspace/test/BUILD:4:19: in deps attribute of skylark_rule rule "
             + "//test:m_skylark: '//test:jlib' does not have mandatory providers:"
             + " 'some_provider'. "
             + "Since this rule was created by the macro 'macro_skylark_rule', the error might "
@@ -213,7 +215,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:10:1: in deps attribute of "
+        "ERROR /workspace/test/BUILD:10:13: in deps attribute of "
             + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
             + "'some_provider'");
   }
@@ -254,7 +256,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule2"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:8:1: in deps attribute of "
+        "ERROR /workspace/test/BUILD:8:13: in deps attribute of "
             + "skylark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
             + "mandatory providers: 'a' or 'c'");
   }
@@ -286,7 +288,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule2"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:8:1: in deps attribute of "
+        "ERROR /workspace/test/BUILD:8:37: in deps attribute of "
             + "testing_rule_for_mandatory_providers rule //test:skyrule2: '//test:my_other_lib' "
             + "does not have mandatory providers: 'a' or 'c'");
   }
@@ -301,7 +303,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:cclib");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:1: Label '//test:sub/my_sub_lib.h' is invalid because "
+        "ERROR /workspace/test/BUILD:1:11: Label '//test:sub/my_sub_lib.h' is invalid because "
             + "'test/sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'//test/sub:my_sub_lib.h'?");
   }
@@ -326,7 +328,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:skyrule");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:2:1: Label '//test:sub/my_sub_lib.h' is invalid because "
+        "ERROR /workspace/test/BUILD:2:13: Label '//test:sub/my_sub_lib.h' is invalid because "
             + "'test/sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'//test/sub:my_sub_lib.h'?");
   }
@@ -353,7 +355,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:m_skylark");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:2:1: Label '//test:sub/my_sub_lib.h' is invalid because"
+        "ERROR /workspace/test/BUILD:2:19: Label '//test:sub/my_sub_lib.h' is invalid because"
             + " 'test/sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'//test/sub:my_sub_lib.h'?");
   }
@@ -375,7 +377,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//:cclib");
     assertContainsEvent(
-        "/workspace/BUILD:1:1: Label '//:r/my_sub_lib.h' is invalid because "
+        "/workspace/BUILD:1:11: Label '//:r/my_sub_lib.h' is invalid because "
             + "'@r//' is a subpackage");
   }
 
@@ -394,7 +396,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("@r//:cclib");
     assertContainsEvent(
-        "/external/r/BUILD:1:1: Label '@r//:sub/my_sub_lib.h' is invalid because "
+        "/external/r/BUILD:1:11: Label '@r//:sub/my_sub_lib.h' is invalid because "
             + "'@r//sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'@r//sub:my_sub_lib.h'?");
   }
@@ -429,7 +431,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:m_skylark");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:2:1: Label '//test:sub/my_sub_lib.h' "
+        "ERROR /workspace/test/BUILD:2:19: Label '//test:sub/my_sub_lib.h' "
             + "is invalid because 'test/sub' is a subpackage");
   }
 
@@ -447,7 +449,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:m_native");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:2:1: Label '//test:sub/my_sub_lib.h' "
+        "ERROR /workspace/test/BUILD:2:18: Label '//test:sub/my_sub_lib.h' "
             + "is invalid because 'test/sub' is a subpackage");
   }
 
@@ -2682,5 +2684,38 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(info).isNotNull();
     hasConstraint = (boolean) info.getValue("has_constraint");
     assertThat(hasConstraint).isFalse();
+  }
+
+  @Test
+  public void testExecGroupToolchain() throws Exception {
+    createToolchains();
+    createPlatforms();
+    scratch.file(
+        "something/defs.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "use_exec_groups = rule(",
+        "  implementation = _impl,",
+        "  exec_groups = {",
+        "    'dragonfruit': exec_group(toolchains = ['//rule:toolchain_type']),",
+        "  },",
+        ")");
+    scratch.file(
+        "something/BUILD",
+        "load('//something:defs.bzl', 'use_exec_groups')",
+        "use_exec_groups(name = 'nectarine')");
+    setSkylarkSemanticsOptions("--experimental_exec_groups=true");
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
+        "--platforms=//platform:platform_1");
+    ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
+        createRuleContext("//something:nectarine")
+            .getRuleContext()
+            .getToolchainContextsForTesting()
+            .getContextMap();
+    assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
+    assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();
+    assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
+        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
   }
 }

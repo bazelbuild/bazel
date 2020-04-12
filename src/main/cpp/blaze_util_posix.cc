@@ -262,7 +262,7 @@ class CharPP {
   explicit CharPP(const std::map<string, EnvVarValue>& env) {
     charpp_ = static_cast<char**>(malloc(sizeof(char*) * (env.size() + 1)));
     size_t i = 0;
-    for (auto iter : env) {
+    for (const auto& iter : env) {
       const string& var = iter.first;
       const EnvVarValue& value = iter.second;
 

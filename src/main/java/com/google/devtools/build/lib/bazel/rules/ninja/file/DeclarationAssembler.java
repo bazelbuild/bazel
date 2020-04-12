@@ -31,18 +31,10 @@ import java.util.List;
  */
 public class DeclarationAssembler {
   private final DeclarationConsumer declarationConsumer;
-  private final SeparatorFinder separatorFinder;
 
-  /**
-   * @param declarationConsumer delegate declaration consumer for actual processing / parsing
-   * @param separatorFinder callback used to determine if two fragments should be separate
-   *     declarations (in the Ninja case, if the new line starts with a space, it should be treated
-   *     as a part of the previous declaration, i.e. the separator is longer then one symbol).
-   */
-  public DeclarationAssembler(
-      DeclarationConsumer declarationConsumer, SeparatorFinder separatorFinder) {
+  /** @param declarationConsumer delegate declaration consumer for actual processing / parsing */
+  public DeclarationAssembler(DeclarationConsumer declarationConsumer) {
     this.declarationConsumer = declarationConsumer;
-    this.separatorFinder = separatorFinder;
   }
 
   /**
@@ -113,7 +105,8 @@ public class DeclarationAssembler {
     int previousEnd = 0;
     for (Range<Integer> range : interestingRanges) {
       int idx =
-          separatorFinder.findNextSeparator(merged, range.lowerEndpoint(), range.upperEndpoint());
+          NinjaSeparatorFinder.findNextSeparator(
+              merged, range.lowerEndpoint(), range.upperEndpoint());
       if (idx >= 0) {
         // There should always be a previous fragment, as we are checking non-intersecting ranges,
         // starting from the connection point between first and second fragments.

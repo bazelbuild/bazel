@@ -34,7 +34,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SelectTest {
 
-  private static Object eval(String expr) throws SyntaxError, EvalException, InterruptedException {
+  private static Object eval(String expr)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(expr);
     StarlarkThread thread =
         StarlarkThread.builder(Mutability.create("test"))

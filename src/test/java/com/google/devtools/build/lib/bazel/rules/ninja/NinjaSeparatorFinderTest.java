@@ -64,14 +64,14 @@ public class NinjaSeparatorFinderTest {
     FileFragment fragment = new FileFragment(buffer, 0, 0, buffer.limit());
     assertThrows(
         IncorrectSeparatorException.class,
-        () -> NinjaSeparatorFinder.INSTANCE.findNextSeparator(fragment, 0, -1));
+        () -> NinjaSeparatorFinder.findNextSeparator(fragment, 0, -1));
   }
 
   private static void doTestIsSeparator(String s, int expected) throws IncorrectSeparatorException {
     byte[] bytes = s.getBytes(StandardCharsets.ISO_8859_1);
     ByteBuffer buffer = ByteBuffer.wrap(bytes);
     FileFragment fragment = new FileFragment(buffer, 0, 0, buffer.limit());
-    int result = NinjaSeparatorFinder.INSTANCE.findNextSeparator(fragment, 0, -1);
+    int result = NinjaSeparatorFinder.findNextSeparator(fragment, 0, -1);
     assertThat(result).isEqualTo(expected);
   }
 }

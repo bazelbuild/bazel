@@ -13,9 +13,9 @@ java_library(
     srcs = ["SkylarkDebuggerModule.java"],
     deps = [
         ":options",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",

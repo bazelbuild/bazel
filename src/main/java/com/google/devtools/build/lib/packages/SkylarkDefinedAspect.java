@@ -30,7 +30,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-/** A Skylark value that is a result of an 'aspect(..)' function call. */
+/** A Starlark value that is a result of an 'aspect(..)' function call. */
 @AutoCodec
 public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   private final BaseFunction implementation;

@@ -88,8 +88,10 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TRANSITIVE_TARGET");
   public static final SkyFunctionName CONFIGURED_TARGET =
       SkyFunctionName.createHermetic("CONFIGURED_TARGET");
-  public static final SkyFunctionName POST_CONFIGURED_TARGET =
-      SkyFunctionName.createHermetic("POST_CONFIGURED_TARGET");
+  static final SkyFunctionName ACTION_LOOKUP_CONFLICT_FINDING =
+      SkyFunctionName.createHermetic("ACTION_LOOKUP_CONFLICT_DETECTION");
+  static final SkyFunctionName TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING =
+      SkyFunctionName.createHermetic("TOP_LEVEL_ACTION_LOOKUP_CONFLICT_DETECTION");
   public static final SkyFunctionName ASPECT = SkyFunctionName.createHermetic("ASPECT");
   static final SkyFunctionName LOAD_SKYLARK_ASPECT =
       SkyFunctionName.createHermetic("LOAD_SKYLARK_ASPECT");

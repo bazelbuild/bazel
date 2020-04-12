@@ -51,7 +51,7 @@ public final class SpawnGccStrategyTest {
   public void setup() {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
-    ar = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getChild("out"));
+    ar = ArtifactRoot.asDerivedRoot(execRoot, "out");
   }
 
   @Test

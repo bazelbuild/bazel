@@ -443,6 +443,7 @@ function run_bazel_jar() {
       --batch \
       --install_base=${ARCHIVE_DIR} \
       --output_base=${OUTPUT_DIR}/out \
+      --failure_detail_out=${OUTPUT_DIR}/failure_detail.rawproto \
       --output_user_root=${OUTPUT_DIR}/user_root \
       --install_md5= \
       --default_system_javabase="${JAVA_HOME}" \

@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
@@ -57,6 +56,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -125,11 +125,18 @@ import javax.annotation.concurrent.Immutable;
 public class RuleClass {
 
   /**
-   * Maximum attributes per RuleClass. Current value was chosen high enough to be considered a
+   * Maximum attributes per RuleClass. Current value was chosen to be high enough to be considered a
    * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
    * headroom before hitting {@link AttributeContainer}'s limits.
    */
   private static final int MAX_ATTRIBUTES = 200;
+
+  /**
+   * Maximum attribute name length. Chosen to accommodate existing and prevent extreme outliers from
+   * forming - extreme values create bloat, both in memory usage and various outputs, including but
+   * not limited to, query output.
+   */
+  private static final int MAX_ATTRIBUTE_NAME_LENGTH = 128;
 
   @AutoCodec
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
@@ -618,7 +625,7 @@ public class RuleClass {
     }
 
     /**
-     * Name of default attribute implicitly added to all Skylark RuleClasses that are {@code
+     * Name of default attribute implicitly added to all Starlark RuleClasses that are {@code
      * build_setting}s.
      */
     public static final String SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
@@ -710,6 +717,7 @@ public class RuleClass {
     private boolean useToolchainResolution = true;
     private Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
+    private final Map<String, ExecGroup> execGroups = new HashMap<>();
 
     /**
      * Constructs a new {@code RuleClassBuilder} using all attributes from all
@@ -743,6 +751,14 @@ public class RuleClass {
         addRequiredToolchains(parent.getRequiredToolchains());
         useToolchainResolution = parent.useToolchainResolution;
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
+        try {
+          addExecGroups(parent.getExecGroups());
+        } catch (DuplicateExecGroupError e) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "An execution group named '%s' is inherited multiple times in %s ruleclass",
+                  e.getDuplicateGroup(), name));
+        }
 
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
@@ -785,14 +801,8 @@ public class RuleClass {
       Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
       type.checkName(name);
 
-      Preconditions.checkArgument(
-          attributes.size() <= MAX_ATTRIBUTES,
-          "Rule class %s declared too many attributes (%s > %s)",
-          name,
-          attributes.size(),
-          MAX_ATTRIBUTES);
+      checkAttributes(name, type, attributes);
 
-      type.checkAttributes(attributes);
       Preconditions.checkState(
           (type == RuleClassType.ABSTRACT)
               == (configuredTargetFactory == null && configuredTargetFunction == null),
@@ -862,9 +872,34 @@ public class RuleClass {
           requiredToolchains,
           useToolchainResolution,
           executionPlatformConstraints,
+          execGroups,
           outputFileKind,
           attributes.values(),
           buildSetting);
+    }
+
+    private static void checkAttributes(
+        String ruleClassName, RuleClassType ruleClassType, Map<String, Attribute> attributes) {
+      Preconditions.checkArgument(
+          attributes.size() <= MAX_ATTRIBUTES,
+          "Rule class %s declared too many attributes (%s > %s)",
+          ruleClassName,
+          attributes.size(),
+          MAX_ATTRIBUTES);
+
+      for (String attributeName : attributes.keySet()) {
+        // TODO(b/151171037): This check would make more sense at Attribute creation time, but the
+        // use of unchecked exceptions in these APIs makes it brittle.
+        Preconditions.checkArgument(
+            attributeName.length() <= MAX_ATTRIBUTE_NAME_LENGTH,
+            "Attribute %s.%s's name is too long (%s > %s)",
+            ruleClassName,
+            attributeName,
+            attributeName.length(),
+            MAX_ATTRIBUTE_NAME_LENGTH);
+      }
+
+      ruleClassType.checkAttributes(attributes);
     }
 
     private void assertSkylarkRuleClassHasImplementationFunction() {
@@ -923,7 +958,7 @@ public class RuleClass {
      * configuration.
      *
      * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method takes the
-     * Skylark module names of fragments instead of their classes.
+     * Starlark module names of fragments instead of their classes.
      */
     public Builder requiresConfigurationFragmentsBySkylarkModuleName(
         Collection<String> configurationFragmentNames) {
@@ -935,19 +970,18 @@ public class RuleClass {
     /**
      * Declares the configuration fragments that are required by this rule for the host
      * configuration.
-     *
      */
     /**
-     * Declares that the implementation of the associated rule class requires the given
-     * fragments to be present in the given configuration that isn't the rule's configuration but
-     * is also readable by the rule.
+     * Declares that the implementation of the associated rule class requires the given fragments to
+     * be present in the given configuration that isn't the rule's configuration but is also
+     * readable by the rule.
      *
      * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
-     * this method takes Skylark module names of fragments instead of their classes.
-     * *
+     * this method takes Starlark module names of fragments instead of their classes. *
+     *
      * <p>You probably don't want to use this, because rules generally shouldn't read configurations
-     * other than their own. If you want to declare host config fragments, see
-     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
+     * other than their own. If you want to declare host config fragments, see {@link
+     * com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
      *
      * <p>The value is inherited by subclasses.
      */
@@ -1151,6 +1185,9 @@ public class RuleClass {
      *
      * <p>Typically rule classes should only declare a handful of attributes - this expectation is
      * enforced when the instance is built.
+     *
+     * <p>Attribute names should be meaningful but short; overly long names are rejected at
+     * instantiation.
      */
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       addAttribute(attr.build());
@@ -1169,10 +1206,10 @@ public class RuleClass {
     }
 
     /**
-     * Adds or overrides the attribute in the rule class. Meant for Skylark usage.
+     * Adds or overrides the attribute in the rule class. Meant for Starlark usage.
      *
      * @throws IllegalArgumentException if the attribute overrides an existing attribute (will be
-     * legal in the future).
+     *     legal in the future).
      */
     public void addOrOverrideAttribute(Attribute attribute) {
       String name = attribute.getName();
@@ -1187,7 +1224,7 @@ public class RuleClass {
       return attributes.containsKey(name);
     }
 
-    /** Sets the rule implementation function. Meant for Skylark usage. */
+    /** Sets the rule implementation function. Meant for Starlark usage. */
     public Builder setConfiguredTargetFunction(StarlarkFunction func) {
       this.configuredTargetFunction = func;
       return this;
@@ -1203,7 +1240,7 @@ public class RuleClass {
       return this;
     }
 
-    /** Sets the rule definition environment label and hash code. Meant for Skylark usage. */
+    /** Sets the rule definition environment label and hash code. Meant for Starlark usage. */
     public Builder setRuleDefinitionEnvironmentLabelAndHashCode(Label label, String hashCode) {
       this.ruleDefinitionEnvironmentLabel = Preconditions.checkNotNull(label, this.name);
       this.ruleDefinitionEnvironmentHashCode = Preconditions.checkNotNull(hashCode, this.name);
@@ -1228,8 +1265,8 @@ public class RuleClass {
     }
 
     /**
-     * This rule class outputs a default executable for every rule with the same name as
-     * the rules's. Only works for Skylark.
+     * This rule class outputs a default executable for every rule with the same name as the
+     * rules's. Only works for Starlark.
      */
     public <TYPE> Builder setExecutableSkylark() {
       this.isExecutableSkylark = true;
@@ -1256,7 +1293,7 @@ public class RuleClass {
     }
 
     /**
-     * This rule class has the _whitelist_function_transition attribute.  Intended only for Skylark
+     * This rule class has the _whitelist_function_transition attribute. Intended only for Starlark
      * rules.
      */
     public <TYPE> Builder setHasFunctionTransitionWhitelist() {
@@ -1365,6 +1402,36 @@ public class RuleClass {
     }
 
     /**
+     * Adds execution groups to this rule class. Errors out if multiple groups with the same name
+     * are added.
+     */
+    public Builder addExecGroups(Map<String, ExecGroup> execGroups) throws DuplicateExecGroupError {
+      for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
+        String name = group.getKey();
+        if (this.execGroups.put(name, group.getValue()) != null) {
+          throw new DuplicateExecGroupError(name);
+        }
+      }
+      return this;
+    }
+
+    /** An error to help report {@link ExecGroup}s with the same name */
+    static class DuplicateExecGroupError extends EvalException {
+      private final String duplicateGroup;
+
+      DuplicateExecGroupError(String duplicateGroup) {
+        super(
+            null,
+            String.format("Multiple execution groups with the same name: '%s'.", duplicateGroup));
+        this.duplicateGroup = duplicateGroup;
+      }
+
+      String getDuplicateGroup() {
+        return duplicateGroup;
+      }
+    }
+
+    /**
      * Causes rules to use toolchain resolution to determine the execution platform and toolchains.
      * Rules that are part of configuring toolchains and platforms should set this to {@code false}.
      */
@@ -1408,7 +1475,7 @@ public class RuleClass {
   private final String name; // e.g. "cc_library"
   private final ImmutableList<StarlarkThread.CallStackEntry> callstack; // of call to 'rule'
 
-  private final String key; // Just the name for native, label + name for skylark
+  private final String key; // Just the name for native, label + name for Starlark
 
   /**
    * The kind of target represented by this RuleClass (e.g. "cc_library rule").
@@ -1478,12 +1545,13 @@ public class RuleClass {
   private final AdvertisedProviderSet advertisedProviders;
 
   /**
-   * The Skylark rule implementation of this RuleClass. Null for non Skylark executable RuleClasses.
+   * The Starlark rule implementation of this RuleClass. Null for non Starlark executable
+   * RuleClasses.
    */
   @Nullable private final StarlarkFunction configuredTargetFunction;
 
   /**
-   * The BuildSetting associated with this rule. Null for all RuleClasses except Skylark-defined
+   * The BuildSetting associated with this rule. Null for all RuleClasses except Starlark-defined
    * rules that pass {@code build_setting} to their {@code rule()} declaration.
    */
   @Nullable private final BuildSetting buildSetting;
@@ -1499,8 +1567,8 @@ public class RuleClass {
   private final Function<? super Rule, ? extends Set<String>> optionReferenceFunction;
 
   /**
-   * The Skylark rule definition environment's label and hash code of this RuleClass. Null for non
-   * Skylark executable RuleClasses.
+   * The Starlark rule definition environment's label and hash code of this RuleClass. Null for non
+   * Starlark executable RuleClasses.
    */
   @Nullable private final Label ruleDefinitionEnvironmentLabel;
 
@@ -1524,6 +1592,7 @@ public class RuleClass {
   private final ImmutableSet<Label> requiredToolchains;
   private final boolean useToolchainResolution;
   private final ImmutableSet<Label> executionPlatformConstraints;
+  private final ImmutableMap<String, ExecGroup> execGroups;
 
   /**
    * Constructs an instance of RuleClass whose name is 'name', attributes are 'attributes'. The
@@ -1579,6 +1648,7 @@ public class RuleClass {
       Set<Label> requiredToolchains,
       boolean useToolchainResolution,
       Set<Label> executionPlatformConstraints,
+      Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
       Collection<Attribute> attributes,
       @Nullable BuildSetting buildSetting) {
@@ -1618,6 +1688,7 @@ public class RuleClass {
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
     this.useToolchainResolution = useToolchainResolution;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
+    this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
 
     // Create the index and collect non-configurable attributes.
@@ -2045,12 +2116,12 @@ public class RuleClass {
     // have been set.
     for (Attribute attr : attrsWithComputedDefaults) {
       // If Attribute#hasComputedDefault was true above, Attribute#getDefaultValue returns the
-      // computed default function object or a Skylark computed default template. Note that we
+      // computed default function object or a Starlark computed default template. Note that we
       // cannot determine the exact value of the computed default function here because it may
       // depend on other attribute values that are configurable (i.e. they came from select({..})
       // expressions in the build language, and they require configuration data from the analysis
       // phase to be resolved). Instead, we're setting the attribute value to a reference to the
-      // computed default function, or if #getDefaultValue is a Skylark computed default
+      // computed default function, or if #getDefaultValue is a Starlark computed default
       // template, setting the attribute value to a reference to the SkylarkComputedDefault
       // returned from SkylarkComputedDefaultTemplate#computePossibleValues.
       //
@@ -2430,7 +2501,7 @@ public class RuleClass {
     return binaryOutput;
   }
 
-  /** Returns this RuleClass's custom Skylark rule implementation. */
+  /** Returns this RuleClass's custom Starlark rule implementation. */
   @Nullable
   public StarlarkFunction getConfiguredTargetFunction() {
     return configuredTargetFunction;
@@ -2457,7 +2528,7 @@ public class RuleClass {
   }
 
   /**
-   * For Skylark rule classes, returns this RuleClass's rule definition environment's label, which
+   * For Starlark rule classes, returns this RuleClass's rule definition environment's label, which
    * is never null. Is null for native rules' RuleClass objects.
    */
   @Nullable
@@ -2474,15 +2545,12 @@ public class RuleClass {
     return ruleDefinitionEnvironmentHashCode;
   }
 
-  /** Returns true if this RuleClass is a Skylark-defined RuleClass. */
+  /** Returns true if this RuleClass is a Starlark-defined RuleClass. */
   public boolean isSkylark() {
     return isSkylark;
   }
 
-  /**
-   * Returns true if this RuleClass is Skylark-defined and is subject to analysis-time
-   * tests.
-   */
+  /** Returns true if this RuleClass is Starlark-defined and is subject to analysis-time tests. */
   public boolean isSkylarkTestable() {
     return skylarkTestable;
   }
@@ -2534,6 +2602,10 @@ public class RuleClass {
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {
     return executionPlatformConstraints;
+  }
+
+  public ImmutableMap<String, ExecGroup> getExecGroups() {
+    return execGroups;
   }
 
   public OutputFile.Kind  getOutputFileKind() {

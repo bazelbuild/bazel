@@ -20,18 +20,18 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
-/** Base class for all values which can provide the generating action of an artifact. */
-public abstract class ActionLookupValue implements SkyValue {
+/** Base interface for all values which can provide the generating action of an artifact. */
+public interface ActionLookupValue extends SkyValue {
 
   /** Returns a list of actions registered by this {@link SkyValue}. */
-  public abstract ImmutableList<ActionAnalysisMetadata> getActions();
+  ImmutableList<ActionAnalysisMetadata> getActions();
 
   /**
    * Returns the {@link Action} with index {@code index} in this value. Never null. Should only be
    * called during action execution by {@code ArtifactFunction} and {@code ActionExecutionFunction}
    * -- after an action has executed, calling this with its index may crash.
    */
-  public Action getAction(int index) {
+  default Action getAction(int index) {
     ActionAnalysisMetadata result = getActions().get(index);
     // Avoid Preconditions.checkState which would box the int arg.
     if (!(result instanceof Action)) {
@@ -40,7 +40,7 @@ public abstract class ActionLookupValue implements SkyValue {
     return (Action) result;
   }
 
-  public ActionTemplate<?> getActionTemplate(int index) {
+  default ActionTemplate<?> getActionTemplate(int index) {
     ActionAnalysisMetadata result = getActions().get(index);
     // Avoid Preconditions.checkState which would box the int arg.
     if (!(result instanceof ActionTemplate)) {
@@ -51,13 +51,13 @@ public abstract class ActionLookupValue implements SkyValue {
   }
 
   /** Returns the number of {@link Action} objects present in this value. */
-  public int getNumActions() {
+  default int getNumActions() {
     return getActions().size();
   }
 
   /** Returns a source artifact if the underlying configured target is an input file. */
   @Nullable
-  public SourceArtifact getSourceArtifact() {
+  default SourceArtifact getSourceArtifact() {
     return null;
   }
 
@@ -66,7 +66,7 @@ public abstract class ActionLookupValue implements SkyValue {
    * subclasses of ActionLookupKey. This allows callers to easily find the value key, while
    * remaining agnostic to what ActionLookupValues actually exist.
    */
-  public abstract static class ActionLookupKey implements ArtifactOwner, SkyKey {
+  abstract class ActionLookupKey implements ArtifactOwner, SkyKey {
     @Override
     public Label getLabel() {
       return null;

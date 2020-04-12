@@ -546,7 +546,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     public static final OptionDefinition ALSO_IRRELEVANT_OPTION =
         OptionsParser.getOptionDefinitionByName(DiffResetOptions.class, "also_irrelevant");
     public static final PatchTransition CLEAR_IRRELEVANT =
-        (options) -> {
+        (options, eventHandler) -> {
           BuildOptions cloned = options.clone();
           cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
           cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";

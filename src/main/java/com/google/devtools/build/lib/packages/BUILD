@@ -10,30 +10,39 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+TYPE_SRCS = ["Type.java"]
+
+BUILD_TYPE_SRCS = [
+    "BuildType.java",
+    "FilesetEntry.java",
+    "License.java",
+    "SelectorList.java",
+    "SelectorValue.java",
+    "TriState.java",
+]
+
 java_library(
     name = "packages",
     srcs = glob(
         ["*.java"],
-        exclude = [
+        exclude = TYPE_SRCS + BUILD_TYPE_SRCS + [
             "BuilderFactoryForTesting.java",
             "StarlarkSemanticsOptions.java",
         ],
     ),
     deps = [
+        ":build_type",
+        ":type",
         "//src/main/java/com/google/devtools/build/lib:config-matching-provider",
         "//src/main/java/com/google/devtools/build/lib:config-transitions",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:filetype",
-        "//src/main/java/com/google/devtools/build/lib:logging-util",
         "//src/main/java/com/google/devtools/build/lib:rule-definition-context",
-        "//src/main/java/com/google/devtools/build/lib:string_util",
         "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
@@ -41,10 +50,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:logging",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/starlark/spelling",
         "//src/main/protobuf:build_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
@@ -77,5 +91,38 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "type",
+    srcs = TYPE_SRCS,
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/com/google/devtools/build/lib/util:logging",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "build_type",
+    srcs = BUILD_TYPE_SRCS,
+    deps = [
+        ":type",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

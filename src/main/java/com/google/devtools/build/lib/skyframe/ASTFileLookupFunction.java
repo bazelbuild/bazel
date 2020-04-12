@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
 /**
  * A Skyframe function that reads, parses and validates the .bzl file denoted by a Label.
  *
- * <p>Given a {@link Label} referencing a Skylark file, loads it as a syntax tree ({@link
+ * <p>Given a {@link Label} referencing a Starlark file, loads it as a syntax tree ({@link
  * StarlarkFile}). The Label must be absolute, and must not reference the special {@code external}
  * package. If the file (or the package containing it) doesn't exist, the function doesn't fail, but
  * instead returns a specific {@code NO_FILE} {@link ASTFileLookupValue}.

@@ -1931,4 +1931,14 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
   public void testFdoCachePrefetchAndFdoLLVMOptionsToBackendFromLabel() throws Exception {
     testLLVMCachePrefetchBackendOption("--fdo_optimize=./profile.zip", true);
   }
+
+  @Test
+  public void testThinLtoWithoutSupportsStartEndLibError() throws Exception {
+    createBuildFiles("bin", "testonly = 1,");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.THIN_LTO));
+    checkError("//pkg:bin", "The feature supports_start_end_lib must be enabled.");
+  }
 }

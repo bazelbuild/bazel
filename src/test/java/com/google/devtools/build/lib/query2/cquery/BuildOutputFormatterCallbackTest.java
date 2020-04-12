@@ -103,7 +103,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     getHelper().useConfiguration("--test_arg=cat");
     assertThat(getOutput("//test:my_rule"))
         .containsExactly(
-            "# /workspace/test/BUILD:1:1",
+            "# /workspace/test/BUILD:1:8",
             "my_rule(",
             "  name = \"my_rule\",",
             "  deps = [\"//test:lasagna.java\", \"//test:naps.java\"],",
@@ -113,7 +113,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     getHelper().useConfiguration("--test_arg=hound");
     assertThat(getOutput("//test:my_rule"))
         .containsExactly(
-            "# /workspace/test/BUILD:1:1",
+            "# /workspace/test/BUILD:1:8",
             "my_rule(",
             "  name = \"my_rule\",",
             "  deps = [\"//test:mondays.java\"],",
@@ -143,7 +143,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
     assertThat(getOutput("//test:my_alias"))
         .containsExactly(
-            "# /workspace/test/BUILD:12:1",
+            "# /workspace/test/BUILD:12:6",
             "alias(",
             "  name = \"my_alias\",",
             "  actual = \"//test:my_rule\",",
@@ -178,7 +178,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     getHelper().useConfiguration("--test_arg=cat");
     assertThat(getOutput("//test:my_alias"))
         .containsExactly(
-            "# /workspace/test/BUILD:13:1",
+            "# /workspace/test/BUILD:13:6",
             "alias(",
             "  name = \"my_alias\",",
             "  actual = \"//test:my_first_rule\",",
@@ -188,7 +188,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     getHelper().useConfiguration("--test_arg=hound");
     assertThat(getOutput("//test:my_alias"))
         .containsExactly(
-            "# /workspace/test/BUILD:13:1",
+            "# /workspace/test/BUILD:13:6",
             "alias(",
             "  name = \"my_alias\",",
             "  actual = \"//test:my_second_rule\",",
@@ -235,7 +235,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     getHelper().useConfiguration("--test_arg=cat");
     assertThat(getOutput("//test:output.txt"))
         .containsExactly(
-            "# /workspace/test/BUILD:1:1",
+            "# /workspace/test/BUILD:1:8",
             "my_rule(",
             "  name = \"my_rule\",",
             "  deps = [\"//test:lasagna.java\", \"//test:naps.java\"],",
@@ -246,7 +246,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     getHelper().useConfiguration("--test_arg=hound");
     assertThat(getOutput("//test:output.txt"))
         .containsExactly(
-            "# /workspace/test/BUILD:1:1",
+            "# /workspace/test/BUILD:1:8",
             "my_rule(",
             "  name = \"my_rule\",",
             "  deps = [\"//test:mondays.java\"],",

@@ -18,11 +18,13 @@ package com.google.devtools.build.lib.syntax;
 public final class DotExpression extends Expression {
 
   private final Expression object;
-
+  private final int dotOffset;
   private final Identifier field;
 
-  DotExpression(Expression object, Identifier field) {
+  DotExpression(FileLocations locs, Expression object, int dotOffset, Identifier field) {
+    super(locs);
     this.object = object;
+    this.dotOffset = dotOffset;
     this.field = field;
   }
 
@@ -32,6 +34,20 @@ public final class DotExpression extends Expression {
 
   public Identifier getField() {
     return field;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return object.getStartOffset();
+  }
+
+  @Override
+  public int getEndOffset() {
+    return field.getEndOffset();
+  }
+
+  public Location getDotLocation() {
+    return locs.getLocation(dotOffset);
   }
 
   @Override

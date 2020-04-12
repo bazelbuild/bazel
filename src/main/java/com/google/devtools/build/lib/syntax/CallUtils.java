@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.util.Pair;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -43,9 +42,33 @@ public final class CallUtils {
       cls = StringModule.class;
     }
     try {
-      return cache.get(Pair.of(cls, semantics));
+      return cache.get(new Key(cls, semantics));
     } catch (ExecutionException ex) {
       throw new IllegalStateException("cache error", ex);
+    }
+  }
+
+  // Key is a simple Pair<Class, StarlarkSemantics>.
+  private static final class Key {
+    final Class<?> cls;
+    final StarlarkSemantics semantics;
+
+    Key(Class<?> cls, StarlarkSemantics semantics) {
+      this.cls = cls;
+      this.semantics = semantics;
+    }
+
+    @Override
+    public boolean equals(Object that) {
+      return this == that
+          || (that instanceof Key
+              && this.cls.equals(((Key) that).cls)
+              && this.semantics.equals(((Key) that).semantics));
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * cls.hashCode() + semantics.hashCode();
     }
   }
 
@@ -58,21 +81,18 @@ public final class CallUtils {
   }
 
   // A cache of information derived from a SkylarkCallable-annotated class and a StarlarkSemantics.
-  private static final LoadingCache<Pair<Class<?>, StarlarkSemantics>, CacheValue> cache =
+  private static final LoadingCache<Key, CacheValue> cache =
       CacheBuilder.newBuilder()
           .build(
-              new CacheLoader<Pair<Class<?>, StarlarkSemantics>, CacheValue>() {
+              new CacheLoader<Key, CacheValue>() {
                 @Override
-                public CacheValue load(Pair<Class<?>, StarlarkSemantics> key) throws Exception {
-                  Class<?> cls = key.first;
-                  StarlarkSemantics semantics = key.second;
-
+                public CacheValue load(Key key) throws Exception {
                   MethodDescriptor selfCall = null;
                   ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
                   Map<String, MethodDescriptor> fields = new HashMap<>();
 
                   // Sort methods by Java name, for determinism.
-                  Method[] classMethods = cls.getMethods();
+                  Method[] classMethods = key.cls.getMethods();
                   Arrays.sort(classMethods, Comparator.comparing(Method::getName));
                   for (Method method : classMethods) {
                     // Synthetic methods lead to false multiple matches
@@ -87,19 +107,20 @@ public final class CallUtils {
                     }
 
                     // enabled by semantics?
-                    if (!semantics.isFeatureEnabledBasedOnTogglingFlags(
+                    if (!key.semantics.isFeatureEnabledBasedOnTogglingFlags(
                         callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
                       continue;
                     }
 
-                    MethodDescriptor descriptor = MethodDescriptor.of(method, callable, semantics);
+                    MethodDescriptor descriptor =
+                        MethodDescriptor.of(method, callable, key.semantics);
 
                     // self-call method?
                     if (callable.selfCall()) {
                       if (selfCall != null) {
                         throw new IllegalArgumentException(
                             String.format(
-                                "Class %s has two selfCall methods defined", cls.getName()));
+                                "Class %s has two selfCall methods defined", key.cls.getName()));
                       }
                       selfCall = descriptor;
                       continue;
@@ -115,7 +136,7 @@ public final class CallUtils {
                       throw new IllegalArgumentException(
                           String.format(
                               "Class %s declares two structField methods named %s",
-                              cls.getName(), callable.name()));
+                              key.cls.getName(), callable.name()));
                     }
                   }
 
@@ -169,7 +190,7 @@ public final class CallUtils {
   }
 
   /**
-   * Returns a set of the Skylark name of all Skylark callable methods for object of type {@code
+   * Returns a set of the Starlark name of all Starlark callable methods for object of type {@code
    * objClass}.
    */
   static ImmutableSet<String> getMethodNames(StarlarkSemantics semantics, Class<?> objClass) {

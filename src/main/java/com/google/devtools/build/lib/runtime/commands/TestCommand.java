@@ -27,8 +27,7 @@ import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
 import com.google.devtools.build.lib.buildtool.buildevent.TestingCompleteEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.TestStrategy;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.runtime.AggregatingTestListener;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -73,7 +72,7 @@ public class TestCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
     try {
-      if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
+      if (testOutput == ExecutionOptions.TestOutputFormat.STREAMED) {
         optionsParser.parse(
             PriorityCategory.SOFTWARE_REQUIREMENT,
             "streamed output requires locally run tests, without sharding",
@@ -87,7 +86,7 @@ public class TestCommand implements BlazeCommand {
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
-    if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
+    if (testOutput == ExecutionOptions.TestOutputFormat.STREAMED) {
       env.getReporter().handle(Event.warn(
           "Streamed test output requested. All tests will be run locally, without sharding, "
           + "one at a time"));

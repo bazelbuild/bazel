@@ -644,7 +644,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expected
     }
 
-    assertContainsEvent("ERROR /workspace/test/aspect.bzl:11:23");
+    assertContainsEvent("ERROR /workspace/test/aspect.bzl:11:38");
     assertContainsEvent("Aspects should be top-level values in extension files that define them.");
   }
 
@@ -681,7 +681,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expected
     }
 
-    assertContainsEvent("ERROR /workspace/test/rule.bzl:7:23");
+    assertContainsEvent("ERROR /workspace/test/rule.bzl:7:38");
     assertContainsEvent(
         "Providers should be top-level values in extension files that define them.");
   }
@@ -840,7 +840,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expect to fail.
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:1: in "
+        "ERROR /workspace/test/BUILD:1:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):"
             + LINE_SEPARATOR
@@ -898,7 +898,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expect to fail.
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:1: in "
+        "ERROR /workspace/test/BUILD:1:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "\n"
             + "\n"
@@ -990,7 +990,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("ERROR /workspace/test/BUILD:3:1: Output group duplicate provided twice");
+    assertContainsEvent("ERROR /workspace/test/BUILD:3:6: Output group duplicate provided twice");
   }
 
   @Test
@@ -1171,7 +1171,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expected.
     }
-    assertContainsEvent("ERROR /workspace/test/BUILD:3:1: Output group a1_group provided twice");
+    assertContainsEvent("ERROR /workspace/test/BUILD:3:9: Output group a1_group provided twice");
   }
 
   private static Iterable<String> getOutputGroupContents(
@@ -1208,7 +1208,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("ERROR /workspace/test/BUILD:3:1: Provider duplicate provided twice");
+    assertContainsEvent("ERROR /workspace/test/BUILD:3:6: Provider duplicate provided twice");
   }
 
   @Test
@@ -1384,7 +1384,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expect to fail.
     }
     assertContainsEvent(
-        "ERROR /workspace/test/aspect.bzl:5:22: "
+        "ERROR /workspace/test/aspect.bzl:5:28: "
             + "Aspect parameter attribute 'my_attr' has a bad default value: has to be one of 'a' "
             + "instead of 'b'");
   }
@@ -1407,7 +1407,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "              'my_attr' : attr.string() },",
         ")");
     scratch.file(
-        "test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx', my_attr='b')");
+        "test/BUILD", //
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'xxx', my_attr='b')");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1418,7 +1420,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expect to fail.
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:2:1: //test:xxx: invalid value in 'my_attr' "
+        "ERROR /workspace/test/BUILD:2:8: //test:xxx: invalid value in 'my_attr' "
             + "attribute: has to be one of 'a' instead of 'b'");
   }
 
@@ -2243,7 +2245,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expected
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:3:1: Aspect //test:aspect.bzl%a2 is"
+        "ERROR /workspace/test/BUILD:3:3: Aspect //test:aspect.bzl%a2 is"
             + " applied twice, both before and after aspect //test:aspect.bzl%a1 "
             + "(when propagating to //test:r1)");
   }
@@ -2288,7 +2290,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expected
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:3:1: Aspect //test:aspect.bzl%a2 is"
+        "ERROR /workspace/test/BUILD:3:3: Aspect //test:aspect.bzl%a2 is"
             + " applied twice, both before and after aspect //test:aspect.bzl%a1 "
             + "(when propagating to //test:r1)");
   }

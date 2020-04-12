@@ -17,9 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,8 +33,9 @@ public final class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testExecutionStopsAtFirstError() throws Exception {
-    EventCollector printEvents = new EventCollector();
-    StarlarkThread thread = createStarlarkThread(StarlarkThread.makeDebugPrintHandler(printEvents));
+    List<String> printEvents = new ArrayList<>();
+    StarlarkThread thread =
+        createStarlarkThread(/*printHandler=*/ (_thread, msg) -> printEvents.add(msg));
     ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");
 
     Module module = thread.getGlobals();
@@ -41,14 +43,16 @@ public final class EvaluationTest extends EvaluationTestCase {
         EvalException.class, () -> EvalUtils.exec(input, FileOptions.DEFAULT, module, thread));
 
     // Only expect hello, should have been an error before goodbye.
-    assertThat(printEvents).hasSize(1);
-    assertThat(printEvents.iterator().next().getMessage()).isEqualTo("hello");
+    assertThat(printEvents.toString()).isEqualTo("[hello]");
   }
 
   @Test
   public void testExecutionNotStartedOnInterrupt() throws Exception {
-    EventCollector printEvents = new EventCollector();
-    StarlarkThread thread = createStarlarkThread(StarlarkThread.makeDebugPrintHandler(printEvents));
+    StarlarkThread thread =
+        createStarlarkThread(
+            /*printHandler=*/ (_thread, msg) -> {
+              throw new AssertionError("print statement was reached");
+            });
     ParserInput input = ParserInput.fromLines("print('hello');");
     Module module = thread.getGlobals();
 
@@ -61,8 +65,6 @@ public final class EvaluationTest extends EvaluationTestCase {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
     }
-
-    assertThat(printEvents).isEmpty();
   }
 
   @Test
@@ -564,7 +566,7 @@ public final class EvaluationTest extends EvaluationTestCase {
   }
 
   private static void execBUILD(String... lines)
-      throws SyntaxError, EvalException, InterruptedException {
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkThread thread =
         StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
@@ -739,7 +741,9 @@ public final class EvaluationTest extends EvaluationTestCase {
   public void testListComprehensionUpdate() throws Exception {
     new Scenario()
         .setUp("xs = [1, 2, 3]")
-        .testIfErrorContains("trying to mutate a locked object", "[xs.append(4) for x in xs]");
+        .testIfErrorContains(
+            "list value is temporarily immutable due to active for-loop iteration",
+            "[xs.append(4) for x in xs]");
   }
 
   @Test
@@ -747,7 +751,8 @@ public final class EvaluationTest extends EvaluationTestCase {
     new Scenario()
         .setUp("xs = [1, 2, 3]")
         .testIfErrorContains(
-            "trying to mutate a locked object", "[xs.append(4) for x in xs for y in xs]");
+            "list value is temporarily immutable due to active for-loop iteration",
+            "[xs.append(4) for x in xs for y in xs]");
   }
 
   @Test
@@ -755,7 +760,7 @@ public final class EvaluationTest extends EvaluationTestCase {
     new Scenario()
         .setUp("xs = [1, 2, 3]")
         .testIfErrorContains(
-            "trying to mutate a locked object",
+            "list value is temporarily immutable due to active for-loop iteration",
             // Use short-circuiting to produce valid output in the event
             // the exception is not raised.
             "[y for x in xs for y in (xs.append(4) or xs)]");
@@ -765,7 +770,9 @@ public final class EvaluationTest extends EvaluationTestCase {
   public void testDictComprehensionUpdate() throws Exception {
     new Scenario()
         .setUp("xs = {1:1, 2:2, 3:3}")
-        .testIfErrorContains("trying to mutate a locked object", "[xs.popitem() for x in xs]");
+        .testIfErrorContains(
+            "dict value is temporarily immutable due to active for-loop iteration",
+            "[xs.popitem() for x in xs]");
   }
 
   @Test

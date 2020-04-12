@@ -25,26 +25,23 @@ import java.util.stream.Collectors;
 
 /**
  * Parallel file processing implementation. See comment to {@link #processFile(ReadableByteChannel,
- * BlockParameters, Supplier, ListeningExecutorService, SeparatorFinder)}.
+ * BlockParameters, Supplier, ListeningExecutorService)}.
  */
 public class ParallelFileProcessing {
   private final ReadableByteChannel channel;
   private final BlockParameters parameters;
   private final Supplier<DeclarationConsumer> tokenConsumerFactory;
   private final ListeningExecutorService executorService;
-  private final SeparatorFinder predicate;
 
   private ParallelFileProcessing(
       ReadableByteChannel channel,
       BlockParameters parameters,
       Supplier<DeclarationConsumer> tokenConsumerFactory,
-      ListeningExecutorService executorService,
-      SeparatorFinder predicate) {
+      ListeningExecutorService executorService) {
     this.channel = channel;
     this.parameters = parameters;
     this.tokenConsumerFactory = tokenConsumerFactory;
     this.executorService = executorService;
-    this.predicate = predicate;
   }
 
   /**
@@ -89,11 +86,9 @@ public class ParallelFileProcessing {
       ReadableByteChannel channel,
       BlockParameters parameters,
       Supplier<DeclarationConsumer> tokenConsumerFactory,
-      ListeningExecutorService executorService,
-      SeparatorFinder predicate)
+      ListeningExecutorService executorService)
       throws GenericParsingException, IOException, InterruptedException {
-    new ParallelFileProcessing(
-            channel, parameters, tokenConsumerFactory, executorService, predicate)
+    new ParallelFileProcessing(channel, parameters, tokenConsumerFactory, executorService)
         .processFileImpl();
   }
 
@@ -102,8 +97,7 @@ public class ParallelFileProcessing {
       // Return immediately, if the file is empty.
       return;
     }
-    DeclarationAssembler assembler =
-        new DeclarationAssembler(tokenConsumerFactory.get(), predicate);
+    DeclarationAssembler assembler = new DeclarationAssembler(tokenConsumerFactory.get());
 
     CollectingListFuture<List<FileFragment>, GenericParsingException> future =
         new CollectingListFuture<>(GenericParsingException.class);
@@ -151,7 +145,7 @@ public class ParallelFileProcessing {
       }
       DeclarationConsumer consumer = tokenConsumerFactory.get();
       FileFragment fragment = new FileFragment(bb, offset, from, to);
-      FileFragmentSplitter tokenizer = new FileFragmentSplitter(fragment, consumer, predicate);
+      FileFragmentSplitter tokenizer = new FileFragmentSplitter(fragment, consumer);
       future.add(executorService.submit(tokenizer));
       from = to;
     }

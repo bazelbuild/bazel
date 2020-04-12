@@ -44,8 +44,7 @@ public class FailActionTest {
     errorMessage = "An error just happened.";
     anOutput =
         ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(scratch.dir("/"), scratch.dir("/out")),
-            scratch.file("/out/foo"));
+            ArtifactRoot.asDerivedRoot(scratch.dir("/"), "out"), scratch.file("/out/foo"));
     outputs = ImmutableList.of(anOutput);
     failAction = new FailAction(NULL_ACTION_OWNER, outputs, errorMessage);
     actionGraph.registerAction(failAction);

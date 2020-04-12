@@ -20,26 +20,15 @@ package com.google.devtools.build.lib.profiler;
  * not just be aggregated into the parent event.
  */
 public enum ProfilerTask {
-  /* WARNING:
-   * Add new Tasks at the end (before Unknown) to not break the profiles that people have created!
-   * The profile file format uses the ordinal() of this enumeration to identify the task.
-   */
   PHASE("build phase marker"),
   ACTION("action processing"),
-  __ACTION_BUILDER("parallel builder completion queue"), // unused
-  __ACTION_SUBMIT("execution queue submission"), // unused
   ACTION_CHECK("action dependency checking", 10000000, 0),
-  __ACTION_EXECUTE("action execution"), // unused
   ACTION_LOCK("action resource lock", 10000000, 0),
   ACTION_RELEASE("action resource release", 10000000, 0),
-  __ACTION_GRAPH("action graph dependency"), // unused
   ACTION_UPDATE("update action information", 10000000, 0),
   ACTION_COMPLETE("complete action execution"),
   INFO("general information"),
-  __EXCEPTION("exception"), // unused
   CREATE_PACKAGE("package creation"),
-  __PACKAGE_VALIDITY_CHECK("package validity check"), // unused
-  __SPAWN("local process spawn"), // unused
   REMOTE_EXECUTION("remote action execution"),
   LOCAL_EXECUTION("local action execution"),
   SCANNER("include scanner"),
@@ -66,9 +55,7 @@ public enum ProfilerTask {
   VFS_VMFS_DIR("VMFS readdir", 10000000, 0),
   VFS_VMFS_READ("VMFS read", 10000000, 0),
   WAIT("thread wait", 5000000, 0),
-  __CONFIGURED_TARGET("configured target creation"), // unused
   THREAD_NAME("thread name"), // Do not use directly!
-  __TEST("for testing only"), // unused
   SKYFRAME_EVAL("skyframe evaluator"),
   SKYFUNCTION("skyfunction"),
   CRITICAL_PATH("critical path"),
@@ -76,12 +63,6 @@ public enum ProfilerTask {
   HANDLE_GC_NOTIFICATION("gc notification"),
   LOCAL_CPU_USAGE("cpu counters"),
   ACTION_COUNTS("action counters"),
-  __PROCESS_SCAN("process scan"), // unused
-  __LOOP_OUTPUT_ARTIFACTS("loop output artifacts"), // unused
-  __LOCATE_RELATIVE("locate relative"), // unused
-  __CONSTRUCT_INCLUDE_PATHS("construct include paths"), // unused
-  __PARSE_AND_HINTS_RESULTS("parse and hints results"), // unused
-  __PROCESS_RESULTS_AND_ENQUEUE("process results and enqueue"), // unused
   STARLARK_PARSER("Starlark Parser"),
   STARLARK_USER_FN("Starlark user function call"),
   STARLARK_BUILTIN_FN("Starlark builtin function call"),

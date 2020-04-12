@@ -284,7 +284,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     internalTestPutOnlyEntry(ArrayListMultimap.<String, String>create());
   }
 
-  private void internalTestPutOnlyEntry(Multimap<String, String> map) throws Exception {
+  private static void internalTestPutOnlyEntry(Multimap<String, String> map) throws Exception {
     ConfigurationResolver.putOnlyEntry(map, "foo", "bar");
     ConfigurationResolver.putOnlyEntry(map, "baz", "bar");
     VerifyException e =

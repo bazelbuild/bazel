@@ -259,7 +259,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
     return result.get(key);
   }
 
-  private BuildOptions toMappedOptions(BuildConfigurationValue.Key mapped) {
+  private static BuildOptions toMappedOptions(BuildConfigurationValue.Key mapped) {
     return DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.applyDiff(mapped.getOptionsDiff());
   }
 
@@ -271,7 +271,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
     }
   }
 
-  private BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
+  private static BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
     BuildOptions.OptionsDiffForReconstruction diff =
         BuildOptions.diffForReconstruction(DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS, modifiedOptions);
 

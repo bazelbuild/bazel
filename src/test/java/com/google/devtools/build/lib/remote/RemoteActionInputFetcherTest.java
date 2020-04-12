@@ -69,7 +69,7 @@ public class RemoteActionInputFetcherTest {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), HASH_FUNCTION);
     execRoot = fs.getPath("/exec");
     execRoot.createDirectoryAndParents();
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("root"));
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, "root");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     options = Options.getDefaults(RemoteOptions.class);
     digestUtil = new DigestUtil(HASH_FUNCTION);

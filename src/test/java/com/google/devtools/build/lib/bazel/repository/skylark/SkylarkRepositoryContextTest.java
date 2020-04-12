@@ -23,10 +23,10 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FileOptions;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -398,7 +399,8 @@ public final class SkylarkRepositoryContextTest {
             0,
             "test-stdout".getBytes(StandardCharsets.US_ASCII),
             "test-stderr".getBytes(StandardCharsets.US_ASCII));
-    when(repoRemoteExecutor.execute(any(), any(), any(), any(), any())).thenReturn(executionResult);
+    when(repoRemoteExecutor.execute(any(), any(), any(), any(), any(), any()))
+        .thenReturn(executionResult);
 
     setUpContextForRule(
         attrValues,
@@ -422,6 +424,7 @@ public final class SkylarkRepositoryContextTest {
     verify(repoRemoteExecutor)
         .execute(
             /* arguments= */ ImmutableList.of("/bin/cmd", "arg1"),
+            /* inputFiles= */ ImmutableSortedMap.of(),
             /* executionProperties= */ ImmutableMap.of("OSFamily", "Linux"),
             /* environment= */ ImmutableMap.of(),
             /* workingDirectory= */ "",

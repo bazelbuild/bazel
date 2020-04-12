@@ -52,8 +52,10 @@ public class ExecutableSymlinkActionTest {
   public final void createExecutor() throws Exception  {
     final Path inputDir = scratch.dir("/in");
     execRoot = scratch.getFileSystem().getPath("/");
-    inputRoot = ArtifactRoot.asDerivedRoot(execRoot, inputDir);
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/out"));
+    inputRoot = ArtifactRoot.asDerivedRoot(execRoot, inputDir.relativeTo(execRoot).getPathString());
+    String outSegment = "out";
+    execRoot.getChild(outSegment).createDirectoryAndParents();
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
     outErr = new TestFileOutErr();
     executor = new DummyExecutor(scratch.getFileSystem(), inputDir);
   }

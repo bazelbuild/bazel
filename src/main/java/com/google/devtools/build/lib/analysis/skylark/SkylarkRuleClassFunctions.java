@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -365,9 +366,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
         thread.getTransitiveContentHashCode());
 
-    builder.addRequiredToolchains(
-        collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"), bazelContext.getRepoMapping()));
+    builder.addRequiredToolchains(parseToolchains(toolchains, thread));
+
+    if (execGroups != Starlark.NONE) {
+      builder.addExecGroups(castMap(execGroups, String.class, ExecGroup.class, "exec_group"));
+    }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
       throw Starlark.errorf(
@@ -401,10 +404,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     if (!execCompatibleWith.isEmpty()) {
-      builder.addExecutionPlatformConstraints(
-          collectConstraintLabels(
-              execCompatibleWith.getContents(String.class, "exec_compatile_with"),
-              bazelContext.getRepoMapping()));
+      builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
     }
 
     return new SkylarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
@@ -442,37 +442,46 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
   }
 
-  private static ImmutableList<Label> collectToolchainLabels(
-      Iterable<String> rawLabels, ImmutableMap<RepositoryName, RepositoryName> mapping)
+  /**
+   * Parses a sequence of label strings with a repo mapping.
+   *
+   * @param inputs sequence of input strings
+   * @param mapping repository mapping
+   * @param adjective describes the purpose of the label; used for errors
+   * @throws EvalException if the label can't be parsed
+   */
+  private static ImmutableList<Label> parseLabels(
+      Iterable<String> inputs,
+      ImmutableMap<RepositoryName, RepositoryName> mapping,
+      String adjective)
       throws EvalException {
-    ImmutableList.Builder<Label> requiredToolchains = new ImmutableList.Builder<>();
-    for (String rawLabel : rawLabels) {
+    ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
+    for (String input : inputs) {
       try {
-        Label toolchainLabel = Label.parseAbsolute(rawLabel, mapping);
-        requiredToolchains.add(toolchainLabel);
+        Label label = Label.parseAbsolute(input, mapping);
+        parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
-        throw new EvalException(
-            null, String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()), e);
+        throw Starlark.errorf(
+            "Unable to parse %s label '%s': %s", adjective, input, e.getMessage());
       }
     }
-
-    return requiredToolchains.build();
+    return parsedLabels.build();
   }
 
-  private static ImmutableList<Label> collectConstraintLabels(
-      Iterable<String> rawLabels, ImmutableMap<RepositoryName, RepositoryName> mapping)
+  private static ImmutableList<Label> parseToolchains(Sequence<?> inputs, StarlarkThread thread)
       throws EvalException {
-    ImmutableList.Builder<Label> constraintLabels = new ImmutableList.Builder<>();
-    for (String rawLabel : rawLabels) {
-      try {
-        Label constraintLabel = Label.parseAbsolute(rawLabel, mapping);
-        constraintLabels.add(constraintLabel);
-      } catch (LabelSyntaxException e) {
-        throw Starlark.errorf("Unable to parse constraint %s: %s", rawLabel, e.getMessage());
-      }
-    }
+    return parseLabels(
+        inputs.getContents(String.class, "toolchains"),
+        BazelStarlarkContext.from(thread).getRepoMapping(),
+        "toolchain");
+  }
 
-    return constraintLabels.build();
+  private static ImmutableList<Label> parseExecCompatibleWith(
+      Sequence<?> inputs, StarlarkThread thread) throws EvalException {
+    return parseLabels(
+        inputs.getContents(String.class, "exec_compatible_with"),
+        BazelStarlarkContext.from(thread).getRepoMapping(),
+        "constraint");
   }
 
   @Override
@@ -569,9 +578,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
-        collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"),
-            BazelStarlarkContext.from(thread).getRepoMapping()),
+        parseToolchains(toolchains, thread),
         applyToGeneratingRules);
   }
 
@@ -859,5 +866,15 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);
     }
+  }
+
+  @Override
+  public ExecGroup execGroup(
+      Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
+      throws EvalException {
+    ImmutableSet<Label> toolchainTypes = ImmutableSet.copyOf(parseToolchains(toolchains, thread));
+    ImmutableSet<Label> constraints =
+        ImmutableSet.copyOf(parseExecCompatibleWith(execCompatibleWith, thread));
+    return new ExecGroup(toolchainTypes, constraints);
   }
 }

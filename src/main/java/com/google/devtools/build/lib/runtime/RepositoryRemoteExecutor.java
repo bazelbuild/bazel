@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 
@@ -51,6 +54,9 @@ public interface RepositoryRemoteExecutor {
    * Execute a command remotely.
    *
    * @param arguments the command arguments.
+   * @param inputFiles the files to upload and stage for the command. The key describes where to
+   *     stage the file on the remote machine. The value is the path of the file on the host machine
+   *     (where Bazel is running).
    * @param executionProperties the remote platform the command should run on.
    * @param environment any environment variables that should be set in the command's environment.
    * @param workingDirectory the working directory to run the command under. {@code ""} means that
@@ -59,6 +65,7 @@ public interface RepositoryRemoteExecutor {
    */
   ExecutionResult execute(
       ImmutableList<String> arguments,
+      ImmutableSortedMap<PathFragment, Path> inputFiles,
       ImmutableMap<String, String> executionProperties,
       ImmutableMap<String, String> environment,
       String workingDirectory,

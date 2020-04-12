@@ -16,14 +16,34 @@ package com.google.devtools.build.lib.syntax;
 
 /** Syntax node for an integer literal. */
 public final class IntegerLiteral extends Expression {
+  private final String raw;
+  private final int tokenOffset;
   private final int value;
 
-  IntegerLiteral(int value) {
+  IntegerLiteral(FileLocations locs, String raw, int tokenOffset, int value) {
+    super(locs);
+    this.raw = raw;
+    this.tokenOffset = tokenOffset;
     this.value = value;
   }
 
   public int getValue() {
     return value;
+  }
+
+  /** Returns the raw source text of the literal. */
+  public String getRaw() {
+    return raw;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return tokenOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return tokenOffset + raw.length();
   }
 
   @Override

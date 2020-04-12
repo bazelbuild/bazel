@@ -108,12 +108,11 @@ public final class ExecutionProgressReceiver
     SkyFunctionName type = skyKey.functionName();
     if (type.equals(SkyFunctions.TARGET_COMPLETION)) {
       if (evaluationSuccessState.get().succeeded()) {
-        builtTargets.add(
-            ((TargetCompletionValue.TargetCompletionKey) skyKey).configuredTargetKey());
+        builtTargets.add(((TargetCompletionValue.TargetCompletionKey) skyKey).actionLookupKey());
       }
     } else if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
       if (evaluationSuccessState.get().succeeded()) {
-        builtAspects.add(((AspectCompletionValue.AspectCompletionKey) skyKey).aspectKey());
+        builtAspects.add(((AspectCompletionValue.AspectCompletionKey) skyKey).actionLookupKey());
       }
     } else if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
       // Remember all completed actions, even those in error, regardless of having been cached or

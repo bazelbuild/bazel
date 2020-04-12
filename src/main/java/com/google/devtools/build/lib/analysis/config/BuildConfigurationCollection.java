@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.HashMap;
 
@@ -24,7 +23,7 @@ import java.util.HashMap;
  *
  * <p>The target configuration is used for all targets specified on the command line. Multiple
  * target configurations are possible because of settings like {@link
- * BuildRequestOptions#multiCpus}.
+ * com.google.devtools.build.lib.buildtool.BuildRequestOptions#multiCpus}.
  *
  * <p>The host configuration is used for tools that are executed during the build, e. g, compilers.
  */

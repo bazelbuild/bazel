@@ -217,7 +217,7 @@ final class ParamDescriptor {
       x = EvalUtils.eval(ParserInput.fromLines(expr), FileOptions.DEFAULT, module, thread);
     } catch (InterruptedException ex) {
       throw new IllegalStateException(ex); // can't happen
-    } catch (SyntaxError | EvalException ex) {
+    } catch (SyntaxError.Exception | EvalException ex) {
       throw new IllegalArgumentException(
           String.format(
               "failed to evaluate default value '%s' of parameter '%s': %s",

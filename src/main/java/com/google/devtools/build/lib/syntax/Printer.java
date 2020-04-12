@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Strings;
-import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Formattable;
