@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
@@ -64,6 +63,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -93,7 +93,7 @@ public class BuildEventStreamer {
   private final Set<BuildEventId> configurationsPosted = new HashSet<>();
 
   @GuardedBy("this")
-  private List<Pair<String, String>> bufferedStdoutStderrPairs = new ArrayList<>();
+  private List<Pair<ByteString, ByteString>> bufferedStdoutStderrPairs = new ArrayList<>();
 
   @GuardedBy("this")
   private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
@@ -143,14 +143,14 @@ public class BuildEventStreamer {
      * beginning of the build, for the first call). It is the responsibility of the class
      * implementing this interface to properly synchronize with simultaneously written output.
      */
-    Iterable<String> getOut();
+    Iterable<ByteString> getOut();
 
     /**
      * Return the chunks of stderr that were produced since the last call to this function (or the
      * beginning of the build, for the first call). It is the responsibility of the class
      * implementing this interface to properly synchronize with simultaneously written output.
      */
-    Iterable<String> getErr();
+    Iterable<ByteString> getErr();
   }
 
   /** Creates a new build event streamer. */
@@ -213,22 +213,22 @@ public class BuildEventStreamer {
 
         if (!bufferedStdoutStderrPairs.isEmpty()) {
           flushEvents = new ArrayList<>(bufferedStdoutStderrPairs.size());
-          for (Pair<String, String> outErrPair : bufferedStdoutStderrPairs) {
+          for (Pair<ByteString, ByteString> outErrPair : bufferedStdoutStderrPairs) {
             flushEvents.add(flushStdoutStderrEvent(outErrPair.getFirst(), outErrPair.getSecond()));
           }
         }
         bufferedStdoutStderrPairs = null;
       } else {
         if (!announcedEvents.contains(id)) {
-          Iterable<String> allOut = ImmutableList.of();
-          Iterable<String> allErr = ImmutableList.of();
+          Iterable<ByteString> allOut = ImmutableList.of();
+          Iterable<ByteString> allErr = ImmutableList.of();
           if (outErrProvider != null) {
             allOut = orEmpty(outErrProvider.getOut());
             allErr = orEmpty(outErrProvider.getErr());
           }
           linkEvents = new ArrayList<>();
           List<BuildEvent> finalLinkEvents = linkEvents;
-          consumeAsPairsofStrings(
+          consumeAsPairs(
               allOut,
               allErr,
               (out, err) -> {
@@ -524,7 +524,7 @@ public class BuildEventStreamer {
         && event.getResult().getStopOnFirstFailure();
   }
 
-  private synchronized BuildEvent flushStdoutStderrEvent(String out, String err) {
+  private synchronized BuildEvent flushStdoutStderrEvent(ByteString out, ByteString err) {
     BuildEvent updateEvent = ProgressEvent.progressUpdate(progressCount, out, err);
     progressCount++;
     announcedEvents.addAll(updateEvent.getChildrenEvents());
@@ -538,8 +538,8 @@ public class BuildEventStreamer {
   void flush() {
     List<BuildEvent> updateEvents = null;
     synchronized (this) {
-      Iterable<String> allOut = ImmutableList.of();
-      Iterable<String> allErr = ImmutableList.of();
+      Iterable<ByteString> allOut = ImmutableList.of();
+      Iterable<ByteString> allErr = ImmutableList.of();
       if (outErrProvider != null) {
         allOut = orEmpty(outErrProvider.getOut());
         allErr = orEmpty(outErrProvider.getErr());
@@ -551,11 +551,10 @@ public class BuildEventStreamer {
       if (announcedEvents != null) {
         updateEvents = new ArrayList<>();
         List<BuildEvent> finalUpdateEvents = updateEvents;
-        consumeAsPairsofStrings(
+        consumeAsPairs(
             allOut, allErr, (s1, s2) -> finalUpdateEvents.add(flushStdoutStderrEvent(s1, s2)));
       } else {
-        consumeAsPairsofStrings(
-            allOut, allErr, (s1, s2) -> bufferedStdoutStderrPairs.add(Pair.of(s1, s2)));
+        consumeAsPairs(allOut, allErr, (s1, s2) -> bufferedStdoutStderrPairs.add(Pair.of(s1, s2)));
       }
     }
     if (updateEvents != null) {
@@ -567,8 +566,8 @@ public class BuildEventStreamer {
     }
   }
 
-  // Returns the given Iterable, or an empty list if null.
-  private static <T> Iterable<T> orEmpty(Iterable<T> original) {
+  /** Returns the given Iterable, or an empty list if null. */
+  private static <T> Iterable<T> orEmpty(@Nullable Iterable<T> original) {
     return original == null ? ImmutableList.of() : original;
   }
 
@@ -587,49 +586,37 @@ public class BuildEventStreamer {
   //
   // The lastConsumer is always called exactly once, even if both Iterables are empty.
   @VisibleForTesting
-  static <T> void consumeAsPairs(
-      Iterable<T> leftIterable,
-      Iterable<T> rightIterable,
-      BiConsumer<T, T> biConsumer,
-      BiConsumer<T, T> lastConsumer) {
+  static void consumeAsPairs(
+      Iterable<ByteString> leftIterable,
+      Iterable<ByteString> rightIterable,
+      BiConsumer<ByteString, ByteString> biConsumer,
+      BiConsumer<ByteString, ByteString> lastConsumer) {
     if (Iterables.isEmpty(leftIterable) && Iterables.isEmpty(rightIterable)) {
       lastConsumer.accept(null, null);
       return;
     }
 
-    Iterator<T> leftIterator = leftIterable.iterator();
-    Iterator<T> rightIterator = rightIterable.iterator();
+    Iterator<ByteString> leftIterator = leftIterable.iterator();
+    Iterator<ByteString> rightIterator = rightIterable.iterator();
     while (leftIterator.hasNext()) {
-      T left = leftIterator.next();
+      ByteString left = leftIterator.next();
       boolean lastT = !leftIterator.hasNext();
-      T right = (lastT && rightIterator.hasNext()) ? rightIterator.next() : null;
+      ByteString right = (lastT && rightIterator.hasNext()) ? rightIterator.next() : null;
       boolean lastItem = lastT && !rightIterator.hasNext();
       (lastItem ? lastConsumer : biConsumer).accept(left, right);
     }
 
     while (rightIterator.hasNext()) {
-      T right = rightIterator.next();
+      ByteString right = rightIterator.next();
       (!rightIterator.hasNext() ? lastConsumer : biConsumer).accept(null, right);
     }
   }
 
-  private static <T> void consumeAsPairsofStrings(
-      Iterable<String> leftIterable,
-      Iterable<String> rightIterable,
-      BiConsumer<String, String> biConsumer,
-      BiConsumer<String, String> lastConsumer) {
-    consumeAsPairs(
-        leftIterable,
-        rightIterable,
-        (s1, s2) -> biConsumer.accept(nullToEmpty(s1), nullToEmpty(s2)),
-        (s1, s2) -> lastConsumer.accept(nullToEmpty(s1), nullToEmpty(s2)));
-  }
-
-  private static <T> void consumeAsPairsofStrings(
-      Iterable<String> leftIterable,
-      Iterable<String> rightIterable,
-      BiConsumer<String, String> biConsumer) {
-    consumeAsPairsofStrings(leftIterable, rightIterable, biConsumer, biConsumer);
+  private static <T> void consumeAsPairs(
+      Iterable<ByteString> leftIterable,
+      Iterable<ByteString> rightIterable,
+      BiConsumer<ByteString, ByteString> biConsumer) {
+    consumeAsPairs(leftIterable, rightIterable, biConsumer, biConsumer);
   }
 
   // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
@@ -637,13 +624,13 @@ public class BuildEventStreamer {
   @SuppressWarnings("GuardedBy")
   private synchronized void clearEventsAndPostFinalProgress(ChainableEvent event) {
     clearPendingEvents();
-    Iterable<String> allOut = ImmutableList.of();
-    Iterable<String> allErr = ImmutableList.of();
+    Iterable<ByteString> allOut = ImmutableList.of();
+    Iterable<ByteString> allErr = ImmutableList.of();
     if (outErrProvider != null) {
       allOut = orEmpty(outErrProvider.getOut());
       allErr = orEmpty(outErrProvider.getErr());
     }
-    consumeAsPairsofStrings(
+    consumeAsPairs(
         allOut,
         allErr,
         (s1, s2) -> post(flushStdoutStderrEvent(s1, s2)),

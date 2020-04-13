@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.Iterator;
 
 /**
  * {@link OutputStream} suitably synchronized for producer-consumer use cases. The method {@link
@@ -46,7 +47,6 @@ public class SynchronizedOutputStream extends OutputStream {
 
   private byte[] buf;
   private long count;
-  private boolean discardAll;
 
   // The event streamer that is supposed to flush stdout/stderr.
   private BuildEventStreamer streamer;
@@ -55,7 +55,6 @@ public class SynchronizedOutputStream extends OutputStream {
     Preconditions.checkArgument(maxChunkSize > 0);
     buf = new byte[64];
     count = 0;
-    discardAll = false;
     this.maxBufferedLength = maxBufferedLength;
     this.maxChunkSize = Math.max(maxChunkSize, maxBufferedLength);
   }
@@ -68,20 +67,23 @@ public class SynchronizedOutputStream extends OutputStream {
    * Read the contents of the stream and simultaneously clear them. Also, reset the amount of memory
    * retained to a constant amount.
    */
-  public synchronized Iterable<String> readAndReset() {
-    String content = new String(buf, 0, (int) count, UTF_8);
+  public synchronized Iterable<ByteString> readAndReset() {
+    if (count == 0) {
+      // No need to reset anything if we haven't written anything.
+      return ImmutableList.of();
+    }
+
+    // Hand the buffer off to LazyByteStringIterator to do the chunking.
+    LazyByteStringIterable result = new LazyByteStringIterable(buf, (int) count, maxChunkSize);
+
     buf = new byte[64];
     count = 0;
-    return content.isEmpty()
-        ? ImmutableList.of()
-        : Splitter.fixedLength(maxChunkSize).split(content);
+
+    return result;
   }
 
   @Override
   public void write(int oneByte) throws IOException {
-    if (discardAll) {
-      return;
-    }
     // We change the dependency with respect to that of the super class: write(int)
     // now calls write(int[], int, int) which is implemented without any dependencies.
     write(new byte[] {(byte) oneByte}, 0, 1);
@@ -91,11 +93,6 @@ public class SynchronizedOutputStream extends OutputStream {
   public void write(byte[] buffer, int offset, int count) throws IOException {
     // As we base the less common write(int) on this method, we may not depend not call write(int)
     // directly or indirectly (e.g., by calling super.write(int[], int, int)).
-    synchronized (this) {
-      if (discardAll) {
-        return;
-      }
-    }
     boolean shouldFlush = false;
     // As we have to do the flushing outside the synchronized block, we have to expect
     // other writes to come immediately after flushing, so we have to do the check inside
@@ -131,6 +128,39 @@ public class SynchronizedOutputStream extends OutputStream {
         streamer.flush();
         shouldFlush = false;
       }
+    }
+  }
+
+  private static class LazyByteStringIterable implements Iterable<ByteString> {
+    private final byte[] buf;
+    private final int limit;
+    private final int maxChunkSize;
+
+    private LazyByteStringIterable(byte[] buf, int limit, int maxChunkSize) {
+      // Combination of defensive copy and trimming empty bytes.
+      this.buf = Arrays.copyOf(buf, limit);
+      this.limit = limit;
+      this.maxChunkSize = maxChunkSize;
+    }
+
+    @Override
+    public Iterator<ByteString> iterator() {
+      return new Iterator<ByteString>() {
+        int offset = 0;
+
+        @Override
+        public boolean hasNext() {
+          return offset < limit;
+        }
+
+        @Override
+        public ByteString next() {
+          int nextChunkSize = Math.min(maxChunkSize, limit - offset);
+          ByteString result = ByteString.copyFrom(buf, offset, nextChunkSize);
+          offset += nextChunkSize;
+          return result;
+        }
+      };
     }
   }
 }
