@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.rules.Alias;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -49,6 +48,10 @@ import javax.annotation.Nullable;
 
 /** A marker class for configuration transitions that are defined in Starlark. */
 public abstract class StarlarkTransition implements ConfigurationTransition {
+
+  // Use the plain strings rather than reaching into the Alias class and adding a dependency edge.
+  public static final String ALIAS_RULE_NAME = "alias";
+  public static final String ALIAS_ACTUAL_ATTRIBUTE_NAME = "actual";
 
   /** The two groups of build settings that are relevant for a {@link StarlarkTransition} */
   public enum Settings {
@@ -129,13 +132,13 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /**
-   * Given a {@link Label} that could be an {@link Alias} and a set of packages, find the actual
-   * target that {@link Label} ultimately points to.
+   * Given a {@link Label} that could be an {@link com.google.devtools.build.lib.rules.Alias} and a
+   * set of packages, find the actual target that {@link Label} ultimately points to.
    *
    * <ul>
    *   This method assumes that
-   *   <li>the packages of the entire {@link Alias} chain (if {@code setting} is indeed an alias)
-   *       are included in {@code buildSettingPackages}
+   *   <li>the packages of the entire {@link com.google.devtools.build.lib.rules.Alias} chain (if
+   *       {@code setting} is indeed an alias) are included in {@code buildSettingPackages}
    *   <li>the alias chain terminates in a build setting
    * </ul>
    *
@@ -144,7 +147,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   private static Target getActual(
       Map<PackageValue.Key, PackageValue> buildSettingPackages, Label setting) {
     Target buildSettingTarget = getBuildSettingTarget(buildSettingPackages, setting);
-    while (buildSettingTarget.getAssociatedRule().getRuleClass().equals(Alias.RULE_NAME)) {
+    while (buildSettingTarget.getAssociatedRule().getRuleClass().equals(ALIAS_RULE_NAME)) {
       buildSettingTarget =
           getBuildSettingTarget(
               buildSettingPackages,
@@ -152,7 +155,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
                   buildSettingTarget
                       .getAssociatedRule()
                       .getAttributeContainer()
-                      .getAttr(Alias.ACTUAL_ATTRIBUTE_NAME));
+                      .getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME));
     }
     return buildSettingTarget;
   }
@@ -226,7 +229,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    *     here.
    * @param buildSettingPackages PackageValue.Key/Values of packages that contain all
    *     Starlark-defined build settings that were set by {@code root}. If any build settings are
-   *     referenced by {@link Alias}, this contains all packages in the alias chain.
+   *     referenced by {@link com.google.devtools.build.lib.rules.Alias}, this contains all packages
+   *     in the alias chain.
    * @param toOptions result of applying {@code root}
    * @return validated toOptions with default values filtered out
    * @throws TransitionException if an error occurred during Starlark transition application.
@@ -350,8 +354,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * For a given transition, find all Starlark build settings that are read while applying it, then
    * return a map of their label to their default values.
    *
-   * <p>If the build setting is referenced by an {@link Alias}, the returned map entry is still
-   * keyed by the alias.
+   * <p>If the build setting is referenced by an {@link com.google.devtools.build.lib.rules.Alias},
+   * the returned map entry is still keyed by the alias.
    *
    * @param buildSettingPackages contains packages of all build settings read by Starlark
    *     transitions composing {@code root}. It may also contain other packages (e.g. packages of
@@ -442,12 +446,12 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
                 "attempting to transition on '%s' which is not a" + " build setting",
                 allegedBuildSetting));
       }
-      if (buildSettingTarget.getAssociatedRule().getRuleClass().equals(Alias.RULE_NAME)) {
+      if (buildSettingTarget.getAssociatedRule().getRuleClass().equals(ALIAS_RULE_NAME)) {
         Object actualValue =
             buildSettingTarget
                 .getAssociatedRule()
                 .getAttributeContainer()
-                .getAttr(Alias.ACTUAL_ATTRIBUTE_NAME);
+                .getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME);
         if (actualValue instanceof Label) {
           actualSettingBuilder.add((Label) actualValue);
           continue;
