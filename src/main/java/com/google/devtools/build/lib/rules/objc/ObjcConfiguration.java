@@ -33,9 +33,18 @@ import javax.annotation.Nullable;
 public class ObjcConfiguration extends BuildConfiguration.Fragment
     implements ObjcConfigurationApi<PlatformType> {
   @VisibleForTesting
+  static final ImmutableList<String> DBG_COPTS =
+      ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
+
+  @VisibleForTesting
   static final ImmutableList<String> GLIBCXX_DBG_COPTS =
       ImmutableList.of(
           "-D_GLIBCXX_DEBUG", "-D_GLIBCXX_DEBUG_PEDANTIC", "-D_GLIBCPP_CONCEPT_CHECKS");
+
+  @VisibleForTesting
+  static final ImmutableList<String> OPT_COPTS =
+      ImmutableList.of(
+          "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
@@ -171,14 +180,17 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     switch (compilationMode) {
       case DBG:
         if (this.debugWithGlibcxx) {
-          return GLIBCXX_DBG_COPTS;
+          return ImmutableList.<String>builder()
+              .addAll(DBG_COPTS)
+              .addAll(GLIBCXX_DBG_COPTS)
+              .build();
         } else {
-          return ImmutableList.of();
+          return DBG_COPTS;
         }
       case FASTBUILD:
         return fastbuildOptions;
       case OPT:
-        return ImmutableList.of();
+        return OPT_COPTS;
       default:
         throw new AssertionError();
     }
