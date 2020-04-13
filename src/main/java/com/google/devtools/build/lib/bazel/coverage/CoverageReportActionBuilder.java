@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -232,7 +233,7 @@ public final class CoverageReportActionBuilder {
         lcovArtifact,
         Joiner.on('\n').join(filepaths),
         /*makeExecutable=*/ false,
-        FileWriteAction.Compression.DISALLOW);
+        Compression.DISALLOW);
   }
 
   /**

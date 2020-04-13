@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -85,7 +86,7 @@ public final class TestTargetExecutionSettings {
               persistentTestRunnerFlagFile,
               /* fileContents= */ Joiner.on(System.lineSeparator()).join(testTargetArgs.build()),
               /* makeExecutable= */ false,
-              /* allowCompression= */ FileWriteAction.Compression.DISALLOW));
+              /* allowCompression= */ Compression.DISALLOW));
 
       // When using the persistent test runner the test arguments are passed through --flagfile.
       testArguments =
