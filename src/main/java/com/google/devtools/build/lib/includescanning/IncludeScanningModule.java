@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -62,14 +63,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.logging.Logger;
 
 /**
  * Module that provides implementations of {@link CppIncludeExtractionContext},
  * {@link CppIncludeScanningContext}, and {@link SwigIncludeScanningContext}.
  */
 public class IncludeScanningModule extends BlazeModule {
-  private static final Logger log = Logger.getLogger(IncludeScanningModule.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final PathFragment INCLUDE_HINTS_FILENAME =
       PathFragment.create("tools/cpp/INCLUDE_HINTS");
@@ -298,15 +298,14 @@ public class IncludeScanningModule extends BlazeModule {
       IncludeScanningOptions options = buildRequest.getOptions(IncludeScanningOptions.class);
       int threads = options.includeScanningParallelism;
       if (threads > 0) {
-        log.info(
-            String.format("Include scanning configured to use a pool with %d threads", threads));
+        logger.atInfo().log("Include scanning configured to use a pool with %d threads", threads);
         if (options.useAsyncIncludeScanner) {
           includePool = NamedForkJoinPool.newNamedPool("Include scanner", threads);
         } else {
           includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
         }
       } else {
-        log.info("Include scanning configured to use a direct executor");
+        logger.atInfo().log("Include scanning configured to use a direct executor");
         includePool = MoreExecutors.newDirectExecutorService();
       }
       includeScannerSupplier =

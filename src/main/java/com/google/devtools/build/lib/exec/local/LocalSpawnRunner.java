@@ -22,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -62,7 +63,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -75,7 +75,7 @@ public class LocalSpawnRunner implements SpawnRunner {
   private static final String UNHANDLED_EXCEPTION_MSG = "Unhandled exception running a local spawn";
   private static final int LOCAL_EXEC_ERROR = -1;
 
-  private static final Logger logger = Logger.getLogger(LocalSpawnRunner.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Path execRoot;
   private final ResourceManager resourceManager;
@@ -245,7 +245,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         Level level, @Nullable Throwable cause, @FormatString String fmt, Object... args) {
       String msg = String.format(fmt, args);
       String toLog = String.format("%s (#%d %s)", msg, id, desc());
-      logger.log(level, toLog, cause);
+      logger.at(level).withCause(cause).log(toLog);
     }
 
     private String desc() {
@@ -265,10 +265,9 @@ public class LocalSpawnRunner implements SpawnRunner {
       long stateTime = (stateTimeBoxed == null) ? 0 : stateTimeBoxed;
       stateTimes.put(currentState, stateTime + stepDelta);
 
-      logger.info(
-          String.format(
-              "Step #%d time: %.3f delta: %.3f state: %s --> %s",
-              id, totalDelta / 1000f, stepDelta / 1000f, currentState, newState));
+      logger.atInfo().log(
+          "Step #%d time: %.3f delta: %.3f state: %s --> %s",
+          id, totalDelta / 1000f, stepDelta / 1000f, currentState, newState);
       currentState = newState;
     }
 
@@ -283,7 +282,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
     /** Parse the request and run it locally. */
     private SpawnResult start() throws InterruptedException, IOException {
-      logger.info(String.format("starting local subprocess #%d, argv: %s", id, debugCmdString()));
+      logger.atInfo().log("starting local subprocess #%d, argv: %s", id, debugCmdString());
 
       FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();

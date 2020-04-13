@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -39,8 +40,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -51,7 +50,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("unchecked")
 @AutoCodec
 public final class NestedSet<E> {
-  private static final Logger logger = Logger.getLogger(NestedSet.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Order and size of set packed into one int.
@@ -454,7 +453,7 @@ public final class NestedSet<E> {
         try {
           return Arrays.toString(Futures.getDone(future));
         } catch (ExecutionException e) {
-          logger.log(Level.SEVERE, "Error getting " + future, e);
+          logger.atSevere().withCause(e).log("Error getting %s", future);
           // Don't rethrow, since we may be in the process of trying to construct an error message.
           return "Future " + future + " with error: " + e.getCause().getMessage();
         }

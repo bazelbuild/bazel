@@ -19,6 +19,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:execution_statistics_java_proto",
         "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
@@ -35,6 +36,7 @@ bootstrap_java_library(
     ),
     jars = [
         "//third_party:auto_value-jars",
+        "//third_party:flogger-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
     ],
 )
