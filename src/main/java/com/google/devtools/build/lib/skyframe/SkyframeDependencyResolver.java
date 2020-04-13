@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.causes.Cause;

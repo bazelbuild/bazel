@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -63,32 +62,6 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-
-  /**
-   * A kind of dependency.
-   *
-   * <p>Usually an attribute, but other special-cased kinds exist, for example, for visibility or
-   * toolchains.
-   */
-  public interface DependencyKind {
-
-    /**
-     * The attribute through which a dependency arises.
-     *
-     * <p>Returns {@code null} for visibility, the dependency pointing from an output file to its
-     * generating rule and toolchain dependencies.
-     */
-    @Nullable
-    Attribute getAttribute();
-
-    /**
-     * The aspect owning the attribute through which the dependency arises.
-     *
-     * <p>Should only be called for dependency kinds representing an attribute.
-     */
-    @Nullable
-    AspectClass getOwningAspect();
-  }
 
   /** A dependency caused by something that's not an attribute. Special cases enumerated below. */
   private static final class NonAttributeDependencyKind implements DependencyKind {
@@ -737,22 +710,4 @@ public abstract class DependencyResolver {
       NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException;
 
-  /**
-   * Signals an inconsistency on aspect path: an aspect occurs twice on the path and
-   * the second occurrence sees a different set of aspects.
-   *
-   * {@see AspectCycleOnPathException}
-   */
-  public class InconsistentAspectOrderException extends Exception {
-    private final Location location;
-
-    public InconsistentAspectOrderException(Target target, AspectCycleOnPathException e) {
-      super(String.format("%s (when propagating to %s)", e.getMessage(), target.getLabel()));
-      this.location = target.getLocation();
-    }
-
-    public Location getLocation() {
-      return location;
-    }
-  }
 }
