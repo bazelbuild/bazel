@@ -157,7 +157,7 @@ public final class TopLevelArtifactHelper {
     }
   }
 
-  static void addArtifactsWithOwnerLabel(
+  public static void addArtifactsWithOwnerLabel(
       NestedSet<? extends Artifact> artifacts,
       @Nullable RegexFilter filter,
       Label ownerLabel,
@@ -166,7 +166,7 @@ public final class TopLevelArtifactHelper {
         artifacts.toList(), filter, ownerLabel, artifactsToOwnerLabelsBuilder);
   }
 
-  static void addArtifactsWithOwnerLabel(
+  public static void addArtifactsWithOwnerLabel(
       Collection<? extends Artifact> artifacts,
       @Nullable RegexFilter filter,
       Label ownerLabel,

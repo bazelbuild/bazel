@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -1129,6 +1130,14 @@ public abstract class Artifact
     public boolean equals(Object obj) {
       return obj instanceof OwnerlessArtifactWrapper
           && this.artifact.equalsWithoutOwner(((OwnerlessArtifactWrapper) obj).artifact);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("artifact", artifact)
+          .add("owner", artifact.getArtifactOwner())
+          .toString();
     }
   }
 

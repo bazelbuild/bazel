@@ -90,6 +90,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -409,7 +410,8 @@ public class BuildView {
               topLevelOptions,
               eventBus,
               keepGoing,
-              loadingPhaseThreads);
+              loadingPhaseThreads,
+              viewOptions.strictConflictChecks);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
@@ -475,7 +477,6 @@ public class BuildView {
     Collection<Artifact> buildInfoArtifacts =
         skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
     Preconditions.checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
-    buildInfoArtifacts.forEach(artifactsToOwnerLabelsBuilder::addArtifact);
 
     // Extra actions
     addExtraActionsIfRequested(
@@ -503,6 +504,20 @@ public class BuildView {
         actionsWrapper.getCoverageOutputs().forEach(artifactsToOwnerLabelsBuilder::addArtifact);
       }
     }
+    // TODO(cparsons): If extra actions are ever removed, this filtering step can probably be
+    //  removed as well: the only concern would be action conflicts involving coverage artifacts,
+    //  which seems far-fetched.
+    if (skyframeAnalysisResult.hasActionConflicts()) {
+      ArtifactsToOwnerLabels tempOwners = artifactsToOwnerLabelsBuilder.build();
+      // We don't remove the (hopefully unnecessary) guard in SkyframeBuildView that enables/
+      // disables analysis, since no new targets should actually be analyzed.
+      Set<Artifact> artifacts = tempOwners.getArtifacts();
+      Predicate<Artifact> errorFreeArtifacts =
+          skyframeExecutor.filterActionConflictsForTopLevelArtifacts(eventHandler, artifacts);
+      artifactsToOwnerLabelsBuilder = tempOwners.toBuilder().filterArtifacts(errorFreeArtifacts);
+    }
+    // Build-info artifacts are always conflict-free, and can't be checked easily.
+    buildInfoArtifacts.forEach(artifactsToOwnerLabelsBuilder::addArtifact);
 
     // Tests.
     Pair<ImmutableSet<ConfiguredTarget>, ImmutableSet<ConfiguredTarget>> testsPair =

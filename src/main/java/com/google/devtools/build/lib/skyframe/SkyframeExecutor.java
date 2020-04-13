@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
+import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -432,11 +433,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.skyframeActionExecutor =
         new SkyframeActionExecutor(actionKeyContext, statusReporterRef, this::getPathEntries);
     this.skyframeBuildView =
-        new SkyframeBuildView(
-            directories,
-            this,
-            (ConfiguredRuleClassProvider) ruleClassProvider,
-            skyframeActionExecutor);
+        new SkyframeBuildView(directories, this, ruleClassProvider, actionKeyContext);
     this.artifactFactory = artifactResolverSupplier;
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
     this.externalFilesHelper =
@@ -2405,39 +2402,74 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Post-process the targets. Values in the EvaluationResult are known to be transitively
-   * error-free from action conflicts.
+   * Checks the given action lookup values for action conflicts. Values satisfying the returned
+   * predicate are known to be transitively error-free from action conflicts. {@link
+   * #filterActionConflictsForTopLevelArtifacts} must be called after this to free memory coming
+   * from this call.
+   *
+   * <p>This method is only called in keep-going mode, since otherwise any known action conflicts
+   * will immediately fail the build.
    */
-  EvaluationResult<ActionLookupConflictFindingValue> filterActionConflicts(
+  Predicate<ActionLookupValue.ActionLookupKey> filterActionConflictsForConfiguredTargetsAndAspects(
       ExtendedEventHandler eventHandler,
       Iterable<ActionLookupValue.ActionLookupKey> keys,
-      boolean keepGoing,
-      ImmutableMap<ActionAnalysisMetadata, SkyframeActionExecutor.ConflictException> badActions,
+      ImmutableMap<ActionAnalysisMetadata, ArtifactConflictFinder.ConflictException>
+          actionConflicts,
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     checkActive();
-    SkyframeActionExecutor.BAD_ACTIONS.set(injectable(), badActions);
-    // Make sure to not run too many analysis threads. This can cause memory thrashing.
+    ACTION_CONFLICTS.set(injectable(), actionConflicts);
+    // This work is CPU-bound, so use the number of available processors.
     EvaluationResult<ActionLookupConflictFindingValue> result =
         evaluate(
             TopLevelActionLookupConflictFindingFunction.keys(keys, topLevelArtifactContext),
-            keepGoing,
+            /*keepGoing=*/ true,
             /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
             eventHandler);
 
-    // Remove all action-conflict detection values immediately for memory efficiency. We are OK with
-    // this mini-phase being non-incremental as the failure mode of action conflict is rare.
-    memoizingEvaluator.delete(
-        SkyFunctionName.functionIs(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING));
+    // Remove top-level action-conflict detection values for memory efficiency. Non-top-level ones
+    // are removed below. We are OK with this mini-phase being non-incremental as the failure mode
+    // of action conflict is rare.
     memoizingEvaluator.delete(
         SkyFunctionName.functionIs(SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING));
 
-    return result;
+    return k ->
+        result.get(
+                TopLevelActionLookupConflictFindingFunction.Key.create(k, topLevelArtifactContext))
+            != null;
+  }
+
+  /**
+   * Checks the action lookup values owning the given artifacts for action conflicts. Artifacts
+   * satisfying the returned predicate are known to be transitively free from action conflicts.
+   * {@link #filterActionConflictsForConfiguredTargetsAndAspects} must be called before this is
+   * called in order to populate the known action conflicts.
+   *
+   * <p>This method is only called in keep-going mode, since otherwise any known action conflicts
+   * will immediately fail the build.
+   */
+  public Predicate<Artifact> filterActionConflictsForTopLevelArtifacts(
+      ExtendedEventHandler eventHandler, Collection<Artifact> artifacts)
+      throws InterruptedException {
+    checkActive();
+    // This work is CPU-bound, so use the number of available processors.
+    EvaluationResult<ActionLookupConflictFindingValue> result =
+        evaluate(
+            Iterables.transform(artifacts, ActionLookupConflictFindingValue::key),
+            /*keepGoing=*/ true,
+            /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
+            eventHandler);
+
+    // Remove remaining action-conflict detection values immediately for memory efficiency.
+    memoizingEvaluator.delete(
+        SkyFunctionName.functionIs(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING));
+
+    return a -> result.get(ActionLookupConflictFindingValue.key(a)) != null;
   }
 
   /** Returns a Skyframe-based {@link SkyframeTransitivePackageLoader} implementation. */
   @VisibleForTesting
-  public TransitivePackageLoader pkgLoader() {
+  TransitivePackageLoader pkgLoader() {
     checkActive();
     return new SkyframeLabelVisitor(
         new SkyframeTransitivePackageLoader(this::getDriver), cyclesReporter);
