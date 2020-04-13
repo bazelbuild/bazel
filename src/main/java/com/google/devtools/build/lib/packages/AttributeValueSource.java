@@ -30,10 +30,10 @@ public enum AttributeValueSource {
   private final boolean mustHaveSkylarkPrefix;
 
   /**
-   * Creates a new instance and defines the prefixes for both Skylark and native.
+   * Creates a new instance and defines the prefixes for both Starlark and native.
    *
    * @param nativePrefix The prefix when converted to a native attribute name.
-   * @param mustHaveSkylarkPrefix Whether the Skylark name must start with {@link
+   * @param mustHaveSkylarkPrefix Whether the Starlark name must start with {@link
    *     AttributeValueSource#SKYLARK_PREFIX}.
    */
   AttributeValueSource(String nativePrefix, boolean mustHaveSkylarkPrefix) {
@@ -41,7 +41,7 @@ public enum AttributeValueSource {
     this.mustHaveSkylarkPrefix = mustHaveSkylarkPrefix;
   }
 
-  /** Throws an {@link EvalException} if the given Skylark name is not valid for this type. */
+  /** Throws an {@link EvalException} if the given Starlark name is not valid for this type. */
   public void validateSkylarkName(String attrSkylarkName) throws EvalException {
     if (attrSkylarkName.isEmpty()) {
       throw new EvalException(null, "Attribute name must not be empty.");
@@ -58,8 +58,8 @@ public enum AttributeValueSource {
   }
 
   /**
-   * Converts the given Skylark attribute name to a native attribute name for this type, or throws
-   * an {@link EvalException} if the given Skylark name is not valid for this type.
+   * Converts the given Starlark attribute name to a native attribute name for this type, or throws
+   * an {@link EvalException} if the given Starlark name is not valid for this type.
    */
   public String convertToNativeName(String attrSkylarkName) throws EvalException {
     validateSkylarkName(attrSkylarkName);

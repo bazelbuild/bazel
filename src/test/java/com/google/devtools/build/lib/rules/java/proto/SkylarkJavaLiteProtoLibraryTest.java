@@ -521,7 +521,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     }
   }
 
-  /** Tests that java_lite_proto_library's aspect exposes a Skylark provider named 'proto_java'. */
+  /** Tests that java_lite_proto_library's aspect exposes a Starlark provider named 'proto_java'. */
   @Test
   @Ignore
   // TODO(elenairina): Enable this test when proto_java is returned from the aspect in Skylark

@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
 /**
  * A provider defined in Starlark rather than in native code.
  *
- * <p>This is a result of calling the {@code provider()} function from Skylark ({@link
+ * <p>This is a result of calling the {@code provider()} function from Starlark ({@link
  * com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions#provider}).
  *
  * <p>{@code SkylarkProvider}s may be either schemaless or schemaful. Instances of schemaless
@@ -71,7 +71,7 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
    *
    * <p>The resulting object needs to be exported later (via {@link #export}).
    *
-   * @param location the location of the Skylark definition for this provider (tests may use {@link
+   * @param location the location of the Starlark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
   public static SkylarkProvider createUnexportedSchemaless(Location location) {
@@ -84,7 +84,7 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
    * <p>The resulting object needs to be exported later (via {@link #export}).
    *
    * @param fields the allowed field names for instances of this provider
-   * @param location the location of the Skylark definition for this provider (tests may use {@link
+   * @param location the location of the Starlark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
   // TODO(adonovan): in what sense is this "schemaful" if fields is null?
@@ -98,7 +98,7 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
    * Creates an exported {@link SkylarkProvider} with no schema.
    *
    * @param key the key that identifies this provider
-   * @param location the location of the Skylark definition for this provider (tests may use {@link
+   * @param location the location of the Starlark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
   public static SkylarkProvider createExportedSchemaless(SkylarkKey key, Location location) {
@@ -110,7 +110,7 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
    *
    * @param key the key that identifies this provider
    * @param fields the allowed field names for instances of this provider
-   * @param location the location of the Skylark definition for this provider (tests may use {@link
+   * @param location the location of the Starlark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
   // TODO(adonovan): in what sense is this "schemaful" if fields is null?
@@ -251,7 +251,7 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
   }
 
   /**
-   * A serializable representation of Skylark-defined {@link SkylarkProvider} that uniquely
+   * A serializable representation of Starlark-defined {@link SkylarkProvider} that uniquely
    * identifies all {@link SkylarkProvider}s that are exposed to SkyFrame.
    */
   @AutoCodec

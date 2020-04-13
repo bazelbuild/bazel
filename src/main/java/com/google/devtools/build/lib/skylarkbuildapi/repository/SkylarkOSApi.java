@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** A Skylark structure to deliver information about the system we are running on. */
+/** A Starlark structure to deliver information about the system we are running on. */
 @SkylarkModule(
     name = "repository_os",
     category = SkylarkModuleCategory.BUILTIN,

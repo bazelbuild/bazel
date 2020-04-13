@@ -165,9 +165,7 @@ public class Package {
    */
   private boolean containsErrors;
 
-  /**
-   * The list of transitive closure of the Skylark file dependencies.
-   */
+  /** The list of transitive closure of the Starlark file dependencies. */
   private ImmutableList<Label> skylarkFileDependencies;
 
   /** The package's default "applicable_licenses" attribute. */
@@ -447,9 +445,7 @@ public class Package {
         || baseFileName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString());
   }
 
-  /**
-   * Returns the list of transitive closure of the Skylark file dependencies of this package.
-   */
+  /** Returns the list of transitive closure of the Starlark file dependencies of this package. */
   public ImmutableList<Label> getSkylarkFileDependencies() {
     return skylarkFileDependencies;
   }

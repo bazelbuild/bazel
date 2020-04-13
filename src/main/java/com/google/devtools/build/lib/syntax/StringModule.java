@@ -30,9 +30,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Skylark String module.
+ * Starlark String module.
  *
- * <p>This module has special treatment in Skylark, as its methods represent methods represent for
+ * <p>This module has special treatment in Starlark, as its methods represent methods represent for
  * any 'string' objects in the language.
  *
  * <p>Methods of this class annotated with {@link SkylarkCallable} must have a positional-only

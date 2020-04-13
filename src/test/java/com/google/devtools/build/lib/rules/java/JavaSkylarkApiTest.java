@@ -1086,8 +1086,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaProviderFieldsAreSkylarkAccessible() throws Exception {
-    // The Skylark evaluation itself will test that compile_jars and
-    // transitive_runtime_jars are returning a list readable by Skylark with
+    // The Starlark evaluation itself will test that compile_jars and
+    // transitive_runtime_jars are returning a list readable by Starlark with
     // the expected number of entries.
     scratch.file(
         "java/test/extension.bzl",
@@ -1118,7 +1118,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget myConfiguredTarget = getConfiguredTarget("//java/test:my");
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
 
-    // Extract out the information from skylark rule
+    // Extract out the information from Starlark rule
     StructImpl info =
         (StructImpl)
             myConfiguredTarget.get(

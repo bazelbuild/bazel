@@ -23,7 +23,7 @@ import java.util.Objects;
  * Captures the set of providers rules and aspects can advertise. It is either of:
  *
  * <ul>
- *   <li>a set of native and skylark providers
+ *   <li>a set of native and Starlark providers
  *   <li>"can have any provider" set that alias rules have.
  * </ul>
  *
@@ -109,9 +109,7 @@ public final class AdvertisedProviderSet {
     return nativeProviders;
   }
 
-  /**
-   * Get all advertised Skylark providers.
-   */
+  /** Get all advertised Starlark providers. */
   public ImmutableSet<SkylarkProviderIdentifier> getSkylarkProviders() {
     return skylarkProviders;
   }
@@ -133,7 +131,7 @@ public final class AdvertisedProviderSet {
 
   /**
    * Returns {@code true} if this provider set can have any provider, or if it advertises the
-   * specific skylark provider requested.
+   * specific Starlark provider requested.
    */
   public boolean advertises(SkylarkProviderIdentifier skylarkProvider) {
     if (canHaveAnyProvider()) {

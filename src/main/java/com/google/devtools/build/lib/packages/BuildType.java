@@ -289,7 +289,7 @@ public final class BuildType {
 
   /**
    * Dictionary type specialized for label keys, which is able to detect collisions caused by the
-   * fact that labels have multiple equivalent representations in Skylark code.
+   * fact that labels have multiple equivalent representations in Starlark code.
    */
   private static class LabelKeyedDictType<ValueT> extends DictType<Label, ValueT> {
     private LabelKeyedDictType(Type<ValueT> valueType) {

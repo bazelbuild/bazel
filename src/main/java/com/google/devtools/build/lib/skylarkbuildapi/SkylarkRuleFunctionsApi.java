@@ -32,7 +32,8 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
- * Interface for a global Skylark library containing rule-related helper and registration functions.
+ * Interface for a global Starlark library containing rule-related helper and registration
+ * functions.
  */
 @SkylarkGlobalLibrary
 public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {

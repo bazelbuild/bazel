@@ -26,9 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for Skylark providers for cpp rules.
- */
+/** Tests for Starlark providers for cpp rules. */
 @RunWith(JUnit4.class)
 public class CcSkylarkApiProviderTest extends BuildViewTestCase {
   private CcSkylarkApiProvider getApi(String label) throws Exception {

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import java.io.IOException;
 
-/** Indicates some sort of IO error while dealing with a Skylark extension. */
+/** Indicates some sort of IO error while dealing with a Starlark extension. */
 public class ErrorReadingSkylarkExtensionException extends Exception {
   public ErrorReadingSkylarkExtensionException(BuildFileNotFoundException e) {
     super(e.getMessage(), e);

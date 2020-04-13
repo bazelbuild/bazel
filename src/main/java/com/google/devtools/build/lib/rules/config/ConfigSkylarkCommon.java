@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.rules.config;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigSkylarkCommonApi;
 
-/**
- * Skylark namespace used to interact with Blaze's configurability APIs.
- */
+/** Starlark namespace used to interact with Blaze's configurability APIs. */
 public class ConfigSkylarkCommon implements ConfigSkylarkCommonApi {
 
   @Override

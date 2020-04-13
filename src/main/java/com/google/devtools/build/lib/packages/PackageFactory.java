@@ -606,7 +606,7 @@ public final class PackageFactory {
   private final ClassObject nativeModule;
   private final ClassObject workspaceNativeModule;
 
-  /** @return the Skylark struct to bind to "native" */
+  /** @return the Starlark struct to bind to "native" */
   public ClassObject getNativeModule(boolean workspace) {
     return workspace ? workspaceNativeModule : nativeModule;
   }

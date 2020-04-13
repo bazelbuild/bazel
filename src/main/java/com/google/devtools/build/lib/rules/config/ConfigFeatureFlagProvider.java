@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 @Immutable
 public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatureFlagProviderApi {
 
-  /** Name used in Skylark for accessing ConfigFeatureFlagProvider. */
+  /** Name used in Starlark for accessing ConfigFeatureFlagProvider. */
   static final String SKYLARK_NAME = "FeatureFlagInfo";
 
   /**
@@ -63,7 +63,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
   }
 
   /**
-   * A constructor callable from Skylark for OutputGroupInfo: {@code
+   * A constructor callable from Starlark for OutputGroupInfo: {@code
    * config_common.FeatureFlagInfo(value="...")}
    */
   @SkylarkModule(name = "FeatureFlagInfo", documented = false)

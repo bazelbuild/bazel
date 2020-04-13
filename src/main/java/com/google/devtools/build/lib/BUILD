@@ -140,7 +140,7 @@ java_library(
     ],
 )
 
-# Skylark language for configuration files.
+# Starlark language for configuration files.
 #
 # IMPORTANT:  NOT A PUBLIC INTERFACE. TARGETS SHOULDN'T DEPEND ON THIS.
 #

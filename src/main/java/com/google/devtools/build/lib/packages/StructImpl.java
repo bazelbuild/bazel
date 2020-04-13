@@ -56,7 +56,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
    * Constructs an {@link StructImpl}.
    *
    * @param provider the provider describing the type of this instance
-   * @param location the Skylark location where this instance is created. If null, defaults to
+   * @param location the Starlark location where this instance is created. If null, defaults to
    *     {@link Location#BUILTIN}.
    */
   protected StructImpl(Provider provider, @Nullable Location location) {
@@ -141,8 +141,8 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
   }
 
   /**
-   * Convert the object to string using Skylark syntax. The output tries to be reversible (but there
-   * is no guarantee, it depends on the actual values).
+   * Convert the object to string using Starlark syntax. The output tries to be reversible (but
+   * there is no guarantee, it depends on the actual values).
    */
   @Override
   public void repr(Printer printer) {
