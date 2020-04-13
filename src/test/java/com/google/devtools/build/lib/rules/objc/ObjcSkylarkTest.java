@@ -812,12 +812,15 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
     @SuppressWarnings("unchecked")
     List<String> copts = (List<String>) myInfo.getValue("copts");
+    @SuppressWarnings("unchecked")
+    List<String> compilationModeCopts = (List<String>) myInfo.getValue("compilation_mode_copts");
     Object iosSimulatorDevice = myInfo.getValue("ios_simulator_device");
     Object iosSimulatorVersion = myInfo.getValue("ios_simulator_version");
     Object signingCertificateName = myInfo.getValue("signing_certificate_name");
     Boolean generateDsym = (Boolean) myInfo.getValue("generate_dsym");
 
     assertThat(copts).contains("-DTestObjcCopt");
+    assertThat(compilationModeCopts).containsExactlyElementsIn(ObjcConfiguration.OPT_COPTS);
     assertThat(iosSimulatorDevice).isEqualTo("'iPhone 6'");
     assertThat(iosSimulatorVersion).isEqualTo("8.4");
     assertThat(signingCertificateName).isEqualTo("'Apple Developer'");
