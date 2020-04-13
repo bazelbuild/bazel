@@ -44,12 +44,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -525,21 +525,21 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     return splitAttributes;
   }
 
-  /** See {@link RuleContext#getExecutablePrerequisite(String, Mode)}. */
+  /** See {@link RuleContext#getExecutablePrerequisite(String, TransitionMode)}. */
   @Override
   public StructImpl getExecutable() throws EvalException {
     checkMutable("executable");
     return attributesCollection.getExecutable();
   }
 
-  /** See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}. */
+  /** See {@link RuleContext#getPrerequisiteArtifact(String, TransitionMode)}. */
   @Override
   public StructImpl getFile() throws EvalException {
     checkMutable("file");
     return attributesCollection.getFile();
   }
 
-  /** See {@link RuleContext#getPrerequisiteArtifacts(String, Mode)}. */
+  /** See {@link RuleContext#getPrerequisiteArtifacts(String, TransitionMode)}. */
   @Override
   public StructImpl getFiles() throws EvalException {
     checkMutable("files");

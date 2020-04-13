@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -879,15 +878,15 @@ public final class RuleContext extends TargetContext
    * exception will be raised.
    */
   public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargetAndTargets(
-      String attributeName, Mode mode) {
+      String attributeName, TransitionMode mode) {
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
-    if ((mode == Mode.TARGET) && (attributeDefinition.getTransitionFactory().isSplit())) {
+    if ((mode == TransitionMode.TARGET) && (attributeDefinition.getTransitionFactory().isSplit())) {
       // TODO(bazel-team): If you request a split-configured attribute in the target configuration,
       // we return only the list of configured targets for the first architecture; this is for
       // backwards compatibility with existing code in cases where the call to getPrerequisites is
       // deeply nested and we can't easily inject the behavior we want. However, we should fix all
       // such call sites.
-      checkAttribute(attributeName, Mode.SPLIT);
+      checkAttribute(attributeName, TransitionMode.SPLIT);
       Map<Optional<String>, List<ConfiguredTargetAndData>> map =
           getSplitPrerequisiteConfiguredTargetAndTargets(attributeName);
       return map.isEmpty() ? ImmutableList.of() : map.entrySet().iterator().next().getValue();
@@ -903,7 +902,7 @@ public final class RuleContext extends TargetContext
    */
   public Map<Optional<String>, List<ConfiguredTargetAndData>>
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
-    checkAttribute(attributeName, Mode.SPLIT);
+    checkAttribute(attributeName, TransitionMode.SPLIT);
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
     Preconditions.checkState(attributeDefinition.getTransitionFactory().isSplit());
     SplitTransition transition =
@@ -944,13 +943,13 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the specified provider of the prerequisite referenced by the attribute in the
-   * argument. Note that you need to specify the correct mode for the attribute, otherwise an
-   * assertion will be raised. If the attribute is empty or it does not support the specified
-   * provider, returns null.
+   * Returns the specified provider of the prerequisite referenced by the attribute in the argument.
+   * Note that you need to specify the correct mode for the attribute, otherwise an assertion will
+   * be raised. If the attribute is empty or it does not support the specified provider, returns
+   * null.
    */
   public <C extends TransitiveInfoProvider> C getPrerequisite(
-      String attributeName, Mode mode, Class<C> provider) {
+      String attributeName, TransitionMode mode, Class<C> provider) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.getProvider(provider);
   }
@@ -960,7 +959,7 @@ public final class RuleContext extends TargetContext
    * attribute. Note that you need to specify the correct mode for the attribute, otherwise an
    * assertion will be raised. Returns null if the attribute is empty.
    */
-  public TransitiveInfoCollection getPrerequisite(String attributeName, Mode mode) {
+  public TransitiveInfoCollection getPrerequisite(String attributeName, TransitionMode mode) {
     ConfiguredTargetAndData result = getPrerequisiteConfiguredTargetAndData(attributeName, mode);
     return result == null ? null : result.getConfiguredTarget();
   }
@@ -971,7 +970,7 @@ public final class RuleContext extends TargetContext
    * assertion will be raised. Returns null if the attribute is empty.
    */
   public ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(
-      String attributeName, Mode mode) {
+      String attributeName, TransitionMode mode) {
     checkAttribute(attributeName, mode);
     List<ConfiguredTargetAndData> elements = getConfiguredTargetAndTargetDeps(attributeName);
     if (elements.size() > 1) {
@@ -986,7 +985,8 @@ public final class RuleContext extends TargetContext
    * ConfiguredTargetAndData is keyed by the {@link BuildConfiguration} that created it.
    */
   public ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
-      getPrerequisiteCofiguredTargetAndTargetsByConfiguration(String attributeName, Mode mode) {
+      getPrerequisiteCofiguredTargetAndTargetsByConfiguration(
+          String attributeName, TransitionMode mode) {
     List<ConfiguredTargetAndData> ctatCollection =
         getPrerequisiteConfiguredTargetAndTargets(attributeName, mode);
     ImmutableListMultimap.Builder<BuildConfiguration, ConfiguredTargetAndData> result =
@@ -1002,13 +1002,13 @@ public final class RuleContext extends TargetContext
    * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
    * created.
    *
-   * @deprecated use {@link #getPrerequisitesByConfiguration(String, Mode, BuiltinProvider)}
-   *     instead
+   * @deprecated use {@link #getPrerequisitesByConfiguration(String, TransitionMode,
+   *     BuiltinProvider)} instead
    */
   @Deprecated
   public <C extends Info>
-  ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-      String attributeName, Mode mode, final NativeProvider<C> provider) {
+      ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
+          String attributeName, TransitionMode mode, final NativeProvider<C> provider) {
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :
@@ -1028,7 +1028,7 @@ public final class RuleContext extends TargetContext
    */
   public <C extends Info>
       ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-          String attributeName, Mode mode, final BuiltinProvider<C> provider) {
+          String attributeName, TransitionMode mode, final BuiltinProvider<C> provider) {
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :
@@ -1042,12 +1042,12 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * For a given attribute, returns all {@link TransitiveInfoCollection}s provided by targets
-   * of that attribute. Each {@link TransitiveInfoCollection} is keyed by the
-   * {@link BuildConfiguration} under which the collection was created.
+   * For a given attribute, returns all {@link TransitiveInfoCollection}s provided by targets of
+   * that attribute. Each {@link TransitiveInfoCollection} is keyed by the {@link
+   * BuildConfiguration} under which the collection was created.
    */
   public ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection>
-      getPrerequisitesByConfiguration(String attributeName, Mode mode) {
+      getPrerequisitesByConfiguration(String attributeName, TransitionMode mode) {
     ImmutableListMultimap.Builder<BuildConfiguration, TransitiveInfoCollection> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :
@@ -1062,8 +1062,8 @@ public final class RuleContext extends TargetContext
    * specified attribute. Note that you need to specify the correct mode for the attribute,
    * otherwise an assertion will be raised.
    */
-  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
-      Mode mode) {
+  public List<? extends TransitiveInfoCollection> getPrerequisites(
+      String attributeName, TransitionMode mode) {
     return Lists.transform(
         getPrerequisiteConfiguredTargetAndTargets(attributeName, mode),
         ConfiguredTargetAndData::getConfiguredTarget);
@@ -1074,7 +1074,7 @@ public final class RuleContext extends TargetContext
    * of this target in the BUILD file.
    */
   public <C extends TransitiveInfoProvider> List<C> getPrerequisites(
-      String attributeName, Mode mode, final Class<C> classType) {
+      String attributeName, TransitionMode mode, final Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), classType);
   }
@@ -1084,7 +1084,7 @@ public final class RuleContext extends TargetContext
    * specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final NativeProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
 
@@ -1093,7 +1093,7 @@ public final class RuleContext extends TargetContext
    * specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final BuiltinProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
 
@@ -1104,7 +1104,7 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public <T extends Info> T getPrerequisite(
-      String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final NativeProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
   }
@@ -1116,18 +1116,18 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public <T extends Info> T getPrerequisite(
-      String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final BuiltinProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
   }
-
 
   /**
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file, and that contain the specified provider.
    */
-  public <C extends TransitiveInfoProvider> Iterable<? extends TransitiveInfoCollection>
-      getPrerequisitesIf(String attributeName, Mode mode, final Class<C> classType) {
+  public <C extends TransitiveInfoProvider>
+      Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
+          String attributeName, TransitionMode mode, final Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
@@ -1137,7 +1137,7 @@ public final class RuleContext extends TargetContext
    * of this target in the BUILD file, and that contain the specified provider.
    */
   public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, Mode mode, final NativeProvider<C> classType) {
+      String attributeName, TransitionMode mode, final NativeProvider<C> classType) {
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
 
@@ -1146,25 +1146,23 @@ public final class RuleContext extends TargetContext
    * of this target in the BUILD file, and that contain the specified provider.
    */
   public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, Mode mode, final BuiltinProvider<C> classType) {
+      String attributeName, TransitionMode mode, final BuiltinProvider<C> classType) {
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
 
   /**
-   * Returns the prerequisite referred to by the specified attribute. Also checks whether
-   * the attribute is marked as executable and that the target referred to can actually be
-   * executed.
+   * Returns the prerequisite referred to by the specified attribute. Also checks whether the
+   * attribute is marked as executable and that the target referred to can actually be executed.
    *
    * <p>The {@code mode} argument must match the configuration transition specified in the
    * definition of the attribute.
    *
    * @param attributeName the name of the attribute
    * @param mode the configuration transition of the attribute
-   *
    * @return the {@link FilesToRunProvider} interface of the prerequisite.
    */
   @Nullable
-  public FilesToRunProvider getExecutablePrerequisite(String attributeName, Mode mode) {
+  public FilesToRunProvider getExecutablePrerequisite(String attributeName, TransitionMode mode) {
     Attribute ruleDefinition = attributes().getAttributeDefinition(attributeName);
 
     if (ruleDefinition == null) {
@@ -1273,7 +1271,7 @@ public final class RuleContext extends TargetContext
     return getToolchainContext().executionPlatform();
   }
 
-  private void checkAttribute(String attributeName, Mode mode) {
+  private void checkAttribute(String attributeName, TransitionMode mode) {
     Attribute attributeDefinition = attributes.getAttributeDefinition(attributeName);
     if (attributeDefinition == null) {
       throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
@@ -1285,23 +1283,23 @@ public final class RuleContext extends TargetContext
     }
     TransitionFactory<AttributeTransitionData> transitionFactory =
         attributeDefinition.getTransitionFactory();
-    if (mode == Mode.HOST) {
+    if (mode == TransitionMode.HOST) {
       if (transitionFactory.isSplit()) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the host configuration");
       }
-    } else if (mode == Mode.TARGET) {
+    } else if (mode == TransitionMode.TARGET) {
       if (transitionFactory.isSplit() && !NoTransition.isInstance(transitionFactory)) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for the target configuration");
       }
-    } else if (mode == Mode.DATA) {
+    } else if (mode == TransitionMode.DATA) {
       throw new IllegalStateException(getRule().getLocation() + ": "
           + getRuleClassNameForLogging() + " attribute " + attributeName
           + ": DATA transition no longer supported"); // See b/80157700.
-    } else if (mode == Mode.SPLIT) {
+    } else if (mode == TransitionMode.SPLIT) {
       if (!(attributeDefinition.getTransitionFactory().isSplit())) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
@@ -1311,26 +1309,25 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * For the specified attribute "attributeName" (which must be of type
-   * list(label)), resolve all the labels into ConfiguredTargets (for the
-   * configuration appropriate to the attribute) and return their build
-   * artifacts as a {@link PrerequisiteArtifacts} instance.
+   * For the specified attribute "attributeName" (which must be of type list(label)), resolve all
+   * the labels into ConfiguredTargets (for the configuration appropriate to the attribute) and
+   * return their build artifacts as a {@link PrerequisiteArtifacts} instance.
    *
    * @param attributeName the name of the attribute to traverse
    */
-  public PrerequisiteArtifacts getPrerequisiteArtifacts(String attributeName, Mode mode) {
+  public PrerequisiteArtifacts getPrerequisiteArtifacts(String attributeName, TransitionMode mode) {
     return PrerequisiteArtifacts.get(this, attributeName, mode);
   }
 
   /**
-   * For the specified attribute "attributeName" (which must be of type label),
-   * resolves the ConfiguredTarget and returns its single build artifact.
+   * For the specified attribute "attributeName" (which must be of type label), resolves the
+   * ConfiguredTarget and returns its single build artifact.
    *
-   * <p>If the attribute is optional, has no default and was not specified, then
-   * null will be returned. Note also that null is returned (and an attribute
-   * error is raised) if there wasn't exactly one build artifact for the target.
+   * <p>If the attribute is optional, has no default and was not specified, then null will be
+   * returned. Note also that null is returned (and an attribute error is raised) if there wasn't
+   * exactly one build artifact for the target.
    */
-  public Artifact getPrerequisiteArtifact(String attributeName, Mode mode) {
+  public Artifact getPrerequisiteArtifact(String attributeName, TransitionMode mode) {
     TransitiveInfoCollection target = getPrerequisite(attributeName, mode);
     return transitiveInfoCollectionToArtifact(attributeName, target);
   }
@@ -1340,7 +1337,7 @@ public final class RuleContext extends TargetContext
    * host-configuration is appropriate for the specified attribute.
    */
   public Artifact getHostPrerequisiteArtifact(String attributeName) {
-    TransitiveInfoCollection target = getPrerequisite(attributeName, Mode.HOST);
+    TransitiveInfoCollection target = getPrerequisite(attributeName, TransitionMode.HOST);
     return transitiveInfoCollectionToArtifact(attributeName, target);
   }
 
@@ -1363,7 +1360,7 @@ public final class RuleContext extends TargetContext
    * expected type.
    */
   public Artifact getSingleSource(String fileTypeName) {
-    List<Artifact> srcs = PrerequisiteArtifacts.get(this, "srcs", Mode.TARGET).list();
+    List<Artifact> srcs = PrerequisiteArtifacts.get(this, "srcs", TransitionMode.TARGET).list();
     switch (srcs.size()) {
       case 0 : // error already issued by getSrc()
         return null;
@@ -1408,7 +1405,7 @@ public final class RuleContext extends TargetContext
    */
   public void checkSrcsSamePackage(boolean onlyWarn) {
     PathFragment packageName = getLabel().getPackageFragment();
-    for (Artifact srcItem : PrerequisiteArtifacts.get(this, "srcs", Mode.TARGET).list()) {
+    for (Artifact srcItem : PrerequisiteArtifacts.get(this, "srcs", TransitionMode.TARGET).list()) {
       if (!srcItem.isSourceArtifact()) {
         // In theory, we should not do this check. However, in practice, we
         // have a couple of rules that do not obey the "srcs must contain
@@ -1505,7 +1502,7 @@ public final class RuleContext extends TargetContext
     if (warnIfNotDefault && !label.equals(getRule().getAttrDefaultValue("compiler"))) {
       attributeWarning("compiler", "setting the compiler is strongly discouraged");
     }
-    return getExecutablePrerequisite("compiler", Mode.HOST);
+    return getExecutablePrerequisite("compiler", TransitionMode.HOST);
   }
 
   /**

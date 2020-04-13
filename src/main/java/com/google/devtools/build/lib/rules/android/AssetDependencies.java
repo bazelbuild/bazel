@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -42,7 +42,7 @@ public class AssetDependencies {
   public static AssetDependencies fromRuleDeps(RuleContext ruleContext, boolean neverlink) {
     return fromProviders(
         AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidAssetsInfo.PROVIDER),
+            ruleContext, TransitionMode.TARGET, AndroidAssetsInfo.PROVIDER),
         neverlink);
   }
 

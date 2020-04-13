@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.XcodeConfigEvent;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo.Availability;
@@ -69,26 +69,22 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     }
     XcodeVersionRuleData explicitDefaultVersion =
         ruleContext.getPrerequisite(
-            XcodeConfigRule.DEFAULT_ATTR_NAME,
-            RuleConfiguredTarget.Mode.TARGET,
-            XcodeVersionRuleData.class);
+            XcodeConfigRule.DEFAULT_ATTR_NAME, TransitionMode.TARGET, XcodeVersionRuleData.class);
 
     List<XcodeVersionRuleData> explicitVersions =
-            ruleContext.getPrerequisites(
-                XcodeConfigRule.VERSIONS_ATTR_NAME,
-                RuleConfiguredTarget.Mode.TARGET,
-                XcodeVersionRuleData.class);
+        ruleContext.getPrerequisites(
+            XcodeConfigRule.VERSIONS_ATTR_NAME, TransitionMode.TARGET, XcodeVersionRuleData.class);
 
     AvailableXcodesInfo remoteVersions =
         ruleContext.getPrerequisite(
             XcodeConfigRule.REMOTE_VERSIONS_ATTR_NAME,
-            RuleConfiguredTarget.Mode.TARGET,
+            TransitionMode.TARGET,
             AvailableXcodesInfo.PROVIDER);
 
     AvailableXcodesInfo localVersions =
         ruleContext.getPrerequisite(
             XcodeConfigRule.LOCAL_VERSIONS_ATTR_NAME,
-            RuleConfiguredTarget.Mode.TARGET,
+            TransitionMode.TARGET,
             AvailableXcodesInfo.PROVIDER);
 
     XcodeVersionProperties xcodeVersionProperties;
@@ -515,7 +511,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   public static XcodeConfigInfo getXcodeConfigInfo(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
-        RuleConfiguredTarget.Mode.TARGET,
+        TransitionMode.TARGET,
         com.google.devtools.build.lib.rules.apple.XcodeConfigInfo.PROVIDER);
   }
 }

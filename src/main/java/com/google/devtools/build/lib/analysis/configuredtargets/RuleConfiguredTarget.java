@@ -62,17 +62,6 @@ import javax.annotation.Nullable;
 @Immutable // (and Starlark-hashable)
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
-  /**
-   * The configuration transition for an attribute through which a prerequisite
-   * is requested.
-   */
-  public enum Mode {
-    TARGET,
-    HOST,
-    DATA,
-    SPLIT,
-    DONT_CHECK
-  }
   /** A set of this target's implicitDeps. */
   private final ImmutableSet<ConfiguredTargetKey> implicitDeps;
 

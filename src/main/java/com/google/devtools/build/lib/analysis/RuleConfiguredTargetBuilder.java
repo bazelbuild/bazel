@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
@@ -310,7 +309,7 @@ public final class RuleConfiguredTargetBuilder {
       if (attributeType.getLabelClass() == LabelClass.DEPENDENCY) {
         for (TransitiveLabelsInfo labelsInfo :
             ruleContext.getPrerequisites(
-                attributeName, Mode.DONT_CHECK, TransitiveLabelsInfo.class)) {
+                attributeName, TransitionMode.DONT_CHECK, TransitiveLabelsInfo.class)) {
           nestedSetBuilder.addTransitive(labelsInfo.getLabels());
         }
       }
@@ -344,7 +343,7 @@ public final class RuleConfiguredTargetBuilder {
 
         for (OutputGroupInfo outputGroup :
             ruleContext.getPrerequisites(
-                attributeName, Mode.DONT_CHECK, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+                attributeName, TransitionMode.DONT_CHECK, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
 
           NestedSet<Artifact> validationArtifacts =
               outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);

@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.FileType;
@@ -42,7 +41,8 @@ public final class PrerequisiteArtifacts {
     this.artifacts = Preconditions.checkNotNull(artifacts);
   }
 
-  static PrerequisiteArtifacts get(RuleContext ruleContext, String attributeName, Mode mode) {
+  static PrerequisiteArtifacts get(
+      RuleContext ruleContext, String attributeName, TransitionMode mode) {
     ImmutableList<FileProvider> prerequisites =
         ImmutableList.copyOf(ruleContext.getPrerequisites(attributeName, mode, FileProvider.class));
     // Fast path #1: Many attributes are not set.
@@ -63,8 +63,8 @@ public final class PrerequisiteArtifacts {
     return new PrerequisiteArtifacts(ruleContext, attributeName, ImmutableList.copyOf(result));
   }
 
-  public static NestedSet<Artifact> nestedSet(RuleContext ruleContext, String attributeName,
-      Mode mode) {
+  public static NestedSet<Artifact> nestedSet(
+      RuleContext ruleContext, String attributeName, TransitionMode mode) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     for (FileProvider target :
         ruleContext.getPrerequisites(attributeName, mode, FileProvider.class)) {

@@ -28,9 +28,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -157,17 +157,17 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       this.aspectCommon = aspectCommon;
       this.javaProtoLibraryAspectProviders =
           ruleContext.getPrerequisites(
-              "deps", RuleConfiguredTarget.Mode.TARGET, JavaProtoLibraryAspectProvider.class);
+              "deps", TransitionMode.TARGET, JavaProtoLibraryAspectProvider.class);
 
       dependencyCompilationArgs =
           JavaCompilationArgsProvider.merge(
               ruleContext.getPrerequisites(
-                  "deps", RuleConfiguredTarget.Mode.TARGET, JavaCompilationArgsProvider.class));
+                  "deps", TransitionMode.TARGET, JavaCompilationArgsProvider.class));
 
       this.exportsCompilationArgs =
           JavaCompilationArgsProvider.merge(
               ruleContext.getPrerequisites(
-                  "exports", RuleConfiguredTarget.Mode.TARGET, JavaCompilationArgsProvider.class));
+                  "exports", TransitionMode.TARGET, JavaCompilationArgsProvider.class));
     }
 
     void addProviders(ConfiguredAspect.Builder aspect) throws InterruptedException {

@@ -20,9 +20,8 @@ import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNT
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -60,15 +59,16 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
   // Helper methods to access an instance of JavaRuntimeInfo.
 
   public static JavaRuntimeInfo forHost(RuleContext ruleContext) {
-    return from(ruleContext, HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.HOST);
+    return from(ruleContext, HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, TransitionMode.HOST);
   }
 
   public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.TARGET);
+    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME, TransitionMode.TARGET);
   }
 
   @Nullable
-  private static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName, Mode mode) {
+  private static JavaRuntimeInfo from(
+      RuleContext ruleContext, String attributeName, TransitionMode mode) {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return null;
     }

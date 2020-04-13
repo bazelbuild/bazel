@@ -28,10 +28,10 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
@@ -541,7 +541,10 @@ public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:target");
     RuleContext ruleContext = getRuleContext(target);
     BuildConfiguration childConfiguration =
-        Iterables.getOnlyElement(ruleContext.getPrerequisiteConfiguredTargetAndTargets("exports_flag", Mode.TARGET)).getConfiguration();
+        Iterables.getOnlyElement(
+                ruleContext.getPrerequisiteConfiguredTargetAndTargets(
+                    "exports_flag", TransitionMode.TARGET))
+            .getConfiguration();
 
     Label childLabel = Label.parseAbsoluteUnchecked("//test:read_flag");
     assertThat(getFlagMapFromConfiguration(childConfiguration).keySet())

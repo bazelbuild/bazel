@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipelineImpl;
@@ -76,9 +76,9 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
       throw ruleContext.throwWithRuleError(
           "Usage of ninja_graph is only allowed with --experimental_ninja_actions flag");
     }
-    Artifact mainArtifact = ruleContext.getPrerequisiteArtifact("main", Mode.TARGET);
+    Artifact mainArtifact = ruleContext.getPrerequisiteArtifact("main", TransitionMode.TARGET);
     ImmutableList<Artifact> ninjaSrcs =
-        ruleContext.getPrerequisiteArtifacts("ninja_srcs", Mode.TARGET).list();
+        ruleContext.getPrerequisiteArtifacts("ninja_srcs", TransitionMode.TARGET).list();
     PathFragment outputRoot =
         PathFragment.create(ruleContext.attributes().get("output_root", Type.STRING));
     PathFragment workingDirectory =

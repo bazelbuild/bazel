@@ -24,9 +24,9 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndLocation;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection.EnvironmentWithGroup;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -327,7 +327,7 @@ public class ConstraintSemantics {
       }
       EnvironmentCollection.Builder environments = new EnvironmentCollection.Builder();
       for (TransitiveInfoCollection envTarget :
-          ruleContext.getPrerequisites(attrName, RuleConfiguredTarget.Mode.DONT_CHECK)) {
+          ruleContext.getPrerequisites(attrName, TransitionMode.DONT_CHECK)) {
         EnvironmentWithGroup envInfo = resolveEnvironment(envTarget);
         environments.put(envInfo.group(), envInfo.environment());
         supportedEnvironments.put(envInfo.group(), envInfo.environment());
@@ -483,8 +483,8 @@ public class ConstraintSemantics {
     // Report an error if "restricted to" is explicitly set to nothing. Even if this made
     // conceptual sense, we don't know which groups we should apply that to.
     String restrictionAttr = RuleClass.RESTRICTED_ENVIRONMENT_ATTR;
-    List<? extends TransitiveInfoCollection> restrictionEnvironments = ruleContext
-        .getPrerequisites(restrictionAttr, RuleConfiguredTarget.Mode.DONT_CHECK);
+    List<? extends TransitiveInfoCollection> restrictionEnvironments =
+        ruleContext.getPrerequisites(restrictionAttr, TransitionMode.DONT_CHECK);
     if (restrictionEnvironments.isEmpty()
         && attributes.isAttributeValueExplicitlySpecified(restrictionAttr)) {
       attributeError(ruleContext, restrictionAttr, "attribute cannot be empty");
@@ -861,7 +861,7 @@ public class ConstraintSemantics {
       Set<Label> selectOnlyDepsForThisAttribute =
           getDepsOnlyInSelects(ruleContext, attr, attributes.getAttributeType(attr));
       for (TransitiveInfoCollection dep :
-          ruleContext.getPrerequisites(attr, RuleConfiguredTarget.Mode.DONT_CHECK)) {
+          ruleContext.getPrerequisites(attr, TransitionMode.DONT_CHECK)) {
         // Output files inherit the environment spec of their generating rule.
         if (dep instanceof OutputFileConfiguredTarget) {
           // Note this reassignment means constraint violation errors reference the generating

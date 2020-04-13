@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -134,7 +134,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     assertThat(allFiles.getSet(Artifact.class)).isEqualTo(toolchain.getAllFiles());
   }
 
@@ -195,7 +195,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     assertThat(staticRuntimeLib.getSet(Artifact.class))
         .isEqualTo(toolchain.getStaticRuntimeLibForTesting());
     assertThat(dynamicRuntimeLib.getSet(Artifact.class))
@@ -236,7 +236,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -404,7 +404,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -453,7 +453,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -1348,7 +1348,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(a);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(
@@ -1384,7 +1384,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(a);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(

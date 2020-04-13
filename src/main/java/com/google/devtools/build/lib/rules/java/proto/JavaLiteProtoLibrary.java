@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -54,7 +54,8 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
     JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
 
     Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, JavaProtoLibraryAspectProvider.class);
+        ruleContext.getPrerequisites(
+            "deps", TransitionMode.TARGET, JavaProtoLibraryAspectProvider.class);
 
     JavaCompilationArgsProvider dependencyArgsProviders =
         constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
@@ -68,7 +69,8 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.merge(
-            ruleContext.getPrerequisites("deps", Mode.TARGET, JavaSourceJarsProvider.class));
+            ruleContext.getPrerequisites(
+                "deps", TransitionMode.TARGET, JavaSourceJarsProvider.class));
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
@@ -114,7 +116,8 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
   private ProguardSpecProvider getJavaLiteRuntimeSpec(RuleContext ruleContext) {
     NestedSet<Artifact> specs =
-        new ProguardLibrary(ruleContext).collectProguardSpecs(ImmutableMultimap.<Mode, String>of());
+        new ProguardLibrary(ruleContext)
+            .collectProguardSpecs(ImmutableMultimap.<TransitionMode, String>of());
 
     TransitiveInfoCollection runtime =
         JavaProtoAspectCommon.getLiteProtoToolchainProvider(ruleContext).runtime();

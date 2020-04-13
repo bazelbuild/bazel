@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -666,7 +666,7 @@ public final class TrimmableTestConfigurationFragments {
       NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
       filesToBuild.addAll(ruleContext.getOutputArtifacts());
       for (FileProvider dep :
-          ruleContext.getPrerequisites("deps", Mode.TARGET, FileProvider.class)) {
+          ruleContext.getPrerequisites("deps", TransitionMode.TARGET, FileProvider.class)) {
         filesToBuild.addTransitive(dep.getFilesToBuild());
       }
       for (Artifact artifact : ruleContext.getOutputArtifacts()) {

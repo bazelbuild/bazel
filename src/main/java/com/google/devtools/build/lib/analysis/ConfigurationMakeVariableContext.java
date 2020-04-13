@@ -20,7 +20,6 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.TemplateVariableInfoBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.packages.Package;
@@ -52,7 +51,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
                 attrName ->
                     Streams.stream(
                         ruleContext.getPrerequisites(
-                            attrName, Mode.DONT_CHECK, TemplateVariableInfo.PROVIDER)))
+                            attrName, TransitionMode.DONT_CHECK, TemplateVariableInfo.PROVIDER)))
             .collect(Collectors.toList());
     providers.addAll(fromAttributes);
 

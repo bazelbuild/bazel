@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
@@ -49,12 +49,15 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
 
   private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
     List<J2ObjcCcInfo> j2objcCcInfos =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcCcInfo.class);
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, J2ObjcCcInfo.class);
     return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-        .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET))
-        .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("jre_deps", Mode.TARGET))
+        .addDeps(
+            ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", TransitionMode.TARGET))
+        .addDeps(
+            ruleContext.getPrerequisiteConfiguredTargetAndTargets(
+                "jre_deps", TransitionMode.TARGET))
         .addDepCcHeaderProviders(
             j2objcCcInfos.stream().map(J2ObjcCcInfo::getCcInfo).collect(toList()))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
@@ -79,8 +82,10 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     ObjcCommon common = common(ruleContext);
     ObjcProvider objcProvider = common.getObjcProviderBuilder().build();
 
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
+        J2ObjcMappingFileProvider.union(
+            ruleContext.getPrerequisites(
+                "deps", TransitionMode.TARGET, J2ObjcMappingFileProvider.class));
 
     CompilationArtifacts moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()

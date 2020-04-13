@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -171,7 +171,9 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
       if (a.isExecutable()) {
         // In Skylark only label (not label list) type attributes can have the Executable flag.
         FilesToRunProvider provider =
-            context.getRuleContext().getExecutablePrerequisite(a.getName(), Mode.DONT_CHECK);
+            context
+                .getRuleContext()
+                .getExecutablePrerequisite(a.getName(), TransitionMode.DONT_CHECK);
         if (provider != null && provider.getExecutable() != null) {
           Artifact executable = provider.getExecutable();
           executableBuilder.put(skyname, executable);
@@ -192,7 +194,9 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
       if (a.isSingleArtifact()) {
         // In Skylark only label (not label list) type attributes can have the SingleArtifact flag.
         Artifact artifact =
-            context.getRuleContext().getPrerequisiteArtifact(a.getName(), Mode.DONT_CHECK);
+            context
+                .getRuleContext()
+                .getPrerequisiteArtifact(a.getName(), TransitionMode.DONT_CHECK);
         if (artifact != null) {
           fileBuilder.put(skyname, artifact);
         } else {
@@ -205,24 +209,26 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
               /*mutability=*/ null,
               context
                   .getRuleContext()
-                  .getPrerequisiteArtifacts(a.getName(), Mode.DONT_CHECK)
+                  .getPrerequisiteArtifacts(a.getName(), TransitionMode.DONT_CHECK)
                   .list()));
 
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
-        Object prereq = context.getRuleContext().getPrerequisite(a.getName(), Mode.DONT_CHECK);
+        Object prereq =
+            context.getRuleContext().getPrerequisite(a.getName(), TransitionMode.DONT_CHECK);
         if (prereq == null) {
           prereq = Starlark.NONE;
         }
         attrBuilder.put(skyname, prereq);
       } else if (type == BuildType.LABEL_LIST
           || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
-        List<?> allPrereq = context.getRuleContext().getPrerequisites(a.getName(), Mode.DONT_CHECK);
+        List<?> allPrereq =
+            context.getRuleContext().getPrerequisites(a.getName(), TransitionMode.DONT_CHECK);
         attrBuilder.put(skyname, StarlarkList.immutableCopyOf(allPrereq));
       } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
         ImmutableMap.Builder<TransitiveInfoCollection, String> builder = ImmutableMap.builder();
         Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
         List<? extends TransitiveInfoCollection> allPrereq =
-            context.getRuleContext().getPrerequisites(a.getName(), Mode.DONT_CHECK);
+            context.getRuleContext().getPrerequisites(a.getName(), TransitionMode.DONT_CHECK);
         for (TransitiveInfoCollection prereq : allPrereq) {
           builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
@@ -230,7 +236,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
       } else if (type == BuildType.LABEL_DICT_UNARY) {
         Map<Label, TransitiveInfoCollection> prereqsByLabel = new LinkedHashMap<>();
         for (TransitiveInfoCollection target :
-            context.getRuleContext().getPrerequisites(a.getName(), Mode.DONT_CHECK)) {
+            context.getRuleContext().getPrerequisites(a.getName(), TransitionMode.DONT_CHECK)) {
           prereqsByLabel.put(target.getLabel(), target);
         }
         ImmutableMap.Builder<String, TransitiveInfoCollection> attrValue = ImmutableMap.builder();
