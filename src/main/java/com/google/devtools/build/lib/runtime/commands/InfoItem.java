@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleClassInfo;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeDefinition;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeValue;
@@ -360,9 +360,8 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(commandOptions);
-      PackageCacheOptions packageCacheOptions =
-          commandOptions.getOptions(PackageCacheOptions.class);
-      return print(Joiner.on(":").join(packageCacheOptions.packagePath));
+      PackageOptions packageOptions = commandOptions.getOptions(PackageOptions.class);
+      return print(Joiner.on(":").join(packageOptions.packagePath));
     }
   }
 
@@ -794,8 +793,8 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(commandOptions);
-      return print(Joiner.on(":").join(
-          commandOptions.getOptions(PackageCacheOptions.class).packagePath));
+      return print(
+          Joiner.on(":").join(commandOptions.getOptions(PackageOptions.class).packagePath));
     }
   }
 

@@ -506,7 +506,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           && !commandAnnotation.name().equals("clean")
           && !commandAnnotation.name().equals("info")) {
         try {
-          env.setupPackageCache(options);
+          env.syncPackageLoading(options);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           reporter.handle(Event.error("command interrupted while setting up package cache"));

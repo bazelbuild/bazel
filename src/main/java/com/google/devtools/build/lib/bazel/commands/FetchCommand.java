@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -43,7 +43,7 @@ import java.util.EnumSet;
 /** Fetches external repositories. Which is so fetch. */
 @Command(
     name = FetchCommand.NAME,
-    options = {PackageCacheOptions.class, KeepGoingOption.class, LoadingPhaseThreadsOption.class},
+    options = {PackageOptions.class, KeepGoingOption.class, LoadingPhaseThreadsOption.class},
     help = "resource:fetch.txt",
     shortDescription = "Fetches external repositories that are prerequisites to the targets.",
     allowResidue = true,
@@ -65,7 +65,7 @@ public final class FetchCommand implements BlazeCommand {
     }
 
     try {
-      env.setupPackageCache(options);
+      env.syncPackageLoading(options);
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("fetch interrupted"));
       return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
@@ -74,7 +74,7 @@ public final class FetchCommand implements BlazeCommand {
       return BlazeCommandResult.exitCode(e.getExitCode());
     }
 
-    PackageCacheOptions pkgOptions = options.getOptions(PackageCacheOptions.class);
+    PackageOptions pkgOptions = options.getOptions(PackageOptions.class);
     if (!pkgOptions.fetch) {
       env.getReporter().handle(Event.error(null, "You cannot run fetch with --fetch=false"));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);

@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -226,7 +226,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public void sync(
       ExtendedEventHandler eventHandler,
-      PackageCacheOptions packageCacheOptions,
+      PackageOptions packageOptions,
       PathPackageLocator packageLocator,
       StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
@@ -246,7 +246,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     super.sync(
         eventHandler,
-        packageCacheOptions,
+        packageOptions,
         packageLocator,
         starlarkSemanticsOptions,
         commandId,
@@ -254,7 +254,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         tsgm,
         options);
     long startTime = System.nanoTime();
-    handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
+    handleDiffs(eventHandler, packageOptions.checkOutputFiles, options);
     long stopTime = System.nanoTime();
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;

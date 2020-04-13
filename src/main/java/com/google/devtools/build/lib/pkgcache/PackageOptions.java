@@ -34,10 +34,8 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 
-/**
- * Options for configuring the PackageCache.
- */
-public class PackageCacheOptions extends OptionsBase {
+/** Options for configuring Packages -- loading and default behaviors. */
+public class PackageOptions extends OptionsBase {
 
   /**
    * Converter for the {@code --default_visibility} option.

@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -149,7 +149,7 @@ public class BlazeRuntimeWrapper {
                 AnalysisOptions.class,
                 KeepGoingOption.class,
                 LoadingPhaseThreadsOption.class,
-                PackageCacheOptions.class,
+                PackageOptions.class,
                 StarlarkSemanticsOptions.class,
                 UiOptions.class,
                 SandboxOptions.class));
@@ -356,8 +356,8 @@ public class BlazeRuntimeWrapper {
       }
 
       try {
-        try (SilentCloseable c = Profiler.instance().profile("setupPackageCache")) {
-          env.setupPackageCache(lastRequest);
+        try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
+          env.syncPackageLoading(lastRequest);
         }
         buildTool.buildTargets(lastRequest, lastResult, null);
         success = true;

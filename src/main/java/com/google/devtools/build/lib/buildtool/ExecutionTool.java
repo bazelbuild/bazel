@@ -731,7 +731,7 @@ public class ExecutionTool {
                 .setVerboseExplanations(options.verboseExplanations)
                 .build()),
         env.getTopDownActionCache(),
-        request.getPackageCacheOptions().checkOutputFiles
+        request.getPackageOptions().checkOutputFiles
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
         env.getFileCache(),

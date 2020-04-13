@@ -206,10 +206,10 @@ public final class PackageFactory {
 
   /**
    * Sets the number of directories to eagerly traverse on the first glob for a given package, in
-   * order to warm the filesystem. -1 means do no eager traversal. See {@code
-   * PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}. -2 means do the eager traversal
-   * using the regular globbing infrastructure, i.e. sharing the globbing threads and caching the
-   * actual glob results.
+   * order to warm the filesystem. -1 means do no eager traversal. See {@link
+   * com.google.devtools.build.lib.pkgcache.PackageOptions#maxDirectoriesToEagerlyVisitInGlobbing}.
+   * -2 means do the eager traversal using the regular globbing infrastructure, i.e. sharing the
+   * globbing threads and caching the actual glob results.
    */
   public void setMaxDirectoriesToEagerlyVisitInGlobbing(
       int maxDirectoriesToEagerlyVisitInGlobbing) {

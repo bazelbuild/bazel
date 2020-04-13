@@ -58,8 +58,8 @@ import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -216,12 +216,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   private void reinitializeSkyframeExecutor() {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 3;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 3;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        packageCacheOptions,
+        packageOptions,
         Options.getDefaults(StarlarkSemanticsOptions.class),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -268,7 +268,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 Iterables.concat(
                     Arrays.asList(
                         ExecutionOptions.class,
-                        PackageCacheOptions.class,
+                        PackageOptions.class,
                         StarlarkSemanticsOptions.class,
                         BuildRequestOptions.class,
                         AnalysisOptions.class,
@@ -352,24 +352,24 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
     viewOptions.skyframePrepareAnalysis = flags.contains(Flag.SKYFRAME_PREPARE_ANALYSIS);
 
-    PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
+    PackageOptions packageOptions = optionsParser.getOptions(PackageOptions.class);
     PathPackageLocator pathPackageLocator =
         PathPackageLocator.create(
             outputBase,
-            packageCacheOptions.packagePath,
+            packageOptions.packagePath,
             reporter,
             rootDirectory,
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
 
     StarlarkSemanticsOptions starlarkSemanticsOptions =
         optionsParser.getOptions(StarlarkSemanticsOptions.class);
 
     skyframeExecutor.preparePackageLoading(
         pathPackageLocator,
-        packageCacheOptions,
+        packageOptions,
         starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),

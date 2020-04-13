@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ProjectFile;
@@ -67,7 +67,7 @@ public final class ProjectFileSupport {
                   // external
                   // repositories, which we don't for project files.
                   null,
-                  optionsParser.getOptions(PackageCacheOptions.class).packagePath,
+                  optionsParser.getOptions(PackageOptions.class).packagePath,
                   eventHandler,
                   workspaceDir,
                   workingDir,

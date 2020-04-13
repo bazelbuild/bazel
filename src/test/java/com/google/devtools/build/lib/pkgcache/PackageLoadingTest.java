@@ -63,7 +63,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for package loading. */
 @RunWith(JUnit4.class)
-public class PackageCacheTest extends FoundationTestCase {
+public class PackageLoadingTest extends FoundationTestCase {
 
   private AnalysisMock analysisMock;
   private ConfiguredRuleClassProvider ruleClassProvider;
@@ -109,21 +109,21 @@ public class PackageCacheTest extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
-    setUpSkyframe(parsePackageCacheOptions(), parseSkylarkSemanticsOptions());
+    setUpSkyframe(parsePackageOptions(), parseSkylarkSemanticsOptions());
   }
 
   private void setUpSkyframe(
-      PackageCacheOptions packageCacheOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
+      PackageOptions packageOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
-            packageCacheOptions.packagePath,
+            packageOptions.packagePath,
             reporter,
             rootDirectory,
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -131,20 +131,19 @@ public class PackageCacheTest extends FoundationTestCase {
                 Optional.<RootedPath>absent())));
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        packageCacheOptions,
+        packageOptions,
         starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
-    skyframeExecutor.setDeletedPackages(
-        ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
   }
 
   private OptionsParser parse(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(PackageCacheOptions.class, StarlarkSemanticsOptions.class)
+            .optionsClasses(PackageOptions.class, StarlarkSemanticsOptions.class)
             .build();
     parser.parse("--default_visibility=public");
     parser.parse(options);
@@ -152,8 +151,8 @@ public class PackageCacheTest extends FoundationTestCase {
     return parser;
   }
 
-  private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
-    return parse(options).getOptions(PackageCacheOptions.class);
+  private PackageOptions parsePackageOptions(String... options) throws Exception {
+    return parse(options).getOptions(PackageOptions.class);
   }
 
   private StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
@@ -162,7 +161,7 @@ public class PackageCacheTest extends FoundationTestCase {
   }
 
   protected void setOptions(String... options) throws Exception {
-    setUpSkyframe(parsePackageCacheOptions(options), parseSkylarkSemanticsOptions(options));
+    setUpSkyframe(parsePackageOptions(options), parseSkylarkSemanticsOptions(options));
   }
 
   private PackageManager getPackageManager() {

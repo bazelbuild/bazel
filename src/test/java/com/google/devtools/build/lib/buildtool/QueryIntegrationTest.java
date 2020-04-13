@@ -278,7 +278,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       // Ignored, as we know the test deviates from normal calling order.
     }
 
-    env.setupPackageCache(optionsParser);
+    env.syncPackageLoading(optionsParser);
 
     OutputFormatter formatter =
         OutputFormatters.getFormatter(

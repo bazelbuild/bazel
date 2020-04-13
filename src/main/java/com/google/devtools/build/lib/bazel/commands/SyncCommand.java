@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
@@ -59,7 +59,7 @@ import java.util.stream.Collectors;
 @Command(
     name = SyncCommand.NAME,
     options = {
-      PackageCacheOptions.class,
+      PackageOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class,
       SyncOptions.class
@@ -94,7 +94,7 @@ public final class SyncCommand implements BlazeCommand {
                   true,
                   true,
                   env.getCommandId().toString()));
-      env.setupPackageCache(options);
+      env.syncPackageLoading(options);
       SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
 
       SyncOptions syncOptions = options.getOptions(SyncOptions.class);

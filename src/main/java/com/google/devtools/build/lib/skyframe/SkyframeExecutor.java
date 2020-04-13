@@ -117,8 +117,8 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
@@ -1359,7 +1359,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public void preparePackageLoading(
       PathPackageLocator pkgLocator,
-      PackageCacheOptions packageCacheOptions,
+      PackageOptions packageOptions,
       StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
       Map<String, String> clientEnv,
@@ -1372,18 +1372,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setCommandId(commandId);
     this.clientEnv.set(clientEnv);
 
-    setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
-    setDefaultVisibility(packageCacheOptions.defaultVisibility);
+    setShowLoadingProgress(packageOptions.showLoadingProgress);
+    setDefaultVisibility(packageOptions.defaultVisibility);
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
     setSkylarkSemantics(starlarkSemantics);
     setSiblingDirectoryLayout(starlarkSemantics.experimentalSiblingRepositoryLayout());
     setPackageLocator(pkgLocator);
 
-    syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
-    this.pkgFactory.setGlobbingThreads(packageCacheOptions.globbingThreads);
+    syscalls.set(getPerBuildSyscallCache(packageOptions.globbingThreads));
+    this.pkgFactory.setGlobbingThreads(packageOptions.globbingThreads);
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
-        packageCacheOptions.maxDirectoriesToEagerlyVisitInGlobbing);
+        packageOptions.maxDirectoriesToEagerlyVisitInGlobbing);
     emittedEventState.clear();
 
     // If the PackageFunction was interrupted, there may be stale entries here.
@@ -2642,7 +2642,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public void sync(
       ExtendedEventHandler eventHandler,
-      PackageCacheOptions packageCacheOptions,
+      PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
       StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
@@ -2680,7 +2680,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     syncPackageLoading(
-        packageCacheOptions,
+        packageOptions,
         pathPackageLocator,
         starlarkSemanticsOptions,
         commandId,
@@ -2708,7 +2708,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected void syncPackageLoading(
-      PackageCacheOptions packageCacheOptions,
+      PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,
       StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
@@ -2718,15 +2718,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws AbruptExitException {
     try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
       preparePackageLoading(
-          pathPackageLocator,
-          packageCacheOptions,
-          starlarkSemanticsOptions,
-          commandId,
-          clientEnv,
-          tsgm);
+          pathPackageLocator, packageOptions, starlarkSemanticsOptions, commandId, clientEnv, tsgm);
     }
     try (SilentCloseable c = Profiler.instance().profile("setDeletedPackages")) {
-      setDeletedPackages(packageCacheOptions.getDeletedPackages());
+      setDeletedPackages(packageOptions.getDeletedPackages());
     }
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();

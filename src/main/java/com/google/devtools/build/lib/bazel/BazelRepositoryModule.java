@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFun
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
@@ -223,7 +223,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     clientEnvironmentSupplier.set(env.getRepoEnv());
-    PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
+    PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
     resolvedFile = Optional.<RootedPath>absent();
     resolvedFileReplacingWorkspace = Optional.<RootedPath>absent();

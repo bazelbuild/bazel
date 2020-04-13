@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -98,7 +98,7 @@ public class CommandEnvironment {
   private TopDownActionCache topDownActionCache;
   private Path workingDirectory;
   private String workspaceName;
-  private boolean haveSetupPackageCache = false;
+  private boolean hasSyncedPackageLoading = false;
 
   // This AtomicReference is set to:
   //   - null, if neither BlazeModuleEnvironment#exit nor #precompleteCommand have been called
@@ -166,7 +166,7 @@ public class CommandEnvironment {
     timestampGranularityMonitor.setCommandStartTime();
 
     // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
-    // in setupPackageCache(). This leads to NPE if we don't set it here.
+    // in syncPackageLoading(). This leads to NPE if we don't set it here.
     Path workspacePath = directories.getWorkspace();
     this.setWorkingDirectory(workspacePath);
     this.workspaceName = null;
@@ -178,9 +178,7 @@ public class CommandEnvironment {
           workspace
               .getSkyframeExecutor()
               .createPackageLocator(
-                  reporter,
-                  options.getOptions(PackageCacheOptions.class).packagePath,
-                  workingDirectory);
+                  reporter, options.getOptions(PackageOptions.class).packagePath, workingDirectory);
     } else {
       this.packageLocator = null;
     }
@@ -241,7 +239,7 @@ public class CommandEnvironment {
       return false;
     }
     for (int i = 0; i < command.options().length; ++i) {
-      if (command.options()[i] == PackageCacheOptions.class) {
+      if (command.options()[i] == PackageOptions.class) {
         return true;
       }
     }
@@ -592,25 +590,23 @@ public class CommandEnvironment {
   }
 
   /**
-   * Initializes the package cache using the given options, and syncs the package cache. Also
-   * injects the Starlark semantics using the options for the {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration}.
+   * Initializes and syncs the graph with the given options, readying it for the next evaluation.
    */
-  public void setupPackageCache(OptionsProvider options)
+  public void syncPackageLoading(OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    // We want to ensure that we're never calling #setupPackageCache twice in the same build because
-    // it does the very expensive work of diffing the cache between incremental builds.
+    // We want to ensure that we're never calling #syncPackageLoading twice in the same build
+    // because it does the very expensive work of diffing the cache between incremental builds.
     // {@link SequencedSkyframeExecutor#handleDiffs} is the particular method we don't want to be
     // calling twice. We could feasibly factor it out of this call.
-    if (this.haveSetupPackageCache) {
+    if (hasSyncedPackageLoading) {
       throw new IllegalStateException(
           "We should never call this method more than once over the course of a single command");
     }
-    this.haveSetupPackageCache = true;
+    hasSyncedPackageLoading = true;
     getSkyframeExecutor()
         .sync(
             reporter,
-            options.getOptions(PackageCacheOptions.class),
+            options.getOptions(PackageOptions.class),
             packageLocator,
             options.getOptions(StarlarkSemanticsOptions.class),
             getCommandId(),

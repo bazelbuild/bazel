@@ -1227,7 +1227,7 @@ public class LoadingPhaseRunnerTest {
       ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
       PackageFactory pkgFactory =
           analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
-      PackageCacheOptions options = Options.getDefaults(PackageCacheOptions.class);
+      PackageOptions options = Options.getDefaults(PackageOptions.class);
       storedErrors = new StoredEventHandler();
       BuildOptions defaultBuildOptions;
       try {
@@ -1253,10 +1253,10 @@ public class LoadingPhaseRunnerTest {
               workspace,
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-      PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-      packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
-      packageCacheOptions.showLoadingProgress = true;
-      packageCacheOptions.globbingThreads = 7;
+      PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+      packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
+      packageOptions.showLoadingProgress = true;
+      packageOptions.globbingThreads = 7;
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
@@ -1264,7 +1264,7 @@ public class LoadingPhaseRunnerTest {
                   Optional.<RootedPath>absent())));
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
-          packageCacheOptions,
+          packageOptions,
           Options.getDefaults(StarlarkSemanticsOptions.class),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),

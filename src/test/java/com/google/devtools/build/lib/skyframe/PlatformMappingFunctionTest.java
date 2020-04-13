@@ -127,7 +127,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
   public void testMappingFileIsRead_fromAlternatePackagePath() throws Exception {
     scratch.setWorkingDir("/other/package/path");
     scratch.file("WORKSPACE");
-    setPackageCacheOptions("--package_path=/other/package/path");
+    setPackageOptions("--package_path=/other/package/path");
     scratch.file(
         "my_mapping_file",
         "platforms:", // Force line break
@@ -155,7 +155,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
         "    --cpu=one");
-    setPackageCacheOptions("--package_path=/other/package/path");
+    setPackageOptions("--package_path=/other/package/path");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -177,7 +177,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
         "    --cpu=one");
-    setPackageCacheOptions("--package_path=%workspace%:/other/package/path");
+    setPackageOptions("--package_path=%workspace%:/other/package/path");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -205,7 +205,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
         "    --cpu=two");
-    setPackageCacheOptions("--package_path=%workspace%:/other/package/path");
+    setPackageOptions("--package_path=%workspace%:/other/package/path");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
