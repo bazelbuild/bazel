@@ -51,7 +51,10 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Sleeper;
 import com.google.devtools.build.v1.BuildStatus.Result;
@@ -270,10 +273,18 @@ public final class BuildEventServiceUploader implements Runnable {
     return halfCloseFuture;
   }
 
-  private void logAndExitAbruptly(String message, ExitCode exitCode, Throwable cause) {
+  private void logAndExitAbruptly(
+      String message, ExitCode exitCode, BuildProgress.Code bpCode, Throwable cause) {
     checkState(!exitCode.equals(ExitCode.SUCCESS));
     logger.severe(message);
-    closeFuture.setException(new AbruptExitException(message, exitCode, cause));
+    DetailedExitCode detailedExitCode =
+        DetailedExitCode.of(
+            exitCode,
+            FailureDetail.newBuilder()
+                .setMessage(message + " " + besClient.userReadableError(cause))
+                .setBuildProgress(BuildProgress.newBuilder().setCode(bpCode).build())
+                .build());
+    closeFuture.setException(new AbruptExitException(detailedExitCode, cause));
   }
 
   @Override
@@ -302,18 +313,20 @@ public final class BuildEventServiceUploader implements Runnable {
         Preconditions.checkState(
             interruptCausedByCancel, "Unexpected interrupt on BES uploader thread");
       }
-    } catch (StatusException e) {
+    } catch (DetailedStatusException e) {
       logAndExitAbruptly(
-          "The Build Event Protocol upload failed: " + besClient.userReadableError(e),
+          e.extendedMessage,
           shouldRetryStatus(e.getStatus())
               ? ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR
               : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+          e.bpCode,
           e);
     } catch (LocalFileUploadException e) {
       Throwables.throwIfUnchecked(e.getCause());
       logAndExitAbruptly(
-          "The Build Event Protocol local file upload failed: " + e.getCause().getMessage(),
+          "The Build Event Protocol local file upload failed:",
           ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+          BuildProgress.Code.BES_UPLOAD_LOCAL_FILE_ERROR,
           e.getCause());
     } catch (Throwable e) {
       closeFuture.setException(e);
@@ -362,7 +375,7 @@ public final class BuildEventServiceUploader implements Runnable {
   }
 
   private void publishBuildEvents()
-      throws StatusException, LocalFileUploadException, InterruptedException {
+      throws DetailedStatusException, LocalFileUploadException, InterruptedException {
     eventQueue.addFirst(new OpenStreamCommand());
 
     // Every build event sent to the server needs to be acknowledged by it. This queue stores
@@ -484,24 +497,37 @@ public final class BuildEventServiceUploader implements Runnable {
                   // Upload successful. Break out from the while(true) loop.
                   return;
                 } else {
-                  throw (lastEventSent
+                  Status status =
+                      lastEventSent
                           ? ackQueueNotEmptyStatus(ackQueue.size())
-                          : lastEventNotSentStatus())
-                      .asException();
+                          : lastEventNotSentStatus();
+                  BuildProgress.Code bpCode =
+                      lastEventSent
+                          ? BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNACK_EVENTS_ERROR
+                          : BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNSENT_EVENTS_ERROR;
+                  throw withFailureDetail(status.asException(), bpCode, status.getDescription());
                 }
               }
 
               if (!shouldRetryStatus(streamStatus)) {
-                logger.info(
-                    String.format("Not retrying publishBuildEvents: status='%s'", streamStatus));
-                throw streamStatus.asException();
+                String message =
+                    String.format("Not retrying publishBuildEvents: status='%s'", streamStatus);
+                logger.info(message);
+                throw withFailureDetail(
+                    streamStatus.asException(),
+                    BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE,
+                    message);
               }
               if (retryAttempt == MAX_NUM_RETRIES) {
-                logger.info(
+                String message =
                     String.format(
                         "Not retrying publishBuildEvents, no more attempts left: status='%s'",
-                        streamStatus));
-                throw streamStatus.asException();
+                        streamStatus);
+                logger.info(message);
+                throw withFailureDetail(
+                    streamStatus.asException(),
+                    BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE,
+                    message);
               }
 
               // Retry logic
@@ -575,7 +601,7 @@ public final class BuildEventServiceUploader implements Runnable {
 
   /** Sends a {@link PublishLifecycleEventRequest} to the BES backend. */
   private void publishLifecycleEvent(PublishLifecycleEventRequest request)
-      throws StatusException, InterruptedException {
+      throws DetailedStatusException, InterruptedException {
     int retryAttempt = 0;
     StatusException cause = null;
     while (retryAttempt <= MAX_NUM_RETRIES) {
@@ -584,10 +610,10 @@ public final class BuildEventServiceUploader implements Runnable {
         return;
       } catch (StatusException e) {
         if (!shouldRetryStatus(e.getStatus())) {
-          logger.info(
-              String.format(
-                  "Not retrying publishLifecycleEvent: status='%s'", e.getStatus().toString()));
-          throw e;
+          String message =
+              String.format("Not retrying publishLifecycleEvent: status='%s'", e.getStatus());
+          logger.info(message);
+          throw withFailureDetail(e, BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE, message);
         }
 
         cause = e;
@@ -596,14 +622,17 @@ public final class BuildEventServiceUploader implements Runnable {
         logger.info(
             String.format(
                 "Retrying publishLifecycleEvent: status='%s', sleepMillis=%d",
-                e.getStatus().toString(), sleepMillis));
+                e.getStatus(), sleepMillis));
         sleeper.sleepMillis(sleepMillis);
         retryAttempt++;
       }
     }
 
     // All retry attempts failed
-    throw cause;
+    throw withFailureDetail(
+        cause,
+        BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE,
+        "All retry attempts failed.");
   }
 
   private void ensureUploadThreadStarted() {
@@ -684,6 +713,12 @@ public final class BuildEventServiceUploader implements Runnable {
     return (long) (DELAY_MILLIS * Math.pow(1.6, attempt));
   }
 
+  private DetailedStatusException withFailureDetail(
+      StatusException exception, BuildProgress.Code bpCode, String message) {
+    return new DetailedStatusException(
+        exception, bpCode, message + " " + besClient.userReadableError(exception));
+  }
+
   /** Thrown when encountered problems while uploading build event artifacts. */
   private class LocalFileUploadException extends Exception {
     LocalFileUploadException(Throwable cause) {
@@ -758,6 +793,22 @@ public final class BuildEventServiceUploader implements Runnable {
           checkNotNull(clock),
           checkNotNull(artifactGroupNamer),
           checkNotNull(eventBus));
+    }
+  }
+
+  /**
+   * A wrapper Exception class that contains the {@link StatusException}, the {@link
+   * BuildProgress.Code}, and a message.
+   */
+  static class DetailedStatusException extends StatusException {
+    private final BuildProgress.Code bpCode;
+    private final String extendedMessage;
+
+    DetailedStatusException(
+        StatusException statusException, BuildProgress.Code bpCode, String message) {
+      super(statusException.getStatus(), statusException.getTrailers());
+      this.bpCode = bpCode;
+      this.extendedMessage = "The Build Event Protocol upload failed: " + message;
     }
   }
 }
