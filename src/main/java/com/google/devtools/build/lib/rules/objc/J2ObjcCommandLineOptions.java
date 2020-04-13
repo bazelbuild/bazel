@@ -29,14 +29,13 @@ import java.util.List;
  */
 public class J2ObjcCommandLineOptions extends FragmentOptions {
   @Option(
-    name = "j2objc_translation_flags",
-    converter = Converters.CommaSeparatedOptionListConverter.class,
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Additional options to pass to the J2ObjC tool."
-  )
+      name = "j2objc_translation_flags",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Additional options to pass to the J2ObjC tool.")
   public List<String> translationFlags;
 
   @Option(

@@ -16,13 +16,16 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -35,20 +38,22 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 
 /** The 'blaze canonicalize-flags' command. */
 @Command(
-  name = "canonicalize-flags",
-  options = {CanonicalizeCommand.Options.class},
-  allowResidue = true,
-  mustRunInWorkspace = false,
-  shortDescription = "Canonicalizes a list of %{product} options.",
-  help =
-      "This command canonicalizes a list of %{product} options. Don't forget to prepend "
-          + " '--' to end option parsing before the flags to canonicalize.\n"
-          + "%{options}"
-)
+    name = "canonicalize-flags",
+    options = {CanonicalizeCommand.Options.class, PackageCacheOptions.class},
+    // inherits from query to get proper package loading options.
+    inherits = {QueryCommand.class},
+    allowResidue = true,
+    mustRunInWorkspace = false,
+    shortDescription = "Canonicalizes a list of %{product} options.",
+    help =
+        "This command canonicalizes a list of %{product} options. Don't forget to prepend "
+            + " '--' to end option parsing before the flags to canonicalize.\n"
+            + "%{options}")
 public final class CanonicalizeCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {
@@ -143,10 +148,31 @@ public final class CanonicalizeCommand implements BlazeCommand {
                 command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()))
             .add(FlagClashCanaryOptions.class)
             .build();
+
+    // set up the package cache for starlark options parsing
+    try {
+      env.setupPackageCache(options);
+    } catch (InterruptedException e) {
+      env.getReporter().handle(Event.error("canonicalization interrupted"));
+      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+    } catch (AbruptExitException e) {
+      env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
+      return BlazeCommandResult.exitCode(e.getExitCode());
+    }
+
     try {
       OptionsParser parser =
-          OptionsParser.builder().optionsClasses(optionsClasses).allowResidue(false).build();
+          OptionsParser.builder()
+              .optionsClasses(optionsClasses)
+              .skipStarlarkOptionPrefixes()
+              .allowResidue(true)
+              .build();
       parser.parse(options.getResidue());
+      StarlarkOptionsParser.newStarlarkOptionsParser(env, parser).parse(env.getReporter());
+      if (!parser.getResidue().isEmpty()) {
+        String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(parser.getResidue());
+        throw new OptionsParsingException(errorMsg);
+      }
 
       InvocationPolicy policy =
           InvocationPolicyParser.parsePolicy(canonicalizeOptions.invocationPolicy);
@@ -166,11 +192,14 @@ public final class CanonicalizeCommand implements BlazeCommand {
             InvocationPolicyEnforcer.getEffectiveInvocationPolicy(
                 policy, parser, commandName, Level.INFO);
         env.getReporter().getOutErr().printOutLn(effectivePolicy.toString());
-
       } else {
         // Otherwise, print out the canonical command line
-        List<String> result = parser.canonicalize();
-        for (String piece : result) {
+        List<String> nativeResult = parser.canonicalize();
+        ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(nativeResult);
+        for (Map.Entry<String, Object> starlarkOption : parser.getStarlarkOptions().entrySet()) {
+          result.add("--" + starlarkOption.getKey() + "=" + starlarkOption.getValue());
+        }
+        for (String piece : result.build()) {
           env.getReporter().getOutErr().printOutLn(piece);
         }
       }

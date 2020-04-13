@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
@@ -26,13 +26,13 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
+import build.bazel.remote.execution.v2.ExecutedActionMetadata;
 import build.bazel.remote.execution.v2.LogFile;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -86,10 +87,14 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -189,9 +194,10 @@ public class RemoteSpawnRunnerTest {
     assertThat(requestCaptor.getValue().getExecutionPolicy().getPriority()).isEqualTo(2);
     // TODO(olaola): verify that the uploaded action has the doNotCache set.
 
-    verify(cache, never()).downloadActionResult(any(ActionKey.class));
+    verify(cache, never())
+        .downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false));
     verify(cache, never()).upload(any(), any(), any(), any(), any(), any());
-    verifyZeroInteractions(localRunner);
+    verifyNoMoreInteractions(localRunner);
   }
 
   private FakeSpawnExecutionContext getSpawnContext(Spawn spawn) {
@@ -305,7 +311,8 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteUploadLocalResults = true;
 
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(failedAction);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(failedAction);
 
     RemoteSpawnRunner runner = spy(newSpawnRunner());
     // Throw an IOException to trigger the local fallback.
@@ -344,7 +351,8 @@ public class RemoteSpawnRunnerTest {
     // remotely
 
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(failedAction);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(failedAction);
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
@@ -381,7 +389,8 @@ public class RemoteSpawnRunnerTest {
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
 
-    when(cache.downloadActionResult(any(ActionKey.class))).thenThrow(new IOException("cache down"));
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenThrow(new IOException("cache down"));
 
     doThrow(new IOException("cache down"))
         .when(cache)
@@ -421,7 +430,8 @@ public class RemoteSpawnRunnerTest {
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
 
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(null);
 
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
@@ -446,7 +456,8 @@ public class RemoteSpawnRunnerTest {
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
 
-    when(cache.downloadActionResult(any(ActionKey.class))).thenThrow(new IOException());
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenThrow(new IOException());
 
     IOException err = new IOException("local execution error");
     when(localRunner.exec(eq(spawn), eq(policy))).thenThrow(err);
@@ -463,7 +474,8 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
@@ -590,7 +602,8 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(cachedResult);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(cachedResult);
     Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance());
     doThrow(downloadFailure)
         .when(cache)
@@ -618,7 +631,8 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(null);
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
     ExecuteResponse cachedResponse =
@@ -659,7 +673,8 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(null);
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
             .setResult(cachedResult)
@@ -692,7 +707,8 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(null);
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
             .setResult(cachedResult)
@@ -723,7 +739,8 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(null);
     ExecuteResponse failed =
         ExecuteResponse.newBuilder()
             .setResult(ActionResult.newBuilder().setExitCode(33).build())
@@ -752,7 +769,8 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(null);
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException("reasons"));
 
     Spawn spawn = newSimpleSpawn();
@@ -772,7 +790,8 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.downloadActionResult(any(ActionKey.class))).thenThrow(new IOException("reasons"));
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenThrow(new IOException("reasons"));
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
@@ -849,7 +868,8 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(succeededAction);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(succeededAction);
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
@@ -899,7 +919,8 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(succeededAction);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(succeededAction);
     IOException downloadFailure = new IOException("downloadMinimal failed");
     when(cache.downloadMinimal(any(), anyCollection(), any(), any(), any(), any(), any()))
         .thenThrow(downloadFailure);
@@ -925,12 +946,13 @@ public class RemoteSpawnRunnerTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
 
-    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("outs"));
+    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, "outs");
     Artifact topLevelOutput =
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("foo.bin"));
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class))).thenReturn(succeededAction);
+    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+        .thenReturn(succeededAction);
 
     RemoteSpawnRunner runner = newSpawnRunner(ImmutableSet.of(topLevelOutput));
 
@@ -946,6 +968,51 @@ public class RemoteSpawnRunnerTest {
     verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr), any());
     verify(cache, never())
         .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void accountingDisabledWithoutWorker() {
+    SpawnMetrics.Builder spawnMetrics = Mockito.mock(SpawnMetrics.Builder.class);
+    RemoteSpawnRunner.spawnMetricsAccounting(
+        spawnMetrics, ExecutedActionMetadata.getDefaultInstance());
+    verifyNoMoreInteractions(spawnMetrics);
+  }
+
+  @Test
+  public void accountingAddsDurationsForStages() {
+    SpawnMetrics.Builder builder =
+        new SpawnMetrics.Builder()
+            .setRemoteQueueTime(Duration.ofSeconds(1))
+            .setSetupTime(Duration.ofSeconds(2))
+            .setExecutionWallTime(Duration.ofSeconds(2))
+            .setRemoteProcessOutputsTime(Duration.ofSeconds(2));
+    Timestamp queued = Timestamp.getDefaultInstance();
+    com.google.protobuf.Duration oneSecond = Durations.fromMillis(1000);
+    Timestamp workerStart = Timestamps.add(queued, oneSecond);
+    Timestamp executionStart = Timestamps.add(workerStart, oneSecond);
+    Timestamp executionCompleted = Timestamps.add(executionStart, oneSecond);
+    Timestamp outputUploadStart = Timestamps.add(executionCompleted, oneSecond);
+    Timestamp outputUploadComplete = Timestamps.add(outputUploadStart, oneSecond);
+    ExecutedActionMetadata executedMetadata =
+        ExecutedActionMetadata.newBuilder()
+            .setWorker("test worker")
+            .setQueuedTimestamp(queued)
+            .setWorkerStartTimestamp(workerStart)
+            .setExecutionStartTimestamp(executionStart)
+            .setExecutionCompletedTimestamp(executionCompleted)
+            .setOutputUploadStartTimestamp(outputUploadStart)
+            .setOutputUploadCompletedTimestamp(outputUploadComplete)
+            .build();
+    RemoteSpawnRunner.spawnMetricsAccounting(builder, executedMetadata);
+    SpawnMetrics spawnMetrics = builder.build();
+    // remote queue time is accumulated
+    assertThat(spawnMetrics.remoteQueueTime()).isEqualTo(Duration.ofSeconds(2));
+    // setup time is substituted
+    assertThat(spawnMetrics.setupTime()).isEqualTo(Duration.ofSeconds(1));
+    // execution time is unspecified, assume substituted
+    assertThat(spawnMetrics.executionWallTime()).isEqualTo(Duration.ofSeconds(1));
+    // remoteProcessOutputs time is unspecified, assume substituted
+    assertThat(spawnMetrics.remoteProcessOutputsTime()).isEqualTo(Duration.ofSeconds(1));
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {

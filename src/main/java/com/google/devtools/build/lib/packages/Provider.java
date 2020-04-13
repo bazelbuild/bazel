@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Location;
 
 /**
  * Declared Provider (a constructor for {@link Info}).

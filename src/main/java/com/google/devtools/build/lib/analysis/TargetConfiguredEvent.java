@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
@@ -55,7 +56,7 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.targetConfigured(target.getLabel());
+    return BuildEventIdUtil.targetConfigured(target.getLabel());
   }
 
   @Override
@@ -63,10 +64,12 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
     ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
     for (BuildConfiguration config : configurations) {
       if (config != null) {
-        childrenBuilder.add(BuildEventId.targetCompleted(target.getLabel(), config.getEventId()));
+        childrenBuilder.add(
+            BuildEventIdUtil.targetCompleted(target.getLabel(), config.getEventId()));
       } else {
         childrenBuilder.add(
-            BuildEventId.targetCompleted(target.getLabel(), BuildEventId.nullConfigurationId()));
+            BuildEventIdUtil.targetCompleted(
+                target.getLabel(), BuildEventIdUtil.nullConfigurationId()));
       }
     }
     return childrenBuilder.build();

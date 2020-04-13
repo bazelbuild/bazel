@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -82,7 +82,7 @@ public class TargetPatternsHelperTest {
   @Test
   public void testNoTargetPatternFile() throws TargetPatternsHelperException {
     ImmutableList<String> patterns = ImmutableList.of("//some/...", "//patterns");
-    options.setResidue(patterns);
+    options.setResidue(patterns, ImmutableList.of());
 
     assertThat(TargetPatternsHelper.readFrom(env, options)).isEqualTo(patterns);
   }
@@ -90,7 +90,7 @@ public class TargetPatternsHelperTest {
   @Test
   public void testSpecifyPatternAndFileThrows() throws OptionsParsingException {
     options.parse("--target_pattern_file=patterns.txt");
-    options.setResidue(ImmutableList.of("//some:pattern"));
+    options.setResidue(ImmutableList.of("//some:pattern"), ImmutableList.of());
 
     TargetPatternsHelperException expected =
         assertThrows(

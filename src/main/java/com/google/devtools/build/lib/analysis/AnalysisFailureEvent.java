@@ -19,8 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.Cause;
@@ -75,12 +76,13 @@ public class AnalysisFailureEvent implements BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.targetCompleted(failedTarget.getLabel(), configuration);
+    return BuildEventIdUtil.targetCompleted(failedTarget.getLabel(), configuration);
   }
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.copyOf(Iterables.transform(rootCauses.toList(), BuildEventId::fromCause));
+    return ImmutableList.copyOf(
+        Iterables.transform(rootCauses.toList(), cause -> cause.getIdProto()));
   }
 
   @Override

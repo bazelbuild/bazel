@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -1244,7 +1244,7 @@ public class LoadingPhaseRunnerTest {
               .setDefaultBuildOptions(defaultBuildOptions)
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
               .build();
-      TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+      SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
           PathPackageLocator.create(
               null,

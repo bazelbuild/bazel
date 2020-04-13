@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Optional;
@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -108,7 +108,7 @@ public class PackageCacheTest extends FoundationTestCase {
             .setDefaultBuildOptions(defaultBuildOptions)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
-    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+    SkyframeExecutorTestHelper.process(skyframeExecutor);
     setUpSkyframe(parsePackageCacheOptions(), parseSkylarkSemanticsOptions());
   }
 
@@ -322,7 +322,7 @@ public class PackageCacheTest extends FoundationTestCase {
     Package oldPkg = getPackage("pkg");
     assertThat(getPackage("pkg")).isSameInstanceAs(oldPkg); // change not yet visible
     assertThat(oldPkg.getFilename().asPath()).isEqualTo(buildFile1);
-    assertThat(oldPkg.getSourceRoot()).isEqualTo(Root.fromPath(rootDirectory));
+    assertThat(oldPkg.getSourceRoot().get()).isEqualTo(Root.fromPath(rootDirectory));
 
     buildFile1.delete();
     invalidatePackages();
@@ -330,7 +330,7 @@ public class PackageCacheTest extends FoundationTestCase {
     Package newPkg = getPackage("pkg");
     assertThat(newPkg).isNotSameInstanceAs(oldPkg);
     assertThat(newPkg.getFilename().asPath()).isEqualTo(buildFile2);
-    assertThat(newPkg.getSourceRoot()).isEqualTo(Root.fromPath(scratch.dir("/otherroot")));
+    assertThat(newPkg.getSourceRoot().get()).isEqualTo(Root.fromPath(scratch.dir("/otherroot")));
 
     // TODO(bazel-team): (2009) test BUILD file moves in the other direction too.
   }

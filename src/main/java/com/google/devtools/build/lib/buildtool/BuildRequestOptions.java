@@ -139,18 +139,17 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean performExecutionPhase;
 
   @Option(
-    name = "output_groups",
-    converter = Converters.CommaSeparatedOptionListConverter.class,
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
-    defaultValue = "",
-    help =
-        "Specifies which output groups of the top-level targets to build. If omitted, a default "
-            + "set of output groups are built. When specified the default set is overridden. "
-            + "However you may use --output_groups=+<output_group> or "
-            + "--output_groups=-<output_group> to instead modify the set of output groups."
-  )
+      name = "output_groups",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      defaultValue = "null",
+      help =
+          "Specifies which output groups of the top-level targets to build. If omitted, a default "
+              + "set of output groups are built. When specified the default set is overridden. "
+              + "However you may use --output_groups=+<output_group> or "
+              + "--output_groups=-<output_group> to instead modify the set of output groups.")
   public List<String> outputGroups;
 
   @Option(
@@ -252,7 +251,7 @@ public class BuildRequestOptions extends OptionsBase {
       name = "experimental_multi_cpu",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -287,19 +286,18 @@ public class BuildRequestOptions extends OptionsBase {
   public CacheBuilderSpec directoryCreationCacheSpec;
 
   @Option(
-    name = "aspects",
-    converter = Converters.CommaSeparatedOptionListConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    allowMultiple = true,
-    help =
-        "Comma-separated list of aspects to be applied to top-level targets. All aspects "
-            + "are applied to all top-level targets independently. Aspects are specified in "
-            + "the form <bzl-file-label>%<aspect_name>, "
-            + "for example '//tools:my_def.bzl%my_aspect', where 'my_aspect' is a top-level "
-            + "value from from a file tools/my_def.bzl"
-  )
+      name = "aspects",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Comma-separated list of aspects to be applied to top-level targets. All aspects "
+              + "are applied to all top-level targets independently. Aspects are specified in "
+              + "the form <bzl-file-label>%<aspect_name>, "
+              + "for example '//tools:my_def.bzl%my_aspect', where 'my_aspect' is a top-level "
+              + "value from from a file tools/my_def.bzl")
   public List<String> aspects;
 
   public BuildRequestOptions() throws OptionsParsingException {}
@@ -464,6 +462,27 @@ public class BuildRequestOptions extends OptionsBase {
           "If set, build will read patterns from the file named here, rather than on the command "
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
+
+  /** Converter for filesystem value checker threads. */
+  public static class ThreadConverter extends ResourceConverter {
+    public ThreadConverter() {
+      super(
+          /* autoSupplier= */ () ->
+              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
+          /* minValue= */ 1,
+          /* maxValue= */ Integer.MAX_VALUE);
+    }
+  }
+
+  @Option(
+      name = "experimental_fsvc_threads",
+      defaultValue = "200",
+      converter = ThreadConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "The number of threads that are used by the FileSystemValueChecker.")
+  public int fsvcThreads;
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

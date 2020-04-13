@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.FileType;
  *
  * <p>This class exposes a unified view over both the legacy and modern Python providers.
  */
+// TODO(b/153363654): Delete this class, go directly through PyInfo instead.
 public class PyProviderUtils {
 
   // Disable construction.

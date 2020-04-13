@@ -152,13 +152,13 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
     return null;
   }
 
-  /**
-   *  Returns a target this target aliases.
-   */
+  @Override
   public ConfiguredTarget getActual() {
-    return actual;
+    // This will either dereference an alias chain, or return the final ConfiguredTarget.
+    return actual.getActual();
   }
 
+  @Override
   public Label getOriginalLabel() {
     return label;
   }

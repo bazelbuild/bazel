@@ -15,9 +15,10 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
@@ -46,13 +48,15 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FileOptions;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -230,6 +234,21 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Event event = ev.getEventCollector().iterator().next();
     assertThat(event.getKind()).isEqualTo(EventKind.ERROR);
     assertThat(event.getMessage()).contains("Rule class r declared too many attributes");
+  }
+
+  @Test
+  public void testRuleClassTooLongAttributeName() throws Exception {
+    ev.setFailFast(false);
+
+    evalAndExport(
+        "def impl(ctx): return;",
+        "r = rule(impl, attrs = { '" + Strings.repeat("x", 150) + "': attr.int() })");
+
+    assertThat(ev.getEventCollector()).hasSize(1);
+    Event event = ev.getEventCollector().iterator().next();
+    assertThat(event.getKind()).isEqualTo(EventKind.ERROR);
+    assertThat(event.getMessage())
+        .matches("Attribute r\\.x{150}'s name is too long \\(150 > 128\\)");
   }
 
   @Test
@@ -729,16 +748,15 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
   }
 
-  // TODO(adonovan): rename execAndExport
   private void evalAndExport(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkThread thread = ev.getStarlarkThread();
-    StarlarkFile file =
-        EvalUtils.parseAndValidate(input, thread.getGlobals(), thread.getSemantics());
+    Module module = thread.getGlobals();
+    StarlarkFile file = EvalUtils.parseAndValidate(input, FileOptions.DEFAULT, module);
     if (!file.ok()) {
-      throw new SyntaxError(file.errors());
+      throw new SyntaxError.Exception(file.errors());
     }
-    SkylarkImportLookupFunction.execAndExport(file, FAKE_LABEL, ev.getEventHandler(), thread);
+    StarlarkImportLookupFunction.execAndExport(file, FAKE_LABEL, ev.getEventHandler(), thread);
   }
 
   @Test
@@ -832,7 +850,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testRuleBadTypeInAdd() throws Exception {
     registerDummyStarlarkFunction();
     checkEvalErrorContains(
-        "expected <String, Descriptor> type for 'attrs' but got <string, string> instead",
+        "got dict<string, string> for 'attrs', want dict<string, Attribute>",
         "rule(impl, attrs = {'a1': 'some text'})");
   }
 
@@ -1758,6 +1776,32 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testRuleAddExecGroup() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_exec_groups=true");
+    reset();
+
+    registerDummyStarlarkFunction();
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "plum = rule(",
+        "  implementation = impl,",
+        "  exec_groups = {",
+        "    'group': exec_group(",
+        "      toolchains=['//test:my_toolchain_type'],",
+        "      exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
+        "    ),",
+        "  },",
+        ")");
+    RuleClass plum = ((SkylarkRuleFunction) lookup("plum")).getRuleClass();
+    assertThat(plum.getRequiredToolchains()).isEmpty();
+    assertThat(plum.getExecGroups().get("group").getRequiredToolchains())
+        .containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
+    assertThat(plum.getExecGroups().get("group").getExecutionPlatformConstraints())
+        .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
+  }
+
+  @Test
   public void testRuleFunctionReturnsNone() throws Exception {
     scratch.file("test/rule.bzl",
         "def _impl(ctx):",
@@ -1789,5 +1833,23 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
     assertThat(lookup("p")).isEqualTo("Provider");
     assertThat(lookup("s")).isEqualTo("struct");
+  }
+
+  @Test
+  public void testCreateExecGroup() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_exec_groups=true");
+    reset();
+
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "group = exec_group(",
+        "  toolchains=['//test:my_toolchain_type'],",
+        "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
+        ")");
+    ExecGroup group = ((ExecGroup) lookup("group"));
+    assertThat(group.getRequiredToolchains())
+        .containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(group.getExecutionPlatformConstraints())
+        .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
   }
 }

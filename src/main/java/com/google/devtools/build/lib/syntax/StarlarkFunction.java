@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import javax.annotation.Nullable;
 
 /** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */

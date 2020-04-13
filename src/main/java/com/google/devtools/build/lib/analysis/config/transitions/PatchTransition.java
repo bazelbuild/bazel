@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.events.EventHandler;
 import java.util.Collections;
 import java.util.Map;
 
@@ -61,13 +62,14 @@ public interface PatchTransition extends ConfigurationTransition {
    *
    * @param options the options representing the input configuration to this transition. <b>DO NOT
    *     MODIFY THIS VARIABLE WITHOUT CLONING IT FIRST!</b>
+   * @param eventHandler
    * @return the options representing the desired post-transition configuration
    */
-  BuildOptions patch(BuildOptions options);
+  BuildOptions patch(BuildOptions options, EventHandler eventHandler);
 
   @Override
-  default Map<String, BuildOptions> apply(BuildOptions buildOptions) {
-    return Collections.singletonMap(PATCH_TRANSITION_KEY, patch(buildOptions));
+  default Map<String, BuildOptions> apply(BuildOptions buildOptions, EventHandler eventHandler) {
+    return Collections.singletonMap(PATCH_TRANSITION_KEY, patch(buildOptions, eventHandler));
   }
 
   @Override

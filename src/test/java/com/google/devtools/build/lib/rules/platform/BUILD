@@ -9,7 +9,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 TESTUTIL_SRCS = ["ToolchainTestCase.java"]
@@ -22,15 +22,32 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "testutil",
+    srcs = TESTUTIL_SRCS,
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skylark/util",
+        "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -45,31 +62,12 @@ java_test(
     ],
 )
 
-java_library(
-    name = "testutil",
-    srcs = TESTUTIL_SRCS,
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
-        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
 test_suite(
     name = "windows_tests",
     tags = [
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
@@ -77,5 +75,4 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

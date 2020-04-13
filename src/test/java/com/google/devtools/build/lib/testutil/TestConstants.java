@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CROSSTOOL_LABEL;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.packages.BuilderFactoryForTesting;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 
 /**
  * Various constants required by the tests.
@@ -89,10 +87,6 @@ public class TestConstants {
       "com.google.devtools.build.lib.bazel.rules.BazelStrategyModule";
   public static final String TEST_REAL_UNIX_FILE_SYSTEM =
       "com.google.devtools.build.lib.unix.UnixFileSystem";
-  public static final String TEST_WORKSPACE_STATUS_MODULE =
-      "com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule";
-
-  public static void processSkyframeExecutorForTesting(SkyframeExecutor skyframeExecutor) {}
 
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 
@@ -126,12 +120,6 @@ public class TestConstants {
   public static final String GENRULE_SETUP_PATH = "genrule-setup.sh";
 
   /**
-   * A list of flags required to support use of the crosstool on OSX.
-   */
-  public static final ImmutableList<String> OSX_CROSSTOOL_FLAGS =
-      ImmutableList.of();
-
-  /**
    * Flags that must be set for Bazel to work properly, if the default values are unusable for some
    * reason.
    */
@@ -143,13 +131,8 @@ public class TestConstants {
           // TODO(#7903): Remove once our own tests are migrated.
           "--incompatible_py3_is_default=false",
           "--incompatible_py2_outputs_are_suffixed=false",
-          // TODO(#7899): Remove once we flip the flag default.
-          "--incompatible_use_python_toolchains=true",
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
-
-  public static final BuilderFactoryForTesting PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING =
-      PackageFactoryBuilderFactoryForBazelUnitTests.INSTANCE;
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =

@@ -64,7 +64,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
@@ -429,7 +429,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
         .put(
             SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
-            new SkylarkImportLookupFunction(ruleClassProvider, pkgFactory))
+            new StarlarkImportLookupFunction(ruleClassProvider, pkgFactory))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
         .put(
@@ -438,7 +438,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 ruleClassProvider,
                 pkgFactory,
                 directories,
-                /*skylarkImportLookupFunctionForInlining=*/ null))
+                /*starlarkImportLookupFunctionForInlining=*/ null))
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
         .put(
@@ -450,7 +450,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 packageFunctionCache,
                 astCache,
                 /*numPackagesLoaded=*/ new AtomicInteger(0),
-                /*skylarkImportLookupFunctionForInlining=*/ null,
+                /*starlarkImportLookupFunctionForInlining=*/ null,
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.

@@ -24,10 +24,11 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -66,7 +67,8 @@ public class FunctionTransitionUtil {
   static Map<String, BuildOptions> applyAndValidate(
       BuildOptions buildOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
-      StructImpl attrObject)
+      StructImpl attrObject,
+      EventHandler eventHandler)
       throws EvalException, InterruptedException {
     // TODO(waltl): consider building this once and use it across different split
     // transitions.
@@ -76,7 +78,7 @@ public class FunctionTransitionUtil {
     ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
 
     ImmutableMap<String, Map<String, Object>> transitions =
-        starlarkTransition.evaluate(settings, attrObject);
+        starlarkTransition.evaluate(settings, attrObject, eventHandler);
     validateFunctionOutputsMatchesDeclaredOutputs(transitions.values(), starlarkTransition);
 
     for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {

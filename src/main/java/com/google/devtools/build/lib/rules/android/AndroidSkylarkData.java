@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkErrorReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataSe
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataProcessingApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -298,7 +298,9 @@ public abstract class AndroidSkylarkData
       String aaptVersionString,
       Dict<?, ?> manifestValues, // <String, String>
       Sequence<?> deps, // <ConfiguredTarget>
-      Sequence<?> noCompressExtensions) // <String>
+      Sequence<?> noCompressExtensions, // <String>
+      Sequence<?> resourceConfigurationFilters, // <String>
+      Sequence<?> densities) // <String>)
       throws InterruptedException, EvalException {
     SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
     List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
@@ -335,7 +337,11 @@ public abstract class AndroidSkylarkData
               AssetDependencies.fromProviders(
                   getProviders(depsTargets, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
               manifestValues.getContents(String.class, String.class, "manifest_values"),
-              noCompressExtensions.getContents(String.class, "nocompress_extensions"));
+              noCompressExtensions.getContents(String.class, "nocompress_extensions"),
+              ResourceFilterFactory.from(
+                  resourceConfigurationFilters.getContents(
+                      String.class, "resource_configuration_filters"),
+                  densities.getContents(String.class, "densities")));
 
       ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
       builder.putAll(getNativeInfosFrom(resourceApk, ctx.getLabel()));

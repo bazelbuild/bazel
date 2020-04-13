@@ -21,14 +21,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.Fingerprint; // TODO(adonovan): break dependency
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -83,6 +80,18 @@ public final class StarlarkThread {
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
 
   private boolean interruptible = true;
+
+  long steps; // count of logical computation steps executed so far
+
+  /**
+   * Returns the number of Starlark computation steps executed by this thread according to a
+   * small-step semantics. (Today, that means exec, eval, and assign operations executed by the
+   * tree-walking evaluator, but in future will mean byte code instructions; the two are not
+   * commensurable.)
+   */
+  public long getExecutedSteps() {
+    return steps;
+  }
 
   /**
    * Disables polling of the {@link java.lang.Thread#interrupted} flag during Starlark evaluation.
@@ -471,13 +480,6 @@ public final class StarlarkThread {
     return printHandler;
   }
 
-  /** Returns a PrintHandler that sends DEBUG events to the provided EventHandler. */
-  // TODO(adonovan): move to lib.events.Event when we reverse the dependency.
-  // For now, clients call thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(h));
-  public static PrintHandler makeDebugPrintHandler(EventHandler h) {
-    return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
-  }
-
   /** Sets the behavior of Starlark print statements executed by this thread. */
   public void setPrintHandler(PrintHandler h) {
     this.printHandler = Preconditions.checkNotNull(h);
@@ -633,7 +635,7 @@ public final class StarlarkThread {
    * Specifies a hook function to be run after each assignment at top level.
    *
    * <p>This is a short-term hack to allow us to consolidate all StarlarkFile execution in one place
-   * even while SkylarkImportLookupFunction implements the old "export" behavior, in which rules,
+   * even while StarlarkImportLookupFunction implements the old "export" behavior, in which rules,
    * aspects and providers are "exported" as soon as they are assigned, not at the end of file
    * execution.
    */

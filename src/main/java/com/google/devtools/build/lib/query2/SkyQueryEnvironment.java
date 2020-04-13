@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
@@ -104,6 +105,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -244,7 +246,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     Set<SkyKey> roots = getGraphRootsFromExpression(expr);
 
     EvaluationResult<SkyValue> result;
-    try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", logger)) {
+    try (AutoProfiler p = GoogleAutoProfilerUtils.logged("evaluation and walkable graph")) {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setNumThreads(loadingPhaseThreads)
@@ -339,13 +341,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   }
 
+  private static final Duration MIN_LOGGING = Duration.ofMillis(50);
+
   @Override
   public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     QueryExpressionMapper<Void> mapper = getQueryExpressionMapper();
     QueryExpression transformedQueryExpression;
-    try (AutoProfiler p =
-        AutoProfiler.logged(
-            "transforming query", logger, /*minTimeForLoggingInMilliseconds=*/ 50)) {
+    try (AutoProfiler p = GoogleAutoProfilerUtils.logged("transforming query", MIN_LOGGING)) {
       transformedQueryExpression = queryExpression.accept(mapper);
     }
     logger.info(

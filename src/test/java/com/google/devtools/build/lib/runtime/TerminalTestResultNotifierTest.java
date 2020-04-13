@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -63,7 +63,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void testCaseOption_allPass() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TESTCASE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TESTCASE;
     numFailedTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.PASSED;
@@ -80,7 +80,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void testCaseOption_allPassButTargetFails() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TESTCASE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TESTCASE;
     numFailedTestCases = 0;
     numUnknownTestCases = 10;
     numTotalTestCases = 10;
@@ -98,7 +98,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void testCaseOption_someFail() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TESTCASE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TESTCASE;
     numFailedTestCases = 2;
     numUnknownTestCases = 0;
     numTotalTestCases = 10;
@@ -115,7 +115,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void shortOption_someFailToBuild() throws Exception {
-    testSummaryFormat = TestSummaryFormat.SHORT;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.SHORT;
     numFailedTestCases = 0;
     int numFailedToBuildTestCases = TerminalTestResultNotifier.NUM_FAILED_TO_BUILD + 1;
     numUnknownTestCases = 0;
@@ -144,7 +144,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void testCaseOption_allFail() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TESTCASE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TESTCASE;
     numFailedTestCases = 10;
     numUnknownTestCases = 0;
     numTotalTestCases = 10;
@@ -162,7 +162,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedOption_allPass() throws Exception {
-    testSummaryFormat = TestSummaryFormat.DETAILED;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.DETAILED;
     numFailedTestCases = 0;
     numUnknownTestCases = 0;
     numTotalTestCases = 10;
@@ -180,7 +180,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedOption_allPassButTargetFails() throws Exception {
-    testSummaryFormat = TestSummaryFormat.DETAILED;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.DETAILED;
     numFailedTestCases = 0;
     numUnknownTestCases = 10;
     numTotalTestCases = 10;
@@ -198,7 +198,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedOption_someFail() throws Exception {
-    testSummaryFormat = TestSummaryFormat.DETAILED;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.DETAILED;
     numFailedTestCases = 2;
     numUnknownTestCases = 0;
     numTotalTestCases = 10;
@@ -215,7 +215,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void detailedOption_allFail() throws Exception {
-    testSummaryFormat = TestSummaryFormat.DETAILED;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.DETAILED;
     numFailedTestCases = 10;
     numUnknownTestCases = 0;
     numTotalTestCases = 10;
@@ -233,7 +233,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void shortOption_noSummaryPrinted() throws Exception {
-    testSummaryFormat = TestSummaryFormat.SHORT;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.SHORT;
     numFailedTestCases = 2;
     numUnknownTestCases = 0;
     numTotalTestCases = 10;
@@ -246,7 +246,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void terseOption_noSummaryPrinted() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TERSE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TERSE;
     numFailedTestCases = 2;
     numUnknownTestCases = 0;
     numTotalTestCases = 10;
@@ -259,7 +259,7 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void noneOption_noSummaryPrinted() throws Exception {
-    testSummaryFormat = TestSummaryFormat.NONE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.NONE;
     numFailedTestCases = 2;
     numUnknownTestCases = 0;
     numTotalTestCases = 10;

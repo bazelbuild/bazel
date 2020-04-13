@@ -117,11 +117,11 @@ public class EvaluationResult<T extends SkyValue> {
    *     the keys in {@link #errorMap}.
    */
   public <S> Collection<? extends S> keyNames() {
-    return this.<S>getNames(resultMap.keySet());
+    return EvaluationResult.<S>getNames(resultMap.keySet());
   }
 
   @SuppressWarnings("unchecked")
-  private <S> Collection<? extends S> getNames(Collection<SkyKey> keys) {
+  private static <S> Collection<? extends S> getNames(Collection<SkyKey> keys) {
     Collection<S> names = Lists.newArrayListWithCapacity(keys.size());
     for (SkyKey key : keys) {
       names.add((S) key.argument());

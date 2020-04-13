@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCountAtLeast;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
+import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -188,7 +189,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("foo/BUILD", "load(':rule.bzl', 'gen')", "gen(name = 'a')");
 
     update("//foo:a");
-    assertContainsEvent("DEBUG /workspace/foo/rule.bzl:3:3: f owner is //foo:a");
+    assertContainsEvent("DEBUG /workspace/foo/rule.bzl:3:8: f owner is //foo:a");
   }
 
   @Test
@@ -517,7 +518,7 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//java/a")));
 
     update("//java/a:a");
-    assertContainsEvent("DEBUG /workspace/java/b/rules.bzl:2:3: debug in b");
+    assertContainsEvent("DEBUG /workspace/java/b/rules.bzl:2:8: debug in b");
   }
 
   @Test
@@ -916,8 +917,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
   /**
    * Tests that rules with configurable attributes can be accessed through {@link
-   * com.google.devtools.build.lib.skyframe.PostConfiguredTargetFunction}.
-   * This is a regression test for a Bazel crash.
+   * ActionLookupConflictFindingFunction}. This is a regression test for a Bazel crash.
    */
   @Test
   public void testPostProcessedConfigurableAttributes() throws Exception {
@@ -1249,7 +1249,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     update("//foo");
     assertContainsEvent(
-        "WARNING /workspace/foo/BUILD:6:1: in deps attribute of custom_rule rule "
+        "WARNING /workspace/foo/BUILD:6:12: in deps attribute of custom_rule rule "
             + "//foo:foo: genrule rule '//foo:genlib' is unexpected here (expected java_library or "
             + "java_binary); continuing anyway");
   }
@@ -1312,7 +1312,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     update("//foo");
     assertContainsEvent(
-        "WARNING /workspace/foo/BUILD:6:1: in deps attribute of custom_rule rule "
+        "WARNING /workspace/foo/BUILD:6:12: in deps attribute of custom_rule rule "
             + "//foo:foo: genrule rule '//foo:genlib' is unexpected here; continuing anyway");
   }
 
@@ -1328,8 +1328,8 @@ public class BuildViewTest extends BuildViewTestBase {
         "print(existing_rule('bar'))");
     reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//pkg")));
     update("//pkg:foo");
-    assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:1: genrule");
-    assertContainsEvent("DEBUG /workspace/pkg/BUILD:6:1: None");
+    assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:6: genrule");
+    assertContainsEvent("DEBUG /workspace/pkg/BUILD:6:6: None");
   }
 
   @Test
@@ -1343,7 +1343,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "print(existing_rules().keys())");
     reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//pkg")));
     update("//pkg:foo");
-    assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:1: [\"foo\"]");
+    assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:6: [\"foo\"]");
   }
 
   /** Runs the same test with trimmed configurations. */

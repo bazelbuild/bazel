@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexerStep;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -198,6 +198,6 @@ public class NinjaLexerStepTest {
 
   private static NinjaLexerStep step(String text) {
     ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
-    return new NinjaLexerStep(new ByteBufferFragment(bb, 0, bb.limit()), 0);
+    return new NinjaLexerStep(new FileFragment(bb, 0, 0, bb.limit()), 0);
   }
 }

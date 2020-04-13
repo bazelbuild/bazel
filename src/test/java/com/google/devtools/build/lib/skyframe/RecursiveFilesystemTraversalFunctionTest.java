@@ -22,8 +22,8 @@ import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversa
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.regularFile;
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.symlinkToDirectory;
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.symlinkToFile;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -173,7 +173,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fileSystem),
             directories,
-            /*skylarkImportLookupFunctionForInlining=*/ null));
+            /*starlarkImportLookupFunctionForInlining=*/ null));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     skyFunctions.put(
@@ -211,7 +211,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   private SpecialArtifact treeArtifact(String path) {
     SpecialArtifact treeArtifact =
         new SpecialArtifact(
-            ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
+            ArtifactRoot.asDerivedRoot(rootDirectory, "out"),
             PathFragment.create("out/" + path),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,
             SpecialArtifactType.TREE);
@@ -231,8 +231,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     Artifact.DerivedArtifact result =
         (Artifact.DerivedArtifact)
             ActionsTestUtil.createArtifactWithExecPath(
-                ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
-                execPath);
+                ArtifactRoot.asDerivedRoot(rootDirectory, "out"), execPath);
     result.setGeneratingActionKey(
         ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, artifacts.size()));
     artifacts.add(result);
@@ -350,7 +349,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   @SafeVarargs
-  private final void assertExpectedResolvedFilesPresent(
+  private static final void assertExpectedResolvedFilesPresent(
       Map<PathFragment, ResolvedFile> nameToActualResolvedFiles,
       ResolvedFile... expectedFilesIgnoringMetadata)
       throws Exception {
@@ -448,9 +447,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
   }
 
-  private void assertTraversalRootHashesAre(
+  private static void assertTraversalRootHashesAre(
       boolean equal, RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b)
-          throws Exception {
+      throws Exception {
     if (equal) {
       assertThat(a.getResolvedRoot().get().hashCode())
           .isEqualTo(b.getResolvedRoot().get().hashCode());
@@ -460,12 +459,12 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
   }
 
-  private void assertTraversalRootHashesAreEqual(
+  private static void assertTraversalRootHashesAreEqual(
       RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) throws Exception {
     assertTraversalRootHashesAre(true, a, b);
   }
 
-  private void assertTraversalRootHashesAreNotEqual(
+  private static void assertTraversalRootHashesAreNotEqual(
       RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) throws Exception {
     assertTraversalRootHashesAre(false, a, b);
   }

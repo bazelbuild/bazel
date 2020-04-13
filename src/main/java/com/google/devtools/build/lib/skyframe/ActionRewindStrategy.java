@@ -360,8 +360,7 @@ public class ActionRewindStrategy {
       for (ActionLookupData actionLookupData : newlyDiscoveredActions) {
         Action additionalAction =
             checkNotNull(
-                ActionExecutionFunction.getActionForLookupData(env, actionLookupData),
-                actionLookupData);
+                ActionUtils.getActionForLookupData(env, actionLookupData), actionLookupData);
         additionalActionsToRestart.add(additionalAction);
         uncheckedActions.add(ActionAndLookupData.create(actionLookupData, additionalAction));
       }
@@ -500,7 +499,7 @@ public class ActionRewindStrategy {
     Map<ActionLookupData, Action> actions =
         Maps.newHashMapWithExpectedSize(actionExecutionDeps.size());
     for (ActionLookupData dep : actionExecutionDeps) {
-      actions.put(dep, checkNotNull(ActionExecutionFunction.getActionForLookupData(env, dep)));
+      actions.put(dep, checkNotNull(ActionUtils.getActionForLookupData(env, dep)));
     }
     return actions;
   }

@@ -417,10 +417,8 @@ public class ConfiguredTargetQueryEnvironment
    */
   @Override
   public Label getCorrectLabel(ConfiguredTarget target) {
-    if (target instanceof AliasConfiguredTarget) {
-      return ((AliasConfiguredTarget) target).getOriginalLabel();
-    }
-    return target.getLabel();
+    // Dereference any aliases that might be present.
+    return target.getOriginalLabel();
   }
 
   @Nullable

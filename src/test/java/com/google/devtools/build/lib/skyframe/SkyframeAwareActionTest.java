@@ -364,7 +364,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   /** Sanity check: ensure that a file's ctime was updated from an older value. */
-  private void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
+  private static void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
     if (oldCtime >= path.stat().getLastChangeTime()) {
       throw new IllegalStateException(String.format("path=(%s), ctime=(%d)", path, oldCtime));
     }
@@ -438,7 +438,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
 
     // Sanity check that our invalidation receiver is working correctly. We'll rely on it again.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -467,7 +468,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
 
     if (expectActionIs.dirtied()) {
       assertThat(progressReceiver.wasInvalidated(actionKey)).isTrue();
@@ -498,7 +500,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     return RootedPath.toRootedPath(Root.fromPath(rootDirectory), PathFragment.create("action.dep"));
   }
 
-  private void appendToFile(Path path) throws Exception {
+  private static void appendToFile(Path path) throws Exception {
     try (OutputStream stm = path.getOutputStream(/*append=*/ true)) {
       stm.write("blah".getBytes(StandardCharsets.UTF_8));
     }
@@ -880,6 +882,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
   }
 }

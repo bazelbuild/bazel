@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -100,17 +99,10 @@ public abstract class Util {
   private static void addLabelsAndConfigs(
       Set<ConfiguredTargetKey> set, List<ConfiguredTargetAndData> deps) {
     for (ConfiguredTargetAndData dep : deps) {
-      // This must be done because {@link AliasConfiguredTarget#getLabel} returns the label of the
-      // "actual" configured target instead of the alias.
-      if (dep.getConfiguredTarget() instanceof AliasConfiguredTarget) {
-        set.add(
-            ConfiguredTargetKey.of(
-                ((AliasConfiguredTarget) dep.getConfiguredTarget()).getOriginalLabel(),
-                dep.getConfiguration()));
-      } else {
-        set.add(
-            ConfiguredTargetKey.of(dep.getConfiguredTarget().getLabel(), dep.getConfiguration()));
-      }
+      set.add(
+          ConfiguredTargetKey.of(
+              // Dereference any aliases that might be present.
+              dep.getConfiguredTarget().getOriginalLabel(), dep.getConfiguration()));
     }
   }
 }

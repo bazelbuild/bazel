@@ -57,7 +57,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
   }
 
   private static ConfigurationId toId(BuildConfiguration config) {
-    return config == null ? null : config.getEventId().asStreamProto().getConfiguration();
+    return config == null ? null : config.getEventId().getConfiguration();
   }
 
   @Test

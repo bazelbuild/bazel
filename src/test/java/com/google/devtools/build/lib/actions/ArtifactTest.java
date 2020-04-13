@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -58,18 +58,17 @@ public class ArtifactTest {
   public final void setRootDir() throws Exception  {
     scratch = new Scratch();
     execDir = scratch.dir("/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execDir, scratch.dir("/exec/root"));
+    rootDir = ArtifactRoot.asDerivedRoot(execDir, "root");
   }
 
   @Test
   public void testConstruction_badRootDir() throws IOException {
     Path f1 = scratch.file("/exec/dir/file.ext");
-    Path bogusDir = scratch.file("/exec/dir/bogus");
     assertThrows(
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                    ArtifactRoot.asDerivedRoot(execDir, bogusDir), f1.relativeTo(execDir))
+                    ArtifactRoot.asDerivedRoot(execDir, "bogus"), f1.relativeTo(execDir))
                 .getRootRelativePath());
   }
 
@@ -230,9 +229,7 @@ public class ArtifactTest {
   @Test
   public void testToDetailString() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/execroot/workspace");
-    Artifact a =
-        ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/execroot/workspace/b")), "c");
+    Artifact a = ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, "b"), "c");
     assertThat(a.toDetailString()).isEqualTo("[[<execution_root>]b]c");
   }
 
@@ -243,8 +240,7 @@ public class ArtifactTest {
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                    ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/a")),
-                    PathFragment.create("c"))
+                    ArtifactRoot.asDerivedRoot(execRoot, "a"), PathFragment.create("c"))
                 .getRootRelativePath());
   }
 
@@ -254,7 +250,7 @@ public class ArtifactTest {
         (Artifact.DerivedArtifact) ActionsTestUtil.createArtifact(rootDir, "src/a");
     artifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     ArtifactRoot anotherRoot =
-        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), scratch.dir("/src"));
+        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), "src");
     Artifact.DerivedArtifact anotherArtifact =
         new Artifact.DerivedArtifact(
             anotherRoot,
@@ -263,6 +259,8 @@ public class ArtifactTest {
     anotherArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     new SerializationTester(artifact, anotherArtifact)
         .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(
+            Root.RootCodecDependencies.class, new Root.RootCodecDependencies(anotherRoot.getRoot()))
         .runTests();
   }
 
@@ -282,9 +280,13 @@ public class ArtifactTest {
                 .addReferenceConstant(scratch.getFileSystem())
                 .setAllowDefaultCodec(true)
                 .build(),
-            ImmutableMap.of(
-                FileSystem.class, scratch.getFileSystem(),
-                ArtifactResolverSupplier.class, artifactResolverSupplierForTest));
+            ImmutableMap.<Class<?>, Object>builder()
+                .put(FileSystem.class, scratch.getFileSystem())
+                .put(ArtifactResolverSupplier.class, artifactResolverSupplierForTest)
+                .put(
+                    Root.RootCodecDependencies.class,
+                    new Root.RootCodecDependencies(artifactRoot.getRoot()))
+                .build());
 
     PathFragment pathFragment = PathFragment.create("src/foo.cc");
     ArtifactOwner owner = new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"));
@@ -339,8 +341,7 @@ public class ArtifactTest {
         .isTrue();
     assertThat(
             ActionsTestUtil.createArtifact(
-                    ArtifactRoot.asDerivedRoot(
-                        scratch.dir("/genfiles"), scratch.dir("/genfiles/aaa")),
+                    ArtifactRoot.asDerivedRoot(scratch.dir("/genfiles"), "aaa"),
                     scratch.file("/genfiles/aaa/bar.out"))
                 .isSourceArtifact())
         .isFalse();
@@ -349,7 +350,7 @@ public class ArtifactTest {
   @Test
   public void testGetRoot() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/newRoot"));
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, "newRoot");
     assertThat(ActionsTestUtil.createArtifact(root, scratch.file("/newRoot/foo")).getRoot())
         .isEqualTo(root);
   }
@@ -357,7 +358,7 @@ public class ArtifactTest {
   @Test
   public void hashCodeAndEquals() throws IOException {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/newRoot"));
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, "newRoot");
     ActionLookupValue.ActionLookupKey firstOwner =
         new ActionLookupValue.ActionLookupKey() {
           @Override
@@ -411,9 +412,9 @@ public class ArtifactTest {
   }
 
   @Test
-  public void canDeclareContentBasedOutput() throws Exception {
+  public void canDeclareContentBasedOutput() {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/newRoot"));
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, "newRoot");
     assertThat(
             new Artifact.DerivedArtifact(
                     root,

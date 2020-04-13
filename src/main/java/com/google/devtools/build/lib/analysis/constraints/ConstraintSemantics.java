@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndLocation;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -366,7 +366,7 @@ public class ConstraintSemantics {
   public static EnvironmentGroup getEnvironmentGroup(Target envTarget)
       throws EnvironmentLookupException {
     if (!(envTarget instanceof Rule)
-        || !((Rule) envTarget).getRuleClass().equals(EnvironmentRule.RULE_NAME)) {
+        || !((Rule) envTarget).getRuleClass().equals(ConstraintConstants.ENVIRONMENT_RULE)) {
       throw new EnvironmentLookupException(
           envTarget.getLabel() + " is not a valid environment definition");
     }
@@ -877,8 +877,8 @@ public class ConstraintSemantics {
           // while dep.getLabel() refers to the target the alias points to. So add this quick check
           // to make sure we're comparing the same labels.
           Label depLabelInSelect =
-              (dep instanceof AliasConfiguredTarget)
-                  ? ((AliasConfiguredTarget) dep).getOriginalLabel()
+              (dep instanceof ConfiguredTarget)
+                  ? ((ConfiguredTarget) dep).getOriginalLabel()
                   : dep.getLabel();
           if (!selectOnlyDepsForThisAttribute.contains(depLabelInSelect)) {
             depsOutsideSelects.add(dep);

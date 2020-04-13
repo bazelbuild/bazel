@@ -49,7 +49,7 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
   }
 
   @Override
-  public void onLoadingComplete(
+  public void onLoadingCompleteAndSuccessful(
       Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
     sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
   }

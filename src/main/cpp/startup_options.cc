@@ -132,8 +132,6 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("deep_execroot", &deep_execroot);
   RegisterNullaryStartupFlag("expand_configs_in_place",
                              &expand_configs_in_place);
-  RegisterNullaryStartupFlag("experimental_oom_more_eagerly",
-                             &oom_more_eagerly);
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions",
                              &fatal_event_bus_exceptions);
   RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
@@ -149,7 +147,6 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
-  RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
   RegisterUnaryStartupFlag("server_javabase");
   RegisterUnaryStartupFlag("host_jvm_args");
   RegisterUnaryStartupFlag("host_jvm_profile");
@@ -161,6 +158,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("output_base");
   RegisterUnaryStartupFlag("output_user_root");
   RegisterUnaryStartupFlag("server_jvm_out");
+  RegisterUnaryStartupFlag("failure_detail_out");
 }
 
 StartupOptions::~StartupOptions() {}
@@ -182,21 +180,24 @@ bool StartupOptions::IsUnary(const string &arg) const {
   }
 }
 
-bool StartupOptions::IsNullary(const string &arg) const {
+bool StartupOptions::MaybeCheckValidNullary(const string &arg, bool *result,
+                                            std::string *error) const {
   std::string::size_type i = arg.find_first_of('=');
   if (i == std::string::npos) {
-    return all_nullary_startup_flags_.find(arg) !=
-           all_nullary_startup_flags_.end();
-  } else {
-    std::string f = arg.substr(0, i);
-    if (all_nullary_startup_flags_.find(f) !=
-        all_nullary_startup_flags_.end()) {
-      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
-          << "In argument '" << arg << "': option '" << f
-          << "' does not take a value.";
-    }
-    return false;
+    *result = all_nullary_startup_flags_.find(arg) !=
+              all_nullary_startup_flags_.end();
+    return true;
   }
+  std::string f = arg.substr(0, i);
+  if (all_nullary_startup_flags_.find(f) == all_nullary_startup_flags_.end()) {
+    *result = false;
+    return true;
+  }
+
+  blaze_util::StringPrintf(
+      error, "In argument '%s': option '%s' does not take a value.",
+      arg.c_str(), f.c_str());
+  return false;
 }
 
 void StartupOptions::AddExtraOptions(vector<string> *result) const {
@@ -217,7 +218,13 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   const char* next_arg = next_argstr.empty() ? NULL : next_argstr.c_str();
   const char* value = NULL;
 
-  if (IsNullary(argstr)) {
+  bool is_nullary;
+  if (!MaybeCheckValidNullary(argstr, &is_nullary, error)) {
+    *is_space_separated = false;
+    return blaze_exit_code::BAD_ARGV;
+  }
+
+  if (is_nullary) {
     // 'enabled' is true if 'argstr' is "--foo", and false if it's "--nofoo".
     bool enabled = (argstr.compare(0, 4, "--no") != 0);
     if (no_rc_nullary_startup_flags_.find(argstr) !=
@@ -266,6 +273,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
                                      "--server_jvm_out")) != NULL) {
     server_jvm_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["server_jvm_out"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--failure_detail_out")) !=
+             NULL) {
+    failure_detail_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    option_sources["failure_detail_out"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
              NULL) {
     host_jvm_profile = value;
@@ -330,19 +341,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["macos_qos_class"] = rcfile;
-  } else if ((value = GetUnaryOption(
-                  arg, next_arg,
-                  "--experimental_oom_more_eagerly_threshold")) != NULL) {
-    if (!blaze_util::safe_strto32(value, &oom_more_eagerly_threshold) ||
-        oom_more_eagerly_threshold < 0) {
-      blaze_util::StringPrintf(error,
-                               "Invalid argument to "
-                               "--experimental_oom_more_eagerly_threshold: "
-                               "'%s'.",
-                               value);
-      return blaze_exit_code::BAD_ARGV;
-    }
-    option_sources["experimental_oom_more_eagerly_threshold"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||

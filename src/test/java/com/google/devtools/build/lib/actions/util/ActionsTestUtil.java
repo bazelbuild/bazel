@@ -167,7 +167,7 @@ public final class ActionsTestUtil {
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.NO_CALLBACKS);
+        NestedSetExpander.DEFAULT);
   }
 
   public static ActionExecutionContext createContext(ExtendedEventHandler eventHandler) {
@@ -186,7 +186,7 @@ public final class ActionsTestUtil {
         createDummyArtifactExpander(),
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.NO_CALLBACKS);
+        NestedSetExpander.DEFAULT);
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(
@@ -255,6 +255,11 @@ public final class ActionsTestUtil {
         assertThat(output.getExecPathString()).doesNotMatch(endPattern);
       }
     }
+  }
+
+  public static ArtifactRoot createArtifactRootFromTwoPaths(Path root, Path execPath) {
+    return ArtifactRoot.asDerivedRoot(
+        root, execPath.relativeTo(root).getSegments().toArray(new String[0]));
   }
 
   /**

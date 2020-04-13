@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
@@ -76,6 +77,7 @@ public class IncludeScanningModule extends BlazeModule {
   private final MutableSupplier<SpawnIncludeScanner> spawnIncludeScannerSupplier =
       new MutableSupplier<>();
   private final MutableSupplier<ArtifactFactory> artifactFactory = new MutableSupplier<>();
+  private IncludeScannerLifecycleManager lifecycleManager;
 
   protected PathFragment getIncludeHintsFilename() {
     return INCLUDE_HINTS_FILENAME;
@@ -83,18 +85,26 @@ public class IncludeScanningModule extends BlazeModule {
 
   @Override
   @ThreadHostile
+  public void registerActionContexts(
+      ModuleActionContextRegistry.Builder registryBuilder,
+      CommandEnvironment env,
+      BuildRequest buildRequest) {
+    registryBuilder
+        .register(CppIncludeExtractionContext.class, new CppIncludeExtractionContextImpl(env))
+        .register(SwigIncludeScanningContext.class, lifecycleManager.getSwigActionContext())
+        .register(CppIncludeScanningContext.class, lifecycleManager.getCppActionContext());
+    registryBuilder
+        .restrictTo(CppIncludeExtractionContext.class, "")
+        .restrictTo(SwigIncludeScanningContext.class, "")
+        .restrictTo(CppIncludeScanningContext.class, "");
+  }
+
+  @Override
+  @ThreadHostile
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    IncludeScannerLifecycleManager lifecycleManager =
+    lifecycleManager =
         new IncludeScannerLifecycleManager(env, request, spawnIncludeScannerSupplier);
-    builder
-        .addExecutorLifecycleListener(lifecycleManager)
-        .addActionContext(
-            CppIncludeExtractionContext.class, new CppIncludeExtractionContextImpl(env))
-        .addActionContext(SwigIncludeScanningContext.class, lifecycleManager.getSwigActionContext())
-        .addActionContext(CppIncludeScanningContext.class, lifecycleManager.getCppActionContext())
-        .addStrategyByContext(CppIncludeExtractionContext.class, "")
-        .addStrategyByContext(SwigIncludeScanningContext.class, "")
-        .addStrategyByContext(CppIncludeScanningContext.class, "");
+    builder.addExecutorLifecycleListener(lifecycleManager);
   }
 
   @Override
@@ -113,6 +123,7 @@ public class IncludeScanningModule extends BlazeModule {
   public void afterCommand() {
     spawnIncludeScannerSupplier.set(null);
     artifactFactory.set(null);
+    lifecycleManager = null;
   }
 
   @Override

@@ -67,8 +67,6 @@ import javax.annotation.Nullable;
 /** A helper class for analyzing a Python configured target. */
 public final class PyCommon {
 
-  /** Deprecated name of the version attribute. */
-  public static final String DEFAULT_PYTHON_VERSION_ATTRIBUTE = "default_python_version";
   /** Name of the version attribute. */
   public static final String PYTHON_VERSION_ATTRIBUTE = "python_version";
 
@@ -85,32 +83,22 @@ public final class PyCommon {
       ImmutableList.of("py_library", "py_binary", "py_test", "py_runtime");
 
   /**
-   * Returns the Python version based on the {@code python_version} and {@code
-   * default_python_version} attributes of the given {@code AttributeMap}.
+   * Returns the Python version based on the {@code python_version} attribute of the given {@code
+   * AttributeMap}.
    *
-   * <p>It is expected that both attributes are defined, string-typed, and default to {@link
+   * <p>It is expected that the attribute is defined, string-typed, and defaults to {@link
    * PythonVersion#_INTERNAL_SENTINEL}. The returned version is the value of {@code python_version}
-   * if it is not the sentinel, then {@code default_python_version} if it is not the sentinel,
-   * otherwise null (when both attributes are sentinels). In all cases the return value is either a
-   * target version value ({@code PY2} or {@code PY3}) or null.
+   * if it is not the sentinel (in which case it is either {@code PY2} or {@code PY3}), or null if
+   * it is the sentinel.
    *
-   * @throws IllegalArgumentException if the attributes are not present, not string-typed, or not
-   *     parsable as target {@link PythonVersion} values or as the sentinel value
+   * @throws IllegalArgumentException if the attribute is not present, not string-typed, or not
+   *     parsable as a target {@link PythonVersion} value or the sentinel value
    */
   @Nullable
-  public static PythonVersion readPythonVersionFromAttributes(AttributeMap attrs) {
+  public static PythonVersion readPythonVersionFromAttribute(AttributeMap attrs) {
     PythonVersion pythonVersionAttr =
         PythonVersion.parseTargetOrSentinelValue(attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING));
-    PythonVersion defaultPythonVersionAttr =
-        PythonVersion.parseTargetOrSentinelValue(
-            attrs.get(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING));
-    if (pythonVersionAttr != PythonVersion._INTERNAL_SENTINEL) {
-      return pythonVersionAttr;
-    } else if (defaultPythonVersionAttr != PythonVersion._INTERNAL_SENTINEL) {
-      return defaultPythonVersionAttr;
-    } else {
-      return null;
-    }
+    return pythonVersionAttr != PythonVersion._INTERNAL_SENTINEL ? pythonVersionAttr : null;
   }
 
   private static final LocalMetadataCollector METADATA_COLLECTOR = new LocalMetadataCollector() {
@@ -216,10 +204,7 @@ public final class PyCommon {
     this.hasPy3OnlySources = initHasPy3OnlySources(ruleContext, this.sourcesVersion);
     this.runtimeFromToolchain = initRuntimeFromToolchain(ruleContext, this.version);
     this.convertedFiles = makeAndInitConvertedFiles(ruleContext, version, this.sourcesVersion);
-    maybeValidateVersionCompatibleWithOwnSourcesAttr();
-    validateTargetPythonVersionAttr(DEFAULT_PYTHON_VERSION_ATTRIBUTE);
-    validateTargetPythonVersionAttr(PYTHON_VERSION_ATTRIBUTE);
-    validateOldVersionAttrNotUsedIfDisabled();
+    validatePythonVersionAttr();
     validateLegacyProviderNotUsedIfDisabled();
     maybeValidateLoadedFromBzl();
   }
@@ -493,6 +478,9 @@ public final class PyCommon {
   /**
    * If 2to3 conversion is to be done, creates the 2to3 actions and returns the map of converted
    * files; otherwise returns null.
+   *
+   * <p>May also return null and report a rule error if there is a problem creating an output file
+   * for 2to3 conversion.
    */
   // TODO(#1393): 2to3 conversion doesn't work in Bazel and the attempt to invoke it for Bazel
   // should be removed / factored away into PythonSemantics.
@@ -512,85 +500,24 @@ public final class PyCommon {
   }
 
   /**
-   * Under the old version semantics ({@code
-   * --incompatible_allow_python_version_transitions=false}), checks that the {@code srcs_version}
-   * attribute is compatible with the Python version as determined by the configuration.
-   *
-   * <p>A failure is reported as a rule error.
-   *
-   * <p>This check is local to the current target and intended to be enforced by each {@code
-   * py_library} up the dependency chain.
-   *
-   * <p>No-op under the new version semantics.
-   */
-  private void maybeValidateVersionCompatibleWithOwnSourcesAttr() {
-    if (ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
-      return;
-    }
-    // Treat PY3 as PY3ONLY: we'll never implement 3to2.
-    if ((version == PythonVersion.PY2 || version == PythonVersion.PY2AND3)
-        && (sourcesVersion == PythonVersion.PY3 || sourcesVersion == PythonVersion.PY3ONLY)) {
-      ruleContext.ruleError(
-          "Rule '"
-              + ruleContext.getLabel()
-              + "' can only be used with Python 3, and cannot be converted to Python 2");
-    }
-    if ((version == PythonVersion.PY3 || version == PythonVersion.PY2AND3)
-        && sourcesVersion == PythonVersion.PY2ONLY) {
-      ruleContext.ruleError(
-          "Rule '"
-              + ruleContext.getLabel()
-              + "' can only be used with Python 2, and cannot be converted to Python 3");
-    }
-  }
-
-  /**
-   * Reports an attribute error if the given target Python version attribute ({@code
-   * default_python_version} or {@code python_version}) cannot be parsed as {@code PY2}, {@code
+   * Reports an attribute error if {@code python_version} cannot be parsed as {@code PY2}, {@code
    * PY3}, or the sentinel value.
    *
    * <p>This *should* be enforced by rule attribute validation ({@link
    * Attribute.Builder.allowedValues}), but this check is here to fail-fast just in case.
    */
-  private void validateTargetPythonVersionAttr(String attr) {
+  private void validatePythonVersionAttr() {
     AttributeMap attrs = ruleContext.attributes();
-    if (!attrs.has(attr, Type.STRING)) {
+    if (!attrs.has(PYTHON_VERSION_ATTRIBUTE, Type.STRING)) {
       return;
     }
-    String attrValue = attrs.get(attr, Type.STRING);
+    String attrValue = attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING);
     try {
       PythonVersion.parseTargetOrSentinelValue(attrValue);
     } catch (IllegalArgumentException ex) {
       ruleContext.attributeError(
-          attr,
+          PYTHON_VERSION_ATTRIBUTE,
           String.format("'%s' is not a valid value. Expected either 'PY2' or 'PY3'", attrValue));
-    }
-  }
-
-  /**
-   * Reports an attribute error if the {@code default_python_version} attribute is set but
-   * disallowed by the configuration.
-   */
-  private void validateOldVersionAttrNotUsedIfDisabled() {
-    AttributeMap attrs = ruleContext.attributes();
-    if (!attrs.has(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING)) {
-      return;
-    }
-    PythonVersion value;
-    try {
-      value =
-          PythonVersion.parseTargetOrSentinelValue(
-              attrs.get(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING));
-    } catch (IllegalArgumentException e) {
-      // Should be reported by validateTargetPythonVersionAttr(); no action required here.
-      return;
-    }
-    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
-    if (value != PythonVersion._INTERNAL_SENTINEL && !config.oldPyVersionApiAllowed()) {
-      ruleContext.attributeError(
-          DEFAULT_PYTHON_VERSION_ATTRIBUTE,
-          "the 'default_python_version' attribute is disabled by the "
-              + "'--incompatible_remove_old_python_version_api' flag");
     }
   }
 
@@ -645,25 +572,18 @@ public final class PyCommon {
   }
 
   /**
-   * Under the new version semantics ({@code --incompatible_allow_python_version_transitions=true}),
-   * if the Python version (as determined by the configuration) is inconsistent with {@link
+   * If the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
    * the executable.
-   *
-   * <p>If the version is consistent, or if we are using the old semantics, no such action is
-   * emitted.
    *
    * <p>We use a {@code FailAction} rather than a rule error because we want to defer the error
    * until the execution phase. This way, we still get a configured target that the user can query
    * over with an aspect to find the exact transitive dependency that introduced the offending
-   * version constraint.
+   * version constraint. (See {@code <tools repo>//tools/python/srcs_version.bzl%find_requirements})
    *
    * @return true if a {@link FailAction} was created
    */
   private boolean maybeCreateFailActionDueToTransitiveSourcesVersion() {
-    if (!ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
-      return false;
-    }
     String errorTemplate =
         ruleContext.getLabel()
             + ": "
@@ -732,7 +652,7 @@ public final class PyCommon {
    * </ol>
    *
    * @throws IllegalArgumentException if there is a problem parsing the Python version from the
-   *     attributes; see {@link #readPythonVersionFromAttributes}.
+   *     attributes; see {@link #readPythonVersionFromAttribute}.
    */
   // TODO(#6443): Remove this logic and the corresponding stub script logic once we no longer have
   // the possibility of Python binaries appearing in the host configuration.
@@ -748,7 +668,7 @@ public final class PyCommon {
     }
 
     PythonVersion configVersion = config.getPythonVersion();
-    PythonVersion attrVersion = readPythonVersionFromAttributes(ruleContext.attributes());
+    PythonVersion attrVersion = readPythonVersionFromAttribute(ruleContext.attributes());
     if (attrVersion == null) {
       // Warn if the version wasn't set explicitly.
       return true;
@@ -895,10 +815,13 @@ public final class PyCommon {
     return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), "");
   }
 
-  public void addCommonTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
-
-    // Add PyInfo and/or legacy "py" struct provider.
+  /**
+   * Adds a PyInfo or legacy "py" provider.
+   *
+   * <p>This is a public method because some rules just want a PyInfo provider without the other
+   * things py_library needs.
+   */
+  public void addPyInfoProvider(RuleConfiguredTargetBuilder builder) {
     boolean createLegacyPyProvider =
         !ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider();
     PyProviderUtils.builder(createLegacyPyProvider)
@@ -908,6 +831,11 @@ public final class PyCommon {
         .setHasPy2OnlySources(hasPy2OnlySources)
         .setHasPy3OnlySources(hasPy3OnlySources)
         .buildAndAddToTarget(builder);
+  }
+
+  public void addCommonTransitiveInfoProviders(
+      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
+    addPyInfoProvider(builder);
 
     // Add PyRuntimeInfo if this is an executable rule.
     if (runtimeFromToolchain != null) {

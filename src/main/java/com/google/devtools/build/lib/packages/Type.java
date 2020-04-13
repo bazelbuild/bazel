@@ -90,11 +90,11 @@ public abstract class Type<T> {
   }
 
   /**
-   * Like {@link #convert(Object, Object, Object)}, but converts skylark {@code None}
-   * to given {@code defaultValue}.
+   * Like {@link #convert(Object, Object, Object)}, but converts Starlark {@code None} to given
+   * {@code defaultValue}.
    */
-  @Nullable public final T convertOptional(Object x,
-      String what, @Nullable Object context, T defaultValue)
+  @Nullable
+  public final T convertOptional(Object x, String what, @Nullable Object context, T defaultValue)
       throws ConversionException {
     if (EvalUtils.isNullOrNone(x)) {
       return defaultValue;
@@ -103,18 +103,20 @@ public abstract class Type<T> {
   }
 
   /**
-   * Like {@link #convert(Object, Object, Object)}, but converts skylark {@code None}
-   * to java {@code null}.
+   * Like {@link #convert(Object, Object, Object)}, but converts Starlark {@code None} to java
+   * {@code null}.
    */
-  @Nullable public final T convertOptional(Object x, String what, @Nullable Object context)
+  @Nullable
+  public final T convertOptional(Object x, String what, @Nullable Object context)
       throws ConversionException {
     return convertOptional(x, what, context, null);
   }
 
   /**
-   * Like {@link #convert(Object, Object)}, but converts skylark {@code NONE} to java {@code null}.
+   * Like {@link #convert(Object, Object)}, but converts Starlark {@code NONE} to java {@code null}.
    */
-  @Nullable public final T convertOptional(Object x, String what) throws ConversionException {
+  @Nullable
+  public final T convertOptional(Object x, String what) throws ConversionException {
     return convertOptional(x, what, null);
   }
 

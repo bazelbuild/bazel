@@ -137,15 +137,6 @@ cc_test(
     }),
 )
 
-cc_test(
-    name = "profiler_test",
-    srcs = ["profiler_test.cc"],
-    deps = [
-        "//src/main/cpp/util:profiler",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
 cc_library(
     name = "test_util",
     testonly = 1,

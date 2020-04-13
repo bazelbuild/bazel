@@ -58,7 +58,7 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
 
     // If javac errored out because of missing entries on the classpath, give it another try.
     // TODO(b/119712048): check performance impact of additional retries.
-    boolean fallback = shouldFallBack(result);
+    boolean fallback = shouldFallBack(build, result);
     if (fallback) {
       if (build.reduceClasspathMode() == ReduceClasspathMode.BAZEL_REDUCED) {
         return BlazeJavacResult.fallback();
@@ -105,7 +105,7 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     return javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
   }
 
-  private static boolean shouldFallBack(BlazeJavacResult result) {
+  private static boolean shouldFallBack(JavaLibraryBuildRequest build, BlazeJavacResult result) {
     if (result.isOk()) {
       return false;
     }
@@ -113,6 +113,11 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
       return true;
     }
     if (result.output().contains("com.sun.tools.javac.code.Symbol$CompletionFailure")) {
+      return true;
+    }
+    if (!build.getProcessors().isEmpty()) {
+      // If annotation processing is enabled, we have no idea whether or not reduced classpaths are
+      // implicated in any errors we see, so always fall back on failing builds.
       return true;
     }
     return false;

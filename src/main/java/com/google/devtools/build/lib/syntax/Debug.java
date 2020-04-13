@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.Location;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Debugger API. */

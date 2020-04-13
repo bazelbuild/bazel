@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -123,6 +124,54 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.directories = directories;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+  }
+
+  public static RepositoryDirectoryValue.Builder symlink(
+      Path source, PathFragment destination, String userDefinedPath, Environment env)
+      throws RepositoryFunctionException, InterruptedException {
+    try {
+      source.createSymbolicLink(destination);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              String.format(
+                  "Could not create symlink to repository \"%s\" (absolute path: \"%s\"): %s",
+                  userDefinedPath, destination, e.getMessage()),
+              e),
+          Transience.TRANSIENT);
+    }
+    FileValue repositoryValue = RepositoryFunction.getRepositoryDirectory(source, env);
+    if (repositoryValue == null) {
+      // TODO(bazel-team): If this returns null, we unnecessarily recreate the symlink above on the
+      // second execution.
+      return null;
+    }
+
+    if (!repositoryValue.isDirectory()) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              String.format(
+                  "The repository's path is \"%s\" (absolute: \"%s\") "
+                      + "but this directory does not exist.",
+                  userDefinedPath, destination)),
+          Transience.PERSISTENT);
+    }
+
+    // Check that the repository contains a WORKSPACE file.
+    // It's important to check the real path, otherwise this looks under the "external/[repo]" path
+    // and cause a Skyframe cycle in the lookup.
+    FileValue workspaceFileValue =
+        LocalRepositoryFunction.getWorkspaceFile(repositoryValue.realRootedPath(), env);
+    if (workspaceFileValue == null) {
+      return null;
+    }
+
+    if (!workspaceFileValue.exists()) {
+      throw new RepositoryFunctionException(
+          new IOException("No WORKSPACE file found in " + source), Transience.PERSISTENT);
+    }
+
+    return RepositoryDirectoryValue.builder().setPath(source);
   }
 
   private void setupRepositoryRoot(Path repoRoot) throws RepositoryFunctionException {
@@ -332,8 +381,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       PathFragment sourcePath, Environment env, Path repoRoot, String pathAttr)
       throws RepositoryFunctionException, InterruptedException {
     setupRepositoryRoot(repoRoot);
-    RepositoryDirectoryValue.Builder directoryValue =
-        LocalRepositoryFunction.symlink(repoRoot, sourcePath, pathAttr, env);
+    RepositoryDirectoryValue.Builder directoryValue = symlink(repoRoot, sourcePath, pathAttr, env);
     if (directoryValue == null) {
       return null;
     }

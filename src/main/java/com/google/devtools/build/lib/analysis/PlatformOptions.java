@@ -67,7 +67,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "extra_execution_platforms",
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       allowMultiple = true,
       effectTags = {OptionEffectTag.EXECUTION},
@@ -111,7 +111,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "extra_toolchains",
-      defaultValue = "",
+      defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       allowMultiple = true,
@@ -130,7 +130,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "toolchain_resolution_override",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -204,7 +204,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "experimental_add_exec_constraints_to_targets",
       converter = RegexFilterToLabelListConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       allowMultiple = true,

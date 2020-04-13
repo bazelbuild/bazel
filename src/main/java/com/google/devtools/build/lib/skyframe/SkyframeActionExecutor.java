@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
@@ -99,6 +98,7 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStep;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrResult;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionCallback;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -130,7 +130,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -141,6 +140,19 @@ import javax.annotation.Nullable;
  * all output artifacts were created, error reporting, etc.
  */
 public final class SkyframeActionExecutor {
+
+  static final Precomputed<ImmutableMap<ActionAnalysisMetadata, ConflictException>> BAD_ACTIONS =
+      new Precomputed<>(PrecomputedValue.Key.create("bad_actions"));
+
+  static boolean actionDependsOnBuildId(Action action) {
+    // Volatile build actions may need to execute even if none of their known inputs have changed.
+    // Depending on the build id ensures that these actions have a chance to execute.
+    // SkyframeAwareActions do not need to depend on the build id because their volatility is due to
+    // their dependence on Skyframe nodes that are not captured in the action cache. Any changes to
+    // those nodes will cause this action to be rerun, so a build id dependency is unnecessary.
+    return (action.isVolatile() && !(action instanceof SkyframeAwareAction))
+        || action instanceof NotifyOnActionCacheHit;
+  }
 
   enum ProgressEventBehavior {
     EMIT,
@@ -221,23 +233,18 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
-  private final Function<PathFragment, SourceArtifact> sourceArtifactFactory;
 
   private boolean bazelRemoteExecutionEnabled;
 
-  private final NestedSetExpander nestedSetExpander;
+  private NestedSetExpander nestedSetExpander;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
-      Supplier<ImmutableList<Root>> sourceRootSupplier,
-      Function<PathFragment, SourceArtifact> sourceArtifactFactory,
-      NestedSetExpander nestedSetExpander) {
+      Supplier<ImmutableList<Root>> sourceRootSupplier) {
     this.actionKeyContext = actionKeyContext;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
-    this.sourceArtifactFactory = sourceArtifactFactory;
-    this.nestedSetExpander = nestedSetExpander;
   }
 
   /**
@@ -487,8 +494,7 @@ public final class SkyframeActionExecutor {
         relativeOutputPath,
         sourceRootSupplier.get(),
         inputArtifactData,
-        outputArtifacts,
-        sourceArtifactFactory);
+        outputArtifacts);
   }
 
   void updateActionFileSystemContext(
@@ -523,15 +529,7 @@ public final class SkyframeActionExecutor {
    */
   @Nullable
   ActionExecutionState probeActionExecution(Action action) {
-    ActionExecutionState state =
-        buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
-    // Prior to sharing execution state between two actions, ensure that no conflict was detected.
-    // This can happen with actions owned by aspects, because unlike actions owned by configured
-    // targets, we don't proactively prune them from the graph when a conflict is detected.
-    if (state == null || badActionMap.containsKey(action)) {
-      return null;
-    }
-    return state;
+    return buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
   boolean probeCompletedAndReset(Action action) {
@@ -924,9 +922,13 @@ public final class SkyframeActionExecutor {
     return hadExecutionError && !options.getOptions(KeepGoingOption.class).keepGoing;
   }
 
-  void configure(MetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
+  public void configure(
+      MetadataProvider fileCache,
+      ActionInputPrefetcher actionInputPrefetcher,
+      NestedSetExpander nestedSetExpander) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.nestedSetExpander = nestedSetExpander;
   }
 
   /**
@@ -1273,7 +1275,7 @@ public final class SkyframeActionExecutor {
           (action instanceof IncludeScannable)
               ? ((IncludeScannable) action).getDiscoveredModules()
               : null,
-          ActionExecutionFunction.actionDependsOnBuildId(action));
+          actionDependsOnBuildId(action));
     }
 
     /** A closure to continue an asynchronously running action. */

@@ -25,11 +25,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <algorithm>
 #include <sstream>
 #include <string>
 
 #include "src/main/cpp/util/path_platform.h"
+#include "src/main/native/windows/file.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
 namespace bazel {
@@ -123,6 +125,17 @@ bool DeleteDirectoryByPath(const wchar_t* path) {
 
 static bool EndsWithExe(const wstring& s) {
   return s.size() >= 4 && _wcsnicmp(s.c_str() + s.size() - 4, L".exe", 4) == 0;
+}
+
+wstring GetWindowsLongPath(const wstring& path) {
+  std::unique_ptr<WCHAR[]> result;
+  wstring abs_path = AsAbsoluteWindowsPath(path.c_str());
+  wstring error = bazel::windows::GetLongPath(abs_path.c_str(), &result);
+  if (!error.empty()) {
+    PrintError(L"Failed to get long path for %s: %s", path.c_str(),
+               error.c_str());
+  }
+  return wstring(blaze_util::RemoveUncPrefixMaybe(result.get()));
 }
 
 wstring GetBinaryPathWithoutExtension(const wstring& binary) {

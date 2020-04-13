@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Ascii;
@@ -149,6 +149,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -298,7 +299,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setManagedDirectoriesKnowledge(getManagedDirectoriesKnowledge())
             .build();
-    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+    SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
     packageCacheOptions.showLoadingProgress = true;
@@ -521,13 +522,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Sets host and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    *
-   * TODO(juliexxia): when skylark option parsing exists, find a way to combine these parameters
+   * <p>TODO(juliexxia): when Starlark option parsing exists, find a way to combine these parameters
    * into a single parameter so skylark/native options don't have to be specified separately.
    *
    * @param skylarkOptions map of skylark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
-   *
    * @throws IllegalArgumentException
    */
   protected void useConfiguration(ImmutableMap<String, Object> skylarkOptions, String... args)
@@ -667,11 +667,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Creates and returns a rule context to use for Skylark tests that is equivalent to the one
-   * that was used to create the given configured target.
+   * Creates and returns a rule context to use for Starlark tests that is equivalent to the one that
+   * was used to create the given configured target.
    */
-  protected RuleContext getRuleContextForSkylark(ConfiguredTarget target)
-      throws Exception {
+  protected RuleContext getRuleContextForSkylark(ConfiguredTarget target) throws Exception {
     // TODO(bazel-team): we need this horrible workaround because CachingAnalysisEnvironment
     // only works with StoredErrorEventListener despite the fact it accepts the interface
     // ErrorEventListener, so it's not possible to create it with reporter.
@@ -1126,7 +1125,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void checkLoadingPhaseError(String target, String expectedErrorMessage) {
     reporter.removeHandler(failFastHandler);
-    // The error happens during the loading of the Skylark file so checkError doesn't work here
+    // The error happens during the loading of the Starlark file so checkError doesn't work here
     assertThrows(Exception.class, () -> getTarget(target));
     assertContainsEvent(expectedErrorMessage);
   }
@@ -1524,6 +1523,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return directories.getOutputPath(ruleClassProvider.getRunfilesPrefix());
   }
 
+  protected String getRelativeOutputPath() {
+    return directories.getRelativeOutputPath();
+  }
+
   /**
    * Verifies whether the rule checks the 'srcs' attribute validity.
    *
@@ -1766,7 +1769,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       try {
         return skyframeExecutor.getConfigurationForTesting(
-            reporter, fromConfig.fragmentClasses(), transition.patch(fromConfig.getOptions()));
+            reporter,
+            fromConfig.fragmentClasses(),
+            transition.patch(fromConfig.getOptions(), eventCollector));
       } catch (OptionsParsingException | InvalidConfigurationException e) {
         throw new AssertionError(e);
       }
@@ -2290,7 +2295,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           artifactExpander,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult*/ null,
-          NestedSetExpander.NO_CALLBACKS);
+          NestedSetExpander.DEFAULT);
     }
   }
 }

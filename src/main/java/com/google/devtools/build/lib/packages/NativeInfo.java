@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 
 /**

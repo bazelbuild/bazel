@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.util.stream.Collectors.joining;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -193,25 +192,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
     @SkylarkCallable(name = "string_list_dict", documented = false)
     public Map<String, List<String>> stringListDict() {
       return ImmutableMap.of("a", ImmutableList.of("b", "c"));
-    }
-
-    @SkylarkCallable(
-      name = "legacy_method",
-      documented = false,
-      parameters = {
-        @Param(name = "pos", positional = true, type = Boolean.class),
-        @Param(name = "legacyNamed", type = Boolean.class, positional = true, named = false,
-            legacyNamed = true),
-        @Param(name = "named", type = Boolean.class, positional = false, named = true),
-      })
-    public String legacyMethod(Boolean pos, Boolean legacyNamed, Boolean named) {
-      return "legacy_method("
-          + pos
-          + ", "
-          + legacyNamed
-          + ", "
-          + named
-          + ")";
     }
 
     @SkylarkCallable(
@@ -675,14 +655,16 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "  for x in xs:",
             "    if x == 1:",
             "      xs.append(10)")
-        .testIfErrorContains("trying to mutate a locked object", "foo()");
+        .testIfErrorContains(
+            "list value is temporarily immutable due to active for-loop iteration", "foo()");
   }
 
   @Test
   public void testForUpdateDict() throws Exception {
     new Scenario()
         .setUp("def foo():", "  d = {'a': 1, 'b': 2, 'c': 3}", "  for k in d:", "    d[k] *= 2")
-        .testIfErrorContains("trying to mutate a locked object", "foo()");
+        .testIfErrorContains(
+            "dict value is temporarily immutable due to active for-loop iteration", "foo()");
   }
 
   @Test
@@ -710,24 +692,8 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "      ys.append(x1 * x2)",
             "    xs.append(4)",
             "  return ys")
-        .testIfErrorContains("trying to mutate a locked object", "foo()");
-  }
-
-  @Test
-  public void testForNestedOnSameListErrorMessage() throws Exception {
-    new Scenario()
-        .setUp(
-            "def foo():",
-            "  xs = [1, 2]",
-            "  ys = []",
-            "  for x1 in xs:",
-            "    for x2 in xs:",
-            "      ys.append(x1 * x2)",
-            "      xs.append(4)",
-            "  return ys"
-            // No file name in message, due to how test is set up.
-            )
-        .testIfErrorContains("Object locked at the following location(s): :4:3, :5:5", "foo()");
+        .testIfErrorContains(
+            "list value is temporarily immutable due to active for-loop iteration", "foo()");
   }
 
   @Test
@@ -767,7 +733,8 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "  for x in xs:",
             "    zs = [None for x in xs for y in (xs.append(x) or ys)]",
             "  return ys")
-        .testIfErrorContains("trying to mutate a locked object", "foo()");
+        .testIfErrorContains(
+            "list value is temporarily immutable due to active for-loop iteration", "foo()");
   }
 
   @Test
@@ -965,7 +932,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
 
   // TODO(adonovan): move this and all tests that use it to Validation tests.
   private void assertValidationError(String expectedError, final String... lines) throws Exception {
-    SyntaxError error = assertThrows(SyntaxError.class, () -> exec(lines));
+    SyntaxError.Exception error = assertThrows(SyntaxError.Exception.class, () -> exec(lines));
     assertThat(error).hasMessageThat().contains(expectedError);
   }
 
@@ -1091,32 +1058,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
         .update("mock", new Mock())
         .setUp("m = mock.proxy_methods_object()", "b = m.with_params(1, True, named=True)")
         .testLookup("b", "with_params(1, true, false, true, false, a)");
-  }
-
-  @Test
-  public void testLegacyNamed() throws Exception {
-    new Scenario("--incompatible_restrict_named_params=false")
-        .update("mock", new Mock())
-        .setUp("b = mock.legacy_method(True, legacyNamed=True, named=True)")
-        .testLookup("b", "legacy_method(true, true, true)");
-
-    new Scenario("--incompatible_restrict_named_params=false")
-        .update("mock", new Mock())
-        .setUp("b = mock.legacy_method(True, True, named=True)")
-        .testLookup("b", "legacy_method(true, true, true)");
-
-    // Verify legacyNamed also works with proxy method objects.
-    new Scenario("--incompatible_restrict_named_params=false")
-        .update("mock", new Mock())
-        .setUp(
-            "m = mock.proxy_methods_object()",
-            "b = m.legacy_method(True, legacyNamed=True, named=True)")
-        .testLookup("b", "legacy_method(true, true, true)");
-
-    new Scenario("--incompatible_restrict_named_params=false")
-        .update("mock", new Mock())
-        .setUp("m = mock.proxy_methods_object()", "b = m.legacy_method(True, True, named=True)")
-        .testLookup("b", "legacy_method(true, true, true)");
   }
 
   /**
@@ -1472,14 +1413,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
         .update("mock", new MockClassObject())
         .setUp("v = mock.field")
         .testLookup("v", "a");
-  }
-
-  @Test
-  public void testUnionSet() throws Exception {
-    new Scenario("--incompatible_depset_union=false")
-        .testExpression("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
-        .testExpression("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
-        .testIfExactError("unsupported binary operation: int | bool", "2 | False");
   }
 
   @Test
@@ -1919,7 +1852,6 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "function",
             "interrupted_struct_field",
             "is_empty",
-            "legacy_method",
             "nullfunc_failing",
             "nullfunc_working",
             "proxy_methods_object",

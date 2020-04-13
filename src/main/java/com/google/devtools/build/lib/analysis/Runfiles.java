@@ -32,13 +32,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -744,13 +744,13 @@ public final class Runfiles implements RunfilesApi {
               (previous == null) ? "empty file" : previous.getExecPath().toString();
           String artifactStr =
               (artifact == null) ? "empty file" : artifact.getExecPath().toString();
-          String message =
-              String.format(
-                  "overwrote runfile %s, was symlink to %s, now symlink to %s",
-                  path.getSafePathString(),
-                  previousStr,
-                  artifactStr);
-          eventHandler.handle(Event.of(eventKind, location, message));
+          if (!previousStr.equals(artifactStr)) {
+            String message =
+                String.format(
+                    "overwrote runfile %s, was symlink to %s, now symlink to %s",
+                    path.getSafePathString(), previousStr, artifactStr);
+            eventHandler.handle(Event.of(eventKind, location, message));
+          }
         }
       }
       map.put(path, artifact);

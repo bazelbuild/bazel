@@ -117,10 +117,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
    */
   @VisibleForTesting
   public BlazeCommandDispatcher(BlazeRuntime runtime) {
-    this(runtime, BugReporter.defaultInstance());
+    this(runtime, runtime.getBugReporter());
   }
 
-  private BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
+  @VisibleForTesting
+  public BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
     this.runtime = runtime;
     this.bugReporter = bugReporter;
     this.commandLock = new Object();
@@ -300,17 +301,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         && commonOptions.enableProfileByDefault
         && !profileExplicitlyDisabled) {
       commonOptions.enableTracer = true;
-      if (!options.containsExplicitOption("experimental_slim_json_profile")) {
-        commonOptions.enableJsonProfileDiet = true;
-      }
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
         commonOptions.enableCpuUsageProfiling = true;
-      }
-      if (!options.containsExplicitOption("experimental_profile_action_counts")) {
-        commonOptions.enableActionCountProfile = true;
-      }
-      if (!options.containsExplicitOption("experimental_post_profile_started_event")) {
-        commonOptions.postProfileStartedEvent = true;
       }
     }
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
@@ -325,9 +317,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             env,
             execStartTimeNanos,
             waitTimeInMs);
-    if (commonOptions.postProfileStartedEvent) {
-      storedEventHandler.post(profilerStartedEvent);
-    }
+    storedEventHandler.post(profilerStartedEvent);
 
     // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
     if (!commonOptions.starlarkCpuProfile.isEmpty()) {
@@ -418,13 +408,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         env.getEventBus().register(handler);
 
         int oomMoreEagerlyThreshold = commonOptions.oomMoreEagerlyThreshold;
-        if (oomMoreEagerlyThreshold == 100) {
-          oomMoreEagerlyThreshold =
-              runtime
-                  .getStartupOptionsProvider()
-                  .getOptions(BlazeServerStartupOptions.class)
-                  .oomMoreEagerlyThreshold;
-        }
         runtime.getRetainedHeapLimiter().updateThreshold(oomMoreEagerlyThreshold);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
@@ -591,7 +574,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       BugReport.printBug(outErr, e, commonOptions.oomMessage);
       bugReporter.sendBugReport(e, args);
       logger.log(Level.SEVERE, "Shutting down due to exception", e);
-      result = BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
+      result = BlazeCommandResult.createShutdown(e);
       return result;
     } finally {
       if (!afterCommandCalled) {
@@ -687,12 +670,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsData(optionsData)
-            // for starlark options
-            .skippedPrefix("--//")
-            .skippedPrefix("--no//")
-            // for starlark options in other repos
-            .skippedPrefix("--@")
-            .skippedPrefix("--no@")
+            .skipStarlarkOptionPrefixes()
             .allowResidue(annotation.allowResidue())
             .build();
     return parser;

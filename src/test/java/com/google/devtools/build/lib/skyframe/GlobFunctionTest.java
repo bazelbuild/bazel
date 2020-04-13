@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
@@ -197,7 +197,7 @@ public abstract class GlobFunctionTest {
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fs),
             directories,
-            /*skylarkImportLookupFunctionForInlining=*/ null));
+            /*starlarkImportLookupFunctionForInlining=*/ null));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     return skyFunctions;

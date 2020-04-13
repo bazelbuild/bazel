@@ -279,7 +279,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
             "# blank line",
             "cc_library(name = 'x',",
             "           srcs = ['a.java'])");
-    assertThat(e.getLocation().toString()).isEqualTo("/workspace/x/BUILD:2:1");
+    assertThat(e.getLocation().toString()).isEqualTo("/workspace/x/BUILD:2:11");
   }
 
   @Test

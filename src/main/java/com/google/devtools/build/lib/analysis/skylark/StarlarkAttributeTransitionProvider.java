@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -102,25 +103,22 @@ public class StarlarkAttributeTransitionProvider
      *     error was encountered during transition application/validation.
      */
     @Override
-    public final Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public final Map<String, BuildOptions> split(
+        BuildOptions buildOptions, EventHandler eventHandler) {
       try {
-        return applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
+        return applyAndValidate(
+            buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        starlarkDefinedConfigTransition
-            .getEventHandler()
-            .handle(
-                Event.error(
-                    starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                    "Starlark transition interrupted during attribute transition implementation"));
+        eventHandler.handle(
+            Event.error(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                "Starlark transition interrupted during attribute transition implementation"));
         return ImmutableMap.of("error", buildOptions.clone());
       } catch (EvalException e) {
-        starlarkDefinedConfigTransition
-            .getEventHandler()
-            .handle(
-                Event.error(
-                    starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                    e.getMessage()));
+        eventHandler.handle(
+            Event.error(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(), e.getMessage()));
         return ImmutableMap.of("error", buildOptions.clone());
       }
     }

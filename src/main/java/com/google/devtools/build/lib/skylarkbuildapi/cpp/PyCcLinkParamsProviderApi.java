@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -26,9 +27,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     documented = false,
     category = SkylarkModuleCategory.PROVIDER,
     doc = "Wrapper for every C++ linking provider")
-public interface PyCcLinkParamsProviderApi extends StructApi {
+public interface PyCcLinkParamsProviderApi<FileT extends FileApi> extends StructApi {
   @SkylarkCallable(name = "cc_info", doc = "", structField = true, documented = false)
-  CcInfoApi getCcInfo();
+  CcInfoApi<FileT> getCcInfo();
 
   /** Provider for PyCcLinkParamsProvider objects. */
   @SkylarkModule(name = "Provider", doc = "", documented = false)

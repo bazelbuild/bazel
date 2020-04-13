@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -31,7 +32,7 @@ public final class ProgressEvent extends GenericBuildEvent {
   @Nullable private final String err;
 
   /** The {@link BuildEventId} of the first progress event to be reported. */
-  public static final BuildEventId INITIAL_PROGRESS_UPDATE = BuildEventId.progressId(0);
+  public static final BuildEventId INITIAL_PROGRESS_UPDATE = BuildEventIdUtil.progressId(0);
 
   private ProgressEvent(
       BuildEventId id, Collection<BuildEventId> children, String out, String err) {
@@ -54,8 +55,8 @@ public final class ProgressEvent extends GenericBuildEvent {
 
   /** Create a regular progress update with the given running number. */
   public static BuildEvent progressUpdate(int number, String out, String err) {
-    BuildEventId id = BuildEventId.progressId(number);
-    BuildEventId next = BuildEventId.progressId(number + 1);
+    BuildEventId id = BuildEventIdUtil.progressId(number);
+    BuildEventId next = BuildEventIdUtil.progressId(number + 1);
     return new ProgressEvent(id, ImmutableList.of(next), out, err);
   }
 
@@ -66,8 +67,8 @@ public final class ProgressEvent extends GenericBuildEvent {
   /** Create a progress update event also chaining in a given id. */
   public static BuildEvent progressChainIn(
       int number, BuildEventId chainIn, String out, String err) {
-    BuildEventId id = BuildEventId.progressId(number);
-    BuildEventId next = BuildEventId.progressId(number + 1);
+    BuildEventId id = BuildEventIdUtil.progressId(number);
+    BuildEventId next = BuildEventIdUtil.progressId(number + 1);
     return new ProgressEvent(id, ImmutableList.of(next, chainIn), out, err);
   }
 
@@ -81,8 +82,8 @@ public final class ProgressEvent extends GenericBuildEvent {
    */
   public static BuildEvent finalProgressUpdate(
       int number, @Nullable String out, @Nullable String err) {
-    BuildEventId id = BuildEventId.progressId(number);
-    return new ProgressEvent(id, ImmutableList.<BuildEventId>of(), out, err);
+    BuildEventId id = BuildEventIdUtil.progressId(number);
+    return new ProgressEvent(id, ImmutableList.of(), out, err);
   }
 
   public static BuildEvent finalProgressUpdate(int number) {

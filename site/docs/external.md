@@ -227,6 +227,24 @@ This mechanism can also be used to join diamonds. For example if `A` and `B`
 had the same dependency but call it by different names, those dependencies can
 be joined in myproject/WORKSPACE.
 
+## Overriding repositories from the command line
+
+To override a declared repository with a local repository from the command line,
+use the
+[`--override_repository`](command-line-reference.html#flag--override_repository)
+flag. Using this flag changes the contents of external repositories without
+changing your source code.
+
+For example, to override `@foo` to the local directory `/path/to/local/foo`,
+pass the `--override_repository=foo=/path/to/local/foo` flag.
+
+Some of the use cases include:
+
+* Debugging issues. For example, you can override a `http_archive` repository
+  to a local directory where you can make changes more easily.
+* Vendoring. If you are in an environment where you cannot make network calls,
+  override the network-based repository rules to point to local directories
+  instead.
 
 <a name="using-proxies"></a>
 ## Using proxies
@@ -307,7 +325,16 @@ bootstrap test.
 ### Repository rules
 
 Prefer [`http_archive`](repo/http.html#http_archive) to `git_repository` and
-`new_git_repository`.
+`new_git_repository`. The reasons are:
+
+* Git repository rules depend on system `git(1)` whereas the HTTP downloader is built
+  into Bazel and has no system dependencies.
+* `http_archive` supports a list of `urls` as mirrors, and `git_repository` supports only
+  a single `remote`.
+* `http_archive` works with the [repository cache](guide.html#repository-cache), but not
+  `git_repository`. See
+   [#5116](https://github.com/bazelbuild/bazel/issues/5116) for more information.
+
 
 Do not use `bind()`.  See "[Consider removing
 bind](https://github.com/bazelbuild/bazel/issues/1952)" for a long discussion of its issues and

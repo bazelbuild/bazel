@@ -99,6 +99,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   public void createFileSystem() throws IOException {
     createDirectories();
     createInputs(inputs);
+    inputs.materializeVirtualInputs(sandboxExecRoot);
   }
 
   /**

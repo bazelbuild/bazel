@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.VerifyException;
@@ -284,7 +284,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     internalTestPutOnlyEntry(ArrayListMultimap.<String, String>create());
   }
 
-  private void internalTestPutOnlyEntry(Multimap<String, String> map) throws Exception {
+  private static void internalTestPutOnlyEntry(Multimap<String, String> map) throws Exception {
     ConfigurationResolver.putOnlyEntry(map, "foo", "bar");
     ConfigurationResolver.putOnlyEntry(map, "baz", "bar");
     VerifyException e =

@@ -24,13 +24,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Provider for passing information between {@link NinjaGraphRule} and {@link NinjaBuildRule}.
- * Represents all usual and phony {@link NinjaTarget}s from the Ninja graph.
+ * Represents all regular and phony {@link NinjaTarget}s from the Ninja graph.
  */
 @Immutable
 public final class NinjaGraphProvider implements TransitiveInfoProvider {
   private final PathFragment outputRoot;
   private final PathFragment workingDirectory;
-  private final ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets;
+  private final ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap;
   private final ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargetsMap;
   private final ImmutableSortedSet<PathFragment> outputRootSymlinks;
   private final ImmutableSet<PathFragment> outputRootInputsSymlinks;
@@ -38,14 +38,14 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
   public NinjaGraphProvider(
       PathFragment outputRoot,
       PathFragment workingDirectory,
-      ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets,
+      ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap,
       ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargetsMap,
       ImmutableSortedSet<PathFragment> outputRootSymlinks,
       ImmutableSet<PathFragment> outputRootInputsSymlinks) {
 
     this.outputRoot = outputRoot;
     this.workingDirectory = workingDirectory;
-    this.usualTargets = usualTargets;
+    this.targetsMap = targetsMap;
     this.phonyTargetsMap = phonyTargetsMap;
     this.outputRootSymlinks = outputRootSymlinks;
     this.outputRootInputsSymlinks = outputRootInputsSymlinks;
@@ -59,8 +59,8 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
     return workingDirectory;
   }
 
-  public ImmutableSortedMap<PathFragment, NinjaTarget> getUsualTargets() {
-    return usualTargets;
+  public ImmutableSortedMap<PathFragment, NinjaTarget> getTargetsMap() {
+    return targetsMap;
   }
 
   public ImmutableSortedMap<PathFragment, PhonyTarget> getPhonyTargetsMap() {

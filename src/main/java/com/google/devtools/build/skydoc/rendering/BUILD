@@ -16,8 +16,8 @@ java_library(
     srcs = glob(["*.java"]),
     resources = [":template_files"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/tools/skylark/java/com/google/devtools/skylark/common",
         "//third_party:apache_velocity",

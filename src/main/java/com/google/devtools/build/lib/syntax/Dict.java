@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -90,6 +89,7 @@ public final class Dict<K, V>
         StarlarkIterable<K> {
 
   private final LinkedHashMap<K, V> contents;
+  private int iteratorCount; // number of active iterators (unused once frozen)
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
   private Mutability mutability;
@@ -119,6 +119,19 @@ public final class Dict<K, V>
   @Override
   public boolean isImmutable() {
     return mutability().isFrozen();
+  }
+
+  @Override
+  public boolean updateIteratorCount(int delta) {
+    if (mutability().isFrozen()) {
+      return false;
+    }
+    if (delta > 0) {
+      iteratorCount++;
+    } else if (delta < 0) {
+      iteratorCount--;
+    }
+    return iteratorCount > 0;
   }
 
   @Override
@@ -401,7 +414,7 @@ public final class Dict<K, V>
    * @throws EvalException if the key is invalid or the dict is frozen
    */
   public void put(K key, V value, Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     EvalUtils.checkHashable(key);
     contents.put(key, value);
   }
@@ -415,7 +428,7 @@ public final class Dict<K, V>
    */
   public <KK extends K, VV extends V> void putAll(Map<KK, VV> map, Location unused)
       throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
       EvalUtils.checkHashable(k);
@@ -432,7 +445,7 @@ public final class Dict<K, V>
    * @throws EvalException if the dict is frozen
    */
   V remove(Object key, Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     return contents.remove(key);
   }
 
@@ -449,7 +462,7 @@ public final class Dict<K, V>
    * @throws EvalException if the dict is frozen
    */
   private void clear(Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     contents.clear();
   }
 
@@ -630,7 +643,7 @@ public final class Dict<K, V>
 
   // disallowed java.util.Map update operations
 
-  // TODO(adonovan): make MutabilityException a subclass of (unchecked)
+  // TODO(adonovan): make mutability exception a subclass of (unchecked)
   // UnsupportedOperationException, allowing the primary Dict operations
   // to satisfy the Map operations below in the usual way (like ImmutableMap does).
   // Add "ForStarlark" suffix to disambiguate SkylarkCallable-annotated methods.

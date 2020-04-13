@@ -5,6 +5,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 # Description:
@@ -23,6 +24,6 @@ java_library(
     name = "events",
     srcs = ["RepositoryCacheHitEvent.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib/events",
     ],
 )

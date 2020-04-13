@@ -221,9 +221,9 @@ public final class Attribute implements Comparable<Attribute> {
     NONCONFIGURABLE,
 
     /**
-     * Whether we should skip dependency validation checks done by
-     * {@link com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator}
-     * (for visibility, etc.).
+     * Whether we should skip dependency validation checks done by {@link
+     * com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator} (for visibility,
+     * etc.).
      */
     SKIP_PREREQ_VALIDATOR_CHECKS,
 
@@ -638,7 +638,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * See value(TYPE) above. This method is only meant for Skylark usage.
+     * See value(TYPE) above. This method is only meant for Starlark usage.
      *
      * <p>The parameter {@code context} is relevant iff the default value is a Label string. In this
      * case, {@code context} must point to the parent Label in order to be able to convert the
@@ -747,8 +747,8 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Disables dependency checks done by
-     * {@link com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator}.
+     * Disables dependency checks done by {@link
+     * com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator}.
      */
     public Builder<TYPE> skipPrereqValidatorCheck() {
       return setPropertyFlag(PropertyFlag.SKIP_PREREQ_VALIDATOR_CHECKS,

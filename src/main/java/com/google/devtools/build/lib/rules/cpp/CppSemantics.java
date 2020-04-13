@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -54,5 +55,8 @@ public interface CppSemantics {
   StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep);
 
   /** No-op in Bazel */
-  void validateLayeringCheckFeatures(RuleContext ruleContext);
+  void validateLayeringCheckFeatures(
+      RuleContext ruleContext,
+      CcToolchainProvider ccToolchain,
+      ImmutableSet<String> unsupportedFeatures);
 }

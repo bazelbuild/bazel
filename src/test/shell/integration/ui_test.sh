@@ -545,11 +545,11 @@ function test_experimental_ui_attempt_to_print_relative_paths_failing_action() {
 
   bazel build --attempt_to_print_relative_paths=false \
       error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
-  expect_log "^ERROR: $(pwd)/error/BUILD:1:1: Executing genrule"
+  expect_log "^ERROR: $(pwd)/error/BUILD:1:8: Executing genrule"
 
   bazel build --attempt_to_print_relative_paths=true \
       error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
-  expect_log "^ERROR: error/BUILD:1:1: Executing genrule"
+  expect_log "^ERROR: error/BUILD:1:8: Executing genrule"
   expect_not_log "$(pwd)/error/BUILD"
 }
 

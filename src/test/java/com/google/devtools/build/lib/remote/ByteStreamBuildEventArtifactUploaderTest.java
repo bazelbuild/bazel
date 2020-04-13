@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -117,7 +117,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // on different threads than the setUp.
     prevContext = withEmptyMetadata.attach();
 
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out"));
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));

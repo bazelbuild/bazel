@@ -1,5 +1,5 @@
 # Description:
-#   This package contains interfaces representing the skylark "build API"
+#   This package contains interfaces representing the Starlark "build API"
 #   (but not the implementation of that API). Ultimately, this package
 #   may be broken out of the Bazel package hierarchy to be standalone.
 #   Thus, this package should not depend on Bazel-specific packages (only
@@ -32,6 +32,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

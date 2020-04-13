@@ -57,8 +57,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRule() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     scratch.file("build_config/input.txt", "World");
     scratch.file(
@@ -94,9 +93,9 @@ public class NinjaGraphTest extends BuildViewTestCase {
     assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
     assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
     assertThat(provider.getPhonyTargetsMap()).isEmpty();
-    assertThat(provider.getUsualTargets()).hasSize(1);
+    assertThat(provider.getTargetsMap()).hasSize(1);
 
-    NinjaTarget target = Iterables.getOnlyElement(provider.getUsualTargets().values());
+    NinjaTarget target = Iterables.getOnlyElement(provider.getTargetsMap().values());
     assertThat(target.getRuleName()).isEqualTo("echo");
     assertThat(target.getAllInputs())
         .containsExactly(PathFragment.create("build_config/input.txt"));
@@ -107,8 +106,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRuleWithPhonyTarget() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     // We do not have to have the real files in place, the rule only reads
     // the contents of Ninja files.
@@ -146,9 +144,9 @@ public class NinjaGraphTest extends BuildViewTestCase {
     assertThat(provider).isNotNull();
     assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
     assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.create("build_config"));
-    assertThat(provider.getUsualTargets()).hasSize(1);
+    assertThat(provider.getTargetsMap()).hasSize(1);
 
-    NinjaTarget target = Iterables.getOnlyElement(provider.getUsualTargets().values());
+    NinjaTarget target = Iterables.getOnlyElement(provider.getTargetsMap().values());
     assertThat(target.getRuleName()).isEqualTo("echo");
     assertThat(target.getAllInputs()).containsExactly(PathFragment.create("input.txt"));
     assertThat(target.getAllOutputs()).containsExactly(PathFragment.create("hello.txt"));
@@ -165,8 +163,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
   @Test
   public void testNinjaGraphRuleWithPhonyTree() throws Exception {
     rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+        "workspace(name = 'test')", "toplevel_output_directories(paths = ['build_config'])");
 
     // We do not have to have the real files in place, the rule only reads
     // the contents of Ninja files.

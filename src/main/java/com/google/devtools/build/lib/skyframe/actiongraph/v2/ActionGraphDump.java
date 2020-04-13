@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -134,9 +133,8 @@ public class ActionGraphDump {
       return;
     }
 
-    while (configuredTarget instanceof AliasConfiguredTarget) {
-      configuredTarget = ((AliasConfiguredTarget) configuredTarget).getActual();
-    }
+    // Dereference any aliases that might be present.
+    configuredTarget = configuredTarget.getActual();
 
     Preconditions.checkState(configuredTarget instanceof RuleConfiguredTarget);
     Pair<String, String> targetIdentifier =

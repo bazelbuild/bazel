@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -46,7 +46,8 @@ public class ErrorInfoTest {
     }
   }
 
-  private void runTestFromException(boolean isDirectlyTransient, boolean isTransitivelyTransient) {
+  private static void runTestFromException(
+      boolean isDirectlyTransient, boolean isTransitivelyTransient) {
     Exception exception = new IOException("ehhhhh");
     SkyKey causeOfException = GraphTester.toSkyKey("CAUSE, 1234");
     DummySkyFunctionException dummyException =

@@ -40,6 +40,19 @@ public interface AqueryOutputHandler {
     public String formatName() {
       return formatName;
     }
+
+    public static OutputType fromString(String string) {
+      switch (string) {
+        case "proto":
+          return BINARY;
+        case "textproto":
+          return TEXT;
+        case "jsonproto":
+          return JSON;
+        default:
+          throw new IllegalArgumentException("Unsupported format type: " + string);
+      }
+    }
   }
 
   void outputArtifact(Artifact message) throws IOException;

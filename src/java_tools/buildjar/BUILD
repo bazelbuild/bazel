@@ -14,7 +14,7 @@ filegroup(
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/buildjar:srcs",
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:srcs",
     ],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 package_group(

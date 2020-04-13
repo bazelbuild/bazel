@@ -107,8 +107,8 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
-import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfoApiProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoModule;
+import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfo.FakeProtoInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyInfo.FakePyInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyRuntimeInfo.FakePyRuntimeInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyStarlarkTransitions;
@@ -190,7 +190,6 @@ public class SkydocMain {
             .build();
     parser.parseAndExitUponError(args);
     StarlarkSemanticsOptions semanticsOptions = parser.getOptions(StarlarkSemanticsOptions.class);
-    semanticsOptions.incompatibleDepsetUnion = false;
     semanticsOptions.incompatibleDisableDeprecatedAttrParams = false;
     semanticsOptions.incompatibleNewActionsApi = false;
     SkydocOptions skydocOptions = parser.getOptions(SkydocOptions.class);
@@ -581,8 +580,8 @@ public class SkydocMain {
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     ProtoBootstrap protoBootstrap =
         new ProtoBootstrap(
-            new FakeProtoInfoApiProvider(),
-            new FakeProtoModule(),
+            new FakeProtoInfoProvider(),
+            new FakeProtoCommon(),
             new SkylarkAspectStub(),
             new ProviderStub());
     PyBootstrap pyBootstrap =

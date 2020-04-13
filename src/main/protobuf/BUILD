@@ -8,13 +8,6 @@ load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(
-    ["execution_statitics.proto"],
-    visibility = [
-        "//src/test/shell/integration:process_wrapper_test",
-    ],
-)
-
 FILES = [
     "action_cache",
     "android_deploy_info",
@@ -256,6 +249,27 @@ java_library_srcs(
     deps = [":remote_execution_log_java_proto"],
 )
 
+proto_library(
+    name = "xcode_proto",
+    srcs = ["xcode_config.proto"],
+    visibility = ["//visibility:public"],
+)
+
+java_proto_library(
+    name = "xcode_java_proto",
+    deps = [":xcode_proto"],
+)
+
+cc_proto_library(
+    name = "xcode_cc_proto",
+    deps = [":xcode_proto"],
+)
+
+java_library_srcs(
+    name = "xcode_java_proto_srcs",
+    deps = [":xcode_java_proto"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -273,5 +287,6 @@ filegroup(
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
+        ":xcode_java_proto_srcs",
     ],
 )

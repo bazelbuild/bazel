@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -46,7 +46,7 @@ public class NoOutputActionTest extends BuildIntegrationTestCase {
         assertThrows(BuildFailedException.class, () -> buildTarget("//nooutput"));
     assertThat(e)
         .hasMessageThat()
-        .contains("nooutput/BUILD:1:1 not all outputs were created or valid");
+        .contains("nooutput/BUILD:1:8 not all outputs were created or valid");
     events.assertContainsError("declared output 'nooutput/out1' was not created by genrule");
     events.assertContainsError("declared output 'nooutput/out2' was not created by genrule");
   }

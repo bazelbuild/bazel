@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -355,6 +356,10 @@ public final class CcToolchainRule implements RuleDefinition {
                 .allowedFileTypes()
                 .mandatoryProviders(CcToolchainConfigInfo.PROVIDER.id())
                 .mandatory())
+        .add(
+            Whitelist.getAttributeFromWhitelistName(
+                    CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_WHITELIST)
+                .value(CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_LABEL))
         .build();
   }
 

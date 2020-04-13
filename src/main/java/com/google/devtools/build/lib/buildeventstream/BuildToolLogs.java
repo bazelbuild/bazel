@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -52,7 +53,7 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.buildToolLogs();
+    return BuildEventIdUtil.buildToolLogs();
   }
 
   @Override
@@ -120,7 +121,7 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
 
   @Override
   public Collection<BuildEventId> postedAfter() {
-    return ImmutableList.of(BuildEventId.buildFinished());
+    return ImmutableList.of(BuildEventIdUtil.buildFinished());
   }
 
   /** A local log file. */

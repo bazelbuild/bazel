@@ -59,9 +59,7 @@ import javax.annotation.Nullable;
             + " simulate one using a dictionary where all keys map to <code>True</code>."
             + "<p>Depsets are immutable. They should be created using their <a"
             + " href=\"globals.html#depset\">constructor function</a> and merged or augmented with"
-            + " other depsets via the <code>transitive</code> argument. There are other deprecated"
-            + " methods (<code>|</code> and <code>+</code> operators)"
-            + " that will eventually go away."
+            + " other depsets via the <code>transitive</code> argument. "
             + "<p>The <code>order</code> parameter determines the"
             + " kind of traversal that is done to convert the depset to an iterable. There are"
             + " four possible values:"
@@ -92,7 +90,7 @@ import javax.annotation.Nullable;
 public final class Depset implements StarlarkValue {
   private final SkylarkType contentType;
   private final NestedSet<?> set;
-  @Nullable private final ImmutableList<Object> items;
+  @Nullable private final ImmutableList<Object> items; // TODO(laurentlb): Delete field.
   @Nullable private final ImmutableList<NestedSet<?>> transitiveItems;
 
   @AutoCodec.VisibleForSerialization
@@ -107,6 +105,7 @@ public final class Depset implements StarlarkValue {
     this.transitiveItems = transitiveItems;
   }
 
+  // TODO(laurentlb): Remove the left argument once `unionOf` is deleted.
   private static Depset create(
       Order order, SkylarkType contentType, Object item, @Nullable Depset left)
       throws EvalException {
@@ -191,7 +190,7 @@ public final class Depset implements StarlarkValue {
     return create(order, SkylarkType.TOP, items, null);
   }
 
-  // implementation of deprecated depset+x, depset|x
+  // TODO(laurentlb): Delete the method. It's used only in tests.
   static Depset unionOf(Depset left, Object right) throws EvalException {
     return create(left.set.getOrder(), left.contentType, right, left);
   }

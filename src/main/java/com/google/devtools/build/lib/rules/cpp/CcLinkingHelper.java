@@ -743,11 +743,18 @@ public final class CcLinkingHelper {
 
     if (dynamicLinkActionBuilder.hasLtoBitcodeInputs()
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
-      dynamicLinkActionBuilder.setLtoIndexing(true);
-      dynamicLinkActionBuilder.setUsePicForLtoBackendActions(usePic);
-      CppLinkAction indexAction = dynamicLinkActionBuilder.build();
-      if (indexAction != null) {
-        actionConstructionContext.registerAction(indexAction);
+      if (featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB)) {
+        dynamicLinkActionBuilder.setLtoIndexing(true);
+        dynamicLinkActionBuilder.setUsePicForLtoBackendActions(usePic);
+        CppLinkAction indexAction = dynamicLinkActionBuilder.build();
+        if (indexAction != null) {
+          actionConstructionContext.registerAction(indexAction);
+        }
+      } else {
+        ruleErrorConsumer.ruleError(
+            "When using LTO. The feature "
+                + CppRuleClasses.SUPPORTS_START_END_LIB
+                + " must be enabled.");
       }
 
       dynamicLinkActionBuilder.setLtoIndexing(false);

@@ -31,6 +31,12 @@ __declspec(noreturn) void die(const wchar_t* format, ...)
 // Prints the specified error message.
 void PrintError(const wchar_t* format, ...) PRINTF_ATTRIBUTE(1, 2);
 
+// Converts the specified path (Windows 8dot3 style short path) to its long form
+//
+// eg. C:\FO~1\BAR\B~1 -> C:\Foooo\Bar\bin.exe
+// Note that: the given path must be an existing path.
+std::wstring GetWindowsLongPath(const std::wstring& path);
+
 // Strip the .exe extension from binary path.
 //
 // On Windows, if the binary path is foo/bar/bin.exe then return foo/bar/bin

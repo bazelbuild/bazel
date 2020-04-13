@@ -277,5 +277,5 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
           "Returns the embedded <code>CcCompilationContext</code> that contains the"
               + "provider's compilation information.",
       structField = true)
-  CcCompilationContextApi getCcCompilationContext();
+  CcCompilationContextApi<FileApiT> getCcCompilationContext();
 }

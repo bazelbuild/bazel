@@ -445,20 +445,6 @@ public final class CommandInterruptionTest {
   }
 
   @Test
-  public void exitForbidsNullExitCode() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
-    try {
-      command.getModuleEnvironment().exit(new AbruptExitException("", null));
-      throw new AssertionError(
-          "It shouldn't be allowed to pass an AbruptExitException with null ExitCode to exit()!");
-    } catch (NullPointerException expected) {
-      // Good!
-    }
-    command.assertNotFinishedYet();
-    command.requestExitWith(ExitCode.SUCCESS);
-  }
-
-  @Test
   public void callingExitOnceInterruptsAndOverridesExitCode() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
     command.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.NO_TESTS_FOUND));

@@ -102,18 +102,6 @@ public @interface Param {
   boolean named() default false;
 
   /**
-   * If this true, {@link #named} should be treated as true.
-   *
-   * <p>This indicates this parameter is part of a {@link SkylarkCallable} method which was migrated
-   * from {@code SkylarkSignature}. Due to a pre-migration bug, all parameters were treated as if
-   * {@link #named} was true, even if it was false. To prevent breakages during migration, the
-   * interpreter can continue to treat these parameters as named. This is distinct from {@link
-   * #named}, however, so that a bulk fix/cleanup will be easier later.
-   */
-  // TODO(b/77902276): Remove this after a bulk cleanup/fix.
-  boolean legacyNamed() default false;
-
-  /**
    * If true, the parameter may be specified as a positional parameter. For example for an integer
    * positional parameter {@code foo} of a method {@code bar}, then the method call will look like
    * {@code bar(1)}. If {@link #named()} is {@code false}, then this will be the only way to call

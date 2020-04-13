@@ -14,13 +14,16 @@
 
 package com.google.devtools.common.options;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+import static java.util.stream.Collectors.toList;
+import static org.junit.Assume.assumeTrue;
+
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -46,6 +49,29 @@ public class OptionDefaultValueConversionTest {
 
   @Parameter public OptionDefinition optionDefinitionUnderTest;
 
+  /**
+   * Regression test for {@code allowMultiple = true} {@link Option#defaultValue()} switch from
+   * {@code ""} to {@code "null"} as a part of enabling default values for {@code allowMultiple =
+   * true} {@link Option}s.
+   */
+  @Test
+  public void allowMultipleOptionsShouldNotHaveEmptyStringDefault() {
+    // apply the test only to allowMultiple = true Options
+    assumeTrue(optionDefinitionUnderTest.allowsMultiple());
+
+    // arrange
+    String assertionMessage =
+        String.format(
+            "\"%s\" option default value is an empty string - use a special \"null\" value for"
+                + " empty multiple options",
+            optionDefinitionUnderTest.getOptionName());
+
+    // assert
+    assertWithMessage(assertionMessage)
+        .that(optionDefinitionUnderTest.getUnparsedDefaultValue())
+        .isNotEmpty();
+  }
+
   @Test
   public void shouldConvertDefaultValue() {
     // assert
@@ -66,7 +92,7 @@ public class OptionDefaultValueConversionTest {
               .flatMap(c -> Arrays.stream(c.getFields()))
               .filter(f -> f.isAnnotationPresent(Option.class))
               .map(OptionDefinition::extractOptionDefinition)
-              .collect(Collectors.toList());
+              .collect(toList());
       logger.atFine().log(
           "Found %d Option-annotated fields in Prod code", optionDefinitions.size());
 

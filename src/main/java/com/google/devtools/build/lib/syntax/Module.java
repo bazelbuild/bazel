@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -175,7 +174,7 @@ public final class Module implements ValidationEnvironment.Module {
       if (binding.getValue() instanceof FlagGuardedValue) {
         FlagGuardedValue val = (FlagGuardedValue) binding.getValue();
         if (val.isObjectAccessibleUsingSemantics(semantics)) {
-          filteredBindings.put(binding.getKey(), val.getObject(semantics));
+          filteredBindings.put(binding.getKey(), val.getObject());
         } else {
           restrictedBindings.put(binding.getKey(), val);
         }
@@ -187,7 +186,7 @@ public final class Module implements ValidationEnvironment.Module {
     restrictedBindings.putAll(parent.restrictedBindings);
 
     return new Module(
-        mutability, null /*parent */, parent.label, filteredBindings, restrictedBindings);
+        mutability, /*universe=*/ null, parent.label, filteredBindings, restrictedBindings);
   }
 
   private void checkInitialized() {
@@ -223,7 +222,8 @@ public final class Module implements ValidationEnvironment.Module {
    */
   public Module withLabel(Object label) {
     checkInitialized();
-    return new Module(mutability, /*universe*/ null, label, bindings, /*restrictedBindings*/ null);
+    return new Module(
+        mutability, /*universe=*/ null, label, bindings, /*restrictedBindings=*/ null);
   }
 
   /** Returns the {@link Mutability} of this {@link Module}. */
@@ -290,9 +290,9 @@ public final class Module implements ValidationEnvironment.Module {
   }
 
   @Override
-  public String getUndeclaredNameError(StarlarkSemantics semantics, String name) {
+  public String getUndeclaredNameError(String name) {
     FlagGuardedValue v = restrictedBindings.get(name);
-    return v == null ? null : v.getErrorFromAttemptingAccess(semantics, name);
+    return v == null ? null : v.getErrorFromAttemptingAccess(name);
   }
 
   /** Returns an environment containing both module and predeclared bindings. */
@@ -337,11 +337,11 @@ public final class Module implements ValidationEnvironment.Module {
   }
 
   /** Updates a binding in the module environment. */
-  public void put(String varname, Object value) throws MutabilityException {
+  public void put(String varname, Object value) throws EvalException {
     Preconditions.checkNotNull(value, "Module.put(%s, null)", varname);
     checkInitialized();
     if (mutability.isFrozen()) {
-      throw new MutabilityException("trying to mutate a frozen module");
+      throw Starlark.errorf("trying to mutate a frozen module");
     }
     bindings.put(varname, value);
   }

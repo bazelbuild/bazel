@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
@@ -54,17 +55,6 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
    */
   private final TransitiveInfoProviderMap nonBaseProviders;
 
-  /**
-   * This exception is thrown when configured targets and aspects
-   * being merged provide duplicate things that they shouldn't
-   * (output groups or providers).
-   */
-  public static final class DuplicateException extends Exception {
-    public DuplicateException(String message) {
-      super(message);
-    }
-  }
-
   private MergedConfiguredTarget(
       ConfiguredTarget base,
       Iterable<ConfiguredAspect> aspects,
@@ -98,7 +88,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         result.accept((String) classAt);
       }
     }
-    result.accept(RuleConfiguredTarget.ACTIONS_FIELD_NAME);
+    result.accept(AbstractConfiguredTarget.ACTIONS_FIELD_NAME);
   }
 
   @Override
@@ -112,7 +102,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   protected Object rawGetSkylarkProvider(String providerKey) {
-    if (providerKey.equals(RuleConfiguredTarget.ACTIONS_FIELD_NAME)) {
+    if (providerKey.equals(AbstractConfiguredTarget.ACTIONS_FIELD_NAME)) {
       ImmutableList.Builder<ActionAnalysisMetadata> actions = ImmutableList.builder();
       // Only expose actions which are SkylarkValues.
       // TODO(cparsons): Expose all actions to Starlark.

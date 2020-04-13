@@ -13,15 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
-
 import java.util.Objects;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 
 /**
  * Our own configuration class for the {@code WorkerPool} that correctly implements {@code equals()}
  * and {@code hashCode()}.
  */
-final class WorkerPoolConfig extends GenericKeyedObjectPoolConfig {
+final class WorkerPoolConfig extends GenericKeyedObjectPoolConfig<Worker> {
   @Override
   public boolean equals(Object o) {
     if (this == o) {

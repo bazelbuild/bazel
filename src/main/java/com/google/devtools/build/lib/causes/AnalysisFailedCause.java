@@ -36,10 +36,6 @@ public class AnalysisFailedCause implements Cause {
     this.msg = msg;
   }
 
-  public AnalysisFailedCause(Label label, @Nullable ConfigurationId configuration) {
-    this(label, configuration, null);
-  }
-
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)

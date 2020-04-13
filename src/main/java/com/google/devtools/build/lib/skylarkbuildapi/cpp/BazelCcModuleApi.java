@@ -40,7 +40,7 @@ public interface BazelCcModuleApi<
         SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CompilationContextT extends CcCompilationContextApi,
+        CompilationContextT extends CcCompilationContextApi<FileT>,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         LinkingOutputsT extends CcLinkingOutputsApi<FileT>,
         LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
@@ -318,6 +318,18 @@ public interface BazelCcModuleApi<
             defaultValue = "True",
             type = Boolean.class),
         @Param(
+            name = "stamp",
+            doc =
+                "Whether to include build information in the linked executable, if output_type is "
+                    + "'executable'. If 1, build information is always included. If 0 (the "
+                    + "default build information is always excluded. If -1, uses the default "
+                    + "behavior, which may be overridden by the --[no]stamp flag. This should be "
+                    + "unset (or set to 0) when generating the executable output for test rules.",
+            positional = false,
+            named = true,
+            defaultValue = "0",
+            type = Integer.class),
+        @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
             positional = false,
@@ -343,6 +355,7 @@ public interface BazelCcModuleApi<
       String language,
       String outputType,
       boolean linkDepsStatically,
+      int stamp,
       Sequence<?> additionalInputs, // <FileT> expected
       Object grepIncludes,
       StarlarkThread thread)

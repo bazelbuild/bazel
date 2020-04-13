@@ -652,7 +652,7 @@ a <code>.bzl</code> file visible.
 </p>
 
 <p>
-  It is important that it not be too much of an overapproximation,
+  It is important that it is not too much of an overapproximation,
   though, since redundant declared dependencies can make builds slower and
   binaries larger.
 </p>
@@ -664,7 +664,7 @@ a <code>.bzl</code> file visible.
 
   Failure to observe this principle causes undefined behavior: the
   build may fail, but worse, the build may depend on some prior
-  operations, or upon which transitive declared dependencies the target
+  operations, or upon transitive declared dependencies the target
   happens to have.  The build tool attempts aggressively to check for
   missing dependencies and report errors, but it is not possible for
   this checking to be complete in all cases.
@@ -762,7 +762,8 @@ All is well.
 <p><b>2. A latent hazard is introduced.</b></p>
 <p>
   Someone carelessly adds code to <code>a</code> that creates a direct
-  actual dependency on <code>c</code>, but forgets to declare it.
+  actual dependency on <code>c</code>, but forgets to declare it in
+  the build file <code>a/BUILD</code>.
 </p>
 <div style="float:left; width: 49%; margin-top: -20px; ">
 <p><code>a/a.in</code></p>

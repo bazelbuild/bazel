@@ -121,7 +121,7 @@ public final class AspectResolver {
       OrderedSetMultimap<DependencyKind, Dependency> depValueNames,
       Map<SkyKey, ConfiguredTargetAndData> depConfiguredTargetMap,
       OrderedSetMultimap<Dependency, ConfiguredAspect> depAspectMap)
-      throws MergedConfiguredTarget.DuplicateException {
+      throws DuplicateException {
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
         OrderedSetMultimap.create();
 

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -109,5 +110,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public void validateLayeringCheckFeatures(RuleContext ruleContext) {}
+  public void validateLayeringCheckFeatures(
+      RuleContext ruleContext,
+      CcToolchainProvider ccToolchain,
+      ImmutableSet<String> unsupportedFeatures) {}
 }

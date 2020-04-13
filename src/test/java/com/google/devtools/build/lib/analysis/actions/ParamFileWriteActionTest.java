@@ -64,7 +64,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   @Before
   public void createArtifacts() throws Exception  {
     Path execRoot = scratch.getFileSystem().getPath("/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/out"));
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, "out");
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     FileSystemUtils.createDirectoryAndParents(outputArtifact.getPath().getParentDirectory());
     treeArtifact = createTreeArtifact("artifact/myTreeFileArtifact");
@@ -217,7 +217,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         artifactExpander,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.NO_CALLBACKS);
+        NestedSetExpander.DEFAULT);
   }
 
   private enum KeyAttributes {

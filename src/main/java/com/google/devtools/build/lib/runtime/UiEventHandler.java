@@ -41,11 +41,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
@@ -94,9 +94,12 @@ public class UiEventHandler implements EventHandler {
   /**
    * Even if the output is not limited, we restrict the message size to something we can still
    * handle internally. This is the maximal size specified here. Currently, it is the maximal length
-   * a byte[] can hold.
+   * of a byte[] acceptable by {@code new String(message, 0, message.length,
+   * StandardCharsets.UTF_8}. (In JDK9+, if the message buffer contains a byte whose high bit is
+   * set, a UTF-8 decoding path is taken that allocates a new byte[] buffer twice as large as the
+   * message byte[] buffer)
    */
-  static final int MAXIMAL_MESSAGE_LENGTH = Integer.MAX_VALUE - 8;
+  static final int MAXIMAL_MESSAGE_LENGTH = (Integer.MAX_VALUE - 8) >> 1;
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
@@ -526,6 +529,10 @@ public class UiEventHandler implements EventHandler {
       }
     } else {
       message = reference.getFinalBytes(MAXIMAL_MESSAGE_LENGTH);
+      if (message.length == MAXIMAL_MESSAGE_LENGTH) {
+        logger.warning(
+            String.format("truncated message longer than %d bytes", MAXIMAL_MESSAGE_LENGTH));
+      }
     }
     int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
     if (eolIndex >= 0) {

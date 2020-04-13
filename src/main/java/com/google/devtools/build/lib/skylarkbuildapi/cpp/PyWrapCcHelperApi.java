@@ -42,11 +42,11 @@ public interface PyWrapCcHelperApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
-        CcInfoT extends CcInfoApi,
+        CcInfoT extends CcInfoApi<FileT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
-        CompilationInfoT extends CompilationInfoApi,
-        CcCompilationContextT extends CcCompilationContextApi,
+        CompilationInfoT extends CompilationInfoApi<FileT>,
+        CcCompilationContextT extends CcCompilationContextApi<FileT>,
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
     extends WrapCcHelperApi<
         FeatureConfigurationT,
@@ -102,6 +102,7 @@ public interface PyWrapCcHelperApi<
         @Param(name = "cc_info", positional = false, named = true, type = CcInfoApi.class),
       })
   // TODO(plf): PyWrapCcInfo is not written in Skylark because several native rules use it.
-  public PyWrapCcInfoApi getPyWrapCcInfo(SkylarkRuleContextT skylarkRuleContext, CcInfoT ccInfo)
+  public PyWrapCcInfoApi<FileT> getPyWrapCcInfo(
+      SkylarkRuleContextT skylarkRuleContext, CcInfoT ccInfo)
       throws EvalException, InterruptedException;
 }

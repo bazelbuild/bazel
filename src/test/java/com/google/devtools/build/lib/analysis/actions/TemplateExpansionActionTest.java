@@ -86,8 +86,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private void createArtifacts(String template) throws Exception {
     ArtifactRoot workspace = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/workspace")));
-    outputRoot =
-        ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), scratch.dir("/workspace/out"));
+    scratch.dir("/workspace/out");
+    outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), "out");
     Path input = scratch.overwriteFile("/workspace/input.txt", StandardCharsets.UTF_8, template);
     inputArtifact = ActionsTestUtil.createArtifact(workspace, input);
     output = scratch.resolve("/workspace/out/destination.txt");
@@ -204,7 +204,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.NO_CALLBACKS);
+        NestedSetExpander.DEFAULT);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {

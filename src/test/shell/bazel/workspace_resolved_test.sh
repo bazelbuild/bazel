@@ -52,14 +52,18 @@ trivial_rule(
 EOF
 
   bazel clean --expunge
-  bazel build --experimental_repository_resolved_file=../repo.bzl @ext//... \
+  bazel build --experimental_repository_resolved_file=../repo.bzl --record_rule_instantiation_callstack @ext//... \
         > "${TEST_log}" 2>&1 || fail "Expected success"
+  inplace-sed -e "s?$(pwd)?PWD?g" "$TEST_log"
   bazel shutdown
 
   # We expect the additional argument to be reported to the user...
   expect_log 'extra_arg.*foobar'
-  # ...as well as the location of the definition.
-  expect_log 'fetchrepo/WORKSPACE:2'
+  # ...as well as the location of the rule instantiation and definition.
+  expect_log 'Repository ext instantiated at:'
+  expect_log '  PWD/WORKSPACE:2:'
+  expect_log 'Repository rule trivial_rule defined at:'
+  expect_log '  PWD/rule.bzl:5:'
 
   # Verify that bazel can read the generated repo.bzl file and that it contains
   # the expected information
@@ -1177,6 +1181,7 @@ foo()
 EOF
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+        --record_rule_instantiation_callstack \
         --experimental_repository_resolved_file=resolved.bzl
 
   echo; cat resolved.bzl; echo
@@ -1199,13 +1204,16 @@ def finddef(name):
       return repo["definition_information"]
 EOF
 
-  bazel build //:ext_def
+  bazel build --record_rule_instantiation_callstack //:ext_def
 
   cat `bazel info bazel-genfiles`/ext_def.txt > "${TEST_log}"
-
-  expect_log "WORKSPACE:3"
-  expect_log "first/path/foo.bzl:4"
-  expect_log "another/directory/bar.bzl:4"
+  inplace-sed -e "s?$(pwd)/?PWD/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"
+  expect_log "Repository ext instantiated at:"
+  expect_log "  PWD/WORKSPACE:3"
+  expect_log "  PWD/first/path/foo.bzl:4"
+  expect_log "  PWD/another/directory/bar.bzl:4"
+  expect_log "Repository rule http_archive defined at:"
+  expect_log "  TEST_TMPDIR/.*/external/bazel_tools/tools/build_defs/repo/http.bzl:"
 }
 
 run_suite "workspace_resolved_test tests"

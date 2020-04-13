@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -29,6 +32,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
@@ -89,11 +93,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratch.file("myinfo/BUILD");
   }
 
-  private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
+  private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
+      throws LabelSyntaxException {
     Provider.Key key =
         new SkylarkProvider.SkylarkKey(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
+  }
+
+  private static Iterable<Artifact> getArtifactsFromMyInfo(ConfiguredTarget target, String field)
+      throws Exception {
+    StructImpl myInfo = getMyInfoFromTarget(target);
+    @SuppressWarnings("unchecked")
+    Iterable<Artifact> artifacts = (Iterable<Artifact>) myInfo.getValue(field);
+    return artifacts;
   }
 
   @Test
@@ -5782,7 +5795,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveLinkWithDeps() throws Exception {
-    setupTestTransitiveLink(scratch, "        linking_contexts = dep_linking_contexts");
+    setupTestTransitiveLink(scratch, "linking_contexts = dep_linking_contexts");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     assertThat(target).isNotNull();
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
@@ -5848,6 +5861,74 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
     assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
         .contains("src foo/file.o");
+  }
+
+  @Test
+  public void testLinkStampExpliciltyEnabledOverridesNoStampFlag() throws Exception {
+    useConfiguration("--nostamp");
+    setupTestTransitiveLink(scratch, "stamp=1", "linking_contexts=dep_linking_contexts");
+    assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkExplicitlyDisabledOverridesStampFlag() throws Exception {
+    useConfiguration("--nostamp");
+    setupTestTransitiveLink(scratch, "stamp=0", "linking_contexts=dep_linking_contexts");
+    assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampUseFlagStamp() throws Exception {
+    useConfiguration("--stamp");
+    setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
+    assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampUseFlagNoStamp() throws Exception {
+    useConfiguration("--nostamp");
+    setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
+    assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampDisabledByDefaultDespiteStampFlag() throws Exception {
+    useConfiguration("--stamp");
+    setupTestTransitiveLink(scratch, "linking_contexts=dep_linking_contexts");
+    assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampInvalid() throws Exception {
+    setupTestTransitiveLink(scratch, "stamp=2");
+    checkError(
+        "//foo:bin",
+        "stamp value 2 is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)");
+  }
+
+  private CppCompileAction getLinkstampCompileAction(String label)
+      throws LabelSyntaxException, EvalException {
+    ConfiguredTarget target = getConfiguredTarget(label);
+    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
+    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    Artifact compiledLinkstamp =
+        ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "version.o");
+    CppCompileAction linkstampCompileAction =
+        (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+    assertThat(linkstampCompileAction.getMnemonic()).isEqualTo("CppLinkstampCompile");
+    return linkstampCompileAction;
+  }
+
+  private void assertStampEnabled(CppCompileAction linkstampAction)
+      throws CommandLineExpansionException {
+    assertThat(linkstampAction.getArguments())
+        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-volatile.h");
+  }
+
+  private void assertStampDisabled(CppCompileAction linkstampAction)
+      throws CommandLineExpansionException {
+    assertThat(linkstampAction.getArguments())
+        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-redacted.h");
   }
 
   @Test
@@ -6021,7 +6102,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    for dep in ctx.attr._deps:",
         "        dep_compilation_contexts.append(dep[CcInfo].compilation_context)",
         "        dep_linking_contexts.append(dep[CcInfo].linking_context)",
-        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
         "    feature_configuration = cc_common.configure_features(",
         "        ctx = ctx,",
         "        cc_toolchain=toolchain,",
@@ -6073,7 +6154,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             + " default=['//foo:extra_compiler_input']),",
         "      '_deps': attr.label_list(default=['//foo:dep1', '//foo:dep2']),",
         "      'aspect_deps': attr.label_list(aspects=[_cc_aspect]),",
-        "      '_cc_toolchain': attr.label(default =",
+        "      '_my_cc_toolchain': attr.label(default =",
         "          configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
         "    },",
         fragments,
@@ -6244,13 +6325,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "        feature_configuration=feature_configuration,",
         "        name = ctx.label.name,",
         "        cc_toolchain=toolchain,",
-        "        " + Joiner.on("").join(additionalLines),
+        "        " + Joiner.on(",\n        ").join(additionalLines),
         "    )",
         "    return [",
         "      MyInfo(",
-        "        library=linking_outputs.library_to_link,",
-        "        executable=linking_outputs.executable",
-        "      )",
+        "          library=linking_outputs.library_to_link,",
+        "          executable=linking_outputs.executable",
+        "      ),",
         "    ]",
         "cc_bin = rule(",
         "    implementation = _cc_bin_impl,",
@@ -6274,6 +6355,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_library(",
         "    name = 'dep1',",
         "    srcs = ['dep1.cc'],",
+        "    linkstamp = 'version.cc',",
         "    hdrs = ['dep1.h'],",
         "    includes = ['dep1/baz'],",
         "    defines = ['DEP1'],",
@@ -6291,5 +6373,109 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    pic_objects = ['file.pic.o'],",
         "    deps = [':dep1', ':dep2'],",
         ")");
+  }
+
+  private static void setupDirectHeaderExtractionSupport(Scratch scratch) throws Exception {
+    scratch.file(
+        "direct/cc_info_extractor.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _cc_info_extractor_impl(ctx):",
+        "    compilation_context = ctx.attr.dep[CcInfo].compilation_context",
+        "    return [MyInfo(",
+        "        direct_headers = compilation_context.direct_headers,",
+        "        direct_textual_headers = compilation_context.direct_textual_headers,",
+        "    )]",
+        "cc_info_extractor = rule(",
+        "    _cc_info_extractor_impl,",
+        "    attrs = {",
+        "        'dep': attr.label(providers = [[CcInfo]]),",
+        "    }",
+        ")");
+    scratch.file(
+        "direct/BUILD",
+        "load('//direct:cc_info_extractor.bzl', 'cc_info_extractor')",
+        "cc_info_extractor(",
+        "    name = 'foo',",
+        "    dep = '//direct/libs:foo_lib',",
+        ")",
+        "cc_info_extractor(",
+        "    name = 'bar',",
+        "    dep = '//direct/libs:bar_lib',",
+        ")");
+  }
+
+  private static void setupCcLibraryDirectPropagationTestTargets(Scratch scratch) throws Exception {
+    scratch.file(
+        "direct/libs/BUILD",
+        "cc_library(",
+        "    name = 'foo_lib',",
+        "    hdrs = ['foo.h'],",
+        "    textual_hdrs = ['foo.def'],",
+        ")",
+        "cc_library(",
+        "    name = 'bar_lib',",
+        "    hdrs = ['bar.h'],",
+        "    textual_hdrs = ['bar.def'],",
+        "    deps = [':foo_lib'],",
+        ")");
+  }
+
+  @Test
+  public void testCcLibraryPropagatesCcInfoWithDirectHeaders() throws Exception {
+    setupDirectHeaderExtractionSupport(scratch);
+    setupCcLibraryDirectPropagationTestTargets(scratch);
+
+    ConfiguredTarget fooTarget = getConfiguredTarget("//direct:foo");
+    Iterable<Artifact> fooDirectHeaders = getArtifactsFromMyInfo(fooTarget, "direct_headers");
+    assertThat(baseArtifactNames(fooDirectHeaders)).containsExactly("foo.h");
+
+    ConfiguredTarget barTarget = getConfiguredTarget("//direct:bar");
+    Iterable<Artifact> barDirectHeaders = getArtifactsFromMyInfo(barTarget, "direct_headers");
+    assertThat(baseArtifactNames(barDirectHeaders)).containsExactly("bar.h");
+  }
+
+  @Test
+  public void testCcLibraryPropagatesCcInfoWithDirectTextualHeaders() throws Exception {
+    setupDirectHeaderExtractionSupport(scratch);
+    setupCcLibraryDirectPropagationTestTargets(scratch);
+
+    ConfiguredTarget fooTarget = getConfiguredTarget("//direct:foo");
+    Iterable<Artifact> fooDirectTextualHeaders =
+        getArtifactsFromMyInfo(fooTarget, "direct_textual_headers");
+    assertThat(baseArtifactNames(fooDirectTextualHeaders)).containsExactly("foo.def");
+
+    ConfiguredTarget barTarget = getConfiguredTarget("//direct:bar");
+    Iterable<Artifact> barDirectTextualHeaders =
+        getArtifactsFromMyInfo(barTarget, "direct_textual_headers");
+    assertThat(baseArtifactNames(barDirectTextualHeaders)).containsExactly("bar.def");
+  }
+
+  /** Fixes #10580 */
+  @Test
+  public void testMixedLinkerInputsWithOwnerAndWithout() throws Exception {
+    setUpCcLinkingContextTest();
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'crule')", "crule(name='a')");
+    scratch.file(
+        "foo/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  linker_input = cc_common.create_linker_input(owner=ctx.label)",
+        "  linking_context = cc_common.create_linking_context(",
+        "     linker_inputs=depset([linker_input]))",
+        "  linking_context = cc_common.create_linking_context(",
+        "     libraries_to_link=[],)",
+        "  cc_info = CcInfo(linking_context=linking_context)",
+        "  if cc_info.linking_context.linker_inputs.to_list()[0] == linker_input:",
+        "     pass",
+        "  return [cc_info]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    assertThat(getConfiguredTarget("//foo:a")).isNotNull();
+    assertNoEvents();
   }
 }

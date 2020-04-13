@@ -17,11 +17,11 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -31,7 +31,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A provider defined in Skylark rather than in native code.
+ * A provider defined in Starlark rather than in native code.
  *
  * <p>This is a result of calling the {@code provider()} function from Skylark ({@link
  * com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions#provider}).

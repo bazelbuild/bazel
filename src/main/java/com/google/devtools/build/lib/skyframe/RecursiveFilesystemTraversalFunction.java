@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.FileType;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
@@ -172,11 +172,12 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           RootedPath path =
               RootedPath.toRootedPath(
                   traversal.root.asRootedPath().getRoot(), entry.getKey().getPath());
-          list.add(resultForFileRoot(
-              path,
-              // TreeArtifact can't have symbolic inside. So the assumption for FileType.FILE
-              // is always true.
-              new FileInfo(FileType.FILE, entry.getValue(), path, null)));
+          list.add(
+              resultForFileRoot(
+                  path,
+                  // TreeArtifact can't have symbolic inside. So the assumption for FileType.FILE
+                  // is always true.
+                  new FileInfo(FileType.FILE, entry.getValue(), path, null)));
         }
         return resultForDirectory(traversal, rootInfo, list.build());
       }
@@ -278,7 +279,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         } else if (value instanceof ActionExecutionValue) {
           fsVal =
               Preconditions.checkNotNull(
-                  ArtifactFunction.createSimpleFileArtifactValue(
+                  ActionExecutionValue.createSimpleFileArtifactValue(
                       (Artifact.DerivedArtifact) artifact, (ActionExecutionValue) value));
         } else {
           return NON_EXISTENT_FILE_INFO;
@@ -289,7 +290,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         Preconditions.checkNotNull(fsVal, "Strict Fileset output tree has null FileArtifactValue");
         return new FileInfo(
             (fsVal instanceof TreeArtifactValue ? FileType.DIRECTORY : FileType.FILE),
-            fsVal, realPath, null);
+            fsVal,
+            realPath,
+            null);
       } else {
         // FileArtifactValue does not currently track symlinks. If it did, we could potentially
         // remove some of the filesystem operations we're doing here.
@@ -631,60 +634,4 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     return Collections2.transform(values.values(), RecursiveFilesystemTraversalValue.class::cast);
   }
 
-  /** Type information about the filesystem entry residing at a path. */
-  enum FileType {
-    /** A regular file. */
-    FILE {
-      @Override boolean isFile() { return true; }
-      @Override boolean exists() { return true; }
-      @Override public String toString() { return "<f>"; }
-    },
-    /**
-     * A symlink to a regular file.
-     *
-     * <p>The symlink may be direct (points to a non-symlink (here a file)) or it may be transitive
-     * (points to a direct or transitive symlink).
-     */
-    SYMLINK_TO_FILE {
-      @Override boolean isFile() { return true; }
-      @Override boolean isSymlink() { return true; }
-      @Override boolean exists() { return true; }
-      @Override public String toString() { return "<lf>"; }
-    },
-    /** A directory. */
-    DIRECTORY {
-      @Override boolean isDirectory() { return true; }
-      @Override boolean exists() { return true; }
-      @Override public String toString() { return "<d>"; }
-    },
-    /**
-     * A symlink to a directory.
-     *
-     * <p>The symlink may be direct (points to a non-symlink (here a directory)) or it may be
-     * transitive (points to a direct or transitive symlink).
-     */
-    SYMLINK_TO_DIRECTORY {
-      @Override boolean isDirectory() { return true; }
-      @Override boolean isSymlink() { return true; }
-      @Override boolean exists() { return true; }
-      @Override public String toString() { return "<ld>"; }
-    },
-    /** A dangling symlink, i.e. one whose target is known not to exist. */
-    DANGLING_SYMLINK {
-      @Override boolean isFile() { throw new UnsupportedOperationException(); }
-      @Override boolean isDirectory() { throw new UnsupportedOperationException(); }
-      @Override boolean isSymlink() { return true; }
-      @Override public String toString() { return "<l?>"; }
-    },
-    /** A path that does not exist or should be ignored. */
-    NONEXISTENT {
-      @Override public String toString() { return "<?>"; }
-    };
-
-    boolean isFile() { return false; }
-    boolean isDirectory() { return false; }
-    boolean isSymlink() { return false; }
-    boolean exists() { return false; }
-    @Override public abstract String toString();
-  }
 }

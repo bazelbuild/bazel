@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -349,9 +348,9 @@ public class MobileInstallCommand implements BlazeCommand {
 
   private boolean isTargetSupported(
       CommandEnvironment env, ConfiguredTarget target, List<String> mobileInstallSupportedRules) {
-    while (target instanceof AliasConfiguredTarget) {
-      target = ((AliasConfiguredTarget) target).getActual();
-    }
+    // Dereference any aliases that might be present.
+    target = target.getActual();
+
     if (target instanceof AbstractConfiguredTarget) {
       String ruleType = ((AbstractConfiguredTarget) target).getRuleClassString();
       return isRuleSupported(env, mobileInstallSupportedRules, ruleType);

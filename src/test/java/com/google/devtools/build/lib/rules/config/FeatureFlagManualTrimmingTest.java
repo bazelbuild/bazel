@@ -885,7 +885,7 @@ public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
     BuildOptions depOptions =
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
             .create((Rule) getTarget("//test:dep"))
-            .patch(topLevelOptions);
+            .patch(topLevelOptions, eventCollector);
     assertThat(depOptions).isSameInstanceAs(topLevelOptions);
   }
 

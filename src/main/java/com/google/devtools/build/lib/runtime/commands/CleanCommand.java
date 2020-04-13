@@ -261,7 +261,7 @@ public final class CleanCommand implements BlazeCommand {
 
     // shutdown on expunge cleans
     if (expunge) {
-      return BlazeCommandResult.shutdown(ExitCode.SUCCESS);
+      return BlazeCommandResult.shutdownOnSuccess();
     }
     System.gc();
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);

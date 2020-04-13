@@ -20,7 +20,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -34,8 +33,8 @@ import javax.annotation.Nullable;
 
 /**
  * A helper class for building {@link ConfiguredTarget} instances, in particular for non-rule ones.
- * For {@link RuleConfiguredTarget} instances, use {@link RuleContext} instead,
- * which is a subclass of this class.
+ * For {@link com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget}
+ * instances, use {@link RuleContext} instead, which is a subclass of this class.
  *
  * <p>The class is intended to be sub-classed by RuleContext, in order to share the code. However,
  * it's not intended for sub-classing beyond that, and the constructor is intentionally package

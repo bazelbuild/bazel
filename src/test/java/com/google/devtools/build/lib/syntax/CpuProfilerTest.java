@@ -67,7 +67,7 @@ public final class CpuProfilerTest {
             .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
             .useDefaultSemantics()
             .build();
-    EvalUtils.exec(input, thread.getGlobals(), thread);
+    EvalUtils.exec(input, FileOptions.DEFAULT, thread.getGlobals(), thread);
 
     Starlark.stopCpuProfile();
 

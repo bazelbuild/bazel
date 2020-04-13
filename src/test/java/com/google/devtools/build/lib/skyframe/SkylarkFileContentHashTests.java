@@ -149,7 +149,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     assertThat(getHash("pkg", "foo2")).isEqualTo(foo2);
   }
 
-  private void assertNotEquals(String hash, String hash2) {
+  private static void assertNotEquals(String hash, String hash2) {
     assertThat(hash.equals(hash2)).isFalse();
   }
 

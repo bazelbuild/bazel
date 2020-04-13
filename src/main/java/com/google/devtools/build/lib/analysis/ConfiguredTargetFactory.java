@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
@@ -67,7 +66,6 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
-import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.ClassName;
@@ -182,7 +180,7 @@ public final class ConfiguredTargetFactory {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext)
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException {
     if (target instanceof Rule) {
       try {
@@ -195,7 +193,7 @@ public final class ConfiguredTargetFactory {
             configuredTargetKey,
             prerequisiteMap,
             configConditions,
-            toolchainContext);
+            toolchainContexts);
       } finally {
         CurrentRuleTracker.endConfiguredTarget();
       }
@@ -240,7 +238,7 @@ public final class ConfiguredTargetFactory {
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(
                   analysisEnvironment.getSkylarkSemantics().experimentalSiblingRepositoryLayout()),
-              inputFile.getPackage().getSourceRoot(),
+              inputFile.getPackage().getSourceRoot().get(),
               ConfiguredTargetKey.of(target.getLabel(), config));
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
     } else if (target instanceof PackageGroup) {
@@ -272,8 +270,8 @@ public final class ConfiguredTargetFactory {
    * remaining pieces of config state.
    *
    * <p>The strings can be names of {@link BuildConfiguration.Fragment}s, names of {@link
-   * FragmentOptions}, and labels of user-defined options such as Starlark flags and Android feature
-   * flags.
+   * com.google.devtools.build.lib.analysis.config.FragmentOptions}, and labels of user-defined
+   * options such as Starlark flags and Android feature flags.
    *
    * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
    * result includes only the config state considered to be directly required by this rule. If it's
@@ -292,12 +290,14 @@ public final class ConfiguredTargetFactory {
    *     specified for this rule
    * @param configurationFragmentPolicy source of truth for the fragments required by this rule's
    *     rule class
-   * @param configConditions {@link FragmentOptions} required by {@code select}s on this rule. This
-   *     is a different type than the others: options and fragments are different concepts. There's
-   *     some subtlety to their relationship (e.g. a {@link FragmentOptions} can be associated with
-   *     multiple {@link BuildConfiguration.Fragment}s). Rather than trying to merge all results
-   *     into a pure set of {@link BuildConfiguration.Fragment}s we just allow the mix. In practice
-   *     the conceptual dependencies remain clear enough without trying to resolve these subtleties.
+   * @param configConditions {@link com.google.devtools.build.lib.analysis.config.FragmentOptions}
+   *     required by {@code select}s on this rule. This is a different type than the others: options
+   *     and fragments are different concepts. There's some subtlety to their relationship (e.g. a
+   *     {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} can be associated
+   *     with multiple {@link BuildConfiguration.Fragment}s). Rather than trying to merge all
+   *     results into a pure set of {@link BuildConfiguration.Fragment}s we just allow the mix. In
+   *     practice the conceptual dependencies remain clear enough without trying to resolve these
+   *     subtleties.
    * @param prerequisites all prerequisties of this rule
    * @return An alphabetically ordered set of required fragments, options, and labels of
    *     user-defined options.
@@ -407,7 +407,7 @@ public final class ConfiguredTargetFactory {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext)
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException {
     ConfigurationFragmentPolicy configurationFragmentPolicy =
         rule.getRuleClassObject().getConfigurationFragmentPolicy();
@@ -426,7 +426,7 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap, rule))
             .setConfigConditions(configConditions)
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
-            .setToolchainContext(toolchainContext)
+            .setToolchainContexts(toolchainContexts)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
                 getRequiredConfigFragments(
@@ -602,7 +602,7 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration,
       ActionLookupValue.ActionLookupKey aspectKey)
-      throws AspectFunctionException, InterruptedException {
+      throws InterruptedException, ActionConflictException {
 
     RuleContext.Builder builder =
         new RuleContext.Builder(
@@ -643,17 +643,12 @@ public final class ConfiguredTargetFactory {
       return null;
     }
 
-    ConfiguredAspect configuredAspect;
-    try {
-      configuredAspect =
-          aspectFactory.create(
-              associatedTarget,
-              ruleContext,
-              aspect.getParameters(),
-              ruleClassProvider.getToolsRepository());
-    } catch (ActionConflictException e) {
-      throw new AspectFunctionException(e);
-    }
+    ConfiguredAspect configuredAspect =
+        aspectFactory.create(
+            associatedTarget,
+            ruleContext,
+            aspect.getParameters(),
+            ruleClassProvider.getToolsRepository());
     if (configuredAspect != null) {
       validateAdvertisedProviders(
           configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
@@ -706,7 +701,7 @@ public final class ConfiguredTargetFactory {
     }
 
     for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
-      if (configuredAspect.getProvider(providerId) == null) {
+      if (configuredAspect.get(providerId) == null) {
         eventHandler.handle(Event.error(
             target.getLocation(),
             String.format(

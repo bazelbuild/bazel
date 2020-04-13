@@ -14,13 +14,18 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import java.time.Duration;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -274,5 +279,64 @@ public class NestedSetImplTest {
         NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
     Thread.currentThread().interrupt();
     assertThrows(InterruptedException.class, deserialzingNestedSet::getChildrenInterruptibly);
+  }
+
+  @Test
+  public void toListWithTimeout_propagatesInterrupt() {
+    NestedSet<String> deserialzingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    Thread.currentThread().interrupt();
+    assertThrows(
+        InterruptedException.class,
+        () -> deserialzingNestedSet.toListWithTimeout(Duration.ofDays(1)));
+  }
+
+  @Test
+  public void toListWithTimeout_timesOut() {
+    NestedSet<String> deserialzingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    assertThrows(
+        TimeoutException.class, () -> deserialzingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
+  }
+
+  @Test
+  public void toListWithTimeout_waits() throws Exception {
+    SettableFuture<Object[]> future = SettableFuture.create();
+    NestedSet<String> deserialzingNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, future);
+    Future<ImmutableList<String>> result =
+        Executors.newSingleThreadExecutor()
+            .submit(() -> deserialzingNestedSet.toListWithTimeout(Duration.ofMinutes(1)));
+    Thread.sleep(100);
+    assertThat(result.isDone()).isFalse();
+    future.set(new Object[] {"a", "b"});
+    assertThat(result.get()).containsExactly("a", "b");
+  }
+
+  @Test
+  public void isFromStorage_true() {
+    NestedSet<?> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    assertThat(deserializingNestedSet.isFromStorage()).isTrue();
+  }
+
+  @Test
+  public void isFromStorage_false() {
+    NestedSet<?> inMemoryNestedSet = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    assertThat(inMemoryNestedSet.isFromStorage()).isFalse();
+  }
+
+  @Test
+  public void isReady_inMemory() {
+    NestedSet<?> inMemoryNestedSet = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    assertThat(inMemoryNestedSet.isReady()).isTrue();
+  }
+
+  @Test
+  public void isReady_fromStorage() {
+    SettableFuture<Object[]> future = SettableFuture.create();
+    NestedSet<?> deserializingNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, future);
+    assertThat(deserializingNestedSet.isReady()).isFalse();
+    future.set(new Object[] {"a", "b"});
+    assertThat(deserializingNestedSet.isReady()).isTrue();
   }
 }

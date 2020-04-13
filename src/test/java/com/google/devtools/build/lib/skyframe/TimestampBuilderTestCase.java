@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSup
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -219,9 +220,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new SkyframeActionExecutor(
             actionKeyContext,
             new AtomicReference<>(statusReporter),
-            /*sourceRootSupplier=*/ () -> ImmutableList.of(),
-            /*sourceArtifactFactory=*/ unused -> null,
-            NestedSetExpander.NO_CALLBACKS);
+            /*sourceRootSupplier=*/ () -> ImmutableList.of());
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
@@ -229,7 +228,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     MetadataProvider cache =
         new SingleBuildFileCache(rootDirectory.getPathString(), scratch.getFileSystem());
-    skyframeActionExecutor.configure(cache, ActionInputPrefetcher.NONE);
+    skyframeActionExecutor.configure(cache, ActionInputPrefetcher.NONE, NestedSetExpander.DEFAULT);
 
     final InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -261,11 +260,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     WorkspaceFileValue.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
+                        TestPackageFactoryBuilderFactory.getInstance()
                             .builder(directories)
                             .build(TestRuleClassProvider.getRuleClassProvider(), fileSystem),
                         directories,
-                        /*skylarkImportLookupFunctionForInlining=*/ null))
+                        /*starlarkImportLookupFunctionForInlining=*/ null))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
@@ -309,7 +308,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           Set<AspectKey> builtAspects,
           OptionsProvider options,
           Range<Long> lastExecutionTimeRange,
-          TopLevelArtifactContext topLevelArtifactContext)
+          TopLevelArtifactContext topLevelArtifactContext,
+          boolean trustRemoteArtifacts)
           throws BuildFailedException, AbruptExitException, InterruptedException,
               TestExecException {
         skyframeActionExecutor.prepareForExecution(
@@ -403,9 +403,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return new Artifact.DerivedArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
-        execPath,
-        ACTION_LOOKUP_KEY);
+        ArtifactRoot.asDerivedRoot(execRoot, "out"), execPath, ACTION_LOOKUP_KEY);
   }
 
   /**
@@ -473,7 +471,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           builtAspects,
           options,
           null,
-          null);
+          null,
+          /* trustRemoteArtifacts= */ false);
     } finally {
       tsgm.waitForTimestampGranularity(reporter.getOutErr());
     }

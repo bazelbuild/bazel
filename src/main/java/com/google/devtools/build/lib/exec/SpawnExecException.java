@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -28,7 +27,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 
 /**
  * A specialization of {@link ExecException} that indicates something went wrong when trying to
- * execute a {@link Spawn}.
+ * execute a {@link com.google.devtools.build.lib.actions.Spawn}.
  */
 public class SpawnExecException extends ExecException {
   protected final SpawnResult result;
@@ -73,11 +72,13 @@ public class SpawnExecException extends ExecException {
         message, this, action, isCatastrophic(), getDetailedExitCode());
   }
 
-  /** Return exit code depending on the spawn result. */
+  /** Return detailed exit code depending on the spawn result. */
   private DetailedExitCode getDetailedExitCode() {
-    if (result.status().isConsideredUserError()) {
-      return null;
+    ExitCode exitCode =
+        result.status().isConsideredUserError() ? ExitCode.BUILD_FAILURE : ExitCode.REMOTE_ERROR;
+    if (result.failureDetail() == null) {
+      return DetailedExitCode.justExitCode(exitCode);
     }
-    return DetailedExitCode.justExitCode(ExitCode.REMOTE_ERROR);
+    return DetailedExitCode.of(exitCode, result.failureDetail());
   }
 }

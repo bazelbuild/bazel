@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -48,7 +47,7 @@ import javax.annotation.Nullable;
 @AutoCodec
 @Immutable
 public final class BlazeDirectories {
-  // Include directory name, relative to execRoot/blaze-out/configuration.
+  // Include directory name, relative to execRoot/blaze-out/configuration. Only one segment allowed.
   public static final String RELATIVE_INCLUDE_DIR = StringCanonicalizer.intern("include");
   @VisibleForTesting static final String DEFAULT_EXEC_ROOT = "default-exec-root";
 
@@ -207,7 +206,7 @@ public final class BlazeDirectories {
    */
   public ArtifactRoot getBuildDataDirectory(String workspaceName) {
     return ArtifactRoot.asDerivedRoot(
-        getExecRoot(workspaceName), PathFragment.create(getRelativeOutputPath(productName)));
+        getExecRoot(workspaceName), getRelativeOutputPath(productName));
   }
 
   /**

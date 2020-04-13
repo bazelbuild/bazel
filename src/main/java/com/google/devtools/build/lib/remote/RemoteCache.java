@@ -114,9 +114,9 @@ public class RemoteCache implements AutoCloseable {
     this.digestUtil = digestUtil;
   }
 
-  public ActionResult downloadActionResult(ActionKey actionKey)
+  public ActionResult downloadActionResult(ActionKey actionKey, boolean inlineOutErr)
       throws IOException, InterruptedException {
-    return Utils.getFromFuture(cacheProtocol.downloadActionResult(actionKey));
+    return Utils.getFromFuture(cacheProtocol.downloadActionResult(actionKey, inlineOutErr));
   }
 
   /**

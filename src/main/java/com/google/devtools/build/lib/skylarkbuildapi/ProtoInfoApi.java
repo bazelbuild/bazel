@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.syntax.Depset;
 public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
   /** Provider class for {@link ProtoInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  interface Provider extends ProviderApi {
+  interface ProtoInfoProviderApi extends ProviderApi {
     // Currently empty. ProtoInfo cannot be created from Starlark at the moment.
   }
 

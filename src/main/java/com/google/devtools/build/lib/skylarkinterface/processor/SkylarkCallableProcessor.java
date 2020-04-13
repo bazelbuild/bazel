@@ -275,7 +275,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
               "Positional parameter '%s' is specified after one or more non-positional parameters",
               paramAnnot.name());
         }
-        if (!isParamNamed(paramAnnot) && !allowPositionalOnlyNext) {
+        if (!paramAnnot.named() && !allowPositionalOnlyNext) {
           errorf(
               param,
               "Positional-only parameter '%s' is specified after one or more named parameters",
@@ -297,21 +297,17 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         // No positional parameters can come after this parameter.
         allowPositionalNext = false;
 
-        if (!isParamNamed(paramAnnot)) {
+        if (!paramAnnot.named()) {
           errorf(param, "Parameter '%s' must be either positional or named", paramAnnot.name());
         }
       }
-      if (isParamNamed(paramAnnot)) {
+      if (paramAnnot.named()) {
         // No positional-only parameters can come after this parameter.
         allowPositionalOnlyNext = false;
       }
     }
 
     checkSpecialParams(method, annot);
-  }
-
-  private static boolean isParamNamed(Param param) {
-    return param.named() || param.legacyNamed();
   }
 
   // Checks consistency of a single parameter with its Param annotation.

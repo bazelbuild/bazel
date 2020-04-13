@@ -98,9 +98,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
 
   private void doLibrarySandwichTest(boolean legacyProviderAllowed) throws Exception {
     useConfiguration(
-        "--incompatible_disallow_legacy_py_provider=" + (legacyProviderAllowed ? "false" : "true"),
-        // Use new version semantics so we don't validate source versions in py_library.
-        "--incompatible_allow_python_version_transitions=true");
+        "--incompatible_disallow_legacy_py_provider=" + (legacyProviderAllowed ? "false" : "true"));
     defineUserlibRule(legacyProviderAllowed);
     scratch.file(
         "pkg/BUILD",

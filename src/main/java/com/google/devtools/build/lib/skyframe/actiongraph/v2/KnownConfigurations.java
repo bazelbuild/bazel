@@ -30,7 +30,7 @@ public class KnownConfigurations extends BaseCache<BuildEvent, Configuration> {
     BuildEventStreamProtos.Configuration configProto =
         config.asStreamProto(/*context=*/ null).getConfiguration();
     return Configuration.newBuilder()
-        .setChecksum(config.getEventId().asStreamProto().getConfiguration().getId())
+        .setChecksum(config.getEventId().getConfiguration().getId())
         .setMnemonic(configProto.getMnemonic())
         .setPlatformName(configProto.getPlatformName())
         .setId(id)

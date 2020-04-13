@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -75,7 +76,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
           StarlarkThread.builder(mutability)
               .setSemantics(analysisEnv.getSkylarkSemantics())
               .build();
-      thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(analysisEnv.getEventHandler()));
+      thread.setPrintHandler(Event.makeDebugPrintHandler(analysisEnv.getEventHandler()));
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.ANALYSIS,

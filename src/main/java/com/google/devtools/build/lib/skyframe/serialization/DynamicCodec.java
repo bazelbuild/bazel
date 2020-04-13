@@ -168,7 +168,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
    * @param type class of the field to deserialize
    * @param offset unsafe offset into obj where the field should be written
    */
-  private void deserializeField(
+  private static void deserializeField(
       DeserializationContext context,
       CodedInputStream codedIn,
       Object obj,

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -33,10 +34,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     documented = false,
     category = SkylarkModuleCategory.PROVIDER,
     doc = "")
-public interface GoWrapCcInfoApi extends StructApi {
+public interface GoWrapCcInfoApi<FileT extends FileApi> extends StructApi {
 
   @SkylarkCallable(name = "cc_info", structField = true, documented = false, doc = "")
-  CcInfoApi getCcInfo();
+  CcInfoApi<FileT> getCcInfo();
 
   /** Provider for GoWrapCcInfo objects. */
   @SkylarkModule(name = "Provider", doc = "", documented = false)

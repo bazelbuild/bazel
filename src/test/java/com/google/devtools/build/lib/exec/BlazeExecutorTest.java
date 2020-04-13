@@ -80,7 +80,7 @@ public class BlazeExecutorTest {
         .setReporter(reporter)
         .setOptionsParser(parser)
         .setExecution("fake", "fake")
-        .addStrategy(SpawnStrategy.class, new FakeSpawnStrategy(), "fake")
+        .addContext(SpawnStrategy.class, new FakeSpawnStrategy(), "fake")
         .build();
 
     Event event =

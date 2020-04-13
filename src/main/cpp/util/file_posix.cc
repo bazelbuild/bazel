@@ -124,6 +124,33 @@ static bool MakeDirectories(const string &path, mode_t mode, bool childmost) {
   return stat_succeeded;
 }
 
+
+string CreateTempDir(const std::string &prefix) {
+  std::string parent = Dirname(prefix);
+  // Need parent to exist first.
+  if (!blaze_util::PathExists(parent) &&
+      !blaze_util::MakeDirectories(parent, 0777)) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "couldn't create '" << parent << "': "
+        << blaze_util::GetLastErrorString();
+  }
+
+  std::string result(prefix + "XXXXXX");
+  if (mkdtemp(&result[0]) == nullptr) {
+    std::string err = GetLastErrorString();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "could not create temporary directory under " << parent
+        << " to extract install base into (" << err << ")";
+  }
+
+  // There's no better way to get the current umask than to set and reset it.
+  const mode_t um = umask(0);
+  umask(um);
+  chmod(result.c_str(), 0777 & ~um);
+
+  return result;
+}
+
 static bool RemoveDirRecursively(const std::string &path) {
   DIR *dir;
   if ((dir = opendir(path.c_str())) == NULL) {

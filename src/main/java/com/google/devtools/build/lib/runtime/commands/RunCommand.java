@@ -729,15 +729,15 @@ public class RunCommand implements BlazeCommand  {
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
-    Artifact executable = configuredTarget.getProvider(FilesToRunProvider.class).getExecutable();
+    Artifact executable =
+        Preconditions.checkNotNull(
+                configuredTarget.getProvider(FilesToRunProvider.class), configuredTarget)
+            .getExecutable();
     if (executable == null) {
       env.getReporter().handle(Event.error(notExecutableError(target)));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
-    // Shouldn't happen: We just validated the target.
-    Preconditions.checkState(
-        executable != null, "Could not find executable for target %s", configuredTarget);
     Path executablePath = executable.getPath();
     try {
       if (!executablePath.exists() || !executablePath.isExecutable()) {

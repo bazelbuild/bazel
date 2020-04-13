@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
+import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -404,7 +404,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           result,
           formatter,
           outputStream,
-          queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)));
+          queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)),
+          getEventHandler(ruleContext));
       outputStream.close();
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());

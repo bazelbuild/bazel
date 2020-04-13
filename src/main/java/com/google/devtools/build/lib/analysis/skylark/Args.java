@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -268,7 +268,7 @@ public abstract class Args implements CommandLineArgsApi {
         Object mapFn,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final String argName;
       if (value == Starlark.UNBOUND) {
         value = argNameOrValue;
@@ -315,7 +315,7 @@ public abstract class Args implements CommandLineArgsApi {
         Object terminateWith,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -355,7 +355,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean expandDirectories,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -503,7 +503,7 @@ public abstract class Args implements CommandLineArgsApi {
     @Override
     public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
@@ -519,7 +519,7 @@ public abstract class Args implements CommandLineArgsApi {
 
     @Override
     public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final ParameterFileType parameterFileType;
       switch (format) {
         case "shell":
