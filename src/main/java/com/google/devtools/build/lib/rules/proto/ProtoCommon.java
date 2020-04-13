@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Location;
@@ -53,6 +55,22 @@ public class ProtoCommon {
   @VisibleForTesting
   public static final String PROTO_RULES_MIGRATION_LABEL =
       "__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__";
+
+  private static final Interner<PathFragment> PROTO_SOURCE_ROOT_INTERNER =
+      BlazeInterners.newWeakInterner();
+
+  /**
+   * Returns a memory efficient version of the passed protoSourceRoot.
+   *
+   * <p>Any sizable proto graph will contain many {@code .proto} sources with the same source root.
+   * We can't afford to have all of them represented as individual objects in memory.
+   *
+   * @param protoSourceRoot
+   * @return
+   */
+  static PathFragment memoryEfficientProtoSourceRoot(PathFragment protoSourceRoot) {
+    return PROTO_SOURCE_ROOT_INTERNER.intern(protoSourceRoot);
+  }
 
   /**
    * Gets the direct sources of a proto library. If protoSources is not empty, the value is just
@@ -91,31 +109,6 @@ public class ProtoCommon {
       builder.addTransitive(provider.getExportedSources());
     }
     return builder.build();
-  }
-
-  /**
-   * Gets the direct sources and import paths of a proto library. If protoSourcesImportPaths is not
-   * empty, the value is just protoSourcesImportPaths. Otherwise, it's the combined sources of all
-   * direct dependencies of the given RuleContext.
-   *
-   * @param sources the direct proto sources.
-   * @param deps the proto dependencies.
-   * @return the direct sources and import paths of a proto library.
-   */
-  private static NestedSet<Pair<Artifact, String>>
-      computeStrictImportableProtosImportPathsForDependents(
-          ImmutableList<ProtoSource> sources, ImmutableList<ProtoInfo> deps) {
-    if (sources.isEmpty()) {
-      /* a proxy/alias library, return the sources of the direct deps */
-      NestedSetBuilder<Pair<Artifact, String>> builder = NestedSetBuilder.stableOrder();
-      for (ProtoInfo provider : deps) {
-        builder.addTransitive(provider.getStrictImportableProtoSourcesImportPathsForDependents());
-      }
-      return builder.build();
-    } else {
-      return NestedSetBuilder.wrap(
-          STABLE_ORDER, Iterables.transform(sources, s -> toProtoImportPathPair(s)));
-    }
   }
 
   private static Pair<Artifact, String> toProtoImportPathPair(ProtoSource source) {
@@ -232,10 +225,11 @@ public class ProtoCommon {
       sources.add(
           new ProtoSource(
               /* sourceFile */ protoSource,
-              /* sourceRoot */ protoSourceRoot.getRelative(protoSource.getRoot().getExecPath()),
+              /* sourceRoot */ memoryEfficientProtoSourceRoot(
+                  protoSourceRoot.getRelative(protoSource.getRoot().getExecPath())),
               /* importPath */ Optional.empty()));
     }
-    return new Library(sources.build(), protoSourceRoot);
+    return new Library(sources.build(), memoryEfficientProtoSourceRoot(protoSourceRoot));
   }
 
   private static PathFragment getPathFragmentAttribute(
@@ -339,7 +333,8 @@ public class ProtoCommon {
 
     PathFragment sourceRootPath = ruleContext.getUniqueDirectory("_virtual_imports");
     PathFragment sourceRoot =
-        ruleContext.getBinOrGenfilesDirectory().getExecPath().getRelative(sourceRootPath);
+        memoryEfficientProtoSourceRoot(
+            ruleContext.getBinOrGenfilesDirectory().getExecPath().getRelative(sourceRootPath));
 
     ImmutableList.Builder<ProtoSource> sources = ImmutableList.builder();
     for (Artifact realProtoSource : protoSources) {
@@ -400,24 +395,6 @@ public class ProtoCommon {
               "Symlinking virtual .proto sources for " + ruleContext.getLabel()));
 
     return Pair.of(importPath, virtualProtoSource);
-  }
-
-  /**
-   * Returns a set of the {@code proto_source_root} collected from the current library and the
-   * specified attribute.
-   *
-   * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
-   */
-  private static NestedSet<String> getProtoSourceRootsOfAttribute(
-      ImmutableList<ProtoInfo> protoInfos, String currentProtoSourceRoot) {
-    NestedSetBuilder<String> protoSourceRoots = NestedSetBuilder.stableOrder();
-    protoSourceRoots.add(currentProtoSourceRoot);
-
-    for (ProtoInfo provider : protoInfos) {
-      protoSourceRoots.add(provider.getDirectProtoSourceRoot());
-    }
-
-    return protoSourceRoots.build();
   }
 
   /**
@@ -525,8 +502,6 @@ public class ProtoCommon {
     // Misc (deprecated).
     NestedSet<Artifact> strictImportableProtoSourcesForDependents =
         computeStrictImportableProtosForDependents(directSources, deps);
-    NestedSet<Pair<Artifact, String>> strictImportableProtoSourcesImportPathsForDependents =
-        computeStrictImportableProtosImportPathsForDependents(directSources, deps);
 
     return new ProtoInfo(
         directSources,
@@ -541,7 +516,6 @@ public class ProtoCommon {
         strictImportableSources,
         publicImportSources,
         strictImportableProtoSourcesForDependents,
-        strictImportableProtoSourcesImportPathsForDependents,
         Location.BUILTIN);
   }
 

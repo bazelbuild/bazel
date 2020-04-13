@@ -95,8 +95,6 @@ public class ProtoCompileActionBuilderTest {
             Order.STABLE_ORDER, publicImportProtoSources),
         /* strictImportableProtoSourcesForDependents */ NestedSetBuilder.emptySet(
             Order.STABLE_ORDER),
-        /* strictImportableProtoSourcesImportPathsForDependents */ NestedSetBuilder.emptySet(
-            Order.STABLE_ORDER),
         Location.BUILTIN);
   }
 

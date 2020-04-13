@@ -42,7 +42,7 @@ class ProtoSource {
       Optional<PathFragment> importPath) {
     this.sourceFile = sourceFile;
     this.originalSourceFile = originalSourceFile;
-    this.sourceRoot = sourceRoot;
+    this.sourceRoot = ProtoCommon.memoryEfficientProtoSourceRoot(sourceRoot);
     this.importPath = importPath;
   }
 

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -86,8 +85,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
   // Misc (deprecated).
   private final NestedSet<Artifact> strictImportableProtoSourcesForDependents;
-  private final NestedSet<Pair<Artifact, String>>
-      strictImportableProtoSourcesImportPathsForDependents;
 
   @AutoCodec.Instantiator
   public ProtoInfo(
@@ -107,14 +104,13 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       NestedSet<ProtoSource> publicImportSources,
       // Misc (deprecated).
       NestedSet<Artifact> strictImportableProtoSourcesForDependents,
-      NestedSet<Pair<Artifact, String>> strictImportableProtoSourcesImportPathsForDependents,
       Location location) {
     super(PROVIDER, location);
 
     // Direct.
     this.directSources = directSources;
     this.directDescriptorSet = directDescriptorSet;
-    this.directProtoSourceRoot = directProtoSourceRoot;
+    this.directProtoSourceRoot = ProtoCommon.memoryEfficientProtoSourceRoot(directProtoSourceRoot);
 
     // Transitive.
     this.transitiveSources = transitiveSources;
@@ -130,8 +126,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
     // Misc (deprecated).
     this.strictImportableProtoSourcesForDependents = strictImportableProtoSourcesForDependents;
-    this.strictImportableProtoSourcesImportPathsForDependents =
-        strictImportableProtoSourcesImportPathsForDependents;
 
     // Derived.
     this.directProtoSources = extractProtoSources(directSources);
@@ -233,18 +227,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
   public NestedSet<Artifact> getStrictImportableProtoSourcesForDependents() {
     return strictImportableProtoSourcesForDependents;
-  }
-
-  /**
-   * Returns the set of source files and import paths importable by rules directly depending on the
-   * rule declaring this provider if strict dependency checking is in effect.
-   *
-   * <p>(strict dependency checking: when a target can only include / import source files from its
-   * direct dependencies, but not from transitive ones)
-   */
-  public NestedSet<Pair<Artifact, String>>
-      getStrictImportableProtoSourcesImportPathsForDependents() {
-    return strictImportableProtoSourcesImportPathsForDependents;
   }
 
   /**
