@@ -556,8 +556,7 @@ public class SymlinkForestTest {
     // │   │   ├── dir2
     // │   │   │   └── pkg -> /my_repo/dir2/pkg
     // │   │   ├── dir3 -> /my_repo/dir3
-    // │   │   └── external
-    // │   │       └── foo -> /my_repo/external/foo
+    // │   │   └── external -> /my_repo/external
     // │   └── X -> /ob/external/X
     // └── external
     //     └── X
@@ -575,13 +574,14 @@ public class SymlinkForestTest {
         outputBase.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).getRelative("X"));
 
     assertThat(linkRoot.getRelative("external/foo").exists()).isTrue();
-    // TODO(b/153670299): Change to containsExactly once we clarify external repo symlink semantics.
+
     assertThat(plantedSymlinks)
-        .containsAtLeast(
+        .containsExactly(
             linkRoot.getRelative("dir1"),
             linkRoot.getRelative("dir2"),
             linkRoot.getRelative("dir3"),
-            linkRoot.getParentDirectory().getRelative("X"));
+            linkRoot.getRelative("external"), // Symlinked to the main repo's top level external dir
+            linkRoot.getParentDirectory().getRelative("X")); // Symlinked to /ob/external/X
   }
 
   @Test
@@ -594,11 +594,11 @@ public class SymlinkForestTest {
 
     linkRoot.createDirectoryAndParents();
     mainRepo.asPath().createDirectoryAndParents();
+
     mainRepo.getRelative("external/foo").createDirectoryAndParents();
 
     ImmutableMap<PackageIdentifier, Root> packageRootMap =
         ImmutableMap.<PackageIdentifier, Root>builder()
-            // Empty package will cause every top-level files to be linked, except external/
             .put(createMainPkg(mainRepo, ""), mainRepo)
             .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), outputBase)
             .build();
@@ -614,8 +614,7 @@ public class SymlinkForestTest {
     // /ob
     // ├── execroot
     // │   ├── ws_name
-    // │   │   └── external
-    // │   │       └── foo -> /my_repo/external/foo
+    // │   │   └── external -> /my_repo/external
     // │   └── X -> /ob/external/X
     // └── external
     //     └── X
@@ -629,8 +628,13 @@ public class SymlinkForestTest {
         outputBase.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).getRelative("X"));
 
     assertThat(linkRoot.getRelative("external/foo").exists()).isTrue();
-    // TODO(b/153670299): Change to containsExactly once we clarify external repo symlink semantics.
-    assertThat(plantedSymlinks).contains(linkRoot.getParentDirectory().getRelative("X"));
+
+    assertThat(plantedSymlinks)
+        .containsExactly(
+            linkRoot.getParentDirectory().getRelative("X"),
+            linkRoot.getRelative("file"), // created by createMainPkg test setup
+            linkRoot.getRelative("external") // symlink to main repo's top level external directory
+            );
   }
 
   @Test
