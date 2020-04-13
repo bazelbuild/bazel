@@ -42,7 +42,7 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
       Predicates.or(
           SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT),
-          SkyFunctions.isSkyFunction(SkyFunctions.LOAD_SKYLARK_ASPECT));
+          SkyFunctions.isSkyFunction(SkyFunctions.LOAD_STARLARK_ASPECT));
 
   private static final Predicate<SkyKey> IS_TRANSITIVE_TARGET_SKY_KEY =
       SkyFunctions.isSkyFunction(TRANSITIVE_TARGET);

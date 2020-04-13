@@ -428,7 +428,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
         .put(
-            SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
+            SkyFunctions.STARLARK_IMPORTS_LOOKUP,
             new StarlarkImportLookupFunction(ruleClassProvider, pkgFactory))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))

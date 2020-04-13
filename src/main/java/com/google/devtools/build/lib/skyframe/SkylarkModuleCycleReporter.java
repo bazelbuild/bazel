@@ -29,13 +29,11 @@ import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
 
-/**
- * Reports cycles of recursive import of Skylark files.
- */
+/** Reports cycles of recursive import of Starlark files. */
 public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleReporter {
 
-  private static final Predicate<SkyKey> IS_SKYLARK_MODULE_SKY_KEY =
-      SkyFunctions.isSkyFunction(SkyFunctions.SKYLARK_IMPORTS_LOOKUP);
+  private static final Predicate<SkyKey> IS_STARLARK_MODULE_SKY_KEY =
+      SkyFunctions.isSkyFunction(SkyFunctions.STARLARK_IMPORTS_LOOKUP);
 
   private static final Predicate<SkyKey> IS_PACKAGE_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE);
@@ -52,8 +50,8 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
 
-  private static final Predicate<SkyKey> IS_SKYLARK_IMPORTS_LOOKUP =
-      SkyFunctions.isSkyFunction(SkyFunctions.SKYLARK_IMPORTS_LOOKUP);
+  private static final Predicate<SkyKey> IS_STARLARK_IMPORTS_LOOKUP =
+      SkyFunctions.isSkyFunction(SkyFunctions.STARLARK_IMPORTS_LOOKUP);
 
   private static final Predicate<SkyKey> IS_EXTERNAL_PACKAGE =
       SkyFunctions.isSkyFunction(SkyFunctions.EXTERNAL_PACKAGE);
@@ -86,11 +84,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
     SkyKey lastPathElement = pathToCycle.get(pathToCycle.size() - 1);
     if (alreadyReported) {
       return true;
-    } else if (Iterables.all(cycle, IS_SKYLARK_MODULE_SKY_KEY)
+    } else if (Iterables.all(cycle, IS_STARLARK_MODULE_SKY_KEY)
         // The last element before the cycle has to be a PackageFunction, SkylarkModule, or the
         // WORKSPACE
         && (IS_PACKAGE_SKY_KEY.apply(lastPathElement)
-            || IS_SKYLARK_MODULE_SKY_KEY.apply(lastPathElement)
+            || IS_STARLARK_MODULE_SKY_KEY.apply(lastPathElement)
             || IS_WORKSPACE_FILE.apply(lastPathElement))) {
 
       Function<SkyKey, String> printer =
@@ -120,7 +118,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       int startIndex = pathToCycle.size() - 1;
       while (startIndex > 0
           && (IS_PACKAGE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
-              || IS_SKYLARK_MODULE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
+              || IS_STARLARK_MODULE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
               || IS_WORKSPACE_FILE.apply(pathToCycle.get(startIndex - 1)))) {
         startIndex--;
       }
@@ -160,10 +158,10 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
 
       StringBuilder message = new StringBuilder();
 
-      if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
+      if (Iterables.any(cycle, IS_STARLARK_IMPORTS_LOOKUP)) {
         Label fileLabel =
             ((StarlarkImportLookupValue.Key)
-                    Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
+                    Iterables.getLast(Iterables.filter(cycle, IS_STARLARK_IMPORTS_LOOKUP)))
                 .getImportLabel();
         message.append("Failed to load Starlark extension '").append(fileLabel).append("'.\n");
       }
@@ -195,10 +193,10 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       // repositories were defined.
       requestRepoDefinitions(eventHandler, repos);
       return true;
-    } else if (Iterables.any(cycle, IS_SKYLARK_IMPORTS_LOOKUP)) {
+    } else if (Iterables.any(cycle, IS_STARLARK_IMPORTS_LOOKUP)) {
       Label fileLabel =
           ((StarlarkImportLookupValue.Key)
-                  Iterables.getLast(Iterables.filter(cycle, IS_SKYLARK_IMPORTS_LOOKUP)))
+                  Iterables.getLast(Iterables.filter(cycle, IS_STARLARK_IMPORTS_LOOKUP)))
               .getImportLabel();
       eventHandler.handle(
           Event.error(null, "Failed to load Starlark extension '" + fileLabel + "'.\n"));

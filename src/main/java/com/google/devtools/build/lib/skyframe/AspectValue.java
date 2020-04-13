@@ -311,7 +311,7 @@ public final class AspectValue extends BasicActionLookupValue implements Configu
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.LOAD_SKYLARK_ASPECT;
+      return SkyFunctions.LOAD_STARLARK_ASPECT;
     }
 
     String getSkylarkValueName() {

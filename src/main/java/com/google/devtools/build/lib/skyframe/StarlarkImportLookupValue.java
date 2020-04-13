@@ -100,7 +100,7 @@ public class StarlarkImportLookupValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.SKYLARK_IMPORTS_LOOKUP;
+      return SkyFunctions.STARLARK_IMPORTS_LOOKUP;
     }
 
     @Override
