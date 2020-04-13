@@ -15,15 +15,11 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
 /** Strategy to perform symlink action locally */
-@ExecutionStrategy(
-    name = {"local"},
-    contextType = SymlinkContext.class)
 public class LocalSymlinkStrategy implements SymlinkContext {
   public static final Class<LocalSymlinkStrategy> TYPE = LocalSymlinkStrategy.class;
 

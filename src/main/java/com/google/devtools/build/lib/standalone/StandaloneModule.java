@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.standalone;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
+import com.google.devtools.build.lib.analysis.actions.LocalSymlinkStrategy;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
+import com.google.devtools.build.lib.analysis.actions.SymlinkContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -88,6 +90,8 @@ public class StandaloneModule extends BlazeModule {
     registryBuilder.register(FileWriteActionContext.class, new FileWriteStrategy(), "local");
     registryBuilder.register(
         TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(), "local");
+    registryBuilder.register(
+        SymlinkContext.class, new LocalSymlinkStrategy(), "local");
   }
 
   @Override

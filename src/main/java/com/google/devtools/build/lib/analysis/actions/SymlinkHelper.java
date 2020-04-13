@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -65,8 +65,8 @@ public final class SymlinkHelper {
           ImmutableList.copyOf(symlinkCommandLine.arguments()),
           actionExecutionContext.getClientEnv(),
           ImmutableMap.of(ExecutionRequirements.NO_REMOTE_EXEC, ""),
-          ImmutableList.copyOf(action.getInputs()),
-          action.getOutputs().asList(),
+          action.getInputs(),
+          action.getOutputs(),
           ResourceSet.ZERO);
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(
@@ -89,7 +89,7 @@ public final class SymlinkHelper {
       return ctx.getContext(SymlinkContext.class).createSymlink(symlinkPath, target);
     } else {
       Spawn spawn = createSpawn(action, ctx, symlink.getExecPathString(), target.toString());
-      return ctx.getContext(SpawnActionContext.class).beginExecution(spawn, ctx);
+      return ctx.getContext(SpawnStrategy.class).beginExecution(spawn, ctx);
     }
   }
 }

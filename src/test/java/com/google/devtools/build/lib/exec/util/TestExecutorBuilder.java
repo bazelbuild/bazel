@@ -20,7 +20,9 @@ import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
+import com.google.devtools.build.lib.analysis.actions.LocalSymlinkStrategy;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
+import com.google.devtools.build.lib.analysis.actions.SymlinkContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -63,6 +65,7 @@ public class TestExecutorBuilder {
     this.execRoot = execRoot;
     addContext(FileWriteActionContext.class, new FileWriteStrategy());
     addContext(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
+    addContext(SymlinkContext.class, new LocalSymlinkStrategy());
     addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, binTools));
   }
 
