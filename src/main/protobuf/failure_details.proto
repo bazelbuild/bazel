@@ -131,6 +131,11 @@ message BuildProgress {
     BES_LOCAL_WRITE_ERROR = 5 [(metadata) = { exit_code: 36 }];
     BES_INITIALIZATION_ERROR = 6 [(metadata) = { exit_code: 36 }];
     BES_UPLOAD_TIMEOUT_ERROR = 7 [(metadata) = { exit_code: 38 }];
+    BES_FILE_WRITE_TIMEOUT = 8 [(metadata) = { exit_code: 38 }];
+    BES_FILE_WRITE_IO_ERROR = 9 [(metadata) = { exit_code: 38 }];
+    BES_FILE_WRITE_INTERRUPTED = 10 [(metadata) = { exit_code: 38 }];
+    BES_FILE_WRITE_CANCELED = 11 [(metadata) = { exit_code: 38 }];
+    BES_FILE_WRITE_UNKNOWN_ERROR = 12 [(metadata) = { exit_code: 38 }];
     reserved 1, 2; // For internal use
   }
   Code code = 1;

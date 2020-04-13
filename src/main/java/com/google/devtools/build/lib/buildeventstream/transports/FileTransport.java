@@ -32,7 +32,11 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
+import com.google.devtools.build.lib.server.FailureDetails.BuildProgress.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -176,9 +180,33 @@ abstract class FileTransport implements BuildEventTransport {
             String.format("Unable to write all BEP events to file due to '%s'", e.getMessage());
       }
       closeFuture.setException(
-          new AbruptExitException(message, ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR, e));
+          new AbruptExitException(
+              DetailedExitCode.of(
+                  ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
+                  FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setBuildProgress(BuildProgress.newBuilder().setCode(getBuildProgressCode(e)))
+                      .build()),
+              e));
       pendingWrites.clear();
       logger.log(Level.SEVERE, message, e);
+    }
+
+    private static BuildProgress.Code getBuildProgressCode(Throwable e) {
+      if (e instanceof ExecutionException && e.getCause() instanceof TimeoutException) {
+        return Code.BES_FILE_WRITE_TIMEOUT;
+      }
+      Throwable maybeUnwrappedFailure = e instanceof ExecutionException ? e.getCause() : e;
+      if (maybeUnwrappedFailure instanceof IOException) {
+        return Code.BES_FILE_WRITE_IO_ERROR;
+      }
+      if (maybeUnwrappedFailure instanceof InterruptedException) {
+        return Code.BES_FILE_WRITE_INTERRUPTED;
+      }
+      if (maybeUnwrappedFailure instanceof CancellationException) {
+        return Code.BES_FILE_WRITE_CANCELED;
+      }
+      return Code.BES_FILE_WRITE_UNKNOWN_ERROR;
     }
 
     private void closeNow() {
