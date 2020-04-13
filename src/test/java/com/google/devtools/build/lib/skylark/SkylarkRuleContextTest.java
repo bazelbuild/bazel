@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.rules.python.PyProviderUtils;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -461,7 +463,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertArtifactList(result, ImmutableList.of("a.txt", "b.img"));
   }
 
-  private void assertArtifactList(Object result, List<String> artifacts) {
+  private static void assertArtifactList(Object result, List<String> artifacts) {
     assertThat(result).isInstanceOf(Sequence.class);
     Sequence<?> resultList = (Sequence) result;
     assertThat(resultList).hasSize(artifacts.size());
@@ -1814,24 +1816,29 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   // The common structure of the following actions tests is a rule under test depended upon by
   // a testing rule, where the rule under test has one output and one caller-supplied action.
 
-  private String getSimpleUnderTestDefinition(String actionLine, boolean withSkylarkTestable) {
+  private static String getSimpleUnderTestDefinition(
+      boolean withSkylarkTestable, String[] actionLines) {
     return linesAsString(
-      "def _undertest_impl(ctx):",
-      "  out = ctx.outputs.out",
-      "  " + actionLine,
-      "undertest_rule = rule(",
-      "  implementation = _undertest_impl,",
-      "  outputs = {'out': '%{name}.txt'},",
-      withSkylarkTestable ? "  _skylark_testable = True," : "",
-      ")");
+        // TODO(b/153667498): Just passing fail to map_each parameter of Args.add_all does not work.
+        "def fail_with_message(s):",
+        "    fail(s)",
+        "",
+        "def _undertest_impl(ctx):",
+        "  out = ctx.outputs.out",
+        "  " + Joiner.on("\n  ").join(actionLines),
+        "undertest_rule = rule(",
+        "  implementation = _undertest_impl,",
+        "  outputs = {'out': '%{name}.txt'},",
+        withSkylarkTestable ? "  _skylark_testable = True," : "",
+        ")");
   }
 
-  private String getSimpleUnderTestDefinition(String actionLine) {
-    return getSimpleUnderTestDefinition(actionLine, true);
+  private static String getSimpleUnderTestDefinition(String... actionLines) {
+    return getSimpleUnderTestDefinition(true, actionLines);
   }
 
-  private String getSimpleNontestableUnderTestDefinition(String actionLine) {
-    return getSimpleUnderTestDefinition(actionLine, false);
+  private static String getSimpleNontestableUnderTestDefinition(String... actionLines) {
+    return getSimpleUnderTestDefinition(false, actionLines);
   }
 
   private final String testingRuleDefinition =
@@ -2138,6 +2145,87 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object contentUnchecked = eval("action.content");
     assertThat(contentUnchecked).isInstanceOf(String.class);
     assertThat(contentUnchecked).isEqualTo("foo123");
+  }
+
+  @Test
+  public void testFileWriteActionInterfaceWithArgs() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "args = ctx.actions.args()",
+            "args.add('foo123')",
+            "ctx.actions.write(output=out, content=args)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
+    update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(eval("type(action)")).isEqualTo("Action");
+
+    Object contentUnchecked = eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    // Args content ends the file with a newline
+    assertThat(contentUnchecked).isEqualTo("foo123\n");
+  }
+
+  @Test
+  public void testFileWriteActionInterfaceWithArgsContainingTreeArtifact() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "directory = ctx.actions.declare_directory('dir')",
+            "ctx.actions.run_shell(",
+            "    outputs = [directory],",
+            "    command = 'mkdir {out}'",
+            ")",
+            "args = ctx.actions.args()",
+            "args.add_all([directory])",
+            "ctx.actions.write(output=out, content=args)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
+    update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(eval("type(action)")).isEqualTo("Action");
+
+    // If the Args contain a directory File that needs to be expanded, the contents are not known
+    // at analysis time.
+    Object contentUnchecked = eval("action.content");
+    assertThat(contentUnchecked).isEqualTo(Starlark.NONE);
+  }
+
+  @Test
+  public void testFileWriteActionInterfaceWithArgsExpansionError() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "args = ctx.actions.args()",
+            "args.add_all(['args expansion error message'], map_each = fail_with_message)",
+            "ctx.actions.write(output=out, content=args)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
+    update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(eval("type(action)")).isEqualTo("Action");
+
+    // If there's a failure when expanding Args, that error message is propagated.
+    EvalException e =
+        assertThrows(
+            "Should be an error expanding action.content",
+            EvalException.class,
+            () -> eval("action.content"));
+    assertThat(e)
+        .hasMessageThat()
+        .matches(
+            "Error expanding command line: \n\n/workspace/test/rules\\.bzl:\\d+:\\d+: args "
+                + "expansion error message");
   }
 
   @Test
