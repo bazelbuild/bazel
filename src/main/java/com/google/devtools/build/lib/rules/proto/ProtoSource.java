@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Optional;
 
 /** Represents a single {@code .proto} source file. */
 @Immutable
@@ -27,23 +26,16 @@ class ProtoSource {
   private final Artifact sourceFile;
   private final Artifact originalSourceFile;
   private final PathFragment sourceRoot;
-  private final Optional<PathFragment> importPath;
 
-  public ProtoSource(
-      Artifact sourceFile, PathFragment sourceRoot, Optional<PathFragment> importPath) {
-    this(sourceFile, sourceFile, sourceRoot, importPath);
+  public ProtoSource(Artifact sourceFile, PathFragment sourceRoot) {
+    this(sourceFile, sourceFile, sourceRoot);
   }
 
   @AutoCodec.Instantiator
-  ProtoSource(
-      Artifact sourceFile,
-      Artifact originalSourceFile,
-      PathFragment sourceRoot,
-      Optional<PathFragment> importPath) {
+  ProtoSource(Artifact sourceFile, Artifact originalSourceFile, PathFragment sourceRoot) {
     this.sourceFile = sourceFile;
     this.originalSourceFile = originalSourceFile;
     this.sourceRoot = ProtoCommon.memoryEfficientProtoSourceRoot(sourceRoot);
-    this.importPath = importPath;
   }
 
   public Artifact getSourceFile() {
@@ -61,12 +53,7 @@ class ProtoSource {
   }
 
   public PathFragment getImportPath() {
-    return importPath.orElseGet(() -> sourceFile.getExecPath().relativeTo(sourceRoot));
-  }
-
-  @Deprecated
-  Optional<PathFragment> getImportPathForStrictImportableProtosImportPathsForDependents() {
-    return importPath;
+    return sourceFile.getExecPath().relativeTo(sourceRoot);
   }
 
   @Override

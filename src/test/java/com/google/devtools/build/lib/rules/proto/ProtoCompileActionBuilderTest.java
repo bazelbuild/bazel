@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,21 +56,16 @@ public class ProtoCompileActionBuilderTest {
   private final ArtifactRoot derivedRoot =
       ArtifactRoot.asDerivedRoot(FILE_SYSTEM.getPath("/"), "out");
 
-  private ProtoSource protoSource(Artifact protoSource) {
-    return new ProtoSource(
-        protoSource, PathFragment.EMPTY_FRAGMENT, Optional.of(protoSource.getExecPath()));
-  }
-
   private ProtoSource protoSource(String importPath) {
-    return new ProtoSource(
-        artifact("//:dont-care", importPath),
-        PathFragment.EMPTY_FRAGMENT,
-        Optional.of(PathFragment.create(importPath)));
+    return protoSource(artifact("//:dont-care", importPath));
   }
 
-  private ProtoSource protoSource(Artifact protoSource, String importPath) {
-    return new ProtoSource(
-        protoSource, PathFragment.EMPTY_FRAGMENT, Optional.of(PathFragment.create(importPath)));
+  private ProtoSource protoSource(Artifact protoSource) {
+    return protoSource(protoSource, PathFragment.EMPTY_FRAGMENT);
+  }
+
+  private ProtoSource protoSource(Artifact protoSource, PathFragment sourceRoot) {
+    return new ProtoSource(protoSource, sourceRoot);
   }
 
   private ProtoInfo protoInfo(
@@ -192,8 +186,7 @@ public class ProtoCompileActionBuilderTest {
                 /* transitiveProtoSources */ ImmutableList.of(
                     protoSource("import1.proto"), protoSource("import2.proto")),
                 /* publicImportProtoSources */ ImmutableList.of(),
-                /* strictImportableSources */ ImmutableList.of(
-                    protoSource(artifact("//:dont-care", "import1.proto")))),
+                /* strictImportableSources */ ImmutableList.of(protoSource("import1.proto"))),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             Deps.STRICT,
             Exports.DO_NOT_USE,
@@ -365,32 +358,32 @@ public class ProtoCompileActionBuilderTest {
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
-                    protoSource(derivedArtifact("foo.proto"), "foo.proto")),
+                    protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ null))
         .containsExactly("-Ifoo.proto=out/foo.proto");
 
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
-                    protoSource(derivedArtifact("foo.proto"), "foo.proto")),
+                    protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ ImmutableList.of()))
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=");
 
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
-                    protoSource(derivedArtifact("foo.proto"), "foo.proto")),
+                    protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ ImmutableList.of(
-                    protoSource(derivedArtifact("foo.proto"), "foo.proto"))))
+                    protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()))))
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto");
 
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
-                    protoSource(derivedArtifact("foo.proto"), "foo.proto")),
+                    protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath())),
                 /* importableProtoSources */ ImmutableList.of(
-                    protoSource(derivedArtifact("foo.proto"), "foo.proto"),
-                    protoSource(derivedArtifact("bar.proto"), "bar.proto"))))
+                    protoSource(derivedArtifact("foo.proto"), derivedRoot.getExecPath()),
+                    protoSource(derivedArtifact("bar.proto"), derivedRoot.getExecPath()))))
         .containsExactly(
             "-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto:bar.proto");
   }
@@ -402,12 +395,13 @@ public class ProtoCompileActionBuilderTest {
    * the external repo root, and physical should be the physical file location.
    */
   @Test
-  public void testIncludeMapsOfExternalFiles() throws Exception {
+  public void testIncludeMapsOfExternalFiles() {
     assertThat(
             protoArgv(
                 /* transitiveSources */ ImmutableList.of(
                     protoSource(
-                        artifact("@bla//foo:bar", "external/bla/foo/bar.proto"), "foo/bar.proto")),
+                        artifact("@bla//foo:bar", "external/bla/foo/bar.proto"),
+                        PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of()))
         .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies=");
   }
@@ -417,9 +411,10 @@ public class ProtoCompileActionBuilderTest {
     Artifact protoSource = artifact("@bla//foo:bar", "external/bla/foo/bar.proto");
     assertThat(
             protoArgv(
-                /* transitiveSources */ ImmutableList.of(protoSource(protoSource, "foo/bar.proto")),
+                /* transitiveSources */ ImmutableList.of(
+                    protoSource(protoSource, PathFragment.create("external/bla"))),
                 /* importableProtoSources */ ImmutableList.of(
-                    protoSource(protoSource, "foo/bar.proto"))))
+                    protoSource(protoSource, PathFragment.create("external/bla")))))
         .containsExactly(
             "-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies", "foo/bar.proto");
   }

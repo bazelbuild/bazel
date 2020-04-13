@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -109,15 +108,6 @@ public class ProtoCommon {
       builder.addTransitive(provider.getExportedSources());
     }
     return builder.build();
-  }
-
-  private static Pair<Artifact, String> toProtoImportPathPair(ProtoSource source) {
-    Optional<PathFragment> importPath =
-        source.getImportPathForStrictImportableProtosImportPathsForDependents();
-    if (importPath.isPresent()) {
-      return new Pair<>(source.getOriginalSourceFile(), importPath.get().toString());
-    }
-    return new Pair<>(source.getOriginalSourceFile(), null);
   }
 
   private static NestedSet<ProtoSource> computeTransitiveProtoSources(
@@ -226,8 +216,7 @@ public class ProtoCommon {
           new ProtoSource(
               /* sourceFile */ protoSource,
               /* sourceRoot */ memoryEfficientProtoSourceRoot(
-                  protoSourceRoot.getRelative(protoSource.getRoot().getExecPath())),
-              /* importPath */ Optional.empty()));
+                  protoSourceRoot.getRelative(protoSource.getRoot().getExecPath()))));
     }
     return new Library(sources.build(), memoryEfficientProtoSourceRoot(protoSourceRoot));
   }
@@ -347,8 +336,8 @@ public class ProtoCommon {
                 realProtoSource.getExecPathString(), stripImportPrefix.getPathString()));
         continue;
       }
-      Pair<PathFragment, Artifact> importsPair =
-          computeImports(
+      Artifact virtualProtoSource =
+          createVirtualProtoSource(
               ruleContext,
               realProtoSource,
               sourceRootPath,
@@ -357,15 +346,14 @@ public class ProtoCommon {
               starlarkSemantics.experimentalSiblingRepositoryLayout());
       sources.add(
           new ProtoSource(
-              /* sourceFile */ importsPair.second,
+              /* sourceFile */ virtualProtoSource,
               /* originalSourceFile */ realProtoSource,
-              /* sourceRoot */ sourceRoot,
-              /* importPath */ Optional.of(importsPair.first)));
+              /* sourceRoot */ sourceRoot));
     }
     return new Library(sources.build(), sourceRoot);
   }
 
-  private static Pair<PathFragment, Artifact> computeImports(
+  private static Artifact createVirtualProtoSource(
       RuleContext ruleContext,
       Artifact realProtoSource,
       PathFragment sourceRootPath,
@@ -387,14 +375,14 @@ public class ProtoCommon {
         ruleContext.getDerivedArtifact(
             sourceRootPath.getRelative(importPath), ruleContext.getBinOrGenfilesDirectory());
 
-      ruleContext.registerAction(
-          SymlinkAction.toArtifact(
-              ruleContext.getActionOwner(),
-              realProtoSource,
-              virtualProtoSource,
-              "Symlinking virtual .proto sources for " + ruleContext.getLabel()));
+    ruleContext.registerAction(
+        SymlinkAction.toArtifact(
+            ruleContext.getActionOwner(),
+            realProtoSource,
+            virtualProtoSource,
+            "Symlinking virtual .proto sources for " + ruleContext.getLabel()));
 
-    return Pair.of(importPath, virtualProtoSource);
+    return virtualProtoSource;
   }
 
   /**
