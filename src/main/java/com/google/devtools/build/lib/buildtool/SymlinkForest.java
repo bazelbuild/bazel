@@ -25,10 +25,14 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.SymlinkForest.Code;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -183,10 +187,11 @@ public class SymlinkForest {
       Path target = entry.getValue();
       if (this.notSymlinkedInExecrootDirectories.contains(target.getBaseName())) {
         throw new AbruptExitException(
-            "Directories specified with "
-                + "toplevel_output_directories should be ignored and can not be used"
-                + " as sources.",
-            ExitCode.COMMAND_LINE_ERROR);
+            detailedSymlinkForestExitCode(
+                "Directories specified with toplevel_output_directories should be ignored and can"
+                    + " not be used as sources.",
+                Code.TOPLEVEL_OUTDIR_USED_AS_SOURCE,
+                ExitCode.COMMAND_LINE_ERROR));
       }
       link.createSymbolicLink(target);
       plantedSymlinks.add(link);
@@ -402,9 +407,10 @@ public class SymlinkForest {
     if (mainRepoRoots.size() > 1) {
       if (!this.notSymlinkedInExecrootDirectories.isEmpty()) {
         throw new AbruptExitException(
-            "toplevel_output_directories is "
-                + "not supported together with --package_path option.",
-            ExitCode.COMMAND_LINE_ERROR);
+            detailedSymlinkForestExitCode(
+                "toplevel_output_directories is not supported together with --package_path option.",
+                Code.TOPLEVEL_OUTDIR_PACKAGE_PATH_CONFLICT,
+                ExitCode.COMMAND_LINE_ERROR));
       }
       plantSymlinkForestMultiPackagePath(plantedSymlinks, packageRootsForMainRepo);
     } else if (shouldLinkAllTopLevelItems) {
@@ -416,6 +422,16 @@ public class SymlinkForest {
 
     logger.info("Planted symlink forest in " + execroot);
     return plantedSymlinks.build();
+  }
+
+  private static DetailedExitCode detailedSymlinkForestExitCode(
+      String message, Code code, ExitCode exitCode) {
+    return DetailedExitCode.of(
+        exitCode,
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setSymlinkForest(FailureDetails.SymlinkForest.newBuilder().setCode(code))
+            .build());
   }
 
   private static PackageIdentifier createInRepo(

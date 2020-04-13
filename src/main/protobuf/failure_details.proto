@@ -93,6 +93,7 @@ message FailureDetail {
     RemoteOptions remote_options = 106;
     ClientEnvironment client_environment = 107;
     Crash crash = 108;
+    SymlinkForest symlink_forest = 110;
   }
 
   reserved 102; // For internal use
@@ -187,4 +188,14 @@ message Throwable {
   // throwable's construction site) 1000 (or fewer) StackTraceElements.
   // Unstructured to simplify string matching.
   repeated string stack_trace = 3;
+}
+
+message SymlinkForest {
+  enum Code {
+    SYMLINK_FOREST_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    TOPLEVEL_OUTDIR_PACKAGE_PATH_CONFLICT = 1 [(metadata) = { exit_code: 2 }];
+    TOPLEVEL_OUTDIR_USED_AS_SOURCE = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
 }
