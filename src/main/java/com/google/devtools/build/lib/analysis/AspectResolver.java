@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.AspectFunction;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -92,8 +92,7 @@ public final class AspectResolver {
 
         // Validate that aspect is applicable to "bare" configured target.
         ConfiguredTargetAndData associatedTarget =
-            configuredTargetMap.get(
-                ConfiguredTargetValue.key(dep.getLabel(), dep.getConfiguration()));
+            configuredTargetMap.get(ConfiguredTargetKey.of(dep.getLabel(), dep.getConfiguration()));
         if (!aspectMatchesConfiguredTarget(associatedTarget, aspectValue.getAspect())) {
           continue;
         }
@@ -126,7 +125,7 @@ public final class AspectResolver {
 
     for (Map.Entry<DependencyKind, Dependency> entry : depValueNames.entries()) {
       Dependency dep = entry.getValue();
-      SkyKey depKey = ConfiguredTargetValue.key(dep.getLabel(), dep.getConfiguration());
+      SkyKey depKey = ConfiguredTargetKey.of(dep.getLabel(), dep.getConfiguration());
       ConfiguredTargetAndData depConfiguredTarget = depConfiguredTargetMap.get(depKey);
 
       result.put(
