@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -106,6 +106,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   // before each command.
   private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
+  private final ExternalPackageHelper externalPackageHelper;
+
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
   public RepositoryDelegatorFunction(
@@ -114,13 +116,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       AtomicBoolean isFetch,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       BlazeDirectories directories,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      ExternalPackageHelper externalPackageHelper) {
     this.handlers = handlers;
     this.skylarkHandler = skylarkHandler;
     this.isFetch = isFetch;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.directories = directories;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+    this.externalPackageHelper = externalPackageHelper;
   }
 
   public static RepositoryDirectoryValue.Builder symlink(
@@ -363,10 +367,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
    * returns null.
    */
   @Nullable
-  private static Rule getRepository(
-      RepositoryName repositoryName, Environment env)
+  private Rule getRepository(RepositoryName repositoryName, Environment env)
       throws ExternalPackageException, InterruptedException {
-    return ExternalPackageUtil.getRuleByName(repositoryName.strippedName(), env);
+    return externalPackageHelper.getRuleByName(repositoryName.strippedName(), env);
   }
 
   @Override

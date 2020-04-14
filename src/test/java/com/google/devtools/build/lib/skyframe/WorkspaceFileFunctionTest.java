@@ -138,7 +138,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
             pkgFactory,
             directories,
             /*starlarkImportLookupFunctionForInlining=*/ null);
-    externalSkyFunc = new ExternalPackageFunction();
+    externalSkyFunc =
+        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     astSkyFunc = new WorkspaceASTFunction(ruleClassProvider);
     fakeWorkspaceFileValue = new FakeFileValue();
   }

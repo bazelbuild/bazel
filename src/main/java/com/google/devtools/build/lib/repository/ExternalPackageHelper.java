@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.repository;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -35,15 +36,22 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
-/** Utility class to centralize looking up data from the external package. */
-public class ExternalPackageUtil {
+/** Helper class for looking up data from the external package. */
+public class ExternalPackageHelper {
+  private final ImmutableList<BuildFileName> workspaceFilesByPriority;
+
+  public ExternalPackageHelper(ImmutableList<BuildFileName> workspaceFilesByPriority) {
+    Preconditions.checkArgument(!workspaceFilesByPriority.isEmpty());
+    this.workspaceFilesByPriority = workspaceFilesByPriority;
+  }
+
   /**
    * Returns directories, that should not be symlinked under the execroot.
    *
    * <p>Searches for toplevel_output_directories calls in the WORKSPACE file, and gathers values of
    * all "paths" attributes.
    */
-  public static ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories(Environment env)
+  public ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories(Environment env)
       throws InterruptedException {
     ImmutableSortedSet.Builder<String> builder = ImmutableSortedSet.naturalOrder();
     WorkspaceFileValueProcessor gatherer =
@@ -63,7 +71,7 @@ public class ExternalPackageUtil {
 
   /** Uses a rule name to fetch the corresponding Rule from the external package. */
   @Nullable
-  public static Rule getRuleByName(final String ruleName, Environment env)
+  public Rule getRuleByName(String ruleName, Environment env)
       throws ExternalPackageException, InterruptedException {
 
     ExternalPackageRuleExtractor extractor = new ExternalPackageRuleExtractor(env, ruleName);
@@ -93,28 +101,20 @@ public class ExternalPackageUtil {
    * so then it lies and returns the RootedPath corresponding to the last package path entry.
    */
   @Nullable
-  public static RootedPath findWorkspaceFile(Environment env) throws InterruptedException {
+  public RootedPath findWorkspaceFile(Environment env) throws InterruptedException {
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     ImmutableList<Root> packagePath = packageLocator.getPathEntries();
     for (Root candidateRoot : packagePath) {
-      RootedPath path =
-          checkWorkspaceFile(
-              env, candidateRoot, BuildFileName.WORKSPACE_DOT_BAZEL.getFilenameFragment());
-      if (env.valuesMissing()) {
-        return null;
-      }
+      for (BuildFileName workspaceFile : workspaceFilesByPriority) {
+        RootedPath path =
+            checkWorkspaceFile(env, candidateRoot, workspaceFile.getFilenameFragment());
+        if (env.valuesMissing()) {
+          return null;
+        }
 
-      if (path != null) {
-        return path;
-      }
-
-      path = checkWorkspaceFile(env, candidateRoot, BuildFileName.WORKSPACE.getFilenameFragment());
-      if (env.valuesMissing()) {
-        return null;
-      }
-
-      if (path != null) {
-        return path;
+        if (path != null) {
+          return path;
+        }
       }
     }
 
@@ -126,8 +126,8 @@ public class ExternalPackageUtil {
   }
 
   /** Returns false if some SkyValues were missing. */
-  private static boolean iterateWorkspaceFragments(
-      Environment env, WorkspaceFileValueProcessor processor) throws InterruptedException {
+  private boolean iterateWorkspaceFragments(Environment env, WorkspaceFileValueProcessor processor)
+      throws InterruptedException {
     RootedPath workspacePath = findWorkspaceFile(env);
     if (env.valuesMissing()) {
       return false;

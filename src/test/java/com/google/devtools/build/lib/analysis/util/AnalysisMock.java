@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledg
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -132,7 +133,8 @@ public abstract class AnalysisMock extends LoadingMock {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES),
+            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER),
         SkyFunctions.REPOSITORY,
         new RepositoryLoaderFunction(),
         CcSkyframeFdoSupportValue.SKYFUNCTION,

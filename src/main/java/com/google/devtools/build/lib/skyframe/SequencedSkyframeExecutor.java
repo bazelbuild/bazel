@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
@@ -165,7 +166,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       SkyFunction blacklistedPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      List<BuildFileName> buildFilesByPriority,
+      ImmutableList<BuildFileName> buildFilesByPriority,
+      ExternalPackageHelper externalPackageHelper,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
       MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
@@ -183,6 +185,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         blacklistedPackagePrefixesFunction,
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
+        externalPackageHelper,
         actionOnIOExceptionReadingBuildFile,
         /*shouldUnblockCpuWorkWhenFetchingDeps=*/ false,
         GraphInconsistencyReceiver.THROWING,
@@ -1011,7 +1014,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     protected ActionKeyContext actionKeyContext;
     protected BuildOptions defaultBuildOptions;
     private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
-    private List<BuildFileName> buildFilesByPriority;
+    private ImmutableList<BuildFileName> buildFilesByPriority;
+    private ExternalPackageHelper externalPackageHelper;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
     @Nullable private ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
@@ -1036,6 +1040,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(defaultBuildOptions);
       Preconditions.checkNotNull(crossRepositoryLabelViolationStrategy);
       Preconditions.checkNotNull(buildFilesByPriority);
+      Preconditions.checkNotNull(externalPackageHelper);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
       Preconditions.checkNotNull(blacklistedPackagePrefixesFunction);
 
@@ -1054,6 +1059,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               blacklistedPackagePrefixesFunction,
               crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
+              externalPackageHelper,
               actionOnIOExceptionReadingBuildFile,
               defaultBuildOptions,
               mutableArtifactFactorySupplier,
@@ -1122,8 +1128,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       return this;
     }
 
-    public Builder setBuildFilesByPriority(List<BuildFileName> buildFilesByPriority) {
+    public Builder setBuildFilesByPriority(ImmutableList<BuildFileName> buildFilesByPriority) {
       this.buildFilesByPriority = buildFilesByPriority;
+      return this;
+    }
+
+    public Builder setExternalPackageHelper(ExternalPackageHelper externalPackageHelper) {
+      this.externalPackageHelper = externalPackageHelper;
       return this;
     }
 

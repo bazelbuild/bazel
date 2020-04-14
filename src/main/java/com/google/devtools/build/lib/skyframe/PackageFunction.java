@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.StarlarkImportFailedException;
@@ -102,6 +102,7 @@ public class PackageFunction implements SkyFunction {
   private final AtomicInteger numPackagesLoaded;
   @Nullable private final PackageProgressReceiver packageProgress;
   private final Label preludeLabel;
+  private final ExternalPackageHelper externalPackageHelper;
 
   // Not final only for testing.
   @Nullable private StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining;
@@ -120,7 +121,8 @@ public class PackageFunction implements SkyFunction {
       @Nullable StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining,
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      IncrementalityIntent incrementalityIntent) {
+      IncrementalityIntent incrementalityIntent,
+      ExternalPackageHelper externalPackageHelper) {
     this.starlarkImportLookupFunctionForInlining = starlarkImportLookupFunctionForInlining;
     // Can be null in tests.
     this.preludeLabel = packageFactory == null
@@ -135,6 +137,7 @@ public class PackageFunction implements SkyFunction {
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.incrementalityIntent = incrementalityIntent;
+    this.externalPackageHelper = externalPackageHelper;
   }
 
   @VisibleForTesting
@@ -145,7 +148,8 @@ public class PackageFunction implements SkyFunction {
       Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache,
       Cache<PackageIdentifier, StarlarkFile> fileSyntaxCache,
       AtomicInteger numPackagesLoaded,
-      @Nullable StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining) {
+      @Nullable StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining,
+      ExternalPackageHelper externalPackageHelper) {
     this(
         packageFactory,
         pkgLocator,
@@ -156,7 +160,8 @@ public class PackageFunction implements SkyFunction {
         starlarkImportLookupFunctionForInlining,
         /*packageProgress=*/ null,
         ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
-        IncrementalityIntent.INCREMENTAL);
+        IncrementalityIntent.INCREMENTAL,
+        externalPackageHelper);
   }
 
   public void setStarlarkImportLookupFunctionForInliningForTesting(
@@ -297,7 +302,7 @@ public class PackageFunction implements SkyFunction {
   private SkyValue getExternalPackage(Environment env)
       throws PackageFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    RootedPath workspacePath = ExternalPackageUtil.findWorkspaceFile(env);
+    RootedPath workspacePath = externalPackageHelper.findWorkspaceFile(env);
     if (env.valuesMissing()) {
       return null;
     }

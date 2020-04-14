@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
@@ -27,7 +28,7 @@ import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryExceptio
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,7 +40,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -57,15 +57,18 @@ public class PackageLookupFunction implements SkyFunction {
 
   private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
-  private final List<BuildFileName> buildFilesByPriority;
+  private final ImmutableList<BuildFileName> buildFilesByPriority;
+  private final ExternalPackageHelper externalPackageHelper;
 
   public PackageLookupFunction(
       AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      List<BuildFileName> buildFilesByPriority) {
+      ImmutableList<BuildFileName> buildFilesByPriority,
+      ExternalPackageHelper externalPackageHelper) {
     this.deletedPackages = deletedPackages;
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
+    this.externalPackageHelper = externalPackageHelper;
   }
 
   @Override
@@ -288,9 +291,9 @@ public class PackageLookupFunction implements SkyFunction {
     return false;
   }
 
-  private static PackageLookupValue computeWorkspacePackageLookupValue(Environment env)
+  private PackageLookupValue computeWorkspacePackageLookupValue(Environment env)
       throws InterruptedException {
-    RootedPath workspaceFile = ExternalPackageUtil.findWorkspaceFile(env);
+    RootedPath workspaceFile = externalPackageHelper.findWorkspaceFile(env);
     if (env.valuesMissing()) {
       return null;
     }

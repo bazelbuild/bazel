@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.util.Pair;
@@ -42,6 +43,7 @@ public class ExternalFilesHelper {
   private final BlazeDirectories directories;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
+  private final ExternalPackageHelper externalPackageHelper;
 
   // These variables are set to true from multiple threads, but only read in the main thread.
   // So volatility or an AtomicBoolean is not needed.
@@ -55,27 +57,36 @@ public class ExternalFilesHelper {
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
       int maxNumExternalFilesToLog,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      ExternalPackageHelper externalPackageHelper) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+    this.externalPackageHelper = externalPackageHelper;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      ExternalPackageHelper externalPackageHelper) {
     return IN_TEST
-        ? createForTesting(pkgLocator, externalFileAction, directories, managedDirectoriesKnowledge)
+        ? createForTesting(
+            pkgLocator,
+            externalFileAction,
+            directories,
+            managedDirectoriesKnowledge,
+            externalPackageHelper)
         : new ExternalFilesHelper(
             pkgLocator,
             externalFileAction,
             directories,
             /*maxNumExternalFilesToLog=*/ 100,
-            managedDirectoriesKnowledge);
+            managedDirectoriesKnowledge,
+            externalPackageHelper);
   }
 
   public static ExternalFilesHelper createForTesting(
@@ -86,21 +97,36 @@ public class ExternalFilesHelper {
         pkgLocator,
         externalFileAction,
         directories,
-        ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES);
+        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
+  }
+
+  public static ExternalFilesHelper createForTesting(
+      AtomicReference<PathPackageLocator> pkgLocator,
+      ExternalFileAction externalFileAction,
+      BlazeDirectories directories,
+      ExternalPackageHelper externalPackageHelper) {
+    return createForTesting(
+        pkgLocator,
+        externalFileAction,
+        directories,
+        ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+        externalPackageHelper);
   }
 
   private static ExternalFilesHelper createForTesting(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      ExternalPackageHelper externalPackageHelper) {
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
         directories,
         // These log lines are mostly spam during unit and integration tests.
         /*maxNumExternalFilesToLog=*/ 0,
-        managedDirectoriesKnowledge);
+        managedDirectoriesKnowledge,
+        externalPackageHelper);
   }
 
 
@@ -210,7 +236,8 @@ public class ExternalFilesHelper {
         externalFileAction,
         directories,
         maxNumExternalFilesToLog,
-        managedDirectoriesKnowledge);
+        managedDirectoriesKnowledge,
+        externalPackageHelper);
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
@@ -297,7 +324,8 @@ public class ExternalFilesHelper {
         Preconditions.checkState(
             externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             externalFileAction);
-        RepositoryFunction.addExternalFilesDependencies(rootedPath, isDirectory, directories, env);
+        RepositoryFunction.addExternalFilesDependencies(
+            rootedPath, isDirectory, directories, env, externalPackageHelper);
         break;
     }
     return fileType;

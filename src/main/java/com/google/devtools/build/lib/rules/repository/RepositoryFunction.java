@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
@@ -548,7 +548,11 @@ public abstract class RepositoryFunction {
    * encourage nor optimize for since it is not common. So the set of external files is small.
    */
   public static void addExternalFilesDependencies(
-      RootedPath rootedPath, boolean isDirectory, BlazeDirectories directories, Environment env)
+      RootedPath rootedPath,
+      boolean isDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      ExternalPackageHelper externalPackageHelper)
       throws InterruptedException {
     Path externalRepoDir = getExternalRepositoryDirectory(directories);
     PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
@@ -564,7 +568,7 @@ public abstract class RepositoryFunction {
       // dependency already but we want to catch RepositoryNotFoundException, so invoke
       // #getRuleByName
       // first.
-      Rule rule = ExternalPackageUtil.getRuleByName(repositoryName, env);
+      Rule rule = externalPackageHelper.getRuleByName(repositoryName, env);
       if (rule == null) {
         // Still an override might change the content of the repository.
         RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);

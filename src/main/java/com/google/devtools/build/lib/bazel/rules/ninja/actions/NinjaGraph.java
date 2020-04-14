@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -258,7 +258,8 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
       throws InterruptedException {
     Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     ImmutableSortedSet<String> notSymlinkedDirs =
-        ExternalPackageUtil.getNotSymlinkedInExecrootDirectories(env);
+        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER.getNotSymlinkedInExecrootDirectories(
+            env);
     if (env.valuesMissing()) {
       return;
     }
