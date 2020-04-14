@@ -17,13 +17,22 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import org.objectweb.asm.commons.Remapper;
 
-/** A {@link Remapper} with a user-controlled switch which sets whether the type mapping applies. */
-public final class SwitchableTypeMapper extends Remapper {
+/**
+ * A {@link Remapper} with a user-controlled switch which sets whether the type mapping applies.
+ *
+ * <p>The underlying switch is non-reentrant and a user is expected to match its preconfigured
+ * reason before changing the switch state.
+ */
+public final class SwitchableTypeMapper<R> extends Remapper {
 
   private final TypeMapper mapper;
   private boolean isSwitchOn;
+  private R activeReason;
 
   public SwitchableTypeMapper(TypeMapper mapper) {
     this.mapper = mapper;
@@ -42,11 +51,30 @@ public final class SwitchableTypeMapper extends Remapper {
     return isSwitchOn;
   }
 
-  public void turnOn() {
+  public void turnOn(R reason) {
+    checkState(
+        activeReason == null,
+        "Expected the switch is off without any pre-existing reason, but the switch is on with"
+            + " existing reason (%s), new reason(%s)",
+        activeReason,
+        reason);
+    activeReason = checkNotNull(reason);
     isSwitchOn = true;
   }
 
-  public void turnOff() {
+  public void turnOff(R reason) {
+    checkNotNull(
+        activeReason,
+        "Expected the switch is on with a matched reason, but the switch is off, new"
+            + " reason(%s)",
+        reason);
+    checkState(
+        activeReason.equals(reason),
+        "Expected the switch is on with a matched reason, but the existing reason (%s) mismatches"
+            + " new reason (%s)",
+        activeReason,
+        reason);
+    activeReason = null;
     isSwitchOn = false;
   }
 }
