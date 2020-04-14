@@ -60,7 +60,7 @@ public class AndroidResourceOutputs {
 
     /**
      * Normalized timestamp for zip entries
-     * We use the system's default timezone and locale and additionally avoid using the unix epoch
+     * We use the system's default timezone and locale and additionally avoid using the DOS epoch
      * to ensure Java's zip implementation does not add the System's timezone into the extra field of the zip entry
      */
     private static final long DEFAULT_TIMESTAMP =
