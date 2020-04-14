@@ -6302,6 +6302,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "direct/libs/BUILD",
         "cc_library(",
         "    name = 'foo_lib',",
+        "    srcs = ['foo.cc', 'foo_impl.h'],",
         "    hdrs = ['foo.h'],",
         "    textual_hdrs = ['foo.def'],",
         ")",
@@ -6320,7 +6321,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget fooTarget = getConfiguredTarget("//direct:foo");
     Iterable<Artifact> fooDirectHeaders = getArtifactsFromMyInfo(fooTarget, "direct_headers");
-    assertThat(baseArtifactNames(fooDirectHeaders)).containsExactly("foo.h");
+    assertThat(baseArtifactNames(fooDirectHeaders)).containsExactly("foo.h", "foo_impl.h");
 
     ConfiguredTarget barTarget = getConfiguredTarget("//direct:bar");
     Iterable<Artifact> barDirectHeaders = getArtifactsFromMyInfo(barTarget, "direct_headers");
