@@ -1107,7 +1107,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   public void injectCoverageReportData(Actions.GeneratingActions actions) {
-    PrecomputedValue.COVERAGE_REPORT_KEY.set(injectable(), actions.getActions());
+    CoverageReportFunction.COVERAGE_REPORT_KEY.set(injectable(), actions.getActions());
   }
 
   private void setDefaultVisibility(RuleVisibility defaultVisibility) {

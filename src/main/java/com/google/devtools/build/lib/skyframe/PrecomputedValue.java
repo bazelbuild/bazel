@@ -17,11 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -88,12 +84,6 @@ public class PrecomputedValue implements SkyValue {
   public static final Precomputed<Map<String, String>> ACTION_ENV = new Precomputed<>("action_env");
 
   public static final Precomputed<Map<String, String>> REPO_ENV = new Precomputed<>("repo_env");
-
-  static final Precomputed<ImmutableList<ActionAnalysisMetadata>> COVERAGE_REPORT_KEY =
-      new Precomputed<>("coverage_report_actions");
-
-  public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
-      new Precomputed<>("build_info_factories");
 
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
       new Precomputed<>("path_package_locator");

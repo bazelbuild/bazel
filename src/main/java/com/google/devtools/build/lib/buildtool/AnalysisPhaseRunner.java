@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -116,7 +117,7 @@ public final class AnalysisPhaseRunner {
           .injectExtraPrecomputedValues(
               ImmutableList.of(
                   PrecomputedValue.injected(
-                      PrecomputedValue.BUILD_INFO_FACTORIES,
+                      BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                       env.getRuntime().getRuleClassProvider().getBuildInfoFactoriesAsMap())));
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
