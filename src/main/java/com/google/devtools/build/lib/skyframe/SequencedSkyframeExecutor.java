@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -113,7 +114,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -122,7 +122,7 @@ import javax.annotation.Nullable;
  */
 public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
-  private static final Logger logger = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * If false, the graph will not store state useful for incremental builds, saving memory but
@@ -386,7 +386,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * FileStateValues and DirectoryStateValues should be injected.
    */
   private void invalidateCachedWorkspacePathsStates() {
-    logger.info(
+    logger.atInfo().log(
         "Invalidating cached packages and paths states"
             + " because managed directories configuration has changed.");
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
@@ -501,9 +501,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                 FileType.OUTPUT)
             : EnumSet.of(
                 FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
-    logger.info(
-        "About to scan skyframe graph checking for filesystem nodes of types "
-            + Iterables.toString(fileTypesToCheck));
+    logger.atInfo().log(
+        "About to scan skyframe graph checking for filesystem nodes of types %s",
+        Iterables.toString(fileTypesToCheck));
     ImmutableBatchDirtyResult batchDirtyResult;
     try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
       batchDirtyResult =
@@ -596,7 +596,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    logger.info(result.toString());
+    logger.atInfo().log(result.toString());
   }
 
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
@@ -654,7 +654,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
     // or current incrementalStateRetentionStrategy requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {
-      logger.info("Set incremental state to " + trackIncrementalState);
+      logger.atInfo().log("Set incremental state to %b", trackIncrementalState);
       evaluatorNeedsReset = true;
     } else if (!trackIncrementalState) {
       evaluatorNeedsReset = true;
@@ -722,7 +722,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
     outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
     modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
-    logger.info(String.format("Found %d modified files from last build", modifiedFiles));
+    logger.atInfo().log("Found %d modified files from last build", modifiedFiles);
     long stopTime = System.nanoTime();
     Profiler.instance()
         .logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "detectModifiedOutputFiles");

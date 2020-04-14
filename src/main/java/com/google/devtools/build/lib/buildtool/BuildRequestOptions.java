@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilderSpec;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -33,7 +34,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.util.List;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -45,7 +45,7 @@ import javax.annotation.Nullable;
 public class BuildRequestOptions extends OptionsBase {
   public static final OptionDefinition EXPERIMENTAL_MULTI_CPU =
       OptionsParser.getOptionDefinitionByName(BuildRequestOptions.class, "experimental_multi_cpu");
-  private static final Logger logger = Logger.getLogger(BuildRequestOptions.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int JOBS_TOO_HIGH_WARNING = 2500;
   @VisibleForTesting public static final int MAX_JOBS = 5000;
 
@@ -493,12 +493,11 @@ public class BuildRequestOptions extends OptionsBase {
             String.format("Value '(%d)' must be at least %d.", value, minValue));
       }
       if (value > maxValue) {
-        logger.warning(
-            String.format(
-                "Flag remoteWorker \"jobs\" ('%d') was set too high. "
-                    + "This is a result of passing large values to --local_resources or --jobs. "
-                    + "Using '%d' jobs",
-                value, maxValue));
+        logger.atWarning().log(
+            "Flag remoteWorker \"jobs\" ('%d') was set too high. "
+                + "This is a result of passing large values to --local_resources or --jobs. "
+                + "Using '%d' jobs",
+            value, maxValue);
         value = maxValue;
       }
       return value;

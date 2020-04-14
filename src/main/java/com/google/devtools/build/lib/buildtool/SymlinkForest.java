@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -42,14 +43,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /** Creates a symlink forest based on a package path map. */
 public class SymlinkForest {
-
-  private static final Logger logger = Logger.getLogger(SymlinkForest.class.getName());
-  private static final boolean LOG_FINER = logger.isLoggable(Level.FINER);
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final ImmutableMap<PackageIdentifier, Root> packageRoots;
   private final Path execroot;
@@ -242,9 +239,8 @@ public class SymlinkForest {
             .createDirectoryAndParents();
       }
       if (dirRootsMap.get(dir).size() > 1) {
-        if (LOG_FINER) {
-          logger.finer("mkdir " + execroot.getRelative(dir.getExecPath(siblingRepositoryLayout)));
-        }
+        logger.atFiner().log(
+            "mkdir %s", execroot.getRelative(dir.getExecPath(siblingRepositoryLayout)));
         execroot.getRelative(dir.getExecPath(siblingRepositoryLayout)).createDirectoryAndParents();
       }
     }
@@ -261,9 +257,7 @@ public class SymlinkForest {
         // This is the top-most dir that can be linked to a single root. Make it so.
         Root root = roots.iterator().next(); // lone root in set
         Path link = execroot.getRelative(dir.getExecPath(siblingRepositoryLayout));
-        if (LOG_FINER) {
-          logger.finer("ln -s " + root.getRelative(dir.getSourceRoot()) + " " + link);
-        }
+        logger.atFiner().log("ln -s %s %s", root.getRelative(dir.getSourceRoot()), link);
         link.createSymbolicLink(root.getRelative(dir.getSourceRoot()));
         plantedSymlinks.add(link);
       }
@@ -278,10 +272,8 @@ public class SymlinkForest {
           try {
             Path absdir = root.getRelative(dir.getSourceRoot());
             if (absdir.isDirectory()) {
-              if (LOG_FINER) {
-                logger.finer(
-                    "ln -s " + absdir + "/* " + execroot.getRelative(dir.getSourceRoot()) + "/");
-              }
+              logger.atFiner().log(
+                  "ln -s %s/* %s/", absdir, execroot.getRelative(dir.getSourceRoot()));
               for (Path target : absdir.getDirectoryEntries()) {
                 PathFragment p = root.relativize(target);
                 if (!dirRootsMap.containsKey(createInRepo(pkgId, p))) {
@@ -290,17 +282,14 @@ public class SymlinkForest {
                 }
               }
             } else {
-              logger.fine("Symlink planting skipping dir '" + absdir + "'");
+              logger.atFine().log("Symlink planting skipping dir '%s'", absdir);
             }
           } catch (IOException e) {
             // TODO(arostovtsev): Why are we swallowing the IOException here instead of letting it
             // be thrown?
-            logger.log(
-                Level.WARNING,
-                "I/O error while planting symlinks to contents of '"
-                    + root.getRelative(dir.getSourceRoot())
-                    + "'",
-                e);
+            logger.atWarning().withCause(e).log(
+                "I/O error while planting symlinks to contents of '%s'",
+                root.getRelative(dir.getSourceRoot()));
           }
           // Otherwise its just an otherwise empty common parent dir.
         }
@@ -420,7 +409,7 @@ public class SymlinkForest {
       plantSymlinkForestWithPartialMainRepository(plantedSymlinks, mainRepoLinks);
     }
 
-    logger.info("Planted symlink forest in " + execroot);
+    logger.atInfo().log("Planted symlink forest in %s", execroot);
     return plantedSymlinks.build();
   }
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.net.InetAddresses;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -66,7 +67,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 
 /**
  * gRPC server class.
@@ -99,7 +99,7 @@ import java.util.logging.Logger;
  * which results in the main thread of the command being interrupted.
  */
 public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase implements RPCServer {
-  private static final Logger logger = Logger.getLogger(GrpcServerImpl.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final boolean shutdownOnLowSysMem;
 
   /**
@@ -292,21 +292,23 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
           String pidFileContents = new String(FileSystemUtils.readContentAsLatin1(pidFile));
           ok = pidFileContents.equals(pidInFile);
         } catch (IOException e) {
-          logger.info("Cannot read PID file: " + e.getMessage());
+          logger.atInfo().log("Cannot read PID file: %s", e.getMessage());
           // Handled by virtue of ok not being set to true
         }
 
         if (!ok) {
           synchronized (PidFileWatcherThread.this) {
             if (shuttingDown) {
-              logger.warning("PID file deleted or overwritten but shutdown is already in progress");
+              logger.atWarning().log(
+                  "PID file deleted or overwritten but shutdown is already in progress");
               break;
             }
 
             shuttingDown = true;
             // Someone overwrote the PID file. Maybe it's another server, so shut down as quickly
             // as possible without even running the shutdown hooks (that would delete it)
-            logger.severe("PID file deleted or overwritten, exiting as quickly as possible");
+            logger.atSevere().log(
+                "PID file deleted or overwritten, exiting as quickly as possible");
             Runtime.getRuntime().halt(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
           }
         }
@@ -535,7 +537,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     printErr.println("=======[BAZEL SERVER: ENCOUNTERED IO EXCEPTION]=======");
     e.printStackTrace(printErr);
     printErr.println("=====================================================");
-    logger.severe(err.toString());
+    logger.atSevere().log(err.toString());
   }
 
   private void executeCommand(RunRequest request, BlockingStreamObserver<RunResponse> observer) {
@@ -547,7 +549,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                 .build());
         observer.onCompleted();
       } catch (StatusRuntimeException e) {
-        logger.info("Client cancelled command while rejecting it: " + e.getMessage());
+        logger.atInfo().withCause(e).log("Client cancelled command while rejecting it");
       }
       return;
     }
@@ -580,8 +582,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                 .setCommandId(commandId)
                 .build());
       } catch (StatusRuntimeException e) {
-        logger.info(
-            "The client cancelled the command before receiving the command id: " + e.getMessage());
+        logger.atInfo().withCause(e).log(
+            "The client cancelled the command before receiving the command id");
       }
 
       OutErr rpcOutErr =
@@ -598,7 +600,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
             .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
-        logger.info(BlazeRuntime.getRequestLogString(args));
+        logger.atInfo().log(BlazeRuntime.getRequestLogString(args));
         result =
             dispatcher.exec(
                 policy,
@@ -643,8 +645,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       observer.onNext(response.build());
       observer.onCompleted();
     } catch (StatusRuntimeException e) {
-      logger.info(
-          "The client cancelled the command before receiving the command id: " + e.getMessage());
+      logger.atInfo().withCause(e).log(
+          "The client cancelled the command before receiving the command id");
     }
 
     if (result.shutdown()) {
@@ -679,7 +681,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
   @Override
   public void cancel(
       final CancelRequest request, final StreamObserver<CancelResponse> streamObserver) {
-    logger.info(String.format("Got CancelRequest for command id %s", request.getCommandId()));
+    logger.atInfo().log("Got CancelRequest for command id %s", request.getCommandId());
     if (!request.getCookie().equals(requestCookie)) {
       streamObserver.onCompleted();
       return;
@@ -697,7 +699,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       streamObserver.onCompleted();
     } catch (StatusRuntimeException e) {
       // There is no one to report the failure to
-      logger.info("Client cancelled RPC of cancellation request for " + request.getCommandId());
+      logger.atInfo().log(
+          "Client cancelled RPC of cancellation request for %s", request.getCommandId());
     }
   }
 }

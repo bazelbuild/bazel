@@ -31,6 +31,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -66,8 +67,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -79,7 +78,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   private static final Comparator<Class<? extends FragmentOptions>>
       lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
   private static final Comparator<Label> skylarkOptionsComparator = Ordering.natural();
-  private static final Logger logger = Logger.getLogger(BuildOptions.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static Map<Label, Object> labelizeStarlarkOptions(Map<String, Object> starlarkOptions) {
     return starlarkOptions.entrySet().stream()
@@ -1185,14 +1184,9 @@ public final class BuildOptions implements Cloneable, Serializable {
           int optionsDiffSize = byteStringOut.size();
           bytes = byteStringOut.toByteString();
           cache.putBytesFromOptionsDiff(diff, bytes);
-          if (logger.isLoggable(Level.FINE)) {
-            logger.fine(
-                "Serialized OptionsDiffForReconstruction "
-                    + diff
-                    + ". Diff took "
-                    + optionsDiffSize
-                    + " bytes.");
-          }
+          logger.atFine().log(
+              "Serialized OptionsDiffForReconstruction %s. Diff took %d bytes.",
+              diff, optionsDiffSize);
         }
         codedOut.writeBytesNoTag(bytes);
       }

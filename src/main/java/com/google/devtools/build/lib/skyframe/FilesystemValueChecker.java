@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -64,10 +65,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -76,7 +75,7 @@ import javax.annotation.Nullable;
  */
 public class FilesystemValueChecker {
 
-  private static final Logger logger = Logger.getLogger(FilesystemValueChecker.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final Predicate<SkyKey> ACTION_FILTER =
       SkyFunctionName.functionIs(SkyFunctions.ACTION_EXECUTION);
@@ -178,10 +177,10 @@ public class FilesystemValueChecker {
       boolean trustRemoteArtifacts)
       throws InterruptedException {
     if (modifiedOutputFiles == ModifiedFileSet.NOTHING_MODIFIED) {
-      logger.info("Not checking for dirty actions since nothing was modified");
+      logger.atInfo().log("Not checking for dirty actions since nothing was modified");
       return ImmutableList.of();
     }
-    logger.info("Accumulating dirty actions");
+    logger.atInfo().log("Accumulating dirty actions");
     final int numOutputJobs = Runtime.getRuntime().availableProcessors() * 4;
     final Set<SkyKey> actionSkyKeys = new HashSet<>();
     try (SilentCloseable c = Profiler.instance().profile("getDirtyActionValues.filter_actions")) {
@@ -197,7 +196,7 @@ public class FilesystemValueChecker {
     for (SkyKey key : actionSkyKeys) {
       outputShards.add(Pair.of(key, (ActionExecutionValue) valuesMap.get(key)));
     }
-    logger.info("Sharded action values for batching");
+    logger.atInfo().log("Sharded action values for batching");
 
     ExecutorService executor = Executors.newFixedThreadPool(
         numOutputJobs,
@@ -252,7 +251,7 @@ public class FilesystemValueChecker {
       interrupted = ExecutorUtil.interruptibleShutdown(executor);
     }
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
-    logger.info("Completed output file stat checks");
+    logger.atInfo().log("Completed output file stat checks");
     if (interrupted) {
       throw new InterruptedException();
     }
@@ -303,7 +302,7 @@ public class FilesystemValueChecker {
         } catch (IOException e) {
           // Batch stat did not work. Log an exception and fall back on system calls.
           LoggingUtil.logToRemote(Level.WARNING, "Unable to process batch stat", e);
-          logger.log(Level.WARNING, "Unable to process batch stat", e);
+          logger.atWarning().withCause(e).log("Unable to process batch stat");
           outputStatJob(
                   dirtyKeys,
                   shard,
@@ -528,12 +527,9 @@ public class FilesystemValueChecker {
     ElapsedTimeReceiver elapsedTimeReceiver =
         elapsedTimeNanos -> {
           if (elapsedTimeNanos > 0) {
-            logger.info(
-                String.format(
-                    "Spent %d ms checking %d filesystem nodes (%d scanned)",
-                    TimeUnit.MILLISECONDS.convert(elapsedTimeNanos, TimeUnit.NANOSECONDS),
-                    numKeysChecked.get(),
-                    keys.size()));
+            logger.atInfo().log(
+                "Spent %d nanoseconds checking %d filesystem nodes (%d scanned)",
+                elapsedTimeNanos, numKeysChecked.get(), keys.size());
           }
         };
     try (AutoProfiler prof = AutoProfiler.create(elapsedTimeReceiver)) {

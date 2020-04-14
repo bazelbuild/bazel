@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -54,7 +55,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -66,7 +66,7 @@ import javax.annotation.Nullable;
  * result. Derived classes should do this.
  */
 abstract class AbstractParallelEvaluator {
-  private static final Logger logger = Logger.getLogger(AbstractParallelEvaluator.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   final ProcessableGraph graph;
   final ParallelEvaluatorContext evaluatorContext;
@@ -472,10 +472,8 @@ abstract class AbstractParallelEvaluator {
                 // with the first error.
                 return;
               } else {
-                logger.warning(
-                    String.format(
-                        "Aborting evaluation due to %s while evaluating %s",
-                        builderException, skyKey));
+                logger.atWarning().withCause(builderException).log(
+                    "Aborting evaluation while evaluating %s", skyKey);
               }
             }
 

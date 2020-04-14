@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -76,8 +77,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -91,7 +90,7 @@ import javax.annotation.concurrent.GuardedBy;
 //  different packages and rely on this.
 @VisibleForTesting
 public final class BuildEventServiceUploader implements Runnable {
-  private static final Logger logger = Logger.getLogger(BuildEventServiceUploader.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Configuration knobs related to RPC retries. Values chosen by good judgement. */
   private static final int MAX_NUM_RETRIES =
@@ -276,7 +275,7 @@ public final class BuildEventServiceUploader implements Runnable {
   private void logAndExitAbruptly(
       String message, ExitCode exitCode, BuildProgress.Code bpCode, Throwable cause) {
     checkState(!exitCode.equals(ExitCode.SUCCESS));
-    logger.severe(message);
+    logger.atSevere().log(message);
     DetailedExitCode detailedExitCode =
         DetailedExitCode.of(
             exitCode,
@@ -308,7 +307,7 @@ public final class BuildEventServiceUploader implements Runnable {
         }
       }
     } catch (InterruptedException e) {
-      logger.info("Aborting the BES upload due to having received an interrupt");
+      logger.atInfo().log("Aborting the BES upload due to having received an interrupt");
       synchronized (lock) {
         Preconditions.checkState(
             interruptCausedByCancel, "Unexpected interrupt on BES uploader thread");
@@ -330,7 +329,7 @@ public final class BuildEventServiceUploader implements Runnable {
           e.getCause());
     } catch (Throwable e) {
       closeFuture.setException(e);
-      logger.severe("BES upload failed due to a RuntimeException / Error. This is a bug.");
+      logger.atSevere().log("BES upload failed due to a RuntimeException / Error. This is a bug.");
       throw e;
     } finally {
       buildEventUploader.shutdown();
@@ -407,8 +406,7 @@ public final class BuildEventServiceUploader implements Runnable {
             {
               // Invariant: the eventQueue only contains events of type SEND_REGULAR_BUILD_EVENT
               // or SEND_LAST_BUILD_EVENT
-              logger.info(
-                  String.format("Starting publishBuildEvents: eventQueue=%d", eventQueue.size()));
+              logger.atInfo().log("Starting publishBuildEvents: eventQueue=%d", eventQueue.size());
               streamContext =
                   besClient.openStream(
                       (ack) -> eventQueue.addLast(new AckReceivedCommand(ack.getSequenceNumber())));
@@ -451,7 +449,7 @@ public final class BuildEventServiceUploader implements Runnable {
               streamContext.sendOverStream(request);
               streamContext.halfCloseStream();
               halfCloseFuture.set(null);
-              logger.info("BES uploader is half-closed");
+              logger.atInfo().log("BES uploader is half-closed");
             }
             break;
 
@@ -470,7 +468,7 @@ public final class BuildEventServiceUploader implements Runnable {
                       String.format(
                           "Expected ACK with seqNum=%d but received ACK with seqNum=%d",
                           expected.getSequenceNumber(), actualSeqNum);
-                  logger.info(message);
+                  logger.atInfo().log(message);
                   streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
                 }
               } else {
@@ -478,7 +476,7 @@ public final class BuildEventServiceUploader implements Runnable {
                     String.format(
                         "Received ACK (seqNum=%d) when no ACK was expected",
                         ackEvent.getSequenceNumber());
-                logger.info(message);
+                logger.atInfo().log(message);
                 streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
               }
             }
@@ -493,7 +491,7 @@ public final class BuildEventServiceUploader implements Runnable {
               Status streamStatus = completeEvent.status();
               if (streamStatus.isOk()) {
                 if (lastEventSent && ackQueue.isEmpty()) {
-                  logger.info("publishBuildEvents was successful");
+                  logger.atInfo().log("publishBuildEvents was successful");
                   // Upload successful. Break out from the while(true) loop.
                   return;
                 } else {
@@ -512,7 +510,7 @@ public final class BuildEventServiceUploader implements Runnable {
               if (!shouldRetryStatus(streamStatus)) {
                 String message =
                     String.format("Not retrying publishBuildEvents: status='%s'", streamStatus);
-                logger.info(message);
+                logger.atInfo().log(message);
                 throw withFailureDetail(
                     streamStatus.asException(),
                     BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE,
@@ -523,7 +521,7 @@ public final class BuildEventServiceUploader implements Runnable {
                     String.format(
                         "Not retrying publishBuildEvents, no more attempts left: status='%s'",
                         streamStatus);
-                logger.info(message);
+                logger.atInfo().log(message);
                 throw withFailureDetail(
                     streamStatus.asException(),
                     BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE,
@@ -539,9 +537,8 @@ public final class BuildEventServiceUploader implements Runnable {
               }
 
               long sleepMillis = retrySleepMillis(retryAttempt);
-              logger.info(
-                  String.format(
-                      "Retrying stream: status='%s', sleepMillis=%d", streamStatus, sleepMillis));
+              logger.atInfo().log(
+                  "Retrying stream: status='%s', sleepMillis=%d", streamStatus, sleepMillis);
               sleeper.sleepMillis(sleepMillis);
 
               // If we made progress, meaning the server ACKed events that we sent, then reset
@@ -559,21 +556,20 @@ public final class BuildEventServiceUploader implements Runnable {
       }
     } catch (InterruptedException | LocalFileUploadException e) {
       int limit = 30;
-      logger.info(
-          String.format(
-              "Publish interrupt. Showing up to %d items from queues: ack_queue_size: %d, "
-                  + "ack_queue: %s, event_queue_size: %d, event_queue: %s",
-              limit,
-              ackQueue.size(),
-              Iterables.limit(ackQueue, limit),
-              eventQueue.size(),
-              Iterables.limit(eventQueue, limit)));
+      logger.atInfo().log(
+          "Publish interrupt. Showing up to %d items from queues: ack_queue_size: %d, "
+              + "ack_queue: %s, event_queue_size: %d, event_queue: %s",
+          limit,
+          ackQueue.size(),
+          Iterables.limit(ackQueue, limit),
+          eventQueue.size(),
+          Iterables.limit(eventQueue, limit));
       if (streamContext != null) {
         streamContext.abortStream(Status.CANCELLED);
       }
       throw e;
     } finally {
-      logger.info("About to cancel all local file uploads");
+      logger.atInfo().log("About to cancel all local file uploads");
       try (AutoProfiler ignored = GoogleAutoProfilerUtils.logged("local file upload cancelation")) {
         // Cancel all local file uploads that may still be running
         // of events that haven't been uploaded.
@@ -612,17 +608,16 @@ public final class BuildEventServiceUploader implements Runnable {
         if (!shouldRetryStatus(e.getStatus())) {
           String message =
               String.format("Not retrying publishLifecycleEvent: status='%s'", e.getStatus());
-          logger.info(message);
+          logger.atInfo().log(message);
           throw withFailureDetail(e, BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE, message);
         }
 
         cause = e;
 
         long sleepMillis = retrySleepMillis(retryAttempt);
-        logger.info(
-            String.format(
-                "Retrying publishLifecycleEvent: status='%s', sleepMillis=%d",
-                e.getStatus(), sleepMillis));
+        logger.atInfo().log(
+            "Retrying publishLifecycleEvent: status='%s', sleepMillis=%d",
+            e.getStatus(), sleepMillis);
         sleeper.sleepMillis(sleepMillis);
         retryAttempt++;
       }
@@ -644,6 +639,7 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 
+  @SuppressWarnings("LogAndThrow") // Not confident in BES's error-handling.
   private PathConverter waitForUploads(SendRegularBuildEventCommand orderedBuildEvent)
       throws LocalFileUploadException, InterruptedException {
     try {
@@ -653,10 +649,8 @@ public final class BuildEventServiceUploader implements Runnable {
           .get();
       return orderedBuildEvent.localFileUploadProgress().get();
     } catch (ExecutionException e) {
-      logger.log(
-          Level.WARNING,
-          String.format("Failed to upload files referenced by build event: %s", e.getMessage()),
-          e);
+      logger.atWarning().withCause(e).log(
+          "Failed to upload files referenced by build event: %s", e.getMessage());
       Throwables.throwIfUnchecked(e.getCause());
       throw new LocalFileUploadException(e.getCause());
     }

@@ -21,6 +21,7 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -61,8 +62,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * An item that is returned by <code>blaze info</code>.
@@ -285,7 +284,7 @@ public abstract class InfoItem {
 
   /** Info item for server_log path. */
   public static class ServerLogInfoItem extends InfoItem {
-    private static final Logger logger = Logger.getLogger(ServerLogInfoItem.class.getName());
+    private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
     /**
      * Constructs an info item for the server log path.
@@ -303,7 +302,7 @@ public abstract class InfoItem {
         Optional<Path> path = env.getRuntime().getServerLogPath();
         return print(path.map(Path::toString).orElse(""));
       } catch (IOException e) {
-        logger.log(Level.WARNING, "Failed to determine server log location", e);
+        logger.atWarning().withCause(e).log("Failed to determine server log location");
         return print("UNKNOWN LOG LOCATION");
       }
     }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -40,7 +41,6 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.logging.LogManager;
-import java.util.logging.Logger;
 
 /** Implements 'blaze clean'. */
 @Command(
@@ -120,7 +120,7 @@ public final class CleanCommand implements BlazeCommand {
     this.os = os;
   }
 
-  private static final Logger logger = Logger.getLogger(CleanCommand.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
@@ -190,7 +190,7 @@ public final class CleanCommand implements BlazeCommand {
             "exec >&- 2>&- <&- && (/usr/bin/setsid /bin/rm -rf %s &)&",
             ShellEscaper.escapeString(tempPath.getPathString()));
 
-    logger.info("Executing shell command " + ShellEscaper.escapeString(command));
+    logger.atInfo().log("Executing shell command %s", ShellEscaper.escapeString(command));
 
     // Doesn't throw iff command exited and was successful.
     new CommandBuilder()
@@ -212,7 +212,7 @@ public final class CleanCommand implements BlazeCommand {
     }
     env.getBlazeWorkspace().clearCaches();
     if (expunge && !async) {
-      logger.info("Expunging...");
+      logger.atInfo().log("Expunging...");
       runtime.prepareForAbruptShutdown();
       // Close java.log.
       LogManager.getLogManager().reset();
@@ -234,15 +234,15 @@ public final class CleanCommand implements BlazeCommand {
       outputBase.deleteTreesBelow();
       outputBase.deleteTree();
     } else if (expunge && async) {
-      logger.info("Expunging asynchronously...");
+      logger.atInfo().log("Expunging asynchronously...");
       runtime.prepareForAbruptShutdown();
       asyncClean(env, outputBase, "Output base");
     } else {
-      logger.info("Output cleaning...");
+      logger.atInfo().log("Output cleaning...");
       env.getBlazeWorkspace().resetEvaluator();
       Path execroot = outputBase.getRelative("execroot");
       if (execroot.exists()) {
-        logger.finest("Cleaning " + execroot + (async ? " asynchronously..." : ""));
+        logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
         if (async) {
           asyncClean(env, execroot, "Output tree");
         } else {

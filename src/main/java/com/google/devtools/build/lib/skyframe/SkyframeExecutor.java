@@ -36,6 +36,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -210,7 +211,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -223,7 +223,7 @@ import javax.annotation.Nullable;
  * the build.
  */
 public abstract class SkyframeExecutor implements WalkableGraphFactory {
-  private static final Logger logger = Logger.getLogger(SkyframeExecutor.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
   // Also remove ArtifactNestedSetValues to prevent memory leak (b/143940221).
@@ -831,7 +831,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Clear any configured target data stored outside Skyframe. */
   public void handleAnalysisInvalidatingChange() {
-    logger.info("Dropping configured target data");
+    logger.atInfo().log("Dropping configured target data");
     analysisCacheDiscarded = true;
     clearTrimmingCache();
     skyframeBuildView.clearInvalidatedConfiguredTargets();
@@ -1275,7 +1275,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // information here, so we compute it ourselves.
     // TODO(bazel-team): Fancy filesystems could provide it with a hypothetically modified
     // DiffAwareness interface.
-    logger.info(
+    logger.atInfo().log(
         "About to recompute filesystem nodes corresponding to files that are known to have "
             + "changed");
     FilesystemValueChecker fsvc =

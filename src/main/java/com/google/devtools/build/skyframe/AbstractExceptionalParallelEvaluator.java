@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -41,7 +42,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -80,8 +80,7 @@ import javax.annotation.Nullable;
  */
 public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
     extends AbstractParallelEvaluator {
-  private static final Logger logger =
-      Logger.getLogger(AbstractExceptionalParallelEvaluator.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   AbstractExceptionalParallelEvaluator(
       ProcessableGraph graph,
@@ -407,19 +406,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       }
       SkyKey parent = Preconditions.checkNotNull(Iterables.getFirst(reverseDeps, null));
       if (bubbleErrorInfo.containsKey(parent)) {
-        logger.info(
-            "Bubbled into a cycle. Don't try to bubble anything up. Cycle detection will kick in. "
-                + parent
-                + ": "
-                + errorEntry
-                + ", "
-                + bubbleErrorInfo
-                + ", "
-                + leafFailure
-                + ", "
-                + roots
-                + ", "
-                + rdepsToBubbleUpTo);
+        logger.atInfo().log(
+            "Bubbled into a cycle. Don't try to bubble anything up. Cycle detection will kick in."
+                + " %s: %s, %s, %s, %s, %s",
+            parent, errorEntry, bubbleErrorInfo, leafFailure, roots, rdepsToBubbleUpTo);
         return null;
       }
       NodeEntry parentEntry =
@@ -532,16 +522,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       if (completedRun
           && error.getException() != null
           && error.getException() instanceof IOException) {
-        logger.info(
-            "SkyFunction did not rethrow error, may be a bug that it did not expect one: "
-                + errorKey
-                + " via "
-                + childErrorKey
-                + ", "
-                + error
-                + " ("
-                + bubbleErrorInfo
-                + ")");
+        logger.atInfo().log(
+            "SkyFunction did not rethrow error, may be a bug that it did not expect one: %s"
+                + " via %s, %s (%s)",
+            errorKey, childErrorKey, error, bubbleErrorInfo);
       }
       // Builder didn't throw its own exception, so just propagate this one up.
       Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =

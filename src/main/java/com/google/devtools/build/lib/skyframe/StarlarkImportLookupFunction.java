@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -63,7 +64,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -86,8 +86,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       cachedStarlarkImportLookupValueAndDepsBuilderFactory =
           new CachedStarlarkImportLookupValueAndDepsBuilderFactory();
 
-  private static final Logger logger =
-      Logger.getLogger(StarlarkImportLookupFunction.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public StarlarkImportLookupFunction(
       RuleClassProvider ruleClassProvider, PackageFactory packageFactory) {
@@ -223,9 +222,9 @@ public class StarlarkImportLookupFunction implements SkyFunction {
 
   public void resetCache() {
     if (starlarkImportLookupValueCache != null) {
-      logger.info(
-          "Starlark inlining cache stats from earlier build: "
-              + starlarkImportLookupValueCache.stats());
+      logger.atInfo().log(
+          "Starlark inlining cache stats from earlier build: %s",
+          starlarkImportLookupValueCache.stats());
     }
     cachedStarlarkImportLookupValueAndDepsBuilderFactory =
         new CachedStarlarkImportLookupValueAndDepsBuilderFactory();

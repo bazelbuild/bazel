@@ -21,6 +21,7 @@ import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -79,13 +80,11 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
 
-  private static final Logger logger = Logger.getLogger(RemoteModule.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private AsynchronousFileOutputStream rpcLogFile;
 
@@ -514,7 +513,7 @@ public final class RemoteModule extends BlazeModule {
     try {
       closeRpcLogFile();
     } catch (IOException e) {
-      logger.log(Level.WARNING, "Partially wrote rpc log file", e);
+      logger.atWarning().withCause(e).log("Partially wrote rpc log file");
       failure = e;
     }
 
@@ -551,10 +550,8 @@ public final class RemoteModule extends BlazeModule {
       try {
         file.delete();
       } catch (IOException e) {
-        logger.log(
-            Level.SEVERE,
-            String.format("Failed to delete remote output '%s' from the " + "output base.", file),
-            e);
+        logger.atSevere().withCause(e).log(
+            "Failed to delete remote output '%s' from the output base.", file);
         deletionFailure = e;
       }
     }

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -45,7 +46,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 
 /**
  * A {@link com.google.devtools.build.lib.pkgcache.RecursivePackageProvider} backed by a {@link
@@ -60,8 +60,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   private final RootPackageExtractor rootPackageExtractor;
   private final ImmutableList<TargetPattern> universeTargetPatterns;
 
-  private static final Logger logger =
-      Logger.getLogger(GraphBackedRecursivePackageProvider.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public GraphBackedRecursivePackageProvider(
       WalkableGraph graph,
@@ -111,13 +110,9 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
     SetView<SkyKey> unknownKeys = Sets.difference(pkgKeys, packages.keySet());
     if (!Iterables.isEmpty(unknownKeys)) {
-      logger.warning(
-          "Unable to find "
-              + unknownKeys
-              + " in the batch lookup of "
-              + pkgKeys
-              + ". Successfully looked up "
-              + packages.keySet());
+      logger.atWarning().log(
+          "Unable to find %s in the batch lookup of %s. Successfully looked up %s",
+          unknownKeys, pkgKeys, packages.keySet());
     }
     for (Map.Entry<SkyKey, Exception> missingOrExceptionEntry :
         graph.getMissingAndExceptions(unknownKeys).entrySet()) {

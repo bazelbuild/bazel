@@ -176,6 +176,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -463,6 +464,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -481,6 +483,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:flogger",
     ],
 )
 
@@ -511,6 +514,7 @@ java_library(
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",
@@ -530,6 +534,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:logging",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -647,6 +652,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -29,13 +30,12 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
   private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
 
-  private static final Logger logger = Logger.getLogger(ExternalFilesHelper.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
@@ -284,7 +284,7 @@ public class ExternalFilesHelper {
         break;
       case EXTERNAL:
         if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
-          logger.info("Encountered an external path " + rootedPath);
+          logger.atInfo().log("Encountered an external path %s", rootedPath);
         }
         // fall through
       case OUTPUT:

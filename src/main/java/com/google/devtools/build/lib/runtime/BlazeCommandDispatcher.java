@@ -22,6 +22,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Flushables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -62,7 +63,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Dispatches to the Blaze commands; that is, given a command line, this abstraction looks up the
@@ -70,7 +70,7 @@ import java.util.logging.Logger;
  * Also, this object provides the runtime state (BlazeRuntime) to the commands.
  */
 public class BlazeCommandDispatcher implements CommandDispatcher {
-  private static final Logger logger = Logger.getLogger(BlazeCommandDispatcher.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final ImmutableList<String> HELP_COMMAND = ImmutableList.of("help");
 
@@ -573,7 +573,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       e.printStackTrace();
       BugReport.printBug(outErr, e, commonOptions.oomMessage);
       bugReporter.sendBugReport(e, args);
-      logger.log(Level.SEVERE, "Shutting down due to exception", e);
+      logger.atSevere().withCause(e).log("Shutting down due to exception");
       result = BlazeCommandResult.createShutdown(e);
       return result;
     } finally {

@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -50,8 +51,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
@@ -66,7 +65,7 @@ import java.util.logging.Logger;
  */
 public class BuildTool {
 
-  private static Logger logger = Logger.getLogger(BuildTool.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected final CommandEnvironment env;
   protected final BlazeRuntime runtime;
@@ -120,7 +119,7 @@ public class BuildTool {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
         env.getEventBus().post(new BuildStartingEvent(env, request));
       }
-      logger.info("Build identifier: " + request.getId());
+      logger.atInfo().log("Build identifier: %s", request.getId());
 
       // Error out early if multi_cpus is set, but we're not in build or test command.
       if (!request.getMultiCpus().isEmpty()) {
@@ -416,11 +415,9 @@ public class BuildTool {
       if (detailedExitCode.isSuccess()) {
         result.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.INTERRUPTED));
       } else if (!detailedExitCode.getExitCode().equals(ExitCode.INTERRUPTED)) {
-        logger.log(
-            Level.WARNING,
-            "Suppressed interrupted exception during stop request because already failing with: "
-                + detailedExitCode,
-            ie);
+        logger.atWarning().withCause(ie).log(
+            "Suppressed interrupted exception during stop request because already failing with: %s",
+            detailedExitCode);
       }
     }
   }
