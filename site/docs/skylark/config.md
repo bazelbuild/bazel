@@ -480,6 +480,10 @@ cpu_transition = transition(
     outputs = ["//command_line_option:cpu"]
 ```
 
+NOTE: Transitioning on --define using "//command_line_option:define" is not
+supported - create a custom [build setting](#users-defined-build-settings) to
+cover this functionality.
+
 ### Accessing attributes with transitions
 When [attaching a transition to an outgoing edge](#outgoing-edge-transitions)
 (regardless of whether the transition is a 1:1 or 1:2+ transition) access to

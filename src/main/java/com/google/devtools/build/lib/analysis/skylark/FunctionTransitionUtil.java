@@ -70,6 +70,8 @@ public class FunctionTransitionUtil {
       StructImpl attrObject,
       EventHandler eventHandler)
       throws EvalException, InterruptedException {
+    checkForBlacklistedOptions(starlarkTransition);
+
     // TODO(waltl): consider building this once and use it across different split
     // transitions.
     Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
@@ -87,6 +89,16 @@ public class FunctionTransitionUtil {
       splitBuildOptions.put(entry.getKey(), transitionedOptions);
     }
     return splitBuildOptions.build();
+  }
+
+  private static void checkForBlacklistedOptions(StarlarkDefinedConfigTransition transition)
+      throws EvalException {
+    if (transition.getOutputs().contains("//command_line_option:define")) {
+      throw new EvalException(
+          transition.getLocationForErrorReporting(),
+          "Starlark transition on --define not supported - try using build settings"
+              + " (https://docs.bazel.build/skylark/config.html#user-defined-build-settings).");
+    }
   }
 
   /**
@@ -257,6 +269,7 @@ public class FunctionTransitionUtil {
           OptionDefinition def = optionInfo.getDefinition();
           Field field = def.getField();
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
+          // TODO(b/153867317): check for crashing options types in this logic.
           if (optionValue == null || def.getType().isInstance(optionValue)) {
             field.set(options, optionValue);
             convertedNewValues.put(entry.getKey(), optionValue);
