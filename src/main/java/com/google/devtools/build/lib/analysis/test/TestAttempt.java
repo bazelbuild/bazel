@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.exec;
+package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -37,9 +36,6 @@ import java.util.Collection;
 import java.util.List;
 
 /** This event is raised whenever an individual test attempt is completed. */
-// TODO(ulfjack): This class should be in the same package as the TestResult class, and TestSummary
-// should live there, too. It's depended upon by TestRunnerAction / TestActionContext, which
-// suggests that it should live in the analysis.test package.
 public class TestAttempt implements BuildEventWithOrderConstraint {
 
   private final TestRunnerAction testAction;
