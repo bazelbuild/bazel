@@ -23,6 +23,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -68,7 +69,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -81,6 +81,8 @@ import org.junit.runners.Parameterized.Parameters;
 /** Tests for {@link DynamicSpawnStrategy}. */
 @RunWith(Parameterized.class)
 public class DynamicSpawnStrategyTest {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private Path testRoot;
   private ExecutorService executorServiceForCleanup;
   private FileOutErr outErr;
@@ -662,7 +664,7 @@ public class DynamicSpawnStrategyTest {
     if (legacyBehavior) {
       // The legacy spawn scheduler does not implement cross-cancellations of the two parallel
       // branches so this test makes no sense in that case.
-      Logger.getLogger(DynamicSpawnStrategyTest.class.getName()).info("Skipping test");
+      logger.atInfo().log("Skipping test");
       return;
     }
 
@@ -810,7 +812,7 @@ public class DynamicSpawnStrategyTest {
       // have strong reasons to believe that the races are due to inherent problems in these tests,
       // not in the actual DynamicSpawnScheduler implementation. So whatever. I'll revisit these
       // later as a new set of tests once I'm less tired^W^W^W the legacy spawn scheduler goes away.
-      Logger.getLogger(DynamicSpawnStrategyTest.class.getName()).info("Skipping test");
+      logger.atInfo().log("Skipping test");
       return;
     }
 

@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -40,11 +41,10 @@ import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeVersionInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 
 /** Implementation for the {@code xcode_config} rule. */
 public class XcodeConfig implements RuleConfiguredTargetFactory {
-  private static final Logger logger = Logger.getLogger(XcodeConfig.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION =
       DottedVersion.fromStringUnchecked("7");
@@ -111,8 +111,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
               infoBuilder);
       availability = Availability.UNKNOWN;
     }
-    logger.info(
-        String.format("Using Xcode version %s", xcodeVersionProperties.getXcodeVersionString()));
+    logger.atInfo().log("Using Xcode version %s", xcodeVersionProperties.getXcodeVersionString());
     if (xcodeVersionProperties.getXcodeVersion().isPresent()) {
       infoBuilder
           .setSelectedVersion(xcodeVersionProperties.getXcodeVersionString())
@@ -250,10 +249,9 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       ruleContext.throwWithRuleError(
           "if any versions are specified, a default version must be specified");
     }
-    logger.info(
-        String.format(
-            "Determining Xcode version using single-location Xcodes mode: versions=[%s]",
-            printableXcodeVersions(explicitVersions)));
+    logger.atInfo().log(
+        "Determining Xcode version using single-location Xcodes mode: versions=[%s]",
+        printableXcodeVersions(explicitVersions));
     for (XcodeVersionRuleData version : explicitVersions) {
       infoBuilder.addExplicitVersions(
           XcodeVersionInfo.newBuilder()
@@ -322,13 +320,12 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         mutuallyAvailableVersions.add(remoteAliasesToVersionMap.get(version));
       }
     }
-    logger.info(
-        String.format(
-            "Determining Xcode version using available Xcodes mode:"
-                + " local=[%s], remote=[%s], mutual=[%s]",
-            printableXcodeVersions(localVersions.getAvailableVersions()),
-            printableXcodeVersions(remoteVersions.getAvailableVersions()),
-            printableXcodeVersions(mutuallyAvailableVersions)));
+    logger.atInfo().log(
+        "Determining Xcode version using available Xcodes mode:"
+            + " local=[%s], remote=[%s], mutual=[%s]",
+        printableXcodeVersions(localVersions.getAvailableVersions()),
+        printableXcodeVersions(remoteVersions.getAvailableVersions()),
+        printableXcodeVersions(mutuallyAvailableVersions));
 
     for (XcodeVersionRuleData version : remoteVersions.getAvailableVersions()) {
       infoBuilder.addRemoteVersions(

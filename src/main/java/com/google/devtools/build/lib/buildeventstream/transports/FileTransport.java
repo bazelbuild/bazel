@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -52,8 +53,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -63,7 +62,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * serializes the build event and writes it to a file.
  */
 abstract class FileTransport implements BuildEventTransport {
-  private static final Logger logger = Logger.getLogger(FileTransport.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final BuildEventProtocolOptions options;
   private final BuildEventArtifactUploader uploader;
@@ -90,7 +89,6 @@ abstract class FileTransport implements BuildEventTransport {
   @ThreadSafe
   @VisibleForTesting
   static final class SequentialWriter implements Runnable {
-    private static final Logger logger = Logger.getLogger(SequentialWriter.class.getName());
     private static final ListenableFuture<BuildEventStreamProtos.BuildEvent> CLOSE_EVENT_FUTURE =
         Futures.immediateFailedFuture(
             new IllegalStateException(
@@ -153,15 +151,13 @@ abstract class FileTransport implements BuildEventTransport {
         exitFailure(e);
       } finally {
         try {
-          try {
-            out.flush();
-            out.close();
-          } finally {
-            uploader.shutdown();
-            timeoutExecutor.shutdown();
-          }
+          out.flush();
+          out.close();
         } catch (IOException e) {
-          logger.log(Level.SEVERE, "Failed to close BEP file output stream.", e);
+          logger.atSevere().withCause(e).log("Failed to close BEP file output stream.");
+        } finally {
+          uploader.shutdown();
+          timeoutExecutor.shutdown();
         }
         closeFuture.set(null);
       }
@@ -189,7 +185,7 @@ abstract class FileTransport implements BuildEventTransport {
                       .build()),
               e));
       pendingWrites.clear();
-      logger.log(Level.SEVERE, message, e);
+      logger.atSevere().withCause(e).log(message);
     }
 
     private static BuildProgress.Code getBuildProgressCode(Throwable e) {
@@ -217,7 +213,7 @@ abstract class FileTransport implements BuildEventTransport {
         pendingWrites.clear();
         pendingWrites.put(CLOSE_EVENT_FUTURE);
       } catch (InterruptedException e) {
-        logger.log(Level.SEVERE, "Failed to immediately close the sequential writer.", e);
+        logger.atSevere().withCause(e).log("Failed to immediately close the sequential writer.");
       }
     }
 
@@ -241,7 +237,7 @@ abstract class FileTransport implements BuildEventTransport {
         pendingWrites.put(CLOSE_EVENT_FUTURE);
       } catch (InterruptedException e) {
         closeNow();
-        logger.log(Level.SEVERE, "Failed to close the sequential writer.", e);
+        logger.atSevere().withCause(e).log("Failed to close the sequential writer.");
         closeFuture.set(null);
       }
       return closeFuture;
@@ -259,11 +255,11 @@ abstract class FileTransport implements BuildEventTransport {
     }
     try {
       if (!writer.pendingWrites.add(asStreamProto(event, namer))) {
-        logger.log(Level.SEVERE, "Failed to add BEP event to the write queue");
+        logger.atSevere().log("Failed to add BEP event to the write queue");
       }
     } catch (RejectedExecutionException e) {
       // If early shutdown races with this event, log but otherwise ignore.
-      logger.log(Level.WARNING, "Event upload started after shutdown");
+      logger.atWarning().withCause(e).log("Event upload started after shutdown");
     }
   }
 

@@ -21,6 +21,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -47,7 +48,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
 
 /**
@@ -72,7 +72,7 @@ import java.util.zip.GZIPOutputStream;
  */
 @ThreadSafe
 public final class Profiler {
-  private static final Logger logger = Logger.getLogger(Profiler.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** The profiler (a static singleton instance). Inactive by default. */
   private static final Profiler instance = new Profiler();
@@ -636,7 +636,7 @@ public final class Profiler {
     if (localStack == null) {
       // Variables have been nulled out by #clear in between the check the caller made and this
       // point in the code. Probably due to an asynchronous crash.
-      logger.severe("Variables null in profiler for " + type + ", probably due to async crash");
+      logger.atSevere().log("Variables null in profiler for %s, probably due to async crash", type);
       return;
     }
     TaskData parent = localStack.peek();

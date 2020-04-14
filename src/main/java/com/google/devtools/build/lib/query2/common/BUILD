@@ -19,6 +19,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
