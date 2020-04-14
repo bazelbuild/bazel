@@ -395,7 +395,7 @@ public final class AspectFunction implements SkyFunction {
           unloadedToolchainContext =
               (UnloadedToolchainContext)
                   env.getValueOrThrow(
-                      UnloadedToolchainContext.key()
+                      UnloadedToolchainContextKey.key()
                           .configurationKey(BuildConfigurationValue.key(configuration))
                           .requiredToolchainTypeLabels(requiredToolchains)
                           .shouldSanityCheckConfiguration(

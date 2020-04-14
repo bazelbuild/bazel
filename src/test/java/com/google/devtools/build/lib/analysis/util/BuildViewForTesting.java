@@ -86,7 +86,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext.UnloadedToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.UnloadedToolchainContextKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -510,7 +510,7 @@ public class BuildViewForTesting {
     for (Map.Entry<String, ExecGroup> execGroup : execGroups.entrySet()) {
       unloadedToolchainContextKeys.put(
           execGroup.getKey(),
-          UnloadedToolchainContext.key()
+          UnloadedToolchainContextKey.key()
               .configurationKey(BuildConfigurationValue.key(targetConfig))
               .requiredToolchainTypeLabels(execGroup.getValue().getRequiredToolchains())
               .build());
@@ -518,7 +518,7 @@ public class BuildViewForTesting {
     String targetUnloadedToolchainContextKey = "target-unloaded-toolchain-context";
     unloadedToolchainContextKeys.put(
         targetUnloadedToolchainContextKey,
-        UnloadedToolchainContext.key()
+        UnloadedToolchainContextKey.key()
             .configurationKey(BuildConfigurationValue.key(targetConfig))
             .requiredToolchainTypeLabels(requiredToolchains)
             .build());

@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext.UnloadedToolchainContextKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -490,7 +489,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
     unloadedToolchainContextKeys.put(
         targetUnloadedToolchainContext,
-        UnloadedToolchainContext.key()
+        UnloadedToolchainContextKey.key()
             .configurationKey(toolchainConfig)
             .requiredToolchainTypeLabels(requiredDefaultToolchains)
             .execConstraintLabels(defaultExecConstraintLabels)
@@ -500,7 +499,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ExecGroup execGroup = group.getValue();
       unloadedToolchainContextKeys.put(
           group.getKey(),
-          UnloadedToolchainContext.key()
+          UnloadedToolchainContextKey.key()
               .configurationKey(toolchainConfig)
               .requiredToolchainTypeLabels(execGroup.getRequiredToolchains())
               .execConstraintLabels(execGroup.getExecutionPlatformConstraints())
