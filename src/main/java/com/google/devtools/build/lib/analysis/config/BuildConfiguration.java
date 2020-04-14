@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -59,7 +58,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
 
 /**
  * Instances of BuildConfiguration represent a collection of context information which may affect a
@@ -101,34 +99,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
   /** Compute the default shell environment for actions from the command line options. */
   public interface ActionEnvironmentProvider {
     ActionEnvironment getActionEnvironment(BuildOptions options);
-  }
-
-  /**
-   * An interface for language-specific configurations.
-   *
-   * <p>All implementations must be immutable and communicate this as clearly as possible (e.g.
-   * declare {@link com/google/devtools/build/lib/analysis/config/BuildConfiguration.java used only
-   * in javadoc: com.google.common.collect.ImmutableList} signatures on their interfaces vs. {@link
-   * List}). This is because fragment instances may be shared across configurations.
-   *
-   * <p>Fragments are Starlark values, as returned by {@code ctx.fragments.android}, for example.
-   */
-  public abstract static class Fragment implements StarlarkValue {
-    /**
-     * Validates the options for this Fragment. Issues warnings for the use of deprecated options,
-     * and warnings or errors for any option settings that conflict.
-     */
-    @SuppressWarnings("unused")
-    public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {}
-
-    /**
-     * Returns a fragment of the output directory name for this configuration. The output directory
-     * for the whole configuration contains all the short names by all fragments.
-     */
-    @Nullable
-    public String getOutputDirectoryName() {
-      return null;
-    }
   }
 
   private final OutputDirectories outputDirectories;
@@ -364,14 +334,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public static Set<Class<? extends FragmentOptions>> getOptionsClasses(
       Iterable<Class<? extends Fragment>> fragmentClasses, RuleClassProvider ruleClassProvider) {
 
-    Multimap<Class<? extends BuildConfiguration.Fragment>, Class<? extends FragmentOptions>>
+    Multimap<Class<? extends Fragment>, Class<? extends FragmentOptions>>
         fragmentToRequiredOptions = ArrayListMultimap.create();
     for (ConfigurationFragmentFactory fragmentLoader :
         ((ConfiguredRuleClassProvider) ruleClassProvider).getConfigurationFragments()) {
       fragmentToRequiredOptions.putAll(fragmentLoader.creates(), fragmentLoader.requiredOptions());
     }
     Set<Class<? extends FragmentOptions>> options = new HashSet<>();
-    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : fragmentClasses) {
+    for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
       options.addAll(fragmentToRequiredOptions.get(fragmentClass));
     }
     return options;

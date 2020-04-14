@@ -63,7 +63,7 @@ public class ConfigAwareAspectBuilder {
    * <p>The value is inherited by subclasses.
    */
   public ConfigAwareAspectBuilder requiresHostConfigurationFragments(
-      Class<? extends BuildConfiguration.Fragment>... configurationFragments) {
+      Class<? extends Fragment>... configurationFragments) {
     aspectBuilder.requiresConfigurationFragments(HostTransition.INSTANCE, configurationFragments);
     return this;
   }

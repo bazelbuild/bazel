@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.ConfigsMode;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
@@ -641,9 +642,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    *
    * <p>Historically this meant they contained the same object reference. But with upcoming dynamic
    * configurations that may no longer be true (for example, they may have the same values but not
-   * the same {@link BuildConfiguration.Fragment}s. So this method abstracts the
-   * "configuration equivalency" checking into one place, where the implementation logic can evolve
-   * as needed.
+   * the same {@link Fragment}s. So this method abstracts the "configuration equivalency" checking
+   * into one place, where the implementation logic can evolve as needed.
    */
   protected void assertConfigurationsEqual(BuildConfiguration config1, BuildConfiguration config2) {
     // BuildOptions and crosstool files determine a configuration's content. Within the context

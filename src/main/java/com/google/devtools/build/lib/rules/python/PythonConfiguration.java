@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -33,7 +33,7 @@ import com.google.devtools.common.options.TriState;
     name = "py",
     doc = "A configuration fragment for Python.",
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
-public class PythonConfiguration extends BuildConfiguration.Fragment implements StarlarkValue {
+public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final PythonVersion version;
   private final PythonVersion defaultVersion;

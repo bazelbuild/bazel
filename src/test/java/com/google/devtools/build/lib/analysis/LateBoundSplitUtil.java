@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -42,22 +43,21 @@ public class LateBoundSplitUtil {
     public String fooFlag;
   }
 
-  /** The {@link BuildConfiguration.Fragment} that contains the options. */
+  /** The {@link Fragment} that contains the options. */
   @AutoCodec
-  static class TestFragment extends BuildConfiguration.Fragment {
-  }
+  static class TestFragment extends Fragment {}
 
   /**
    * The fragment's loader.
    */
   static class FragmentLoader implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
+    public Fragment create(BuildOptions buildOptions) {
       return new TestFragment();
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
      return TestFragment.class;
     }
 

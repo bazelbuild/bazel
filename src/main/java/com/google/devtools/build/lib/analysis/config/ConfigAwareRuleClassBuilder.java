@@ -63,7 +63,7 @@ public class ConfigAwareRuleClassBuilder {
    * <p>The value is inherited by subclasses.
    */
   public ConfigAwareRuleClassBuilder requiresHostConfigurationFragments(
-      Class<? extends BuildConfiguration.Fragment>... configurationFragments) {
+      Class<? extends Fragment>... configurationFragments) {
     ruleClassBuilder.requiresConfigurationFragments(HostTransition.INSTANCE,
         configurationFragments);
     return this;

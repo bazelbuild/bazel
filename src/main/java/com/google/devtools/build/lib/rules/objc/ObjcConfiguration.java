@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
@@ -30,8 +30,7 @@ import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
 @Immutable
-public class ObjcConfiguration extends BuildConfiguration.Fragment
-    implements ObjcConfigurationApi<PlatformType> {
+public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<PlatformType> {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =
       ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");

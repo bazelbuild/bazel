@@ -180,7 +180,7 @@ public final class ConfigurationResolver {
       }
 
       // Figure out the required fragments for this dep and its transitive closure.
-      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
+      Set<Class<? extends Fragment>> depFragments =
           getTransitiveFragments(env, dep.getLabel(), ctgValue.getConfiguration());
       if (depFragments == null) {
         return null;
@@ -393,12 +393,12 @@ public final class ConfigurationResolver {
   private static final class FragmentsAndTransition {
     // Treat this as immutable. The only reason this isn't an ImmutableSet is because it
     // gets bound to a NestedSet.toSet() reference, which returns a Set interface.
-    final Set<Class<? extends BuildConfiguration.Fragment>> fragments;
+    final Set<Class<? extends Fragment>> fragments;
     final ConfigurationTransition transition;
     private final int hashCode;
 
-    FragmentsAndTransition(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-        ConfigurationTransition transition) {
+    FragmentsAndTransition(
+        Set<Class<? extends Fragment>> fragments, ConfigurationTransition transition) {
       this.fragments = fragments;
       this.transition = transition;
       hashCode = Objects.hash(this.fragments, this.transition);
@@ -488,17 +488,16 @@ public final class ConfigurationResolver {
     map.put(key, value);
   }
 
-
   /**
-   * Returns the configuration fragments required by a dep and its transitive closure.
-   * Returns null if Skyframe dependencies aren't yet available.
+   * Returns the configuration fragments required by a dep and its transitive closure. Returns null
+   * if Skyframe dependencies aren't yet available.
    *
    * @param env Skyframe evaluation environment
    * @param dep label of the dep to check
    * @param parentConfig configuration of the rule depending on the dep
    */
   @Nullable
-  private static Set<Class<? extends BuildConfiguration.Fragment>> getTransitiveFragments(
+  private static Set<Class<? extends Fragment>> getTransitiveFragments(
       SkyFunction.Environment env, Label dep, BuildConfiguration parentConfig)
       throws InterruptedException {
     if (!parentConfig.trimConfigurations()) {
@@ -586,15 +585,14 @@ public final class ConfigurationResolver {
       TargetAndConfiguration ctgValue,
       Attribute attribute,
       Dependency dep,
-      Set<Class<? extends BuildConfiguration.Fragment>> expectedDepFragments)
+      Set<Class<? extends Fragment>> expectedDepFragments)
       throws DependencyEvaluationException {
     Set<String> ctgFragmentNames = new HashSet<>();
-    for (BuildConfiguration.Fragment fragment :
-        ctgValue.getConfiguration().getFragmentsMap().values()) {
+    for (Fragment fragment : ctgValue.getConfiguration().getFragmentsMap().values()) {
       ctgFragmentNames.add(fragment.getClass().getSimpleName());
     }
     Set<String> depFragmentNames = new HashSet<>();
-    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : expectedDepFragments) {
+    for (Class<? extends Fragment> fragmentClass : expectedDepFragments) {
      depFragmentNames.add(fragmentClass.getSimpleName());
     }
     Set<String> missing = Sets.difference(depFragmentNames, ctgFragmentNames);

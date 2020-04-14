@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -565,9 +566,7 @@ public abstract class DependencyResolver {
     }
     @SuppressWarnings("unchecked")
     FragmentT fragment =
-        fragmentClass.cast(
-            attributeConfig.getFragment(
-                (Class<? extends BuildConfiguration.Fragment>) fragmentClass));
+        fragmentClass.cast(attributeConfig.getFragment((Class<? extends Fragment>) fragmentClass));
     if (fragment == null) {
       return null;
     }

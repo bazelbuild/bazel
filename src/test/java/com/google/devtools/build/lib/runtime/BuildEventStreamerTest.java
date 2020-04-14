@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -876,8 +877,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
                 rootDirectory,
                 /* defaultSystemJavabase= */ null,
                 "productName"),
-            /* fragmentsMap= */ ImmutableMap
-                .<Class<? extends BuildConfiguration.Fragment>, BuildConfiguration.Fragment>of(),
+            /* fragmentsMap= */ ImmutableMap.<Class<? extends Fragment>, Fragment>of(),
             defaultBuildOptions,
             BuildOptions.diffForReconstruction(defaultBuildOptions, defaultBuildOptions),
             /* reservedActionMnemonics= */ ImmutableSet.of(),

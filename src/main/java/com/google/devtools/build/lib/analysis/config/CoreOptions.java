@@ -835,7 +835,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to enable the use of AggregatingMiddleman in rules.")
   public boolean enableAggregatingMiddleman;
 
-  /** Ways configured targets may provide the {@link BuildConfiguration.Fragment}s they require. */
+  /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     // Don't offer the provider at all. This is best for most builds, which don't use this
     // information and don't need the extra memory hit over every configured target.

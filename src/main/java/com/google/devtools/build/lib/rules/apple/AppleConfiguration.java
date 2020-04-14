@@ -21,10 +21,10 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -38,8 +38,7 @@ import javax.annotation.Nullable;
 
 /** A configuration containing flags required for Apple platforms and tools. */
 @Immutable
-public class AppleConfiguration extends BuildConfiguration.Fragment
-    implements AppleConfigurationApi<PlatformType> {
+public class AppleConfiguration extends Fragment implements AppleConfigurationApi<PlatformType> {
   /**
    * Environment variable name for the xcode version. The value of this environment variable should
    * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
@@ -447,7 +446,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
       return AppleConfiguration.class;
     }
 

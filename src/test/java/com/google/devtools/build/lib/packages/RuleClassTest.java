@@ -39,7 +39,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -100,7 +100,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
           new StarlarkThread.CallStackEntry("bar", Location.fromFileLineColumn("bar.bzl", 42, 1)),
           new StarlarkThread.CallStackEntry("rule", Location.BUILTIN));
 
-  private static final class DummyFragment extends BuildConfiguration.Fragment {}
+  private static final class DummyFragment extends Fragment {}
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> NO_STACK = ImmutableList.of();
 

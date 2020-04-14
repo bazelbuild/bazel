@@ -44,9 +44,9 @@ import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -196,7 +196,7 @@ public final class RuleContext extends TargetContext
   private final String ruleClassNameForLogging;
   private final BuildConfiguration hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-  private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
+  private final ImmutableList<Class<? extends Fragment>> universalFragments;
   private final RuleErrorConsumer reporter;
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ConstraintSemantics constraintSemantics;
@@ -1611,7 +1611,7 @@ public final class RuleContext extends TargetContext
     private final AnalysisEnvironment env;
     private final Target target;
     private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-    private ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
+    private ImmutableList<Class<? extends Fragment>> universalFragments;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
     private final ActionLookupValue.ActionLookupKey actionOwnerSymbol;
@@ -1720,11 +1720,8 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /**
-     * Sets the fragment that can be legally accessed even when not explicitly declared.
-     */
-    public Builder setUniversalFragments(
-        ImmutableList<Class<? extends BuildConfiguration.Fragment>> fragments) {
+    /** Sets the fragment that can be legally accessed even when not explicitly declared. */
+    public Builder setUniversalFragments(ImmutableList<Class<? extends Fragment>> fragments) {
       // TODO(bazel-team): Add this directly to ConfigurationFragmentPolicy, so we
       // don't need separate logic specifically for checking this fragment. The challenge is
       // that we need RuleClassProvider to figure out what this fragment is, and not every

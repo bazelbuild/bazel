@@ -14,21 +14,18 @@
 
 package com.google.devtools.build.lib.analysis.skylark.annotations.processor.optiontestsources;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * A test case of SkylarkConfigurationFieldProcessorTest.
- */
+/** A test case of SkylarkConfigurationFieldProcessorTest. */
 @SkylarkModule(
     name = "module_name",
     doc = "A fake configuration fragment for a test.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-public class MethodIsPrivate extends BuildConfiguration.Fragment {
+    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+public class MethodIsPrivate extends Fragment {
 
   /**
    * Returns the label of the xcode_config rule to use for resolving the host system xcode version.

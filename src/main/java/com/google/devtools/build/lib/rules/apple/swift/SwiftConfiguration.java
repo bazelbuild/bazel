@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.rules.apple.swift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -29,8 +29,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.SwiftConfigurationApi
  * family of rules written in Starlark.
  */
 @Immutable
-public class SwiftConfiguration extends BuildConfiguration.Fragment
-    implements SwiftConfigurationApi {
+public class SwiftConfiguration extends Fragment implements SwiftConfigurationApi {
   private final ImmutableList<String> copts;
 
   private SwiftConfiguration(SwiftCommandLineOptions options) {
@@ -54,7 +53,7 @@ public class SwiftConfiguration extends BuildConfiguration.Fragment
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
       return SwiftConfiguration.class;
     }
 

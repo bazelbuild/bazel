@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -31,6 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -117,7 +116,7 @@ public class BuildConfigurationFunction implements SkyFunction {
     ImmutableSortedSet<Class<? extends Fragment>> fragmentClasses = key.getFragments();
     ImmutableSet.Builder<Fragment> fragments =
         ImmutableSet.builderWithExpectedSize(fragmentClasses.size());
-    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : fragmentClasses) {
+    for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
       BuildOptions trimmedOptions =
           options.trim(
               BuildConfiguration.getOptionsClasses(
@@ -145,10 +144,10 @@ public class BuildConfigurationFunction implements SkyFunction {
   abstract static class FragmentKey {
     abstract BuildOptions getBuildOptions();
 
-    abstract Class<? extends BuildConfiguration.Fragment> getFragmentClass();
+    abstract Class<? extends Fragment> getFragmentClass();
 
     private static FragmentKey create(
-        BuildOptions buildOptions, Class<? extends BuildConfiguration.Fragment> fragmentClass) {
+        BuildOptions buildOptions, Class<? extends Fragment> fragmentClass) {
       return new AutoValue_BuildConfigurationFunction_FragmentKey(buildOptions, fragmentClass);
     }
   }
