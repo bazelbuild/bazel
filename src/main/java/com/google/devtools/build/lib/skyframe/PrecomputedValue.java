@@ -78,37 +78,34 @@ public class PrecomputedValue implements SkyValue {
   }
 
   public static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
-      new Precomputed<>(Key.create("default_visibility"));
+      new Precomputed<>("default_visibility");
 
   public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
-      new Precomputed<>(Key.create("skylark_semantics"));
+      new Precomputed<>("skylark_semantics");
 
-  static final Precomputed<UUID> BUILD_ID =
-      new Precomputed<>(Key.create("build_id"), /*shareable=*/ false);
+  static final Precomputed<UUID> BUILD_ID = new UnsharablePrecomputed<>("build_id");
 
-  public static final Precomputed<Map<String, String>> ACTION_ENV =
-      new Precomputed<>(Key.create("action_env"));
+  public static final Precomputed<Map<String, String>> ACTION_ENV = new Precomputed<>("action_env");
 
-  public static final Precomputed<Map<String, String>> REPO_ENV =
-      new Precomputed<>(Key.create("repo_env"));
+  public static final Precomputed<Map<String, String>> REPO_ENV = new Precomputed<>("repo_env");
 
   static final Precomputed<ImmutableList<ActionAnalysisMetadata>> COVERAGE_REPORT_KEY =
-      new Precomputed<>(Key.create("coverage_report_actions"));
+      new Precomputed<>("coverage_report_actions");
 
   public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
-      new Precomputed<>(Key.create("build_info_factories"));
+      new Precomputed<>("build_info_factories");
 
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
-      new Precomputed<>(Key.create("path_package_locator"));
+      new Precomputed<>("path_package_locator");
 
   public static final Precomputed<RemoteOutputsMode> REMOTE_OUTPUTS_MODE =
-      new Precomputed<>(Key.create("remote_outputs_mode"));
+      new Precomputed<>("remote_outputs_mode");
 
   public static final Precomputed<Map<String, String>> REMOTE_DEFAULT_PLATFORM_PROPERTIES =
-      new Precomputed<>(Key.create("remote_default_platform_properties"));
+      new Precomputed<>("remote_default_platform_properties");
 
   public static final Precomputed<Boolean> REMOTE_EXECUTION_ENABLED =
-      new Precomputed<>(Key.create("remote_execution_enabled"));
+      new Precomputed<>("remote_execution_enabled");
 
   private final Object value;
 
@@ -143,26 +140,16 @@ public class PrecomputedValue implements SkyValue {
     return "<BuildVariable " + value + ">";
   }
 
-  public static void dependOnBuildId(SkyFunction.Environment env) throws InterruptedException {
-    BUILD_ID.get(env);
-  }
-
   /**
    * A helper object corresponding to a variable in Skyframe.
    *
    * <p>Instances do not have internal state.
    */
-  public static final class Precomputed<T> {
-    private final Key key;
-    private final boolean shareable;
+  public static class Precomputed<T> {
+    protected final Key key;
 
-    public Precomputed(Key key) {
-      this(key, /*shareable=*/ true);
-    }
-
-    private Precomputed(Key key, boolean shareable) {
-      this.key = key;
-      this.shareable = shareable;
+    public Precomputed(String key) {
+      this.key = Key.create(key);
     }
 
     @VisibleForTesting
@@ -187,8 +174,19 @@ public class PrecomputedValue implements SkyValue {
 
     /** Injects a new variable value. */
     public void set(Injectable injectable, T value) {
-      injectable.inject(
-          key, shareable ? new PrecomputedValue(value) : new UnshareablePrecomputedValue(value));
+      injectable.inject(key, new PrecomputedValue(value));
+    }
+  }
+
+  private static class UnsharablePrecomputed<T> extends Precomputed<T> {
+    private UnsharablePrecomputed(String key) {
+      super(key);
+    }
+
+    /** Injects a new variable value. */
+    @Override
+    public void set(Injectable injectable, T value) {
+      injectable.inject(key, new UnshareablePrecomputedValue(value));
     }
   }
 

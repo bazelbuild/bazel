@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
 
 class ArtifactConflictFinder {
   static final Precomputed<ImmutableMap<ActionAnalysisMetadata, ConflictException>>
-      ACTION_CONFLICTS = new Precomputed<>(PrecomputedValue.Key.create("action_conflicts"));
+      ACTION_CONFLICTS = new Precomputed<>("action_conflicts");
 
   private ArtifactConflictFinder() {}
 
