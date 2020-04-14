@@ -413,11 +413,13 @@ sh_test(
     name = "bazel_test_test",
     timeout = "long",
     srcs = ["bazel_test_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     shard_count = 3,
     tags = [
         "no-sandbox",
-        "no_windows",
     ],
 )
 
