@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -142,6 +143,7 @@ public class ExecutionTool {
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
     ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
         executorBuilder.asModuleActionContextRegistryBuilder();
+    actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
     SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
         executorBuilder.asSpawnStrategyRegistryBuilder();
 
