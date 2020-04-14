@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import java.time.Duration;
 
 /**
  * All possible types of profiler tasks. Each type also defines description and
@@ -22,10 +23,10 @@ package com.google.devtools.build.lib.profiler;
 public enum ProfilerTask {
   PHASE("build phase marker"),
   ACTION("action processing"),
-  ACTION_CHECK("action dependency checking", 10000000, 0),
-  ACTION_LOCK("action resource lock", 10000000, 0),
-  ACTION_RELEASE("action resource release", 10000000, 0),
-  ACTION_UPDATE("update action information", 10000000, 0),
+  ACTION_CHECK("action dependency checking", Threshold.TEN_MILLIS),
+  ACTION_LOCK("action resource lock", Threshold.TEN_MILLIS),
+  ACTION_RELEASE("action resource release", Threshold.TEN_MILLIS),
+  ACTION_UPDATE("update action information", Threshold.TEN_MILLIS),
   ACTION_COMPLETE("complete action execution"),
   INFO("general information"),
   CREATE_PACKAGE("package creation"),
@@ -34,27 +35,27 @@ public enum ProfilerTask {
   SCANNER("include scanner"),
   // 30 is a good number because the slowest items are stored in a heap, with temporarily
   // one more element, and with 31 items, a heap becomes a complete binary tree
-  LOCAL_PARSE("Local parse to prepare for remote execution", 50000000, 30),
-  UPLOAD_TIME("Remote execution upload time", 50000000, 0),
-  PROCESS_TIME("Remote execution process wall time", 50000000, 0),
-  REMOTE_QUEUE("Remote execution queuing time", 50000000, 0),
-  REMOTE_SETUP("Remote execution setup", 50000000, 0),
-  FETCH("Remote execution file fetching", 50000000, 0),
-  VFS_STAT("VFS stat", 10000000, 30),
-  VFS_DIR("VFS readdir", 10000000, 30),
-  VFS_READLINK("VFS readlink", 10000000, 30),
+  LOCAL_PARSE("Local parse to prepare for remote execution", Threshold.FIFTY_MILLIS, 30),
+  UPLOAD_TIME("Remote execution upload time", Threshold.FIFTY_MILLIS),
+  PROCESS_TIME("Remote execution process wall time", Threshold.FIFTY_MILLIS),
+  REMOTE_QUEUE("Remote execution queuing time", Threshold.FIFTY_MILLIS),
+  REMOTE_SETUP("Remote execution setup", Threshold.FIFTY_MILLIS),
+  FETCH("Remote execution file fetching", Threshold.FIFTY_MILLIS),
+  VFS_STAT("VFS stat", Threshold.TEN_MILLIS, 30),
+  VFS_DIR("VFS readdir", Threshold.TEN_MILLIS, 30),
+  VFS_READLINK("VFS readlink", Threshold.TEN_MILLIS, 30),
   // TODO(olaola): rename to VFS_DIGEST. This refers to all digest function computations.
-  VFS_MD5("VFS md5", 10000000, 30),
-  VFS_XATTR("VFS xattr", 10000000, 30),
-  VFS_DELETE("VFS delete", 10000000, 0),
-  VFS_OPEN("VFS open", 10000000, 30),
-  VFS_READ("VFS read", 10000000, 30),
-  VFS_WRITE("VFS write", 10000000, 30),
-  VFS_GLOB("globbing", -1, 30),
-  VFS_VMFS_STAT("VMFS stat", 10000000, 0),
-  VFS_VMFS_DIR("VMFS readdir", 10000000, 0),
-  VFS_VMFS_READ("VMFS read", 10000000, 0),
-  WAIT("thread wait", 5000000, 0),
+  VFS_MD5("VFS md5", Threshold.TEN_MILLIS, 30),
+  VFS_XATTR("VFS xattr", Threshold.TEN_MILLIS, 30),
+  VFS_DELETE("VFS delete", Threshold.TEN_MILLIS),
+  VFS_OPEN("VFS open", Threshold.TEN_MILLIS, 30),
+  VFS_READ("VFS read", Threshold.TEN_MILLIS, 30),
+  VFS_WRITE("VFS write", Threshold.TEN_MILLIS, 30),
+  VFS_GLOB("globbing", null, 30),
+  VFS_VMFS_STAT("VMFS stat", Threshold.TEN_MILLIS),
+  VFS_VMFS_DIR("VMFS readdir", Threshold.TEN_MILLIS),
+  VFS_VMFS_READ("VMFS read", Threshold.TEN_MILLIS),
+  WAIT("thread wait", Threshold.TEN_MILLIS),
   THREAD_NAME("thread name"), // Do not use directly!
   SKYFRAME_EVAL("skyframe evaluator"),
   SKYFUNCTION("skyfunction"),
@@ -73,6 +74,11 @@ public enum ProfilerTask {
   REMOTE_NETWORK("remote network"),
   UNKNOWN("Unknown event");
 
+  private static class Threshold {
+    private static final Duration TEN_MILLIS = Duration.ofMillis(10);
+    private static final Duration FIFTY_MILLIS = Duration.ofMillis(50);
+  }
+
   // Size of the ProfilerTask value space.
   public static final int TASK_COUNT = ProfilerTask.values().length;
 
@@ -88,15 +94,19 @@ public enum ProfilerTask {
   /** True if the metric records VFS operations */
   private final boolean vfs;
 
-  ProfilerTask(String description, long minDuration, int slowestInstanceCount) {
+  ProfilerTask(String description, Duration minDuration, int slowestInstanceCount) {
     this.description = description;
-    this.minDuration = minDuration;
+    this.minDuration = minDuration == null ? -1 : minDuration.toNanos();
     this.slowestInstancesCount = slowestInstanceCount;
     this.vfs = this.name().startsWith("VFS");
   }
 
+  ProfilerTask(String description, Duration minDuration) {
+    this(description, minDuration, /* slowestInstanceCount= */ 0);
+  }
+
   ProfilerTask(String description) {
-    this(description, /* minDuration= */ -1, /* slowestInstanceCount= */ 0);
+    this(description, /* minDuration= */ null, /* slowestInstanceCount= */ 0);
   }
 
   /** Whether the Profiler collects the slowest instances of this task. */
