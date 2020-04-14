@@ -141,7 +141,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
   /*
     If necessary, we could allow filtering by tag (anytag, alltags), name (regexp?), kind ?
-    For now, we ignore this, since users can implement it in Skylark.
+    For now, we ignore this, since users can implement it in Starlark.
   */
   @Override
   public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
@@ -289,7 +289,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
       if (attr.getName().equals("distribs")) {
         // attribute distribs: cannot represent type class java.util.Collections$SingletonSet
-        // in Skylark: [INTERNAL].
+        // in Starlark: [INTERNAL].
         continue;
       }
 
@@ -408,7 +408,8 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       // native.rules() fails if there is any rule using a select() in the BUILD file.
       //
       // To remedy this, we should return a SelectorList. To do so, we have to
-      // 1) recurse into the Selector contents of SelectorList, so those values are skylarkified too
+      // 1) recurse into the Selector contents of SelectorList, so those values are Starlarkified
+      //    too
       // 2) get the right Class<?> value. We could probably get at that by looking at
       //    ((SelectorList)val).getSelectors().first().getEntries().first().getClass().
 

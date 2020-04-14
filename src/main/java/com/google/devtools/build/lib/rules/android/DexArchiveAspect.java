@@ -115,9 +115,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           "runtime_deps",
           ":android_sdk",
           "aidl_lib", // for the aidl runtime in the android_sdk rule
-          "$toolchain", // this is _toolchain in Skylark rules (b/78647825)
+          "$toolchain", // this is _toolchain in Starlark rules (b/78647825)
           // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
-          JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, "runtime");
+          JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR,
+          "runtime");
 
   private static final FlagMatcher DEXOPTS_SUPPORTED_IN_DEXBUILDER =
       new FlagMatcher(
@@ -134,7 +135,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
             .requireSkylarkProviders(forKey(JavaInfo.PROVIDER.getKey()))
-            // Latch onto Skylark toolchains in case they have a "runtime" (b/78647825)
+            // Latch onto Starlark toolchains in case they have a "runtime" (b/78647825)
             .requireSkylarkProviders(forKey(ToolchainInfo.PROVIDER.getKey()))
             // For android_sdk rules, where we just want to get at aidl runtime deps.
             .requireSkylarkProviders(forKey(AndroidSdkProvider.PROVIDER.getKey()))

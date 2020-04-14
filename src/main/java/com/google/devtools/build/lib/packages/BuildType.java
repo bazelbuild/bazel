@@ -42,9 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * Collection of data types that are specific to building things, i.e. not inherent to Skylark.
- */
+/** Collection of data types that are specific to building things, i.e. not inherent to Starlark. */
 public final class BuildType {
 
   /**

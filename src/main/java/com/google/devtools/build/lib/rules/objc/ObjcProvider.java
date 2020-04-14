@@ -78,7 +78,7 @@ import java.util.Map;
 @Immutable
 public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
-  /** Skylark name for the ObjcProvider. */
+  /** Starlark name for the ObjcProvider. */
   public static final String SKYLARK_NAME = "objc";
 
   /** Expected suffix for a framework-containing directory. */
@@ -100,9 +100,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       this.type = type;
     }
 
-    /**
-     * Returns the name of the collection represented by this key in the Skylark provider.
-     */
+    /** Returns the name of the collection represented by this key in the Starlark provider. */
     public String getSkylarkKeyName() {
       return skylarkKeyName;
     }
@@ -326,7 +324,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       ImmutableSet.<Key<?>>of(
           DEFINE, FRAMEWORK_SEARCH_PATHS, HEADER, INCLUDE, INCLUDE_SYSTEM, IQUOTE);
 
-  /** All keys in ObjcProvider that will be passed in the corresponding Skylark provider. */
+  /** All keys in ObjcProvider that will be passed in the corresponding Starlark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
       ImmutableList.<Key<?>>of(
           DEFINE,
@@ -608,19 +606,20 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   /**
-   * All keys in ObjcProvider that are explicitly not exposed to skylark. This is used for
-   * testing and verification purposes to ensure that a conscious decision is made for all keys;
-   * by default, keys should be exposed to skylark: a comment outlining why a key is omitted
-   * from skylark should follow each such case.
-   **/
+   * All keys in ObjcProvider that are explicitly not exposed to Starlark. This is used for testing
+   * and verification purposes to ensure that a conscious decision is made for all keys; by default,
+   * keys should be exposed to Starlark: a comment outlining why a key is omitted from Starlark
+   * should follow each such case.
+   */
   @VisibleForTesting
-  static final ImmutableList<Key<?>> KEYS_NOT_IN_SKYLARK = ImmutableList.<Key<?>>of(
-      // LibraryToLink not exposed to skylark.
-      CC_LIBRARY,
-      // Flag enum is not exposed to skylark.
-      FLAG,
-      // CppModuleMap is not exposed to skylark.
-      TOP_LEVEL_MODULE_MAP);
+  static final ImmutableList<Key<?>> KEYS_NOT_IN_SKYLARK =
+      ImmutableList.<Key<?>>of(
+          // LibraryToLink not exposed to Starlark.
+          CC_LIBRARY,
+          // Flag enum is not exposed to Starlark.
+          FLAG,
+          // CppModuleMap is not exposed to Starlark.
+          TOP_LEVEL_MODULE_MAP);
 
   /**
    * Set of {@link ObjcProvider} whose values are not subtracted via {@link #subtractSubtrees}.
@@ -649,8 +648,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           WEAK_SDK_FRAMEWORK);
 
   /**
-   * Returns the skylark key for the given string, or null if no such key exists or is available
-   * to Skylark.
+   * Returns the Starlark key for the given string, or null if no such key exists or is available to
+   * Starlark.
    */
   static Key<?> getSkylarkKeyForString(String keyName) {
     for (Key<?> candidateKey : KEYS_FOR_SKYLARK) {
@@ -661,7 +660,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     return null;
   }
 
-  /** Skylark constructor and identifier for ObjcProvider. */
+  /** Starlark constructor and identifier for ObjcProvider. */
   public static final BuiltinProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
@@ -1176,7 +1175,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     }
 
     /**
-     * Add elements in toAdd with the given key from skylark. An error is thrown if toAdd is not an
+     * Add elements in toAdd with the given key from Starlark. An error is thrown if toAdd is not an
      * appropriate Depset.
      */
     void addElementsFromSkylark(Key<?> key, Object skylarkToAdd) throws EvalException {
@@ -1239,7 +1238,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     }
 
     /**
-     * Adds the given providers from skylark. An error is thrown if toAdd is not an iterable of
+     * Adds the given providers from Starlark. An error is thrown if toAdd is not an iterable of
      * ObjcProvider instances.
      */
     @SuppressWarnings("unchecked")
@@ -1269,7 +1268,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     }
 
     /**
-     * Adds the given providers from skylark, but propagate any normally-propagated items only to
+     * Adds the given providers from Starlark, but propagate any normally-propagated items only to
      * direct dependers. An error is thrown if toAdd is not an iterable of ObjcProvider instances.
      */
     @SuppressWarnings("unchecked")
@@ -1296,7 +1295,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     }
 
     /**
-     * Adds the given strict include paths from skylark. An error is thrown if skylarkToAdd is not
+     * Adds the given strict include paths from Starlark. An error is thrown if skylarkToAdd is not
      * an appropriate Depset.
      */
     @SuppressWarnings("unchecked")

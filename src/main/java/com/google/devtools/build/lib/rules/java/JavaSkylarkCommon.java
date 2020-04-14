@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
-/** A module that contains Skylark utilities for Java support. */
+/** A module that contains Starlark utilities for Java support. */
 public class JavaSkylarkCommon
     implements JavaCommonApi<
         Artifact,

@@ -65,7 +65,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
 
   private final ImmutableList<? extends MakeVariableSupplier> allMakeVariableSuppliers;
 
-  // TODO(b/37567440): Remove when Skylark callers can be updated to get this from
+  // TODO(b/37567440): Remove when Starlark callers can be updated to get this from
   // CcToolchainProvider. We should use CcCommon.CC_TOOLCHAIN_ATTRIBUTE_NAME, but we didn't want to
   // pollute core with C++ specific constant.
   protected static final ImmutableList<String> DEFAULT_MAKE_VARIABLE_ATTRIBUTES =

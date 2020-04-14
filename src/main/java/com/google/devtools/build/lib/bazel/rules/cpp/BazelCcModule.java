@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /**
- * A module that contains Skylark utilities for C++ support.
+ * A module that contains Starlark utilities for C++ support.
  *
  * <p>This is a work in progress. The API is guarded behind
  * --experimental_cc_skylark_api_enabled_packages. The API is under development and unstable.

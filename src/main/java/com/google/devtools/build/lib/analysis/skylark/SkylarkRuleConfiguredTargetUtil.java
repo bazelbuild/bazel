@@ -73,7 +73,7 @@ import javax.annotation.Nullable;
 
 /**
  * A helper class to build Rule Configured Targets via runtime loaded rule implementations defined
- * using the Skylark Build Extension Language.
+ * using the Starlark Build Extension Language.
  */
 public final class SkylarkRuleConfiguredTargetUtil {
 
@@ -652,7 +652,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
             ? RunfilesProvider.simple(mergeFiles(statelessRunfiles, executable, ruleContext))
             : RunfilesProvider.withData(
                 // The executable doesn't get into the default runfiles if we have runfiles states.
-                // This is to keep skylark genrule consistent with the original genrule.
+                // This is to keep Starlark genrule consistent with the original genrule.
                 defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY,
                 dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
     builder.addProvider(RunfilesProvider.class, runfilesProvider);

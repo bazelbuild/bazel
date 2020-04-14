@@ -164,8 +164,8 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
     return Depset.of(Artifact.TYPE, javaBaseInputs());
   }
 
-  // Not all of JavaRuntimeInfo is exposed to Skylark, which makes implementing deep equality
-  // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
+  // Not all of JavaRuntimeInfo is exposed to Starlark, which makes implementing deep equality
+  // impossible: if Java-only parts are considered, the behavior is surprising in Starlark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.
   @Override
   public boolean equals(Object other) {

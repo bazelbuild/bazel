@@ -22,11 +22,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * An abstract class containing documentation for a Skylark method.
- */
+/** An abstract class containing documentation for a Starlark method. */
 public abstract class SkylarkMethodDoc extends SkylarkDoc {
-  /** Returns whether the Skylark method is documented. */
+  /** Returns whether the Starlark method is documented. */
   public abstract boolean documented();
 
   /**
@@ -94,8 +92,8 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
   }
 
   /**
-   * Returns a string representing the method signature of the Skylark method, which contains
-   * HTML links to the documentation of parameter types if available.
+   * Returns a string representing the method signature of the Starlark method, which contains HTML
+   * links to the documentation of parameter types if available.
    */
   public abstract String getSignature();
 

@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public class ConstraintSettingInfo extends NativeInfo implements ConstraintSettingInfoApi {
-  /** Name used in Skylark for accessing this provider. */
+  /** Name used in Starlark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintSettingInfo";
 
   /** Provider singleton constant. */

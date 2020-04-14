@@ -52,8 +52,8 @@ import com.google.devtools.build.lib.syntax.Tuple;
 import java.util.Map;
 
 /**
- * The Skylark module containing the definition of {@code repository_rule} function to define a
- * skylark remote repository.
+ * The Starlark module containing the definition of {@code repository_rule} function to define a
+ * Starlark remote repository.
  */
 public class SkylarkRepositoryModule implements RepositoryModuleApi {
 

@@ -51,9 +51,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * A repository function to delegate work done by skylark remote repositories.
- */
+/** A repository function to delegate work done by Starlark remote repositories. */
 public class SkylarkRepositoryFunction extends RepositoryFunction {
   static final String SEMANTICS = "STARLARK_SEMANTICS";
 

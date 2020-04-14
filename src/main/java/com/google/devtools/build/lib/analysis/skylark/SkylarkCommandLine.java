@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkCommandLineApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/** A Skylark module class to create memory efficient command lines. */
+/** A Starlark module class to create memory efficient command lines. */
 public class SkylarkCommandLine implements SkylarkCommandLineApi {
 
   @Override

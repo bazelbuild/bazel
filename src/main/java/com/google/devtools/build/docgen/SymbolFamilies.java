@@ -87,7 +87,7 @@ import java.util.Map;
  * builtin types.
  */
 public class SymbolFamilies {
-  // Common prefix of packages that may contain Skylark modules.
+  // Common prefix of packages that may contain Starlark modules.
   private static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
 
   private final ImmutableList<RuleDocumentation> nativeRules;

@@ -82,7 +82,7 @@ import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/** A module that contains Skylark utilities for C++ support. */
+/** A module that contains Starlark utilities for C++ support. */
 public abstract class CcModule
     implements CcModuleApi<
         SkylarkActionFactory,

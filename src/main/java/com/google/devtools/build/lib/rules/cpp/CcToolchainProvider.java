@@ -376,7 +376,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     // TODO(bazel-team): delete all of these.
     result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
 
-    // TODO(kmensah): Remove when skylark dependencies can be updated to rely on
+    // TODO(kmensah): Remove when Starlark dependencies can be updated to rely on
     // CcToolchainProvider.
     result.putAll(getAdditionalMakeVariables());
 
@@ -870,8 +870,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainIdentifier.contains("llvm");
   }
 
-  // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
-  // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
+  // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality
+  // impossible: if Java-only parts are considered, the behavior is surprising in Starlark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.
   @Override
   public boolean equals(Object other) {

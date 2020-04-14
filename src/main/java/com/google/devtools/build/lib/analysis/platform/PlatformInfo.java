@@ -51,7 +51,7 @@ public class PlatformInfo extends NativeInfo
    */
   public static final String PARENT_REMOTE_EXECUTION_KEY = "{PARENT_REMOTE_EXECUTION_PROPERTIES}";
 
-  /** Name used in Skylark for accessing this provider. */
+  /** Name used in Starlark for accessing this provider. */
   public static final String SKYLARK_NAME = "PlatformInfo";
 
   /** Provider singleton constant. */

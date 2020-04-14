@@ -61,7 +61,7 @@ import javax.annotation.Nullable;
 public final class CcLinkingHelper {
 
   /** Contains the providers as well as the linking outputs. */
-  // TODO(plf): Only used by Skylark API. Remove after migrating.
+  // TODO(plf): Only used by Starlark API. Remove after migrating.
   @Deprecated
   public static final class LinkingInfo implements LinkingInfoApi {
     private final CcLinkingContext ccLinkingContext;

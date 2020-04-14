@@ -89,8 +89,8 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
-   * set of transitive info collections.
+   * Returns the list of declared providers (native and Starlark) of the specified Starlark key from
+   * a set of transitive info collections.
    */
   public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
@@ -106,8 +106,8 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
-   * set of transitive info collections.
+   * Returns the list of declared providers (native and Starlark) of the specified Starlark key from
+   * a set of transitive info collections.
    */
   public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,

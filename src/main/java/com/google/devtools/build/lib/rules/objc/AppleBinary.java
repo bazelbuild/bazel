@@ -125,7 +125,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
    * Links a (potentially multi-architecture) binary targeting Apple platforms.
    *
    * <p>This method comprises a bulk of the logic of the {@code apple_binary} rule, and is
-   * statically available so that it may be referenced by Skylark APIs that replicate its
+   * statically available so that it may be referenced by Starlark APIs that replicate its
    * functionality.
    *
    * @param ruleContext the current rule context
@@ -140,7 +140,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
    * Links a (potentially multi-architecture) binary targeting Apple platforms.
    *
    * <p>This method comprises a bulk of the logic of the {@code apple_binary} rule, and is
-   * statically available so that it may be referenced by Skylark APIs that replicate its
+   * statically available so that it may be referenced by Starlark APIs that replicate its
    * functionality.
    *
    * @param ruleContext the current rule context

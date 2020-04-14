@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkOSApi;
 
 import java.util.Map;
 
-/** A Skylark structure to deliver information about the system we are running on. */
+/** A Starlark structure to deliver information about the system we are running on. */
 @Immutable
 final class SkylarkOS implements SkylarkOSApi {
 

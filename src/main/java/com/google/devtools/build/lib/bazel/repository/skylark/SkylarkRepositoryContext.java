@@ -90,7 +90,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** Skylark API for the repository_rule's context. */
+/** Starlark API for the repository_rule's context. */
 public class SkylarkRepositoryContext
     implements SkylarkRepositoryContextApi<RepositoryFunctionException> {
   private static final ImmutableList<String> WHITELISTED_REPOS_FOR_FLAG_ENABLED =
@@ -115,7 +115,7 @@ public class SkylarkRepositoryContext
   private final RepositoryRemoteExecutor remoteExecutor;
 
   /**
-   * Create a new context (repository_ctx) object for a skylark repository rule ({@code rule}
+   * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
    * argument).
    */
   SkylarkRepositoryContext(

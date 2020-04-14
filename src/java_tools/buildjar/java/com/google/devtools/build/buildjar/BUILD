@@ -149,7 +149,7 @@ java_library(
 )
 
 #
-## Bootstrapping using Skylark rules
+## Bootstrapping using Starlark rules
 #
 
 bootstrap_java_library(

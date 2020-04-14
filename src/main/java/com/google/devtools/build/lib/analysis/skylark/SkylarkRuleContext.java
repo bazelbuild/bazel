@@ -102,7 +102,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * A Skylark API for the ruleContext.
+ * A Starlark API for the ruleContext.
  *
  * <p>"This object becomes featureless once the rule implementation function that it was created for
  * has completed. To achieve this, the {@link #nullify()} should be called once the evaluation of
@@ -451,7 +451,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
           // If the split transition is not in effect, then the key will be missing since there's
           // nothing to key on because the dependencies aren't split and getSplitPrerequisites()
           // behaves like getPrerequisites(). This also means there should be only one entry in
-          // the map. Use None in Skylark to represent this.
+          // the map. Use None in Starlark to represent this.
           Preconditions.checkState(splitPrereqs.size() == 1);
           splitPrereqsMap.put(Starlark.NONE, value);
         }
@@ -866,7 +866,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   }
 
   /**
-   * A Skylark built-in function to create and register a SpawnAction using a dictionary of
+   * A Starlark built-in function to create and register a SpawnAction using a dictionary of
    * parameters: action( inputs = [input1, input2, ...], outputs = [output1, output2, ...],
    * executable = executable, arguments = [argument1, argument2, ...], mnemonic = 'Mnemonic',
    * command = 'command', )
@@ -1004,7 +1004,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
           ((Depset) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
     }
     if (!symlinks.isEmpty()) {
-      // If Skylark code directly manipulates symlinks, activate more stringent validity checking.
+      // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
           symlinks.getContents(String.class, Artifact.class, "symlinks").entrySet()) {
@@ -1039,7 +1039,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     checkMutable("resolve_command");
     Label ruleLabel = getLabel();
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked);
-    // The best way to fix this probably is to convert CommandHelper to Skylark.
+    // The best way to fix this probably is to convert CommandHelper to Starlark.
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
             .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
@@ -1058,7 +1058,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     List<Artifact> inputs = new ArrayList<>();
     // TODO(lberki): This flattens a NestedSet.
     // However, we can't turn this into a Depset because it's an incompatible change to
-    // Skylark.
+    // Starlark.
     inputs.addAll(helper.getResolvedTools().toList());
 
     ImmutableMap<String, String> executionRequirements =

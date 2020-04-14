@@ -1567,7 +1567,7 @@ echo "STABLE_USER_NAME $USER"
 <h4 id="flag--toolchain_resolution_debug"><code class='flag'>--toolchain_resolution_debug=false</code></h4>
 <p>
   Print debug information while finding toolchains for a rule. This might help
-  developers of Bazel or Skylark rules with debugging failures due to missing
+  developers of Bazel or Starlark rules with debugging failures due to missing
   toolchains.
 </p>
 
@@ -2573,7 +2573,7 @@ adb -s deadbeef install ...
   <li><code class='flag'>--packages</code> dumps package cache content.</li>
   <li><code class='flag'>--skyframe</code> dumps state of internal Bazel dependency graph.</li>
   <li><code class='flag'>--rules</code> dumps rule summary for each rule and aspect class,
-    including counts and action counts. This includes both native and Skylark rules.
+    including counts and action counts. This includes both native and Starlark rules.
     If memory tracking is enabled, then the rules' memory consumption is also printed.</li>
   <li><code class='flag'>--skylark_memory</code> dumps a
     <href a=https://github.com/google/pprof>pprof</href> compatible .gz file to the specified path.
@@ -2620,7 +2620,7 @@ adb -s deadbeef install ...
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --rules
 
-    # Dump Skylark heap and analyze it with pprof
+    # Dump Starlark heap and analyze it with pprof
     % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --skylark_memory=$HOME/prof.gz

@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
 
-/** Common utilities for Skylark rules related to Android. */
+/** Common utilities for Starlark rules related to Android. */
 public class AndroidSkylarkCommon implements AndroidSkylarkCommonApi<Artifact, JavaInfo> {
 
   @Override

@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-/** The main class for the Skylark documentation generator. */
+/** The main class for the Starlark documentation generator. */
 public class ApiExporter {
 
   private static void appendTypes(

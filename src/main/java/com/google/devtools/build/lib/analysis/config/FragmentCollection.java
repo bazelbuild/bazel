@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FragmentCollectionApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
 
-/** Represents a collection of configuration fragments in Skylark. */
+/** Represents a collection of configuration fragments in Starlark. */
 // Documentation can be found at ctx.fragments
 @Immutable
 public class FragmentCollection implements FragmentCollectionApi {

@@ -54,7 +54,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
-/** Supports ctx.actions.args() from Skylark. */
+/** Supports ctx.actions.args() from Starlark. */
 @AutoCodec
 public class SkylarkCustomCommandLine extends CommandLine {
   private final StarlarkSemantics starlarkSemantics;
@@ -897,7 +897,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
 
     @Override
     public int maxInstancesAllowed() {
-      // No limit to these, as this is just a wrapper for Skylark functions, which are
+      // No limit to these, as this is just a wrapper for Starlark functions, which are
       // always static
       return Integer.MAX_VALUE;
     }

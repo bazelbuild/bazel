@@ -27,13 +27,13 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
- * A class that exposes the C++ providers to Skylark. It is intended to provide a simple and stable
- * interface for Skylark users.
+ * A class that exposes the C++ providers to Starlark. It is intended to provide a simple and stable
+ * interface for Starlark users.
  */
 @AutoCodec
 public final class CcSkylarkApiProvider extends SkylarkApiProvider
     implements CcSkylarkApiProviderApi<Artifact> {
-  /** The name of the field in Skylark used to access this class. */
+  /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "cc";
 
   public static void maybeAdd(RuleContext ruleContext, RuleConfiguredTargetBuilder builder) {

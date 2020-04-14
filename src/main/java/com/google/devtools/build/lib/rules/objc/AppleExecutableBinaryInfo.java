@@ -35,10 +35,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleExecutableBinary
 public final class AppleExecutableBinaryInfo extends NativeInfo
     implements AppleExecutableBinaryApi {
 
-  /** Skylark name for the AppleExecutableBinaryInfo. */
+  /** Starlark name for the AppleExecutableBinaryInfo. */
   public static final String SKYLARK_NAME = "AppleExecutableBinary";
 
-  /** Skylark constructor and identifier for AppleExecutableBinaryInfo. */
+  /** Starlark constructor and identifier for AppleExecutableBinaryInfo. */
   public static final NativeProvider<AppleExecutableBinaryInfo> SKYLARK_CONSTRUCTOR =
       new NativeProvider<AppleExecutableBinaryInfo>(
           AppleExecutableBinaryInfo.class, SKYLARK_NAME) {};

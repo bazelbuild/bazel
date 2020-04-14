@@ -164,7 +164,7 @@ public final class RunfilesSupport {
     this.args = args;
   }
 
-  /** Returns the executable owning this RunfilesSupport. Only use from Skylark. */
+  /** Returns the executable owning this RunfilesSupport. Only use from Starlark. */
   public Artifact getExecutable() {
     return owningExecutable;
   }

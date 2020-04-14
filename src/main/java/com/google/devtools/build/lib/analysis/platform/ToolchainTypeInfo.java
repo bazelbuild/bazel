@@ -29,7 +29,7 @@ import java.util.Objects;
 @Immutable
 @AutoCodec
 public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoApi {
-  /** Name used in Skylark for accessing this provider. */
+  /** Name used in Starlark for accessing this provider. */
   public static final String SKYLARK_NAME = "ToolchainTypeInfo";
 
   /** Provider singleton constant. */

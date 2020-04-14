@@ -162,14 +162,14 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
 
       // TODO(b/140636597): Remove the LABEL_DICT_UNARY special case of this conditional
       // LABEL_DICT_UNARY was previously not treated as a dependency-bearing type, and was put into
-      // Skylark as a Map<String, Label>; this special case preserves that behavior temporarily.
+      // Starlark as a Map<String, Label>; this special case preserves that behavior temporarily.
       if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
         // Attribute values should be type safe
         attrBuilder.put(skyname, Starlark.fromJava(val, null));
         return;
       }
       if (a.isExecutable()) {
-        // In Skylark only label (not label list) type attributes can have the Executable flag.
+        // In Starlark only label (not label list) type attributes can have the Executable flag.
         FilesToRunProvider provider =
             context
                 .getRuleContext()
@@ -192,7 +192,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
         }
       }
       if (a.isSingleArtifact()) {
-        // In Skylark only label (not label list) type attributes can have the SingleArtifact flag.
+        // In Starlark only label (not label list) type attributes can have the SingleArtifact flag.
         Artifact artifact =
             context
                 .getRuleContext()

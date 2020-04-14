@@ -78,7 +78,7 @@ public class ConfigAwareAspectBuilder {
    * to.
    *
    * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
-   * Skylark module names of fragments instead of their classes.
+   * Starlark module names of fragments instead of their classes.
    */
   public ConfigAwareAspectBuilder requiresHostConfigurationFragmentsBySkylarkModuleName(
       Collection<String> configurationFragmentNames) {

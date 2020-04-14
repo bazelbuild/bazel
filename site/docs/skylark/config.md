@@ -36,7 +36,7 @@ Related issues:
 *   [#5577](https://github.com/bazelbuild/bazel/issues/5577) - Starlark support
     for custom build flags
 *   [#5578](https://github.com/bazelbuild/bazel/issues/5578) - Configuration
-    doesn't block native to Skylark rules migration
+    doesn't block native to Starlark rules migration
 
 ## User-defined build settings
 A build setting is a single piece of

@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDylibBinaryApi;
 @Immutable
 public final class AppleDylibBinaryInfo extends NativeInfo implements AppleDylibBinaryApi {
 
-  /** Skylark name for the AppleDylibBinaryInfo. */
+  /** Starlark name for the AppleDylibBinaryInfo. */
   public static final String SKYLARK_NAME = "AppleDylibBinary";
 
-  /** Skylark constructor and identifier for AppleDylibBinaryInfo. */
+  /** Starlark constructor and identifier for AppleDylibBinaryInfo. */
   public static final NativeProvider<AppleDylibBinaryInfo> SKYLARK_CONSTRUCTOR =
       new NativeProvider<AppleDylibBinaryInfo>(AppleDylibBinaryInfo.class, SKYLARK_NAME) {};
 

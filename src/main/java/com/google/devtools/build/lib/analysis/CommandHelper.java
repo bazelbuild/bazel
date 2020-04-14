@@ -243,11 +243,8 @@ public final class CommandHelper {
     return values;
   }
 
-  /**
-   * Resolves a command, and expands known locations for $(location)
-   * variables.
-   */
-  @Deprecated // Only exists to support a legacy Skylark API.
+  /** Resolves a command, and expands known locations for $(location) variables. */
+  @Deprecated // Only exists to support a legacy Starlark API.
   public String resolveCommandAndExpandLabels(
       String command, @Nullable String attribute, boolean allowDataInLabel) {
     LocationExpander expander;

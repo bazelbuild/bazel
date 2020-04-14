@@ -30,9 +30,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
-/**
- * A helper class that collects Skylark module documentation.
- */
+/** A helper class that collects Starlark module documentation. */
 final class SkylarkDocumentationCollector {
   @SkylarkModule(
       name = "globals",
@@ -43,16 +41,14 @@ final class SkylarkDocumentationCollector {
 
   private SkylarkDocumentationCollector() {}
 
-  /**
-   * Returns the SkylarkModule annotation for the top-level Skylark module.
-   */
+  /** Returns the SkylarkModule annotation for the top-level Starlark module. */
   public static SkylarkModule getTopLevelModule() {
     return TopLevelModule.class.getAnnotation(SkylarkModule.class);
   }
 
   /**
-   * Collects the documentation for all Skylark modules comprised of the given classes and returns a
-   * map that maps Skylark module name to the module documentation.
+   * Collects the documentation for all Starlark modules comprised of the given classes and returns
+   * a map that maps Starlark module name to the module documentation.
    */
   public static Map<String, SkylarkModuleDoc> collectModules(Iterable<Class<?>> classes) {
     Map<String, SkylarkModuleDoc> modules = new TreeMap<>();

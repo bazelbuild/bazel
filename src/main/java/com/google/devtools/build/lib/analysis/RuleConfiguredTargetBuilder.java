@@ -483,10 +483,9 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Add a Skylark transitive info. The provider value must be safe (i.e. a String, a Boolean,
-   * an Integer, an Artifact, a Label, None, a Java TransitiveInfoProvider or something composed
-   * from these in Skylark using lists, sets, structs or dicts). Otherwise an EvalException is
-   * thrown.
+   * Add a Starlark transitive info. The provider value must be safe (i.e. a String, a Boolean, an
+   * Integer, an Artifact, a Label, None, a Java TransitiveInfoProvider or something composed from
+   * these in Starlark using lists, sets, structs or dicts). Otherwise an EvalException is thrown.
    */
   public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
       String name, Object value, Location loc) throws EvalException {
@@ -495,7 +494,7 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Adds a "declared provider" defined in Skylark to the rule. Use this method for declared
+   * Adds a "declared provider" defined in Starlark to the rule. Use this method for declared
    * providers defined in Skyark.
    *
    * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Skylark
@@ -525,7 +524,7 @@ public final class RuleConfiguredTargetBuilder {
    * Adds "declared providers" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
   public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
     for (Info provider : providers) {
@@ -538,7 +537,7 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
   public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
@@ -563,11 +562,8 @@ public final class RuleConfiguredTargetBuilder {
     return providersBuilder.contains(legacyId);
   }
 
-  /**
-   * Add a Skylark transitive info. The provider value must be safe.
-   */
-  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
-      String name, Object value) {
+  /** Add a Starlark transitive info. The provider value must be safe. */
+  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(String name, Object value) {
     providersBuilder.put(name, value);
     return this;
   }

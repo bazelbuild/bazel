@@ -147,7 +147,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
   SkyFunction.Environment getSkyframeEnv();
 
   /**
-   * Returns the options that affect the Skylark interpreter used for evaluating Skylark rule
+   * Returns the options that affect the Starlark interpreter used for evaluating Starlark rule
    * implementation functions.
    */
   StarlarkSemantics getSkylarkSemantics() throws InterruptedException;

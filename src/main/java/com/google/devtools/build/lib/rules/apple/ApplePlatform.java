@@ -177,7 +177,7 @@ public enum ApplePlatform implements ApplePlatformApi {
     return forTargetCpuNullable(targetCpu) != null;
   }
 
-  /** Returns a Skylark struct that contains the instances of this enum. */
+  /** Returns a Starlark struct that contains the instances of this enum. */
   public static StructImpl getSkylarkStruct() {
     Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platforms") {};
     HashMap<String, Object> fields = new HashMap<>();
@@ -212,7 +212,7 @@ public enum ApplePlatform implements ApplePlatformApi {
     MACOS("macos");
 
     /**
-     * The key used to access the enum value as a field in the Skylark apple_common.platform_type
+     * The key used to access the enum value as a field in the Starlark apple_common.platform_type
      * struct.
      */
     private final String skylarkKey;
@@ -241,7 +241,7 @@ public enum ApplePlatform implements ApplePlatformApi {
           String.format("Unsupported platform type \"%s\"", name));
     }
 
-    /** Returns a Skylark struct that contains the instances of this enum. */
+    /** Returns a Starlark struct that contains the instances of this enum. */
     public static StructImpl getSkylarkStruct() {
       Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platform_types") {};
       HashMap<String, Object> fields = new HashMap<>();

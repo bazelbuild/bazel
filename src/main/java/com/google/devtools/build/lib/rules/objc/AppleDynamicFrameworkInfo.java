@@ -42,10 +42,10 @@ import javax.annotation.Nullable;
 public final class AppleDynamicFrameworkInfo extends NativeInfo
     implements AppleDynamicFrameworkInfoApi<Artifact> {
 
-  /** Skylark name for the AppleDynamicFrameworkInfo. */
+  /** Starlark name for the AppleDynamicFrameworkInfo. */
   public static final String SKYLARK_NAME = "AppleDynamicFramework";
 
-  /** Skylark constructor and identifier for AppleDynamicFrameworkInfo. */
+  /** Starlark constructor and identifier for AppleDynamicFrameworkInfo. */
   public static final NativeProvider<AppleDynamicFrameworkInfo> SKYLARK_CONSTRUCTOR =
       new NativeProvider<AppleDynamicFrameworkInfo>(
           AppleDynamicFrameworkInfo.class, SKYLARK_NAME) {};

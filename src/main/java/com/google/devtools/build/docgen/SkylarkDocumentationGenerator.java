@@ -16,9 +16,7 @@ package com.google.devtools.build.docgen;
 
 import java.util.Arrays;
 
-/**
- * The main class for the skylark documentation generator.
- */
+/** The main class for the Starlark documentation generator. */
 public class SkylarkDocumentationGenerator {
 
   private static boolean checkArgs(String[] args) {

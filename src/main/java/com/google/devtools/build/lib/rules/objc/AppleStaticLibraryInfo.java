@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
  */
 public final class AppleStaticLibraryInfo extends NativeInfo implements AppleStaticLibraryInfoApi {
 
-  /** Skylark constructor and identifier for AppleStaticLibraryInfo. */
+  /** Starlark constructor and identifier for AppleStaticLibraryInfo. */
   public static final Provider SKYLARK_CONSTRUCTOR = new Provider();
 
   private final Artifact multiArchArchive;

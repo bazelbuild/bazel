@@ -153,13 +153,13 @@ public class FunctionTransitionUtil {
   }
 
   /**
-   * Enter the options in buildOptions into a skylark dictionary, and return the dictionary.
+   * Enter the options in buildOptions into a Starlark dictionary, and return the dictionary.
    *
    * @throws IllegalArgumentException If the method is unable to look up the value in buildOptions
    *     corresponding to an entry in optionInfoMap
    * @throws RuntimeException If the field corresponding to an option value in buildOptions is
    *     inaccessible due to Java language access control, or if an option name is an invalid key to
-   *     the Skylark dictionary
+   *     the Starlark dictionary
    * @throws EvalException if any of the specified transition inputs do not correspond to a valid
    *     build setting
    */

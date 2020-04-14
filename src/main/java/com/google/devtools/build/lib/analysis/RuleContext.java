@@ -1080,8 +1080,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns all the declared providers (native and Skylark) for the specified constructor under the
-   * specified attribute of this target in the BUILD file.
+   * Returns all the declared providers (native and Starlark) for the specified constructor under
+   * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
       String attributeName, TransitionMode mode, final NativeProvider<T> skylarkKey) {
@@ -1089,8 +1089,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns all the declared providers (native and Skylark) for the specified constructor under the
-   * specified attribute of this target in the BUILD file.
+   * Returns all the declared providers (native and Starlark) for the specified constructor under
+   * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
       String attributeName, TransitionMode mode, final BuiltinProvider<T> skylarkKey) {
@@ -1098,7 +1098,7 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the declared provider (native and Skylark) for the specified constructor under the
+   * Returns the declared provider (native and Starlark) for the specified constructor under the
    * specified attribute of this target in the BUILD file. May return null if there is no
    * TransitiveInfoCollection under the specified attribute.
    */
@@ -1110,7 +1110,7 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the declared provider (native and Skylark) for the specified constructor under the
+   * Returns the declared provider (native and Starlark) for the specified constructor under the
    * specified attribute of this target in the BUILD file. May return null if there is no
    * TransitiveInfoCollection under the specified attribute.
    */
@@ -1465,15 +1465,13 @@ public final class RuleContext extends TargetContext
           function.getImplicitOutputs(
               getAnalysisEnvironment().getEventHandler(), RawAttributeMapper.of(rule));
     } catch (EvalException e) {
-      // It's ok as long as we don't use this method from Skylark.
+      // It's ok as long as we don't use this method from Starlark.
       throw new IllegalStateException(e);
     }
     return getImplicitOutputArtifact(Iterables.getOnlyElement(result), contentBasedPath);
   }
 
-  /**
-   * Only use from Skylark. Returns the implicit output artifact for a given output path.
-   */
+  /** Only use from Starlark. Returns the implicit output artifact for a given output path. */
   public Artifact getImplicitOutputArtifact(String path) {
     return getImplicitOutputArtifact(path, /*contentBasedPath=*/ false);
   }

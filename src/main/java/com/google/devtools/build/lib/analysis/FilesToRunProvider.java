@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class FilesToRunProvider
     implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
-  /** The name of the field in Skylark used to access this class. */
+  /** The name of the field in Starlark used to access this class. */
   public static final String SKYLARK_NAME = "files_to_run";
 
   public static final FilesToRunProvider EMPTY =

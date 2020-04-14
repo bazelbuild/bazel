@@ -28,7 +28,7 @@ import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
- * A class representing documentation for a Skylark built-in object with its {@link SkylarkModule}
+ * A class representing documentation for a Starlark built-in object with its {@link SkylarkModule}
  * annotation and with the {@link SkylarkCallable} methods it documents.
  */
 public final class SkylarkModuleDoc extends SkylarkDoc {

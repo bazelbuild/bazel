@@ -1,7 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_plugin")
 
 # Description:
-#   A preprocessor for skylark annotations.
+#   A preprocessor for Starlark annotations.
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(

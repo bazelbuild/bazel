@@ -18,8 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 
 /**
- * An abstract class for adding a Skylark API for the native providers. Derived classes should
- * declare functions to be used from Skylark.
+ * An abstract class for adding a Starlark API for the native providers. Derived classes should
+ * declare functions to be used from Starlark.
  */
 public abstract class SkylarkApiProvider {
   private ProviderCollection info;
@@ -33,7 +33,7 @@ public abstract class SkylarkApiProvider {
       // todo(dslomov): nuke this weird initialization mechanism.
 
       // Allow multiple calls.
-      // It is possible for the Skylark rule to get a SkylarkApiProvider such as `target.java`
+      // It is possible for the Starlark rule to get a SkylarkApiProvider such as `target.java`
       // from its dependency and pass it on. It does not make a whole lot of sense, but we
       // shouldn't crash.
       return;

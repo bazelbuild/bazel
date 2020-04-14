@@ -60,10 +60,10 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A helper class to provide Attr module in Skylark.
+ * A helper class to provide Attr module in Starlark.
  *
- * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Skylark users.
- * The functions are executed through reflection. As everywhere in Skylark, arguments are
+ * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Starlark users.
+ * The functions are executed through reflection. As everywhere in Starlark, arguments are
  * type-checked with the signature and cannot be null.
  */
 public final class SkylarkAttr implements SkylarkAttrApi {
@@ -95,7 +95,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       Type<?> type, String doc, Map<String, Object> arguments, StarlarkThread thread)
       throws EvalException {
     // We use an empty name now so that we can set it later.
-    // This trick makes sense only in the context of Skylark (builtin rules should not use it).
+    // This trick makes sense only in the context of Starlark (builtin rules should not use it).
     return createAttributeFactory(type, doc, arguments, thread, "");
   }
 
@@ -296,7 +296,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   }
 
   /**
-   * Builds a list of sets of accepted providers from Skylark list {@code obj}. The list can either
+   * Builds a list of sets of accepted providers from Starlark list {@code obj}. The list can either
    * be a list of providers (in that case the result is a list with one set) or a list of lists of
    * providers (then the result is the list of sets).
    *
@@ -322,15 +322,15 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   }
 
   /**
-   * Returns true if {@code o} is a Skylark provider (either a declared provider or
-   * a legacy provider name.
+   * Returns true if {@code o} is a Starlark provider (either a declared provider or a legacy
+   * provider name.
    */
   static boolean isProvider(Object o) {
     return o instanceof String || o instanceof Provider;
   }
 
   /**
-   * Converts Skylark identifiers of providers (either a string or a provider value) to their
+   * Converts Starlark identifiers of providers (either a string or a provider value) to their
    * internal representations.
    */
   static ImmutableSet<SkylarkProviderIdentifier> getSkylarkProviderIdentifiers(Sequence<?> list)
@@ -418,7 +418,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         Preconditions.checkNotNull(maybeGetNonConfigurableReason(type), type);
     try {
       // We use an empty name now so that we can set it later.
-      // This trick makes sense only in the context of Skylark (builtin rules should not use it).
+      // This trick makes sense only in the context of Starlark (builtin rules should not use it).
       return new Descriptor(
           name,
           createAttribute(type, null, kwargs, thread, "")
@@ -775,7 +775,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         thread);
   }
 
-  /** A descriptor of an attribute defined in Skylark. */
+  /** A descriptor of an attribute defined in Starlark. */
   @AutoCodec
   public static final class Descriptor implements SkylarkAttrApi.Descriptor {
     private final ImmutableAttributeFactory attributeFactory;

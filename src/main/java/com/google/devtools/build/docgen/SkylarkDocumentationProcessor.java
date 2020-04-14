@@ -31,23 +31,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * A class to assemble documentation for Skylark.
- */
+/** A class to assemble documentation for Starlark. */
 public final class SkylarkDocumentationProcessor {
 
   private static final ImmutableList<SkylarkModuleCategory> GLOBAL_CATEGORIES =
       ImmutableList.<SkylarkModuleCategory>of(
           SkylarkModuleCategory.NONE, SkylarkModuleCategory.TOP_LEVEL_TYPE);
 
-  // Common prefix of packages that may contain Skylark modules.
+  // Common prefix of packages that may contain Starlark modules.
   @VisibleForTesting static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
 
   private SkylarkDocumentationProcessor() {}
 
-  /**
-   * Generates the Skylark documentation to the given output directory.
-   */
+  /** Generates the Starlark documentation to the given output directory. */
   public static void generateDocumentation(String outputDir, String... args)
       throws IOException, ClassPathException {
     parseOptions(args);

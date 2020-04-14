@@ -31,13 +31,13 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
- * A class that exposes the Android providers to Skylark. It is intended to provide a simple and
- * stable interface for Skylark users.
+ * A class that exposes the Android providers to Starlark. It is intended to provide a simple and
+ * stable interface for Starlark users.
  */
 @Immutable
 public class AndroidSkylarkApiProvider extends SkylarkApiProvider
     implements AndroidSkylarkApiProviderApi<Artifact> {
-  /** The name of the field in Skylark used to access this class. */
+  /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "android";
 
   private final IdlInfo idlInfo = new IdlInfo();

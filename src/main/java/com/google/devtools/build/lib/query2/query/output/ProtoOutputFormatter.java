@@ -190,8 +190,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       addAttributes(rulePb, rule, extraDataForAttrHash);
       String transitiveHashCode = rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
       if (transitiveHashCode != null && includeRuleDefinitionEnvironment()) {
-        // The RuleDefinitionEnvironment is always defined for Skylark rules and
-        // always null for non Skylark rules.
+        // The RuleDefinitionEnvironment is always defined for Starlark rules and
+        // always null for non Starlark rules.
         rulePb.addAttribute(
             Build.Attribute.newBuilder()
                 .setName(RULE_IMPLEMENTATION_HASH_ATTR_NAME)

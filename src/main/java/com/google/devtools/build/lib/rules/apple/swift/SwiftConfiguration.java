@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.SwiftConfigurationApi
 
 /**
  * A configuration containing flags required for Swift tools. This is used primarily by swift_*
- * family of rules written in Skylark.
+ * family of rules written in Starlark.
  */
 @Immutable
 public class SwiftConfiguration extends BuildConfiguration.Fragment

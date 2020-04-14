@@ -414,7 +414,7 @@ And finally let's have a look at where the memory is going by producing a
 
 ```
 $ bazel $(STARTUP_FLAGS) dump --skylark_memory=$HOME/prof.gz
-> Dumping skylark heap to: /usr/local/google/home/$USER/prof.gz
+> Dumping Starlark heap to: /usr/local/google/home/$USER/prof.gz
 ```
 
 Next, we use the `pprof` tool to investigate the heap. A good starting point is

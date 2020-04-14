@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A structure callable from Skylark that stores the result of repository_ctx.execute() method. It
+ * A structure callable from Starlark that stores the result of repository_ctx.execute() method. It
  * contains the standard output stream content, the standard error stream content and the execution
  * return code.
  */

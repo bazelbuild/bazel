@@ -276,7 +276,7 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
     enabled = true;
   }
 
-  /** Dumps all skylark analysis time allocations to a pprof-compatible file. */
+  /** Dumps all Starlark analysis time allocations to a pprof-compatible file. */
   public void dumpSkylarkAllocations(String path) throws IOException {
     // Make sure we don't track our own allocations
     enabled = false;

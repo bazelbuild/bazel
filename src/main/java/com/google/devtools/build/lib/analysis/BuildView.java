@@ -300,7 +300,7 @@ public class BuildView {
       // Syntax: label%aspect
       int delimiterPosition = aspect.indexOf('%');
       if (delimiterPosition >= 0) {
-        // TODO(jfield): For consistency with Skylark loads, the aspect should be specified
+        // TODO(jfield): For consistency with Starlark loads, the aspect should be specified
         // as an absolute label.
         // We convert it for compatibility reasons (this will be removed in the future).
         String bzlFileLoadLikeString = aspect.substring(0, delimiterPosition);

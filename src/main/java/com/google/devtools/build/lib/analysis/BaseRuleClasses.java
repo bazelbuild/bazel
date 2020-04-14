@@ -264,9 +264,7 @@ public class BaseRuleClasses {
    */
   public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
 
-  /**
-   * Share common attributes across both base and Skylark base rules.
-   */
+  /** Share common attributes across both base and Starlark base rules. */
   public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
     return builder
         // The visibility attribute is special: it is a nodep label, and loading the

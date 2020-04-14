@@ -68,7 +68,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Provides a Skylark interface for all action creation needs. */
+/** Provides a Starlark interface for all action creation needs. */
 public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   private final SkylarkRuleContext context;
   private final StarlarkSemantics starlarkSemantics;

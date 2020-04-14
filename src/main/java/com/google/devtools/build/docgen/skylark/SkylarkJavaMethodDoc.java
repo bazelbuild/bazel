@@ -24,9 +24,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A class representing a Java method callable from Skylark with annotation.
- */
+/** A class representing a Java method callable from Starlark with annotation. */
 public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   private final String moduleName;
   private final String name;
