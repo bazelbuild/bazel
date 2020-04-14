@@ -95,6 +95,7 @@ We recommend installing:
     ```
     pacman -S zip unzip patch diffutils git
     ```
+    Make sure to add the `MSYS2_INSTALL_PATH/usr/bin` to your Path Environmentvariable in case you want to use CMD or Powershell. 
 
 *   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)
 
