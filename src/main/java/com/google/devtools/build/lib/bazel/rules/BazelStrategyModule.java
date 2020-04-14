@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
+import com.google.devtools.build.lib.analysis.actions.SymlinkContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -55,6 +56,7 @@ public class BazelStrategyModule extends BlazeModule {
         .restrictTo(CppIncludeScanningContext.class, "")
         .restrictTo(FileWriteActionContext.class, "")
         .restrictTo(TemplateExpansionContext.class, "")
+        .restrictTo(SymlinkContext.class, "")
         .restrictTo(SpawnCache.class, "");
   }
 
