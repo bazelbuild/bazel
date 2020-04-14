@@ -78,11 +78,12 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
     return getArgumentTypes().stream().map(ClassName::create).collect(toImmutableList());
   }
 
-  public MethodKey toAdapterMethodForArgsAndReturnTypes(boolean fromStaticOrigin) {
+  public MethodKey toAdapterMethodForArgsAndReturnTypes(
+      boolean fromStaticOrigin, int invocationSiteHashCode) {
     checkState(
         !isConstructor(), "Argument type adapter for constructor is not supported: %s. ", this);
     return MethodKey.create(
-            owner().typeAdapterOwner(encode()),
+            owner().typeAdapterOwner(invocationSiteHashCode),
             name(),
             fromStaticOrigin ? descriptor() : instanceMethodToStaticDescriptor())
         .acceptTypeMapper(ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER);

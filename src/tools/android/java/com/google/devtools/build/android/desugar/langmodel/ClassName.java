@@ -221,7 +221,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
    * methods to be adapted, including overloaded API methods, in order to avoid adapter class name
    * clashing from separate compilation units.
    */
-  final ClassName typeAdapterOwner(String encodedMethodTag) {
+  final ClassName typeAdapterOwner(int invocationSiteTag) {
     checkState(
         !hasInProcessLabel() && !hasImmutableLabel(),
         "Expected a label-free type: Actual(%s)",
@@ -233,10 +233,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
     String binaryName =
         String.format(
             "%s%s$%x$%s",
-            TYPE_ADAPTER_PACKAGE_ROOT,
-            binaryName(),
-            encodedMethodTag.hashCode(),
-            TYPE_ADAPTER_SUFFIX);
+            TYPE_ADAPTER_PACKAGE_ROOT, binaryName(), invocationSiteTag, TYPE_ADAPTER_SUFFIX);
     return ClassName.create(binaryName);
   }
 
