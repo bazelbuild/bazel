@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -258,10 +259,10 @@ public class WorkspaceFactory {
   }
 
   /**
-   * Returns a function-value implementing the build or workspace rule "ruleClass" (e.g. cc_library)
-   * in the specified package context.
+   * Returns a callable Starlark value that implements the build or workspace rule "ruleClass" (e.g.
+   * cc_library) in the specified package context.
    */
-  private static BaseFunction newRuleFunction(
+  private static StarlarkCallable newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
     return new BaseFunction() {
       @Override
@@ -337,7 +338,7 @@ public class WorkspaceFactory {
       // the non-rule function takes precedence.
       // TODO(cparsons): Rule functions should not be added to WORKSPACE files.
       if (!ruleClass.equals("bind")) {
-        BaseFunction ruleFunction = newRuleFunction(ruleFactory, ruleClass, allowOverride);
+        StarlarkCallable ruleFunction = newRuleFunction(ruleFactory, ruleClass, allowOverride);
         env.put(ruleClass, ruleFunction);
       }
     }

@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
@@ -100,7 +100,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     String defInfo = RepositoryResolvedEvent.getRuleDefinitionInformation(rule);
     env.getListener().post(new SkylarkRepositoryDefinitionLocationEvent(rule.getName(), defInfo));
 
-    StarlarkFunction function = rule.getRuleClassObject().getConfiguredTargetFunction();
+    StarlarkCallable function = rule.getRuleClassObject().getConfiguredTargetFunction();
     if (declareEnvironmentDependencies(markerData, env, getEnviron(rule)) == null) {
       return null;
     }

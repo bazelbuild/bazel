@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -346,7 +346,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             doc = "Dictionary to declare execution groups. DO NOT USE - not function yet.")
       },
       useStarlarkThread = true)
-  BaseFunction rule(
+  StarlarkCallable rule(
       StarlarkFunction implementation,
       Boolean test,
       Object attrs,

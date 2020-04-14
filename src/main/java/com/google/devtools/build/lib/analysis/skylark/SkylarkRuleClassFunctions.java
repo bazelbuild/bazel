@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
@@ -278,7 +279,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
   // TODO(bazel-team): implement attribute copy and other rule properties
   @Override
-  public BaseFunction rule(
+  public StarlarkCallable rule(
       StarlarkFunction implementation,
       Boolean test,
       Object attrs,

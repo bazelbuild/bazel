@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.Setting
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.HashSet;
@@ -42,7 +42,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
 
   @Override
   public ConfigurationTransitionApi transition(
-      BaseFunction implementation,
+      StarlarkCallable implementation,
       Sequence<?> inputs, // <String> expected
       Sequence<?> outputs, // <String> expected
       StarlarkThread thread)

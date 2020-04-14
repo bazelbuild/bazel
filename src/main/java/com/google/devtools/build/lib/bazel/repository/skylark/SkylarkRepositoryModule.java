@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 import java.util.Map;
@@ -58,8 +58,8 @@ import java.util.Map;
 public class SkylarkRepositoryModule implements RepositoryModuleApi {
 
   @Override
-  public BaseFunction repositoryRule(
-      StarlarkFunction implementation,
+  public StarlarkCallable repositoryRule(
+      StarlarkCallable implementation,
       Object attrs,
       Boolean local,
       Sequence<?> environ, // <String> expected
@@ -116,11 +116,11 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
   private static final class RepositoryRuleFunction extends BaseFunction
       implements SkylarkExportable {
     private final RuleClass.Builder builder;
-    private final BaseFunction implementation;
+    private final StarlarkCallable implementation;
     private Label extensionLabel;
     private String exportedName;
 
-    private RepositoryRuleFunction(RuleClass.Builder builder, BaseFunction implementation) {
+    private RepositoryRuleFunction(RuleClass.Builder builder, StarlarkCallable implementation) {
       this.builder = builder;
       this.implementation = implementation;
     }

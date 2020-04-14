@@ -34,13 +34,13 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -185,10 +185,10 @@ public class SkylarkCustomCommandLine extends CommandLine {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
       final List<Object> originalValues;
-      BaseFunction mapAll =
-          ((features & HAS_MAP_ALL) != 0) ? (BaseFunction) arguments.get(argi++) : null;
-      BaseFunction mapEach =
-          ((features & HAS_MAP_EACH) != 0) ? (BaseFunction) arguments.get(argi++) : null;
+      StarlarkCallable mapAll =
+          ((features & HAS_MAP_ALL) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
+      StarlarkCallable mapEach =
+          ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
         @SuppressWarnings("unchecked")
         NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
@@ -376,8 +376,8 @@ public class SkylarkCustomCommandLine extends CommandLine {
       }
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
-      BaseFunction mapEach =
-          ((features & HAS_MAP_EACH) != 0) ? (BaseFunction) arguments.get(argi++) : null;
+      StarlarkCallable mapEach =
+          ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
         NestedSet<?> values = (NestedSet) arguments.get(argi++);
         if (mapEach != null) {
@@ -469,8 +469,8 @@ public class SkylarkCustomCommandLine extends CommandLine {
       private Location location;
       public String argName;
       private boolean expandDirectories;
-      private BaseFunction mapAll;
-      private BaseFunction mapEach;
+      private StarlarkCallable mapAll;
+      private StarlarkCallable mapEach;
       private String formatEach;
       private String beforeEach;
       private String joinWith;
@@ -504,12 +504,12 @@ public class SkylarkCustomCommandLine extends CommandLine {
         return this;
       }
 
-      Builder setMapAll(BaseFunction mapAll) {
+      Builder setMapAll(StarlarkCallable mapAll) {
         this.mapAll = mapAll;
         return this;
       }
 
-      Builder setMapEach(BaseFunction mapEach) {
+      Builder setMapEach(StarlarkCallable mapEach) {
         this.mapEach = mapEach;
         return this;
       }
@@ -615,7 +615,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       Object object = arguments.get(argi++);
       final Location location = hasLocation ? (Location) arguments.get(argi++) : null;
       if (hasMapFn) {
-        BaseFunction mapFn = (BaseFunction) arguments.get(argi++);
+        StarlarkCallable mapFn = (StarlarkCallable) arguments.get(argi++);
         object = applyMapFn(mapFn, object, location, starlarkSemantics);
       }
       String stringValue = CommandLineItem.expandToCommandLine(object);
@@ -667,7 +667,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
     static class Builder {
       private Object object;
       private String format;
-      private BaseFunction mapFn;
+      private StarlarkCallable mapFn;
       private Location location;
 
       Builder(Object object) {
@@ -684,7 +684,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
         return this;
       }
 
-      Builder setMapFn(BaseFunction mapFn) {
+      Builder setMapFn(StarlarkCallable mapFn) {
         this.mapFn = mapFn;
         return this;
       }
@@ -786,7 +786,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
   }
 
   private static Object applyMapFn(
-      BaseFunction mapFn, Object arg, Location location, StarlarkSemantics starlarkSemantics)
+      StarlarkCallable mapFn, Object arg, Location location, StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException {
     ImmutableList<Object> args = ImmutableList.of(arg);
     try (Mutability mutability = Mutability.create("map_fn")) {
@@ -806,7 +806,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
   }
 
   private static void applyMapEach(
-      BaseFunction mapFn,
+      StarlarkCallable mapFn,
       List<Object> originalValues,
       Consumer<String> consumer,
       Location loc,
@@ -855,12 +855,12 @@ public class SkylarkCustomCommandLine extends CommandLine {
 
   private static class CommandLineItemMapEachAdaptor
       extends CommandLineItem.ParametrizedMapFn<Object> {
-    private final BaseFunction mapFn;
+    private final StarlarkCallable mapFn;
     private final Location location;
     private final StarlarkSemantics starlarkSemantics;
 
     CommandLineItemMapEachAdaptor(
-        BaseFunction mapFn, Location location, StarlarkSemantics starlarkSemantics) {
+        StarlarkCallable mapFn, Location location, StarlarkSemantics starlarkSemantics) {
       this.mapFn = mapFn;
       this.location = location;
       this.starlarkSemantics = starlarkSemantics;

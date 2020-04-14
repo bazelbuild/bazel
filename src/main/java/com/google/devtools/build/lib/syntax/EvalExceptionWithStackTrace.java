@@ -79,7 +79,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
    * to augument the stack trace with information about the call.
    */
   public void registerPhantomCall(
-      String callDescription, Location location, BaseFunction function) {
+      String callDescription, Location location, StarlarkCallable function) {
     /*
      *
      * We add two new frames to the stack:

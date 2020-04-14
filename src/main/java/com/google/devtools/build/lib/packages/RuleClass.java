@@ -59,7 +59,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -669,7 +669,7 @@ public class RuleClass {
         PredicatesWithMessage.<Rule>alwaysTrue();
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private AdvertisedProviderSet.Builder advertisedProviders = AdvertisedProviderSet.builder();
-    private StarlarkFunction configuredTargetFunction = null;
+    private StarlarkCallable configuredTargetFunction = null;
     private BuildSetting buildSetting = null;
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
         NO_EXTERNAL_BINDINGS;
@@ -1225,7 +1225,7 @@ public class RuleClass {
     }
 
     /** Sets the rule implementation function. Meant for Starlark usage. */
-    public Builder setConfiguredTargetFunction(StarlarkFunction func) {
+    public Builder setConfiguredTargetFunction(StarlarkCallable func) {
       this.configuredTargetFunction = func;
       return this;
     }
@@ -1548,7 +1548,7 @@ public class RuleClass {
    * The Starlark rule implementation of this RuleClass. Null for non Starlark executable
    * RuleClasses.
    */
-  @Nullable private final StarlarkFunction configuredTargetFunction;
+  @Nullable private final StarlarkCallable configuredTargetFunction;
 
   /**
    * The BuildSetting associated with this rule. Null for all RuleClasses except Starlark-defined
@@ -1637,7 +1637,7 @@ public class RuleClass {
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
-      @Nullable StarlarkFunction configuredTargetFunction,
+      @Nullable StarlarkCallable configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       Function<? super Rule, ? extends Set<String>> optionReferenceFunction,
       @Nullable Label ruleDefinitionEnvironmentLabel,
@@ -2503,7 +2503,7 @@ public class RuleClass {
 
   /** Returns this RuleClass's custom Starlark rule implementation. */
   @Nullable
-  public StarlarkFunction getConfiguredTargetFunction() {
+  public StarlarkCallable getConfiguredTargetFunction() {
     return configuredTargetFunction;
   }
 

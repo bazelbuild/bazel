@@ -23,7 +23,8 @@ import javax.annotation.Nullable;
 
 /**
  * BaseFunction is an abstract base class to simplify the task of defining a subclass of
- * StarlarkCallable.
+ * StarlarkCallable. In general it should not appear as the type of a parameter or result in an API;
+ * prefer StarlarkCallable, which abstracts all function-like Starlark values.
  *
  * <p>Subclasses of BaseFunction provide a {@code FunctionSignature} and an optional tuple of
  * default values for optional parameters, and BaseFunction implements the functionality of {@link

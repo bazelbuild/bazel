@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -61,6 +60,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -90,7 +90,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
   public static ConfiguredTarget buildRule(
       RuleContext ruleContext,
       AdvertisedProviderSet advertisedProviders,
-      BaseFunction ruleImplementation,
+      StarlarkCallable ruleImplementation,
       Location location,
       StarlarkSemantics starlarkSemantics,
       String toolsRepository)
@@ -192,10 +192,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
   }
 
-  /**
-   * Adds the given rule to the stack trace of the exception (if there is one).
-   */
-  private static void addRuleToStackTrace(EvalException ex, Rule rule, BaseFunction ruleImpl) {
+  /** Adds the given rule to the stack trace of the exception (if there is one). */
+  private static void addRuleToStackTrace(EvalException ex, Rule rule, StarlarkCallable ruleImpl) {
     if (ex instanceof EvalExceptionWithStackTrace) {
       ((EvalExceptionWithStackTrace) ex)
           .registerPhantomCall(
