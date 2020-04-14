@@ -1161,10 +1161,21 @@ public class RuleClass {
       return this;
     }
 
+    /**
+     * Adds an attribute to the builder.
+     *
+     * <p>Throws an IllegalStateException if an attribute of that name already exists.
+     *
+     * <p>TODO(bazel-team): stop using unchecked exceptions in this way.
+     */
     public Builder addAttribute(Attribute attribute) {
-      Preconditions.checkState(!attributes.containsKey(attribute.getName()),
-          "An attribute with the name '%s' already exists.", attribute.getName());
-      attributes.put(attribute.getName(), attribute);
+      Attribute prevVal = attributes.putIfAbsent(attribute.getName(), attribute);
+      if (prevVal != null) {
+        throw new IllegalStateException(
+            String.format(
+                "There is already a built-in attribute '%s' which cannot be overridden.",
+                attribute.getName()));
+      }
       return this;
     }
 
