@@ -643,6 +643,7 @@ EOF
   chmod +x a/sleep.sh
   bazel test \
       --spawn_strategy=remote \
+      --strategy=ExecutableSymlink=sandboxed \
       --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
       --test_timeout=1,1,1,1 \
@@ -672,6 +673,7 @@ EOF
   chmod +x a/user_test.sh
   bazel test \
       --spawn_strategy=remote \
+      --strategy=ExecutableSymlink=sandboxed \
       --remote_executor=grpc://localhost:${worker_port} \
       --test_output=all \
       --test_env=USER=boo \
@@ -683,6 +685,7 @@ EOF
   export USER=
   bazel test \
       --spawn_strategy=remote \
+      --strategy=ExecutableSymlink=sandboxed \
       --remote_executor=grpc://localhost:${worker_port} \
       --test_output=all \
       //a:user_test >& $TEST_log \
