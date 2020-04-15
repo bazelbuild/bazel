@@ -95,7 +95,8 @@ StartupOptions::StartupOptions(const string &product_name,
       macos_qos_class(QOS_CLASS_DEFAULT),
 #endif
       unlimit_coredumps(false),
-      incompatible_enable_execution_transition(false) {
+      incompatible_enable_execution_transition(false),
+      windows_enable_symlinks(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
@@ -144,6 +145,8 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
   RegisterNullaryStartupFlag("watchfs", &watchfs);
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
+  RegisterNullaryStartupFlag("windows_enable_symlinks",
+                             &windows_enable_symlinks);
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");

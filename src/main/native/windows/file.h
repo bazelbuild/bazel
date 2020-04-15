@@ -18,6 +18,10 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+#ifndef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
+#define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2
+#endif
+
 #include <windows.h>
 
 #include <memory>
@@ -94,6 +98,15 @@ struct CreateJunctionResult {
 };
 
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
+struct CreateSymlinkResult {
+  enum {
+    kSuccess = 0,
+    kError = 1,
+    kTargetIsDirectory = 2,
+  };
+};
+
+// Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
 struct ReadSymlinkOrJunctionResult {
   enum {
     kSuccess = 0,
@@ -142,6 +155,15 @@ wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
 // function will add the right prefixes as necessary.
 int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                    wstring* error);
+
+// Creates a symlink at `symlink_name`, pointing to `symlink_target`.
+// Returns CreateSymlinkResult::kSuccess if could create the symlink.
+// If the target is a directory, this function will return
+// CreateSymlinkResult::kTargetIsDirectory since a junction is preferred
+// instead. When the function returns CreateSymlinkResult::kError and `error`
+// is non-null then `error` receives an error message.
+int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
+                  wstring* error);
 
 // Reads the symlink or junction into 'result'.
 // Returns a value from 'ReadSymlinkOrJunctionResult'.
