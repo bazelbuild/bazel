@@ -42,8 +42,6 @@ public enum CompileBuildVariables {
    * --conlyopt options.
    */
   USER_COMPILE_FLAGS("user_compile_flags"),
-  /** Variable for flags coming from unfiltered_cxx_flag CROSSTOOL fields. */
-  UNFILTERED_COMPILE_FLAGS("unfiltered_compile_flags"),
   /** Variable for the path to the compilation output file. */
   OUTPUT_FILE("output_file"),
   /** Variable for the dependency file path */
