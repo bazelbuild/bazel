@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -142,10 +144,11 @@ public class ExecutionTool {
 
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
     ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
-        executorBuilder.asModuleActionContextRegistryBuilder();
-    actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
+        executorBuilder.asModuleActionContextRegistryBuilder(ModuleActionContextRegistry.builder());
     SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
-        executorBuilder.asSpawnStrategyRegistryBuilder();
+        executorBuilder.asSpawnStrategyRegistryBuilder(SpawnStrategyRegistry.builder());
+    actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
+    executorBuilder.addStrategyByContext(SpawnStrategyResolver.class, "");
 
     for (BlazeModule module : runtime.getBlazeModules()) {
       try (SilentCloseable ignored = Profiler.instance().profile(module + ".executorInit")) {
@@ -182,6 +185,19 @@ public class ExecutionTool {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     // TODO(jmmv): This should live in some testing-related Blaze module, not here.
     actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.testStrategy);
+
+    SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
+    actionContextRegistryBuilder.register(SpawnStrategyRegistry.class, spawnStrategyRegistry);
+    actionContextRegistryBuilder.register(DynamicStrategyRegistry.class, spawnStrategyRegistry);
+    actionContextRegistryBuilder.register(RemoteLocalFallbackRegistry.class, spawnStrategyRegistry);
+
+    executorBuilder.addActionContext(SpawnStrategyRegistry.class, spawnStrategyRegistry);
+    executorBuilder.addStrategyByContext(SpawnStrategyRegistry.class, "");
+
+    ModuleActionContextRegistry moduleActionContextRegistry = actionContextRegistryBuilder.build();
+    executorBuilder.addActionContext(
+        ModuleActionContextRegistry.class, moduleActionContextRegistry);
+    executorBuilder.addStrategyByContext(ModuleActionContextRegistry.class, "");
 
     spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
 

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.testutil.TestThread;
@@ -320,8 +322,10 @@ public class DynamicSpawnStrategyTest {
     executorServiceForCleanup = executorService;
 
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
+    ModuleActionContextRegistry.Builder moduleActionContextRegistryBuilder =
+        executorBuilder.asModuleActionContextRegistryBuilder(ModuleActionContextRegistry.builder());
     SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
-        executorBuilder.asSpawnStrategyRegistryBuilder();
+        executorBuilder.asSpawnStrategyRegistryBuilder(SpawnStrategyRegistry.builder());
 
     spawnStrategyRegistryBuilder.registerStrategy(localStrategy, "mock-local");
     spawnStrategyRegistryBuilder.registerStrategy(remoteStrategy, "mock-remote");
@@ -334,6 +338,18 @@ public class DynamicSpawnStrategyTest {
     // TODO(b/63987502): This only exists during the migration to SpawnStrategyRegistry.
     executorBuilder.addStrategyByContext(SpawnStrategy.class, "dynamic");
     dynamicExecutionModule.registerSpawnStrategies(spawnStrategyRegistryBuilder, options);
+
+    SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
+    executorBuilder.addActionContext(SpawnStrategyRegistry.class, spawnStrategyRegistry);
+    executorBuilder.addStrategyByContext(SpawnStrategyRegistry.class, "");
+
+    moduleActionContextRegistryBuilder.register(
+        DynamicStrategyRegistry.class, spawnStrategyRegistry);
+    ModuleActionContextRegistry moduleActionContextRegistry =
+        moduleActionContextRegistryBuilder.build();
+    executorBuilder.addActionContext(
+        ModuleActionContextRegistry.class, moduleActionContextRegistry);
+    executorBuilder.addStrategyByContext(ModuleActionContextRegistry.class, "");
 
     SpawnActionContextMaps spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
 
