@@ -759,8 +759,8 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>Most attributes are enforced by default, so in the common case this call is unnecessary.
      *
-     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics#getConstraintCheckedDependencies}
-     * for enforcement policy details.
+     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for
+     * enforcement policy details.
      */
     public Builder<TYPE> checkConstraints() {
       Verify.verify(!propertyFlags.contains(PropertyFlag.SKIP_CONSTRAINTS_OVERRIDE),
@@ -772,8 +772,8 @@ public final class Attribute implements Comparable<Attribute> {
      * Skips constraint checking on this attribute even if default enforcement policy would check
      * it. If default policy skips the attribute, this is a no-op.
      *
-     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics#getConstraintCheckedDependencies}
-     * for enforcement policy details.
+     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for
+     * enforcement policy details.
      */
     public Builder<TYPE> dontCheckConstraints() {
       Verify.verify(!propertyFlags.contains(PropertyFlag.CHECK_CONSTRAINTS_OVERRIDE),

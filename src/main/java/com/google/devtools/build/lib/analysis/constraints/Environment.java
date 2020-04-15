@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 
 /**
  * Implementation for the environment rule.

@@ -19,7 +19,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -150,7 +149,9 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
    */
   protected Collection<Label> supportedEnvironments(String ruleName, String ruleDef)
       throws Exception {
-    return (new ConstraintSemantics()).getSupportedEnvironments(
-        getRuleContext(scratchConfiguredTarget("hello", ruleName, ruleDef))).getEnvironments();
+    return (new RuleContextConstraintSemantics())
+        .getSupportedEnvironments(
+            getRuleContext(scratchConfiguredTarget("hello", ruleName, ruleDef)))
+        .getEnvironments();
   }
 }
