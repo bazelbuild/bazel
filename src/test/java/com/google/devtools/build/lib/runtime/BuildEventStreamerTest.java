@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -815,51 +816,54 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     verify(outErr, times(1)).getErr();
   }
 
-  // private static ImmutableList<ImmutableList<Pair<String, String>>> consumeToLists(
-  //     Iterable<String> left, Iterable<String> right) {
-  //   ImmutableList.Builder<Pair<String, String>> consumerBuilder = ImmutableList.builder();
-  //   ImmutableList.Builder<Pair<String, String>> lastConsumerBuilder = ImmutableList.builder();
-  //
-  //   BuildEventStreamer.consumeAsPairs(
-  //       left,
-  //       right,
-  //       (t1, t2) -> consumerBuilder.add(Pair.of(t1, t2)),
-  //       (t1, t2) -> lastConsumerBuilder.add(Pair.of(t1, t2)));
-  //
-  //   return ImmutableList.of(consumerBuilder.build(), lastConsumerBuilder.build());
-  // }
-  //
-  // @Test
-  // public void testConsumeAsPairs() {
-  //   assertThat(consumeToLists(ImmutableList.of("1", "2", "3"), ImmutableList.of("4", "5", "6")))
-  //       .containsExactly(
-  //           ImmutableList.of(
-  //               Pair.of("1", null), Pair.of("2", null), Pair.of("3", "4"), Pair.of(null, "5")),
-  //           ImmutableList.of(Pair.of(null, "6")))
-  //       .inOrder();
-  //
-  //   assertThat(consumeToLists(ImmutableList.of(), ImmutableList.of()))
-  //       .containsExactly(ImmutableList.of(), ImmutableList.of(Pair.of(null, null)))
-  //       .inOrder();
-  //
-  //   assertThat(consumeToLists(ImmutableList.of("1"), ImmutableList.of("2")))
-  //       .containsExactly(ImmutableList.of(), ImmutableList.of(Pair.of("1", "2")))
-  //       .inOrder();
-  //
-  //   assertThat(consumeToLists(ImmutableList.of("1"), ImmutableList.of("2", "3")))
-  //       .containsExactly(ImmutableList.of(Pair.of("1", "2")), ImmutableList.of(Pair.of(null,
-  // "3")))
-  //       .inOrder();
-  //
-  //   assertThat(consumeToLists(ImmutableList.of("1", "2"), ImmutableList.of()))
-  //       .containsExactly(ImmutableList.of(Pair.of("1", null)), ImmutableList.of(Pair.of("2",
-  // null)))
-  //       .inOrder();
-  //
-  //   assertThat(consumeToLists(ImmutableList.of(), ImmutableList.of("1")))
-  //       .containsExactly(ImmutableList.of(), ImmutableList.of(Pair.of(null, "1")))
-  //       .inOrder();
-  // }
+  private static ImmutableList<ImmutableList<Pair<String, String>>> consumeToLists(
+      List<String> left, List<String> right) {
+    ImmutableList.Builder<Pair<String, String>> consumerBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Pair<String, String>> lastConsumerBuilder = ImmutableList.builder();
+
+    BuildEventStreamer.consumeAsPairs(
+        left.stream().map(ByteString::copyFromUtf8).collect(ImmutableList.toImmutableList()),
+        right.stream().map(ByteString::copyFromUtf8).collect(ImmutableList.toImmutableList()),
+        (t1, t2) -> consumerBuilder.add(Pair.of(stringFromNullable(t1), stringFromNullable(t2))),
+        (t1, t2) ->
+            lastConsumerBuilder.add(Pair.of(stringFromNullable(t1), stringFromNullable(t2))));
+
+    return ImmutableList.of(consumerBuilder.build(), lastConsumerBuilder.build());
+  }
+
+  private static String stringFromNullable(ByteString byteString) {
+    return byteString != null ? byteString.toStringUtf8() : null;
+  }
+
+  @Test
+  public void testConsumeAsPairs() {
+    assertThat(consumeToLists(ImmutableList.of("1", "2", "3"), ImmutableList.of("4", "5", "6")))
+        .containsExactly(
+            ImmutableList.of(
+                Pair.of("1", null), Pair.of("2", null), Pair.of("3", "4"), Pair.of(null, "5")),
+            ImmutableList.of(Pair.of(null, "6")))
+        .inOrder();
+
+    assertThat(consumeToLists(ImmutableList.of(), ImmutableList.of()))
+        .containsExactly(ImmutableList.of(), ImmutableList.of(Pair.of(null, null)))
+        .inOrder();
+
+    assertThat(consumeToLists(ImmutableList.of("1"), ImmutableList.of("2")))
+        .containsExactly(ImmutableList.of(), ImmutableList.of(Pair.of("1", "2")))
+        .inOrder();
+
+    assertThat(consumeToLists(ImmutableList.of("1"), ImmutableList.of("2", "3")))
+        .containsExactly(ImmutableList.of(Pair.of("1", "2")), ImmutableList.of(Pair.of(null, "3")))
+        .inOrder();
+
+    assertThat(consumeToLists(ImmutableList.of("1", "2"), ImmutableList.of()))
+        .containsExactly(ImmutableList.of(Pair.of("1", null)), ImmutableList.of(Pair.of("2", null)))
+        .inOrder();
+
+    assertThat(consumeToLists(ImmutableList.of(), ImmutableList.of("1")))
+        .containsExactly(ImmutableList.of(), ImmutableList.of(Pair.of(null, "1")))
+        .inOrder();
+  }
 
   @Test
   public void testReportedConfigurations() throws Exception {
