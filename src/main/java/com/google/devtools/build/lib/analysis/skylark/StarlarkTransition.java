@@ -282,13 +282,30 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       // Clean up aliased values.
       BuildOptions options = unalias(toOptions.get(splitKey), aliasToActual);
       for (Map.Entry<Label, Rule> changedSettingWithRule : changedSettingToRule.entrySet()) {
-        Label setting = changedSettingWithRule.getKey();
+        // If the build setting was referenced in the transition via an alias, this is that alias
+        Label maybeAliasSetting = changedSettingWithRule.getKey();
         Rule rule = changedSettingWithRule.getValue();
-        Object newValue = options.getStarlarkOptions().get(rule.getLabel());
+        // If the build setting was *not* referenced in the transition by an alias, this is the same
+        // value as {@code maybeAliasSetting} above.
+        Label actualSetting = rule.getLabel();
+        Object newValue = options.getStarlarkOptions().get(actualSetting);
+        // TODO(b/154132845): fix NPE occasionally observed here.
+        Preconditions.checkState(
+            newValue != null,
+            "Error while attempting to validate new values from starlark"
+                + " transition(s) with the outputs %s. Post-transition configuration should include"
+                + " '%s' but only includes starlark options: %s. If you run into this error"
+                + " please ping b/154132845 or email blaze-configurability@google.com.",
+            changedSettingToRule.keySet(),
+            actualSetting,
+            options.getStarlarkOptions().keySet());
         Object convertedValue;
         try {
           convertedValue =
-              rule.getRuleClassObject().getBuildSetting().getType().convert(newValue, setting);
+              rule.getRuleClassObject()
+                  .getBuildSetting()
+                  .getType()
+                  .convert(newValue, maybeAliasSetting);
         } catch (ConversionException e) {
           throw new TransitionException(e);
         }
