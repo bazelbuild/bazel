@@ -2014,11 +2014,10 @@ Some caveats apply:
 Examples:
 </p>
 <pre>
-        --run_under=/usr/bin/valgrind
         --run_under=/usr/bin/strace
         --run_under='/usr/bin/strace -c'
+        --run_under=/usr/bin/valgrind
         --run_under='/usr/bin/valgrind --quiet --num-callers=20'
-
 </pre>
 
 <h4>Test selection</h4>
