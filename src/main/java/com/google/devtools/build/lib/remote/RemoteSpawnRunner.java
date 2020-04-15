@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -111,8 +110,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private static final String VIOLATION_TYPE_MISSING = "MISSING";
 
   private static boolean retriableExecErrors(Exception e) {
-    if (e instanceof CacheNotFoundException || e.getCause() instanceof CacheNotFoundException) {
-      return true;
+    if (e instanceof BulkTransferException) {
+      BulkTransferException bulkTransferException = (BulkTransferException) e;
+      return bulkTransferException.onlyCausedByCacheNotFoundException();
     }
     if (!RemoteRetrierUtils.causedByStatus(e, Code.FAILED_PRECONDITION)) {
       return false;
@@ -270,7 +270,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
                   totalTime,
                   networkTime::getDuration,
                   spawnMetrics);
-            } catch (CacheNotFoundException e) {
+            } catch (BulkTransferException e) {
+              if (!e.onlyCausedByCacheNotFoundException()) {
+                throw e;
+              }
               // No cache hit, so we fall through to local or remote execution.
               // We set acceptCachedResult to false in order to force the action re-execution.
               acceptCachedResult = false;
@@ -346,10 +349,12 @@ public class RemoteSpawnRunner implements SpawnRunner {
                     totalTime,
                     networkTime::getDuration,
                     spawnMetrics);
-              } catch (CacheNotFoundException e) {
-                // No cache hit, so if we retry this execution, we must no longer accept
-                // cached results, it must be reexecuted
-                requestBuilder.setSkipCacheLookup(true);
+              } catch (BulkTransferException e) {
+                if (e.onlyCausedByCacheNotFoundException()) {
+                  // No cache hit, so if we retry this execution, we must no longer accept
+                  // cached results, it must be reexecuted
+                  requestBuilder.setSkipCacheLookup(true);
+                }
                 throw e;
               }
             });
@@ -550,14 +555,23 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private SpawnResult handleError(
       IOException exception, FileOutErr outErr, ActionKey actionKey, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
+    boolean remoteCacheFailed = false;
+    if (exception instanceof BulkTransferException) {
+      BulkTransferException e = (BulkTransferException) exception;
+      remoteCacheFailed = e.onlyCausedByCacheNotFoundException();
+    }
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
         maybeDownloadServerLogs(resp, actionKey);
         if (resp.hasResult()) {
-          // We try to download all (partial) results even on server error, for debuggability.
-          remoteCache.download(resp.getResult(), execRoot, outErr, context::lockOutputFiles);
+          try {
+            // We try to download all (partial) results even on server error, for debuggability.
+            remoteCache.download(resp.getResult(), execRoot, outErr, context::lockOutputFiles);
+          } catch (BulkTransferException bulkTransferEx) {
+            exception.addSuppressed(bulkTransferEx);
+          }
         }
       }
       if (e.isExecutionTimeout()) {
@@ -571,7 +585,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     final Status status;
     if (RemoteRetrierUtils.causedByStatus(exception, Code.UNAVAILABLE)) {
       status = Status.EXECUTION_FAILED_CATASTROPHICALLY;
-    } else if (exception instanceof CacheNotFoundException) {
+    } else if (remoteCacheFailed) {
       status = Status.REMOTE_CACHE_FAILED;
     } else {
       status = Status.EXECUTION_FAILED;

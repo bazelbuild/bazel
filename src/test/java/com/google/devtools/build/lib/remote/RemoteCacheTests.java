@@ -641,7 +641,8 @@ public class RemoteCacheTests {
         OutputFile.newBuilder().setPath("outputdir/outputfile").setDigest(outputFileDigest));
     result.addOutputFiles(OutputFile.newBuilder().setPath("otherfile").setDigest(otherFileDigest));
     assertThrows(
-        IOException.class, () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
+        BulkTransferException.class,
+        () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
     assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
     assertThat(execRoot.getRelative("outputdir").exists()).isTrue();
     assertThat(execRoot.getRelative("outputdir/outputfile").exists()).isFalse();
@@ -670,15 +671,17 @@ public class RemoteCacheTests {
             .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
             .build();
-    IOException e =
+    BulkTransferException downloadException =
         assertThrows(
-            IOException.class,
+            BulkTransferException.class,
             () ->
                 cache.download(
                     result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
-    assertThat(e.getSuppressed()).isEmpty();
+    assertThat(downloadException.getSuppressed()).hasLength(1);
     assertThat(cache.getNumSuccessfulDownloads()).isEqualTo(2);
     assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
+    assertThat(downloadException.getSuppressed()[0]).isInstanceOf(IOException.class);
+    IOException e = (IOException) downloadException.getSuppressed()[0];
     assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("download failed");
     verify(outputFilesLocker, never()).lock();
   }
@@ -700,17 +703,18 @@ public class RemoteCacheTests {
             .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
             .build();
-    IOException e =
+    BulkTransferException e =
         assertThrows(
-            IOException.class,
+            BulkTransferException.class,
             () ->
                 cache.download(
                     result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
 
-    assertThat(e.getSuppressed()).hasLength(1);
+    assertThat(e.getSuppressed()).hasLength(2);
     assertThat(e.getSuppressed()[0]).isInstanceOf(IOException.class);
-    assertThat(e.getSuppressed()[0]).hasMessageThat().isEqualTo("file3 failed");
-    assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("file2 failed");
+    assertThat(e.getSuppressed()[0]).hasMessageThat().isAnyOf("file2 failed", "file3 failed");
+    assertThat(e.getSuppressed()[1]).isInstanceOf(IOException.class);
+    assertThat(e.getSuppressed()[1]).hasMessageThat().isAnyOf("file2 failed", "file3 failed");
   }
 
   @Test
@@ -731,15 +735,18 @@ public class RemoteCacheTests {
             .addOutputFiles(OutputFile.newBuilder().setPath("file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("file3").setDigest(digest3))
             .build();
-    IOException e =
+    BulkTransferException downloadException =
         assertThrows(
-            IOException.class,
+            BulkTransferException.class,
             () ->
                 cache.download(
                     result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
 
-    assertThat(e.getSuppressed()).isEmpty();
-    assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("reused io exception");
+    for (Throwable t : downloadException.getSuppressed()) {
+      assertThat(t).isInstanceOf(IOException.class);
+      IOException e = (IOException) t;
+      assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("reused io exception");
+    }
   }
 
   @Test
@@ -836,7 +843,8 @@ public class RemoteCacheTests {
             .setStderrDigest(digestStderr)
             .build();
     assertThrows(
-        IOException.class, () -> cache.download(result, execRoot, spyOutErr, outputFilesLocker));
+        BulkTransferException.class,
+        () -> cache.download(result, execRoot, spyOutErr, outputFilesLocker));
     verify(spyOutErr, Mockito.times(2)).childOutErr();
     verify(spyChildOutErr).clearOut();
     verify(spyChildOutErr).clearErr();
