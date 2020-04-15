@@ -39,8 +39,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
-import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -685,42 +683,6 @@ public final class AspectFunction implements SkyFunction {
   public String extractTag(SkyKey skyKey) {
     AspectKey aspectKey = (AspectKey) skyKey.argument();
     return Label.print(aspectKey.getLabel());
-  }
-
-  /** An exception indicating that there was a problem creating an aspect. */
-  public static final class AspectCreationException extends Exception
-      implements SaneAnalysisException {
-    private static ConfigurationId toId(BuildConfiguration config) {
-      return config == null ? null : config.getEventId().getConfiguration();
-    }
-
-    private final NestedSet<Cause> causes;
-
-    public AspectCreationException(String message, NestedSet<Cause> causes) {
-      super(message);
-      this.causes = causes;
-    }
-
-    public AspectCreationException(
-        String message, Label currentTarget, @Nullable BuildConfiguration configuration) {
-      this(
-          message,
-          NestedSetBuilder.<Cause>stableOrder()
-              .add(new AnalysisFailedCause(currentTarget, toId(configuration), message))
-              .build());
-    }
-
-    public AspectCreationException(String message, Label currentTarget) {
-      this(message, currentTarget, null);
-    }
-
-    public AspectCreationException(String message, Cause cause) {
-      this(message, NestedSetBuilder.<Cause>stableOrder().add(cause).build());
-    }
-
-    public NestedSet<Cause> getCauses() {
-      return causes;
-    }
   }
 
   /** Used to indicate errors during the computation of an {@link AspectValue}. */
