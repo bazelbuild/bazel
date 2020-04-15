@@ -79,7 +79,7 @@ public final class Profiler {
 
   private static final int HISTOGRAM_BUCKETS = 20;
 
-  private static final TaskData POISON_PILL = new TaskData(0, 0, null, null, "poison pill");
+  private static final TaskData POISON_PILL = new TaskData(0, 0, null, "poison pill");
 
   private static final long ACTION_COUNT_BUCKET_MS = 200;
 
@@ -137,19 +137,14 @@ public final class Profiler {
     final long threadId;
     final long startTimeNanos;
     final int id;
-    final int parentId;
     final ProfilerTask type;
     final String description;
 
     long duration;
-    int[] counts; // number of invocations per ProfilerTask type
-    long[] durations; // time spend in the task per ProfilerTask type
 
-    TaskData(
-        int id, long startTimeNanos, TaskData parent, ProfilerTask eventType, String description) {
+    TaskData(int id, long startTimeNanos, ProfilerTask eventType, String description) {
       this.id = id;
       this.threadId = Thread.currentThread().getId();
-      this.parentId = (parent == null  ? 0 : parent.id);
       this.startTimeNanos = startTimeNanos;
       this.type = eventType;
       this.description = Preconditions.checkNotNull(description);
@@ -157,24 +152,11 @@ public final class Profiler {
 
     TaskData(long threadId, long startTimeNanos, long duration, String description) {
       this.id = -1;
-      this.parentId = 0;
       this.type = ProfilerTask.UNKNOWN;
       this.threadId = threadId;
       this.startTimeNanos = startTimeNanos;
       this.duration = duration;
       this.description = description;
-    }
-
-    /** Aggregates information about an *immediate* subtask. */
-    public void aggregateChild(ProfilerTask type, long duration) {
-      int index = type.ordinal();
-      if (counts == null) {
-        // one entry for each ProfilerTask type
-        counts = new int[TASK_COUNT];
-        durations = new long[TASK_COUNT];
-      }
-      counts[index]++;
-      durations[index] += duration;
     }
 
     @Override
@@ -189,11 +171,10 @@ public final class Profiler {
     ActionTaskData(
         int id,
         long startTimeNanos,
-        TaskData parent,
         ProfilerTask eventType,
         String description,
         String primaryOutputPath) {
-      super(id, startTimeNanos, parent, eventType, description);
+      super(id, startTimeNanos, eventType, description);
       this.primaryOutputPath = primaryOutputPath;
     }
   }
@@ -236,7 +217,7 @@ public final class Profiler {
     }
 
     public TaskData create(long startTimeNanos, ProfilerTask eventType, String description) {
-      return new TaskData(taskId.incrementAndGet(), startTimeNanos, peek(), eventType, description);
+      return new TaskData(taskId.incrementAndGet(), startTimeNanos, eventType, description);
     }
 
     public void pushActionTask(ProfilerTask eventType, String description, String primaryOutput) {
@@ -246,7 +227,7 @@ public final class Profiler {
     public ActionTaskData createActionTask(
         long startTimeNanos, ProfilerTask eventType, String description, String primaryOutput) {
       return new ActionTaskData(
-          taskId.incrementAndGet(), startTimeNanos, peek(), eventType, description, primaryOutput);
+          taskId.incrementAndGet(), startTimeNanos, eventType, description, primaryOutput);
     }
 
     @Override
@@ -639,10 +620,6 @@ public final class Profiler {
       logger.atSevere().log("Variables null in profiler for %s, probably due to async crash", type);
       return;
     }
-    TaskData parent = localStack.peek();
-    if (parent != null) {
-      parent.aggregateChild(type, duration);
-    }
     if (wasTaskSlowEnoughToRecord(type, duration)) {
       TaskData data = localStack.create(startTimeNanos, type, description);
       data.duration = duration;
@@ -826,12 +803,9 @@ public final class Profiler {
           data,
           taskStack);
       data.duration = endTime - data.startTimeNanos;
-      if (data.parentId > 0) {
-        taskStack.peek().aggregateChild(data.type, data.duration);
-      }
       boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, data.duration);
       FileWriter writer = writerRef.get();
-      if ((shouldRecordTask || data.counts != null) && writer != null) {
+      if (shouldRecordTask && writer != null) {
         writer.enqueue(data);
       }
 
@@ -933,7 +907,6 @@ public final class Profiler {
             new TaskData(
                 /* id= */ 0,
                 /* startTimeNanos= */ -1,
-                /* parent= */ null,
                 ProfilerTask.THREAD_NAME,
                 Thread.currentThread().getName()));
       }
