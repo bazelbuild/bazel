@@ -48,9 +48,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Integration test for skylark repository not as heavyweight than shell integration tests.
- */
+/** Integration test for Starlark repository not as heavyweight than shell integration tests. */
 @RunWith(JUnit4.class)
 public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
@@ -70,7 +68,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     @Override
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
         BlazeDirectories directories) {
-      // Add both the local repository and the skylark repository functions
+      // Add both the local repository and the Starlark repository functions
       // The RepositoryCache mock injected with the SkylarkRepositoryFunction
       DownloadManager downloader = Mockito.mock(DownloadManager.class);
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
@@ -122,7 +120,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testSkylarkLocalRepository() throws Exception {
-    // A simple test that recreates local_repository with Skylark.
+    // A simple test that recreates local_repository with Starlark.
     scratch.file("/repo2/WORKSPACE");
     scratch.file("/repo2/bar.txt");
     scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
@@ -180,7 +178,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testfailWithIncompatibleUseCcConfigureFromRulesCcDoesNothing() throws Exception {
-    // A simple test that recreates local_repository with Skylark.
+    // A simple test that recreates local_repository with Starlark.
     scratch.file("/repo2/WORKSPACE");
     scratch.file("/repo2/bar.txt");
     scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");

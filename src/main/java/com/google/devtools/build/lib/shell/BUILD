@@ -24,7 +24,7 @@ java_library(
     ],
 )
 
-# Bootstrapping SingleJar using Skylark rules
+# Bootstrapping SingleJar using Starlark rules
 #
 load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 

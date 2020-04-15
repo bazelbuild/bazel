@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.skylarkinterface;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/**
- * An annotation for parameter types for Skylark built-in functions.
- */
+/** An annotation for parameter types for Starlark built-in functions. */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ParamType {
   /**

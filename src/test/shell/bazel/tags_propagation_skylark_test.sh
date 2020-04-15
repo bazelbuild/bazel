@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Tests target's tags propagation with rules defined in Skylark.
+# Tests target's tags propagation with rules defined in Starlark.
 # Tests for https://github.com/bazelbuild/bazel/issues/7766
 
 # Load the test setup defined in the parent directory
@@ -22,7 +22,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Test a basic skylark ctx.actions.run_shell rule which has tags, that should be propagated
+# Test a basic Starlark ctx.actions.run_shell rule which has tags, that should
+# be propagated
 function test_tags_propagated_to_run_shell() {
   mkdir -p test
   cat << EOF >> test/BUILD
@@ -58,7 +59,8 @@ EOF
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
 }
 
-# Test a basic skylark ctx.actions.run rule which has tags, that should be propagated
+# Test a basic Starlark ctx.actions.run rule which has tags, that should be
+# propagated.
 function test_tags_propagated_to_run() {
   mkdir -p test
   cat << EOF >> test/BUILD
@@ -95,8 +97,8 @@ EOF
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: '', no-sandbox: '', requires-network: ''}" output1
 }
 
-# Test a basic skylark ctx.actions.run rule which has tags, that should be propagated,
-# when the rule also has execution_info
+# Test a basic Starlark ctx.actions.run rule which has tags, that should be
+# propagated, when the rule also has execution_info.
 function test_tags_propagated_to_run_with_exec_info_in_rule() {
   mkdir -p test
   cat << EOF >> test/BUILD
@@ -134,8 +136,8 @@ EOF
   assert_contains "ExecutionInfo: {local: '', no-cache: 1, no-remote: '', requires-network: '', requires-x: ''}" output1
 }
 
-# Test a basic skylark ctx.actions.run rule which has tags, that should not be propagated
-# as --experimental_allow_tags_propagation flag set to false
+# Test a basic Starlark ctx.actions.run rule which has tags, that should not be
+# propagated as --experimental_allow_tags_propagation flag set to false.
 function test_tags_not_propagated_to_run_when_incompatible_flag_off() {
   mkdir -p test
   cat << EOF >> test/BUILD
@@ -172,4 +174,4 @@ EOF
   assert_not_contains "ExecutionInfo: {}" output1
 }
 
-run_suite "tags propagation: skylark rule tests"
+run_suite "tags propagation: Starlark rule tests"

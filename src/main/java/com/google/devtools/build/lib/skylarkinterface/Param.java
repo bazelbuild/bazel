@@ -16,14 +16,12 @@ package com.google.devtools.build.lib.skylarkinterface;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/**
- * An annotation for parameters of Skylark built-in functions.
- */
+/** An annotation for parameters of Starlark built-in functions. */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Param {
 
   /**
-   * Name of the parameter, as viewed from Skylark. Used for matching keyword arguments and for
+   * Name of the parameter, as viewed from Starlark. Used for matching keyword arguments and for
    * generating documentation.
    */
   String name();
@@ -34,7 +32,7 @@ public @interface Param {
   String doc() default "";
 
   /**
-   * Default value for the parameter, written as a Skylark expression (e.g. "False", "True", "[]",
+   * Default value for the parameter, written as a Starlark expression (e.g. "False", "True", "[]",
    * "None").
    *
    * <p>If this is empty (the default), the parameter is treated as mandatory. (Thus an exception
@@ -43,7 +41,7 @@ public @interface Param {
    * <p>If the function implementation needs to distinguish the case where the caller does not
    * supply a value for this parameter, you can set the default to the magic string "unbound", which
    * maps to the sentinal object {@link com.google.devtools.build.lib.syntax.Starlark#UNBOUND}
-   * (which can't appear in normal Skylark code).
+   * (which can't appear in normal Starlark code).
    */
   String defaultValue() default "";
 
@@ -143,7 +141,7 @@ public @interface Param {
    * passed to the annotated Java method when invoked.) (See {@link #enableOnlyWithFlag()} and
    * {@link #disableWithFlag()} for toggling a parameter with semantic flags.
    *
-   * <p>The parameter value is written as a Skylark expression (for example: "False", "True", "[]",
+   * <p>The parameter value is written as a Starlark expression (for example: "False", "True", "[]",
    * "None").
    *
    * <p>This should be set (non-empty) if and only if the parameter may be disabled with a semantic
@@ -158,7 +156,7 @@ public @interface Param {
    */
   String valueWhenDisabled() default "";
 
-  // TODO(bazel-team): parse the type from a single field in Skylark syntax,
+  // TODO(bazel-team): parse the type from a single field in Starlark syntax,
   // and allow a Union as "ThisType or ThatType or NoneType":
   // String type() default "Object";
 }

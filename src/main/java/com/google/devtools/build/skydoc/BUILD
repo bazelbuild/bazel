@@ -1,5 +1,5 @@
 # Description:
-#   Skydoc is a documentation generator for skylark files.
+#   Skydoc is a documentation generator for Starlark files.
 #
 #   It is currently experimental and in development.
 #

@@ -19,9 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisTestResultInfoApi.AnalysisTestResultInfoProviderApi;
 
-/**
- * {@link Bootstrap} for skylark objects related to testing.
- */
+/** {@link Bootstrap} for Starlark objects related to testing. */
 public class TestingBootstrap implements Bootstrap {
 
   private final TestingModuleApi testingModule;

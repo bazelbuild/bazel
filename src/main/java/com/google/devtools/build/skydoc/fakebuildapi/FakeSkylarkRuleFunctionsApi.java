@@ -246,8 +246,8 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
   /**
    * A fake {@link BaseFunction} implementation which serves as an identifier for a rule definition.
-   * A skylark invocation of 'rule()' should spawn a unique instance of this class and return it.
-   * Thus, skylark code such as 'foo = rule()' will result in 'foo' being assigned to a unique
+   * A Starlark invocation of 'rule()' should spawn a unique instance of this class and return it.
+   * Thus, Starlark code such as 'foo = rule()' will result in 'foo' being assigned to a unique
    * identifier, which can later be matched to a registered rule() invocation saved by the fake
    * build API implementation.
    */

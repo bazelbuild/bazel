@@ -261,9 +261,9 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     scratch.file(
         "a/BUILD",
         "load(':skylark.bzl', 'skylark_rule')",
-        // ensure that all Skylark rules get the TestConfiguration fragment
+        // ensure that all Starlark rules get the TestConfiguration fragment
         "test_base(name = 'base')",
-        // skylark rules get trimmed
+        // Starlark rules get trimmed
         "skylark_rule(name = 'skylark_solo', deps = [':base'])",
         // native rules get trimmed; top-level targets get trimmed after the rule-class transition
         "add_test_arg_for_self(name = 'test_arg_on_self')",
@@ -358,9 +358,9 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     scratch.file(
         "a/BUILD",
         "load(':skylark.bzl', 'skylark_rule')",
-        // ensure that all Skylark rules get the TestConfiguration fragment
+        // ensure that all Starlark rules get the TestConfiguration fragment
         "test_base(name = 'base')",
-        // skylark rules get trimmed
+        // Starlark rules get trimmed
         "skylark_rule(name = 'skylark_solo', deps = [':base'])");
 
     ConfiguredTarget configuredTarget;

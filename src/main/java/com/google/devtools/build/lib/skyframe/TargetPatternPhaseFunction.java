@@ -256,7 +256,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * Interprets the command-line arguments by expanding each pattern to targets and populating the
    * list of {@code failedPatterns}.
    *
-   * @param env the Skylark environment
+   * @param env the Starlark environment
    * @param options the command-line arguments in structured form
    * @param failedPatterns a list into which failed patterns are added
    */

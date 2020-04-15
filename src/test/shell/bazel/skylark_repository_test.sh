@@ -325,7 +325,7 @@ EOF
 function test_skylark_local_repository() {
   create_new_workspace
   repo2=$new_workspace_dir
-  # Remove the WORKSPACE file in the symlinked repo, so our skylark rule has to
+  # Remove the WORKSPACE file in the symlinked repo, so our Starlark rule has to
   # create one.
   rm $repo2/WORKSPACE
 
@@ -387,7 +387,7 @@ def _impl(repository_ctx):
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
-  MARKER="<== skylark flag test ==>"
+  MARKER="<== Starlark flag test ==>"
 
   bazel build @foo//:bar >& $TEST_log \
     || fail "Expected build to succeed"
@@ -667,7 +667,7 @@ function environ_invalidation_test_template() {
   # Now try to depends on more variables
   write_environ_skylark "${execution_file}" '"FOO", "BAR", "BAZ"'
 
-  # The skylark rule has changed, so a rebuild should happen
+  # The Starlark rule has changed, so a rebuild should happen
   FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "<5> FOO=BAZ BAR=undefined BAZ=undefined"
@@ -747,7 +747,7 @@ function bzl_invalidation_test_template() {
   ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
 
-  # Changing the skylark file cause a refetch
+  # Changing the Starlark file cause a refetch
   cat <<EOF >>test.bzl
 
 # Just add a comment
@@ -793,7 +793,7 @@ function file_invalidation_test_template() {
   ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
 
-  # Changing the skylark file cause a refetch
+  # Changing the Starlark file cause a refetch
   cat <<EOF >>bar.tpl
 Add more stuff
 EOF

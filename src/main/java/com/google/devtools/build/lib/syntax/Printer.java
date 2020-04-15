@@ -284,7 +284,7 @@ public abstract class Printer {
     @Override
     public BasePrinter repr(Object o) {
       if (o == null) {
-        // Java null is not a valid Skylark value, but sometimes printers are used on non-Skylark
+        // Java null is not a valid Starlark value, but sometimes printers are used on non-Skylark
         // values such as Locations or ASTs.
         this.append("null");
 
@@ -342,7 +342,7 @@ public abstract class Printer {
     }
 
     /**
-     * Write a properly escaped Skylark representation of a string to a buffer.
+     * Write a properly escaped Starlark representation of a string to a buffer.
      *
      * @param s the string a representation of which to repr.
      * @return this printer.
@@ -430,7 +430,7 @@ public abstract class Printer {
     }
 
     /**
-     * Print a Skylark list or tuple of object representations
+     * Print a Starlark list or tuple of object representations
      *
      * @param list the contents of the list or tuple
      * @param isTuple if true the list will be formatted with parentheses and with a trailing comma

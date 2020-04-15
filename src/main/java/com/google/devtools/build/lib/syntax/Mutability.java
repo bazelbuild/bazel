@@ -17,10 +17,10 @@ import com.google.common.base.Joiner;
 import java.util.IdentityHashMap;
 
 /**
- * An object that manages the capability to mutate Skylark objects and their {@link
+ * An object that manages the capability to mutate Starlark objects and their {@link
  * StarlarkThread}s. Collectively, the managed objects are called {@link Freezable}s.
  *
- * <p>Each {@code StarlarkThread}, and each of the mutable Skylark values (i.e., {@link
+ * <p>Each {@code StarlarkThread}, and each of the mutable Starlark values (i.e., {@link
  * StarlarkMutable}s) that are created in that {@code StarlarkThread}, holds a pointer to the same
  * {@code Mutability} instance. Once the {@code StarlarkThread} is done evaluating, its {@code
  * Mutability} is irreversibly closed ("frozen"). At that point, it is no longer possible to change
@@ -29,8 +29,8 @@ import java.util.IdentityHashMap;
  *
  * <p>{@code Mutability}s enforce isolation between {@code StarlarkThread}s; it is illegal for an
  * evaluation in one {@code StarlarkThread} to affect the bindings or values of another. In
- * particular, the {@code StarlarkThread} for any Skylark module is frozen before its symbols can be
- * imported for use by another module. Each individual {@code StarlarkThread}'s evaluation is
+ * particular, the {@code StarlarkThread} for any Starlark module is frozen before its symbols can
+ * be imported for use by another module. Each individual {@code StarlarkThread}'s evaluation is
  * single-threaded, so this isolation also translates to thread safety. Any number of threads may
  * simultaneously access frozen data. (The {@code Mutability} itself is also thread-safe if and only
  * if it is frozen.}
@@ -197,7 +197,7 @@ public final class Mutability implements AutoCloseable {
 
   /**
    * An object that refers to a {@link Mutability} to decide whether to allow mutation. All {@link
-   * Freezable} Skylark objects created within a given {@link StarlarkThread} will share the same
+   * Freezable} Starlark objects created within a given {@link StarlarkThread} will share the same
    * {@code Mutability} as that {@code StarlarkThread}.
    */
   public interface Freezable {

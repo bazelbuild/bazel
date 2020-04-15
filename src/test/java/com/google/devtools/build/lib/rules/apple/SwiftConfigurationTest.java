@@ -29,7 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Skylark interface to SwiftConfiguration. */
+/** Tests for Starlark interface to SwiftConfiguration. */
 @RunWith(JUnit4.class)
 public class SwiftConfigurationTest extends BuildViewTestCase {
   @Before

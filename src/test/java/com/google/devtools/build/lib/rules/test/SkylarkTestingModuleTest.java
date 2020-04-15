@@ -25,7 +25,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Skylark interaction with testing support. */
+/** Tests for Starlark interaction with testing support. */
 @RunWith(JUnit4.class)
 public class SkylarkTestingModuleTest extends BuildViewTestCase {
 

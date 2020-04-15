@@ -150,7 +150,7 @@ public final class CallUtils {
 
   /**
    * Returns a map of methods and corresponding SkylarkCallable annotations of the methods of the
-   * objClass class reachable from Skylark. Elements are sorted by Java method name (which is not
+   * objClass class reachable from Starlark. Elements are sorted by Java method name (which is not
    * necessarily the same as Starlark attribute name).
    */
   // TODO(adonovan): eliminate sole use in skydoc.

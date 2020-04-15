@@ -40,8 +40,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for the hash code calculated for Skylark RuleClasses based on the transitive closure
- * of the imports of their respective definition SkylarkEnvironments.
+ * Tests for the hash code calculated for Starlark RuleClasses based on the transitive closure of
+ * the imports of their respective definition SkylarkEnvironments.
  */
 @RunWith(JUnit4.class)
 public class SkylarkFileContentHashTests extends BuildViewTestCase {
@@ -155,7 +155,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
 
   /**
    * Returns the hash code of the rule target defined by the pkg and the target name parameters.
-   * Asserts that the targets and it's Skylark dependencies were loaded properly.
+   * Asserts that the targets and it's Starlark dependencies were loaded properly.
    */
   private String getHash(String pkg, String name) throws Exception {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);

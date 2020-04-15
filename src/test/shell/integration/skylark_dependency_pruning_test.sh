@@ -328,4 +328,4 @@ function test_orphaned_artifacts_host_config() {
   expect_log "Action did not create expected output file listing unused inputs"
 }
 
-run_suite "Tests Skylark dependency pruning"
+run_suite "Tests Starlark dependency pruning"

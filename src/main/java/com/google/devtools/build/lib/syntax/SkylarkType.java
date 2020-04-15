@@ -32,7 +32,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A class representing types available in Skylark.
+ * A class representing types available in Starlark.
  *
  * <p>A SkylarkType can be one of:
  *
@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
  *   <li>a FunctionType associated with a name and a returnType
  * </ul>
  *
- * <p>In a style reminiscent of Java's null, Skylark's None is in all the types as far as type
+ * <p>In a style reminiscent of Java's null, Starlark's None is in all the types as far as type
  * inference goes, yet actually no type .contains(it).
  *
  * <p>The current implementation fails to distinguish between TOP and ANY, between BOTTOM and EMPTY
@@ -56,8 +56,8 @@ import javax.annotation.Nullable;
  * <ul>
  *   <li>In type analysis, we often distinguish a notion of "the type of this object" from the
  *       notion of "what I know about the type of this object". Some languages have a Universal Base
- *       Class that contains all objects, and would be the ANY type. The Skylark runtime, written in
- *       Java, has this ANY type, Java's Object.class. But the Skylark validation engine doesn't
+ *       Class that contains all objects, and would be the ANY type. The Starlark runtime, written
+ *       in Java, has this ANY type, Java's Object.class. But the Starlark validation engine doesn't
  *       really have a concept of an ANY class; however, it does have a concept of a yet-undermined
  *       class, the TOP class (called UNKNOWN in previous code). In the future, we may have to
  *       distinguish between the two, at which point type constructor classes would have to be
@@ -260,7 +260,7 @@ public abstract class SkylarkType {
       Simple simple;
       if (type == Object.class) {
         // Note that this is a bad encoding for "anything", not for "everything", i.e.
-        // for skylark there isn't a type that contains everything, but there's a Top type
+        // for Starlark there isn't a type that contains everything, but there's a Top type
         // that corresponds to not knowing yet which more special type it will be.
         simple = TOP;
       } else if (type == Empty.class) {
@@ -398,7 +398,7 @@ public abstract class SkylarkType {
     }
   }
 
-  /** Union types, used a lot in "dynamic" languages such as Python or Skylark */
+  /** Union types, used a lot in "dynamic" languages such as Python or Starlark */
   @AutoCodec
   static class Union extends SkylarkType {
     private final ImmutableList<SkylarkType> types;
@@ -543,7 +543,7 @@ public abstract class SkylarkType {
     return Combination.of(Simple.forClass(generic), Simple.forClass(argument));
   }
 
-  /** A class representing the type of a Skylark function. */
+  /** A class representing the type of a Starlark function. */
   @AutoCodec
   static final class SkylarkFunctionType extends SkylarkType {
     private final String name;

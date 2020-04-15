@@ -25,7 +25,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests Skylark API for Platform configuration fragments. */
+/** Tests Starlark API for Platform configuration fragments. */
 @RunWith(JUnit4.class)
 public class PlatformConfigurationApiTest extends BuildViewTestCase {
 

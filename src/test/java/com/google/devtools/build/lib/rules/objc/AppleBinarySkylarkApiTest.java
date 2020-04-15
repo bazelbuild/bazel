@@ -25,12 +25,12 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Test cases for the Skylark Apple Linking API, {@code apple_common.link_multi_arch_binary}.
- * These tests verify that the API has parity with the native {@code apple_binary} rule.
+ * Test cases for the Starlark Apple Linking API, {@code apple_common.link_multi_arch_binary}. These
+ * tests verify that the API has parity with the native {@code apple_binary} rule.
  *
  * <p>This is a subclass of {@link AppleBinaryTest}, to ensure it runs all tests of that suite --
- * the main difference is that {@link AppleBinaryTest} tests the native rule, and this suite
- * tests using a skylark stub around the skylark API.
+ * the main difference is that {@link AppleBinaryTest} tests the native rule, and this suite tests
+ * using a Starlark stub around the Starlark API.
  */
 @RunWith(JUnit4.class)
 public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
@@ -114,21 +114,21 @@ public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
 
   @Override
   public void testMinimumOs_invalid_containsAlphabetic() throws Exception {
-    // TODO(b/70937317): Disabled due to different error handling for skylark rule.
+    // TODO(b/70937317): Disabled due to different error handling for Starlark rule.
   }
 
   @Override
   public void testMinimumOs_invalid_tooManyComponents() throws Exception {
-    // TODO(b/70937317): Disabled due to different error handling for skylark rule.
+    // TODO(b/70937317): Disabled due to different error handling for Starlark rule.
   }
 
   @Override
   public void testMinimumOs_invalid_nonVersion() throws Exception {
-    // TODO(b/70937317): Disabled due to different error handling for skylark rule.
+    // TODO(b/70937317): Disabled due to different error handling for Starlark rule.
   }
 
   @Override
   public void testBundleLoaderCantBeSetWithoutBundleBinaryType() throws Exception {
-    // TODO(b/70937317): Disabled due to different error handling for skylark rule.
+    // TODO(b/70937317): Disabled due to different error handling for Starlark rule.
   }
 }

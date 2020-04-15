@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.test.TestingModuleApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/** A class that exposes testing infrastructure to skylark. */
+/** A class that exposes testing infrastructure to Starlark. */
 public class SkylarkTestingModule implements TestingModuleApi {
 
   @Override

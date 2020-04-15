@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** The interface for files in Skylark. */
+/** The interface for files in Starlark. */
 @SkylarkModule(
     name = "File",
     category = SkylarkModuleCategory.BUILTIN,
@@ -75,7 +75,7 @@ public interface FileApi extends StarlarkValue {
       doc = "Returns true if this is a source file, i.e. it is not generated.")
   boolean isSourceArtifact();
 
-  // TODO(rduan): Document this Skylark method once TreeArtifact is no longer experimental.
+  // TODO(rduan): Document this Starlark method once TreeArtifact is no longer experimental.
   @SkylarkCallable(name = "is_directory", structField = true, documented = false)
   boolean isDirectory();
 

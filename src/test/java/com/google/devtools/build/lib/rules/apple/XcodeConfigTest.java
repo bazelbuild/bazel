@@ -1148,7 +1148,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   // Verifies that the --xcode_version_config configuration value can be accessed via the
-  // configuration_field() skylark method and used in a skylark rule.
+  // configuration_field() Starlark method and used in a Starlark rule.
   @Test
   public void testConfigurationFieldForRule() throws Exception {
     scratch.file(
@@ -1180,7 +1180,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   // Verifies that the --xcode_version_config configuration value can be accessed via the
-  // configuration_field() skylark method and used in a skylark aspect.
+  // configuration_field() Starlark method and used in a Starlark aspect.
   @Test
   public void testConfigurationFieldForAspect() throws Exception {
     scratch.file(

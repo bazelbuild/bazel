@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 )
 public interface AppleStaticLibraryInfoApi extends StructApi {
 
-  /** Skylark name for this interface. */
+  /** Starlark name for this interface. */
   String SKYLARK_NAME = "AppleStaticLibrary";
 
   @SkylarkCallable(

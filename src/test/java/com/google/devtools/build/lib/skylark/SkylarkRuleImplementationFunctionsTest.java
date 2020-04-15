@@ -82,7 +82,7 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for skylark functions relating to rule implemenetation. */
+/** Tests for Starlark functions relating to rule implemenetation. */
 @RunWith(JUnit4.class)
 @SkylarkGlobalLibrary // needed for CallUtils.getBuiltinCallable, sadly
 public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
@@ -897,7 +897,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesArtifactsFromDefaultAndFiles() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
     // It would be nice to write [DEFAULT] + ruleContext.files.srcs, but artifacts
-    // is an ImmutableList and Skylark interprets it as a tuple.
+    // is an ImmutableList and Starlark interprets it as a tuple.
     Object result =
         eval("ruleContext.runfiles(collect_default = True, files = ruleContext.files.srcs)");
     // From DEFAULT only libjl.jar comes, see testRunfilesAddFromDependencies().

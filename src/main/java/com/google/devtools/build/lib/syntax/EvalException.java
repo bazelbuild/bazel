@@ -20,7 +20,7 @@ import com.google.common.base.Throwables;
 import javax.annotation.Nullable;
 
 /**
- * Exceptions thrown during evaluation of BUILD ASTs or Skylark extensions.
+ * Exceptions thrown during evaluation of BUILD ASTs or Starlark extensions.
  *
  * <p>This exception must always correspond to a repeatable, permanent error, i.e. evaluating the
  * same package again must yield the same exception. Notably, do not use this for reporting I/O
@@ -54,7 +54,7 @@ public class EvalException extends Exception {
   public EvalException(Location location, String message, Throwable cause) {
     super(cause);
     this.location = location;
-    // This is only used from Skylark, it's useful for debugging.
+    // This is only used from Starlark, it's useful for debugging.
     this.message = FIELD_JOINER.join(message, getCauseMessage(message));
     if (this.message.isEmpty()) {
       String details;

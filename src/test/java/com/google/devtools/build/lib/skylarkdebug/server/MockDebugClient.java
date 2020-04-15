@@ -32,7 +32,7 @@ import java.util.concurrent.Future;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
-/** A basic implementation of a skylark debugging client, for use in integration tests. */
+/** A basic implementation of a Starlark debugging client, for use in integration tests. */
 class MockDebugClient {
 
   private static final int RESPONSE_TIMEOUT_MILLIS = 10000;

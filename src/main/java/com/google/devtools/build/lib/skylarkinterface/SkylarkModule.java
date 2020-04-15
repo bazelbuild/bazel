@@ -19,18 +19,18 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * This annotation is used on classes and interfaces that represent Skylark data types.
+ * This annotation is used on classes and interfaces that represent Starlark data types.
  *
  * <p>Conceptually, every {@code @SkylarkModule} annotation corresponds to a user-distinguishable
- * Skylark type. The annotation holds metadata associated with that type, in particular its name and
- * documentation. The annotation also implicitly demarcates the Skylark API of the type. It does not
- * matter whether the annotation is used on a class or an interface.
+ * Starlark type. The annotation holds metadata associated with that type, in particular its name
+ * and documentation. The annotation also implicitly demarcates the Starlark API of the type. It
+ * does not matter whether the annotation is used on a class or an interface.
  *
  * <p>Annotations are "inherited" and "overridden", in the sense that a child class or interface
- * takes on the Skylark type of its ancestor by default, unless it has a direct annotation of its
+ * takes on the Starlark type of its ancestor by default, unless it has a direct annotation of its
  * own. If there are multiple ancestors that have an annotation, then to avoid ambiguity we require
  * that one of them is a subtype of the rest; that is the one whose annotation gets inherited. This
- * ensures that every class implements at most one Skylark type, and not an ad hoc hybrid of
+ * ensures that every class implements at most one Starlark type, and not an ad hoc hybrid of
  * multiple types. (In mathematical terms, the most-derived annotation for class or interface C is
  * the minimum element in the partial order of all annotations defined on C and its ancestors, where
  * the order relationship is X < Y if X annotates a subtype of what Y annotates.) The lookup logic

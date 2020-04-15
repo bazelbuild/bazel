@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 
-/** Stores information about a skylark aspect definition. */
+/** Stores information about a Starlark aspect definition. */
 public class AspectInfoWrapper {
   private final BaseFunction identifierFunction;
   private final Location location;

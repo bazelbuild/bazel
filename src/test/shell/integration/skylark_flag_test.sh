@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Tests that the Skylark interpreter is reading flags passed in on the command
+# Tests that the Starlark interpreter is reading flags passed in on the command
 # line, in several different evaluation contexts.
 #
 # The --internal_skylark_flag_test_canary flag is built into
@@ -69,7 +69,7 @@ if "$is_windows"; then
 fi
 
 # Text that will be appended to every print() output when the flag is enabled.
-MARKER="<== skylark flag test ==>"
+MARKER="<== Starlark flag test ==>"
 
 sanity_fail_msg="Marker string '$MARKER' was seen even though "
 sanity_fail_msg+="--internal_skylark_flag_test_canary wasn't passed"
@@ -172,7 +172,7 @@ EOF
 # TODO(brandjon): Once we're no long dropping print() output in computed default
 # functions, also test that we're propagating flags there. Alternatively, this
 # could be tested by having conditional code that crashes while evaluating the
-# Skylark function iff the flag is set.
+# Starlark function iff the flag is set.
 
 function test_aspect() {
   local -r pkg=$FUNCNAME
@@ -215,7 +215,7 @@ EOF
 }
 
 
-# Test a skylark rule's interaction with the --nested_set_depth_limit flag.
+# Test a Starlark rule's interaction with the --nested_set_depth_limit flag.
 function test_nested_set_depth() {
   mkdir -p test
   cat << EOF >> test/BUILD

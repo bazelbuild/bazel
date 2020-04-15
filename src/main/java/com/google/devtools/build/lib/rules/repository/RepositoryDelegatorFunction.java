@@ -94,7 +94,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   // Mapping of rule class name to RepositoryFunction.
   private final ImmutableMap<String, RepositoryFunction> handlers;
 
-  // Delegate function to handle skylark remote repositories
+  // Delegate function to handle Starlark remote repositories
   private final RepositoryFunction skylarkHandler;
 
   // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current

@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
- * The Skylark module containing the definition of {@code repository_rule} function to define a
- * skylark remote repository.
+ * The Starlark module containing the definition of {@code repository_rule} function to define a
+ * Starlark remote repository.
  */
 @SkylarkGlobalLibrary
 public interface RepositoryModuleApi {

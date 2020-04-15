@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.skylarkbuildapi.core;
 import com.google.common.collect.ImmutableMap;
 
 /**
- * A helper for registering a portion of the build API to skylark environment globals.
+ * A helper for registering a portion of the build API to Starlark environment globals.
  *
- * <p>A global environment may be initialized by tabulating globals into a single map by passing
- * a single map builder to {@link #addBindingsToBuilder} for several bootstrap helpers.
+ * <p>A global environment may be initialized by tabulating globals into a single map by passing a
+ * single map builder to {@link #addBindingsToBuilder} for several bootstrap helpers.
  */
 public interface Bootstrap {
 

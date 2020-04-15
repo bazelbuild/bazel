@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
 
-/** A factory for aspects that are defined in Skylark. */
+/** A factory for aspects that are defined in Starlark. */
 public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
   private final SkylarkDefinedAspect skylarkAspect;

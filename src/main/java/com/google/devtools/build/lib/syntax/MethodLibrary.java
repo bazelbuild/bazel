@@ -769,7 +769,7 @@ class MethodLibrary {
     // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
     // the output.
     if (thread.getSemantics().internalSkylarkFlagTestCanary()) {
-      p.append("<== skylark flag test ==>");
+      p.append("<== Starlark flag test ==>");
     }
 
     thread.getPrintHandler().print(thread, p.toString());
@@ -798,7 +798,7 @@ class MethodLibrary {
             noneable = true)
       })
   public String type(Object object) {
-    // There is no 'type' type in Skylark, so we return a string with the type name.
+    // There is no 'type' type in Starlark, so we return a string with the type name.
     return Starlark.type(object);
   }
 
@@ -1043,7 +1043,7 @@ class MethodLibrary {
     return StarlarkList.copyOf(thread.mutability(), result);
   }
 
-  /** Skylark int type. */
+  /** Starlark int type. */
   @SkylarkModule(
       name = "int",
       category = SkylarkModuleCategory.BUILTIN,
@@ -1062,7 +1062,7 @@ class MethodLibrary {
               + "</pre>")
   static final class IntModule implements StarlarkValue {} // (documentation only)
 
-  /** Skylark bool type. */
+  /** Starlark bool type. */
   @SkylarkModule(
       name = "bool",
       category = SkylarkModuleCategory.BUILTIN,

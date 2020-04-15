@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /**
- * Helper class for the C++ functionality needed from Skylark specifically to implement go_wrap_cc.
+ * Helper class for the C++ functionality needed from Starlark specifically to implement go_wrap_cc.
  * TODO(b/113797843): Remove class once all the bits and pieces specific to Go can be implemented in
- * Skylark.
+ * Starlark.
  */
 @SkylarkModule(
     name = "go_wrap_cc_helper_do_not_use",
@@ -74,7 +74,7 @@ public interface GoWrapCcHelperApi<
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
       })
-  // TODO(b/113797843): Not written in Skylark because of GoRunfilesProvider.
+  // TODO(b/113797843): Not written in Starlark because of GoRunfilesProvider.
   public RunfilesApi skylarkGetGoRunfiles(SkylarkRuleContextT skylarkRuleContext)
       throws EvalException, InterruptedException;
 
@@ -85,7 +85,7 @@ public interface GoWrapCcHelperApi<
       parameters = {
         @Param(name = "go", positional = false, named = true, type = GoConfigurationApi.class),
       })
-  // TODO(b/113797843): Not written in Skylark because of GoCompilationHelper.
+  // TODO(b/113797843): Not written in Starlark because of GoCompilationHelper.
   public int getArchIntSize(GoConfigurationT goConfig);
 
   @SkylarkCallable(
@@ -125,7 +125,7 @@ public interface GoWrapCcHelperApi<
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
         @Param(name = "cc_info", positional = false, named = true, type = CcInfoApi.class),
       })
-  // TODO(b/113797843): GoWrapCcInfo is not written in Skylark because several native rules use it.
+  // TODO(b/113797843): GoWrapCcInfo is not written in Starlark because several native rules use it.
   public GoWrapCcInfoApi<FileT> getGoWrapCcInfo(
       SkylarkRuleContextT skylarkRuleContext, CcInfoT ccInfo)
       throws EvalException, InterruptedException;

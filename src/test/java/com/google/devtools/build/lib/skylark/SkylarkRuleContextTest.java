@@ -1947,7 +1947,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   // For created_actions() tests, the "undertest" rule represents both the code under test and the
-  // Skylark user test code itself.
+  // Starlark user test code itself.
 
   @Test
   public void testCreatedActions() throws Exception {

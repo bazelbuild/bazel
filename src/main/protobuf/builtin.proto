@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Proto that exposes all BUILD and Skylark builtin symbols.
+// Proto that exposes all BUILD and Starlark builtin symbols.
 //
 // The API exporter is used for code completion in Cider.
 
@@ -23,7 +23,7 @@ package builtin;
 option java_package = "com.google.devtools.build.docgen.builtin";
 option java_outer_classname = "BuiltinProtos";
 
-// Top-level object for all BUILD and Skylark builtin modules.
+// Top-level object for all BUILD and Starlark builtin modules.
 // Globals contains a list of all builtin variables, functions and packages
 // (e.g. "java_common" and "native" will be included, same as "None" and
 // "dict").
@@ -35,7 +35,7 @@ message Builtins {
   repeated Value global = 2;
 }
 
-// Representation for Skylark builtin packages. It contains all the symbols
+// Representation for Starlark builtin packages. It contains all the symbols
 // (variables and functions) exposed by the package.
 // E.g. "list" is a Type that exposes a list of fields containing: "insert",
 // "index", "remove" etc.
@@ -59,7 +59,7 @@ enum ApiContext {
   BUILD = 2;
 }
 
-// Generic representation for a Skylark object. If the object is callable
+// Generic representation for a Starlark object. If the object is callable
 // (can act as a function), then callable will be set.
 message Value {
   string name = 1;
@@ -93,7 +93,7 @@ message Param {
   // Parameter documentation.
   string doc = 3;
 
-  // Default value for the parameter, written as Skylark expression (e.g.
+  // Default value for the parameter, written as Starlark expression (e.g.
   // "False", "True", "[]", "None")
   string default_value = 4;
 

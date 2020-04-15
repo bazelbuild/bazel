@@ -21,7 +21,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Skylark's type system. */
+/** Tests for Starlark's type system. */
 @RunWith(JUnit4.class)
 public final class SkylarkTypeTest {
 

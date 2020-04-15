@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/** Interface for actions in Skylark. */
+/** Interface for actions in Starlark. */
 @SkylarkModule(
     name = "Action",
     category = SkylarkModuleCategory.BUILTIN,

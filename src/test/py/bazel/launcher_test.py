@@ -172,11 +172,11 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual(stdout[0], 'Hello World!')
 
-    # Try to use the py_binary as an executable in a Skylark rule.
+    # Try to use the py_binary as an executable in a Starlark rule.
     exit_code, stdout, stderr = self.RunBazel(['build', '//foo:hello'])
     self.AssertExitCode(exit_code, 0, stderr)
 
-    # Verify that the Skylark action generated the right output.
+    # Verify that the Starlark action generated the right output.
     hello_path = os.path.join(bazel_bin, 'foo', 'hello.txt')
     self.assertTrue(os.path.isfile(hello_path))
     with open(hello_path, 'r') as f:

@@ -580,7 +580,7 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Fetch the skylark loads for this BUILD file. If any of them haven't been computed yet, returns
+   * Fetch the Starlark loads for this BUILD file. If any of them haven't been computed yet, returns
    * null.
    */
   @Nullable
@@ -1329,7 +1329,7 @@ public class PackageFunction implements SkyFunction {
     }
   }
 
-  /** A simple value class to store the result of the Skylark imports. */
+  /** A simple value class to store the result of the Starlark imports. */
   static final class StarlarkImportResult {
     final Map<String, Extension> importMap;
     final ImmutableList<Label> fileDependencies;

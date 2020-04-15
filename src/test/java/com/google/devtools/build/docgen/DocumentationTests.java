@@ -16,9 +16,6 @@ package com.google.devtools.build.docgen;
 import com.google.devtools.build.lib.testutil.ClasspathSuite;
 import org.junit.runner.RunWith;
 
-/**
- * Test suite for skylark documentation generation.
- */
+/** Test suite for Starlark documentation generation. */
 @RunWith(ClasspathSuite.class)
-public class DocumentationTests {
-}
+public class DocumentationTests {}

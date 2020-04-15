@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 
-/** Stores information about a skylark rule definition. */
+/** Stores information about a Starlark rule definition. */
 public class RuleInfoWrapper {
 
   private final BaseFunction identifierFunction;

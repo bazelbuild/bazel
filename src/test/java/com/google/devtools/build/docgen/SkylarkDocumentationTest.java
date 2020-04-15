@@ -43,7 +43,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Skylark documentation. */
+/** Tests for Starlark documentation. */
 @RunWith(JUnit4.class)
 public class SkylarkDocumentationTest {
 
@@ -73,7 +73,7 @@ public class SkylarkDocumentationTest {
     }
 
     List<String> undocumentedItems = new ArrayList<>();
-    // All built in variables are registered in the Skylark global environment.
+    // All built in variables are registered in the Starlark global environment.
     for (String varname : globals.keySet()) {
       if (docMap.containsKey(varname)) {
         if (docMap.get(varname).isEmpty()) {
@@ -96,7 +96,7 @@ public class SkylarkDocumentationTest {
         .containsExactlyElementsIn(DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS);
   }
 
-  // TODO(bazel-team): come up with better Skylark specific tests.
+  // TODO(bazel-team): come up with better Starlark specific tests.
   @Test
   public void testDirectJavaMethodsAreGenerated() throws Exception {
     assertThat(collect(SkylarkRuleContext.class)).isNotEmpty();
