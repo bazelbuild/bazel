@@ -379,7 +379,6 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule = rule(implementation = _rule_impl,",
         "   attrs = { 'dep' : attr.label(aspects = [MyAspect]) },",
         ")");
-    useConfiguration("--incompatible_no_target_output_group=false");
     SkylarkKey providerKey = new SkylarkKey(Label.parseAbsoluteUnchecked("//test:aspect.bzl"), "p");
     scratch.file(
         "test/BUILD",
@@ -399,68 +398,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
             "files",
             "files_to_run",
             "label",
-            "output_group",
             "output_groups");
-  }
-
-  @Test
-  public void aspectWithOutputGroups() throws Exception {
-    scratch.file(
-        "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   f = target.output_group('_hidden_top_level" + INTERNAL_SUFFIX + "')",
-        "   return struct(output_groups = { 'my_result' : f })",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_impl,",
-        ")");
-    scratch.file(
-        "test/BUILD", "java_library(", "     name = 'xxx',", "     srcs = ['A.java'],", ")");
-    useConfiguration("--incompatible_no_target_output_group=false");
-
-    AnalysisResult analysisResult =
-        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
-    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
-    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(aspectValue.getConfiguredAspect());
-
-    assertThat(outputGroupInfo).isNotNull();
-    NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names.toList()).isNotEmpty();
-    NestedSet<Artifact> expectedSet =
-        OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
-            .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
-  }
-
-  @Test
-  public void aspectWithOutputGroupsExplicitParamName() throws Exception {
-    scratch.file(
-        "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   f = target.output_group(group_name = '_hidden_top_level" + INTERNAL_SUFFIX + "')",
-        "   return struct(output_groups = { 'my_result' : f })",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_impl,",
-        ")");
-    scratch.file(
-        "test/BUILD", "java_library(", "     name = 'xxx',", "     srcs = ['A.java'],", ")");
-
-    useConfiguration("--incompatible_no_target_output_group=false");
-    AnalysisResult analysisResult =
-        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
-    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
-    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(aspectValue.getConfiguredAspect());
-
-    assertThat(outputGroupInfo).isNotNull();
-    NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names.toList()).isNotEmpty();
-    NestedSet<Artifact> expectedSet =
-        OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
-            .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -483,40 +421,6 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
     OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(aspectValue.getConfiguredAspect());
 
-    assertThat(outputGroupInfo).isNotNull();
-    NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names.toList()).isNotEmpty();
-    NestedSet<Artifact> expectedSet =
-        OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
-            .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
-  }
-
-  @Test
-  public void aspectWithOutputGroupsAsList() throws Exception {
-    scratch.file(
-        "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   g = target.output_group('_hidden_top_level" + INTERNAL_SUFFIX + "')",
-        "   return struct(output_groups = { 'my_result' : g.to_list() })",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_impl,",
-        ")");
-    scratch.file(
-        "test/BUILD", "java_library(", "     name = 'xxx',", "     srcs = ['A.java'],", ")");
-
-    useConfiguration("--incompatible_no_target_output_group=false");
-
-    AnalysisResult analysisResult =
-        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-    assertThat(
-            transform(
-                analysisResult.getTargetsToBuild(),
-                configuredTarget -> configuredTarget.getLabel().toString()))
-        .containsExactly("//test:xxx");
-    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
-    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(aspectValue.getConfiguredAspect());
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
     assertThat(names.toList()).isNotEmpty();

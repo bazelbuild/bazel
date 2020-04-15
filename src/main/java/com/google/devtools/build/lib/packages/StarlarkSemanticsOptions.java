@@ -508,18 +508,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleNoSupportToolsInActionInputs;
 
   @Option(
-      name = "incompatible_no_target_output_group",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If set to true, disables the output_group field of the 'Target' Starlark type.")
-  public boolean incompatibleNoTargetOutputGroup;
-
-  @Option(
       name = "incompatible_run_shell_command_string",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -675,7 +663,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleNoImplicitFileExport(incompatibleNoImplicitFileExport)
             .incompatibleNoRuleOutputsParam(incompatibleNoRuleOutputsParam)
             .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
-            .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
             .incompatibleRunShellCommandString(incompatibleRunShellCommandString)
             .incompatibleVisibilityPrivateAttributesAtDefinition(
                 incompatibleVisibilityPrivateAttributesAtDefinition)

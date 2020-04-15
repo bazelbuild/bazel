@@ -14,14 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 
 /**
@@ -41,15 +36,6 @@ import com.google.devtools.build.lib.syntax.SkylarkIndexable;
  */
 public interface TransitiveInfoCollection
     extends SkylarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
-
-  @Override
-  default Depset outputGroup(String group) {
-    OutputGroupInfo provider = OutputGroupInfo.get(this);
-    NestedSet<Artifact> result = provider != null
-        ? provider.getOutputGroup(group)
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-    return Depset.of(Artifact.TYPE, result);
-  }
 
   /**
    * Returns the label associated with this prerequisite.

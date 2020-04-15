@@ -99,8 +99,6 @@ public abstract class StarlarkSemantics {
         "incompatible_disable_depset_inputs";
     public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
         "incompatible_no_rule_outputs_param";
-    public static final String INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP =
-        "incompatible_no_target_output_group";
     public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "incompatible_no_attr_license";
     public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
         "incompatible_allow_tags_propagation";
@@ -152,8 +150,6 @@ public abstract class StarlarkSemantics {
         return incompatibleDisableDepsetItems();
       case FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM:
         return incompatibleNoRuleOutputsParam();
-      case FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP:
-        return incompatibleNoTargetOutputGroup();
       case FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE:
         return incompatibleNoAttrLicense();
       case FlagIdentifier.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION:
@@ -265,8 +261,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
-  public abstract boolean incompatibleNoTargetOutputGroup();
-
   public abstract boolean incompatibleRunShellCommandString();
 
   public abstract boolean incompatibleVisibilityPrivateAttributesAtDefinition();
@@ -355,7 +349,6 @@ public abstract class StarlarkSemantics {
           .incompatibleNoImplicitFileExport(false)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
-          .incompatibleNoTargetOutputGroup(true)
           .incompatibleRunShellCommandString(false)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
           .internalSkylarkFlagTestCanary(false)
@@ -435,8 +428,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoRuleOutputsParam(boolean value);
 
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
-
-    public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
 
     public abstract Builder incompatibleRunShellCommandString(boolean value);
 
