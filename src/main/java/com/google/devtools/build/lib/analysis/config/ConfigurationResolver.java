@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -96,10 +95,10 @@ public final class ConfigurationResolver {
    * contain the fragments needed by the dep and its transitive closure. Else they unconditionally
    * include all fragments.
    *
-   * <p>This method is heavily performance-optimized. Because {@link ConfiguredTargetFunction} calls
-   * it over every edge in the configured target graph, small inefficiencies can have observable
-   * impact on analysis time. Keep this in mind when making modifications and performance-test any
-   * changes you make.
+   * <p>This method is heavily performance-optimized. Because {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction} calls it over every edge in
+   * the configured target graph, small inefficiencies can have observable impact on analysis time.
+   * Keep this in mind when making modifications and performance-test any changes you make.
    *
    * @param env Skyframe evaluation environment
    * @param ctgValue the label and configuration of the source target
