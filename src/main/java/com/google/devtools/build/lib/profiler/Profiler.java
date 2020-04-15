@@ -21,7 +21,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -37,6 +36,7 @@ import java.io.OutputStreamWriter;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -72,8 +72,6 @@ import java.util.zip.GZIPOutputStream;
  */
 @ThreadSafe
 public final class Profiler {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   /** The profiler (a static singleton instance). Inactive by default. */
   private static final Profiler instance = new Profiler();
 
@@ -180,70 +178,6 @@ public final class Profiler {
   }
 
   /**
-   * Tracks nested tasks for each thread.
-   *
-   * java.util.ArrayDeque is the most efficient stack implementation in the
-   * Java Collections Framework (java.util.Stack class is older synchronized
-   * alternative). It is, however, used here strictly for LIFO operations.
-   * However, ArrayDeque is 1.6 only. For 1.5 best approach would be to utilize
-   * ArrayList and emulate stack using it.
-   */
-  @ThreadSafe
-  private final class TaskStack extends ThreadLocal<List<TaskData>> {
-    @Override
-    public List<TaskData> initialValue() {
-      return new ArrayList<>();
-    }
-
-    public TaskData peek() {
-      List<TaskData> list = get();
-      if (list.isEmpty()) {
-        return null;
-      }
-      return list.get(list.size() - 1);
-    }
-
-    public TaskData pop() {
-      List<TaskData> list = get();
-      return list.remove(list.size() - 1);
-    }
-
-    public boolean isEmpty() {
-      return get().isEmpty();
-    }
-
-    public void push(ProfilerTask eventType, String description) {
-      get().add(create(clock.nanoTime(), eventType, description));
-    }
-
-    public TaskData create(long startTimeNanos, ProfilerTask eventType, String description) {
-      return new TaskData(taskId.incrementAndGet(), startTimeNanos, eventType, description);
-    }
-
-    public void pushActionTask(ProfilerTask eventType, String description, String primaryOutput) {
-      get().add(createActionTask(clock.nanoTime(), eventType, description, primaryOutput));
-    }
-
-    public ActionTaskData createActionTask(
-        long startTimeNanos, ProfilerTask eventType, String description, String primaryOutput) {
-      return new ActionTaskData(
-          taskId.incrementAndGet(), startTimeNanos, eventType, description, primaryOutput);
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder builder = new StringBuilder(
-          "Current task stack for thread " + Thread.currentThread().getName() + ":\n");
-      List<TaskData> list = get();
-      for (int i = list.size() - 1; i >= 0; i--) {
-        builder.append(list.get(i));
-        builder.append("\n");
-      }
-      return builder.toString();
-    }
-  }
-
-  /**
    * Aggregator class that keeps track of the slowest tasks of the specified type.
    *
    * <p><code>extremaAggregators</p> is sharded so that all threads need not compete for the same
@@ -322,7 +256,7 @@ public final class Profiler {
    */
   // TODO(ulfjack): We can infer the parent/child relationship after the fact instead of tracking it
   // at runtime. That would allow us to remove this data structure entirely.
-  private TaskStack taskStack;
+  private ThreadLocal<ArrayDeque<TaskData>> taskStack;
 
   private final SlowestTaskAggregator[] slowestTasks =
       new SlowestTaskAggregator[ProfilerTask.values().length];
@@ -457,7 +391,7 @@ public final class Profiler {
     // reset state for the new profiling session
     taskId.set(0);
     this.recordAllDurations = recordAllDurations;
-    this.taskStack = new TaskStack();
+    this.taskStack = ThreadLocal.withInitial(ArrayDeque::new);
     FileWriter writer = null;
     if (stream != null && format != null) {
       switch (format) {
@@ -612,16 +546,9 @@ public final class Profiler {
     tasksHistograms[type.ordinal()].addStat(
         (int) TimeUnit.NANOSECONDS.toMillis(duration), description);
     // Store instance fields as local variables so they are not nulled out from under us by #clear.
-    TaskStack localStack = taskStack;
     FileWriter currentWriter = writerRef.get();
-    if (localStack == null) {
-      // Variables have been nulled out by #clear in between the check the caller made and this
-      // point in the code. Probably due to an asynchronous crash.
-      logger.atSevere().log("Variables null in profiler for %s, probably due to async crash", type);
-      return;
-    }
     if (wasTaskSlowEnoughToRecord(type, duration)) {
-      TaskData data = localStack.create(startTimeNanos, type, description);
+      TaskData data = new TaskData(taskId.incrementAndGet(), startTimeNanos, type, description);
       data.duration = duration;
       if (currentWriter != null) {
         currentWriter.enqueue(data);
@@ -731,7 +658,9 @@ public final class Profiler {
     // tasks that have a minimum duration.
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
-      taskStack.push(type, description);
+      taskStack
+          .get()
+          .push(new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description));
       return () -> completeTask(type);
     } else {
       return () -> {};
@@ -747,7 +676,11 @@ public final class Profiler {
 
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
-      taskStack.pushActionTask(type, description, primaryOutput);
+      taskStack
+          .get()
+          .push(
+              new ActionTaskData(
+                  taskId.incrementAndGet(), clock.nanoTime(), type, description, primaryOutput));
       return () -> completeTask(type);
     } else {
       return () -> {};
@@ -794,14 +727,14 @@ public final class Profiler {
   private void completeTask(ProfilerTask type) {
     if (isActive() && isProfiling(type)) {
       long endTime = clock.nanoTime();
-      TaskData data = taskStack.pop();
+      TaskData data = taskStack.get().pop();
       Preconditions.checkState(
           data.type == type,
           "Inconsistent Profiler.completeTask() call: should have been %s but got %s (%s, %s)",
           data.type,
           type,
           data,
-          taskStack);
+          taskStack.get());
       data.duration = endTime - data.startTimeNanos;
       boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, data.duration);
       FileWriter writer = writerRef.get();
@@ -827,7 +760,7 @@ public final class Profiler {
   public void markPhase(ProfilePhase phase) throws InterruptedException {
     MemoryProfiler.instance().markPhase(phase);
     if (isActive() && isProfiling(ProfilerTask.PHASE)) {
-      Preconditions.checkState(taskStack.isEmpty(), "Phase tasks must not be nested");
+      Preconditions.checkState(taskStack.get().isEmpty(), "Phase tasks must not be nested");
       logEvent(ProfilerTask.PHASE, phase.description);
     }
   }
