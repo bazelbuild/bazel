@@ -71,6 +71,12 @@ java_library(
 )
 
 java_library(
+    name = "debug-logger-configurator",
+    srcs = ["DebugLoggerConfigurator.java"],
+    deps = [":util"],
+)
+
+java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",

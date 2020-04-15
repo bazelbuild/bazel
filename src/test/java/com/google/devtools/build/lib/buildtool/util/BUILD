@@ -29,6 +29,7 @@ java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
     deps = [
+        "//java/com/google/devtools/build/lib/blaze/google/logging:google-log-handler-querier",
         "//src/main/java/com/google/devtools/build/lib:build",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",

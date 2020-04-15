@@ -76,9 +76,9 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
+import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.LogHandlerQuerier;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -674,55 +674,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     env.getReporter().clearEventBus();
     actionKeyContext.clear();
-    flushServerLog();
+    DebugLoggerConfigurator.flushServerLog();
     return finalCommandResult;
-  }
-
-  /**
-   * Returns the path to the Blaze server INFO log.
-   *
-   * @return the path to the log or empty if the log is not yet open
-   * @throws IOException if the log location cannot be determined
-   */
-  public Optional<Path> getServerLogPath() throws IOException {
-    LogHandlerQuerier logHandlerQuerier;
-    try {
-      logHandlerQuerier = LogHandlerQuerier.getConfiguredInstance();
-    } catch (IllegalStateException e) {
-      throw new IOException("Could not find a querier for server log location", e);
-    }
-
-    Optional<java.nio.file.Path> loggerFilePath;
-    try {
-      loggerFilePath = logHandlerQuerier.getLoggerFilePath(logger);
-    } catch (IllegalArgumentException e) {
-      throw new IOException("Could not query server log location", e);
-    }
-
-    return loggerFilePath.map((p) -> fileSystem.getPath(p.toAbsolutePath().toString()));
-  }
-
-  // Make sure we keep a strong reference to this logger, so that the
-  // configuration isn't lost when the gc kicks in.
-  private static Logger templateLogger = Logger.getLogger("com.google.devtools.build");
-
-  /**
-   * Configures "com.google.devtools.build.*" loggers to the given {@code level}. Note: This code
-   * relies on static state.
-   */
-  public static void setupLogging(Level level) {
-    templateLogger.setLevel(level);
-    templateLogger.info("Log level: " + templateLogger.getLevel());
-  }
-
-  private void flushServerLog() {
-    for (Logger logger = templateLogger; logger != null; logger = logger.getParent()) {
-      for (Handler handler : logger.getHandlers()) {
-        if (handler != null) {
-          handler.flush();
-        }
-      }
-    }
   }
 
   /**
@@ -762,7 +715,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         module.blazeShutdown();
       }
     } finally {
-      flushServerLog();
+      DebugLoggerConfigurator.flushServerLog();
     }
   }
 
@@ -779,7 +732,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         module.blazeShutdownOnCrash();
       }
     } finally {
-      flushServerLog();
+      DebugLoggerConfigurator.flushServerLog();
     }
   }
 

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
@@ -61,7 +62,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * An item that is returned by <code>blaze info</code>.
@@ -299,8 +299,7 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       try {
-        Optional<Path> path = env.getRuntime().getServerLogPath();
-        return print(path.map(Path::toString).orElse(""));
+        return print(DebugLoggerConfigurator.getServerLogPath().orElse(""));
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("Failed to determine server log location");
         return print("UNKNOWN LOG LOCATION");

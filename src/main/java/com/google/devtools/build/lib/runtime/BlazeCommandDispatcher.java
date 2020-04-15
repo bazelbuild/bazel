@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
+import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -83,7 +84,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   private String currentClientDescription = null;
   private String shutdownReason = null;
   private OutputStream logOutputStream = null;
-  private Level lastLogVerbosityLevel = null;
   private final LoadingCache<BlazeCommand, OpaqueOptionsData> optionsDataCache =
       CacheBuilder.newBuilder().build(
           new CacheLoader<BlazeCommand, OpaqueOptionsData>() {
@@ -398,10 +398,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           outErr = bufferErr(outErr);
         }
 
-        if (!commonOptions.verbosity.equals(lastLogVerbosityLevel)) {
-          BlazeRuntime.setupLogging(commonOptions.verbosity);
-          lastLogVerbosityLevel = commonOptions.verbosity;
-        }
+        DebugLoggerConfigurator.setupLogging(commonOptions.verbosity);
 
         EventHandler handler = createEventHandler(outErr, eventHandlerOptions);
         reporter.addHandler(handler);
