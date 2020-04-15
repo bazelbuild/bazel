@@ -28,7 +28,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * The collection of the supported build rules. Provides an StarlarkThread for Skylark rule
+ * The collection of the supported build rules. Provides an StarlarkThread for Starlark rule
  * creation.
  */
 public interface RuleClassProvider extends RuleDefinitionContext {
@@ -101,7 +101,7 @@ public interface RuleClassProvider extends RuleDefinitionContext {
   /**
    * Returns the default content that should be added at the end of the WORKSPACE file.
    *
-   * <p>Used to load skylark repository in the bazel_tools repository.
+   * <p>Used to load Starlark repository in the bazel_tools repository.
    */
   String getDefaultWorkspaceSuffix();
 
@@ -111,7 +111,7 @@ public interface RuleClassProvider extends RuleDefinitionContext {
   NativeAspectClass getNativeAspectClass(String key);
 
   /**
-   * Retrieves a {@link Map} from skylark configuration fragment name to configuration fragment
+   * Retrieves a {@link Map} from Starlark configuration fragment name to configuration fragment
    * class.
    */
   Map<String, Class<?>> getConfigurationFragmentMap();

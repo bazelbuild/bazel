@@ -502,7 +502,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   }
 
   // Verifies that a method implementation overriding a parameterized annotated interface method
-  // is still treated as skylark-callable. Concretely, method() below should be treated as
+  // is still treated as Starlark-callable. Concretely, method() below should be treated as
   // callable even though its method signature isn't an *exact* match of the annotated method
   // declaration, due to the interface's method declaration being generic.
   @Test

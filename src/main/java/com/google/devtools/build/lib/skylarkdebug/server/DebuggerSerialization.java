@@ -31,7 +31,7 @@ import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.Set;
 
-/** Helper class for creating {@link SkylarkDebuggingProtos.Value} from skylark objects. */
+/** Helper class for creating {@link SkylarkDebuggingProtos.Value} from Starlark objects. */
 final class DebuggerSerialization {
 
   static Value getValueProto(ThreadObjectMap objectMap, String label, Object value) {
@@ -39,7 +39,7 @@ final class DebuggerSerialization {
     boolean hasChildren = hasChildren(value);
     return Value.newBuilder()
         .setLabel(label)
-        // TODO(bazel-team): omit type details for non-Skylark values
+        // TODO(bazel-team): omit type details for non-Starlark values
         .setType(EvalUtils.getDataTypeName(value))
         .setDescription(getDescription(value))
         .setHasChildren(hasChildren)

@@ -28,14 +28,12 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-/**
- * A utility class for converting ObjcProvider values between java and skylark representation.
- */
+/** A utility class for converting ObjcProvider values between java and Starlark representation. */
 public class ObjcProviderSkylarkConverters {
 
   /**
-   * A map of possible NestedSet types to the converters that should define their treatment
-   * in translating between a java and skylark ObjcProvider.
+   * A map of possible NestedSet types to the converters that should define their treatment in
+   * translating between a java and Starlark ObjcProvider.
    */
   private static final ImmutableMap<Class<?>, Converter> CONVERTERS =
       ImmutableMap.<Class<?>, Converter>builder()
@@ -45,20 +43,18 @@ public class ObjcProviderSkylarkConverters {
           .put(SdkFramework.class, new SdkFrameworkToStringConverter())
           .build();
 
-  /**
-   * Returns a value for a skylark attribute given a java ObjcProvider key and value.
-   */
+  /** Returns a value for a Starlark attribute given a java ObjcProvider key and value. */
   public static Object convertToSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
     return CONVERTERS.get(javaKey.getType()).valueForSkylark(javaKey, javaValue);
   }
 
-  /** Returns a value for a java ObjcProvider given a key and a corresponding skylark value. */
+  /** Returns a value for a java ObjcProvider given a key and a corresponding Starlark value. */
   public static NestedSet<?> convertToJava(Key<?> javaKey, Object skylarkValue)
       throws EvalException {
     return CONVERTERS.get(javaKey.getType()).valueForJava(javaKey, skylarkValue);
   }
 
-  /** Converts {@link PathFragment}s into a skylark-compatible nested set of path strings. */
+  /** Converts {@link PathFragment}s into a Starlark-compatible nested set of path strings. */
   public static Depset convertPathFragmentsToSkylark(NestedSet<PathFragment> pathFragments) {
     NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
     for (PathFragment path : pathFragments.toList()) {
@@ -69,16 +65,14 @@ public class ObjcProviderSkylarkConverters {
 
   /** A converter for ObjcProvider values. */
   private interface Converter {
-    /** Translates a java ObjcProvider value to a skylark ObjcProvider value. */
+    /** Translates a java ObjcProvider value to a Starlark ObjcProvider value. */
     Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue);
 
-    /** Translates a skylark ObjcProvider value to a java ObjcProvider value. */
+    /** Translates a Starlark ObjcProvider value to a java ObjcProvider value. */
     NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException;
   }
 
-  /**
-   * A converter that uses the same value for java and skylark.
-   */
+  /** A converter that uses the same value for java and Starlark. */
   private static class DirectConverter implements Converter {
 
     @Override
@@ -93,9 +87,7 @@ public class ObjcProviderSkylarkConverters {
     }
   }
 
-  /**
-   * A converter that that translates between a java PathFragment and a skylark string.
-   */
+  /** A converter that that translates between a java PathFragment and a Starlark string. */
   private static class PathFragmentToStringConverter implements Converter {
 
     @SuppressWarnings("unchecked")
@@ -116,9 +108,7 @@ public class ObjcProviderSkylarkConverters {
     }
   }
 
-  /**
-   * A converter that that translates between a java {@link SdkFramework} and a skylark string.
-   */
+  /** A converter that that translates between a java {@link SdkFramework} and a Starlark string. */
   private static class SdkFrameworkToStringConverter implements Converter {
 
     @SuppressWarnings("unchecked")

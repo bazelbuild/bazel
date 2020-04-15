@@ -307,7 +307,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    * context. For effective platform for bundling actions, see {@link
    * #getMultiArchPlatform(PlatformType)}.
    */
-  // TODO(b/28754442): Deprecate for more general skylark-exposed platform retrieval.
+  // TODO(b/28754442): Deprecate for more general Starlark-exposed platform retrieval.
   @Override
   public ApplePlatform getIosCpuPlatform() {
     return ApplePlatform.forTarget(PlatformType.IOS, iosCpu);

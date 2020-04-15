@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
  * StarlarkThread}. When the {@code Mutability} is closed at the end of the computation, it freezes
  * the {@code StarlarkThread} along with all of those objects. This pattern enforces the discipline
  * that there should be no dangling mutable {@code StarlarkThread}, or concurrency between
- * interacting {@code StarlarkThread}s. It is a Skylark-level error to attempt to mutate a frozen
+ * interacting {@code StarlarkThread}s. It is a Starlark-level error to attempt to mutate a frozen
  * {@code StarlarkThread} or its objects, but it is a Java-level error to attempt to mutate an
  * unfrozen {@code StarlarkThread} or its objects from within a different {@code StarlarkThread}.
  *
@@ -359,14 +359,14 @@ public final class StarlarkThread {
   // Then clients that call thread.getGlobals() should use 'module' directly.
   private final Module module;
 
-  /** The semantics options that affect how Skylark code is evaluated. */
+  /** The semantics options that affect how Starlark code is evaluated. */
   private final StarlarkSemantics semantics;
 
   /** PrintHandler for Starlark print statements. */
   private PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
 
   /**
-   * For each imported extension, a global Skylark frame from which to load() individual bindings.
+   * For each imported extension, a global Starlark frame from which to load() individual bindings.
    */
   private final Map<String, Extension> importedExtensions;
 

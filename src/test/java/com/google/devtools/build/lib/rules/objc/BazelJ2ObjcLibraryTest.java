@@ -952,7 +952,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             "java/com/google/dummy/_j2objc/dummy/java/com/google/dummy/dummy.m"));
   }
 
-  // Tests that a j2objc library can acquire java library information from a skylark rule target.
+  // Tests that a j2objc library can acquire java library information from a Starlark rule target.
   @Test
   public void testJ2ObjcLibraryDepThroughSkylarkRule() throws Exception {
     scratch.file("examples/inner.java");
@@ -1001,7 +1001,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ObjcProvider provider = objcTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
 
-    // The only way that //examples:lib can see inner's archive is through the skylark rule.
+    // The only way that //examples:lib can see inner's archive is through the Starlark rule.
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .contains("examples/libinner_j2objc.a");
   }

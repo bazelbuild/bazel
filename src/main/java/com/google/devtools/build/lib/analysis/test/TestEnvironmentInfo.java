@@ -25,10 +25,9 @@ import java.util.Map;
 @Immutable
 public final class TestEnvironmentInfo extends NativeInfo implements TestEnvironmentInfoApi {
 
-  /** Skylark constructor and identifier for TestEnvironmentInfo. */
+  /** Starlark constructor and identifier for TestEnvironmentInfo. */
   public static final NativeProvider<TestEnvironmentInfo> PROVIDER =
-      new NativeProvider<TestEnvironmentInfo>(
-          TestEnvironmentInfo.class, "TestEnvironment") {};
+      new NativeProvider<TestEnvironmentInfo>(TestEnvironmentInfo.class, "TestEnvironment") {};
 
   private final Map<String, String> environment;
 

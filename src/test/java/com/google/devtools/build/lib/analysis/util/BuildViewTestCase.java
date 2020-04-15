@@ -524,9 +524,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * options for unspecified ones, and recreates the build view.
    *
    * <p>TODO(juliexxia): when Starlark option parsing exists, find a way to combine these parameters
-   * into a single parameter so skylark/native options don't have to be specified separately.
+   * into a single parameter so Starlark/native options don't have to be specified separately.
    *
-   * @param skylarkOptions map of skylark-defined options where the keys are option names (in the
+   * @param skylarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    * @throws IllegalArgumentException

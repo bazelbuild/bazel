@@ -76,7 +76,7 @@ public final class AspectDescriptor {
   }
 
   /**
-   * Creates a presentable description of this aspect, available to Skylark via "Target.aspects".
+   * Creates a presentable description of this aspect, available to Starlark via "Target.aspects".
    *
    * <p>The description is designed to be unique for each aspect descriptor, but not to be
    * parseable.

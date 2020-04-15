@@ -33,12 +33,12 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 // almost certainly be unequal to the previous value. This is because of (i) the change-pruning
 // semantics of the PackageLookupValue dep and the FileValue dep; consider the latter: if the
 // FileValue for the bzl file has changed, then the contents of the bzl file probably changed and
-// (ii) we don't currently have skylark-semantic-equality in StarlarkFile, so two StarlarkFile
+// (ii) we don't currently have Starlark-semantic-equality in StarlarkFile, so two StarlarkFile
 // instances representing two different contents of a bzl file will be different.
 // TODO(bazel-team): Consider doing better here. As a pre-req, we would need
-// skylark-semantic-equality in StarlarkFile, rather than equality naively based on the contents of
+// Starlark-semantic-equality in StarlarkFile, rather than equality naively based on the contents of
 // the bzl file. For a concrete example, the contents of comment lines do not currently impact
-// skylark semantics.
+// Starlark semantics.
 public abstract class ASTFileLookupValue implements NotComparableSkyValue {
   public abstract boolean lookupSuccessful();
 

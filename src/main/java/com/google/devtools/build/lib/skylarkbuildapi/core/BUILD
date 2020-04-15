@@ -1,9 +1,9 @@
 # Description:
-#   This package contains interfaces representing the skylark "build API"
+#   This package contains interfaces representing the Starlark "build API"
 #   (but not the implementation of that API). Ultimately, this package
 #   may be broken out of the Bazel package hierarchy to be standalone.
 #   Thus, this package should not depend on Bazel-specific packages (only
-#   those which contain pure-Skylark concepts, such as the interpreter or
+#   those which contain pure-Starlark concepts, such as the interpreter or
 #   annotation interfaces).
 #
 # This package contains core types that will be needed by other APIs, such as

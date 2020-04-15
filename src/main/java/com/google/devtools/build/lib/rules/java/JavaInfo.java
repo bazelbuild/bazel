@@ -52,7 +52,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
-/** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
+/** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
 @AutoCodec
 public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> {

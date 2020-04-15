@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
-/** A collection of global skylark build API functions that apply to WORKSPACE files. */
+/** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 @SkylarkGlobalLibrary
 public interface WorkspaceGlobalsApi {
 

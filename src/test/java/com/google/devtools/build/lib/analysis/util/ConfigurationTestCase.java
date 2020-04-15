@@ -206,7 +206,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   /**
    * Variation of {@link #createCollection(String...)} that also supports Starlark-defined options.
    *
-   * @param starlarkOptions map of skylark-defined options where the keys are option names (in the
+   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
@@ -245,7 +245,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   /**
    * Variation of {@link #create(String...)} that also supports Starlark-defined options.
    *
-   * @param starlarkOptions map of skylark-defined options where the keys are option names (in the
+   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */

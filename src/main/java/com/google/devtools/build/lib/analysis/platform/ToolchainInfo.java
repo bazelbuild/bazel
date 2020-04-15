@@ -41,7 +41,7 @@ import java.util.Map;
 @Immutable
 public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
-  /** Name used in Skylark for accessing this provider. */
+  /** Name used in Starlark for accessing this provider. */
   public static final String SKYLARK_NAME = "ToolchainInfo";
 
   /** Provider singleton constant. */
@@ -71,7 +71,7 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
   /**
    * Preprocesses a map of field values to convert the field names and field values to
-   * Skylark-acceptable names and types.
+   * Starlark-acceptable names and types.
    *
    * <p>Entries are ordered by key.
    */

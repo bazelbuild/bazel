@@ -67,13 +67,13 @@ message ContinueExecutionRequest {
   Stepping stepping = 2;
 }
 
-// A request to evaluate a Skylark statement in a thread's current environment.
+// A request to evaluate a Starlark statement in a thread's current environment.
 message EvaluateRequest {
   // The identifier of the thread in whose execution context the expression
   // should be evaluated.
   int64 thread_id = 1;
 
-  // The Skylark statement to evaluate.
+  // The Starlark statement to evaluate.
   string statement = 2;
 }
 
@@ -83,7 +83,7 @@ message ListFramesRequest {
   int64 thread_id = 1;
 }
 
-// A request to begin the debugging session. Skylark execution will block until
+// A request to begin the debugging session. Starlark execution will block until
 // this request is made, to allow initial setup after the connection is
 // established (e.g. setting breakpoints).
 message StartDebuggingRequest {
@@ -93,8 +93,8 @@ message StartDebuggingRequest {
 message PauseThreadRequest {
   // The identifier of the thread to be paused.
   //
-  // If not set (i.e. zero), all current Skylark threads will be paused, and
-  // until a ContinueExecutionRequest is sent, any future Skylark threads will
+  // If not set (i.e. zero), all current Starlark threads will be paused, and
+  // until a ContinueExecutionRequest is sent, any future Starlark threads will
   // also start off paused.
   int64 thread_id = 1;
 }
@@ -114,8 +114,8 @@ message GetChildrenRequest {
 
 // There are two kinds of events: "responses", which correspond to a
 // DebugRequest sent by the client, and other asynchronous events that may be
-// sent by the server to notify the client of activity in the Skylark code being
-// debugged.
+// sent by the server to notify the client of activity in the Starlark code
+// being debugged.
 message DebugEvent {
   // If non-zero, this event is a response to a DebugRequest with the same
   // sequence number.
@@ -223,9 +223,9 @@ message Frame {
   Location location = 3;
 }
 
-// A location in Skylark source code.
+// A location in Starlark source code.
 message Location {
-  // The path of the Skylark source file.
+  // The path of the Starlark source file.
   string path = 1;
 
   // A 1-indexed line number in the file denoted by path.
@@ -264,7 +264,7 @@ enum Stepping {
   OUT = 3;
 }
 
-// Information about a paused Skylark thread.
+// Information about a paused Starlark thread.
 message PausedThread {
   // The identifier of the thread.
   int64 id = 1;
@@ -275,7 +275,7 @@ message PausedThread {
 
   PauseReason pause_reason = 3;
 
-  // The location in Skylark code of the next statement or expression that will
+  // The location in Starlark code of the next statement or expression that will
   // be executed.
   Location location = 4;
 
@@ -309,7 +309,7 @@ enum PauseReason {
   INITIALIZING = 6;
 }
 
-// The debugger representation of a Skylark value.
+// The debugger representation of a Starlark value.
 message Value {
   // A label that describes this value's location or source in a value
   // hierarchy.

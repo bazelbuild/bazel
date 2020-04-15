@@ -28,7 +28,7 @@ import java.net.ServerSocket;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/** Manages the network socket and debugging state for threads running Skylark code. */
+/** Manages the network socket and debugging state for threads running Starlark code. */
 public final class SkylarkDebugServer implements Debugger {
 
   /**

@@ -55,7 +55,7 @@ import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
-/** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
+/** Starlark-visible methods for working with Android data (manifests, resources, and assets). */
 public abstract class AndroidSkylarkData
     implements AndroidDataProcessingApi<
         AndroidDataContext,
@@ -609,16 +609,18 @@ public abstract class AndroidSkylarkData
         .build();
   }
 
-  /** Checks if a "Noneable" object passed by Skylark is "None", which Java should treat as null. */
+  /**
+   * Checks if a "Noneable" object passed by Starlark is "None", which Java should treat as null.
+   */
   public static boolean isNone(Object object) {
     return object == Starlark.NONE;
   }
 
   /**
-   * Converts a "Noneable" Object passed by Skylark to an nullable object of the appropriate type.
+   * Converts a "Noneable" Object passed by Starlark to an nullable object of the appropriate type.
    *
    * <p>Skylark "Noneable" types are passed in as an Object that may be either the correct type or a
-   * Starlark.NONE object. Skylark will handle type checking, based on the appropriate @param
+   * Starlark.NONE object. Starlark will handle type checking, based on the appropriate @param
    * annotation, but we still need to do the actual cast (or conversion to null) ourselves.
    *
    * @param object the Noneable object
@@ -645,7 +647,7 @@ public abstract class AndroidSkylarkData
   }
 
   /**
-   * Converts a "Noneable" Object passed by Skylark to a List of the appropriate type.
+   * Converts a "Noneable" Object passed by Starlark to a List of the appropriate type.
    *
    * <p>This first calls {@link #fromNoneable(Object, Class)} to get a Sequence<?>, then safely
    * casts it to a list with the appropriate generic.

@@ -202,7 +202,7 @@ public final class Depset implements StarlarkValue {
    * element of the set.
    */
   // TODO(adonovan): enforce that we never construct a Depset with a StarlarkType
-  // that represents a non-Skylark type (e.g. NestedSet<PathFragment>).
+  // that represents a non-Starlark type (e.g. NestedSet<PathFragment>).
   // One way to do that is to disallow constructing StarlarkTypes for classes
   // that would fail Starlark.valid; however remains the problem that
   // Object.class means "any Starlark value" but in fact allows any Java value.
