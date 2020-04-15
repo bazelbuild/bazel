@@ -604,7 +604,8 @@ public class RemoteSpawnRunnerTest {
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
         .thenReturn(cachedResult);
-    Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance());
+    Exception downloadFailure =
+        new BulkTransferException(new CacheNotFoundException(Digest.getDefaultInstance()));
     doThrow(downloadFailure)
         .when(cache)
         .download(eq(cachedResult), any(Path.class), any(FileOutErr.class), any());
@@ -641,7 +642,8 @@ public class RemoteSpawnRunnerTest {
     when(executor.executeRemotely(any(ExecuteRequest.class)))
         .thenReturn(cachedResponse)
         .thenReturn(executedResponse);
-    Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance());
+    Exception downloadFailure =
+        new BulkTransferException(new CacheNotFoundException(Digest.getDefaultInstance()));
     doThrow(downloadFailure)
         .when(cache)
         .download(eq(cachedResult), any(Path.class), any(FileOutErr.class), any());
