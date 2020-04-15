@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -206,7 +205,6 @@ public class ExecutionTool {
           "--local_resources is deprecated. Please use "
               + "--local_ram_resources and/or --local_cpu_resources");
     }
-
     if (options.removeRamUtilizationFactor && options.ramUtilizationPercentage != 0) {
       throw new ExecutorInitException(
           "--ram_utilization_factor is deprecated. "
@@ -765,20 +763,9 @@ public class ExecutionTool {
           "--local_resources will be deprecated. Please use --local_ram_resources "
               + "and/or --local_cpu_resources.");
       resources = options.availableResources;
-      resourceMgr.setRamUtilizationPercentage(100);
-    } else if (options.ramUtilizationPercentage != 0) {
-      logger.warning(
-          "--ram_utilization_factor will soon be deprecated. Please use "
-              + "--local_ram_resources=HOST_RAM*<float>, where <float> is the percentage of "
-              + "available RAM you want to devote to Bazel.");
-      resources =
-          ResourceSet.createWithRamCpu(
-              LocalHostCapacity.getLocalHostCapacity().getMemoryMb(), options.localCpuResources);
-      resourceMgr.setRamUtilizationPercentage(options.ramUtilizationPercentage);
     } else {
       resources =
           ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
-      resourceMgr.setRamUtilizationPercentage(100);
     }
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
 

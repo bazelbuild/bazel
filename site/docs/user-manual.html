@@ -888,7 +888,7 @@ other flags for specifying strategy.
   that will use up more resources (RAM or CPU) than are available,
   based on some (very crude) estimates of the resource consumption
   of each job.  The behavior of the scheduler can be controlled by
-  the <code class='flag'>--ram_utilization_factor</code> option.
+  the <code class='flag'>--local_ram_resources</code> option.
 </p>
 
 <h4 id='flag--progress_report_interval'><code class='flag'>--progress_report_interval <var>n</var></code></h4>
@@ -905,20 +905,6 @@ other flags for specifying strategy.
   that progress is reported once every minute.
 </p>
 
-<h4 id='flag--ram_utilization_factor'><code class='flag'>--ram_utilization_factor</code> <var>percentage</var></h4>
-<p>
-  This option, which takes an integer argument, specifies what percentage
-  of the system's RAM Bazel should try to use for its subprocesses.
-  This option affects how many processes Bazel will try to run
-  in parallel.  The default value is 67.
-  If you run several Bazel builds in parallel, using a lower
-  value for this option may avoid thrashing and thus improve overall
-  throughput. Using a value higher than the default is NOT recommended. Note
-  that Bazel's estimates are very coarse, so the actual RAM usage may be much
-  higher or much lower than specified. Note also that this option does not
-  affect the amount of memory that the Bazel server itself will use.
-</p>
-
 <h4 id='flag--local_{ram,cpu}_resources'><code class='flag'>--local_{ram,cpu}_resources</code>
   <var>resources or resource expression</var></h4>
 <p>
@@ -930,9 +916,6 @@ other flags for specifying strategy.
   <code class='flag'>--local_cpu_resources=HOST_CPUS-1</code>).
   The flags are independent; one or both may be set. By default Bazel will estimate amount of RAM
   and number of CPU cores directly from system configuration.
-</p>
-<p>
-  If this option is used, Bazel will ignore --ram_utilization_factor.
 </p>
 
 <h4 id='flag--build_runfile_links'><code class='flag'>--[no]build_runfile_links</code></h4>

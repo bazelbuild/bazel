@@ -312,7 +312,7 @@ public class ExecutionOptions extends OptionsBase {
           "Deprecated by '--incompatible_remove_local_resources'. Please use "
               + "'--local_ram_resources' and '--local_cpu_resources'",
       deprecationWarning =
-          "--local_resources will be deprecated. Please use"
+          "--local_resources is deprecated. Please use"
               + " --local_ram_resources and --local_cpu_resources instead.",
       converter = ResourceSet.ResourceSetConverter.class)
   public ResourceSet availableResources;
@@ -358,7 +358,7 @@ public class ExecutionOptions extends OptionsBase {
               + "By default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate "
               + "amount of RAM available for the locally executed build actions and will use 67% "
               + "of available RAM. "
-              + "Note: This is a no-op if --ram_utilization_factor or --local_resources is set.",
+              + "Note: This is a no-op if --local_resources is set.",
       converter = RamResourceConverter.class)
   public float localRamResources;
 

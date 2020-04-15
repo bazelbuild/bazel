@@ -49,7 +49,6 @@ public class ResourceManagerTest {
 
   @Before
   public final void configureResourceManager() throws Exception  {
-    rm.setRamUtilizationPercentage(100);
     rm.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
     counter = new AtomicInteger(0);
