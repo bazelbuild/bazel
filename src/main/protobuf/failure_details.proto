@@ -94,6 +94,7 @@ message FailureDetail {
     ClientEnvironment client_environment = 107;
     Crash crash = 108;
     SymlinkForest symlink_forest = 110;
+    PackageOptions package_options = 114;
   }
 
   reserved 102; // For internal use
@@ -204,6 +205,15 @@ message SymlinkForest {
     SYMLINK_FOREST_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     TOPLEVEL_OUTDIR_PACKAGE_PATH_CONFLICT = 1 [(metadata) = { exit_code: 2 }];
     TOPLEVEL_OUTDIR_USED_AS_SOURCE = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message PackageOptions {
+  enum Code {
+    PACKAGE_PATH_CACHE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
