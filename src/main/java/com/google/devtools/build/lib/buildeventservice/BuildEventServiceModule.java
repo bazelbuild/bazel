@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
-import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -379,12 +378,12 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     streamer.registerOutErrProvider(
         new BuildEventStreamer.OutErrProvider() {
           @Override
-          public Iterable<ByteString> getOut() {
+          public Iterable<String> getOut() {
             return out.readAndReset();
           }
 
           @Override
-          public Iterable<ByteString> getErr() {
+          public Iterable<String> getErr() {
             return err.readAndReset();
           }
         });

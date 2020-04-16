@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
-import com.google.protobuf.ByteString;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -29,17 +28,14 @@ import javax.annotation.Nullable;
  */
 public final class ProgressEvent extends GenericBuildEvent {
 
-  @Nullable private final ByteString out;
-  @Nullable private final ByteString err;
+  @Nullable private final String out;
+  @Nullable private final String err;
 
   /** The {@link BuildEventId} of the first progress event to be reported. */
   public static final BuildEventId INITIAL_PROGRESS_UPDATE = BuildEventIdUtil.progressId(0);
 
   private ProgressEvent(
-      BuildEventId id,
-      Collection<BuildEventId> children,
-      @Nullable ByteString out,
-      @Nullable ByteString err) {
+      BuildEventId id, Collection<BuildEventId> children, String out, String err) {
     super(id, children);
     this.out = out;
     this.err = err;
@@ -49,16 +45,16 @@ public final class ProgressEvent extends GenericBuildEvent {
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     BuildEventStreamProtos.Progress.Builder builder = BuildEventStreamProtos.Progress.newBuilder();
     if (out != null) {
-      builder.setStdoutBytes(out);
+      builder.setStdout(out);
     }
     if (err != null) {
-      builder.setStderrBytes(err);
+      builder.setStderr(err);
     }
     return GenericBuildEvent.protoChaining(this).setProgress(builder.build()).build();
   }
 
   /** Create a regular progress update with the given running number. */
-  public static BuildEvent progressUpdate(int number, ByteString out, ByteString err) {
+  public static BuildEvent progressUpdate(int number, String out, String err) {
     BuildEventId id = BuildEventIdUtil.progressId(number);
     BuildEventId next = BuildEventIdUtil.progressId(number + 1);
     return new ProgressEvent(id, ImmutableList.of(next), out, err);
@@ -70,7 +66,7 @@ public final class ProgressEvent extends GenericBuildEvent {
 
   /** Create a progress update event also chaining in a given id. */
   public static BuildEvent progressChainIn(
-      int number, BuildEventId chainIn, ByteString out, ByteString err) {
+      int number, BuildEventId chainIn, String out, String err) {
     BuildEventId id = BuildEventIdUtil.progressId(number);
     BuildEventId next = BuildEventIdUtil.progressId(number + 1);
     return new ProgressEvent(id, ImmutableList.of(next, chainIn), out, err);
@@ -85,8 +81,12 @@ public final class ProgressEvent extends GenericBuildEvent {
    * progress event in the stream).
    */
   public static BuildEvent finalProgressUpdate(
-      int number, @Nullable ByteString out, @Nullable ByteString err) {
+      int number, @Nullable String out, @Nullable String err) {
     BuildEventId id = BuildEventIdUtil.progressId(number);
     return new ProgressEvent(id, ImmutableList.of(), out, err);
+  }
+
+  public static BuildEvent finalProgressUpdate(int number) {
+    return finalProgressUpdate(number, null, null);
   }
 }
