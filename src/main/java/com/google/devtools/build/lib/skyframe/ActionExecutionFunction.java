@@ -333,9 +333,6 @@ public class ActionExecutionFunction implements SkyFunction {
   /**
    * Evaluate the supplied input deps. Declare deps on known inputs to action. We do this
    * unconditionally to maintain our invariant of asking for the same deps each build.
-   *
-   * <p>TODO(b/142300168): Address potential dependency inconsistency if the threshold is changed
-   * between runs.
    */
   private static Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getInputDeps(
       Environment env,
@@ -350,14 +347,7 @@ public class ActionExecutionFunction implements SkyFunction {
       //   => the top layer offers little in terms of reusability.
       // More details: b/143205147.
       NestedSetView<Artifact> nestedSetView = new NestedSetView<>(allInputs);
-
-      Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
-          directArtifactValuesOrExceptions =
-              env.getValuesOrThrow(
-                  Artifact.keys(nestedSetView.directs()),
-                  IOException.class,
-                  ActionExecutionException.class);
-
+      Iterable<SkyKey> directKeys = Artifact.keys(nestedSetView.directs());
       if (state.requestedArtifactNestedSetKeys == null) {
         state.requestedArtifactNestedSetKeys = CompactHashSet.create();
         for (NestedSetView<Artifact> transitive : nestedSetView.transitives()) {
@@ -365,16 +355,25 @@ public class ActionExecutionFunction implements SkyFunction {
           state.requestedArtifactNestedSetKeys.add(key);
         }
       }
-      env.getValues(state.requestedArtifactNestedSetKeys);
+
+      Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
+          inputsValuesOrExceptions =
+              env.getValuesOrThrow(
+                  Iterables.concat(directKeys, state.requestedArtifactNestedSetKeys),
+                  IOException.class,
+                  ActionExecutionException.class);
 
       if (env.valuesMissing()) {
         return null;
       }
+      Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
+          artifactSkyKeyToValueOrException =
+              ArtifactNestedSetFunction.getInstance().getArtifactSkyKeyToValueOrException();
+      for (SkyKey key : directKeys) {
+        artifactSkyKeyToValueOrException.put(key, inputsValuesOrExceptions.get(key));
+      }
 
-      ArtifactNestedSetFunction.getInstance()
-          .getArtifactSkyKeyToValueOrException()
-          .putAll(directArtifactValuesOrExceptions);
-      return ArtifactNestedSetFunction.getInstance().getArtifactSkyKeyToValueOrException();
+      return artifactSkyKeyToValueOrException;
     }
 
     return env.getValuesOrThrow(
