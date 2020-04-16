@@ -258,7 +258,15 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>TZ</code></td><td><code>UTC</code></td><td>required</td></tr>
     <tr><td><code>USER</code></td><td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td><td>required</td></tr>
 
-    <tr><td><code>XML_OUTPUT_FILE</code></td><td>Location of the <code>ANT</code>-like XML output file</td><td>optional</td></tr>
+    <tr>
+      <td><code>XML_OUTPUT_FILE</code></td>
+      <td>Location of the test result XML output file.
+        The XML schema is based on the
+        <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd">JUnit test result
+        schema</a>.
+      </td>
+      <td>optional</td>
+    </tr>
   </tbody>
 </table>
 <br>
