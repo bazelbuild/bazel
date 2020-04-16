@@ -137,7 +137,8 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
@@ -1357,8 +1358,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        (AspectValue.AspectKey)
-            AspectValue.createAspectKey(
+        (AspectKey)
+            AspectValueKey.createAspectKey(
                     owner.getLabel(),
                     getConfiguration(owner),
                     new AspectDescriptor(creatingAspectFactory, parameters),
@@ -1443,10 +1444,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
   }
 
-  protected AspectValue.AspectKey getOwnerForAspect(
+  protected AspectKey getOwnerForAspect(
       ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
-    return (AspectValue.AspectKey)
-        AspectValue.createAspectKey(
+    return (AspectKey)
+        AspectValueKey.createAspectKey(
                 owner.getLabel(),
                 getConfiguration(owner),
                 new AspectDescriptor(creatingAspectFactory, params),

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -104,8 +104,8 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
       return ((ConfiguredTargetKey) key.argument()).prettyPrint();
     } else if (SkyFunctions.isSkyFunction(SkyFunctions.ASPECT).apply(key)) {
       return ((AspectKey) key.argument()).prettyPrint();
-    } else if (key instanceof AspectValue.AspectValueKey) {
-      return ((AspectValue.AspectValueKey) key).getDescription();
+    } else if (key instanceof AspectValueKey) {
+      return ((AspectValueKey) key).getDescription();
     } else {
       return getLabel(key).toString();
     }

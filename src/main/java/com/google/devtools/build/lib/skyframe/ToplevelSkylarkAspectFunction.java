@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
-import com.google.devtools.build.lib.skyframe.AspectValue.SkylarkAspectLoadingKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.SkylarkAspectLoadingKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;

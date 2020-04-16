@@ -140,7 +140,6 @@ import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction.NonexistentFileReceiver;
@@ -1759,7 +1758,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         skyKeys.add(ConfiguredTargetKey.of(key.getLabel(), depConfig));
         for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
           skyKeys.add(
-              AspectValue.createAspectKey(key.getLabel(), depConfig, aspectDescriptor, depConfig));
+              AspectValueKey.createAspectKey(
+                  key.getLabel(), depConfig, aspectDescriptor, depConfig));
         }
       }
       skyKeys.add(PackageValue.key(key.getLabel().getPackageIdentifier()));
@@ -1810,7 +1810,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
             SkyKey aspectKey =
-                AspectValue.createAspectKey(key.getLabel(), depConfig, aspectDescriptor, depConfig);
+                AspectValueKey.createAspectKey(
+                    key.getLabel(), depConfig, aspectDescriptor, depConfig);
             if (result.get(aspectKey) == null) {
               continue DependentNodeLoop;
             }

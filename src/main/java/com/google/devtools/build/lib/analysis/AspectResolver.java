@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -145,21 +147,25 @@ public final class AspectResolver {
     return result;
   }
 
-  private static AspectValue.AspectKey buildAspectKey(AspectCollection.AspectDeps aspectDeps,
-      HashMap<AspectDescriptor, SkyKey> result, Dependency dep) {
+  private static AspectKey buildAspectKey(
+      AspectCollection.AspectDeps aspectDeps,
+      HashMap<AspectDescriptor, SkyKey> result,
+      Dependency dep) {
     if (result.containsKey(aspectDeps.getAspect())) {
-      return (AspectValue.AspectKey) result.get(aspectDeps.getAspect()).argument();
+      return (AspectKey) result.get(aspectDeps.getAspect()).argument();
     }
 
-    ImmutableList.Builder<AspectValue.AspectKey> dependentAspects = ImmutableList.builder();
+    ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
     for (AspectCollection.AspectDeps path : aspectDeps.getDependentAspects()) {
       dependentAspects.add(buildAspectKey(path, result, dep));
     }
-    AspectValue.AspectKey aspectKey = AspectValue.createAspectKey(
-        dep.getLabel(), dep.getConfiguration(),
-        dependentAspects.build(),
-        aspectDeps.getAspect(),
-        dep.getAspectConfiguration(aspectDeps.getAspect()));
+    AspectKey aspectKey =
+        AspectValueKey.createAspectKey(
+            dep.getLabel(),
+            dep.getConfiguration(),
+            dependentAspects.build(),
+            aspectDeps.getAspect(),
+            dep.getAspectConfiguration(aspectDeps.getAspect()));
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }
