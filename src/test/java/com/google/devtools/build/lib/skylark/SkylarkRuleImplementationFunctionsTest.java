@@ -401,7 +401,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionBadGenericArg() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected type 'File' for 'outputs' element but got type 'string' instead",
+        "at index 0 of outputs, got element of type string, want File",
         "l = ['a', 'b']",
         "ruleContext.actions.run_shell(",
         "  outputs = l,",
@@ -841,7 +841,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadListGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected type 'File' for 'files' element but got type 'string' instead",
+        "at index 0 of files, got element of type string, want File",
         "ruleContext.runfiles(files = ['some string'])");
   }
 
@@ -857,16 +857,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadMapGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected type 'string' for 'symlinks' key but got type 'int' instead",
+        "got dict<int, File> for 'symlinks', want dict<string, File>",
         "ruleContext.runfiles(symlinks = {123: ruleContext.files.srcs[0]})");
     checkEvalErrorContains(
-        "expected type 'File' for 'symlinks' value but got type 'int' instead",
+        "got dict<string, int> for 'symlinks', want dict<string, File>",
         "ruleContext.runfiles(symlinks = {'some string': 123})");
     checkEvalErrorContains(
-        "expected type 'string' for 'root_symlinks' key but got type 'int' instead",
+        "got dict<int, File> for 'root_symlinks', want dict<string, File>",
         "ruleContext.runfiles(root_symlinks = {123: ruleContext.files.srcs[0]})");
     checkEvalErrorContains(
-        "expected type 'File' for 'root_symlinks' value but got type 'int' instead",
+        "got dict<string, int> for 'root_symlinks', want dict<string, File>",
         "ruleContext.runfiles(root_symlinks = {'some string': 123})");
   }
 

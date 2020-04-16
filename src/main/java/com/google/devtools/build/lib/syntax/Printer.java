@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Strings;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Formattable;
-import java.util.Formatter;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
@@ -130,28 +128,6 @@ public abstract class Printer {
   }
 
   private Printer() {}
-
-  /**
-   * Perform Python-style string formatting, lazily.
-   *
-   * @param pattern a format string.
-   * @param arguments positional arguments.
-   * @return the formatted string.
-   */
-  static Formattable formattable(final String pattern, Object... arguments) {
-    final List<Object> args = Arrays.asList(arguments);
-    return new Formattable() {
-      @Override
-      public String toString() {
-        return Starlark.formatWithList(pattern, args);
-      }
-
-      @Override
-      public void formatTo(Formatter formatter, int flags, int width, int precision) {
-        Printer.getPrinter(formatter.out()).formatWithList(pattern, args);
-      }
-    };
-  }
 
   /**
    * Append a char to a buffer. In case of {@link IOException} throw an {@link AssertionError}

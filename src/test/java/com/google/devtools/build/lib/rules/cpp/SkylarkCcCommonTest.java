@@ -2376,9 +2376,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.withFeatureSetFromSkylark(withFeatureSetProvider));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for features, got struct, want sequence");
   }
 
   @Test
@@ -2392,9 +2390,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.withFeatureSetFromSkylark(withFeatureSetProvider));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'not_features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for not_features, got struct, want sequence");
   }
 
   @Test
@@ -2410,7 +2406,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             EvalException.class, () -> CcModule.withFeatureSetFromSkylark(withFeatureSetProvider));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'features' element but got type 'struct' instead");
+        .contains("at index 0 of features, got element of type struct, want string");
   }
 
   @Test
@@ -2426,8 +2422,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             EvalException.class, () -> CcModule.withFeatureSetFromSkylark(withFeatureSetProvider));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "expected type 'string' for 'not_features' element but got type 'struct' instead");
+        .contains("at index 0 of not_features, got element of type struct, want string");
   }
 
   private void createCustomWithFeatureSetRule(String pkg, String features, String notFeatures)
@@ -2588,9 +2583,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("'env_entries' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for env_entries, got struct, want sequence");
   }
 
   @Test
@@ -2624,9 +2617,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("'with_features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for with_features, got string, want sequence");
   }
 
   @Test
@@ -3170,9 +3161,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "expected type 'string' for 'execution_requirements' "
-                + "element but got type 'struct' instead");
+        .contains("at index 0 of execution_requirements, got element of type struct, want string");
   }
 
   @Test
@@ -3245,9 +3234,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
               SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
               assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'with_features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for with_features, got struct, want sequence");
   }
 
   @Test
@@ -3280,8 +3267,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "llegal argument: 'execution_requirements' is not of expected type list or NoneType");
+        .contains("for execution_requirements, got string, want sequence");
   }
 
   @Test
@@ -3296,9 +3282,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "expected type 'string' for 'execution_requirements' "
-                + "element but got type 'struct' instead");
+        .contains("at index 0 of execution_requirements, got element of type struct, want string");
   }
 
   private void createCustomToolRule(
@@ -3359,7 +3343,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'actions' element but got type 'struct' instead");
+        .contains("at index 0 of actions, got element of type struct, want string");
   }
 
   @Test
@@ -3499,9 +3483,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(
             EvalException.class,
             () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'flag_groups' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for flag_groups, got struct, want sequence");
   }
 
   @Test
@@ -3517,9 +3499,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(
             EvalException.class,
             () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'with_features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for with_features, got struct, want sequence");
   }
 
   @Test
@@ -3535,9 +3515,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(
             EvalException.class,
             () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'actions' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for actions, got struct, want sequence");
   }
 
   private void createCustomFlagSetRule(
@@ -3669,7 +3647,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
+        .contains("at index 0 of implies, got element of type struct, want string");
   }
 
   @Test
@@ -3691,7 +3669,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
+        .contains("at index 0 of implies, got element of type struct, want string");
   }
 
   @Test
@@ -3843,9 +3821,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'tools' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for tools, got struct, want sequence");
   }
 
   @Test
@@ -3865,9 +3841,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'flag_sets' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for flag_sets, got bool, want sequence");
   }
 
   @Test
@@ -3887,9 +3861,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'implies' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for implies, got struct, want sequence");
   }
 
   private void createCustomActionConfigRule(
@@ -4040,7 +4012,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
+        .contains("at index 0 of implies, got element of type struct, want string");
   }
 
   @Test
@@ -4064,7 +4036,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'provides' element but got type 'struct' instead");
+        .contains("at index 0 of provides, got element of type struct, want string");
   }
 
   @Test
@@ -4226,9 +4198,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'flag_sets' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for flag_sets, got struct, want sequence");
   }
 
   @Test
@@ -4249,9 +4219,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'env_sets' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for env_sets, got struct, want sequence");
   }
 
   @Test
@@ -4272,9 +4240,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'requires' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for requires, got struct, want sequence");
   }
 
   @Test
@@ -4295,9 +4261,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'implies' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for implies, got struct, want sequence");
   }
 
   @Test
@@ -4318,9 +4282,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'provides' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for provides, got struct, want sequence");
   }
 
   @Test

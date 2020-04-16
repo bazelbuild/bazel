@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -70,6 +68,8 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
   // Arguments
 
+  // TODO(adonovan): opt: this class does a lot of redundant hashtable lookups.
+
   private static boolean containsNonNoneKey(Map<String, Object> arguments, String key) {
     return arguments.containsKey(key) && arguments.get(key) != Starlark.NONE;
   }
@@ -82,9 +82,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
     } else if (fileTypesObj instanceof Sequence) {
       ImmutableList<String> arg =
-          ImmutableList.copyOf(
-              Sequence.castSkylarkListOrNoneToList(
-                  fileTypesObj, String.class, "allow_files argument"));
+          ImmutableList.copyOf(Sequence.cast(fileTypesObj, String.class, "allow_files argument"));
       builder.allowedFileTypes(FileType.of(arg));
     } else {
       throw new EvalException(null, attr + " should be a boolean or a string list");
@@ -146,9 +144,11 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       }
     }
 
-    for (String flag :
-        Sequence.castSkylarkListOrNoneToList(arguments.get(FLAGS_ARG), String.class, FLAGS_ARG)) {
-      builder.setPropertyFlag(flag);
+    Object flagsArg = arguments.get(FLAGS_ARG);
+    if (flagsArg != null) {
+      for (String flag : Sequence.noneableCast(flagsArg, String.class, FLAGS_ARG)) {
+        builder.setPropertyFlag(flag);
+      }
     }
 
     if (containsNonNoneKey(arguments, MANDATORY_ARG) && (Boolean) arguments.get(MANDATORY_ARG)) {
@@ -220,21 +220,22 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     Object ruleClassesObj = arguments.get(ALLOW_RULES_ARG);
     if (ruleClassesObj != null && ruleClassesObj != Starlark.NONE) {
       builder.allowedRuleClasses(
-          Sequence.castSkylarkListOrNoneToList(
+          Sequence.cast(
               ruleClassesObj, String.class, "allowed rule classes for attribute definition"));
     }
 
-    List<Object> values =
-        Sequence.castSkylarkListOrNoneToList(arguments.get(VALUES_ARG), Object.class, VALUES_ARG);
-    if (!Iterables.isEmpty(values)) {
-      builder.allowedValues(new AllowedValueSet(values));
+    Object valuesArg = arguments.get(VALUES_ARG);
+    if (valuesArg != null) {
+      List<Object> values = Sequence.noneableCast(valuesArg, Object.class, VALUES_ARG);
+      if (!values.isEmpty()) {
+        builder.allowedValues(new AllowedValueSet(values));
+      }
     }
 
     if (containsNonNoneKey(arguments, PROVIDERS_ARG)) {
       Object obj = arguments.get(PROVIDERS_ARG);
-      SkylarkType.checkType(obj, Sequence.class, PROVIDERS_ARG);
       ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> providersList =
-          buildProviderPredicate((Sequence<?>) obj, PROVIDERS_ARG);
+          buildProviderPredicate(Sequence.cast(obj, Object.class, PROVIDERS_ARG), PROVIDERS_ARG);
 
       // If there is at least one empty set, there is no restriction.
       if (providersList.stream().noneMatch(ImmutableSet::isEmpty)) {
@@ -284,10 +285,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
       Object obj = arguments.get(ASPECTS_ARG);
-      SkylarkType.checkType(obj, Sequence.class, ASPECTS_ARG);
-
-      List<SkylarkAspect> aspects = ((Sequence<?>) obj).getContents(SkylarkAspect.class, "aspects");
-      for (SkylarkAspect aspect : aspects) {
+      for (SkylarkAspect aspect : Sequence.cast(obj, SkylarkAspect.class, "aspects")) {
         aspect.attachToAttribute(builder);
       }
     }

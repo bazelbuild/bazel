@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -84,16 +83,17 @@ public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
     private static NestedSet<Artifact> getBootClassPath(Sequence<?> bootClassPathList)
         throws EvalException {
       return NestedSetBuilder.wrap(
-          Order.STABLE_ORDER,
-          Sequence.castList(bootClassPathList, Artifact.class, "bootclasspath"));
+          Order.STABLE_ORDER, Sequence.cast(bootClassPathList, Artifact.class, "bootclasspath"));
     }
 
     private static Artifact getSystem(Object systemOrNone) throws EvalException {
       if (systemOrNone == Starlark.NONE) {
         return null;
       }
-      SkylarkType.checkType(systemOrNone, Artifact.class, "system");
-      return (Artifact) systemOrNone;
+      if (systemOrNone instanceof Artifact) {
+        return (Artifact) systemOrNone;
+      }
+      throw Starlark.errorf("for system, got %s, want File or None", Starlark.type(systemOrNone));
     }
   }
 

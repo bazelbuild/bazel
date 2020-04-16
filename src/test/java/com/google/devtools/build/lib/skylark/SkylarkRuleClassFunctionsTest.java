@@ -401,7 +401,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLabelListWithAspectsError() throws Exception {
     checkEvalErrorContains(
-        "expected type 'Aspect' for 'aspects' element but got type 'int' instead",
+        "at index 0 of aspects, got element of type int, want Aspect",
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(implementation = _impl)",

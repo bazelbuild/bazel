@@ -234,7 +234,7 @@ public final class DepsetTest extends EvaluationTestCase {
   public void testItemsAndTransitive() throws Exception {
     new Scenario()
         .testIfExactError(
-            "expected type 'sequence' for items but got type 'depset' instead",
+            "for items, got depset, want sequence",
             "depset(items = depset(), transitive = [depset()])");
   }
 

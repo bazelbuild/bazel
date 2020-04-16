@@ -36,7 +36,6 @@ import javax.annotation.Nullable;
 public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, SkylarkRuleContext> {
 
   @Override
-  @SuppressWarnings("unchecked") // Casting extensions param is verified by Starlark interpreter.
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
       SkylarkRuleContext skylarkRuleContext,
       Sequence<?> sourceAttributes, // <String>
@@ -44,14 +43,12 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, Sk
       Object extensions)
       throws EvalException {
     List<String> extensionsList =
-        extensions == Starlark.NONE
-            ? null
-            : Sequence.castList((List<?>) extensions, String.class, "extensions");
+        extensions == Starlark.NONE ? null : Sequence.cast(extensions, String.class, "extensions");
 
     return createInstrumentedFilesInfo(
         skylarkRuleContext.getRuleContext(),
-        sourceAttributes.getContents(String.class, "source_attributes"),
-        dependencyAttributes.getContents(String.class, "dependency_attributes"),
+        Sequence.cast(sourceAttributes, String.class, "source_attributes"),
+        Sequence.cast(dependencyAttributes, String.class, "dependency_attributes"),
         extensionsList);
   }
 

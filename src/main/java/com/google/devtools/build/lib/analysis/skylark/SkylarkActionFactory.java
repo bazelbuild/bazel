@@ -200,7 +200,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         inputs instanceof Depset
             ? ((Depset) inputs).getSetFromParam(Artifact.class, "inputs")
             : NestedSetBuilder.<Artifact>compileOrder()
-                .addAll(((Sequence<?>) inputs).getContents(Artifact.class, "inputs"))
+                .addAll(Sequence.cast(inputs, Artifact.class, "inputs"))
                 .build();
     Action action =
         new PseudoAction<>(
@@ -404,7 +404,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       if (argumentList.size() > 0) {
         throw Starlark.errorf("'arguments' must be empty if 'command' is a sequence of strings");
       }
-      List<String> command = commandList.getContents(String.class, "command");
+      List<String> command = Sequence.cast(commandList, String.class, "command");
       builder.setShellCommand(command);
     } else {
       throw new EvalException(
@@ -479,7 +479,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       throws EvalException {
     Iterable<Artifact> inputArtifacts;
     if (inputs instanceof Sequence) {
-      inputArtifacts = ((Sequence<?>) inputs).getContents(Artifact.class, "inputs");
+      inputArtifacts = Sequence.cast(inputs, Artifact.class, "inputs");
       builder.addInputs(inputArtifacts);
     } else {
       NestedSet<Artifact> inputSet = ((Depset) inputs).getSetFromParam(Artifact.class, "inputs");
@@ -487,7 +487,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       inputArtifacts = inputSet.toList();
     }
 
-    List<Artifact> outputArtifacts = outputs.getContents(Artifact.class, "outputs");
+    List<Artifact> outputArtifacts = Sequence.cast(outputs, Artifact.class, "outputs");
     if (outputArtifacts.isEmpty()) {
       throw Starlark.errorf("param 'outputs' may not be empty");
     }
@@ -513,7 +513,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     if (toolsUnchecked != Starlark.UNBOUND) {
       Iterable<?> toolsIterable;
       if (toolsUnchecked instanceof Sequence) {
-        toolsIterable = ((Sequence<?>) toolsUnchecked).getContents(Object.class, "tools");
+        toolsIterable = Sequence.cast(toolsUnchecked, Object.class, "tools");
       } else {
         toolsIterable = ((Depset) toolsUnchecked).getSet().toList();
       }
@@ -583,8 +583,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     builder.setMnemonic(mnemonic);
     if (envUnchecked != Starlark.NONE) {
       builder.setEnvironment(
-          ImmutableMap.copyOf(
-              Dict.castSkylarkDictOrNoneToDict(envUnchecked, String.class, String.class, "env")));
+          ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env")));
     }
     if (progressMessage != Starlark.NONE) {
       builder.setProgressMessageNonLazy((String) progressMessage);
@@ -602,8 +601,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
     if (inputManifestsUnchecked != Starlark.NONE) {
       for (RunfilesSupplier supplier :
-          Sequence.castSkylarkListOrNoneToList(
-              inputManifestsUnchecked, RunfilesSupplier.class, "runfiles suppliers")) {
+          Sequence.cast(inputManifestsUnchecked, RunfilesSupplier.class, "runfiles suppliers")) {
         builder.addRunfilesSupplier(supplier);
       }
     }
@@ -630,9 +628,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     context.checkMutable("actions.expand_template");
     ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
     for (Map.Entry<String, String> substitution :
-        substitutionsUnchecked
-            .getContents(String.class, String.class, "substitutions")
-            .entrySet()) {
+        Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
       // ParserInput.create(Path) uses Latin1 when reading BUILD files, which might
       // contain UTF-8 encoded symbols as part of template substitution.
       // As a quick fix, the substitution values are corrected before being passed on.

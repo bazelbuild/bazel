@@ -723,7 +723,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     checkMutable("expand");
     try {
       Map<Label, Iterable<Artifact>> labelMap = new HashMap<>();
-      for (Artifact artifact : artifacts.getContents(Artifact.class, "artifacts")) {
+      for (Artifact artifact : Sequence.cast(artifacts, Artifact.class, "artifacts")) {
         labelMap.put(artifactsLabelMap.get(artifact), ImmutableList.of(artifact));
       }
       return LabelExpander.expand(expression, labelMap, labelResolver);
@@ -802,7 +802,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     checkMutable("check_placeholders");
     List<String> actualPlaceHolders = new LinkedList<>();
     Set<String> allowedPlaceholderSet =
-        ImmutableSet.copyOf(allowedPlaceholders.getContents(String.class, "allowed_placeholders"));
+        ImmutableSet.copyOf(
+            Sequence.cast(allowedPlaceholders, String.class, "allowed_placeholders"));
     ImplicitOutputsFunction.createPlaceholderSubstitutionFormatString(template, actualPlaceHolders);
     for (String placeholder : actualPlaceHolders) {
       if (!allowedPlaceholderSet.contains(placeholder)) {
@@ -818,7 +819,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       throws EvalException {
     checkMutable("expand_make_variables");
     final Map<String, String> additionalSubstitutionsMap =
-        additionalSubstitutions.getContents(String.class, String.class, "additional_substitutions");
+        Dict.cast(additionalSubstitutions, String.class, String.class, "additional_substitutions");
     return expandMakeVariables(attributeName, command, additionalSubstitutionsMap);
   }
 
@@ -936,7 +937,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     try {
       return LocationExpander.withExecPaths(
               getRuleContext(),
-              makeLabelMap(targets.getContents(TransitiveInfoCollection.class, "targets")))
+              makeLabelMap(Sequence.cast(targets, TransitiveInfoCollection.class, "targets")))
           .expand(input);
     } catch (IllegalStateException ise) {
       throw new EvalException(null, ise);
@@ -997,7 +998,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       builder.addRunfiles(getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
-      builder.addArtifacts(files.getContents(Artifact.class, "files"));
+      builder.addArtifacts(Sequence.cast(files, Artifact.class, "files"));
     }
     if (transitiveFiles != Starlark.NONE) {
       builder.addTransitiveArtifacts(
@@ -1007,14 +1008,14 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
-          symlinks.getContents(String.class, Artifact.class, "symlinks").entrySet()) {
+          Dict.cast(symlinks, String.class, Artifact.class, "symlinks").entrySet()) {
         builder.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
       }
     }
     if (!rootSymlinks.isEmpty()) {
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
-          rootSymlinks.getContents(String.class, Artifact.class, "root_symlinks").entrySet()) {
+          Dict.cast(rootSymlinks, String.class, Artifact.class, "root_symlinks").entrySet()) {
         builder.addRootSymlink(PathFragment.create(entry.getKey()), entry.getValue());
       }
     }
@@ -1042,7 +1043,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     // The best way to fix this probably is to convert CommandHelper to Starlark.
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
-            .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
+            .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .addLabelMap(labelDict)
             .build();
     String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute", ruleLabel);
@@ -1063,7 +1064,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
 
     ImmutableMap<String, String> executionRequirements =
         ImmutableMap.copyOf(
-            Dict.castSkylarkDictOrNoneToDict(
+            Dict.noneableCast(
                 executionRequirementsUnchecked,
                 String.class,
                 String.class,
@@ -1089,7 +1090,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     checkMutable("resolve_tools");
     CommandHelper helper =
         CommandHelper.builder(getRuleContext())
-            .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
+            .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .build();
     return Tuple.<Object>of(
         Depset.of(Artifact.TYPE, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());

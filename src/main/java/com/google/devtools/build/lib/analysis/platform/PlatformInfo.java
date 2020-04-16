@@ -80,11 +80,12 @@ public class PlatformInfo extends NativeInfo
       }
       if (!constraintValuesUnchecked.isEmpty()) {
         builder.addConstraints(
-            constraintValuesUnchecked.getContents(ConstraintValueInfo.class, "constraint_values"));
+            Sequence.cast(
+                constraintValuesUnchecked, ConstraintValueInfo.class, "constraint_values"));
       }
       if (execPropertiesUnchecked != null) {
-        Map<String, String> execProperties =
-            Dict.castSkylarkDictOrNoneToDict(
+        Dict<String, String> execProperties =
+            Dict.noneableCast(
                 execPropertiesUnchecked, String.class, String.class, "exec_properties");
         builder.setExecProperties(ImmutableMap.copyOf(execProperties));
       }

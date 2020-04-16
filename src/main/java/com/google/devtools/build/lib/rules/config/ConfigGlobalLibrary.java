@@ -48,8 +48,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       StarlarkThread thread)
       throws EvalException {
     StarlarkSemantics semantics = thread.getSemantics();
-    List<String> inputsList = inputs.getContents(String.class, "inputs");
-    List<String> outputsList = outputs.getContents(String.class, "outputs");
+    List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
+    List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
     validateBuildSettingKeys(
         inputsList, Settings.INPUTS, semantics.experimentalStarlarkConfigTransitions());
     validateBuildSettingKeys(
@@ -64,7 +64,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       StarlarkThread thread)
       throws EvalException {
     Map<String, Object> changedSettingsMap =
-        changedSettings.getContents(String.class, Object.class, "changed_settings dict");
+        Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
     validateBuildSettingKeys(changedSettingsMap.keySet(), Settings.OUTPUTS, true);
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
         changedSettingsMap, thread.getCallerLocation());

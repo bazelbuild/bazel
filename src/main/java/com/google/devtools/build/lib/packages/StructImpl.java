@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.protobuf.TextFormat;
 import java.util.ArrayList;
@@ -83,8 +82,15 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     if (obj == null) {
       return null;
     }
-    SkylarkType.checkType(obj, type, key);
-    return type.cast(obj);
+    try {
+      return type.cast(obj);
+    } catch (
+        @SuppressWarnings("UnusedException")
+        ClassCastException unused) {
+      throw Starlark.errorf(
+          "for %s field, got %s, want %s",
+          key, Starlark.type(obj), EvalUtils.getDataTypeNameFromClass(type));
+    }
   }
 
   /**

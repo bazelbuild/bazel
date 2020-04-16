@@ -80,7 +80,7 @@ public abstract class AndroidSkylarkData
     // We assume this is an analysis-phase thread.
     Label label = BazelStarlarkContext.from(thread).getAnalysisRuleLabel();
     return AssetDependencies.fromProviders(
-            deps.getContents(AndroidAssetsInfo.class, "deps"), neverlink)
+            Sequence.cast(deps, AndroidAssetsInfo.class, "deps"), neverlink)
         .toInfo(label);
   }
 
@@ -98,10 +98,10 @@ public abstract class AndroidSkylarkData
               ctx,
               DataBinding.getDisabledDataBindingContext(ctx),
               ResourceDependencies.fromProviders(
-                  deps.getContents(AndroidResourcesInfo.class, "deps"),
+                  Sequence.cast(deps, AndroidResourcesInfo.class, "deps"),
                   /* neverlink = */ neverlink),
               AssetDependencies.fromProviders(
-                  assets.getContents(AndroidAssetsInfo.class, "assets"),
+                  Sequence.cast(assets, AndroidAssetsInfo.class, "assets"),
                   /* neverlink = */ neverlink),
               StampedAndroidManifest.createEmpty(
                   ctx.getActionConstructionContext(), customPackage, /* exported = */ false))
@@ -140,12 +140,12 @@ public abstract class AndroidSkylarkData
     try {
       return AndroidAssets.from(
               errorReporter,
-              listFromNoneable(assets, ConfiguredTarget.class),
-              isNone(assetsDir) ? null : PathFragment.create(fromNoneable(assetsDir, String.class)))
+              isNone(assets) ? null : Sequence.cast(assets, ConfiguredTarget.class, "assets"),
+              isNone(assetsDir) ? null : PathFragment.create((String) assetsDir))
           .process(
               ctx,
               AssetDependencies.fromProviders(
-                  deps.getContents(AndroidAssetsInfo.class, "deps"), neverlink))
+                  Sequence.cast(deps, AndroidAssetsInfo.class, "deps"), neverlink))
           .toProvider();
     } catch (RuleErrorException e) {
       throw handleRuleException(errorReporter, e);
@@ -165,13 +165,13 @@ public abstract class AndroidSkylarkData
     try {
       return AndroidResources.from(
               errorReporter,
-              getFileProviders(resources.getContents(ConfiguredTarget.class, "resources")),
+              getFileProviders(Sequence.cast(resources, ConfiguredTarget.class, "resources")),
               "resources")
           .process(
               ctx,
               manifest.asStampedManifest(),
               ResourceDependencies.fromProviders(
-                  deps.getContents(AndroidResourcesInfo.class, "deps"), neverlink),
+                  Sequence.cast(deps, AndroidResourcesInfo.class, "deps"), neverlink),
               DataBinding.contextFrom(
                   enableDataBinding, ctx.getActionConstructionContext(), ctx.getAndroidConfig()));
     } catch (RuleErrorException e) {
@@ -250,8 +250,9 @@ public abstract class AndroidSkylarkData
             resourcesInfo.getRTxt(),
             libraryClassJar,
             ImmutableList.copyOf(
-                localProguardSpecs.getContents(Artifact.class, "local_proguard_specs")))
-        .toProvider(deps.getContents(AndroidLibraryAarInfo.class, "deps"), definesLocalResources);
+                Sequence.cast(localProguardSpecs, Artifact.class, "local_proguard_specs")))
+        .toProvider(
+            Sequence.cast(deps, AndroidLibraryAarInfo.class, "deps"), definesLocalResources);
   }
 
   @Override
@@ -262,7 +263,7 @@ public abstract class AndroidSkylarkData
       Artifact androidManifestArtifact,
       Sequence<?> deps) // <ConfiguredTarget>
       throws InterruptedException, EvalException {
-    List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
+    List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
 
     ValidatedAndroidResources validatedResources =
         AndroidResources.forAarImport(resources)
@@ -303,7 +304,7 @@ public abstract class AndroidSkylarkData
       Sequence<?> densities) // <String>)
       throws InterruptedException, EvalException {
     SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
-    List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
+    List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
 
     try {
       AndroidManifest rawManifest =
@@ -323,11 +324,12 @@ public abstract class AndroidSkylarkData
               rawManifest,
               AndroidResources.from(
                   errorReporter,
-                  getFileProviders(resources.getContents(ConfiguredTarget.class, "resource_files")),
+                  getFileProviders(
+                      Sequence.cast(resources, ConfiguredTarget.class, "resource_files")),
                   "resource_files"),
               AndroidAssets.from(
                   errorReporter,
-                  listFromNoneable(assets, ConfiguredTarget.class),
+                  isNone(assets) ? null : Sequence.cast(assets, ConfiguredTarget.class, "assets"),
                   isNone(assetsDir)
                       ? null
                       : PathFragment.create(fromNoneable(assetsDir, String.class))),
@@ -336,12 +338,12 @@ public abstract class AndroidSkylarkData
                   /* neverlink = */ false),
               AssetDependencies.fromProviders(
                   getProviders(depsTargets, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
-              manifestValues.getContents(String.class, String.class, "manifest_values"),
-              noCompressExtensions.getContents(String.class, "nocompress_extensions"),
+              Dict.cast(manifestValues, String.class, String.class, "manifest_values"),
+              Sequence.cast(noCompressExtensions, String.class, "nocompress_extensions"),
               ResourceFilterFactory.from(
-                  resourceConfigurationFilters.getContents(
-                      String.class, "resource_configuration_filters"),
-                  densities.getContents(String.class, "densities")));
+                  Sequence.cast(
+                      resourceConfigurationFilters, String.class, "resource_configuration_filters"),
+                  Sequence.cast(densities, String.class, "densities")));
 
       ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
       builder.putAll(getNativeInfosFrom(resourceApk, ctx.getLabel()));
@@ -380,11 +382,11 @@ public abstract class AndroidSkylarkData
         fromNoneableOrDefault(
             shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
         ResourceFilterFactory.from(
-            resourceConfigurationFilters.getContents(
-                String.class, "resource_configuration_filters"),
-            densities.getContents(String.class, "densities")),
+            Sequence.cast(
+                resourceConfigurationFilters, String.class, "resource_configuration_filters"),
+            Sequence.cast(densities, String.class, "densities")),
         ImmutableList.copyOf(
-            noCompressExtensions.getContents(String.class, "nocompress_extensions")));
+            Sequence.cast(noCompressExtensions, String.class, "nocompress_extensions")));
   }
 
   @Override
@@ -433,9 +435,9 @@ public abstract class AndroidSkylarkData
       boolean dataBindingEnabled)
       throws InterruptedException, EvalException {
     SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
-    List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
+    List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
     Map<String, String> manifestValueMap =
-        manifestValues.getContents(String.class, String.class, "manifest_values");
+        Dict.cast(manifestValues, String.class, String.class, "manifest_values");
 
     try {
       BinaryDataSettings settings =
@@ -475,14 +477,14 @@ public abstract class AndroidSkylarkData
                   AndroidResources.from(
                       errorReporter,
                       getFileProviders(
-                          resources.getContents(ConfiguredTarget.class, "resource_files")),
+                          Sequence.cast(resources, ConfiguredTarget.class, "resource_files")),
                       "resource_files"),
                   AndroidAssets.from(
                       errorReporter,
-                      listFromNoneable(assets, ConfiguredTarget.class),
-                      isNone(assetsDir)
+                      isNone(assets)
                           ? null
-                          : PathFragment.create(fromNoneable(assetsDir, String.class))),
+                          : Sequence.cast(assets, ConfiguredTarget.class, "assets"),
+                      isNone(assetsDir) ? null : PathFragment.create((String) assetsDir)),
                   resourceDeps,
                   AssetDependencies.fromProviders(
                       getProviders(depsTargets, AndroidAssetsInfo.PROVIDER),
@@ -522,7 +524,7 @@ public abstract class AndroidSkylarkData
     BinaryDataSettings settings =
         fromNoneableOrDefault(
             maybeSettings, BinaryDataSettings.class, defaultBinaryDataSettings(ctx));
-    List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
+    List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
 
     if (!settings.shrinkResources) {
       return binaryDataInfo;
@@ -535,9 +537,9 @@ public abstract class AndroidSkylarkData
             binaryDataInfo.getResourceProguardConfig(),
             binaryDataInfo.getManifestInfo().getManifest(),
             filesFromConfiguredTargets(
-                localProguardSpecs.getContents(ConfiguredTarget.class, "proguard_specs")),
+                Sequence.cast(localProguardSpecs, ConfiguredTarget.class, "proguard_specs")),
             filesFromConfiguredTargets(
-                extraProguardSpecs.getContents(ConfiguredTarget.class, "extra_proguard_specs")),
+                Sequence.cast(extraProguardSpecs, ConfiguredTarget.class, "extra_proguard_specs")),
             getProviders(depsTargets, ProguardSpecProvider.PROVIDER));
 
     // TODO(asteinb): There should never be more than one direct resource exposed in the provider.
@@ -644,22 +646,6 @@ public abstract class AndroidSkylarkData
     }
 
     return value;
-  }
-
-  /**
-   * Converts a "Noneable" Object passed by Starlark to a List of the appropriate type.
-   *
-   * <p>This first calls {@link #fromNoneable(Object, Class)} to get a Sequence<?>, then safely
-   * casts it to a list with the appropriate generic.
-   */
-  @Nullable
-  public static <T> List<T> listFromNoneable(Object object, Class<T> clazz) throws EvalException {
-    Sequence<?> asList = fromNoneable(object, Sequence.class);
-    if (asList == null) {
-      return null;
-    }
-
-    return Sequence.castList(asList, clazz, null);
   }
 
   private static ImmutableList<Artifact> filesFromConfiguredTargets(

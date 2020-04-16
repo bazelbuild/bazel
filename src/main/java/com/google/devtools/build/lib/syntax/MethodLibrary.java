@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -928,8 +927,8 @@ class MethodLibrary {
       result =
           Depset.fromDirectAndTransitive(
               order,
-              listFromNoneable(direct, Object.class, "direct"),
-              listFromNoneable(transitive, Depset.class, "transitive"),
+              Sequence.noneableCast(direct, Object.class, "direct"),
+              Sequence.noneableCast(transitive, Depset.class, "transitive"),
               semantics.incompatibleAlwaysCheckDepsetElements());
     } else {
       if (x != Starlark.NONE) {
@@ -956,16 +955,6 @@ class MethodLibrary {
     return result;
   }
 
-  private static <T> List<T> listFromNoneable(
-      Object listOrNone, Class<T> objectType, String paramName) throws EvalException {
-    if (listOrNone != Starlark.NONE) {
-      SkylarkType.checkType(listOrNone, Sequence.class, paramName);
-      return ((Sequence<?>) listOrNone).getContents(objectType, paramName);
-    } else {
-      return ImmutableList.of();
-    }
-  }
-
   private static Depset legacyDepsetConstructor(
       Object items, Order order, Object direct, Object transitive, StarlarkSemantics semantics)
       throws EvalException {
@@ -981,22 +970,13 @@ class MethodLibrary {
     }
 
     // Non-legacy behavior: either 'transitive' or 'direct' were specified.
-    List<Object> directElements;
-    if (direct != Starlark.NONE) {
-      SkylarkType.checkType(direct, Sequence.class, "direct");
-      directElements = ((Sequence<?>) direct).getContents(Object.class, "direct");
-    } else {
-      SkylarkType.checkType(items, Sequence.class, "items");
-      directElements = ((Sequence<?>) items).getContents(Object.class, "items");
-    }
+    List<Object> directElements =
+        direct != Starlark.NONE
+            ? Sequence.cast(direct, Object.class, "direct")
+            : Sequence.cast(items, Object.class, "items");
 
-    List<Depset> transitiveList;
-    if (transitive != Starlark.NONE) {
-      SkylarkType.checkType(transitive, Sequence.class, "transitive");
-      transitiveList = ((Sequence<?>) transitive).getContents(Depset.class, "transitive");
-    } else {
-      transitiveList = ImmutableList.of();
-    }
+    List<Depset> transitiveList = Sequence.noneableCast(transitive, Depset.class, "transitive");
+
     return Depset.fromDirectAndTransitive(
         order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
   }

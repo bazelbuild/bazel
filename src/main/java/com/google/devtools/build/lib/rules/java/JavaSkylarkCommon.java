@@ -79,26 +79,32 @@ public class JavaSkylarkCommon
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
             skylarkRuleContext,
-            sourceJars.getContents(Artifact.class, "source_jars"),
-            sourceFiles.getContents(Artifact.class, "source_files"),
+            Sequence.cast(sourceJars, Artifact.class, "source_jars"),
+            Sequence.cast(sourceFiles, Artifact.class, "source_files"),
             outputJar,
             outputSourceJar == Starlark.NONE ? null : (Artifact) outputSourceJar,
-            javacOpts.getContents(String.class, "javac_opts"),
-            deps.getContents(JavaInfo.class, "deps"),
-            experimentalLocalCompileTimeDeps.getContents(
-                JavaInfo.class, "experimental_local_compile_time_deps"),
-            exports.getContents(JavaInfo.class, "exports"),
-            plugins.getContents(JavaInfo.class, "plugins"),
-            exportedPlugins.getContents(JavaInfo.class, "exported_plugins"),
-            annotationProcessorAdditionalInputs.getContents(
-                Artifact.class, "annotation_processor_additional_inputs"),
-            annotationProcessorAdditionalOutputs.getContents(
-                Artifact.class, "annotation_processor_additional_outputs"),
+            Sequence.cast(javacOpts, String.class, "javac_opts"),
+            Sequence.cast(deps, JavaInfo.class, "deps"),
+            Sequence.cast(
+                experimentalLocalCompileTimeDeps,
+                JavaInfo.class,
+                "experimental_local_compile_time_deps"),
+            Sequence.cast(exports, JavaInfo.class, "exports"),
+            Sequence.cast(plugins, JavaInfo.class, "plugins"),
+            Sequence.cast(exportedPlugins, JavaInfo.class, "exported_plugins"),
+            Sequence.cast(
+                annotationProcessorAdditionalInputs,
+                Artifact.class,
+                "annotation_processor_additional_inputs"),
+            Sequence.cast(
+                annotationProcessorAdditionalOutputs,
+                Artifact.class,
+                "annotation_processor_additional_outputs"),
             strictDepsMode,
             javaToolchain,
             hostJavabase,
-            ImmutableList.copyOf(sourcepathEntries.getContents(Artifact.class, "sourcepath")),
-            resources.getContents(Artifact.class, "resources"),
+            ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
+            Sequence.cast(resources, Artifact.class, "resources"),
             neverlink,
             javaSemantics,
             thread);
@@ -140,8 +146,8 @@ public class JavaSkylarkCommon
             actions,
             outputJar,
             /* outputSourceJar= */ null,
-            sourceFiles.getContents(Artifact.class, "sources"),
-            sourceJars.getContents(Artifact.class, "source_jars"),
+            Sequence.cast(sourceFiles, Artifact.class, "sources"),
+            Sequence.cast(sourceJars, Artifact.class, "source_jars"),
             javaToolchain,
             hostJavabase);
   }
@@ -158,7 +164,7 @@ public class JavaSkylarkCommon
   @Override
   public JavaInfo mergeJavaProviders(Sequence<?> providers /* <JavaInfo> expected. */)
       throws EvalException {
-    return JavaInfo.merge(providers.getContents(JavaInfo.class, "providers"));
+    return JavaInfo.merge(Sequence.cast(providers, JavaInfo.class, "providers"));
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.

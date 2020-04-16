@@ -63,7 +63,7 @@ public final class MessageBundleInfo extends NativeInfo implements StarlarkValue
         useStarlarkThread = true)
     public MessageBundleInfo messageBundleInfo(Sequence<?> messages, StarlarkThread thread)
         throws EvalException {
-      List<Artifact> messagesList = Sequence.castList(messages, Artifact.class, "messages");
+      List<Artifact> messagesList = Sequence.cast(messages, Artifact.class, "messages");
       return new MessageBundleInfo(ImmutableList.copyOf(messagesList), thread.getCallerLocation());
     }
   }

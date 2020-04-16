@@ -24,7 +24,6 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
@@ -89,7 +88,6 @@ import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -253,27 +251,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
   @Override
   public Provider provider(String doc, Object fields, StarlarkThread thread) throws EvalException {
-    Collection<String> fieldNames = null;
-    if (fields instanceof Sequence) {
-      @SuppressWarnings("unchecked")
-      Sequence<String> list =
-          (Sequence<String>)
-              SkylarkType.cast(
-                  fields,
-                  Sequence.class,
-                  String.class,
-                  null,
-                  "Expected list of strings or dictionary of string -> string for 'fields'");
-      fieldNames = list;
-    } else if (fields instanceof Dict) {
-      Map<String, String> dict =
-          SkylarkType.castMap(
-              fields,
-              String.class,
-              String.class,
-              "Expected list of strings or dictionary of string -> string for 'fields'");
-      fieldNames = dict.keySet();
-    }
+    Collection<String> fieldNames =
+        fields instanceof Sequence
+            ? Sequence.cast(fields, String.class, "fields")
+            : fields instanceof Dict
+                ? Dict.cast(fields, String.class, String.class, "fields").keySet()
+                : null;
     return SkylarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
   }
 
@@ -345,7 +328,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         builder.setImplicitOutputsFunction(
             new SkylarkImplicitOutputsFunctionWithMap(
                 ImmutableMap.copyOf(
-                    castMap(
+                    Dict.cast(
                         implicitOutputs,
                         String.class,
                         String.class,
@@ -358,10 +341,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     builder.requiresConfigurationFragmentsBySkylarkModuleName(
-        fragments.getContents(String.class, "fragments"));
+        Sequence.cast(fragments, String.class, "fragments"));
     ConfigAwareRuleClassBuilder.of(builder)
         .requiresHostConfigurationFragmentsBySkylarkModuleName(
-            hostFragments.getContents(String.class, "host_fragments"));
+            Sequence.cast(hostFragments, String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
@@ -370,7 +353,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
 
     if (execGroups != Starlark.NONE) {
-      builder.addExecGroups(castMap(execGroups, String.class, ExecGroup.class, "exec_group"));
+      builder.addExecGroups(Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group"));
     }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
@@ -423,7 +406,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
     if (attrs != Starlark.NONE) {
       for (Map.Entry<String, Descriptor> attr :
-          castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
+          Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
         AttributeValueSource source = attrDescriptor.getValueSource();
         checkAttributeName(attr.getKey());
@@ -472,7 +455,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   private static ImmutableList<Label> parseToolchains(Sequence<?> inputs, StarlarkThread thread)
       throws EvalException {
     return parseLabels(
-        inputs.getContents(String.class, "toolchains"),
+        Sequence.cast(inputs, String.class, "toolchains"),
         BazelStarlarkContext.from(thread).getRepoMapping(),
         "toolchain");
   }
@@ -480,7 +463,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   private static ImmutableList<Label> parseExecCompatibleWith(
       Sequence<?> inputs, StarlarkThread thread) throws EvalException {
     return parseLabels(
-        inputs.getContents(String.class, "exec_compatible_with"),
+        Sequence.cast(inputs, String.class, "exec_compatible_with"),
         BazelStarlarkContext.from(thread).getRepoMapping(),
         "constraint");
   }
@@ -576,9 +559,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         SkylarkAttr.buildProviderPredicate(requiredAspectProvidersArg, "required_aspect_providers"),
         SkylarkAttr.getSkylarkProviderIdentifiers(providesArg),
         requiredParams.build(),
-        ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
+        ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
         HostTransition.INSTANCE,
-        ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
+        ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
         parseToolchains(toolchains, thread),
         applyToGeneratingRules);
   }

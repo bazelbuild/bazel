@@ -930,10 +930,7 @@ final class StringModule implements StarlarkValue {
     if (sub instanceof String) {
       return str.endsWith((String) sub);
     }
-
-    @SuppressWarnings("unchecked")
-    Tuple<Object> subs = (Tuple<Object>) sub;
-    for (String s : subs.getContents(String.class, "string")) {
+    for (String s : Sequence.cast(sub, String.class, "sub")) {
       if (str.endsWith(s)) {
         return true;
       }
@@ -980,7 +977,7 @@ final class StringModule implements StarlarkValue {
     @SuppressWarnings("unchecked")
     List<Object> argObjects = (List<Object>) args.getImmutableList();
     return new FormatParser()
-        .format(self, argObjects, kwargs.getContents(String.class, Object.class, "kwargs"));
+        .format(self, argObjects, Dict.cast(kwargs, String.class, Object.class, "kwargs"));
   }
 
   @SkylarkCallable(
@@ -1016,10 +1013,7 @@ final class StringModule implements StarlarkValue {
     if (sub instanceof String) {
       return str.startsWith((String) sub);
     }
-
-    @SuppressWarnings("unchecked")
-    Tuple<Object> subs = (Tuple<Object>) sub;
-    for (String s : subs.getContents(String.class, "string")) {
+    for (String s : Sequence.cast(sub, String.class, "sub")) {
       if (str.startsWith(s)) {
         return true;
       }

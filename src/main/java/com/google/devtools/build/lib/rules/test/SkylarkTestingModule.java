@@ -25,13 +25,13 @@ public class SkylarkTestingModule implements TestingModuleApi {
   @Override
   public ExecutionInfo executionInfo(Dict<?, ?> requirements /* <String, String> */)
       throws EvalException {
-    return new ExecutionInfo(requirements.getContents(String.class, String.class, "requirements"));
+    return new ExecutionInfo(Dict.cast(requirements, String.class, String.class, "requirements"));
   }
 
   @Override
   public TestEnvironmentInfo testEnvironment(Dict<?, ?> environment /* <String, String> */)
       throws EvalException {
     return new TestEnvironmentInfo(
-        environment.getContents(String.class, String.class, "environment"));
+        Dict.cast(environment, String.class, String.class, "environment"));
   }
 }

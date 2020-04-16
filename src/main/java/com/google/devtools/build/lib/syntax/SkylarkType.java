@@ -19,16 +19,13 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -595,108 +592,11 @@ public abstract class SkylarkType {
     }
   }
 
-  // Utility functions regarding types
-
   private static SkylarkType getGenericArgType(Object value) {
     if (value instanceof Depset) {
       return ((Depset) value).getContentType();
     } else {
       return TOP;
     }
-  }
-
-  /**
-   * General purpose type-casting facility.
-   *
-   * @param value - the actual value of the parameter
-   * @param type - the expected Class for the value
-   * @param loc - the location info used in the EvalException
-   * @param format - a String.format-style format string
-   * @param args - arguments to format, in case there's an exception
-   */
-  // TODO(adonovan): irrelevant; eliminate.
-  @FormatMethod
-  public static <T> T cast(Object value, Class<T> type, Location loc, String format, Object... args)
-      throws EvalException {
-    try {
-      return type.cast(value);
-    } catch (ClassCastException e) {
-      throw new EvalException(loc, String.format(format, args));
-    }
-  }
-
-  /**
-   * General purpose type-casting facility.
-   *
-   * @param value - the actual value of the parameter
-   * @param genericType - a generic class of one argument for the value
-   * @param argType - a covariant argument for the generic class
-   * @param loc - the location info used in the EvalException
-   * @param format - a format String
-   * @param args - arguments to format, in case there's an exception
-   */
-  @SuppressWarnings("unchecked")
-  @FormatMethod
-  public static <T> T cast(
-      Object value,
-      Class<T> genericType,
-      Class<?> argType,
-      Location loc,
-      String format,
-      Object... args)
-      throws EvalException {
-    if (of(genericType, argType).contains(value)) {
-      return (T) value;
-    } else {
-      throw new EvalException(loc, String.format(format, args));
-    }
-  }
-
-  /**
-   * Cast a Map object into an Iterable of Map entries of the given key, value types.
-   * @param obj the Map object, where null designates an empty map
-   * @param keyType the class of map keys
-   * @param valueType the class of map values
-   * @param what a string indicating what this is about, to include in case of error
-   */
-  @SuppressWarnings("unchecked")
-  public static <KEY_TYPE, VALUE_TYPE> Map<KEY_TYPE, VALUE_TYPE> castMap(Object obj,
-      Class<KEY_TYPE> keyType, Class<VALUE_TYPE> valueType, String what)
-      throws EvalException {
-    if (obj == null) {
-      return ImmutableMap.of();
-    }
-    if (!(obj instanceof Map<?, ?>)) {
-      throw Starlark.errorf("got '%s' for '%s', want 'dict'", EvalUtils.getDataTypeName(obj), what);
-    }
-
-    for (Map.Entry<?, ?> input : ((Map<?, ?>) obj).entrySet()) {
-      if (!keyType.isAssignableFrom(input.getKey().getClass())
-          || !valueType.isAssignableFrom(input.getValue().getClass())) {
-        throw Starlark.errorf(
-            "got dict<%s, %s> for '%s', want dict<%s, %s>",
-            Starlark.type(input.getKey()),
-            Starlark.type(input.getValue()),
-            what,
-            EvalUtils.getDataTypeNameFromClass(keyType),
-            EvalUtils.getDataTypeNameFromClass(valueType));
-      }
-    }
-
-    return (Map<KEY_TYPE, VALUE_TYPE>) obj;
-  }
-
-  // TODO(adonovan): eliminate 4 uses outside this package and make it private.
-  // The check is trivial (instanceof) and clients can usually produce a better
-  // error in context, without prematurely constructing a description.
-  public static void checkType(Object object, Class<?> type, @Nullable Object description)
-      throws EvalException {
-    if (!type.isInstance(object)) {
-      throw Starlark.errorf(
-          "expected type '%s' %sbut got type '%s' instead",
-          Starlark.repr(type),
-          description == null ? "" : String.format("for %s ", description),
-          EvalUtils.getDataTypeName(object));
-      }
   }
 }

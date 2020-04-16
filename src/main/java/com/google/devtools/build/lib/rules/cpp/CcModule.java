@@ -135,7 +135,8 @@ public abstract class CcModule
       throws EvalException {
     SkylarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, SkylarkRuleContext.class);
     ImmutableSet<String> unsupportedFeaturesSet =
-        ImmutableSet.copyOf(unsupportedFeatures.getContents(String.class, "unsupported_features"));
+        ImmutableSet.copyOf(
+            Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
     final CppConfiguration cppConfiguration;
     final BuildOptions buildOptions;
     if (ruleContext == null) {
@@ -166,7 +167,8 @@ public abstract class CcModule
     }
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.copyOf(requestedFeatures.getContents(String.class, "requested_features")),
+            ImmutableSet.copyOf(
+                Sequence.cast(requestedFeatures, String.class, "requested_features")),
             unsupportedFeaturesSet,
             toolchain,
             cppConfiguration),
@@ -594,7 +596,7 @@ public abstract class CcModule
 
   @Override
   public CcInfo mergeCcInfos(Sequence<?> ccInfos) throws EvalException {
-    return CcInfo.merge(ccInfos.getContents(CcInfo.class, /* description= */ null));
+    return CcInfo.merge(Sequence.cast(ccInfos, CcInfo.class, "infos"));
   }
 
   @Override
@@ -723,7 +725,7 @@ public abstract class CcModule
         Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);
         if (nonCodeInputs != null) {
           ccLinkingContextBuilder.addNonCodeInputs(
-              nonCodeInputs.getContents(Artifact.class, "additional_inputs"));
+              Sequence.cast(nonCodeInputs, Artifact.class, "additional_inputs"));
         }
         return ccLinkingContextBuilder.build();
       }
@@ -792,9 +794,8 @@ public abstract class CcModule
       throws EvalException {
 
     List<String> cxxBuiltInIncludeDirectories =
-        cxxBuiltInIncludeDirectoriesUnchecked.getContents(
-            String.class, "cxx_builtin_include_directories");
-
+        Sequence.cast(
+            cxxBuiltInIncludeDirectoriesUnchecked, String.class, "cxx_builtin_include_directories");
 
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
     for (Object feature : features) {
@@ -1412,25 +1413,28 @@ public abstract class CcModule
   /** Returns a list of strings from a field of a {@link SkylarkInfo}. */
   private static ImmutableList<String> getStringListFromSkylarkProviderField(
       SkylarkInfo provider, String fieldName) throws EvalException {
-    return ImmutableList.copyOf(
-        Sequence.castSkylarkListOrNoneToList(
-            getValueOrNull(provider, fieldName), String.class, fieldName));
+    Object v = getValueOrNull(provider, fieldName);
+    return v == null
+        ? ImmutableList.of()
+        : ImmutableList.copyOf(Sequence.noneableCast(v, String.class, fieldName));
   }
 
   /** Returns a set of strings from a field of a {@link SkylarkInfo}. */
   private static ImmutableSet<String> getStringSetFromSkylarkProviderField(
       SkylarkInfo provider, String fieldName) throws EvalException {
-    return ImmutableSet.copyOf(
-        Sequence.castSkylarkListOrNoneToList(
-            getValueOrNull(provider, fieldName), String.class, fieldName));
+    Object v = getValueOrNull(provider, fieldName);
+    return v == null
+        ? ImmutableSet.of()
+        : ImmutableSet.copyOf(Sequence.noneableCast(v, String.class, fieldName));
   }
 
   /** Returns a list of SkylarkInfo providers from a field of a {@link SkylarkInfo}. */
   private static ImmutableList<SkylarkInfo> getSkylarkProviderListFromSkylarkField(
       SkylarkInfo provider, String fieldName) throws EvalException {
-    return ImmutableList.copyOf(
-        Sequence.castSkylarkListOrNoneToList(
-            getValueOrNull(provider, fieldName), SkylarkInfo.class, fieldName));
+    Object v = getValueOrNull(provider, fieldName);
+    return v == null
+        ? ImmutableList.of()
+        : ImmutableList.copyOf(Sequence.noneableCast(v, SkylarkInfo.class, fieldName));
   }
 
   private static void getLegacyArtifactNamePatterns(
@@ -1522,7 +1526,7 @@ public abstract class CcModule
                     actions.getRuleContext().isAllowTagsPropagation()))
             .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .addNonCodeLinkerInputs(
-                additionalInputs.getContents(Artifact.class, "additional_inputs"))
+                Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .setShouldCreateStaticLibraries(!disallowStaticLibraries)
             .setShouldCreateDynamicLibrary(
                 !disallowDynamicLibraries
@@ -1531,7 +1535,7 @@ public abstract class CcModule
                         .isEnabled(CppRuleClasses.TARGETS_WINDOWS))
             .setStaticLinkType(staticLinkTargetType)
             .setDynamicLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .addLinkopts(userLinkFlags.getContents(String.class, "user_link_flags"));
+            .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
     try {
       CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
       ImmutableList<LibraryToLink> libraryToLink = ImmutableList.of();
@@ -1552,7 +1556,8 @@ public abstract class CcModule
           CcLinkingContext.merge(
               ImmutableList.<CcLinkingContext>builder()
                   .add(linkingContext)
-                  .addAll(linkingContexts.getContents(CcLinkingContext.class, "linking_contexts"))
+                  .addAll(
+                      Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"))
                   .build()),
           ccLinkingOutputs);
     } catch (RuleErrorException e) {
@@ -1623,9 +1628,9 @@ public abstract class CcModule
       Sequence<?> additionalInputs,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    List<Artifact> sources = sourcesUnchecked.getContents(Artifact.class, "srcs");
-    List<Artifact> publicHeaders = publicHeadersUnchecked.getContents(Artifact.class, "srcs");
-    List<Artifact> privateHeaders = privateHeadersUnchecked.getContents(Artifact.class, "srcs");
+    List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
+    List<Artifact> publicHeaders = Sequence.cast(publicHeadersUnchecked, Artifact.class, "srcs");
+    List<Artifact> privateHeaders = Sequence.cast(privateHeadersUnchecked, Artifact.class, "srcs");
 
     SkylarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
@@ -1671,32 +1676,32 @@ public abstract class CcModule
             .addPrivateHeaders(privateHeaders)
             .addSources(sources)
             .addCcCompilationContexts(
-                ccCompilationContexts.getContents(
-                    CcCompilationContext.class, "compilation_contexts"))
+                Sequence.cast(
+                    ccCompilationContexts, CcCompilationContext.class, "compilation_contexts"))
             .addIncludeDirs(
-                includes.getContents(String.class, "includes").stream()
+                Sequence.cast(includes, String.class, "includes").stream()
                     .map(PathFragment::create)
                     .collect(ImmutableList.toImmutableList()))
             .addQuoteIncludeDirs(
-                quoteIncludes.getContents(String.class, "quote_includes").stream()
+                Sequence.cast(quoteIncludes, String.class, "quote_includes").stream()
                     .map(PathFragment::create)
                     .collect(ImmutableList.toImmutableList()))
             .addSystemIncludeDirs(
-                systemIncludes.getContents(String.class, "system_includes").stream()
+                Sequence.cast(systemIncludes, String.class, "system_includes").stream()
                     .map(PathFragment::create)
                     .collect(ImmutableList.toImmutableList()))
             .addFrameworkIncludeDirs(
-                frameworkIncludes.getContents(String.class, "framework_includes").stream()
+                Sequence.cast(frameworkIncludes, String.class, "framework_includes").stream()
                     .map(PathFragment::create)
                     .collect(ImmutableList.toImmutableList()))
-            .addDefines(defines.getContents(String.class, "defines"))
-            .addNonTransitiveDefines(localDefines.getContents(String.class, "local_defines"))
+            .addDefines(Sequence.cast(defines, String.class, "defines"))
+            .addNonTransitiveDefines(Sequence.cast(localDefines, String.class, "local_defines"))
             .setCopts(
                 ImmutableList.copyOf(
-                    userCompileFlags.getContents(String.class, "user_compile_flags")))
+                    Sequence.cast(userCompileFlags, String.class, "user_compile_flags")))
             .addAdditionalCompilationInputs(headersForClifDoNotUseThisParam)
             .addAdditionalCompilationInputs(
-                additionalInputs.getContents(Artifact.class, "additional_inputs"))
+                Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam)
             .setPurpose(common.getPurpose(getSemantics()));
     if (disallowNopicOutputs) {
@@ -1783,12 +1788,12 @@ public abstract class CcModule
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .setIsStampingEnabled(isStampingEnabled)
             .addNonCodeLinkerInputs(
-                additionalInputs.getContents(Artifact.class, "additional_inputs"))
+                Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .setDynamicLinkType(dynamicLinkTargetType)
             .addCcLinkingContexts(
-                linkingContexts.getContents(CcLinkingContext.class, "linking_contexts"))
+                Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"))
             .setShouldCreateStaticLibraries(false)
-            .addLinkopts(userLinkFlags.getContents(String.class, "user_link_flags"))
+            .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"))
             .emitInterfaceSharedLibraries(
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)

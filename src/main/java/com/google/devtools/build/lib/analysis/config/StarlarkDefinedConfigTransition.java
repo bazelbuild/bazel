@@ -204,7 +204,6 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      */
     // TODO(bazel-team): integrate dict-of-dicts return type with ctx.split_attr
     @Override
-    @SuppressWarnings("rawtypes")
     public ImmutableMap<String, Map<String, Object>> evaluate(
         Map<String, Object> previousSettings, StructImpl attributeMapper, EventHandler eventHandler)
         throws EvalException, InterruptedException {
@@ -227,16 +226,13 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         // TODO(bazel-team): integrate keys with ctx.split_attr. Currently ctx.split_attr always
         // keys on cpu value - we should be able to key on the keys returned here.
         try {
-          @SuppressWarnings("rawtypes")
-          Map<String, Dict> dictOfDict =
-              ((Dict<?, ?>) result)
-                  .getContents(String.class, Dict.class, "dictionary of options dictionaries");
+          Map<String, ?> dictOfDict =
+              Dict.cast(result, String.class, Dict.class, "dictionary of options dictionaries");
           ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
-          for (Map.Entry<String, Dict> entry : dictOfDict.entrySet()) { // rawtypes error
-            Map<String, Object> dict =
-                ((Dict<?, ?>) entry.getValue())
-                    .getContents(String.class, Object.class, "an option dictionary");
-            builder.put(entry.getKey(), dict);
+          for (Map.Entry<String, ?> entry : dictOfDict.entrySet()) {
+            builder.put(
+                entry.getKey(),
+                Dict.cast(entry.getValue(), String.class, Object.class, "an option dictionary"));
           }
           return builder.build();
         } catch (EvalException e) {
@@ -246,8 +242,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           // Try if this is a patch transition.
           return ImmutableMap.of(
               PATCH_TRANSITION_KEY,
-              ((Dict<?, ?>) result)
-                  .getContents(String.class, Object.class, "dictionary of options"));
+              Dict.cast(result, String.class, Object.class, "dictionary of options"));
         } catch (EvalException e) {
           throw new EvalException(impl.getLocation(), e.getMessage());
         }
@@ -256,12 +251,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         try {
           int i = 0;
           for (Dict<?, ?> toOptions :
-              ((Sequence<?>) result)
-                  .getContents(Dict.class, "dictionary of options dictionaries")) {
+              Sequence.cast(result, Dict.class, "dictionary of options dictionaries")) {
             // TODO(b/146347033): Document this behavior.
             builder.put(
                 Integer.toString(i++),
-                toOptions.getContents(String.class, Object.class, "dictionary of options"));
+                Dict.cast(toOptions, String.class, Object.class, "dictionary of options"));
           }
         } catch (EvalException e) {
           throw new EvalException(impl.getLocation(), e.getMessage());

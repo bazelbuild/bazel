@@ -716,9 +716,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testDepsetDirectInvalidType() throws Exception {
     new Scenario()
-        .testIfErrorContains(
-            "expected type 'sequence' for direct but got type 'string' instead",
-            "depset(direct='hello')");
+        .testIfErrorContains("for direct, got string, want sequence", "depset(direct='hello')");
   }
 
   @Test

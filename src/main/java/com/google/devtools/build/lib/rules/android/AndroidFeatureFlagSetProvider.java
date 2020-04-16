@@ -160,7 +160,7 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     public AndroidFeatureFlagSetProvider create(Dict<?, ?> flags) // <Label, String>
         throws EvalException {
       return new AndroidFeatureFlagSetProvider(
-          Optional.of(Dict.castSkylarkDictOrNoneToDict(flags, Label.class, String.class, "flags")));
+          Optional.of(Dict.noneableCast(flags, Label.class, String.class, "flags")));
     }
   }
 }

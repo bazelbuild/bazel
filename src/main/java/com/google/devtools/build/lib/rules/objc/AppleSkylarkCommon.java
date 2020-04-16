@@ -243,8 +243,8 @@ public class AppleSkylarkCommon
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
-              ImmutableList.copyOf(extraLinkopts.getContents(String.class, "extra_linkopts")),
-              Sequence.castList(extraLinkInputs, Artifact.class, "extra_link_inputs"));
+              ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
+              Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"));
       return createAppleBinaryOutputSkylarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(null, exception);

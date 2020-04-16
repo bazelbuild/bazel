@@ -1239,8 +1239,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           return null;
         }
         ImmutableList<String> exports =
-            ImmutableList.copyOf(
-                Sequence.castSkylarkListOrNoneToList(exportsField, String.class, "exports"));
+            ImmutableList.copyOf(Sequence.noneableCast(exportsField, String.class, "exports"));
 
         Object linkerInputField = ccSharedLibraryInfo.getValue("linker_input");
         if (linkerInputField == null) {
@@ -1262,7 +1261,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         }
         ImmutableList<String> linkOnceStaticLibs =
             ImmutableList.copyOf(
-                Sequence.castSkylarkListOrNoneToList(
+                Sequence.noneableCast(
                     linkOnceStaticLibsField, String.class, "link_once_static_libs"));
 
         directMergedCcSharedLibraryInfos.add(
@@ -1289,12 +1288,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
         for (Tuple<Object> exportsAndLinkerInput : dynamicDeps.toList()) {
           List<String> exportsFromDynamicDep =
-              Sequence.castSkylarkListOrNoneToList(
+              Sequence.noneableCast(
                   exportsAndLinkerInput.get(0), String.class, "exports_from_dynamic_dep");
           CcLinkingContext.LinkerInput linkerInputFromDynamicDep =
               (CcLinkingContext.LinkerInput) exportsAndLinkerInput.get(1);
           List<String> linkOnceStaticLibsFromDynamicDep =
-              Sequence.castSkylarkListOrNoneToList(
+              Sequence.noneableCast(
                   exportsAndLinkerInput.get(0),
                   String.class,
                   "link_once_static_libs_from_dynamic_dep");
