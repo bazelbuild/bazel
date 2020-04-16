@@ -99,7 +99,7 @@ message FailureDetail {
   reserved 102; // For internal use
   reserved 105; // For internal use
   reserved 109; // For internal use
-  reserved 111; // For internal use
+  reserved 111 to 113; // For internal use
 }
 
 message Interrupted {
