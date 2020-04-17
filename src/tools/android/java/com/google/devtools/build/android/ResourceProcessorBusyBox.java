@@ -181,7 +181,7 @@ public class ResourceProcessorBusyBox {
 
   private static int runPersistentWorker() throws Exception {
     ByteArrayOutputStream buf = new ByteArrayOutputStream();
-    PrintStream ps = new PrintStream(buf);
+    PrintStream ps = new PrintStream(buf, true);
     PrintStream realStdOut = System.out;
     PrintStream realStdErr = System.err;
     try {
