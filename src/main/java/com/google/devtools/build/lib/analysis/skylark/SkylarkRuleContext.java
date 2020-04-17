@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -377,7 +377,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   }
 
   public boolean isExecutable() {
-    return ruleContext.getRule().getRuleClassObject().isExecutableSkylark();
+    return ruleContext.getRule().getRuleClassObject().isExecutableStarlark();
   }
 
   public boolean isDefaultExecutableCreated() {
@@ -501,7 +501,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   @Override
   public StarlarkValue createdActions() throws EvalException {
     checkMutable("created_actions");
-    if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
+    if (ruleContext.getRule().getRuleClassObject().isStarlarkTestable()) {
       return ActionsProvider.create(
           ruleContext.getAnalysisEnvironment().getRegisteredActions());
     } else {
@@ -602,7 +602,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     } else {
       return ruleContext
           .attributes()
-          .get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSettingType);
+          .get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSettingType);
     }
   }
 

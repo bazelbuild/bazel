@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefaul
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -570,10 +570,10 @@ public class TestAspects {
       = new FalseAdvertisementAspect();
   private static final AspectDefinition FALSE_ADVERTISEMENT_DEFINITION =
       new AspectDefinition.Builder(FALSE_ADVERTISEMENT_ASPECT)
-        .advertiseProvider(RequiredProvider.class)
-        .advertiseProvider(
-            ImmutableList.of(SkylarkProviderIdentifier.forLegacy("advertised_provider")))
-        .build();
+          .advertiseProvider(RequiredProvider.class)
+          .advertiseProvider(
+              ImmutableList.of(StarlarkProviderIdentifier.forLegacy("advertised_provider")))
+          .build();
 
   /**
    * A common base rule for mock rules in this class to reduce boilerplate.

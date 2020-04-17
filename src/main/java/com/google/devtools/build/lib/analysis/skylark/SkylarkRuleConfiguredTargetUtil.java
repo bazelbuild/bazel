@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -180,7 +180,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
   private static void checkDeclaredProviders(
       ConfiguredTarget configuredTarget, AdvertisedProviderSet advertisedProviders, Location loc)
       throws EvalException {
-    for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
       if (configuredTarget.get(providerId) == null) {
         throw new EvalException(
             loc,
@@ -687,7 +687,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       builder.setRunfilesSupport(runfilesSupport, executable);
     }
 
-    if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
+    if (ruleContext.getRule().getRuleClassObject().isStarlarkTestable()) {
       Info actions =
           ActionsProvider.create(ruleContext.getAnalysisEnvironment().getRegisteredActions());
       builder.addSkylarkDeclaredProvider(actions);

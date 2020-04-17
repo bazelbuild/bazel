@@ -70,8 +70,8 @@ import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
@@ -301,7 +301,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         attrObjectToAttributesList(attrs);
 
     if (skylarkTestable) {
-      builder.setSkylarkTestable();
+      builder.setStarlarkTestable();
     }
     if (Boolean.TRUE.equals(analysisTest)) {
       builder.setIsAnalysisTest();
@@ -314,7 +314,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               .value(true)
               .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
               .build());
-      builder.setExecutableSkylark();
+      builder.setExecutableStarlark();
     }
 
     if (implicitOutputs != Starlark.NONE) {
@@ -340,7 +340,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       builder.setOutputToGenfiles();
     }
 
-    builder.requiresConfigurationFragmentsBySkylarkModuleName(
+    builder.requiresConfigurationFragmentsByStarlarkModuleName(
         Sequence.cast(fragments, String.class, "fragments"));
     ConfigAwareRuleClassBuilder.of(builder)
         .requiresHostConfigurationFragmentsBySkylarkModuleName(
@@ -382,9 +382,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             EvalUtils.getDataTypeName(o, true));
       }
     }
-    for (SkylarkProviderIdentifier skylarkProvider :
+    for (StarlarkProviderIdentifier skylarkProvider :
         SkylarkAttr.getSkylarkProviderIdentifiers(providesArg)) {
-      builder.advertiseSkylarkProvider(skylarkProvider);
+      builder.advertiseStarlarkProvider(skylarkProvider);
     }
 
     if (!execCompatibleWith.isEmpty()) {

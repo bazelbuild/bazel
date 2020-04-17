@@ -101,7 +101,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         prefix is added.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("import_prefix", STRING))
-        .advertiseSkylarkProvider(ProtoInfo.PROVIDER.id())
+        .advertiseStarlarkProvider(ProtoInfo.PROVIDER.id())
         .build();
   }
 

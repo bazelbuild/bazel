@@ -317,7 +317,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   private RepositoryFunction getHandler(Rule rule) {
     RepositoryFunction handler;
-    if (rule.getRuleClassObject().isSkylark()) {
+    if (rule.getRuleClassObject().isStarlark()) {
       handler = skylarkHandler;
     } else {
       handler = handlers.get(rule.getRuleClass());

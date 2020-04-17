@@ -89,7 +89,7 @@ public final class TargetUtils {
     }
 
     Rule rule = (Rule) target;
-    return !rule.getRuleClassObject().isSkylark() && rule.getRuleClass().equals("alias");
+    return !rule.getRuleClassObject().isStarlark() && rule.getRuleClass().equals("alias");
   }
 
   /**

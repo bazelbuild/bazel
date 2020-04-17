@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -815,13 +815,15 @@ public class ObjcRuleClasses {
           not be statically linked in this target (even if they are otherwise
           transitively depended on via the <code>deps</code> attribute) to avoid duplicate symbols.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(DYLIBS_ATTR_NAME, LABEL_LIST)
-              .direct_compile_time_input()
-              .mandatoryProviders(ImmutableList.of(
-                  SkylarkProviderIdentifier.forKey(
-                      AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR.getKey())))
-              .allowedFileTypes()
-              .aspect(objcProtoAspect))
+          .add(
+              attr(DYLIBS_ATTR_NAME, LABEL_LIST)
+                  .direct_compile_time_input()
+                  .mandatoryProviders(
+                      ImmutableList.of(
+                          StarlarkProviderIdentifier.forKey(
+                              AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR.getKey())))
+                  .allowedFileTypes()
+                  .aspect(objcProtoAspect))
           .build();
     }
 

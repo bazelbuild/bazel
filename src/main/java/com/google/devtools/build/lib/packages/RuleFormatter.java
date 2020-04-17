@@ -39,7 +39,7 @@ public class RuleFormatter {
     builder.setPublicByDefault(rule.getRuleClassObject().isPublicByDefault());
 
     RawAttributeMapper rawAttributeMapper = RawAttributeMapper.of(rule);
-    boolean isSkylark = rule.getRuleClassObject().isSkylark();
+    boolean isSkylark = rule.getRuleClassObject().isStarlark();
 
     if (isSkylark) {
       builder.setSkylarkEnvironmentHashCode(

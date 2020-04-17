@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
@@ -295,12 +295,12 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(attr.isSingleArtifact()).isTrue();
   }
 
-  private static SkylarkProviderIdentifier legacy(String legacyId) {
-    return SkylarkProviderIdentifier.forLegacy(legacyId);
+  private static StarlarkProviderIdentifier legacy(String legacyId) {
+    return StarlarkProviderIdentifier.forLegacy(legacyId);
   }
 
-  private static SkylarkProviderIdentifier declared(String exportedName) {
-    return SkylarkProviderIdentifier.forKey(
+  private static StarlarkProviderIdentifier declared(String exportedName) {
+    return StarlarkProviderIdentifier.forKey(
         new SkylarkProvider.SkylarkKey(FAKE_LABEL, exportedName));
   }
 
@@ -335,9 +335,9 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a")))).isFalse();
   }
 
-  private static AdvertisedProviderSet set(SkylarkProviderIdentifier... ids) {
+  private static AdvertisedProviderSet set(StarlarkProviderIdentifier... ids) {
     AdvertisedProviderSet.Builder builder = AdvertisedProviderSet.builder();
-    for (SkylarkProviderIdentifier id : ids) {
+    for (StarlarkProviderIdentifier id : ids) {
       builder.addSkylark(id);
     }
     return builder.build();

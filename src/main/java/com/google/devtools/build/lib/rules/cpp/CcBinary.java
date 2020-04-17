@@ -166,7 +166,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     private void checkRestrictedUsage(RuleContext ruleContext) {
       Rule rule = ruleContext.getRule();
-      if (rule.getRuleClassObject().isSkylark()
+      if (rule.getRuleClassObject().isStarlark()
           || (!rule.getRuleClass().equals("java_binary")
               && !rule.getRuleClass().equals("java_test")
               && !rule.getRuleClass().equals("py_binary")

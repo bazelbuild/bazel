@@ -235,7 +235,7 @@ public final class SyncCommand implements BlazeCommand {
       // declare themselves as configure-like.
       return SkylarkRepositoryFunction.isConfigureRule(rule);
     }
-    if (rule.getRuleClassObject().isSkylark()) {
+    if (rule.getRuleClassObject().isStarlark()) {
       // Starlark rules are all whitelisted
       return true;
     }

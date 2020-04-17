@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJ
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBaseRule;
@@ -69,7 +69,7 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
                 .mandatoryProvidersList(
                     ImmutableList.of(
                         ImmutableList.of(
-                            SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))))
+                            StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))))
         .override(attr("$testsupport", LABEL).value(environment.getToolsLabel(JUNIT_TESTRUNNER)))
         .add(
             attr("$robolectric_implicit_classpath", LABEL_LIST)
