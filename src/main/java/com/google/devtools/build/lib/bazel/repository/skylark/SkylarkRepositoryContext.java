@@ -495,11 +495,11 @@ public class SkylarkRepositoryContext
   /** Returns the command line arguments as a string for display in the profiler. */
   private static String profileArgsDesc(String method, List<String> args) {
     StringBuilder b = new StringBuilder();
-    b.append(method).append(": ");
+    b.append(method).append(":");
 
-    String sep = "";
+    final String sep = " ";
     for (String arg : args) {
-      int appendLen = arg.length() + sep.length();
+      int appendLen = sep.length() + arg.length();
       int remainingLen = MAX_PROFILE_ARGS_LEN - b.length();
 
       if (appendLen <= remainingLen) {
@@ -511,8 +511,6 @@ public class SkylarkRepositoryContext
         b.append("...");
         break;
       }
-
-      sep = " ";
     }
 
     return b.toString();
