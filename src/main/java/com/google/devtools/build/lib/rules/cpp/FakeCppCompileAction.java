@@ -33,11 +33,11 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -138,8 +138,9 @@ public class FakeCppCompileAction extends CppCompileAction {
     byte[] dotDContents = null;
     try {
       Spawn spawn = createSpawn(actionExecutionContext.getClientEnv());
-      SpawnStrategy strategy = actionExecutionContext.getContext(SpawnStrategy.class);
-      spawnResults = strategy.exec(spawn, actionExecutionContext);
+      SpawnStrategyResolver spawnStrategyResolver =
+          actionExecutionContext.getContext(SpawnStrategyResolver.class);
+      spawnResults = spawnStrategyResolver.exec(spawn, actionExecutionContext);
       // The SpawnActionContext guarantees that the first list entry is the successful one.
       dotDContents = getDotDContents(spawnResults.get(0));
     } catch (ExecException e) {
