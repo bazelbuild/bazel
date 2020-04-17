@@ -88,14 +88,14 @@ We recommend installing:
 *   Common MSYS2 packages
 
     You will likely need these to build and run targets that depend on Bash.  MSYS2 does not install
-    these tools by default, so you need to install them manually.
+    these tools by default, so you need to install them manually. Projects that that depend heavily on these tools are for example Tensorflow.
 
     Open the MSYS2 terminal and run this command:
 
     ```
     pacman -S zip unzip patch diffutils git
     ```
-    Make sure to add `MSYS2_INSTALL_PATH/usr/bin` to your `PATH` Environmentvariable in case you want to use CMD or Powershell. 
+    Optional: If you want to use Bazel from CMD or Powershell make sure to add `MSYS2_INSTALL_PATH/usr/bin` to your `PATH` Environmentvariable. 
 
 *   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)
 
