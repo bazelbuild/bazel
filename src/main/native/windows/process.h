@@ -60,7 +60,7 @@ class WaitableProcess {
   bool Create(const std::wstring& argv0, const std::wstring& argv_rest,
               void* env, const std::wstring& wcwd, HANDLE stdin_process,
               HANDLE stdout_process, HANDLE stderr_process,
-              LARGE_INTEGER* opt_out_start_time, bool create_window,
+              LARGE_INTEGER* opt_out_start_time, bool create_window, bool handle_signals,
               std::wstring* error);
 
   AutoHandle process_, job_, ioport_;
