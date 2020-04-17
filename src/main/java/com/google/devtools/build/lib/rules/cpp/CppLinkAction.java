@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -315,7 +315,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     Spawn spawn = createSpawn(actionExecutionContext);
     SpawnContinuation spawnContinuation =
         actionExecutionContext
-            .getContext(SpawnStrategy.class)
+            .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
     return new CppLinkActionContinuation(actionExecutionContext, spawnContinuation);
   }
