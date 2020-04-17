@@ -36,6 +36,6 @@ public class NullAspectResolver implements AspectResolver {
 
   @Override
   public Set<Label> computeBuildFileDependencies(Package pkg) {
-    return ImmutableSet.copyOf(pkg.getSkylarkFileDependencies());
+    return ImmutableSet.copyOf(pkg.getStarlarkFileDependencies());
   }
 }

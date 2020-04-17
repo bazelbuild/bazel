@@ -708,7 +708,7 @@ public final class PackageFactory {
             // Let's give the BUILD file a chance to set default_visibility once,
             // by resetting the PackageBuilder.defaultVisibilitySet flag.
             .setDefaultVisibilitySet(false)
-            .setSkylarkFileDependencies(skylarkFileDependencies)
+            .setStarlarkFileDependencies(skylarkFileDependencies)
             .setWorkspaceName(workspaceName)
             .setRepositoryMapping(repositoryMapping)
             .setThirdPartyLicenceExistencePolicy(
