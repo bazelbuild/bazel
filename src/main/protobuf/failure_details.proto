@@ -95,6 +95,7 @@ message FailureDetail {
     Crash crash = 108;
     SymlinkForest symlink_forest = 110;
     PackageOptions package_options = 114;
+    RemoteExecution remote_execution = 115;
   }
 
   reserved 102; // For internal use
@@ -162,6 +163,8 @@ message RemoteOptions {
     CREDENTIALS_READ_FAILURE = 2 [(metadata) = { exit_code: 36 }];
     // Credentials could not be written to a shared, temporary file.
     CREDENTIALS_WRITE_FAILURE = 3 [(metadata) = { exit_code: 36 }];
+    DOWNLOADER_WITHOUT_GRPC_CACHE = 4 [(metadata) = { exit_code: 2 }];
+    EXECUTION_WITH_INVALID_CACHE = 5 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -212,8 +215,30 @@ message SymlinkForest {
 
 message PackageOptions {
   enum Code {
-    PACKAGE_PATH_CACHE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    PACKAGE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message RemoteExecution {
+  // The association of some of these options with exit code 2, "command line
+  // error", seems sketchy. Especially worth reconsidering are the channel init
+  // failure modes, which can correspond to failures occurring in gRPC setup.
+  // These all correspond with current Bazel behavior.
+  enum Code {
+    REMOTE_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    CAPABILITIES_QUERY_FAILURE = 1 [(metadata) = { exit_code: 34 }];
+    CREDENTIALS_INIT_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+    CACHE_INIT_FAILURE = 3 [(metadata) = { exit_code: 2 }];
+    RPC_LOG_FAILURE = 4 [(metadata) = { exit_code: 2 }];
+    EXEC_CHANNEL_INIT_FAILURE = 5 [(metadata) = { exit_code: 2 }];
+    CACHE_CHANNEL_INIT_FAILURE = 6 [(metadata) = { exit_code: 2 }];
+    DOWNLOADER_CHANNEL_INIT_FAILURE = 7 [(metadata) = { exit_code: 2 }];
+    LOG_DIR_CLEANUP_FAILURE = 8 [(metadata) = { exit_code: 36 }];
+    CLIENT_SERVER_INCOMPATIBLE = 9 [(metadata) = { exit_code: 34 }];
+    DOWNLOADED_INPUTS_DELETION_FAILURE = 10 [(metadata) = { exit_code: 34 }];
   }
 
   Code code = 1;
