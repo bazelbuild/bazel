@@ -55,16 +55,17 @@ public class Utils {
     try {
       return f.get();
     } catch (ExecutionException e) {
-      if (e.getCause() instanceof InterruptedException) {
-        throw (InterruptedException) e.getCause();
+      Throwable cause = e.getCause();
+      if (cause instanceof InterruptedException) {
+        throw (InterruptedException) cause;
       }
-      if (e.getCause() instanceof IOException) {
-        throw (IOException) e.getCause();
+      if (cause instanceof IOException) {
+        throw (IOException) cause;
       }
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
+      if (cause instanceof RuntimeException) {
+        throw (RuntimeException) cause;
       }
-      throw new IOException(e.getCause());
+      throw new IOException(cause);
     }
   }
 

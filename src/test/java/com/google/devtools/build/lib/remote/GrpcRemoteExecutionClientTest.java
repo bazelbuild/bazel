@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.remote.GrpcCacheClient.getResourceName;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
@@ -27,14 +28,18 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
+import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
+import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
@@ -127,6 +132,7 @@ public class GrpcRemoteExecutionClientTest {
   private Command command;
   private RemoteSpawnRunner client;
   private FileOutErr outErr;
+  private RemoteOptions remoteOptions;
   private Server fakeServer;
   private ListeningScheduledExecutorService retryService;
 
@@ -138,6 +144,25 @@ public class GrpcRemoteExecutionClientTest {
                   .setHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
                   .setSizeBytes(0)
                   .build())
+          .build();
+
+  private static final Tree DUMMY_OUTPUT_TREE =
+      Tree.newBuilder()
+          .setRoot(
+              Directory.newBuilder()
+                  .addFiles(
+                      FileNode.newBuilder()
+                          .setName(DUMMY_OUTPUT.getPath())
+                          .setDigest(DUMMY_OUTPUT.getDigest())
+                          .setIsExecutable(true)
+                          .build())
+                  .build())
+          .build();
+
+  private static final OutputDirectory DUMMY_OUTPUT_DIRECTORY =
+      OutputDirectory.newBuilder()
+          .setPath("dummy")
+          .setTreeDigest(DIGEST_UTIL.compute(DUMMY_OUTPUT_TREE))
           .build();
 
   @Before
@@ -205,7 +230,7 @@ public class GrpcRemoteExecutionClientTest {
     FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
-    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions = Options.getDefaults(RemoteOptions.class);
 
     remoteOptions.remoteHeaders =
         ImmutableList.of(
@@ -1011,12 +1036,12 @@ public class GrpcRemoteExecutionClientTest {
             responseObserver.onCompleted();
           }
         });
+    String stdOutResourceName = getResourceName(remoteOptions.remoteInstanceName, stdOutDigest);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-            assertThat(request.getResourceName().contains(DigestUtil.toString(stdOutDigest)))
-                .isTrue();
+            assertThat(request.getResourceName()).isEqualTo(stdOutResourceName);
             responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
           }
         });
@@ -1072,12 +1097,12 @@ public class GrpcRemoteExecutionClientTest {
             responseObserver.onCompleted();
           }
         });
+    String stdOutResourceName = getResourceName(remoteOptions.remoteInstanceName, stdOutDigest);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-            assertThat(request.getResourceName().contains(DigestUtil.toString(stdOutDigest)))
-                .isTrue();
+            assertThat(request.getResourceName()).isEqualTo(stdOutResourceName);
             responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
           }
         });
@@ -1181,6 +1206,100 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
+    assertThat(numExecuteCalls.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void remotelyReExecuteOrphanedDirectoryCachedActions() throws Exception {
+    final ActionResult actionResult =
+        ActionResult.newBuilder().addOutputDirectories(DUMMY_OUTPUT_DIRECTORY).build();
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onNext(actionResult);
+            responseObserver.onCompleted();
+          }
+        });
+    String dummyTreeResourceName =
+        getResourceName(remoteOptions.remoteInstanceName, DUMMY_OUTPUT_DIRECTORY.getTreeDigest());
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          private boolean first = true;
+
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            String resourceName = request.getResourceName();
+            if (resourceName.equals(dummyTreeResourceName)) {
+              // First read is a cache miss, next read succeeds.
+              if (first) {
+                first = false;
+                responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+              } else {
+                responseObserver.onNext(
+                    ReadResponse.newBuilder().setData(DUMMY_OUTPUT_TREE.toByteString()).build());
+                responseObserver.onCompleted();
+              }
+            } else {
+              responseObserver.onNext(ReadResponse.getDefaultInstance());
+            }
+          }
+
+          @Override
+          public StreamObserver<WriteRequest> write(
+              StreamObserver<WriteResponse> responseObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {}
+
+              @Override
+              public void onCompleted() {
+                responseObserver.onCompleted();
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                fail("An error occurred: " + t);
+              }
+            };
+          }
+        });
+    AtomicInteger numExecuteCalls = new AtomicInteger();
+    serviceRegistry.addService(
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            numExecuteCalls.incrementAndGet();
+            assertThat(request.getSkipCacheLookup()).isTrue(); // Action will be re-executed.
+            responseObserver.onNext(
+                Operation.newBuilder()
+                    .setDone(true)
+                    .setResponse(
+                        Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            // Nothing is missing.
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+
+    SpawnResult result = client.exec(simpleSpawn, policy);
+    assertThat(result.setupSuccess()).isTrue();
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.isCacheHit()).isFalse();
     assertThat(numExecuteCalls.get()).isEqualTo(1);
   }
 

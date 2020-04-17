@@ -213,7 +213,7 @@ public class RemoteCache implements AutoCloseable {
     for (ListenableFuture<T> transfer : transfers) {
       try {
         if (interruptedException == null) {
-          // Wait for all downloads to finish.
+          // Wait for all transfers to finish.
           getFromFuture(transfer);
         } else {
           transfer.cancel(true);
@@ -679,6 +679,8 @@ public class RemoteCache implements AutoCloseable {
               },
               directExecutor()));
     }
+
+    waitForBulkTransfer(dirMetadataDownloads.values(), /* cancelRemainingOnInterrupt=*/ true);
 
     ImmutableMap.Builder<Path, DirectoryMetadata> directories = ImmutableMap.builder();
     for (Map.Entry<Path, ListenableFuture<Tree>> metadataDownload :
