@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import java.util.Collection;
 
@@ -28,8 +27,8 @@ import java.util.Collection;
  * attribute value queries on the rule.
  *
  * <p>An attribute type query is anything accessible from {@link Attribute} (i.e. anything about how
- * the attribute is integrated into the {@link RuleClass}). An attribute value query is anything
- * related to the actual value an attribute takes.
+ * the attribute is integrated into the {@link com.google.devtools.build.lib.packages.RuleClass}).
+ * An attribute value query is anything related to the actual value an attribute takes.
  *
  * <p>For example, given {@code deps = [":adep"]}, checking that {@code deps} exists or that it's
  * type is {@link com.google.devtools.build.lib.packages.BuildType#LABEL_LIST} are type queries.

@@ -101,7 +101,7 @@ public class WorkerOptions extends OptionsBase {
 
   @Option(
       name = "high_priority_workers",
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -131,7 +131,7 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "worker_extra_flag",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -26,7 +27,6 @@ import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.logging.Logger;
 import sun.reflect.ReflectionFactory;
 
 /**
@@ -35,7 +35,7 @@ import sun.reflect.ReflectionFactory;
  * <p>TODO(shahan): replace Unsafe with VarHandle once it's available.
  */
 public class DynamicCodec implements ObjectCodec<Object> {
-  private static final Logger logger = Logger.getLogger(DynamicCodec.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Class<?> type;
   private final Constructor<?> constructor;
@@ -72,6 +72,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
    * @param type class of the field to serialize
    * @param offset unsafe offset into obj where the field will be found
    */
+  @SuppressWarnings("LogAndThrow") // Want the full stack trace of serialization attempts.
   private void serializeField(
       SerializationContext context,
       CodedOutputStream codedOut,
@@ -135,10 +136,8 @@ public class DynamicCodec implements ObjectCodec<Object> {
       try {
         context.serialize(UnsafeProvider.getInstance().getObject(obj, offset), codedOut);
       } catch (SerializationException e) {
-        logger.severe(
-            String.format(
-                "Unserializable object and superclass: %s %s",
-                obj, obj.getClass().getSuperclass()));
+        logger.atSevere().withCause(e).log(
+            "Unserializable object and superclass: %s %s", obj, obj.getClass().getSuperclass());
         e.addTrail(this.type);
         throw e;
       }
@@ -168,7 +167,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
    * @param type class of the field to deserialize
    * @param offset unsafe offset into obj where the field should be written
    */
-  private void deserializeField(
+  private static void deserializeField(
       DeserializationContext context,
       CodedInputStream codedIn,
       Object obj,

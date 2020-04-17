@@ -18,8 +18,10 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -42,6 +44,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
@@ -49,6 +53,7 @@ import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.NetworkTime;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -75,13 +80,11 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
 
-  private static final Logger logger = Logger.getLogger(RemoteModule.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private AsynchronousFileOutputStream rpcLogFile;
 
@@ -138,6 +141,7 @@ public final class RemoteModule extends BlazeModule {
     try {
       capabilities = rsc.get(env.getCommandId().toString(), env.getBuildRequestId());
     } catch (IOException e) {
+      env.getReporter().handle(Event.error(Throwables.getStackTraceAsString(e)));
       throw new AbruptExitException(
           "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
           ExitCode.REMOTE_ERROR,
@@ -234,6 +238,7 @@ public final class RemoteModule extends BlazeModule {
         if (loggingInterceptor != null) {
           interceptors.add(loggingInterceptor);
         }
+        interceptors.add(new NetworkTime.Interceptor());
         execChannel =
             RemoteCacheClientFactory.createGrpcChannel(
                 remoteOptions.remoteExecutor,
@@ -254,6 +259,7 @@ public final class RemoteModule extends BlazeModule {
         if (loggingInterceptor != null) {
           interceptors.add(loggingInterceptor);
         }
+        interceptors.add(new NetworkTime.Interceptor());
         cacheChannel =
             RemoteCacheClientFactory.createGrpcChannel(
                 remoteOptions.remoteCache,
@@ -507,7 +513,7 @@ public final class RemoteModule extends BlazeModule {
     try {
       closeRpcLogFile();
     } catch (IOException e) {
-      logger.log(Level.WARNING, "Partially wrote rpc log file", e);
+      logger.atWarning().withCause(e).log("Partially wrote rpc log file");
       failure = e;
     }
 
@@ -544,10 +550,8 @@ public final class RemoteModule extends BlazeModule {
       try {
         file.delete();
       } catch (IOException e) {
-        logger.log(
-            Level.SEVERE,
-            String.format("Failed to delete remote output '%s' from the " + "output base.", file),
-            e);
+        logger.atSevere().withCause(e).log(
+            "Failed to delete remote output '%s' from the output base.", file);
         deletionFailure = e;
       }
     }
@@ -565,6 +569,31 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
+  public void registerSpawnStrategies(
+      SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
+    if (actionContextProvider == null) {
+      return;
+    }
+    RemoteOptions remoteOptions =
+        Preconditions.checkNotNull(
+            env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
+    registryBuilder.setRemoteLocalFallbackStrategyIdentifier(
+        remoteOptions.remoteLocalFallbackStrategy);
+    actionContextProvider.registerRemoteSpawnStrategyIfApplicable(registryBuilder);
+  }
+
+  @Override
+  public void registerActionContexts(
+      ModuleActionContextRegistry.Builder registryBuilder,
+      CommandEnvironment env,
+      BuildRequest buildRequest) {
+    if (actionContextProvider == null) {
+      return;
+    }
+    actionContextProvider.registerSpawnCacheIfApplicable(registryBuilder);
+  }
+
+  @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
     Preconditions.checkNotNull(remoteOutputsMode, "remoteOutputsMode must not be null");
@@ -572,7 +601,6 @@ public final class RemoteModule extends BlazeModule {
     if (actionContextProvider == null) {
       return;
     }
-    actionContextProvider.registerActionContexts(builder);
     builder.addExecutorLifecycleListener(actionContextProvider);
     RemoteOptions remoteOptions =
         Preconditions.checkNotNull(
@@ -588,8 +616,6 @@ public final class RemoteModule extends BlazeModule {
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
     }
-
-    builder.setRemoteFallbackStrategy(remoteOptions.remoteLocalFallbackStrategy);
   }
 
   @Override
@@ -623,7 +649,8 @@ public final class RemoteModule extends BlazeModule {
     }
 
     @Override
-    public BuildEventArtifactUploader create(CommandEnvironment env) throws IOException {
+    public BuildEventArtifactUploader create(CommandEnvironment env)
+        throws InvalidPackagePathSymlinkException {
       BuildEventArtifactUploaderFactory uploaderFactory0 = this.uploaderFactory;
       if (uploaderFactory0 == null) {
         return new LocalFilesArtifactUploader();

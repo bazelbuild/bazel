@@ -95,7 +95,8 @@ StartupOptions::StartupOptions(const string &product_name,
       macos_qos_class(QOS_CLASS_DEFAULT),
 #endif
       unlimit_coredumps(false),
-      incompatible_enable_execution_transition(false) {
+      incompatible_enable_execution_transition(false),
+      windows_enable_symlinks(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
@@ -132,8 +133,6 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("deep_execroot", &deep_execroot);
   RegisterNullaryStartupFlag("expand_configs_in_place",
                              &expand_configs_in_place);
-  RegisterNullaryStartupFlag("experimental_oom_more_eagerly",
-                             &oom_more_eagerly);
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions",
                              &fatal_event_bus_exceptions);
   RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
@@ -146,10 +145,11 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
   RegisterNullaryStartupFlag("watchfs", &watchfs);
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
+  RegisterNullaryStartupFlag("windows_enable_symlinks",
+                             &windows_enable_symlinks);
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
-  RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
   RegisterUnaryStartupFlag("server_javabase");
   RegisterUnaryStartupFlag("host_jvm_args");
   RegisterUnaryStartupFlag("host_jvm_profile");
@@ -161,6 +161,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("output_base");
   RegisterUnaryStartupFlag("output_user_root");
   RegisterUnaryStartupFlag("server_jvm_out");
+  RegisterUnaryStartupFlag("failure_detail_out");
 }
 
 StartupOptions::~StartupOptions() {}
@@ -275,6 +276,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
                                      "--server_jvm_out")) != NULL) {
     server_jvm_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["server_jvm_out"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--failure_detail_out")) !=
+             NULL) {
+    failure_detail_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    option_sources["failure_detail_out"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
              NULL) {
     host_jvm_profile = value;
@@ -339,19 +344,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["macos_qos_class"] = rcfile;
-  } else if ((value = GetUnaryOption(
-                  arg, next_arg,
-                  "--experimental_oom_more_eagerly_threshold")) != NULL) {
-    if (!blaze_util::safe_strto32(value, &oom_more_eagerly_threshold) ||
-        oom_more_eagerly_threshold < 0) {
-      blaze_util::StringPrintf(error,
-                               "Invalid argument to "
-                               "--experimental_oom_more_eagerly_threshold: "
-                               "'%s'.",
-                               value);
-      return blaze_exit_code::BAD_ARGV;
-    }
-    option_sources["experimental_oom_more_eagerly_threshold"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||

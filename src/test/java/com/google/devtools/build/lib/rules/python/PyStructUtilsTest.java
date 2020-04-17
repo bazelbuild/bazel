@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,12 +31,12 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.MoreAsserts.ThrowingRunnable;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.function.ThrowingRunnable;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -91,8 +91,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
       ThrowingRunnable access, String fieldName, String expectedType) {
     assertThrowsEvalExceptionContaining(
         access,
-        String.format(
-            "\'py' provider's '%s' field should be a %s (got a 'int')", fieldName, expectedType));
+        String.format("\'py' provider's '%s' field was int, want %s", fieldName, expectedType));
   }
 
   /** We need this because {@code NestedSet}s don't have value equality. */
@@ -154,7 +153,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
   public void getUsesSharedLibraries_WrongType() {
     StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.USES_SHARED_LIBRARIES, 123));
     assertHasWrongTypeMessage(
-        () -> PyStructUtils.getUsesSharedLibraries(info), "uses_shared_libraries", "boolean");
+        () -> PyStructUtils.getUsesSharedLibraries(info), "uses_shared_libraries", "bool");
   }
 
   @Test
@@ -191,7 +190,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
   public void getHasPy2OnlySources_WrongType() {
     StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY2_ONLY_SOURCES, 123));
     assertHasWrongTypeMessage(
-        () -> PyStructUtils.getHasPy2OnlySources(info), "has_py2_only_sources", "boolean");
+        () -> PyStructUtils.getHasPy2OnlySources(info), "has_py2_only_sources", "bool");
   }
 
   @Test
@@ -209,7 +208,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
   public void getHasPy3OnlySources_WrongType() {
     StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY3_ONLY_SOURCES, 123));
     assertHasWrongTypeMessage(
-        () -> PyStructUtils.getHasPy3OnlySources(info), "has_py3_only_sources", "boolean");
+        () -> PyStructUtils.getHasPy3OnlySources(info), "has_py3_only_sources", "bool");
   }
 
   /** Checks values set by the builder. */

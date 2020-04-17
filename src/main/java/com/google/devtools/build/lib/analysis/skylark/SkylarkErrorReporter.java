@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
- * {@link RuleErrorConsumer} for Native implementations of Skylark APIs.
+ * {@link RuleErrorConsumer} for Native implementations of Starlark APIs.
  *
  * <p>This class proxies reported errors and warnings to a proxy {@link RuleErrorConsumer}, except
  * that it suppresses all cases of actually throwing exceptions until this reporter is closed.

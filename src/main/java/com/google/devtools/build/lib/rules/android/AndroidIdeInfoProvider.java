@@ -335,7 +335,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Dict<?, ?> nativeLibs) // <String, Depset>
         throws EvalException {
       Map<String, Depset> nativeLibsMap =
-          nativeLibs.getContents(String.class, Depset.class, "native_libs");
+          Dict.cast(nativeLibs, String.class, Depset.class, "native_libs");
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
       for (Map.Entry<String, Depset> entry : nativeLibsMap.entrySet()) {
@@ -353,10 +353,10 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           fromNoneable(resourceJar, OutputJar.class),
           definesAndroidResources,
           fromNoneable(aar, Artifact.class),
-          ImmutableList.copyOf(idlSrcs.getContents(Artifact.class, "idl_srcs")),
+          ImmutableList.copyOf(Sequence.cast(idlSrcs, Artifact.class, "idl_srcs")),
           ImmutableList.copyOf(
-              idlGeneratedJavaFiles.getContents(Artifact.class, "idl_generated_java_files")),
-          ImmutableList.copyOf(apksUnderTest.getContents(Artifact.class, "apks_under_test")),
+              Sequence.cast(idlGeneratedJavaFiles, Artifact.class, "idl_generated_java_files")),
+          ImmutableList.copyOf(Sequence.cast(apksUnderTest, Artifact.class, "apks_under_test")),
           builder.build(),
           fromNoneable(resourceApk, Artifact.class));
     }

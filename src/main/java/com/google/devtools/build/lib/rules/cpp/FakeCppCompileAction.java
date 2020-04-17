@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -32,11 +33,11 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -47,7 +48,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
-import java.util.logging.Logger;
 
 /**
  * Action that represents a fake C++ compilation step.
@@ -55,7 +55,7 @@ import java.util.logging.Logger;
 @ThreadCompatible
 public class FakeCppCompileAction extends CppCompileAction {
 
-  private static final Logger logger = Logger.getLogger(FakeCppCompileAction.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static final UUID GUID = UUID.fromString("8ab63589-be01-4a39-b770-b98ae8b03493");
 
@@ -134,12 +134,13 @@ public class FakeCppCompileAction extends CppCompileAction {
     List<SpawnResult> spawnResults;
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
-    logger.info("Generating " + getDotdFile());
+    logger.atInfo().log("Generating %s", getDotdFile());
     byte[] dotDContents = null;
     try {
       Spawn spawn = createSpawn(actionExecutionContext.getClientEnv());
-      SpawnStrategy strategy = actionExecutionContext.getContext(SpawnStrategy.class);
-      spawnResults = strategy.exec(spawn, actionExecutionContext);
+      SpawnStrategyResolver spawnStrategyResolver =
+          actionExecutionContext.getContext(SpawnStrategyResolver.class);
+      spawnResults = spawnStrategyResolver.exec(spawn, actionExecutionContext);
       // The SpawnActionContext guarantees that the first list entry is the successful one.
       dotDContents = getDotDContents(spawnResults.get(0));
     } catch (ExecException e) {
@@ -217,7 +218,7 @@ public class FakeCppCompileAction extends CppCompileAction {
 
     // Generate a fake ".o" file containing the command line needed to generate
     // the real object file.
-    logger.info("Generating " + outputFile);
+    logger.atInfo().log("Generating %s", outputFile);
 
     // A cc_fake_binary rule generates fake .o files and a fake target file,
     // which merely contain instructions on building the real target. We need to

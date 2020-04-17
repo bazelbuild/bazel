@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Test handling of Skylark loads from and in external repositories.
+# Test handling of Starlark loads from and in external repositories.
 #
 
 # Load the test setup defined in the parent directory
@@ -22,8 +22,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# The following tests build an instance of a Skylark macro loaded from a
-# local_repository, which in turns loads another Skylark file either from
+# The following tests build an instance of a Starlark macro loaded from a
+# local_repository, which in turns loads another Starlark file either from
 # the external repo or the main repo, depending on the test parameters.
 # The tests cover all the valid syntactic variants of the second load. The
 # package structure used for the tests is as follows:
@@ -160,7 +160,7 @@ EOF
 # r2/
 #   BUILD
 #   remote.bzl
-# If //foo in local depends on //bar in r1, which is a Skylark rule
+# If //foo in local depends on //bar in r1, which is a Starlark rule
 # defined in r2/remote.bzl, then a Label in remote.bzl should either
 # resolve to @r2//whatever or @r1//whatever.
 function test_skylark_repository_nested_relative_label() {
@@ -282,4 +282,4 @@ EOF
   bazel build //:tr || fail "build failed"
 }
 
-run_suite "Test Skylark loads from/in external repositories"
+run_suite "Test Starlark loads from/in external repositories"

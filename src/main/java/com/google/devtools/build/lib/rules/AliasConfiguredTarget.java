@@ -133,9 +133,9 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
     if (name.equals(LABEL_FIELD)) {
       return getLabel();
     } else if (name.equals(FILES_FIELD)) {
-      // A shortcut for files to build in Skylark. FileConfiguredTarget and RuleConfiguredTarget
+      // A shortcut for files to build in Starlark. FileConfiguredTarget and RuleConfiguredTarget
       // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
-      // accessible in Skylark.
+      // accessible in Starlark.
       return Depset.of(Artifact.TYPE, getProvider(FileProvider.class).getFilesToBuild());
     }
     return actual.getValue(name);
@@ -152,13 +152,13 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
     return null;
   }
 
-  /**
-   *  Returns a target this target aliases.
-   */
+  @Override
   public ConfiguredTarget getActual() {
-    return actual;
+    // This will either dereference an alias chain, or return the final ConfiguredTarget.
+    return actual.getActual();
   }
 
+  @Override
   public Label getOriginalLabel() {
     return label;
   }

@@ -22,8 +22,8 @@ import javax.annotation.Nullable;
 /** Serialize a {@link Rule} as its protobuf representation. */
 public class RuleFormatter {
 
-  // Skylark doesn't support defining rule classes with ComputedDefault attributes. Therefore, the
-  // only ComputedDefault attributes we expect to see for Skylark-defined rule classes are
+  // Starlark doesn't support defining rule classes with ComputedDefault attributes. Therefore, the
+  // only ComputedDefault attributes we expect to see for Starlark-defined rule classes are
   // those declared in those rule classes' natively defined base rule classes, which are:
   //
   // 1. The "timeout" attribute in SkylarkRuleClassFunctions.testBaseRule
@@ -51,7 +51,7 @@ public class RuleFormatter {
       boolean isExplicit = rule.isAttributeValueExplicitlySpecified(attr);
 
       if (!isSkylark && !isExplicit) {
-        // If the rule class is native (i.e. not Skylark-defined), then we can skip serialization
+        // If the rule class is native (i.e. not Starlark-defined), then we can skip serialization
         // of implicit attribute values. The native rule class can provide the same default value
         // for the attribute after deserialization.
         continue;
@@ -61,18 +61,18 @@ public class RuleFormatter {
       if (isExplicit) {
         valueToSerialize = rawAttributeValue;
       } else if (rawAttributeValue instanceof ComputedDefault) {
-        // If the rule class is Skylark-defined (i.e. rule.getRuleClassObject().isSkylark() is
+        // If the rule class is Starlark-defined (i.e. rule.getRuleClassObject().isSkylark() is
         // true), and the attribute has a ComputedDefault value, then we must serialize what it
-        // evaluates to. The Skylark-defined ComputedDefault function won't be available after
-        // deserialization due to Skylark's non-serializability.
+        // evaluates to. The Starlark-defined ComputedDefault function won't be available after
+        // deserialization due to Starlark's non-serializability.
         valueToSerialize = evaluateSkylarkComputedDefault(rawAttributeMapper, attr);
         if (valueToSerialize == null) {
           continue;
         }
       } else {
-        // If the rule class is Skylark-defined and the attribute value is implicit, then we
-        // must serialize it. The Skylark-defined rule class won't be available after
-        // deserialization due to Skylark's non-serializability.
+        // If the rule class is Starlark-defined and the attribute value is implicit, then we
+        // must serialize it. The Starlark-defined rule class won't be available after
+        // deserialization due to Starlark's non-serializability.
         valueToSerialize = rawAttributeValue;
       }
 
@@ -87,10 +87,10 @@ public class RuleFormatter {
   }
 
   /**
-   * Evaluates a {@link ComputedDefault} attribute value for a {@link Rule} with a Skylark-defined
+   * Evaluates a {@link ComputedDefault} attribute value for a {@link Rule} with a Starlark-defined
    * {@link RuleClass}.
    *
-   * <p>We can't serialize ComputedDefault attributes defined in Skylark, because those can depend
+   * <p>We can't serialize ComputedDefault attributes defined in Starlark, because those can depend
    * on other attributes which are configurable.
    *
    * <p>For a few attributes ({@link #SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES}), we know for

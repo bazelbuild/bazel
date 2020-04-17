@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.appendWithoutExtension;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.commonAncestor;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.copyFile;
@@ -26,6 +25,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.touchFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.traverseTree;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;

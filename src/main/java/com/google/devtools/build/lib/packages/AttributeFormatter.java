@@ -141,7 +141,7 @@ public class AttributeFormatter {
           .setHasDefaultValue(selector.hasDefault());
 
       // Note that the order of entries returned by selector.getEntries is stable. The map's
-      // entries' order is preserved from the fact that Skylark dictionary entry order is stable
+      // entries' order is preserved from the fact that Starlark dictionary entry order is stable
       // (it's determined by insertion order).
       for (Map.Entry<Label, ?> entry : selector.getEntries().entrySet()) {
         Label condition = entry.getKey();

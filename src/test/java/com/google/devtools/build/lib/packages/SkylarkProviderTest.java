@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -133,7 +133,6 @@ public final class SkylarkProviderTest {
 
   /** Instantiates a {@link SkylarkInfo} with fields a=1, b=2, c=3 (and nothing else). */
   private static SkylarkInfo instantiateWithA1B2C3(SkylarkProvider provider) throws Exception{
-    // Code under test begins with the entry point in BaseFunction.
     StarlarkThread thread =
         StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
     Object result =

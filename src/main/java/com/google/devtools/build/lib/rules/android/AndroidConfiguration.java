@@ -18,12 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Whitelist;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
@@ -44,8 +43,7 @@ import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
 @Immutable
-public class AndroidConfiguration extends BuildConfiguration.Fragment
-    implements AndroidConfigurationApi {
+public class AndroidConfiguration extends Fragment implements AndroidConfigurationApi {
 
   /**
    * Converter for {@link

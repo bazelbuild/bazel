@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -276,11 +276,27 @@ public class GlobTest {
     FileSystemUtils.createDirectoryAndParents(tmpPath2);
     Path aDotB = tmpPath2.getChild("a.b");
     FileSystemUtils.createEmptyFile(aDotB);
+    Path aPlusB = tmpPath2.getChild("a+b");
+    FileSystemUtils.createEmptyFile(aPlusB);
+    Path aWordCharacterB = tmpPath2.getChild("a\\wb");
+    FileSystemUtils.createEmptyFile(aWordCharacterB);
+    Path groupsAndBrackets = tmpPath2.getChild("(a|b){1,2}[ab]");
+    FileSystemUtils.createEmptyFile(groupsAndBrackets);
+    Path lineNoise = tmpPath2.getChild("\\|}{[(])(.+");
+    FileSystemUtils.createEmptyFile(lineNoise);
     FileSystemUtils.createEmptyFile(tmpPath2.getChild("aab"));
-    // Note: this contains two asterisks because otherwise a RE is not built,
+    // Note: these contain two asterisks because otherwise a RE is not built,
     // as an optimization.
-    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*a.b*").globInterruptible()).containsExactly(
-        aDotB);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*a.b*").globInterruptible())
+        .containsExactly(aDotB);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*a+b*").globInterruptible())
+        .containsExactly(aPlusB);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*a\\wb*").globInterruptible())
+        .containsExactly(aWordCharacterB);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*(a|b){1,2}[ab]*").globInterruptible())
+        .containsExactly(groupsAndBrackets);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*\\|}{[(])(.+*").globInterruptible())
+        .containsExactly(lineNoise);
   }
 
   @Test

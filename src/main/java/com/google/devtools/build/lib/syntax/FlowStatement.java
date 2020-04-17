@@ -18,10 +18,13 @@ package com.google.devtools.build.lib.syntax;
 public final class FlowStatement extends Statement {
 
   private final TokenKind kind; // BREAK | CONTINUE | PASS
+  private final int offset;
 
   /** @param kind The label of the statement (break, continue, or pass) */
-  FlowStatement(TokenKind kind) {
+  FlowStatement(FileLocations locs, TokenKind kind, int offset) {
+    super(locs);
     this.kind = kind;
+    this.offset = offset;
   }
 
   public TokenKind getKind() {
@@ -31,6 +34,16 @@ public final class FlowStatement extends Statement {
   @Override
   public String toString() {
     return kind.toString() + "\n";
+  }
+
+  @Override
+  public int getStartOffset() {
+    return offset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return offset + kind.toString().length();
   }
 
   @Override

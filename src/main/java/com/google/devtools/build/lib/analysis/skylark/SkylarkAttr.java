@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -60,15 +58,17 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A helper class to provide Attr module in Skylark.
+ * A helper class to provide Attr module in Starlark.
  *
- * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Skylark users.
- * The functions are executed through reflection. As everywhere in Skylark, arguments are
+ * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Starlark users.
+ * The functions are executed through reflection. As everywhere in Starlark, arguments are
  * type-checked with the signature and cannot be null.
  */
 public final class SkylarkAttr implements SkylarkAttrApi {
 
   // Arguments
+
+  // TODO(adonovan): opt: this class does a lot of redundant hashtable lookups.
 
   private static boolean containsNonNoneKey(Map<String, Object> arguments, String key) {
     return arguments.containsKey(key) && arguments.get(key) != Starlark.NONE;
@@ -82,9 +82,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
     } else if (fileTypesObj instanceof Sequence) {
       ImmutableList<String> arg =
-          ImmutableList.copyOf(
-              Sequence.castSkylarkListOrNoneToList(
-                  fileTypesObj, String.class, "allow_files argument"));
+          ImmutableList.copyOf(Sequence.cast(fileTypesObj, String.class, "allow_files argument"));
       builder.allowedFileTypes(FileType.of(arg));
     } else {
       throw new EvalException(null, attr + " should be a boolean or a string list");
@@ -95,7 +93,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       Type<?> type, String doc, Map<String, Object> arguments, StarlarkThread thread)
       throws EvalException {
     // We use an empty name now so that we can set it later.
-    // This trick makes sense only in the context of Skylark (builtin rules should not use it).
+    // This trick makes sense only in the context of Starlark (builtin rules should not use it).
     return createAttributeFactory(type, doc, arguments, thread, "");
   }
 
@@ -146,9 +144,11 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       }
     }
 
-    for (String flag :
-        Sequence.castSkylarkListOrNoneToList(arguments.get(FLAGS_ARG), String.class, FLAGS_ARG)) {
-      builder.setPropertyFlag(flag);
+    Object flagsArg = arguments.get(FLAGS_ARG);
+    if (flagsArg != null) {
+      for (String flag : Sequence.noneableCast(flagsArg, String.class, FLAGS_ARG)) {
+        builder.setPropertyFlag(flag);
+      }
     }
 
     if (containsNonNoneKey(arguments, MANDATORY_ARG) && (Boolean) arguments.get(MANDATORY_ARG)) {
@@ -220,21 +220,22 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     Object ruleClassesObj = arguments.get(ALLOW_RULES_ARG);
     if (ruleClassesObj != null && ruleClassesObj != Starlark.NONE) {
       builder.allowedRuleClasses(
-          Sequence.castSkylarkListOrNoneToList(
+          Sequence.cast(
               ruleClassesObj, String.class, "allowed rule classes for attribute definition"));
     }
 
-    List<Object> values =
-        Sequence.castSkylarkListOrNoneToList(arguments.get(VALUES_ARG), Object.class, VALUES_ARG);
-    if (!Iterables.isEmpty(values)) {
-      builder.allowedValues(new AllowedValueSet(values));
+    Object valuesArg = arguments.get(VALUES_ARG);
+    if (valuesArg != null) {
+      List<Object> values = Sequence.noneableCast(valuesArg, Object.class, VALUES_ARG);
+      if (!values.isEmpty()) {
+        builder.allowedValues(new AllowedValueSet(values));
+      }
     }
 
     if (containsNonNoneKey(arguments, PROVIDERS_ARG)) {
       Object obj = arguments.get(PROVIDERS_ARG);
-      SkylarkType.checkType(obj, Sequence.class, PROVIDERS_ARG);
       ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> providersList =
-          buildProviderPredicate((Sequence<?>) obj, PROVIDERS_ARG);
+          buildProviderPredicate(Sequence.cast(obj, Object.class, PROVIDERS_ARG), PROVIDERS_ARG);
 
       // If there is at least one empty set, there is no restriction.
       if (providersList.stream().noneMatch(ImmutableSet::isEmpty)) {
@@ -284,10 +285,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
       Object obj = arguments.get(ASPECTS_ARG);
-      SkylarkType.checkType(obj, Sequence.class, ASPECTS_ARG);
-
-      List<SkylarkAspect> aspects = ((Sequence<?>) obj).getContents(SkylarkAspect.class, "aspects");
-      for (SkylarkAspect aspect : aspects) {
+      for (SkylarkAspect aspect : Sequence.cast(obj, SkylarkAspect.class, "aspects")) {
         aspect.attachToAttribute(builder);
       }
     }
@@ -296,7 +294,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   }
 
   /**
-   * Builds a list of sets of accepted providers from Skylark list {@code obj}. The list can either
+   * Builds a list of sets of accepted providers from Starlark list {@code obj}. The list can either
    * be a list of providers (in that case the result is a list with one set) or a list of lists of
    * providers (then the result is the list of sets).
    *
@@ -322,15 +320,15 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   }
 
   /**
-   * Returns true if {@code o} is a Skylark provider (either a declared provider or
-   * a legacy provider name.
+   * Returns true if {@code o} is a Starlark provider (either a declared provider or a legacy
+   * provider name.
    */
   static boolean isProvider(Object o) {
     return o instanceof String || o instanceof Provider;
   }
 
   /**
-   * Converts Skylark identifiers of providers (either a string or a provider value) to their
+   * Converts Starlark identifiers of providers (either a string or a provider value) to their
    * internal representations.
    */
   static ImmutableSet<SkylarkProviderIdentifier> getSkylarkProviderIdentifiers(Sequence<?> list)
@@ -418,7 +416,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         Preconditions.checkNotNull(maybeGetNonConfigurableReason(type), type);
     try {
       // We use an empty name now so that we can set it later.
-      // This trick makes sense only in the context of Skylark (builtin rules should not use it).
+      // This trick makes sense only in the context of Starlark (builtin rules should not use it).
       return new Descriptor(
           name,
           createAttribute(type, null, kwargs, thread, "")
@@ -680,7 +678,6 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
   @Override
   public Descriptor outputAttribute(
-      Object defaultValue, // Label | StarlarkFunction
       String doc,
       Boolean mandatory,
       StarlarkThread thread)
@@ -688,16 +685,12 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.output");
 
     return createNonconfigurableAttrDescriptor(
-        "output",
-        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory),
-        BuildType.OUTPUT,
-        thread);
+        "output", optionMap(MANDATORY_ARG, mandatory), BuildType.OUTPUT, thread);
   }
 
   @Override
   public Descriptor outputListAttribute(
       Boolean allowEmpty,
-      Object defaultValue, // Sequence | StarlarkFunction
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
@@ -708,8 +701,6 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     return createAttrDescriptor(
         "output_list",
         optionMap(
-            DEFAULT_ARG,
-            defaultValue,
             MANDATORY_ARG,
             mandatory,
             NON_EMPTY_ARG,
@@ -782,7 +773,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         thread);
   }
 
-  /** A descriptor of an attribute defined in Skylark. */
+  /** A descriptor of an attribute defined in Starlark. */
   @AutoCodec
   public static final class Descriptor implements SkylarkAttrApi.Descriptor {
     private final ImmutableAttributeFactory attributeFactory;

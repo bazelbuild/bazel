@@ -25,7 +25,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 /**
- * A Skylark tuple, i.e. the value represented by {@code (1, 2, 3)}. Tuples are always immutable
+ * A Starlark tuple, i.e. the value represented by {@code (1, 2, 3)}. Tuples are always immutable
  * (regardless of the {@link StarlarkThread} they are created in).
  */
 @SkylarkModule(

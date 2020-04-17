@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
@@ -50,16 +50,16 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -72,7 +72,7 @@ import javax.annotation.Nullable;
 
 /**
  * A helper class to build Rule Configured Targets via runtime loaded rule implementations defined
- * using the Skylark Build Extension Language.
+ * using the Starlark Build Extension Language.
  */
 public final class SkylarkRuleConfiguredTargetUtil {
 
@@ -89,7 +89,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
   public static ConfiguredTarget buildRule(
       RuleContext ruleContext,
       AdvertisedProviderSet advertisedProviders,
-      BaseFunction ruleImplementation,
+      StarlarkCallable ruleImplementation,
       Location location,
       StarlarkSemantics starlarkSemantics,
       String toolsRepository)
@@ -103,8 +103,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
               .setSemantics(starlarkSemantics)
               .build();
       thread.setPrintHandler(
-          StarlarkThread.makeDebugPrintHandler(
-              ruleContext.getAnalysisEnvironment().getEventHandler()));
+          Event.makeDebugPrintHandler(ruleContext.getAnalysisEnvironment().getEventHandler()));
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.ANALYSIS,
@@ -192,10 +191,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
   }
 
-  /**
-   * Adds the given rule to the stack trace of the exception (if there is one).
-   */
-  private static void addRuleToStackTrace(EvalException ex, Rule rule, BaseFunction ruleImpl) {
+  /** Adds the given rule to the stack trace of the exception (if there is one). */
+  private static void addRuleToStackTrace(EvalException ex, Rule rule, StarlarkCallable ruleImpl) {
     if (ex instanceof EvalExceptionWithStackTrace) {
       ((EvalExceptionWithStackTrace) ex)
           .registerPhantomCall(
@@ -228,7 +225,27 @@ public final class SkylarkRuleConfiguredTargetUtil {
             .getRuleClassObject()
             .getConfiguredTargetFunction()
             .getLocation();
-    addProviders(context, builder, target, loc);
+
+    // TODO(adonovan): clean up addProviders' error handling,
+    // reporting provider validity errors through ruleError
+    // where possible. This allows for multiple events, with independent
+    // locations, even for the same root cause.
+    // EvalException is the wrong exception for createTarget to throw
+    // since it is neither called by Starlark nor does it call Starlak.
+    //
+    // In the meantime, ensure that any EvalException has a location.
+    try {
+      addProviders(context, builder, target, loc);
+    } catch (EvalException ex) {
+      if (ex.getLocation() == null) {
+        // Prefer target struct's creation location in error messages.
+        if (target instanceof Info) {
+          loc = ((Info) target).getCreationLoc();
+        }
+        ex = new EvalException(loc, ex.getMessage());
+      }
+      throw ex;
+    }
 
     try {
       return builder.build();
@@ -237,36 +254,37 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
   }
 
-  private static void addOutputGroups(Object value, RuleConfiguredTargetBuilder builder)
+  private static void addOutputGroups(Object outputGroups, RuleConfiguredTargetBuilder builder)
       throws EvalException {
-    Map<String, StarlarkValue> outputGroups =
-        SkylarkType.castMap(value, String.class, StarlarkValue.class, "output_groups");
-
-    for (String outputGroup : outputGroups.keySet()) {
-      StarlarkValue objects = outputGroups.get(outputGroup);
-      NestedSet<Artifact> artifacts = convertToOutputGroupValue(outputGroup, objects);
+    for (Map.Entry<String, StarlarkValue> entry :
+        Dict.cast(outputGroups, String.class, StarlarkValue.class, "output_groups").entrySet()) {
+      String outputGroup = entry.getKey();
+      NestedSet<Artifact> artifacts = convertToOutputGroupValue(outputGroup, entry.getValue());
       builder.addOutputGroup(outputGroup, artifacts);
     }
   }
 
-  @SuppressWarnings("unchecked") // Casting Sequence to List<String> is checked by cast().
   private static void addInstrumentedFiles(
       StructImpl insStruct, RuleContext ruleContext, RuleConfiguredTargetBuilder builder)
       throws EvalException {
-    Location insLoc = insStruct.getCreationLoc();
     List<String> extensions = null;
     if (insStruct.getFieldNames().contains("extensions")) {
-      extensions = cast("extensions", insStruct, Sequence.class, String.class, insLoc);
+      extensions = Sequence.cast(insStruct.getValue("extensions"), String.class, "extensions");
     }
+
     List<String> dependencyAttributes = Collections.emptyList();
     if (insStruct.getFieldNames().contains("dependency_attributes")) {
       dependencyAttributes =
-          cast("dependency_attributes", insStruct, Sequence.class, String.class, insLoc);
+          Sequence.cast(
+              insStruct.getValue("dependency_attributes"), String.class, "dependency_attributes");
     }
+
     List<String> sourceAttributes = Collections.emptyList();
     if (insStruct.getFieldNames().contains("source_attributes")) {
-      sourceAttributes = cast("source_attributes", insStruct, Sequence.class, String.class, insLoc);
+      sourceAttributes =
+          Sequence.cast(insStruct.getValue("source_attributes"), String.class, "source_attributes");
     }
+
     InstrumentedFilesInfo instrumentedFilesProvider =
         CoverageCommon.createInstrumentedFilesInfo(
             ruleContext,
@@ -295,28 +313,23 @@ public final class SkylarkRuleConfiguredTargetUtil {
         }
       }
       return nestedSetBuilder.build();
-    } else {
-      Depset artifactsSet =
-          SkylarkType.cast(
-              objects,
-              Depset.class,
-              Artifact.class,
-              null,
-              typeErrorMessage,
-              outputGroup,
-              EvalUtils.getDataTypeName(objects, true));
+    }
+
+    if (objects instanceof Depset) {
       try {
-        return artifactsSet.getSet(Artifact.class);
+        return ((Depset) objects).getSet(Artifact.class);
       } catch (Depset.TypeException exception) {
         throw new EvalException(
             null,
             String.format(
                 typeErrorMessage,
                 outputGroup,
-                "depset of type '" + artifactsSet.getContentType() + "'"),
+                "depset of type '" + ((Depset) objects).getContentType() + "'"),
             exception);
       }
     }
+
+    throw Starlark.errorf(typeErrorMessage, outputGroup, Starlark.type(objects));
   }
 
   private static void addProviders(
@@ -335,8 +348,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       if (getProviderKey(loc, info).equals(StructProvider.STRUCT.getKey())) {
 
         if (context.getSkylarkSemantics().incompatibleDisallowStructProviderSyntax()) {
-          throw new EvalException(
-              loc,
+          throw Starlark.errorf(
               "Returning a struct from a rule implementation function is deprecated and will "
                   + "be removed soon. It may be temporarily re-enabled by setting "
                   + "--incompatible_disallow_struct_provider_syntax=false . See "
@@ -347,17 +359,11 @@ public final class SkylarkRuleConfiguredTargetUtil {
         StructImpl struct = (StructImpl) target;
         oldStyleProviders = struct;
 
-        if (struct.getValue("providers") != null) {
-          Iterable<?> iterable = cast("providers", struct, Iterable.class, loc);
-          for (Object o : iterable) {
-            Info declaredProvider =
-                SkylarkType.cast(
-                    o,
-                    Info.class,
-                    loc,
-                    "The value of 'providers' should be a sequence of declared providers");
-            Provider.Key providerKey = getProviderKey(loc, declaredProvider);
-            if (declaredProviders.put(providerKey, declaredProvider) != null) {
+        Object providersField = struct.getValue("providers");
+        if (providersField != null) {
+          for (Info provider : Sequence.cast(providersField, Info.class, "providers")) {
+            Provider.Key providerKey = getProviderKey(loc, provider);
+            if (declaredProviders.put(providerKey, provider) != null) {
               context
                   .getRuleContext()
                   .ruleError("Multiple conflicting returned providers with key " + providerKey);
@@ -369,18 +375,12 @@ public final class SkylarkRuleConfiguredTargetUtil {
         // Single declared provider
         declaredProviders.put(providerKey, info);
       }
-    } else if (target instanceof Iterable) {
+    } else if (target instanceof Sequence) {
       // Sequence of declared providers
-      for (Object o : (Iterable) target) {
-        Info declaredProvider =
-            SkylarkType.cast(
-                o,
-                Info.class,
-                loc,
-                "A return value of a rule implementation function should be "
-                    + "a sequence of declared providers");
-        Provider.Key providerKey = getProviderKey(loc, declaredProvider);
-        if (declaredProviders.put(providerKey, declaredProvider)  != null) {
+      for (Info provider :
+          Sequence.cast(target, Info.class, "result of rule implementation function")) {
+        Provider.Key providerKey = getProviderKey(loc, provider);
+        if (declaredProviders.put(providerKey, provider) != null) {
           context
               .getRuleContext()
               .ruleError("Multiple conflicting returned providers with key " + providerKey);
@@ -418,8 +418,10 @@ public final class SkylarkRuleConfiguredTargetUtil {
       } else if (field.equals("output_groups")) {
         addOutputGroups(oldStyleProviders.getValue(field), builder);
       } else if (field.equals("instrumented_files")) {
-        StructImpl insStruct = cast("instrumented_files", oldStyleProviders, StructImpl.class, loc);
-        addInstrumentedFiles(insStruct, context.getRuleContext(), builder);
+        addInstrumentedFiles(
+            oldStyleProviders.getValue("instrumented_files", StructImpl.class),
+            context.getRuleContext(),
+            builder);
       } else if (!field.equals("providers")) { // "providers" already handled above.
         addProviderFromLegacySyntax(
             builder, oldStyleProviders, field, oldStyleProviders.getValue(field));
@@ -538,15 +540,26 @@ public final class SkylarkRuleConfiguredTargetUtil {
       // TODO(cparsons): Look into deprecating this option.
       for (String field : provider.getFieldNames()) {
         if (field.equals("files")) {
-          files = cast("files", provider, Depset.class, Artifact.class, loc);
+          Object x = provider.getValue("files");
+          // TODO(adonovan): factor with Depset.getSetFromParam and simplify.
+          try {
+            files = (Depset) x; // (ClassCastException)
+            files.getSet(Artifact.class); // (TypeException)
+          } catch (@SuppressWarnings("UnusedException")
+              ClassCastException
+              | Depset.TypeException ex) {
+            throw Starlark.errorf(
+                "expected depset of Files for 'files' but got %s instead",
+                EvalUtils.getDataTypeName(x, true));
+          }
         } else if (field.equals("runfiles")) {
-          statelessRunfiles = cast("runfiles", provider, Runfiles.class, loc);
+          statelessRunfiles = provider.getValue("runfiles", Runfiles.class);
         } else if (field.equals("data_runfiles")) {
-          dataRunfiles = cast("data_runfiles", provider, Runfiles.class, loc);
+          dataRunfiles = provider.getValue("data_runfiles", Runfiles.class);
         } else if (field.equals("default_runfiles")) {
-          defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
+          defaultRunfiles = provider.getValue("default_runfiles", Runfiles.class);
         } else if (field.equals("executable") && provider.getValue("executable") != null) {
-          executable = cast("executable", provider, Artifact.class, loc);
+          executable = provider.getValue("executable", Artifact.class);
         }
       }
 
@@ -652,7 +665,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
             ? RunfilesProvider.simple(mergeFiles(statelessRunfiles, executable, ruleContext))
             : RunfilesProvider.withData(
                 // The executable doesn't get into the default runfiles if we have runfiles states.
-                // This is to keep skylark genrule consistent with the original genrule.
+                // This is to keep Starlark genrule consistent with the original genrule.
                 defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY,
                 dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
     builder.addProvider(RunfilesProvider.class, runfilesProvider);
@@ -701,24 +714,6 @@ public final class SkylarkRuleConfiguredTargetUtil {
               + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
               + "solutions.");
     }
-  }
-
-  private static <T> T cast(String paramName, ClassObject struct, Class<T> expectedGenericType,
-      Class<?> expectedArgumentType, Location loc) throws EvalException {
-    Object value = struct.getValue(paramName);
-    return SkylarkType.cast(value, expectedGenericType, expectedArgumentType, loc,
-        "expected %s for '%s' but got %s instead: %s",
-        SkylarkType.of(expectedGenericType, expectedArgumentType),
-        paramName, EvalUtils.getDataTypeName(value, true), value);
-  }
-
-  private static <T> T cast(String paramName, ClassObject struct, Class<T> expectedType,
-      Location loc) throws EvalException {
-    Object value = struct.getValue(paramName);
-    return SkylarkType.cast(value, expectedType, loc,
-        "expected %s for '%s' but got %s instead: %s",
-        SkylarkType.of(expectedType),
-        paramName, EvalUtils.getDataTypeName(value, false), value);
   }
 
   private static Runfiles mergeFiles(

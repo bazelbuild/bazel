@@ -66,8 +66,8 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
-import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfoApiProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoModule;
+import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfo.FakeProtoInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyInfo.FakePyInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyRuntimeInfo.FakePyRuntimeInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyStarlarkTransitions;
@@ -87,7 +87,7 @@ import java.util.Map;
  * builtin types.
  */
 public class SymbolFamilies {
-  // Common prefix of packages that may contain Skylark modules.
+  // Common prefix of packages that may contain Starlark modules.
   private static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
 
   private final ImmutableList<RuleDocumentation> nativeRules;
@@ -208,8 +208,8 @@ public class SymbolFamilies {
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     ProtoBootstrap protoBootstrap =
         new ProtoBootstrap(
-            new FakeProtoInfoApiProvider(),
-            new FakeProtoModule(),
+            new FakeProtoInfoProvider(),
+            new FakeProtoCommon(),
             new SkylarkAspectStub(),
             new ProviderStub());
     PyBootstrap pyBootstrap =

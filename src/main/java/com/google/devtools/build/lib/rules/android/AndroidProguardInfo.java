@@ -59,7 +59,7 @@ public final class AndroidProguardInfo extends NativeInfo
         throws EvalException {
       return new AndroidProguardInfo(
           ImmutableList.copyOf(
-              localProguardSpecs.getContents(Artifact.class, "local_proguard_specs")));
+              Sequence.cast(localProguardSpecs, Artifact.class, "local_proguard_specs")));
     }
   }
 }

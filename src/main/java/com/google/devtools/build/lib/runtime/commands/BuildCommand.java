@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -48,7 +48,7 @@ import java.util.List;
       BuildRequestOptions.class,
       ExecutionOptions.class,
       LocalExecutionOptions.class,
-      PackageCacheOptions.class,
+      PackageOptions.class,
       AnalysisOptions.class,
       LoadingOptions.class,
       KeepGoingOption.class,

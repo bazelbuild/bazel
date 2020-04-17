@@ -18,6 +18,8 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.BitFlags;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.errorprone.annotations.Immutable;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -115,15 +117,9 @@ class CorePackageRenamer extends ClassRemapper {
         if (!argDesc.equals(mappedArg)) {
           // TODO(kmb): May need to support array types
           checkState(arg.getSort() == Type.OBJECT, "Can only map object types: %s", arg);
-          String converter = coreLibrarySupport.getFromCoreLibraryConverter(arg.getInternalName());
-          String simpleClassName =
-              arg.getInternalName().substring(arg.getInternalName().lastIndexOf('/') + 1);
-          stubMethod.visitMethodInsn(
-              Opcodes.INVOKESTATIC,
-              /*owner=*/ converter,
-              /*name=*/ "from" + simpleClassName, // naming convention for converter methods
-              /*descriptor=*/ "(" + argDesc + ")" + mappedArg,
-              /*isInterface=*/ false);
+          MethodInvocationSite replacementSite =
+              coreLibrarySupport.getTypeConverterSite(ClassName.create(arg.getInternalName()));
+          replacementSite.accept(stubMethod);
         }
       }
       stubMethod.visitMethodInsn(

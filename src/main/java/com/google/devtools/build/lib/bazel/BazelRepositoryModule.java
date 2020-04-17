@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFun
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
@@ -64,13 +64,17 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -129,10 +133,19 @@ public class BazelRepositoryModule extends BlazeModule {
                     + " for the repositories with managed directories.\n"
                     + "The following overridden external repositories have managed directories: "
                     + String.join(", ", conflicting.toArray(new String[0]));
-            throw new AbruptExitException(message, ExitCode.COMMAND_LINE_ERROR);
+            throw new AbruptExitException(
+                detailedExitCode(message, Code.OVERRIDE_DISALLOWED_MANAGED_DIRECTORIES));
           }
         };
     managedDirectoriesKnowledge = new ManagedDirectoriesKnowledgeImpl(listener);
+  }
+
+  private static DetailedExitCode detailedExitCode(String message, ExternalRepository.Code code) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setExternalRepository(ExternalRepository.newBuilder().setCode(code))
+            .build());
   }
 
   public static ImmutableMap<String, RepositoryFunction> repositoryRules() {
@@ -185,7 +198,8 @@ public class BazelRepositoryModule extends BlazeModule {
             isFetch,
             clientEnvironmentSupplier,
             directories,
-            managedDirectoriesKnowledge);
+            managedDirectoriesKnowledge,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     builder.addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction);
     filesystem = runtime.getFileSystem();
   }
@@ -211,7 +225,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     clientEnvironmentSupplier.set(env.getRepoEnv());
-    PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
+    PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
     resolvedFile = Optional.<RootedPath>absent();
     resolvedFileReplacingWorkspace = Optional.<RootedPath>absent();

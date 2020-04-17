@@ -46,8 +46,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("CONTAINING_PACKAGE_LOOKUP");
   public static final SkyFunctionName AST_FILE_LOOKUP =
       SkyFunctionName.createHermetic("AST_FILE_LOOKUP");
-  public static final SkyFunctionName SKYLARK_IMPORTS_LOOKUP =
-      SkyFunctionName.createHermetic("SKYLARK_IMPORTS_LOOKUP");
+  public static final SkyFunctionName STARLARK_IMPORTS_LOOKUP =
+      SkyFunctionName.createHermetic("STARLARK_IMPORTS_LOOKUP");
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.createHermetic("PACKAGE");
   static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.createHermetic("PACKAGE_ERROR");
@@ -88,11 +88,13 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TRANSITIVE_TARGET");
   public static final SkyFunctionName CONFIGURED_TARGET =
       SkyFunctionName.createHermetic("CONFIGURED_TARGET");
-  public static final SkyFunctionName POST_CONFIGURED_TARGET =
-      SkyFunctionName.createHermetic("POST_CONFIGURED_TARGET");
+  static final SkyFunctionName ACTION_LOOKUP_CONFLICT_FINDING =
+      SkyFunctionName.createHermetic("ACTION_LOOKUP_CONFLICT_DETECTION");
+  static final SkyFunctionName TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING =
+      SkyFunctionName.createHermetic("TOP_LEVEL_ACTION_LOOKUP_CONFLICT_DETECTION");
   public static final SkyFunctionName ASPECT = SkyFunctionName.createHermetic("ASPECT");
-  static final SkyFunctionName LOAD_SKYLARK_ASPECT =
-      SkyFunctionName.createHermetic("LOAD_SKYLARK_ASPECT");
+  static final SkyFunctionName LOAD_STARLARK_ASPECT =
+      SkyFunctionName.createHermetic("LOAD_STARLARK_ASPECT");
   public static final SkyFunctionName TARGET_COMPLETION =
       SkyFunctionName.create(
           "TARGET_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);

@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /**
- * A module that contains Skylark utilities for C++ support.
+ * A module that contains Starlark utilities for C++ support.
  *
  * <p>This is a work in progress. The API is guarded behind
  * --experimental_cc_skylark_api_enabled_packages. The API is under development and unstable.
@@ -109,7 +109,7 @@ public class BazelCcModule extends CcModule
         /* grepIncludes= */ null,
         /* headersForClifDoNotUseThisParam= */ ImmutableList.of(),
         StarlarkList.immutableCopyOf(
-            additionalInputs.getContents(Artifact.class, "additional_inputs")),
+            Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")),
         thread);
   }
 
@@ -125,6 +125,7 @@ public class BazelCcModule extends CcModule
       String language,
       String outputType,
       boolean linkDepsStatically,
+      int stamp,
       Sequence<?> additionalInputs, // <Artifact> expected
       Object grepIncludes,
       StarlarkThread thread)
@@ -140,6 +141,7 @@ public class BazelCcModule extends CcModule
         language,
         outputType,
         linkDepsStatically,
+        stamp,
         additionalInputs,
         /* grepIncludes= */ null,
         thread);
@@ -156,7 +158,7 @@ public class BazelCcModule extends CcModule
       throws EvalException {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
     for (CcCompilationOutputs ccCompilationOutputs :
-        compilationOutputs.getContents(CcCompilationOutputs.class, "compilation_outputs")) {
+        Sequence.cast(compilationOutputs, CcCompilationOutputs.class, "compilation_outputs")) {
       ccCompilationOutputsBuilder.merge(ccCompilationOutputs);
     }
     return ccCompilationOutputsBuilder.build();

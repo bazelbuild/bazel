@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.platform;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.AbruptExitException;
 
 /** Prevents the computer from going to sleep while a Bazel command is running. */
 public final class SleepPreventionModule extends BlazeModule {
@@ -44,14 +43,14 @@ public final class SleepPreventionModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+  public void beforeCommand(CommandEnvironment env) {
     if (JniLoader.jniEnabled()) {
       SleepPrevention.pushDisableSleep();
     }
   }
 
   @Override
-  public void afterCommand() throws AbruptExitException {
+  public void afterCommand() {
     if (JniLoader.jniEnabled()) {
       SleepPrevention.popDisableSleep();
     }

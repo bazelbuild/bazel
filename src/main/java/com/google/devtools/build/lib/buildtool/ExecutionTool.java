@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -64,10 +64,15 @@ import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -76,7 +81,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -136,24 +141,41 @@ public class ExecutionTool {
       throw new ExecutorInitException("Execroot creation failed", e);
     }
 
-    ExecutorBuilder builder = new ExecutorBuilder();
+    ExecutorBuilder executorBuilder = new ExecutorBuilder();
+    ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
+        executorBuilder.asModuleActionContextRegistryBuilder(ModuleActionContextRegistry.builder());
+    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
+        executorBuilder.asSpawnStrategyRegistryBuilder(SpawnStrategyRegistry.builder());
+    actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
+    executorBuilder.addStrategyByContext(SpawnStrategyResolver.class, "");
+
     for (BlazeModule module : runtime.getBlazeModules()) {
-      try (SilentCloseable closeable = Profiler.instance().profile(module + ".executorInit")) {
-        module.executorInit(env, request, builder);
+      try (SilentCloseable ignored = Profiler.instance().profile(module + ".executorInit")) {
+        module.executorInit(env, request, executorBuilder);
+      }
+
+      try (SilentCloseable ignored =
+          Profiler.instance().profile(module + ".registerActionContexts")) {
+        module.registerActionContexts(actionContextRegistryBuilder, env, request);
+      }
+
+      try (SilentCloseable ignored =
+          Profiler.instance().profile(module + ".registerSpawnStrategies")) {
+        module.registerSpawnStrategies(spawnStrategyRegistryBuilder, env);
       }
     }
-    builder.addActionContext(
+    actionContextRegistryBuilder.register(
         SymlinkTreeActionContext.class,
         new SymlinkTreeStrategy(env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually
     // depends on them.
-    builder
-        .addStrategyByContext(WorkspaceStatusAction.Context.class, "")
-        .addStrategyByContext(SymlinkTreeActionContext.class, "");
+    actionContextRegistryBuilder
+        .restrictTo(WorkspaceStatusAction.Context.class, "")
+        .restrictTo(SymlinkTreeActionContext.class, "");
 
-    this.prefetcher = builder.getActionInputPrefetcher();
-    this.executorLifecycleListeners = builder.getExecutorLifecycleListeners();
+    this.prefetcher = executorBuilder.getActionInputPrefetcher();
+    this.executorLifecycleListeners = executorBuilder.getExecutorLifecycleListeners();
 
     // There are many different SpawnActions, and we want to control the action context they use
     // independently from each other, for example, to run genrules locally and Java compile action
@@ -161,15 +183,28 @@ public class ExecutionTool {
     // context class, but also the mnemonic of the action.
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     // TODO(jmmv): This should live in some testing-related Blaze module, not here.
-    builder.addStrategyByContext(TestActionContext.class, options.testStrategy);
-    spawnActionContextMaps = builder.getSpawnActionContextMaps();
+    actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.testStrategy);
+
+    SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
+    actionContextRegistryBuilder.register(SpawnStrategyRegistry.class, spawnStrategyRegistry);
+    actionContextRegistryBuilder.register(DynamicStrategyRegistry.class, spawnStrategyRegistry);
+    actionContextRegistryBuilder.register(RemoteLocalFallbackRegistry.class, spawnStrategyRegistry);
+
+    executorBuilder.addActionContext(SpawnStrategyRegistry.class, spawnStrategyRegistry);
+    executorBuilder.addStrategyByContext(SpawnStrategyRegistry.class, "");
+
+    ModuleActionContextRegistry moduleActionContextRegistry = actionContextRegistryBuilder.build();
+    executorBuilder.addActionContext(
+        ModuleActionContextRegistry.class, moduleActionContextRegistry);
+    executorBuilder.addStrategyByContext(ModuleActionContextRegistry.class, "");
+
+    spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new ExecutorInitException(
           "--local_resources is deprecated. Please use "
               + "--local_ram_resources and/or --local_cpu_resources");
     }
-
     if (options.removeRamUtilizationFactor && options.ramUtilizationPercentage != 0) {
       throw new ExecutorInitException(
           "--ram_utilization_factor is deprecated. "
@@ -325,6 +360,10 @@ public class ExecutionTool {
       }
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
+      boolean shouldTrustRemoteArtifacts =
+          env.getOutputService() == null
+              ? false
+              : env.getOutputService().shouldTrustRemoteArtifacts();
       builder.buildArtifacts(
           env.getReporter(),
           analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
@@ -338,7 +377,8 @@ public class ExecutionTool {
           builtAspects,
           request,
           env.getBlazeWorkspace().getLastExecutionTimeRange(),
-          topLevelArtifactContext);
+          topLevelArtifactContext,
+          shouldTrustRemoteArtifacts);
       buildCompleted = true;
     } catch (BuildFailedException | TestExecException e) {
       buildCompleted = true;
@@ -707,7 +747,7 @@ public class ExecutionTool {
                 .setVerboseExplanations(options.verboseExplanations)
                 .build()),
         env.getTopDownActionCache(),
-        request.getPackageCacheOptions().checkOutputFiles
+        request.getPackageOptions().checkOutputFiles
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
         env.getFileCache(),
@@ -723,20 +763,9 @@ public class ExecutionTool {
           "--local_resources will be deprecated. Please use --local_ram_resources "
               + "and/or --local_cpu_resources.");
       resources = options.availableResources;
-      resourceMgr.setRamUtilizationPercentage(100);
-    } else if (options.ramUtilizationPercentage != 0) {
-      logger.warning(
-          "--ram_utilization_factor will soon be deprecated. Please use "
-              + "--local_ram_resources=HOST_RAM*<float>, where <float> is the percentage of "
-              + "available RAM you want to devote to Bazel.");
-      resources =
-          ResourceSet.createWithRamCpu(
-              LocalHostCapacity.getLocalHostCapacity().getMemoryMb(), options.localCpuResources);
-      resourceMgr.setRamUtilizationPercentage(options.ramUtilizationPercentage);
     } else {
       resources =
           ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
-      resourceMgr.setRamUtilizationPercentage(100);
     }
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
 
@@ -758,7 +787,7 @@ public class ExecutionTool {
     actionCache.mergeIntoActionCacheStatistics(builder);
 
     AutoProfiler p =
-        AutoProfiler.profiledAndLogged("Saving action cache", ProfilerTask.INFO, logger);
+        GoogleAutoProfilerUtils.profiledAndLogged("Saving action cache", ProfilerTask.INFO);
     try {
       builder.setSizeInBytes(actionCache.save());
     } catch (IOException e) {

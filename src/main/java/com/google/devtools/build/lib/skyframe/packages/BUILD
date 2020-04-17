@@ -5,6 +5,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 # Description:
@@ -27,11 +28,11 @@ java_library(
     deps = [
         ":PackageLoader",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/util/io",
@@ -49,12 +50,12 @@ java_library(
     srcs = ["BazelPackageLoader.java"],
     deps = [
         ":AbstractPackageLoader",
-        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelRepositoryModule",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/bazel:repository_module",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/skylark",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",

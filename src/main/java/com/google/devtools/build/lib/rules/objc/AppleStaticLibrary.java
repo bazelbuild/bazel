@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -69,22 +69,26 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap =
         MultiArchBinarySupport.transformMap(
             ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration(
-                "deps", Mode.SPLIT));
+                "deps", TransitionMode.SPLIT));
 
     ImmutableListMultimap<String, ObjcProvider> cpuToObjcAvoidDepsMap =
         MultiArchBinarySupport.transformMap(
             ruleContext.getPrerequisitesByConfiguration(
                 AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-                Mode.SPLIT,
+                TransitionMode.SPLIT,
                 ObjcProvider.SKYLARK_CONSTRUCTOR));
 
     ImmutableListMultimap<String, CcInfo> cpuToCcAvoidDepsMap =
         MultiArchBinarySupport.transformMap(
             ruleContext.getPrerequisitesByConfiguration(
-                AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.SPLIT, CcInfo.PROVIDER));
+                AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
+                TransitionMode.SPLIT,
+                CcInfo.PROVIDER));
 
     Iterable<ObjcProtoProvider> avoidProtoProviders =
-        ruleContext.getPrerequisites(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.TARGET,
+        ruleContext.getPrerequisites(
+            AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
+            TransitionMode.TARGET,
             ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(avoidProtoProviders);
 
@@ -104,7 +108,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersByConfig =
         ruleContext.getPrerequisitesByConfiguration(
-            "deps", Mode.SPLIT, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+            "deps", TransitionMode.SPLIT, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
     Multimap<String, ObjcProtoProvider> objcProtoProvidersMap =
         MultiArchBinarySupport.transformMap(objcProtoProvidersByConfig);
 

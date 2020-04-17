@@ -23,17 +23,14 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.rules.Alias;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -52,6 +49,10 @@ import javax.annotation.Nullable;
 /** A marker class for configuration transitions that are defined in Starlark. */
 public abstract class StarlarkTransition implements ConfigurationTransition {
 
+  // Use the plain strings rather than reaching into the Alias class and adding a dependency edge.
+  public static final String ALIAS_RULE_NAME = "alias";
+  public static final String ALIAS_ACTUAL_ATTRIBUTE_NAME = "actual";
+
   /** The two groups of build settings that are relevant for a {@link StarlarkTransition} */
   public enum Settings {
     /** Build settings that are read by a {@link StarlarkTransition} */
@@ -66,15 +67,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
   public StarlarkTransition(StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
     this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
-  }
-
-  public void replayOn(ExtendedEventHandler eventHandler) {
-    starlarkDefinedConfigTransition.getEventHandler().replayOn(eventHandler);
-    starlarkDefinedConfigTransition.getEventHandler().clear();
-  }
-
-  public boolean hasErrors() {
-    return starlarkDefinedConfigTransition.getEventHandler().hasErrors();
   }
 
   private List<String> getInputs() {
@@ -140,13 +132,13 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /**
-   * Given a {@link Label} that could be an {@link Alias} and a set of packages, find the actual
-   * target that {@link Label} ultimately points to.
+   * Given a {@link Label} that could be an {@link com.google.devtools.build.lib.rules.Alias} and a
+   * set of packages, find the actual target that {@link Label} ultimately points to.
    *
    * <ul>
    *   This method assumes that
-   *   <li>the packages of the entire {@link Alias} chain (if {@code setting} is indeed an alias)
-   *       are included in {@code buildSettingPackages}
+   *   <li>the packages of the entire {@link com.google.devtools.build.lib.rules.Alias} chain (if
+   *       {@code setting} is indeed an alias) are included in {@code buildSettingPackages}
    *   <li>the alias chain terminates in a build setting
    * </ul>
    *
@@ -155,7 +147,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   private static Target getActual(
       Map<PackageValue.Key, PackageValue> buildSettingPackages, Label setting) {
     Target buildSettingTarget = getBuildSettingTarget(buildSettingPackages, setting);
-    while (buildSettingTarget.getAssociatedRule().getRuleClass().equals(Alias.RULE_NAME)) {
+    while (buildSettingTarget.getAssociatedRule().getRuleClass().equals(ALIAS_RULE_NAME)) {
       buildSettingTarget =
           getBuildSettingTarget(
               buildSettingPackages,
@@ -163,7 +155,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
                   buildSettingTarget
                       .getAssociatedRule()
                       .getAttributeContainer()
-                      .getAttr(Alias.ACTUAL_ATTRIBUTE_NAME));
+                      .getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME));
     }
     return buildSettingTarget;
   }
@@ -218,11 +210,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /**
-   * Method to be called after Starlark-transitions are applied. Handles events and checks outputs.
-   *
-   * <p>Logs any events (e.g. {@code print()}s, errors} to output and throws an error if we had any
-   * errors. Right now, Starlark transitions are the only kind that knows how to throw errors so we
-   * know this will only report and throw if a Starlark transition caused a problem.
+   * Method to be called after Starlark-transitions are applied. Checks outputs.
    *
    * <p>We only do validation on Starlark-defined build settings. Native options (designated with
    * {@code COMMAND_LINE_OPTION_PREFIX}) already have their output values checked in {@link
@@ -235,11 +223,14 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * <p>Deduplicate redundant build settings from the result of split transitions. The first
    * encountered split key is used to represent the deduped build setting.
    *
-   * @param root transition that was applied. Likely a {@link ComposingTransition} so we decompose
-   *     and post-process all StarlarkTransitions out of whatever transition is passed here.
+   * @param root transition that was applied. Likely a {@link
+   *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition} so we
+   *     decompose and post-process all StarlarkTransitions out of whatever transition is passed
+   *     here.
    * @param buildSettingPackages PackageValue.Key/Values of packages that contain all
    *     Starlark-defined build settings that were set by {@code root}. If any build settings are
-   *     referenced by {@link Alias}, this contains all packages in the alias chain.
+   *     referenced by {@link com.google.devtools.build.lib.rules.Alias}, this contains all packages
+   *     in the alias chain.
    * @param toOptions result of applying {@code root}
    * @return validated toOptions with default values filtered out
    * @throws TransitionException if an error occurred during Starlark transition application.
@@ -291,13 +282,30 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       // Clean up aliased values.
       BuildOptions options = unalias(toOptions.get(splitKey), aliasToActual);
       for (Map.Entry<Label, Rule> changedSettingWithRule : changedSettingToRule.entrySet()) {
-        Label setting = changedSettingWithRule.getKey();
+        // If the build setting was referenced in the transition via an alias, this is that alias
+        Label maybeAliasSetting = changedSettingWithRule.getKey();
         Rule rule = changedSettingWithRule.getValue();
-        Object newValue = options.getStarlarkOptions().get(rule.getLabel());
+        // If the build setting was *not* referenced in the transition by an alias, this is the same
+        // value as {@code maybeAliasSetting} above.
+        Label actualSetting = rule.getLabel();
+        Object newValue = options.getStarlarkOptions().get(actualSetting);
+        // TODO(b/154132845): fix NPE occasionally observed here.
+        Preconditions.checkState(
+            newValue != null,
+            "Error while attempting to validate new values from starlark"
+                + " transition(s) with the outputs %s. Post-transition configuration should include"
+                + " '%s' but only includes starlark options: %s. If you run into this error"
+                + " please ping b/154132845 or email blaze-configurability@google.com.",
+            changedSettingToRule.keySet(),
+            actualSetting,
+            options.getStarlarkOptions().keySet());
         Object convertedValue;
         try {
           convertedValue =
-              rule.getRuleClassObject().getBuildSetting().getType().convert(newValue, setting);
+              rule.getRuleClassObject()
+                  .getBuildSetting()
+                  .getType()
+                  .convert(newValue, maybeAliasSetting);
         } catch (ConversionException e) {
           throw new TransitionException(e);
         }
@@ -363,8 +371,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * For a given transition, find all Starlark build settings that are read while applying it, then
    * return a map of their label to their default values.
    *
-   * <p>If the build setting is referenced by an {@link Alias}, the returned map entry is still
-   * keyed by the alias.
+   * <p>If the build setting is referenced by an {@link com.google.devtools.build.lib.rules.Alias},
+   * the returned map entry is still keyed by the alias.
    *
    * @param buildSettingPackages contains packages of all build settings read by Starlark
    *     transitions composing {@code root}. It may also contain other packages (e.g. packages of
@@ -455,12 +463,12 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
                 "attempting to transition on '%s' which is not a" + " build setting",
                 allegedBuildSetting));
       }
-      if (buildSettingTarget.getAssociatedRule().getRuleClass().equals(Alias.RULE_NAME)) {
+      if (buildSettingTarget.getAssociatedRule().getRuleClass().equals(ALIAS_RULE_NAME)) {
         Object actualValue =
             buildSettingTarget
                 .getAssociatedRule()
                 .getAttributeContainer()
-                .getAttr(Alias.ACTUAL_ATTRIBUTE_NAME);
+                .getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME);
         if (actualValue instanceof Label) {
           actualSettingBuilder.add((Label) actualValue);
           continue;
@@ -510,25 +518,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
             .filter(setting -> !setting.startsWith(COMMAND_LINE_OPTION_PREFIX))
             .map(Label::parseAbsoluteUnchecked)
             .collect(Collectors.toSet()));
-  }
-
-  /**
-   * For a given transition, for any Starlark-defined transitions that compose it, replay events. If
-   * any events were errors, throw an error.
-   */
-  public static void replayEvents(ExtendedEventHandler eventHandler, ConfigurationTransition root)
-      throws TransitionException {
-    root.visit(
-        (StarlarkTransitionVisitor)
-            transition -> {
-              // Replay events and errors and throw if there were errors
-              boolean hasErrors = transition.hasErrors();
-              transition.replayOn(eventHandler);
-              if (hasErrors) {
-                throw new TransitionException(
-                    "Errors encountered while applying Starlark transition");
-              }
-            });
   }
 
   @Override

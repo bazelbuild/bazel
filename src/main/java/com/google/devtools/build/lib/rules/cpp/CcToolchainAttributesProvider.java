@@ -26,20 +26,22 @@ import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
+import com.google.devtools.build.lib.syntax.Location;
 
 /**
  * Provider encapsulating all the information from the cc_toolchain rule that affects creation of
@@ -97,6 +99,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final Label ccToolchainLabel;
   private final TransitiveInfoCollection staticRuntimeLib;
   private final TransitiveInfoCollection dynamicRuntimeLib;
+  private final PackageSpecificationProvider whitelistForLayeringCheck;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
@@ -119,7 +122,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.supportsHeaderParsing = ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
     this.allFiles =
         ruleContext
-            .getPrerequisite("all_files", Mode.HOST)
+            .getPrerequisite("all_files", TransitionMode.HOST)
             .getProvider(FileProvider.class)
             .getFilesToBuild();
     this.allFilesMiddleman = getMiddlemanOrFiles(ruleContext, "all_files");
@@ -134,16 +137,19 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.dwpFiles = getMiddlemanOrFiles(ruleContext, "dwp_files");
 
     this.libcMiddleman =
-        getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
-    this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
-    this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
+        getOptionalMiddlemanOrFiles(
+            ruleContext, CcToolchainRule.LIBC_TOP_ATTR, TransitionMode.TARGET);
+    this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, TransitionMode.TARGET);
+    this.libcTop =
+        ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, TransitionMode.TARGET);
 
     this.targetLibcMiddleman =
-        getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, Mode.TARGET);
+        getOptionalMiddlemanOrFiles(
+            ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, TransitionMode.TARGET);
     this.targetLibc =
-        getOptionalFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, Mode.TARGET);
+        getOptionalFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR, TransitionMode.TARGET);
     this.targetLibcTop =
-        ruleContext.getPrerequisite(CcToolchainRule.TARGET_LIBC_TOP_ATTR, Mode.TARGET);
+        ruleContext.getPrerequisite(CcToolchainRule.TARGET_LIBC_TOP_ATTR, TransitionMode.TARGET);
 
     this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
 
@@ -160,37 +166,45 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     } else {
       this.coverage = coverageFiles;
     }
-    this.ifsoBuilder = ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST);
+    this.ifsoBuilder =
+        ruleContext.getPrerequisiteArtifact("$interface_library_builder", TransitionMode.HOST);
     this.linkDynamicLibraryTool =
-        ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST);
+        ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", TransitionMode.HOST);
     this.fdoProfileProvider =
         ruleContext.getPrerequisite(
-            CcToolchainRule.FDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
+            CcToolchainRule.FDO_PROFILE_ATTR, TransitionMode.TARGET, FdoProfileProvider.PROVIDER);
     this.csFdoProfileProvider =
         ruleContext.getPrerequisite(
-            CcToolchainRule.CSFDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
+            CcToolchainRule.CSFDO_PROFILE_ATTR, TransitionMode.TARGET, FdoProfileProvider.PROVIDER);
     this.xfdoProfileProvider =
         ruleContext.getPrerequisite(
-            CcToolchainRule.XFDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
+            CcToolchainRule.XFDO_PROFILE_ATTR, TransitionMode.TARGET, FdoProfileProvider.PROVIDER);
     this.fdoOptimizeProvider =
         ruleContext.getPrerequisite(
-            CcToolchainRule.FDO_OPTIMIZE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
-    this.fdoOptimize = ruleContext.getPrerequisite(CcToolchainRule.FDO_OPTIMIZE_ATTR, Mode.TARGET);
+            CcToolchainRule.FDO_OPTIMIZE_ATTR, TransitionMode.TARGET, FdoProfileProvider.PROVIDER);
+    this.fdoOptimize =
+        ruleContext.getPrerequisite(CcToolchainRule.FDO_OPTIMIZE_ATTR, TransitionMode.TARGET);
     this.fdoOptimizeArtifacts =
-        ruleContext.getPrerequisiteArtifacts(CcToolchainRule.FDO_OPTIMIZE_ATTR, Mode.TARGET).list();
+        ruleContext
+            .getPrerequisiteArtifacts(CcToolchainRule.FDO_OPTIMIZE_ATTR, TransitionMode.TARGET)
+            .list();
     this.fdoPrefetch =
         ruleContext.getPrerequisite(
-            ":fdo_prefetch_hints", Mode.TARGET, FdoPrefetchHintsProvider.PROVIDER);
-    this.moduleMap = ruleContext.getPrerequisite("module_map", Mode.HOST);
-    this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map", Mode.HOST);
-    this.zipper = ruleContext.getPrerequisiteArtifact(":zipper", Mode.HOST);
+            ":fdo_prefetch_hints", TransitionMode.TARGET, FdoPrefetchHintsProvider.PROVIDER);
+    this.moduleMap = ruleContext.getPrerequisite("module_map", TransitionMode.HOST);
+    this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map", TransitionMode.HOST);
+    this.zipper = ruleContext.getPrerequisiteArtifact(":zipper", TransitionMode.HOST);
     this.purposePrefix = Actions.escapeLabel(ruleContext.getLabel()) + "_";
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
-    this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib", Mode.TARGET);
-    this.dynamicRuntimeLib = ruleContext.getPrerequisite("dynamic_runtime_lib", Mode.TARGET);
+    this.staticRuntimeLib =
+        ruleContext.getPrerequisite("static_runtime_lib", TransitionMode.TARGET);
+    this.dynamicRuntimeLib =
+        ruleContext.getPrerequisite("dynamic_runtime_lib", TransitionMode.TARGET);
     this.ccToolchainConfigInfo =
         ruleContext.getPrerequisite(
-            CcToolchainRule.TOOLCHAIN_CONFIG_ATTR, Mode.TARGET, CcToolchainConfigInfo.PROVIDER);
+            CcToolchainRule.TOOLCHAIN_CONFIG_ATTR,
+            TransitionMode.TARGET,
+            CcToolchainConfigInfo.PROVIDER);
 
     // If output_license is specified on the cc_toolchain rule, override the transitive licenses
     // with that one. This is necessary because cc_toolchain is used in the target configuration,
@@ -219,6 +233,9 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
       this.toolchainType = null;
     }
     this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
+    this.whitelistForLayeringCheck =
+        Whitelist.fetchPackageSpecificationProvider(
+            ruleContext, CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_WHITELIST);
   }
 
   public String getCpu() {
@@ -406,12 +423,16 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return ifsoBuilder;
   }
 
+  public PackageSpecificationProvider getWhitelistForLayeringCheck() {
+    return whitelistForLayeringCheck;
+  }
+
   private static NestedSet<Artifact> getMiddlemanOrFiles(RuleContext context, String attribute) {
-    return getMiddlemanOrFiles(context, attribute, Mode.HOST);
+    return getMiddlemanOrFiles(context, attribute, TransitionMode.HOST);
   }
 
   private static NestedSet<Artifact> getMiddlemanOrFiles(
-      RuleContext context, String attribute, Mode mode) {
+      RuleContext context, String attribute, TransitionMode mode) {
     TransitiveInfoCollection dep = context.getPrerequisite(attribute, mode);
     MiddlemanProvider middlemanProvider = dep.getProvider(MiddlemanProvider.class);
     // We use the middleman if we can (if the dep is a filegroup), otherwise, just the regular
@@ -423,11 +444,11 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   private static NestedSet<Artifact> getOptionalMiddlemanOrFiles(
       RuleContext context, String attribute) {
-    return getOptionalMiddlemanOrFiles(context, attribute, Mode.HOST);
+    return getOptionalMiddlemanOrFiles(context, attribute, TransitionMode.HOST);
   }
 
   private static NestedSet<Artifact> getOptionalMiddlemanOrFiles(
-      RuleContext context, String attribute, Mode mode) {
+      RuleContext context, String attribute, TransitionMode mode) {
     TransitiveInfoCollection dep = context.getPrerequisite(attribute, mode);
     return dep != null
         ? getMiddlemanOrFiles(context, attribute, mode)
@@ -435,7 +456,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   }
 
   private static NestedSet<Artifact> getOptionalFiles(
-      RuleContext ruleContext, String attribute, Mode mode) {
+      RuleContext ruleContext, String attribute, TransitionMode mode) {
     TransitiveInfoCollection dep = ruleContext.getPrerequisite(attribute, mode);
     return dep != null
         ? dep.getProvider(FileProvider.class).getFilesToBuild()
@@ -455,8 +476,12 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
         NestedSetBuilder.<Artifact>stableOrder().addTransitive(link).addTransitive(libcMiddleman);
     if (!isAppleToolchain) {
       builder
-          .add(ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST))
-          .add(ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST));
+          .add(
+              ruleContext.getPrerequisiteArtifact(
+                  "$interface_library_builder", TransitionMode.HOST))
+          .add(
+              ruleContext.getPrerequisiteArtifact(
+                  "$link_dynamic_library_tool", TransitionMode.HOST));
     }
     return builder.build();
   }

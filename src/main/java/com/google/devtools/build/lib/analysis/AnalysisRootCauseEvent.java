@@ -19,8 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -52,9 +53,9 @@ public class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
   public BuildEventId getEventId() {
     // This needs to match AnalysisFailedCause.
     if (configuration == null) {
-      return BuildEventId.unconfiguredLabelId(label);
+      return BuildEventIdUtil.unconfiguredLabelId(label);
     }
-    return BuildEventId.configuredLabelId(label, configuration.getEventId());
+    return BuildEventIdUtil.configuredLabelId(label, configuration.getEventId());
   }
 
   @Override

@@ -7,6 +7,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 # I/O utilities.
@@ -30,6 +31,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",

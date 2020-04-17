@@ -19,21 +19,17 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A class representing types available in Skylark.
+ * A class representing types available in Starlark.
  *
  * <p>A SkylarkType can be one of:
  *
@@ -48,7 +44,7 @@ import javax.annotation.Nullable;
  *   <li>a FunctionType associated with a name and a returnType
  * </ul>
  *
- * <p>In a style reminiscent of Java's null, Skylark's None is in all the types as far as type
+ * <p>In a style reminiscent of Java's null, Starlark's None is in all the types as far as type
  * inference goes, yet actually no type .contains(it).
  *
  * <p>The current implementation fails to distinguish between TOP and ANY, between BOTTOM and EMPTY
@@ -57,8 +53,8 @@ import javax.annotation.Nullable;
  * <ul>
  *   <li>In type analysis, we often distinguish a notion of "the type of this object" from the
  *       notion of "what I know about the type of this object". Some languages have a Universal Base
- *       Class that contains all objects, and would be the ANY type. The Skylark runtime, written in
- *       Java, has this ANY type, Java's Object.class. But the Skylark validation engine doesn't
+ *       Class that contains all objects, and would be the ANY type. The Starlark runtime, written
+ *       in Java, has this ANY type, Java's Object.class. But the Starlark validation engine doesn't
  *       really have a concept of an ANY class; however, it does have a concept of a yet-undermined
  *       class, the TOP class (called UNKNOWN in previous code). In the future, we may have to
  *       distinguish between the two, at which point type constructor classes would have to be
@@ -261,7 +257,7 @@ public abstract class SkylarkType {
       Simple simple;
       if (type == Object.class) {
         // Note that this is a bad encoding for "anything", not for "everything", i.e.
-        // for skylark there isn't a type that contains everything, but there's a Top type
+        // for Starlark there isn't a type that contains everything, but there's a Top type
         // that corresponds to not knowing yet which more special type it will be.
         simple = TOP;
       } else if (type == Empty.class) {
@@ -399,7 +395,7 @@ public abstract class SkylarkType {
     }
   }
 
-  /** Union types, used a lot in "dynamic" languages such as Python or Skylark */
+  /** Union types, used a lot in "dynamic" languages such as Python or Starlark */
   @AutoCodec
   static class Union extends SkylarkType {
     private final ImmutableList<SkylarkType> types;
@@ -544,7 +540,7 @@ public abstract class SkylarkType {
     return Combination.of(Simple.forClass(generic), Simple.forClass(argument));
   }
 
-  /** A class representing the type of a Skylark function. */
+  /** A class representing the type of a Starlark function. */
   @AutoCodec
   static final class SkylarkFunctionType extends SkylarkType {
     private final String name;
@@ -596,110 +592,11 @@ public abstract class SkylarkType {
     }
   }
 
-  // Utility functions regarding types
-
   private static SkylarkType getGenericArgType(Object value) {
     if (value instanceof Depset) {
       return ((Depset) value).getContentType();
     } else {
       return TOP;
     }
-  }
-
-  /**
-   * General purpose type-casting facility.
-   *
-   * @param value - the actual value of the parameter
-   * @param type - the expected Class for the value
-   * @param loc - the location info used in the EvalException
-   * @param format - a String.format-style format string
-   * @param args - arguments to format, in case there's an exception
-   */
-  // TODO(adonovan): irrelevant; eliminate.
-  @FormatMethod
-  public static <T> T cast(Object value, Class<T> type, Location loc, String format, Object... args)
-      throws EvalException {
-    try {
-      return type.cast(value);
-    } catch (ClassCastException e) {
-      throw new EvalException(loc, String.format(format, args));
-    }
-  }
-
-  /**
-   * General purpose type-casting facility.
-   *
-   * @param value - the actual value of the parameter
-   * @param genericType - a generic class of one argument for the value
-   * @param argType - a covariant argument for the generic class
-   * @param loc - the location info used in the EvalException
-   * @param format - a format String
-   * @param args - arguments to format, in case there's an exception
-   */
-  @SuppressWarnings("unchecked")
-  @FormatMethod
-  public static <T> T cast(
-      Object value,
-      Class<T> genericType,
-      Class<?> argType,
-      Location loc,
-      String format,
-      Object... args)
-      throws EvalException {
-    if (of(genericType, argType).contains(value)) {
-      return (T) value;
-    } else {
-      throw new EvalException(loc, String.format(format, args));
-    }
-  }
-
-  /**
-   * Cast a Map object into an Iterable of Map entries of the given key, value types.
-   * @param obj the Map object, where null designates an empty map
-   * @param keyType the class of map keys
-   * @param valueType the class of map values
-   * @param what a string indicating what this is about, to include in case of error
-   */
-  @SuppressWarnings("unchecked")
-  public static <KEY_TYPE, VALUE_TYPE> Map<KEY_TYPE, VALUE_TYPE> castMap(Object obj,
-      Class<KEY_TYPE> keyType, Class<VALUE_TYPE> valueType, String what)
-      throws EvalException {
-    if (obj == null) {
-      return ImmutableMap.of();
-    }
-    if (!(obj instanceof Map<?, ?>)) {
-      throw Starlark.errorf(
-          "expected a dictionary for '%s' but got '%s' instead",
-          what, EvalUtils.getDataTypeName(obj));
-    }
-
-    for (Map.Entry<?, ?> input : ((Map<?, ?>) obj).entrySet()) {
-      if (!keyType.isAssignableFrom(input.getKey().getClass())
-          || !valueType.isAssignableFrom(input.getValue().getClass())) {
-        throw Starlark.errorf(
-            "expected <%s, %s> type for '%s' but got <%s, %s> instead",
-            keyType.getSimpleName(),
-            valueType.getSimpleName(),
-            what,
-            EvalUtils.getDataTypeName(input.getKey()),
-            EvalUtils.getDataTypeName(input.getValue()));
-      }
-    }
-
-    return (Map<KEY_TYPE, VALUE_TYPE>) obj;
-  }
-
-  // TODO(adonovan): eliminate 4 uses outside this package and make it private.
-  // The check is trivial (instanceof) and clients can usually produce a better
-  // error in context, without prematurely constructing a description.
-  public static void checkType(Object object, Class<?> type, @Nullable Object description)
-      throws EvalException {
-    if (!type.isInstance(object)) {
-      throw Starlark.errorf(
-          "expected type '%s' %sbut got type '%s' instead",
-          Starlark.repr(type),
-          description == null ? "" : String.format("for %s ", description),
-          EvalUtils.getDataTypeName(object));
-      }
   }
 }

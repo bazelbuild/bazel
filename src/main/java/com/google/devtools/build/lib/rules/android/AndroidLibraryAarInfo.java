@@ -18,7 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -165,7 +165,7 @@ public class AndroidLibraryAarInfo extends NativeInfo
     public AndroidLibraryAarInfo toProvider(
         RuleContext ruleContext, boolean definesLocalResources) {
       return toProvider(
-          AndroidCommon.getTransitivePrerequisites(ruleContext, Mode.TARGET, PROVIDER),
+          AndroidCommon.getTransitivePrerequisites(ruleContext, TransitionMode.TARGET, PROVIDER),
           definesLocalResources);
     }
 

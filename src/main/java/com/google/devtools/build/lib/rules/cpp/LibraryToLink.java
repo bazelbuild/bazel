@@ -126,7 +126,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   @Override
   public abstract boolean getAlwayslink();
 
-  // TODO(plf): This is just needed for Go, do not expose to Skylark and try to remove it. This was
+  // TODO(plf): This is just needed for Go, do not expose to Starlark and try to remove it. This was
   // introduced to let a linker input declare that it needs debug info in the executable.
   // Specifically, this was introduced for linking Go into a C++ binary when using the gccgo
   // compiler.

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -219,7 +219,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   private SpecialArtifact createTreeArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     return new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(rootDirectory, rootDirectory.getRelative("out")),
+        ArtifactRoot.asDerivedRoot(rootDirectory, "out"),
         execPath,
         CTKEY,
         SpecialArtifactType.TREE);

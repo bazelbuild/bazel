@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /**
- * A class that exposes the Android providers to Skylark. It is intended to provide a simple and
- * stable interface for Skylark users.
+ * A class that exposes the Android providers to Starlark. It is intended to provide a simple and
+ * stable interface for Starlark users.
  */
 @SkylarkModule(
     name = "AndroidSkylarkApiProvider",

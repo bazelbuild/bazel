@@ -36,7 +36,7 @@ Related issues:
 *   [#5577](https://github.com/bazelbuild/bazel/issues/5577) - Starlark support
     for custom build flags
 *   [#5578](https://github.com/bazelbuild/bazel/issues/5578) - Configuration
-    doesn't block native to Skylark rules migration
+    doesn't block native to Starlark rules migration
 
 ## User-defined build settings
 A build setting is a single piece of
@@ -479,6 +479,10 @@ cpu_transition = transition(
     inputs = [],
     outputs = ["//command_line_option:cpu"]
 ```
+
+NOTE: Transitioning on --define using "//command_line_option:define" is not
+supported - create a custom [build setting](#users-defined-build-settings) to
+cover this functionality.
 
 ### Accessing attributes with transitions
 When [attaching a transition to an outgoing edge](#outgoing-edge-transitions)

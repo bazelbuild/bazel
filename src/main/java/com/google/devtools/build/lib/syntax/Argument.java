@@ -24,14 +24,20 @@ import javax.annotation.Nullable;
  */
 public abstract class Argument extends Node {
 
-  private final Expression value;
+  protected final Expression value;
 
-  Argument(Expression value) {
+  Argument(FileLocations locs, Expression value) {
+    super(locs);
     this.value = Preconditions.checkNotNull(value);
   }
 
   public final Expression getValue() {
     return value;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return value.getEndOffset();
   }
 
   /** Return the name of this argument's parameter, or null if it is not a Keyword argument. */
@@ -42,8 +48,13 @@ public abstract class Argument extends Node {
 
   /** Syntax node for a positional argument, {@code f(expr)}. */
   public static final class Positional extends Argument {
-    Positional(Expression value) {
-      super(value);
+    Positional(FileLocations locs, Expression value) {
+      super(locs, value);
+    }
+
+    @Override
+    public int getStartOffset() {
+      return value.getStartOffset();
     }
   }
 
@@ -53,34 +64,55 @@ public abstract class Argument extends Node {
     // Unlike in Python, keyword arguments in Bazel BUILD files
     // are about 10x more numerous than positional arguments.
 
-    final Identifier identifier;
+    final Identifier id;
 
-    Keyword(Identifier identifier, Expression value) {
-      super(value);
-      this.identifier = identifier;
+    Keyword(FileLocations locs, Identifier id, Expression value) {
+      super(locs, value);
+      this.id = id;
     }
 
     public Identifier getIdentifier() {
-      return identifier;
+      return id;
     }
 
     @Override
     public String getName() {
-      return identifier.getName();
+      return id.getName();
+    }
+
+    @Override
+    public int getStartOffset() {
+      return id.getStartOffset();
     }
   }
 
   /** Syntax node for an argument of the form {@code f(*expr)}. */
   public static final class Star extends Argument {
-    Star(Expression value) {
-      super(value);
+    private final int starOffset;
+
+    Star(FileLocations locs, int starOffset, Expression value) {
+      super(locs, value);
+      this.starOffset = starOffset;
+    }
+
+    @Override
+    public int getStartOffset() {
+      return starOffset;
     }
   }
 
   /** Syntax node for an argument of the form {@code f(**expr)}. */
   public static final class StarStar extends Argument {
-    StarStar(Expression value) {
-      super(value);
+    private final int starStarOffset;
+
+    StarStar(FileLocations locs, int starStarOffset, Expression value) {
+      super(locs, value);
+      this.starStarOffset = starStarOffset;
+    }
+
+    @Override
+    public int getStartOffset() {
+      return starStarOffset;
     }
   }
 

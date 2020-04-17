@@ -38,7 +38,7 @@ import javax.annotation.concurrent.Immutable;
 
 /**
  * An implementation of {@link LateBoundDefault} which obtains a late-bound attribute value (of type
- * 'label') specifically by skylark configuration fragment name and field name, as registered by
+ * 'label') specifically by Starlark configuration fragment name and field name, as registered by
  * {@link SkylarkConfigurationField}.
  *
  * <p>For example, a SkylarkLateBoundDefault on "java" and "toolchain" would require a valid
@@ -106,15 +106,15 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
   }
 
   /**
-   * Returns the skylark name of the configuration fragment that this late bound default requires.
+   * Returns the Starlark name of the configuration fragment that this late bound default requires.
    */
   public String getFragmentName() {
     return fragmentName;
   }
 
   /**
-   * Returns the skylark name of the configuration field name, as registered by
-   * {@link SkylarkConfigurationField} annotation on the configuration fragment.
+   * Returns the Starlark name of the configuration field name, as registered by {@link
+   * SkylarkConfigurationField} annotation on the configuration fragment.
    */
   public String getFragmentFieldName() {
     return fragmentFieldName;
@@ -177,7 +177,7 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
   /**
    * A cache for efficient {@link SkylarkLateBoundDefault} loading by configuration fragment. Each
    * configuration fragment class key is mapped to a {@link Map} where keys are configuration field
-   * skylark names, and values are the {@link SkylarkLateBoundDefault}s. Methods must be annotated
+   * Starlark names, and values are the {@link SkylarkLateBoundDefault}s. Methods must be annotated
    * with {@link SkylarkConfigurationField} to be considered.
    */
   private static final LoadingCache<CacheKey, Map<String, SkylarkLateBoundDefault<?>>> fieldCache =
@@ -224,10 +224,10 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
 
   /**
    * Returns a {@link LateBoundDefault} which obtains a late-bound attribute value (of type 'label')
-   * specifically by skylark configuration fragment name and field name, as registered by {@link
+   * specifically by Starlark configuration fragment name and field name, as registered by {@link
    * SkylarkConfigurationField}.
    *
-   * @param fragmentClass the configuration fragment class, which must have a valid skylark name
+   * @param fragmentClass the configuration fragment class, which must have a valid Starlark name
    * @param fragmentFieldName the configuration field name, as registered by {@link
    *     SkylarkConfigurationField} annotation
    * @param toolsRepository the Bazel tools repository path fragment

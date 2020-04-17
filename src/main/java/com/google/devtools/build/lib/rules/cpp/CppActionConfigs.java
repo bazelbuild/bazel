@@ -360,9 +360,8 @@ public class CppActionConfigs {
                         "    action: 'lto-backend'",
                         "    flag_group {",
                         "      expand_if_all_available: 'fdo_prefetch_hints_path'",
-                        "      flag: '-Xclang-only=-mllvm'",
-                        "      flag: '-Xclang-only=-prefetch-hints-file="
-                            + "%{fdo_prefetch_hints_path}'",
+                        "      flag: '-mllvm'",
+                        "      flag: '-prefetch-hints-file=" + "%{fdo_prefetch_hints_path}'",
                         "    }",
                         "  }")));
       }

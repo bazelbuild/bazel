@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -252,8 +252,9 @@ public class AspectDefinitionTest {
             .containsExactly(Integer.class, String.class);
   }
 
-  private static class FooFragment extends BuildConfiguration.Fragment {}
-  private static class BarFragment extends BuildConfiguration.Fragment {}
+  private static class FooFragment extends Fragment {}
+
+  private static class BarFragment extends Fragment {}
 
   @Test
   public void testRequiresHostConfigurationFragments_PropagatedToConfigurationFragmentPolicy()

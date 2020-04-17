@@ -92,7 +92,8 @@ public class GlobCache {
    * @param globExecutor thread pool for glob evaluation.
    * @param maxDirectoriesToEagerlyVisit the number of directories to eagerly traverse on the first
    *     glob for a given package, in order to warm the filesystem. -1 means do no eager traversal.
-   *     See {@code PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}.
+   *     See {@link
+   *     com.google.devtools.build.lib.pkgcache.PackageOptions#maxDirectoriesToEagerlyVisitInGlobbing}.
    */
   public GlobCache(
       final Path packageDirectory,

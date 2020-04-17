@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
@@ -91,7 +91,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
         "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = (PyRuntimeInfo) lookup("info");
-    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:21");
     assertThat(info.getInterpreterPath()).isNull();
     assertThat(info.getInterpreter()).isEqualTo(dummyInterpreter);
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER, dummyFile);
@@ -106,7 +106,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
         "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = (PyRuntimeInfo) lookup("info");
-    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:21");
     assertThat(info.getInterpreterPath()).isEqualTo(PathFragment.create("/system/interpreter"));
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();

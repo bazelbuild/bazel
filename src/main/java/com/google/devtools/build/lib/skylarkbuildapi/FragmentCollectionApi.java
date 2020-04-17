@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** Represents a collection of configuration fragments in Skylark. */
+/** Represents a collection of configuration fragments in Starlark. */
 @SkylarkModule(
     name = "fragments",
     category = SkylarkModuleCategory.BUILTIN,

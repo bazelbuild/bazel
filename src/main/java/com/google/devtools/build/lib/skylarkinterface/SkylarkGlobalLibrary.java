@@ -19,11 +19,10 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An annotation to mark a class whose methods are global (top-level) Skylark functions.
+ * An annotation to mark a class whose methods are global (top-level) Starlark functions.
  *
- * <p>A class or interface annotated with this annotation indicates that all of its methods
- * which are annotated with {@link SkylarkCallable} should be treated as global top-level
- * functions.
+ * <p>A class or interface annotated with this annotation indicates that all of its methods which
+ * are annotated with {@link SkylarkCallable} should be treated as global top-level functions.
  *
  * <p>Global libraries should be stateless, and must have a public zero-arg constructor.
  */

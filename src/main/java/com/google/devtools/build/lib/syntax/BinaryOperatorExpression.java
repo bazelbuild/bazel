@@ -20,6 +20,7 @@ public final class BinaryOperatorExpression extends Expression {
 
   private final Expression x;
   private final TokenKind op; // one of 'operators'
+  private final int opOffset;
   private final Expression y;
 
   /** operators is the set of valid binary operators. */
@@ -43,9 +44,12 @@ public final class BinaryOperatorExpression extends Expression {
           TokenKind.PIPE,
           TokenKind.STAR);
 
-  BinaryOperatorExpression(Expression x, TokenKind op, Expression y) {
+  BinaryOperatorExpression(
+      FileLocations locs, Expression x, TokenKind op, int opOffset, Expression y) {
+    super(locs);
     this.x = x;
     this.op = op;
+    this.opOffset = opOffset;
     this.y = y;
   }
 
@@ -59,9 +63,23 @@ public final class BinaryOperatorExpression extends Expression {
     return op;
   }
 
+  public Location getOperatorLocation() {
+    return locs.getLocation(opOffset);
+  }
+
   /** Returns the right operand. */
   public Expression getY() {
     return y;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return x.getStartOffset();
+  }
+
+  @Override
+  public int getEndOffset() {
+    return y.getEndOffset();
   }
 
   @Override

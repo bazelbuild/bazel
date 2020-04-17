@@ -67,7 +67,7 @@ public final class ShutdownCommand implements BlazeCommand {
 
     if (limit == 0 ||
         Runtime.getRuntime().totalMemory() > limit * 1000L * 1000) {
-      return BlazeCommandResult.shutdown(ExitCode.SUCCESS);
+      return BlazeCommandResult.shutdownOnSuccess();
     }
 
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);

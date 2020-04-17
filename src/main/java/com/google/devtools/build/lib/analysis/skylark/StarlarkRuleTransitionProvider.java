@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -105,35 +106,30 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
     // TODO(b/121134880): validate that the targets these transitions are applied on don't read any
     // attributes that are then configured by the outputs of these transitions.
     @Override
-    public BuildOptions patch(BuildOptions buildOptions) {
+    public BuildOptions patch(BuildOptions buildOptions, EventHandler eventHandler) {
       Map<String, BuildOptions> result;
       try {
-        result = applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
+        result =
+            applyAndValidate(
+                buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        starlarkDefinedConfigTransition
-            .getEventHandler()
-            .handle(
-                Event.error(
-                    starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                    "Starlark transition interrupted during rule transition implementation"));
+        eventHandler.handle(
+            Event.error(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                "Starlark transition interrupted during rule transition implementation"));
         return buildOptions.clone();
       } catch (EvalException e) {
-        starlarkDefinedConfigTransition
-            .getEventHandler()
-            .handle(
-                Event.error(
-                    starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                    e.getMessage()));
+        eventHandler.handle(
+            Event.error(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(), e.getMessage()));
         return buildOptions.clone();
       }
       if (result.size() != 1) {
-        starlarkDefinedConfigTransition
-            .getEventHandler()
-            .handle(
-                Event.error(
-                    starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                    "Rule transition only allowed to return a single transitioned configuration."));
+        eventHandler.handle(
+            Event.error(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                "Rule transition only allowed to return a single transitioned configuration."));
         return buildOptions.clone();
       }
       return Iterables.getOnlyElement(result.values());

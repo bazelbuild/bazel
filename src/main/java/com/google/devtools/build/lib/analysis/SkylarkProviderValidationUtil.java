@@ -19,9 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/**
- * Utility class to validate results of executing Skylark rules and aspects.
- */
+/** Utility class to validate results of executing Starlark rules and aspects. */
 public class SkylarkProviderValidationUtil {
   public static void validateArtifacts(RuleContext ruleContext) throws EvalException {
     ImmutableSet<Artifact> treeArtifactsConflictingWithFiles =

@@ -19,6 +19,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -40,7 +41,6 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -69,7 +69,7 @@ import javax.annotation.Nullable;
  */
 public class NestedSetStore {
 
-  private static final Logger logger = Logger.getLogger(NestedSetStore.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final Duration FETCH_FROM_STORAGE_LOGGING_THRESHOLD = Duration.ofSeconds(5);
 
   /** Stores fingerprint -> NestedSet associations. */
@@ -375,10 +375,9 @@ public class NestedSetStore {
             bytes -> {
               Duration fetchDuration = fetchStopwatch.elapsed();
               if (FETCH_FROM_STORAGE_LOGGING_THRESHOLD.compareTo(fetchDuration) < 0) {
-                logger.info(
-                    String.format(
-                        "NestedSet fetch took: %dms, size: %dB",
-                        fetchDuration.toMillis(), bytes.length));
+                logger.atInfo().log(
+                    "NestedSet fetch took: %dms, size: %dB",
+                    fetchDuration.toMillis(), bytes.length);
               }
 
               CodedInputStream codedIn = CodedInputStream.newInstance(bytes);

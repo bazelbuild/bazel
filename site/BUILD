@@ -155,6 +155,15 @@ jekyll_build(
     srcs = [
         "@jekyll_tree_%s//file" % DOC_VERSION["version"].replace(".", "_")
         for DOC_VERSION in DOC_VERSIONS
-    ] + [":jekyll-tree"],  # jekyll-tree *must* come last to be the default.
+    ] + [":jekyll-tree"],  # jekyll-tree *must* come last to use layouts and includes from master
     bucket = "docs.bazel.build",
+)
+
+# A smaller site build target. Contains just the docs for latest released version and master.
+jekyll_build(
+    name = "site_latest",
+    srcs = [
+        "@jekyll_tree_%s//file" % DOC_VERSIONS[0]["version"].replace(".", "_"),
+        ":jekyll-tree",  # jekyll-tree *must* come last to use layouts and includes from master
+    ],
 )

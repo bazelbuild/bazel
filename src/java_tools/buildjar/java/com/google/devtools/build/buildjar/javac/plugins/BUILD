@@ -59,10 +59,11 @@ filegroup(
     srcs = glob(["**/*.java"]) + [
         "BUILD",
     ],
+    visibility = ["//src:__subpackages__"],
 )
 
 #
-## Bootstrapping using Skylark rules
+## Bootstrapping using Starlark rules
 #
 
 load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")

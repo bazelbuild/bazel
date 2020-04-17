@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 
 /**
- * A class to contain the common functionality for analysis-phase Skylark tests. The less stuff
+ * A class to contain the common functionality for analysis-phase Starlark tests. The less stuff
  * here, the better.
  */
 public abstract class SkylarkTestCase extends BuildViewTestCase {
@@ -65,7 +65,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                         globals.withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                     .build();
-            thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
+            thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
 
             // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
             // Rule creation is tested by SkylarkIntegrationTest.

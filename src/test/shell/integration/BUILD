@@ -607,6 +607,7 @@ sh_test(
     data = [
         ":test-deps",
     ],
+    shard_count = 4,
     tags = ["no_windows"],
 )
 

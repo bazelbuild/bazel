@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkbuildapi.ExecGroupApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -91,25 +91,13 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     // Field documentation will be output preserving the order in which the fields are listed.
     ImmutableList.Builder<ProviderFieldInfo> providerFieldInfos = ImmutableList.builder();
     if (fields instanceof Sequence) {
-      @SuppressWarnings("unchecked")
-      Sequence<String> fieldNames =
-          (Sequence<String>)
-              SkylarkType.cast(
-                  fields,
-                  Sequence.class,
-                  String.class,
-                  null,
-                  "Expected list of strings or dictionary of string -> string for 'fields'");
-      for (String fieldName : fieldNames) {
-        providerFieldInfos.add(asProviderFieldInfo(fieldName, "(Undocumented)"));
+      for (String name : Sequence.cast(fields, String.class, "fields")) {
+        providerFieldInfos.add(asProviderFieldInfo(name, "(Undocumented)"));
       }
     } else if (fields instanceof Dict) {
-      Map<String, String> dict = SkylarkType.castMap(
-          fields,
-          String.class, String.class,
-          "Expected list of strings or dictionary of string -> string for 'fields'");
-      for (Map.Entry<String, String> fieldEntry : dict.entrySet()) {
-        providerFieldInfos.add(asProviderFieldInfo(fieldEntry.getKey(), fieldEntry.getValue()));
+      for (Map.Entry<String, String> e :
+          Dict.cast(fields, String.class, String.class, "fields").entrySet()) {
+        providerFieldInfos.add(asProviderFieldInfo(e.getKey(), e.getValue()));
       }
     } else {
       // fields is NONE, so there is no field information to add.
@@ -147,12 +135,12 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Object analysisTest,
       Object buildSetting,
       Object cfg,
+      Object execGroups,
       StarlarkThread thread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
-      Dict<?, ?> attrsDict = (Dict<?, ?>) attrs;
-      attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
+      attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
     }
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
@@ -204,8 +192,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     FakeSkylarkAspect fakeAspect = new FakeSkylarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
-      Dict<?, ?> attrsDict = (Dict<?, ?>) attrs;
-      attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
+      attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
     }
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
@@ -216,10 +203,10 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
             .collect(Collectors.toList());
     attrInfos.sort(new AttributeNameComparator());
 
-    List<String> aspectAttrs = new ArrayList<>();
-    if (attributeAspects != null) {
-      aspectAttrs = attributeAspects.getContents(String.class, "aspectAttrs");
-    }
+    List<String> aspectAttrs =
+        attributeAspects != null
+            ? Sequence.cast(attributeAspects, String.class, "aspectAttrs")
+            : new ArrayList<>();
 
     aspectAttrs =
         aspectAttrs.stream().filter(entry -> !entry.startsWith("_")).collect(Collectors.toList());
@@ -236,10 +223,16 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     return fakeAspect;
   }
 
+  @Override
+  public ExecGroupApi execGroup(
+      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread) {
+    return new FakeExecGroup();
+  }
+
   /**
    * A fake {@link BaseFunction} implementation which serves as an identifier for a rule definition.
-   * A skylark invocation of 'rule()' should spawn a unique instance of this class and return it.
-   * Thus, skylark code such as 'foo = rule()' will result in 'foo' being assigned to a unique
+   * A Starlark invocation of 'rule()' should spawn a unique instance of this class and return it.
+   * Thus, Starlark code such as 'foo = rule()' will result in 'foo' being assigned to a unique
    * identifier, which can later be matched to a registered rule() invocation saved by the fake
    * build API implementation.
    */

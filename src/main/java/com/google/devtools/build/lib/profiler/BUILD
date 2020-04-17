@@ -5,6 +5,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -24,11 +25,11 @@ java_library(
         "TimeSeries.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -41,6 +42,7 @@ java_library(
     deps = [
         ":profiler",
         "//third_party:flogger",
+        "//third_party:guava",
     ],
 )
 
@@ -57,9 +59,9 @@ java_library(
         ]),
     deps = [
         ":profiler",
-        "//src/main/java/com/google/devtools/build/lib:base-util",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:auto_value",
         "//third_party:gson",

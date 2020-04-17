@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
@@ -32,11 +33,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.logging.Logger;
 
 /** Utility functions for the {@code windows-sandbox}. */
 public final class WindowsSandboxUtil {
-  private static final Logger log = Logger.getLogger(WindowsSandboxUtil.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Checks if the given Windows sandbox binary is available and is valid.
@@ -55,7 +55,8 @@ public final class WindowsSandboxUtil {
               .setWorkingDirectory(new File("."))
               .start();
     } catch (IOException e) {
-      log.warning("Windows sandbox binary at " + binary + " seems to be missing; got error: " + e);
+      logger.atWarning().withCause(e).log(
+          "Windows sandbox binary at %s seems to be missing", binary);
       return false;
     }
 
@@ -79,13 +80,9 @@ public final class WindowsSandboxUtil {
       // the DottedVersion logic from the Apple rules.
       return true;
     } else {
-      log.warning(
-          "Windows sandbox binary at "
-              + binary
-              + " returned non-zero exit code "
-              + exitCode
-              + " and output "
-              + outErr);
+      logger.atWarning().log(
+          "Windows sandbox binary at %s returned non-zero exit code %d and output %s",
+          binary, exitCode, outErr);
       return false;
     }
   }

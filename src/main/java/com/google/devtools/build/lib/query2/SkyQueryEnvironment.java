@@ -32,6 +32,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -62,6 +63,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
@@ -104,6 +106,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -116,8 +119,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
@@ -137,7 +138,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected static final int BATCH_CALLBACK_SIZE = 10000;
   public static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
   private static final int MAX_QUERY_EXPRESSION_LOG_CHARS = 1000;
-  private static final Logger logger = Logger.getLogger(SkyQueryEnvironment.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
   protected final int loadingPhaseThreads;
@@ -244,7 +245,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     Set<SkyKey> roots = getGraphRootsFromExpression(expr);
 
     EvaluationResult<SkyValue> result;
-    try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", logger)) {
+    try (AutoProfiler p = GoogleAutoProfilerUtils.logged("evaluation and walkable graph")) {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setNumThreads(loadingPhaseThreads)
@@ -339,24 +340,20 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   }
 
+  private static final Duration MIN_LOGGING = Duration.ofMillis(50);
+
   @Override
   public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     QueryExpressionMapper<Void> mapper = getQueryExpressionMapper();
     QueryExpression transformedQueryExpression;
-    try (AutoProfiler p =
-        AutoProfiler.logged(
-            "transforming query", logger, /*minTimeForLoggingInMilliseconds=*/ 50)) {
+    try (AutoProfiler p = GoogleAutoProfilerUtils.logged("transforming query", MIN_LOGGING)) {
       transformedQueryExpression = queryExpression.accept(mapper);
     }
-    logger.info(
-        String.format(
-            "transformed query [%s] to [%s]",
-            Ascii.truncate(
-                queryExpression.toString(), MAX_QUERY_EXPRESSION_LOG_CHARS, "[truncated]"),
-            Ascii.truncate(
-                transformedQueryExpression.toString(),
-                MAX_QUERY_EXPRESSION_LOG_CHARS,
-                "[truncated]")));
+    logger.atInfo().log(
+        "transformed query [%s] to [%s]",
+        Ascii.truncate(queryExpression.toString(), MAX_QUERY_EXPRESSION_LOG_CHARS, "[truncated]"),
+        Ascii.truncate(
+            transformedQueryExpression.toString(), MAX_QUERY_EXPRESSION_LOG_CHARS, "[truncated]"));
     return transformedQueryExpression;
   }
 
@@ -384,10 +381,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       throwableToThrow = throwable;
     } finally {
       if (throwableToThrow != null) {
-        logger.log(
-            Level.INFO,
-            "About to shutdown query threadpool because of throwable",
-            throwableToThrow);
+        logger.atInfo().withCause(throwableToThrow).log(
+            "About to shutdown query threadpool because of throwable");
         ListeningExecutorService obsoleteExecutor = executor;
         // Signal that executor must be recreated on the next invocation.
         executor = null;

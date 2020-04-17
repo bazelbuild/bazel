@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -234,7 +234,7 @@ public final class DepsetTest extends EvaluationTestCase {
   public void testItemsAndTransitive() throws Exception {
     new Scenario()
         .testIfExactError(
-            "expected type 'sequence' for items but got type 'depset' instead",
+            "for items, got depset, want sequence",
             "depset(items = depset(), transitive = [depset()])");
   }
 
@@ -275,11 +275,11 @@ public final class DepsetTest extends EvaluationTestCase {
 
   @Test
   public void testIncompatibleUnion() throws Exception {
-    new Scenario("--incompatible_depset_union=true")
-        .testIfErrorContains("`+` operator on a depset is forbidden", "depset([]) + ['a']");
+    new Scenario()
+        .testIfErrorContains("unsupported binary operation: depset + list", "depset([]) + ['a']");
 
-    new Scenario("--incompatible_depset_union=true")
-        .testIfErrorContains("`|` operator on a depset is forbidden", "depset([]) | ['a']");
+    new Scenario()
+        .testIfErrorContains("unsupported binary operation: depset | list", "depset([]) | ['a']");
   }
 
   private void assertContainsInOrder(String statement, Object... expectedElements)
@@ -290,127 +290,18 @@ public final class DepsetTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testUnionOrder() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    exec(
-        "def func():",
-        "  s1 = depset()",
-        "  s2 = depset()",
-        "  s1 += ['a']",
-        "  s2 += ['b']",
-        "  s1 += s2",
-        "  return s1",
-        "s = func()");
-    assertThat(get("s").toCollection()).containsExactly("b", "a").inOrder();
-  }
-
-  @Test
-  public void testUnionIncompatibleOrder() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    checkEvalError(
-        "Order mismatch: topological != postorder",
-        "depset(['a', 'b'], order='postorder') + depset(['c', 'd'], order='topological')");
-  }
-
-  @Test
-  public void testFunctionReturnsDepset() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    exec(
-        "def func():", //
-        "  t = depset()",
-        "  t += ['a']",
-        "  return t",
-        "s = func()");
-    assertThat(get("s")).isInstanceOf(Depset.class);
-    assertThat(get("s").toCollection()).containsExactly("a");
-  }
-
-  @Test
-  public void testPlusEqualsWithList() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    exec(
-        "def func():", //
-        "  t = depset()",
-        "  t += ['a', 'b']",
-        "  return t",
-        "s = func()");
-    assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-  }
-
-  @Test
-  public void testPlusEqualsNoSideEffects() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    exec(
-        "def func():",
-        "  s1 = depset()",
-        "  s1 += ['a']",
-        "  s2 = s1",
-        "  s2 += ['b']",
-        "  return s1",
-        "s = func()");
-    assertThat(get("s").toCollection()).containsExactly("a");
-  }
-
-  @Test
-  public void testFuncParamNoSideEffects() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    exec(
-        "def func1(t):",
-        "  t += ['b']",
-        "def func2():",
-        "  u = depset()",
-        "  u += ['a']",
-        "  func1(u)",
-        "  return u",
-        "s = func2()");
-    assertThat(get("s").toCollection()).containsExactly("a");
-  }
-
-  @Test
-  public void testTransitiveOrdering() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    exec(
-        "def func():",
-        "  sa = depset(['a'], order='postorder')",
-        "  sb = depset(['b'], order='postorder')",
-        "  sc = depset(['c'], order='postorder') + sa",
-        "  return depset() + sb + sc",
-        "s = func()");
-    // The iterator lists the Transitive sets first
-    assertThat(get("s").toCollection()).containsExactly("b", "a", "c").inOrder();
-  }
-
-  @Test
-  public void testLeftRightDirectOrdering() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    exec(
-        "def func():",
-        "  t = depset()",
-        "  t += [4]",
-        "  t += [2, 4]",
-        "  t += [3, 4, 5]",
-        "  return t",
-        "s = func()");
-    // All elements are direct. The iterator lists them left-to-right.
-    assertThat(get("s").toCollection()).containsExactly(4, 2, 3, 5).inOrder();
-  }
-
-  @Test
   public void testToString() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    exec(
-        "s = depset() + [2, 4, 6] + [3, 4, 5]", //
-        "x = str(s)");
+    exec("s = depset([3, 4, 5], transitive = [depset([2, 4, 6])])", "x = str(s)");
     assertThat(lookup("x")).isEqualTo("depset([2, 4, 6, 3, 5])");
   }
 
   @Test
   public void testToStringWithOrder() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
     exec(
-        "s = depset(order = 'topological') + [2, 4, 6] + [3, 4, 5]", //
+        "s = depset([3, 4, 5], transitive = [depset([2, 4, 6])], ",
+        "           order = 'topological')",
         "x = str(s)");
-    assertThat(lookup("x")).isEqualTo("depset([2, 4, 6, 3, 5], order = \"topological\")");
+    assertThat(lookup("x")).isEqualTo("depset([3, 5, 6, 4, 2], order = \"topological\")");
   }
 
   private Depset get(String varname) throws Exception {
@@ -419,10 +310,8 @@ public final class DepsetTest extends EvaluationTestCase {
 
   @Test
   public void testToList() throws Exception {
-    setSemantics("--incompatible_depset_union=false");
-    exec(
-        "s = depset() + [2, 4, 6] + [3, 4, 5]", //
-        "x = s.to_list()");
+    setSemantics();
+    exec("s = depset([3, 4, 5], transitive = [depset([2, 4, 6])])", "x = s.to_list()");
     Object value = lookup("x");
     assertThat(value).isInstanceOf(StarlarkList.class);
     assertThat((Iterable<?>) value).containsExactly(2, 4, 6, 3, 5).inOrder();

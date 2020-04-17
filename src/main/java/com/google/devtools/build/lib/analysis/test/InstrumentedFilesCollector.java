@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -363,7 +363,7 @@ public final class InstrumentedFilesCollector {
     for (String attr : attributeNames) {
       if (ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL_LIST) ||
           ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL)) {
-        prerequisites.addAll(ruleContext.getPrerequisites(attr, Mode.DONT_CHECK));
+        prerequisites.addAll(ruleContext.getPrerequisites(attr, TransitionMode.DONT_CHECK));
       }
     }
     return prerequisites;

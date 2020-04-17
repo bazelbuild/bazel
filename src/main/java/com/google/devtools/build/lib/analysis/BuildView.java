@@ -67,8 +67,8 @@ import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStati
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.AspectValue;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
@@ -90,6 +90,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -299,7 +300,7 @@ public class BuildView {
       // Syntax: label%aspect
       int delimiterPosition = aspect.indexOf('%');
       if (delimiterPosition >= 0) {
-        // TODO(jfield): For consistency with Skylark loads, the aspect should be specified
+        // TODO(jfield): For consistency with Starlark loads, the aspect should be specified
         // as an absolute label.
         // We convert it for compatibility reasons (this will be removed in the future).
         String bzlFileLoadLikeString = aspect.substring(0, delimiterPosition);
@@ -342,7 +343,7 @@ public class BuildView {
           aspectConfigurations.put(
               Pair.of(targetSpec.getLabel(), aspect), targetSpec.getConfiguration());
           aspectKeys.add(
-              AspectValue.createSkylarkAspectKey(
+              AspectValueKey.createSkylarkAspectKey(
                   targetSpec.getLabel(),
                   // For invoking top-level aspects, use the top-level configuration for both the
                   // aspect and the base target while the top-level configuration is untrimmed.
@@ -367,12 +368,11 @@ public class BuildView {
             BuildConfiguration configuration = targetSpec.getConfiguration();
             aspectConfigurations.put(Pair.of(targetSpec.getLabel(), aspect), configuration);
             aspectKeys.add(
-                AspectValue.createAspectKey(
+                AspectValueKey.createAspectKey(
                     targetSpec.getLabel(),
                     configuration,
                     new AspectDescriptor(aspectFactoryClass, AspectParameters.EMPTY),
-                    configuration
-                ));
+                    configuration));
           }
         } else {
           throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");
@@ -406,9 +406,11 @@ public class BuildView {
               topLevelCtKeys,
               aspectKeys,
               Suppliers.memoize(configurationLookupSupplier),
+              topLevelOptions,
               eventBus,
               keepGoing,
-              loadingPhaseThreads);
+              loadingPhaseThreads,
+              viewOptions.strictConflictChecks);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
@@ -474,7 +476,6 @@ public class BuildView {
     Collection<Artifact> buildInfoArtifacts =
         skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
     Preconditions.checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
-    buildInfoArtifacts.forEach(artifactsToOwnerLabelsBuilder::addArtifact);
 
     // Extra actions
     addExtraActionsIfRequested(
@@ -502,6 +503,20 @@ public class BuildView {
         actionsWrapper.getCoverageOutputs().forEach(artifactsToOwnerLabelsBuilder::addArtifact);
       }
     }
+    // TODO(cparsons): If extra actions are ever removed, this filtering step can probably be
+    //  removed as well: the only concern would be action conflicts involving coverage artifacts,
+    //  which seems far-fetched.
+    if (skyframeAnalysisResult.hasActionConflicts()) {
+      ArtifactsToOwnerLabels tempOwners = artifactsToOwnerLabelsBuilder.build();
+      // We don't remove the (hopefully unnecessary) guard in SkyframeBuildView that enables/
+      // disables analysis, since no new targets should actually be analyzed.
+      Set<Artifact> artifacts = tempOwners.getArtifacts();
+      Predicate<Artifact> errorFreeArtifacts =
+          skyframeExecutor.filterActionConflictsForTopLevelArtifacts(eventHandler, artifacts);
+      artifactsToOwnerLabelsBuilder = tempOwners.toBuilder().filterArtifacts(errorFreeArtifacts);
+    }
+    // Build-info artifacts are always conflict-free, and can't be checked easily.
+    buildInfoArtifacts.forEach(artifactsToOwnerLabelsBuilder::addArtifact);
 
     // Tests.
     Pair<ImmutableSet<ConfiguredTarget>, ImmutableSet<ConfiguredTarget>> testsPair =

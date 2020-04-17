@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -29,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -38,8 +38,7 @@ import javax.annotation.Nullable;
  */
 public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedSpawn {
 
-  private static final Logger logger =
-      Logger.getLogger(AbstractContainerizingSandboxedSpawn.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
 
@@ -99,6 +98,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   public void createFileSystem() throws IOException {
     createDirectories();
     createInputs(inputs);
+    inputs.materializeVirtualInputs(sandboxExecRoot);
   }
 
   /**
@@ -192,13 +192,11 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
         target.getParentDirectory().createDirectoryAndParents();
         if (FileSystemUtils.moveFile(source, target).equals(MoveResult.FILE_COPIED)) {
           if (warnedAboutMovesBeingCopies.compareAndSet(false, true)) {
-            logger.warning(
-                "Moving files out of the sandbox (e.g. from "
-                    + source
-                    + " to "
-                    + target
+            logger.atWarning().log(
+                "Moving files out of the sandbox (e.g. from %s to %s"
                     + ") had to be done with a file copy, which is detrimental to performance; are "
-                    + " the two trees in different file systems?");
+                    + " the two trees in different file systems?",
+                source, target);
           }
         }
       } else if (source.isDirectory()) {

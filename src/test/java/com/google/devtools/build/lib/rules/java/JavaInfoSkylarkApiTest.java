@@ -30,7 +30,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests JavaInfo API for Skylark. */
+/** Tests JavaInfo API for Starlark. */
 @RunWith(JUnit4.class)
 public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 

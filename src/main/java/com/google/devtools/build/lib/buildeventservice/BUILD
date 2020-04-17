@@ -7,6 +7,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -26,10 +27,7 @@ java_library(
     deps = [
         ":buildeventservice-options",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -37,10 +35,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/network:connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",

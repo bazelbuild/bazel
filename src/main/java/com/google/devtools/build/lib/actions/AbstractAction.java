@@ -538,7 +538,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public String getSkylarkContent() throws IOException {
+  public String getSkylarkContent() throws IOException, EvalException {
     return null;
   }
 

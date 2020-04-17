@@ -105,7 +105,7 @@ public class CoreLibraryRewriter {
 
   private ClassName prefix(ClassName className) {
     if (shouldPrefix(className.binaryName())) {
-      return className.prependPrefix(prefix);
+      return className.withPackagePrefix(prefix);
     }
     return className;
   }

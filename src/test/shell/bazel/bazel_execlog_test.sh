@@ -74,7 +74,7 @@ EOF
 
   bazel build //:all --execution_log_json_file output.json 2>&1 >> $TEST_log || fail "could not build"
 
-  # dir and dir2 are skylark functions that create a directory output
+  # dir and dir2 are Starlark functions that create a directory output
   # rule1 and rule2 are functions that consume the directory output
   #
   # the output files are named such that the rule's would be placed first in the

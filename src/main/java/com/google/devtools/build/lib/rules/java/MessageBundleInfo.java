@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -63,7 +63,7 @@ public final class MessageBundleInfo extends NativeInfo implements StarlarkValue
         useStarlarkThread = true)
     public MessageBundleInfo messageBundleInfo(Sequence<?> messages, StarlarkThread thread)
         throws EvalException {
-      List<Artifact> messagesList = Sequence.castList(messages, Artifact.class, "messages");
+      List<Artifact> messagesList = Sequence.cast(messages, Artifact.class, "messages");
       return new MessageBundleInfo(ImmutableList.copyOf(messagesList), thread.getCallerLocation());
     }
   }

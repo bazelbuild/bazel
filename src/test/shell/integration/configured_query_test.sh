@@ -735,4 +735,21 @@ EOF
   assert_contains "//$pkg:only_build_explicitly" output
 }
 
+function test_include_test_suites() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+test_suite(
+  name = "my_suite",
+  tests = [":my_test"])
+cc_test(
+  name = "my_test",
+  srcs = ["my_test.cc"])
+EOF
+
+  bazel cquery "//$pkg:all" > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:my_suite" output
+  assert_contains "//$pkg:my_test" output
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

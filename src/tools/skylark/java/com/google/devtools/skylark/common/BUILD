@@ -10,8 +10,8 @@ java_library(
         "//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:__subpackages__",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//third_party:guava",
     ],

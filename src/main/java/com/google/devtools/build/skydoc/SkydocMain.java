@@ -107,8 +107,8 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
-import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfoApiProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoModule;
+import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfo.FakeProtoInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyInfo.FakePyInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyRuntimeInfo.FakePyRuntimeInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyStarlarkTransitions;
@@ -144,10 +144,10 @@ import java.util.stream.Collectors;
 /**
  * Main entry point for the Skydoc binary.
  *
- * <p>Skydoc generates human-readable documentation for relevant details of skylark files by running
- * a skylark interpreter with a fake implementation of the build API.
+ * <p>Skydoc generates human-readable documentation for relevant details of Starlark files by
+ * running a Starlark interpreter with a fake implementation of the build API.
  *
- * <p>Currently, Skydoc generates documentation for skylark rule definitions (discovered by
+ * <p>Currently, Skydoc generates documentation for Starlark rule definitions (discovered by
  * invocations of the build API function {@code rule()}.
  *
  * <p>Usage:
@@ -156,9 +156,9 @@ import java.util.stream.Collectors;
  *   skydoc {target_skylark_file_label} {output_file} [symbol_name]...
  * </pre>
  *
- * <p>Generates documentation for all exported symbols of the target skylark file that are specified
- * in the list of symbol names. If no symbol names are supplied, outputs documentation for all
- * exported symbols in the target skylark file.
+ * <p>Generates documentation for all exported symbols of the target Starlark file that are
+ * specified in the list of symbol names. If no symbol names are supplied, outputs documentation for
+ * all exported symbols in the target Starlark file.
  */
 public class SkydocMain {
 
@@ -190,7 +190,6 @@ public class SkydocMain {
             .build();
     parser.parseAndExitUponError(args);
     StarlarkSemanticsOptions semanticsOptions = parser.getOptions(StarlarkSemanticsOptions.class);
-    semanticsOptions.incompatibleDepsetUnion = false;
     semanticsOptions.incompatibleDisableDeprecatedAttrParams = false;
     semanticsOptions.incompatibleNewActionsApi = false;
     SkydocOptions skydocOptions = parser.getOptions(SkydocOptions.class);
@@ -276,11 +275,11 @@ public class SkydocMain {
   }
 
   /**
-   * Evaluates/interprets the skylark file at a given path and its transitive skylark dependencies
+   * Evaluates/interprets the Starlark file at a given path and its transitive Starlark dependencies
    * using a fake build API and collects information about all rule definitions made in the root
-   * skylark file.
+   * Starlark file.
    *
-   * @param label the label of the skylark file to evaluate
+   * @param label the label of the Starlark file to evaluate
    * @param ruleInfoMap a map builder to be populated with rule definition information for named
    *     rules. Keys are exported names of rules, and values are their {@link RuleInfo} rule
    *     descriptions. For example, 'my_rule = rule(...)' has key 'my_rule'
@@ -294,9 +293,9 @@ public class SkydocMain {
    * @param aspectInfoMap a map builder to be populated with aspect definition information for named
    *     aspects. Keys are exported names of aspects, and values are the {@link AspectInfo} asepct
    *     descriptions. For example, 'my_aspect = aspect(...)' has key 'my_aspect'
-   * @param moduleDocMap a map builder to be populated with module docstrings for skylark file. Keys
-   *     are labels of skylark files and values are their module docstrings. If the module has no
-   *     docstring, an empty string will be printed.
+   * @param moduleDocMap a map builder to be populated with module docstrings for Starlark file.
+   *     Keys are labels of Starlark files and values are their module docstrings. If the module has
+   *     no docstring, an empty string will be printed.
    * @throws InterruptedException if evaluation is interrupted
    */
   public StarlarkThread eval(
@@ -410,11 +409,11 @@ public class SkydocMain {
   }
 
   /**
-   * Recursively evaluates/interprets the skylark file at a given path and its transitive skylark
+   * Recursively evaluates/interprets the Starlark file at a given path and its transitive skylark
    * dependencies using a fake build API and collects information about all rule definitions made in
    * those files.
    *
-   * @param label the label of the skylark file to evaluate
+   * @param label the label of the Starlark file to evaluate
    * @param ruleInfoList a collection of all rule definitions made so far (using rule()); this
    *     method will add to this list as it evaluates additional files
    * @throws InterruptedException if evaluation is interrupted
@@ -498,7 +497,7 @@ public class SkydocMain {
     throw new NoSuchFileException(bzlWorkspacePath);
   }
 
-  /** Evaluates the AST from a single skylark file, given the already-resolved imports. */
+  /** Evaluates the AST from a single Starlark file, given the already-resolved imports. */
   private StarlarkThread evalSkylarkBody(
       StarlarkSemantics semantics,
       StarlarkFile file,
@@ -581,8 +580,8 @@ public class SkydocMain {
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     ProtoBootstrap protoBootstrap =
         new ProtoBootstrap(
-            new FakeProtoInfoApiProvider(),
-            new FakeProtoModule(),
+            new FakeProtoInfoProvider(),
+            new FakeProtoCommon(),
             new SkylarkAspectStub(),
             new ProviderStub());
     PyBootstrap pyBootstrap =

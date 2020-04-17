@@ -21,6 +21,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import com.google.devtools.build.lib.clock.Clock;
@@ -42,8 +43,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -62,7 +61,7 @@ import javax.annotation.concurrent.GuardedBy;
 @ThreadSafe
 final class HttpConnectorMultiplexer {
 
-  private static final Logger logger = Logger.getLogger(HttpConnectorMultiplexer.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final int MAX_THREADS_PER_CONNECT = 2;
   private static final long FAILOVER_DELAY_MS = 2000;
@@ -297,7 +296,7 @@ final class HttpConnectorMultiplexer {
           try {
             result.close();
           } catch (IOException | RuntimeException e) {
-            logger.log(Level.WARNING, "close() failed in loser zombie thread", e);
+            logger.atWarning().withCause(e).log("close() failed in loser zombie thread");
           }
         }
       }

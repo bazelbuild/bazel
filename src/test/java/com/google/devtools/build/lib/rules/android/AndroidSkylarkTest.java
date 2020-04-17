@@ -143,7 +143,7 @@ public class AndroidSkylarkTest extends BuildViewTestCase {
     assertThat(attrDepMap).valuesForKey("k8").hasSize(1);
     assertThat(attrDepMap).valuesForKey("armeabi-v7a").hasSize(1);
 
-    // Check that the deps were correctly accessed from within Skylark.
+    // Check that the deps were correctly accessed from within Starlark.
     @SuppressWarnings("unchecked")
     List<ConfiguredTarget> k8Deps = (List<ConfiguredTarget>) myInfo.getValue("k8_deps");
     assertThat(k8Deps).hasSize(2);

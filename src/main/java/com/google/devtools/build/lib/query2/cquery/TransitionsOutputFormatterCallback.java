@@ -18,10 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -118,7 +119,8 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
           ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
 
       // Get a ToolchainContext to use for dependency resolution.
-      ToolchainContext toolchainContext = accessor.getToolchainContext(target, config);
+      ToolchainCollection<ToolchainContext> toolchainContexts =
+          accessor.getToolchainContexts(target, config);
       try {
         // We don't actually use fromOptions in our implementation of
         // DependencyResolver but passing to avoid passing a null and since we have the information
@@ -130,7 +132,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     hostConfiguration,
                     /*aspect=*/ null,
                     configConditions,
-                    toolchainContext,
+                    toolchainContexts,
                     trimmingTransitionFactory);
       } catch (EvalException | InconsistentAspectOrderException e) {
         throw new InterruptedException(e.getMessage());
@@ -145,7 +147,11 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         }
         Dependency dep = attributeAndDep.getValue();
         BuildOptions fromOptions = config.getOptions();
-        Collection<BuildOptions> toOptions = dep.getTransition().apply(fromOptions).values();
+        // TODO(bazel-team): support transitions on Starlark-defined build flags. These require
+        // Skyframe loading to get flag default values. See ConfigurationResolver.applyTransition
+        // for an example of the required logic.
+        Collection<BuildOptions> toOptions =
+            dep.getTransition().apply(fromOptions, eventHandler).values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
         if (attributeAndDep.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {

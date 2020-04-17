@@ -34,7 +34,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests Skylark API for {@link ConstraintCollection} providers. */
+/** Tests Starlark API for {@link ConstraintCollection} providers. */
 @RunWith(JUnit4.class)
 public class ConstraintCollectionApiTest extends PlatformTestCase {
 

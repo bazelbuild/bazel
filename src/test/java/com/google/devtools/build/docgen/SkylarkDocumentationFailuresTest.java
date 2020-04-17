@@ -14,7 +14,7 @@
 package com.google.devtools.build.docgen;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -25,7 +25,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for various failure modes of Skylark documentation generation. These are separate from
+ * Tests for various failure modes of Starlark documentation generation. These are separate from
  * other documentation generation tests because the generator does not tolerate broken modules
  * anywhere in the classpath.
  */

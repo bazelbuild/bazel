@@ -15,17 +15,17 @@
 package com.google.devtools.build.lib.rules.genquery;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 
-class GenQueryConfiguration extends BuildConfiguration.Fragment {
+/** {@link Fragment} for {@link GenQuery}. */
+public class GenQueryConfiguration extends Fragment {
 
   /** GenQuery-specific options. */
   public static class GenQueryOptions extends FragmentOptions {

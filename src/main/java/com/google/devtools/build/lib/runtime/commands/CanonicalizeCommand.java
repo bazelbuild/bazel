@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
@@ -44,7 +44,9 @@ import java.util.logging.Level;
 /** The 'blaze canonicalize-flags' command. */
 @Command(
     name = "canonicalize-flags",
-    options = {CanonicalizeCommand.Options.class, PackageCacheOptions.class},
+    options = {CanonicalizeCommand.Options.class, PackageOptions.class},
+    // inherits from query to get proper package loading options.
+    inherits = {QueryCommand.class},
     allowResidue = true,
     mustRunInWorkspace = false,
     shortDescription = "Canonicalizes a list of %{product} options.",
@@ -147,9 +149,9 @@ public final class CanonicalizeCommand implements BlazeCommand {
             .add(FlagClashCanaryOptions.class)
             .build();
 
-    // set up the package cache for starlark options parsing
+    // set up the command environment for starlark options parsing
     try {
-      env.setupPackageCache(options);
+      env.syncPackageLoading(options);
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("canonicalization interrupted"));
       return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);

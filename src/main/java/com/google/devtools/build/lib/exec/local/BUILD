@@ -5,6 +5,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -22,17 +23,18 @@ java_library(
     deps = [
         ":options",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

@@ -14,11 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Strings;
-import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Formattable;
-import java.util.Formatter;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
@@ -131,28 +128,6 @@ public abstract class Printer {
   }
 
   private Printer() {}
-
-  /**
-   * Perform Python-style string formatting, lazily.
-   *
-   * @param pattern a format string.
-   * @param arguments positional arguments.
-   * @return the formatted string.
-   */
-  static Formattable formattable(final String pattern, Object... arguments) {
-    final List<Object> args = Arrays.asList(arguments);
-    return new Formattable() {
-      @Override
-      public String toString() {
-        return Starlark.formatWithList(pattern, args);
-      }
-
-      @Override
-      public void formatTo(Formatter formatter, int flags, int width, int precision) {
-        Printer.getPrinter(formatter.out()).formatWithList(pattern, args);
-      }
-    };
-  }
 
   /**
    * Append a char to a buffer. In case of {@link IOException} throw an {@link AssertionError}
@@ -285,7 +260,7 @@ public abstract class Printer {
     @Override
     public BasePrinter repr(Object o) {
       if (o == null) {
-        // Java null is not a valid Skylark value, but sometimes printers are used on non-Skylark
+        // Java null is not a valid Starlark value, but sometimes printers are used on non-Skylark
         // values such as Locations or ASTs.
         this.append("null");
 
@@ -343,7 +318,7 @@ public abstract class Printer {
     }
 
     /**
-     * Write a properly escaped Skylark representation of a string to a buffer.
+     * Write a properly escaped Starlark representation of a string to a buffer.
      *
      * @param s the string a representation of which to repr.
      * @return this printer.
@@ -431,7 +406,7 @@ public abstract class Printer {
     }
 
     /**
-     * Print a Skylark list or tuple of object representations
+     * Print a Starlark list or tuple of object representations
      *
      * @param list the contents of the list or tuple
      * @param isTuple if true the list will be formatted with parentheses and with a trailing comma

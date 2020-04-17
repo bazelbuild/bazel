@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Test the Skylark implementation of the maven_jar() rule.
+# Test the Starlark implementation of the maven_jar() rule.
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -277,4 +277,4 @@ EOF
   expect_log "specifies a 'server' attribute which is currently not supported."
 }
 
-run_suite "maven skylark tests"
+run_suite "maven Starlark tests"

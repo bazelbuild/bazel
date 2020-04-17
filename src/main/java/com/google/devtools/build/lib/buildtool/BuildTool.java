@@ -19,18 +19,17 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
-import com.google.devtools.build.lib.buildtool.PostAnalysisQueryBuildTool.PostAnalysisQueryCommandLineException;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -52,22 +51,21 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
  *
- * <p>The various concrete build command classes handle the command options and request
- * setup, then delegate the handling of the request (the building of targets) to this class.
+ * <p>The various concrete build command classes handle the command options and request setup, then
+ * delegate the handling of the request (the building of targets) to this class.
  *
  * <p>The main entry point is {@link #buildTargets}.
  *
- * <p>Most of analysis is handled in {@link BuildView}, and execution in {@link ExecutionTool}.
+ * <p>Most of analysis is handled in {@link com.google.devtools.build.lib.analysis.BuildView}, and
+ * execution in {@link ExecutionTool}.
  */
 public class BuildTool {
 
-  private static Logger logger = Logger.getLogger(BuildTool.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected final CommandEnvironment env;
   protected final BlazeRuntime runtime;
@@ -106,7 +104,7 @@ public class BuildTool {
   public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException, PostAnalysisQueryCommandLineException {
+          InvalidConfigurationException, TestExecException, QueryCommandLineException {
     try (SilentCloseable c = Profiler.instance().profile("validateOptions")) {
       validateOptions(request);
     }
@@ -121,7 +119,7 @@ public class BuildTool {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
         env.getEventBus().post(new BuildStartingEvent(env, request));
       }
-      logger.info("Build identifier: " + request.getId());
+      logger.atInfo().log("Build identifier: %s", request.getId());
 
       // Error out early if multi_cpus is set, but we're not in build or test command.
       if (!request.getMultiCpus().isEmpty()) {
@@ -246,12 +244,8 @@ public class BuildTool {
    * This class is meant to be overridden by classes that want to perform the Analysis phase and
    * then process the results in some interesting way. See {@link CqueryBuildTool} as an example.
    */
-  protected void postProcessAnalysisResult(
-      BuildRequest request,
-      AnalysisResult analysisResult)
-      throws InterruptedException, ViewCreationFailedException,
-          PostAnalysisQueryCommandLineException {
-  }
+  protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
+      throws InterruptedException, ViewCreationFailedException, QueryCommandLineException {}
 
   private void reportExceptionError(Exception e) {
     if (e.getMessage() != null) {
@@ -298,29 +292,27 @@ public class BuildTool {
       if (e.isCatastrophic()) {
         result.setCatastrophe();
       }
-      detailedExitCode =
-          e.getDetailedExitCode() != null
-              ? e.getDetailedExitCode()
-              : DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+      detailedExitCode = e.getDetailedExitCode();
     } catch (InterruptedException e) {
       // We may have been interrupted by an error, or the user's interruption may have raced with
       // an error, so check to see if we should report that error code instead.
-      ExitCode environmentPendingExitCode = env.getPendingExitCode();
-      if (environmentPendingExitCode == null) {
+      AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
+      if (environmentPendingAbruptExitException == null) {
         detailedExitCode = DetailedExitCode.justExitCode(ExitCode.INTERRUPTED);
         env.getReporter().handle(Event.error("build interrupted"));
         env.getEventBus().post(new BuildInterruptedEvent());
       } else {
         // Report the exception from the environment - the exception we're handling here is just an
         // interruption.
-        detailedExitCode = DetailedExitCode.justExitCode(environmentPendingExitCode);
-        reportExceptionError(env.getPendingException());
+        detailedExitCode =
+            DetailedExitCode.justExitCode(environmentPendingAbruptExitException.getExitCode());
+        reportExceptionError(environmentPendingAbruptExitException);
         result.setCatastrophe();
       }
     } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
       detailedExitCode = DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE);
       reportExceptionError(e);
-    } catch (PostAnalysisQueryCommandLineException e) {
+    } catch (QueryCommandLineException e) {
       detailedExitCode = DetailedExitCode.justExitCode(ExitCode.COMMAND_LINE_ERROR);
       reportExceptionError(e);
     } catch (TestExecException e) {
@@ -337,7 +329,7 @@ public class BuildTool {
       // target(s) that triggered them.
       result.setCatastrophe();
     } catch (AbruptExitException e) {
-      detailedExitCode = DetailedExitCode.justExitCode(e.getExitCode());
+      detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
       result.setCatastrophe();
     } catch (Throwable throwable) {
@@ -413,7 +405,8 @@ public class BuildTool {
         .post(
             new BuildCompleteEvent(
                 result,
-                ImmutableList.of(BuildEventId.buildToolLogs(), BuildEventId.buildMetrics())));
+                ImmutableList.of(
+                    BuildEventIdUtil.buildToolLogs(), BuildEventIdUtil.buildMetrics())));
     // Post the build tool logs event; the corresponding local files may be contributed from
     // modules, and this has to happen after posting the BuildCompleteEvent because that's when
     // modules add their data to the collection.
@@ -422,11 +415,9 @@ public class BuildTool {
       if (detailedExitCode.isSuccess()) {
         result.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.INTERRUPTED));
       } else if (!detailedExitCode.getExitCode().equals(ExitCode.INTERRUPTED)) {
-        logger.log(
-            Level.WARNING,
-            "Suppressed interrupted exception during stop request because already failing with: "
-                + detailedExitCode,
-            ie);
+        logger.atWarning().withCause(ie).log(
+            "Suppressed interrupted exception during stop request because already failing with: %s",
+            detailedExitCode);
       }
     }
   }
@@ -446,5 +437,12 @@ public class BuildTool {
 
   private Reporter getReporter() {
     return env.getReporter();
+  }
+
+  /** Exceptions in parsing the supplied query options. */
+  protected static class QueryCommandLineException extends Exception {
+    QueryCommandLineException(String message) {
+      super(message);
+    }
   }
 }

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -55,7 +56,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -80,7 +80,7 @@ import javax.annotation.Nullable;
 @VisibleForTesting
 public final class ActionMetadataHandler implements MetadataHandler {
 
-  private static final Logger logger = Logger.getLogger(ActionMetadataHandler.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Data for input artifacts. Immutable.
@@ -177,7 +177,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
       } catch (IOException e) {
         // If we cannot get the FileArtifactValue, then we will make a FileSystem call to get the
         // digest, so it is okay to skip and continue here.
-        logger.warning("Could not properly get digest for " + entry.getKey().getExecPath());
+        logger.atWarning().log(
+            "Could not properly get digest for %s", entry.getKey().getExecPath());
         continue;
       }
     }

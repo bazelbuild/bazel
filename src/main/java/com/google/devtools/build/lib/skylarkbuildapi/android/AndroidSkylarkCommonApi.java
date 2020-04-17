@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** Common utilities for Skylark rules related to Android. */
+/** Common utilities for Starlark rules related to Android. */
 @SkylarkModule(
     name = "android_common",
     doc =

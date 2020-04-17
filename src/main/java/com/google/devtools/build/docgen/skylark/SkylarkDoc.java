@@ -28,9 +28,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
 
-/**
- * Abstract class for containing documentation for a Skylark syntactic entity.
- */
+/** Abstract class for containing documentation for a Starlark syntactic entity. */
 abstract class SkylarkDoc {
   protected static final String TOP_LEVEL_ID = "globals";
 

@@ -1118,7 +1118,7 @@ inline void ComputeRunfilePath(const std::wstring& test_workspace,
 }
 
 bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
-                    Path* result) {
+                    const Path& abs_test_srcdir, Path* result) {
   if (!blaze_util::IsAbsolute(test_path)) {
     std::string argv0_acp;
     if (!WcsToAcp(argv0.Get(), &argv0_acp)) {
@@ -1142,18 +1142,39 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
 
     ComputeRunfilePath(workspace, &test_path);
 
-    std::string utf8_test_path;
-    uint32_t err;
-    if (!blaze_util::WcsToUtf8(test_path, &utf8_test_path, &err)) {
-      LogErrorWithArgAndValue(__LINE__, "Failed to convert string to UTF-8",
-                              test_path, err);
+    Path test_bin_in_runfiles;
+    if (!test_bin_in_runfiles.Set(abs_test_srcdir.Get() + L"\\" + test_path)) {
+      LogErrorWithArg2(__LINE__, "Could not join paths", abs_test_srcdir.Get(),
+                       test_path);
       return false;
     }
 
-    std::string rloc = runfiles->Rlocation(utf8_test_path);
-    if (!blaze_util::Utf8ToWcs(rloc, &test_path, &err)) {
-      LogErrorWithArgAndValue(__LINE__, "Failed to convert string",
-                              utf8_test_path, err);
+    std::wstring mf_only_str;
+    int mf_only_value = 0;
+    if (!GetIntEnv(L"RUNFILES_MANIFEST_ONLY", &mf_only_str, &mf_only_value)) {
+      return false;
+    }
+
+    // If runfiles is enabled on Windows, we use the test binary in the runfiles
+    // tree, which is consistent with the behavior on Linux and macOS.
+    // Otherwise, we use Rlocation function to find the actual test binary
+    // location.
+    if (mf_only_value != 1 && IsReadableFile(test_bin_in_runfiles)) {
+      test_path = test_bin_in_runfiles.Get();
+    } else {
+      std::string utf8_test_path;
+      uint32_t err;
+      if (!blaze_util::WcsToUtf8(test_path, &utf8_test_path, &err)) {
+        LogErrorWithArgAndValue(__LINE__, "Failed to convert string to UTF-8",
+                                test_path, err);
+        return false;
+      }
+
+      std::string rloc = runfiles->Rlocation(utf8_test_path);
+      if (!blaze_util::Utf8ToWcs(rloc, &test_path, &err)) {
+        LogErrorWithArgAndValue(__LINE__, "Failed to convert string",
+                                utf8_test_path, err);
+      }
     }
   }
 
@@ -1864,8 +1885,8 @@ int TestWrapperMain(int argc, wchar_t** argv) {
   std::wstring args;
   if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
       !PrintTestLogStartMarker() || !GetCwd(&exec_root) ||
-      !FindTestBinary(argv0, exec_root, test_path_arg, &test_path) ||
       !ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
+      !FindTestBinary(argv0, exec_root, test_path_arg, srcdir, &test_path) ||
       !ChdirToRunfiles(exec_root, srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||

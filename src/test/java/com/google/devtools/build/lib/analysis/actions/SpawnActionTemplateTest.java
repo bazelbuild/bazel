@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,7 +54,7 @@ public class SpawnActionTemplateTest {
   public void setRootDir() throws Exception  {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/");
-    root = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/root"));
+    root = ArtifactRoot.asDerivedRoot(execRoot, "root");
   }
 
   @Test

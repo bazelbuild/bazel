@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Test that the embedded skylark code is compliant with --all_incompatible_changes.
+# Test that the embedded Starlark code is compliant with --all_incompatible_changes.
 #
 
 # Load the test setup defined in the parent directory
@@ -54,7 +54,7 @@ pkg_tar(
 )
 EOF
   bazel build --all_incompatible_changes $HOST_PY_FLAG ... &> $TEST_log \
-    || fail "Expect success, even with all upcoming Skylark changes"
+    || fail "Expect success, even with all upcoming Starlark changes"
   grep -q 'Hello World' `bazel info bazel-bin --all_incompatible_changes $HOST_PY_FLAG`/data.tar \
     || fail "Output not generated correctly"
 }

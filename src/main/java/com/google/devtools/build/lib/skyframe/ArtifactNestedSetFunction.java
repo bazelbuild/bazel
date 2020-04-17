@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -100,27 +101,27 @@ public class ArtifactNestedSetFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     ArtifactNestedSetKey artifactNestedSetKey = (ArtifactNestedSetKey) skyKey;
-    Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
-        directArtifactsEvalResult =
-            env.getValuesOrThrow(
-                artifactNestedSetKey.directKeys(),
-                IOException.class,
-                ActionExecutionException.class);
-
-    // Evaluate all children.
+    Iterable<SkyKey> directKeys = artifactNestedSetKey.directKeys();
     ArrayList<SkyKey> transitiveKeys = new ArrayList<>();
     for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
       nestedSetToSkyKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
       transitiveKeys.add(nestedSetToSkyKey.get(transitive));
     }
-    env.getValues(transitiveKeys);
 
+    Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> depsEvalResult =
+        env.getValuesOrThrow(
+            Iterables.concat(directKeys, transitiveKeys),
+            IOException.class,
+            ActionExecutionException.class);
     if (env.valuesMissing()) {
       return null;
     }
 
     // Only commit to the map when every value is present.
-    artifactSkyKeyToValueOrException.putAll(directArtifactsEvalResult);
+    for (SkyKey key : directKeys) {
+      artifactSkyKeyToValueOrException.put(key, depsEvalResult.get(key));
+    }
+
     return new ArtifactNestedSetValue();
   }
 

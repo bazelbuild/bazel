@@ -35,7 +35,7 @@ public interface ProviderCollection {
 
   /**
    * Returns the transitive information requested or null, if the information is not found. The
-   * transitive information has to have been added using the Skylark framework.
+   * transitive information has to have been added using the Starlark framework.
    */
   @Nullable
   Object get(String providerKey);
@@ -69,8 +69,8 @@ public interface ProviderCollection {
   }
 
   /**
-   * Returns the provider defined in Skylark, or null, if the information is not found. The
-   * transitive information has to have been added using the Skylark framework.
+   * Returns the provider defined in Starlark, or null, if the information is not found. The
+   * transitive information has to have been added using the Starlark framework.
    *
    * <p>This method dispatches to either {@link #get(Provider.Key)} or {@link #get(String)}
    * depending on whether {@link SkylarkProviderIdentifier} is for legacy or for declared provider.

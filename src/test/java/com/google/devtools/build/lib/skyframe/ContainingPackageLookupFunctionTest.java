@@ -110,9 +110,10 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         new PackageLookupFunction(
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
-        SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null));
+        SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null, null));
     skyFunctions.put(
         SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction(
@@ -139,9 +140,13 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fileSystem),
             directories,
-            /*skylarkImportLookupFunctionForInlining=*/ null));
-    skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+            /*starlarkImportLookupFunctionForInlining=*/ null));
+    skyFunctions.put(
+        SkyFunctions.EXTERNAL_PACKAGE,
+        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(
+        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+        new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
@@ -155,7 +160,8 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES));
+            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
 
     differencer = new SequencedRecordingDifferencer();

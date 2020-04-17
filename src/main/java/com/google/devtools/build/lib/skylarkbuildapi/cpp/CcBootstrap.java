@@ -23,9 +23,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInf
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
-/**
- * {@link Bootstrap} for skylark objects related to cpp rules.
- */
+/** {@link Bootstrap} for Starlark objects related to cpp rules. */
 public class CcBootstrap implements Bootstrap {
   private final CcModuleApi<
           ? extends SkylarkActionFactoryApi,

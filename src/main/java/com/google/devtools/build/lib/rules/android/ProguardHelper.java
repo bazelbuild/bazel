@@ -25,11 +25,11 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -166,11 +166,13 @@ public final class ProguardHelper {
         ruleContext,
         Iterables.concat(
             specsToInclude,
-            ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs", Mode.TARGET).list()),
+            ruleContext
+                .getPrerequisiteArtifacts(":extra_proguard_specs", TransitionMode.TARGET)
+                .list()),
         ruleContext.attributes().has(PROGUARD_SPECS, BuildType.LABEL_LIST)
-            ? ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS, Mode.TARGET).list()
+            ? ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS, TransitionMode.TARGET).list()
             : ImmutableList.<Artifact>of(),
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.PROVIDER));
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProguardSpecProvider.PROVIDER));
   }
 
   /**
@@ -384,7 +386,7 @@ public final class ProguardHelper {
       FilesToRunProvider executable = null;
       if (optimizerTarget.isPresent()) {
         TransitiveInfoCollection optimizerDep =
-            ruleContext.getPrerequisite(":bytecode_optimizer", Mode.HOST);
+            ruleContext.getPrerequisite(":bytecode_optimizer", TransitionMode.HOST);
         if (optimizerDep.getLabel().equals(optimizerTarget.get())) {
           executable = optimizerDep.getProvider(FilesToRunProvider.class);
         }

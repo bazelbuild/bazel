@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.common.base.Objects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintSettingInfoApi;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public class ConstraintSettingInfo extends NativeInfo implements ConstraintSettingInfoApi {
-  /** Name used in Skylark for accessing this provider. */
+  /** Name used in Starlark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintSettingInfo";
 
   /** Provider singleton constant. */

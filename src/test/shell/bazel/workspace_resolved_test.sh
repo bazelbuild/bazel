@@ -52,14 +52,18 @@ trivial_rule(
 EOF
 
   bazel clean --expunge
-  bazel build --experimental_repository_resolved_file=../repo.bzl @ext//... \
+  bazel build --experimental_repository_resolved_file=../repo.bzl --record_rule_instantiation_callstack @ext//... \
         > "${TEST_log}" 2>&1 || fail "Expected success"
+  inplace-sed -e "s?$(pwd)?PWD?g" "$TEST_log"
   bazel shutdown
 
   # We expect the additional argument to be reported to the user...
   expect_log 'extra_arg.*foobar'
-  # ...as well as the location of the definition.
-  expect_log 'fetchrepo/WORKSPACE:2'
+  # ...as well as the location of the rule instantiation and definition.
+  expect_log 'Repository ext instantiated at:'
+  expect_log '  PWD/WORKSPACE:2:'
+  expect_log 'Repository rule trivial_rule defined at:'
+  expect_log '  PWD/rule.bzl:5:'
 
   # Verify that bazel can read the generated repo.bzl file and that it contains
   # the expected information
@@ -820,6 +824,7 @@ time_rule(name="timestamprepo")
 EOF
 
     bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
+    cat resolved.bzl > /dev/null || fail "resolved.bzl should exist"
     bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir --experimental_repository_hash_file=`pwd`/resolved.bzl \
           --experimental_verify_repository_rules='//:rule.bzl%time_rule' \
           > "${TEST_log}" 2>&1 && fail "expected failure" || :
@@ -1177,6 +1182,7 @@ foo()
 EOF
 
   bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir \
+        --record_rule_instantiation_callstack \
         --experimental_repository_resolved_file=resolved.bzl
 
   echo; cat resolved.bzl; echo
@@ -1199,13 +1205,64 @@ def finddef(name):
       return repo["definition_information"]
 EOF
 
-  bazel build //:ext_def
+  bazel build --record_rule_instantiation_callstack //:ext_def
 
   cat `bazel info bazel-genfiles`/ext_def.txt > "${TEST_log}"
+  inplace-sed -e "s?$(pwd)/?PWD/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"
+  expect_log "Repository ext instantiated at:"
+  expect_log "  PWD/WORKSPACE:3"
+  expect_log "  PWD/first/path/foo.bzl:4"
+  expect_log "  PWD/another/directory/bar.bzl:4"
+  expect_log "Repository rule http_archive defined at:"
+  expect_log "  TEST_TMPDIR/.*/external/bazel_tools/tools/build_defs/repo/http.bzl:"
+}
 
-  expect_log "WORKSPACE:3"
-  expect_log "first/path/foo.bzl:4"
-  expect_log "another/directory/bar.bzl:4"
+# Regression test for #11040.
+#
+# Test that a canonical repo warning is generated for explicitly specified
+# attributes whose values differ, and that it is never generated for implicitly
+# created attributes (in particular, the generator_* attributes).
+test_canonical_warning() {
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/test_WORKSPACE_files/archives.tar
+
+  mkdir main
+  touch main/BUILD
+  cat > main/reporule.bzl <<EOF
+def _impl(repository_ctx):
+    repository_ctx.file("a.txt", "A")
+    repository_ctx.file("BUILD.bazel", "exports_files(['a.txt'])")
+    # Don't include "name", test that we warn about it below.
+    return {"myattr": "bar"}
+
+reporule = repository_rule(
+    implementation = _impl,
+    attrs = {
+        "myattr": attr.string()
+    })
+
+# We need to use a macro for the generator_* attributes to be defined.
+def instantiate_reporule(name, **kwargs):
+    reporule(name=name, **kwargs)
+EOF
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+load("//:reporule.bzl", "instantiate_reporule")
+instantiate_reporule(
+  name = "myrepo",
+  myattr = "foo"
+)
+EOF
+
+  cd main
+  # We should get a warning for "myattr" having a changed value and for "name"
+  # being dropped, but not for the generator_* attributes.
+  bazel sync --distdir=${EXTREPODIR}/test_WORKSPACE/distdir >/dev/null 2>$TEST_log
+  bazel clean --expunge
+  expect_log "Rule 'myrepo' indicated that a canonical reproducible form \
+can be obtained by modifying arguments myattr = \"bar\" and dropping \
+\[.*\"name\".*\]"
+  expect_not_log "Rule 'myrepo' indicated .*generator"
 }
 
 run_suite "workspace_resolved_test tests"

@@ -288,7 +288,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help =
-            "Flag for disabling the legacy cc_toolchain Skylark API for accessing legacy "
+            "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
                 + "CROSSTOOL fields.")
     public boolean disableLegacyFlagsCcToolchainApi;
 
@@ -406,6 +406,34 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "No-op.")
     public boolean experimentalUi;
+
+    @Option(
+        name = "experimental_profile_action_counts",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean enableActionCountProfile;
+
+    @Option(
+        name = "incompatible_remove_binary_profile",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "No-op.")
+    public boolean removeBinaryProfile;
+
+    @Option(
+        name = "experimental_post_profile_started_event",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean postProfileStartedEvent;
   }
 
   @Override

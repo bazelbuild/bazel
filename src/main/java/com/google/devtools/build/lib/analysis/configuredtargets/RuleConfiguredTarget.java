@@ -21,10 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -54,34 +52,16 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
- * A {@link ConfiguredTarget} that is produced by a rule.
+ * A {@link com.google.devtools.build.lib.analysis.ConfiguredTarget} that is produced by a rule.
  *
- * <p>Created by {@link RuleConfiguredTargetBuilder}. There is an instance of this class for every
- * analyzed rule. For more information about how analysis works, see {@link
- * com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
+ * <p>Created by {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder}. There
+ * is an instance of this class for every analyzed rule. For more information about how analysis
+ * works, see {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
 @AutoCodec(checkClassExplicitlyAllowed = true)
 @Immutable // (and Starlark-hashable)
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
-  /**
-   * The name of the key for the 'actions' synthesized provider.
-   *
-   * <p>If you respond to this key you are expected to return a list of actions belonging to this
-   * configured target.
-   */
-  public static final String ACTIONS_FIELD_NAME = "actions";
 
-  /**
-   * The configuration transition for an attribute through which a prerequisite
-   * is requested.
-   */
-  public enum Mode {
-    TARGET,
-    HOST,
-    DATA,
-    SPLIT,
-    DONT_CHECK
-  }
   /** A set of this target's implicitDeps. */
   private final ImmutableSet<ConfiguredTargetKey> implicitDeps;
 

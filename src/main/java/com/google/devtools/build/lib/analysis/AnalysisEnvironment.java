@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionRegistry;
@@ -24,7 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -33,13 +32,12 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 
 /**
- * The set of services that are provided to {@link ConfiguredTarget} objects
- * during initialization.
+ * The set of services that are provided to {@link ConfiguredTarget} objects during initialization.
  *
- * <p>These objects should not outlast the analysis phase. Do not pass them to {@link Action}
- * objects or other persistent objects. There are internal tests to ensure that AnalysisEnvironment
- * objects are not persisted that check the name of this class, so update those tests you change the
- * names of any implementation of this class.
+ * <p>These objects should not outlast the analysis phase. Do not pass them to {@link
+ * com.google.devtools.build.lib.actions.Action} objects or other persistent objects. There are
+ * internal tests to ensure that AnalysisEnvironment objects are not persisted that check the name
+ * of this class, so update those tests you change the names of any implementation of this class.
  */
 public interface AnalysisEnvironment extends ActionRegistry {
   /** Returns a callback to be used in this build for reporting analysis errors. */
@@ -149,7 +147,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
   SkyFunction.Environment getSkyframeEnv();
 
   /**
-   * Returns the options that affect the Skylark interpreter used for evaluating Skylark rule
+   * Returns the options that affect the Starlark interpreter used for evaluating Starlark rule
    * implementation functions.
    */
   StarlarkSemantics getSkylarkSemantics() throws InterruptedException;

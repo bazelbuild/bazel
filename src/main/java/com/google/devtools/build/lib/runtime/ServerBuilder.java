@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
-import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
@@ -107,8 +106,10 @@ public final class ServerBuilder {
   }
 
   /**
-   * Sets a factory for creating {@link AbstractBlazeQueryEnvironment} instances. Note that only one
-   * factory per server is allowed. If none is set, the server uses the default implementation.
+   * Sets a factory for creating {@link
+   * com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment} instances. Note that
+   * only one factory per server is allowed. If none is set, the server uses the default
+   * implementation.
    */
   public ServerBuilder setQueryEnvironmentFactory(QueryEnvironmentFactory queryEnvironmentFactory) {
     Preconditions.checkState(

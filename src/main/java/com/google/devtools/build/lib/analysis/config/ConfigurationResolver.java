@@ -25,9 +25,8 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
-import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -39,13 +38,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -97,10 +95,10 @@ public final class ConfigurationResolver {
    * contain the fragments needed by the dep and its transitive closure. Else they unconditionally
    * include all fragments.
    *
-   * <p>This method is heavily performance-optimized. Because {@link ConfiguredTargetFunction} calls
-   * it over every edge in the configured target graph, small inefficiencies can have observable
-   * impact on analysis time. Keep this in mind when making modifications and performance-test any
-   * changes you make.
+   * <p>This method is heavily performance-optimized. Because {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction} calls it over every edge in
+   * the configured target graph, small inefficiencies can have observable impact on analysis time.
+   * Keep this in mind when making modifications and performance-test any changes you make.
    *
    * @param env Skyframe evaluation environment
    * @param ctgValue the label and configuration of the source target
@@ -119,7 +117,7 @@ public final class ConfigurationResolver {
       BuildConfiguration hostConfiguration,
       RuleClassProvider ruleClassProvider,
       BuildOptions defaultBuildOptions)
-      throws ConfiguredTargetFunction.DependencyEvaluationException, InterruptedException {
+      throws DependencyEvaluationException, InterruptedException {
 
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
     // configuration paired with a transition key corresponding to the BuildConfiguration. For cases
@@ -181,7 +179,7 @@ public final class ConfigurationResolver {
       }
 
       // Figure out the required fragments for this dep and its transitive closure.
-      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
+      Set<Class<? extends Fragment>> depFragments =
           getTransitiveFragments(env, dep.getLabel(), ctgValue.getConfiguration());
       if (depFragments == null) {
         return null;
@@ -207,8 +205,7 @@ public final class ConfigurationResolver {
                     + " trimming mode.";
             env.getListener()
                 .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
-            throw new ConfiguredTargetFunction.DependencyEvaluationException(
-                new InvalidConfigurationException(message));
+            throw new DependencyEvaluationException(new InvalidConfigurationException(message));
           }
           // The dep uses the same exact configuration. Let's re-use the current configuration and
           // skip adding a Skyframe dependency edge on it.
@@ -231,8 +228,7 @@ public final class ConfigurationResolver {
                     + " trimming mode.";
             env.getListener()
                 .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
-            throw new ConfiguredTargetFunction.DependencyEvaluationException(
-                new InvalidConfigurationException(message));
+            throw new DependencyEvaluationException(new InvalidConfigurationException(message));
           }
           putOnlyEntry(
               resolvedDeps,
@@ -260,7 +256,7 @@ public final class ConfigurationResolver {
                   buildSettingPackages,
                   env.getListener());
         } catch (TransitionException e) {
-          throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
+          throw new DependencyEvaluationException(e);
         }
         transitionsMap.put(transitionKey, toOptions);
       }
@@ -278,8 +274,7 @@ public final class ConfigurationResolver {
                   + " trimming mode.";
           env.getListener()
               .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
-          throw new ConfiguredTargetFunction.DependencyEvaluationException(
-              new InvalidConfigurationException(message));
+          throw new DependencyEvaluationException(new InvalidConfigurationException(message));
         }
         putOnlyEntry(
             resolvedDeps,
@@ -322,8 +317,7 @@ public final class ConfigurationResolver {
           }
         }
       } catch (OptionsParsingException e) {
-        throw new ConfiguredTargetFunction.DependencyEvaluationException(
-            new InvalidConfigurationException(e));
+        throw new DependencyEvaluationException(new InvalidConfigurationException(e));
       }
     }
 
@@ -369,8 +363,7 @@ public final class ConfigurationResolver {
                     + " trimming mode.";
             env.getListener()
                 .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
-            throw new ConfiguredTargetFunction.DependencyEvaluationException(
-                new InvalidConfigurationException(message));
+            throw new DependencyEvaluationException(new InvalidConfigurationException(message));
           }
           DependencyEdge attr = new DependencyEdge(info.first.getKey(), originalDep.getLabel());
           Dependency resolvedDep =
@@ -385,7 +378,7 @@ public final class ConfigurationResolver {
         }
       }
     } catch (InvalidConfigurationException e) {
-      throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
+      throw new DependencyEvaluationException(e);
     }
 
     return sortResolvedDeps(originalDeps, resolvedDeps, attributesAndLabels);
@@ -399,12 +392,12 @@ public final class ConfigurationResolver {
   private static final class FragmentsAndTransition {
     // Treat this as immutable. The only reason this isn't an ImmutableSet is because it
     // gets bound to a NestedSet.toSet() reference, which returns a Set interface.
-    final Set<Class<? extends BuildConfiguration.Fragment>> fragments;
+    final Set<Class<? extends Fragment>> fragments;
     final ConfigurationTransition transition;
     private final int hashCode;
 
-    FragmentsAndTransition(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-        ConfigurationTransition transition) {
+    FragmentsAndTransition(
+        Set<Class<? extends Fragment>> fragments, ConfigurationTransition transition) {
       this.fragments = fragments;
       this.transition = transition;
       hashCode = Objects.hash(this.fragments, this.transition);
@@ -494,17 +487,16 @@ public final class ConfigurationResolver {
     map.put(key, value);
   }
 
-
   /**
-   * Returns the configuration fragments required by a dep and its transitive closure.
-   * Returns null if Skyframe dependencies aren't yet available.
+   * Returns the configuration fragments required by a dep and its transitive closure. Returns null
+   * if Skyframe dependencies aren't yet available.
    *
    * @param env Skyframe evaluation environment
    * @param dep label of the dep to check
    * @param parentConfig configuration of the rule depending on the dep
    */
   @Nullable
-  private static Set<Class<? extends BuildConfiguration.Fragment>> getTransitiveFragments(
+  private static Set<Class<? extends Fragment>> getTransitiveFragments(
       SkyFunction.Environment env, Label dep, BuildConfiguration parentConfig)
       throws InterruptedException {
     if (!parentConfig.trimConfigurations()) {
@@ -548,10 +540,21 @@ public final class ConfigurationResolver {
     }
 
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
-    Map<String, BuildOptions> result = transition.apply(fromOptions);
+    StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
+    Map<String, BuildOptions> result = transition.apply(fromOptions, handlerWithErrorStatus);
 
     if (doesStarlarkTransition) {
-      StarlarkTransition.replayEvents(eventHandler, transition);
+      // We use a temporary StoredEventHandler instead of the caller's event handler because
+      // StarlarkTransition.validate assumes no errors occurred. We need a StoredEventHandler to be
+      // able to check that, and fail out early if there are errors.
+      //
+      // TODO(bazel-team): harden StarlarkTransition.validate so we can eliminate this step.
+      // StarlarkRuleTransitionProviderTest#testAliasedBuildSetting_outputReturnMismatch shows the
+      // effect.
+      handlerWithErrorStatus.replayOn(eventHandler);
+      if (handlerWithErrorStatus.hasErrors()) {
+        throw new TransitionException("Errors encountered while applying Starlark transition");
+      }
       result = StarlarkTransition.validate(transition, buildSettingPackages, result);
     }
     return result;
@@ -581,15 +584,14 @@ public final class ConfigurationResolver {
       TargetAndConfiguration ctgValue,
       Attribute attribute,
       Dependency dep,
-      Set<Class<? extends BuildConfiguration.Fragment>> expectedDepFragments)
-      throws ConfiguredTargetFunction.DependencyEvaluationException {
+      Set<Class<? extends Fragment>> expectedDepFragments)
+      throws DependencyEvaluationException {
     Set<String> ctgFragmentNames = new HashSet<>();
-    for (BuildConfiguration.Fragment fragment :
-        ctgValue.getConfiguration().getFragmentsMap().values()) {
+    for (Fragment fragment : ctgValue.getConfiguration().getFragmentsMap().values()) {
       ctgFragmentNames.add(fragment.getClass().getSimpleName());
     }
     Set<String> depFragmentNames = new HashSet<>();
-    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : expectedDepFragments) {
+    for (Class<? extends Fragment> fragmentClass : expectedDepFragments) {
      depFragmentNames.add(fragmentClass.getSimpleName());
     }
     Set<String> missing = Sets.difference(depFragmentNames, ctgFragmentNames);
@@ -602,8 +604,7 @@ public final class ConfigurationResolver {
               attribute == null ? "(null)" : attribute.getName(),
               Joiner.on(", ").join(missing));
       env.getListener().handle(Event.error(msg));
-      throw new ConfiguredTargetFunction.DependencyEvaluationException(
-          new InvalidConfigurationException(msg));
+      throw new DependencyEvaluationException(new InvalidConfigurationException(msg));
     }
   }
 
@@ -675,9 +676,11 @@ public final class ConfigurationResolver {
    * top-level configuration transitions) . Uses original (untrimmed, pre-transition) configurations
    * for targets that can't be evaluated (e.g. due to loading phase errors).
    *
-   * <p>This is suitable for feeding {@link ConfiguredTargetValue} keys: as general principle {@link
-   * ConfiguredTarget}s should have exactly as much information in their configurations as they need
-   * to evaluate and no more (e.g. there's no need for Android settings in a C++ configured target).
+   * <p>This is suitable for feeding {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetValue} keys: as general principle {@link
+   * com.google.devtools.build.lib.analysis.ConfiguredTarget}s should have exactly as much
+   * information in their configurations as they need to evaluate and no more (e.g. there's no need
+   * for Android settings in a C++ configured target).
    *
    * @param defaultContext the original targets and starting configurations before applying rule
    *     transitions and trimming. When actual configurations can't be evaluated, these values are

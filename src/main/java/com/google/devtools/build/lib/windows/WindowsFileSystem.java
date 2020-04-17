@@ -38,10 +38,15 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   public static final LinkOption[] NO_OPTIONS = new LinkOption[0];
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
-  public WindowsFileSystem() throws DefaultHashFunctionNotSetException {}
+  private final boolean createSymbolicLinks;
 
-  public WindowsFileSystem(DigestHashFunction hashFunction) {
+  public WindowsFileSystem(boolean createSymbolicLinks) throws DefaultHashFunctionNotSetException {
+    this.createSymbolicLinks = createSymbolicLinks;
+  }
+
+  public WindowsFileSystem(DigestHashFunction hashFunction, boolean createSymbolicLinks) {
     super(hashFunction);
+    this.createSymbolicLinks = createSymbolicLinks;
   }
 
   @Override
@@ -85,7 +90,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       if (!target.toFile().exists() || target.toFile().isDirectory()) {
         WindowsFileOperations.createJunction(link.toString(), target.toString());
       } else {
-        Files.copy(target, link);
+        if (createSymbolicLinks) {
+          WindowsFileOperations.createSymlink(link.toString(), target.toString());
+        } else {
+          Files.copy(target, link);
+        }
       }
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS, e);

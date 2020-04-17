@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -50,7 +51,7 @@ public class ExecutionTransitionFactoryTest {
             ImmutableList.of(CoreOptions.class, PlatformOptions.class),
             "--platforms=//platform:target");
 
-    BuildOptions result = transition.patch(options);
+    BuildOptions result = transition.patch(options, new StoredEventHandler());
     assertThat(result).isNotNull();
     assertThat(result).isNotSameInstanceAs(options);
 
@@ -80,7 +81,7 @@ public class ExecutionTransitionFactoryTest {
             ImmutableList.of(CoreOptions.class, PlatformOptions.class),
             "--platforms=//platform:target");
 
-    BuildOptions result = transition.patch(options);
+    BuildOptions result = transition.patch(options, new StoredEventHandler());
     assertThat(result).isNotNull();
     assertThat(result).isEqualTo(options);
   }

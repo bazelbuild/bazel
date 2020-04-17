@@ -26,19 +26,20 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicens
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -92,7 +93,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
             }
           };
 
-  private static final class DummyFragment extends BuildConfiguration.Fragment {}
+  private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
+      ImmutableList.of(
+          new StarlarkThread.CallStackEntry(
+              "<toplevel>", Location.fromFileLineColumn("BUILD", 10, 1)),
+          new StarlarkThread.CallStackEntry("bar", Location.fromFileLineColumn("bar.bzl", 42, 1)),
+          new StarlarkThread.CallStackEntry("rule", Location.BUILTIN));
+
+  private static final class DummyFragment extends Fragment {}
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> NO_STACK = ImmutableList.of();
 
@@ -896,7 +904,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
             : ruleDefinitionStarlarkThread.getTransitiveContentHashCode();
     return new RuleClass(
         name,
-        name,
+        DUMMY_STACK,
+        /*key=*/ name,
         RuleClassType.NORMAL,
         /*isSkylark=*/ skylarkExecutable,
         /*skylarkTestable=*/ false,
@@ -933,6 +942,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         /*requiredToolchains=*/ ImmutableSet.of(),
         /*useToolchainResolution=*/ true,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
+        /* execGroups= */ ImmutableMap.of(),
         OutputFile.Kind.FILE,
         ImmutableList.copyOf(attributes),
         /* buildSetting= */ null);
@@ -1143,6 +1153,29 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testExecGroups() throws Exception {
+    RuleClass.Builder ruleClassBuilder =
+        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST));
+
+    Label toolchain = Label.parseAbsoluteUnchecked("//toolchain");
+    Label constraint = Label.parseAbsoluteUnchecked("//constraint");
+
+    ruleClassBuilder.addExecGroups(
+        ImmutableMap.of(
+            "cherry", new ExecGroup(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
+
+    RuleClass ruleClass = ruleClassBuilder.build();
+
+    assertThat(ruleClass.getExecGroups()).hasSize(1);
+    assertThat(ruleClass.getExecGroups().get("cherry").getRequiredToolchains())
+        .containsExactly(toolchain);
+    assertThat(ruleClass.getExecGroups().get("cherry").getExecutionPlatformConstraints())
+        .containsExactly(constraint);
+  }
+
+  @Test
   public void testBuildSetting_createsDefaultAttribute() {
     RuleClass labelFlag =
         new RuleClass.Builder("label_flag", RuleClassType.NORMAL, false)
@@ -1188,5 +1221,22 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("Rule class myclass declared too many attributes (201 > 200)");
+  }
+
+  @Test
+  public void testBuildTooLongAttributeNameRejected() {
+    IllegalArgumentException expected =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
+                    .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+                    .add(attr("tags", STRING_LIST))
+                    .add(attr(Strings.repeat("x", 150), STRING))
+                    .build());
+
+    assertThat(expected)
+        .hasMessageThat()
+        .matches("Attribute myclass\\.x{150}'s name is too long \\(150 > 128\\)");
   }
 }

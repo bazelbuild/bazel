@@ -57,9 +57,17 @@ public abstract class AbstractConfiguredTarget
   // Cached on-demand default provider
   private final AtomicReference<DefaultInfo> defaultProvider = new AtomicReference<>();
 
-  // Accessors for Skylark
+  // Accessors for Starlark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
   private static final String DEFAULT_RUNFILES_FIELD = "default_runfiles";
+
+  /**
+   * The name of the key for the 'actions' synthesized provider.
+   *
+   * <p>If you respond to this key you are expected to return a list of actions belonging to this
+   * configured target.
+   */
+  public static final String ACTIONS_FIELD_NAME = "actions";
 
   // A set containing all field names which may be specially handled (and thus may not be
   // attributed to normal user-specified providers).
@@ -71,7 +79,7 @@ public abstract class AbstractConfiguredTarget
           DATA_RUNFILES_FIELD,
           FilesToRunProvider.SKYLARK_NAME,
           OutputGroupInfo.SKYLARK_NAME,
-          RuleConfiguredTarget.ACTIONS_FIELD_NAME);
+          ACTIONS_FIELD_NAME);
 
   public AbstractConfiguredTarget(Label label, BuildConfigurationValue.Key configurationKey) {
     this(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -134,7 +142,7 @@ public abstract class AbstractConfiguredTarget
     switch (name) {
       case LABEL_FIELD:
         return getLabel();
-      case RuleConfiguredTarget.ACTIONS_FIELD_NAME:
+      case ACTIONS_FIELD_NAME:
         // Depending on subclass, the 'actions' field will either be unsupported or of type
         // java.util.List, which needs to be converted to Sequence before being returned.
         Object result = get(name);
@@ -209,7 +217,7 @@ public abstract class AbstractConfiguredTarget
     return defaultProvider.get();
   }
 
-  /** Returns a declared provider provided by this target. Only meant to use from Skylark. */
+  /** Returns a declared provider provided by this target. Only meant to use from Starlark. */
   @Nullable
   @Override
   public final Info get(Provider.Key providerKey) {
@@ -219,7 +227,7 @@ public abstract class AbstractConfiguredTarget
     return rawGetSkylarkProvider(providerKey);
   }
 
-  /** Implement in subclasses to get a skylark provider for a given {@code providerKey}. */
+  /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
   @Nullable
   protected abstract Info rawGetSkylarkProvider(Provider.Key providerKey);
 
@@ -227,9 +235,7 @@ public abstract class AbstractConfiguredTarget
     return "";
   }
 
-  /**
-   * Returns a value provided by this target. Only meant to use from Skylark.
-   */
+  /** Returns a value provided by this target. Only meant to use from Starlark. */
   @Override
   public final Object get(String providerKey) {
     switch (providerKey) {
@@ -248,7 +254,7 @@ public abstract class AbstractConfiguredTarget
     }
   }
 
-  /** Implement in subclasses to get a skylark provider for a given {@code providerKey}. */
+  /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
   protected abstract Object rawGetSkylarkProvider(String providerKey);
 
   // All main target classes must override this method to provide more descriptive strings.

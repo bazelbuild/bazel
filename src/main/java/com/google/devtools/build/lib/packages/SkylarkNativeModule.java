@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -51,7 +51,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
-/** The Skylark native module. */
+/** The Starlark native module. */
 // TODO(cparsons): Move the definition of native.package() to this class.
 public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
@@ -141,7 +141,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
   /*
     If necessary, we could allow filtering by tag (anytag, alltags), name (regexp?), kind ?
-    For now, we ignore this, since users can implement it in Skylark.
+    For now, we ignore this, since users can implement it in Starlark.
   */
   @Override
   public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
@@ -289,7 +289,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
       if (attr.getName().equals("distribs")) {
         // attribute distribs: cannot represent type class java.util.Collections$SingletonSet
-        // in Skylark: [INTERNAL].
+        // in Starlark: [INTERNAL].
         continue;
       }
 
@@ -408,7 +408,8 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       // native.rules() fails if there is any rule using a select() in the BUILD file.
       //
       // To remedy this, we should return a SelectorList. To do so, we have to
-      // 1) recurse into the Selector contents of SelectorList, so those values are skylarkified too
+      // 1) recurse into the Selector contents of SelectorList, so those values are Starlarkified
+      //    too
       // 2) get the right Class<?> value. We could probably get at that by looking at
       //    ((SelectorList)val).getSelectors().first().getEntries().first().getClass().
 

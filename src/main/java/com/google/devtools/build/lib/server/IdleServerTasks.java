@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.base.Preconditions;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
@@ -24,7 +26,6 @@ import java.lang.management.MemoryUsage;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 
 /**
  * Run cleanup-related tasks during idle periods in the server.
@@ -32,7 +33,7 @@ import java.util.logging.Logger;
  */
 class IdleServerTasks {
   private final ScheduledThreadPoolExecutor executor;
-  private static final Logger logger = Logger.getLogger(IdleServerTasks.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Must be called from the main thread. */
   public IdleServerTasks() {
@@ -54,17 +55,16 @@ class IdleServerTasks {
             () -> {
               MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
               MemoryUsage before = memBean.getHeapMemoryUsage();
-              try (AutoProfiler p = AutoProfiler.logged("Idle GC", logger)) {
+              try (AutoProfiler p = GoogleAutoProfilerUtils.logged("Idle GC")) {
                 System.gc();
               }
               MemoryUsage after = memBean.getHeapMemoryUsage();
-              logger.info(
-                  String.format(
-                      "[Idle GC] used: %s -> %s, committed: %s -> %s",
-                      StringUtilities.prettyPrintBytes(before.getUsed()),
-                      StringUtilities.prettyPrintBytes(after.getUsed()),
-                      StringUtilities.prettyPrintBytes(before.getCommitted()),
-                      StringUtilities.prettyPrintBytes(after.getCommitted())));
+              logger.atInfo().log(
+                  "[Idle GC] used: %s -> %s, committed: %s -> %s",
+                  StringUtilities.prettyPrintBytes(before.getUsed()),
+                  StringUtilities.prettyPrintBytes(after.getUsed()),
+                  StringUtilities.prettyPrintBytes(before.getCommitted()),
+                  StringUtilities.prettyPrintBytes(after.getCommitted()));
             },
             10,
             TimeUnit.SECONDS);

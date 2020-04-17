@@ -45,7 +45,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests Skylark API for Java rules. */
+/** Tests Starlark API for Java rules. */
 @RunWith(JUnit4.class)
 public class JavaSkylarkApiTest extends BuildViewTestCase {
   private static final String HOST_JAVA_RUNTIME_LABEL =
@@ -432,7 +432,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void testJavaCommonCompileExposesAnnotationProcessingInfo() throws Exception {
-    // Set up a Skylark rule that uses java_common.compile and supports annotation processing in
+    // Set up a Starlark rule that uses java_common.compile and supports annotation processing in
     // the same way as java_library, then use a helper method to test that the custom rule produces
     // the same annotation processing information as java_library would.
     writeBuildFileForJavaToolchain();
@@ -1086,8 +1086,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaProviderFieldsAreSkylarkAccessible() throws Exception {
-    // The Skylark evaluation itself will test that compile_jars and
-    // transitive_runtime_jars are returning a list readable by Skylark with
+    // The Starlark evaluation itself will test that compile_jars and
+    // transitive_runtime_jars are returning a list readable by Starlark with
     // the expected number of entries.
     scratch.file(
         "java/test/extension.bzl",
@@ -1118,7 +1118,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget myConfiguredTarget = getConfiguredTarget("//java/test:my");
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
 
-    // Extract out the information from skylark rule
+    // Extract out the information from Starlark rule
     StructImpl info =
         (StructImpl)
             myConfiguredTarget.get(

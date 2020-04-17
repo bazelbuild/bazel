@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -40,9 +40,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for Skylark interaction with the objc_* rules.
- */
+/** Tests for Starlark interaction with the objc_* rules. */
 @RunWith(JUnit4.class)
 public class ObjcSkylarkTest extends ObjcRuleTestCase {
   private void writeObjcSplitTransitionTestFiles() throws Exception {
@@ -1617,10 +1615,10 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   /**
-   * This test verifies that its possible to use the skylark constructor of ObjcProvider as a
-   * provider key to obtain the provider. This test only needs to exist as long as there are
-   * two methods of retrieving ObjcProvider (which is true for legacy reasons). This is the
-   * 'new' method of retrieving ObjcProvider.
+   * This test verifies that its possible to use the Starlark constructor of ObjcProvider as a
+   * provider key to obtain the provider. This test only needs to exist as long as there are two
+   * methods of retrieving ObjcProvider (which is true for legacy reasons). This is the 'new' method
+   * of retrieving ObjcProvider.
    */
   @Test
   public void testObjcProviderSkylarkConstructor() throws Exception {

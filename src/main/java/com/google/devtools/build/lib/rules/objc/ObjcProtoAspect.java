@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -63,7 +63,8 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
 
     if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
       Iterable<ObjcProtoProvider> depObjcProtoProviders =
-          ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+          ruleContext.getPrerequisites(
+              "deps", TransitionMode.TARGET, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
       aspectObjcProtoProvider.addTransitive(depObjcProtoProviders);
     }
 
@@ -76,7 +77,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
 
       // Gather up all the dependency protos depended by this target.
       List<ProtoInfo> protoInfos =
-          ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER);
+          ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProtoInfo.PROVIDER);
 
       for (ProtoInfo protoInfo : protoInfos) {
         aspectObjcProtoProvider.addProtoFiles(protoInfo.getTransitiveProtoSources());
@@ -84,7 +85,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
 
       NestedSet<Artifact> portableProtoFilters =
           PrerequisiteArtifacts.nestedSet(
-              ruleContext, ProtoAttributes.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST);
+              ruleContext, ProtoAttributes.PORTABLE_PROTO_FILTERS_ATTR, TransitionMode.HOST);
 
       // If this target does not provide filters but specifies direct proto_library dependencies,
       // generate a filter file only for those proto files.
@@ -106,12 +107,14 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
       if (objcConfiguration.compileInfoMigration()) {
         CcInfo protobufCcInfo =
             ruleContext.getPrerequisite(
-                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, CcInfo.PROVIDER);
+                ObjcRuleClasses.PROTO_LIB_ATTR, TransitionMode.TARGET, CcInfo.PROVIDER);
         protobufCcCompilationContext = protobufCcInfo.getCcCompilationContext();
       } else {
         ObjcProvider protobufObjcProvider =
             ruleContext.getPrerequisite(
-                ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
+                ObjcRuleClasses.PROTO_LIB_ATTR,
+                TransitionMode.TARGET,
+                ObjcProvider.SKYLARK_CONSTRUCTOR);
         protobufCcCompilationContext = protobufObjcProvider.getCcCompilationContext();
       }
       aspectObjcProtoProvider.addProtobufHeaders(

@@ -91,16 +91,15 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
   @SkylarkCallable(
       name = "direct_headers",
       doc =
-          "Returns the list of header files that are declared by the \"hdrs\" attribute of this"
-              + " target.",
+          "Returns the list of modular headers that are declared by this target. This includes both"
+              + " public headers (such as those listed in \"hdrs\") and private headers (such as"
+              + " those listed in \"srcs\").",
       structField = true)
   StarlarkList<FileT> getSkylarkDirectModularHeaders();
 
   @SkylarkCallable(
       name = "direct_textual_headers",
-      doc =
-          "Returns the list of header files that are declared by the \"textual_hdrs\" attribute of"
-              + " this target.",
+      doc = "Returns the list of textual headers that are declared by this target.",
       structField = true)
   StarlarkList<FileT> getSkylarkDirectTextualHeaders();
 }

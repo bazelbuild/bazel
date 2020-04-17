@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
-/** A collection of global skylark build API functions that apply to WORKSPACE files. */
+/** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 @SkylarkGlobalLibrary
 public interface WorkspaceGlobalsApi {
 
@@ -85,7 +85,7 @@ public interface WorkspaceGlobalsApi {
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-      name = "dont_symlink_directories_in_execroot",
+      name = "toplevel_output_directories",
       doc =
           "Exclude directories under workspace from symlinking into execroot.\n"
               + "<p>Normally, source directories are symlinked to the execroot, so that the"

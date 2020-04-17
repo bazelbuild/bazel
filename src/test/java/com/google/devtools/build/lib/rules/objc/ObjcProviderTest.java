@@ -140,8 +140,11 @@ public class ObjcProviderTest {
         .build();
 
     for (ObjcProvider.Key<?> key : getAllKeys()) {
-      assertWithMessage("Key %s must either be exposed to skylark or explicitly blacklisted",
-          key.getSkylarkKeyName()).that(allRegisteredKeys).contains(key);
+      assertWithMessage(
+              "Key %s must either be exposed to Starlark or explicitly blacklisted",
+              key.getSkylarkKeyName())
+          .that(allRegisteredKeys)
+          .contains(key);
     }
   }
 }

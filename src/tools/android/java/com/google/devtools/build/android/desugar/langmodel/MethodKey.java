@@ -20,12 +20,16 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.objectweb.asm.Type;
 
 /** The key to index a class or interface method or constructor. */
 @AutoValue
 public abstract class MethodKey extends ClassMemberKey<MethodKey> {
+
+  private static final Splitter COLON_SPLITTER = Splitter.on(":");
 
   /** The factory method for {@link MethodKey}. */
   public static MethodKey create(ClassName ownerClass, String name, String descriptor) {
@@ -37,6 +41,16 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
         name,
         descriptor);
     return new AutoValue_MethodKey(ownerClass, name, descriptor);
+  }
+
+  public final String encode() {
+    return ownerName() + ":" + name() + ":" + descriptor();
+  }
+
+  public static MethodKey decode(String textFormat) {
+    List<String> payloads = COLON_SPLITTER.splitToList(textFormat);
+    checkState(payloads.size() == 3, "Invalid text format for method key: Actual(%s)", textFormat);
+    return MethodKey.create(ClassName.create(payloads.get(0)), payloads.get(1), payloads.get(2));
   }
 
   /** The return type of a method. */
@@ -64,16 +78,15 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
     return getArgumentTypes().stream().map(ClassName::create).collect(toImmutableList());
   }
 
-  public MethodKey toArgumentTypeAdapter(boolean fromStaticOrigin) {
-    ClassName typeAdapterOwner = owner().typeAdapterOwner();
+  public MethodKey toAdapterMethodForArgsAndReturnTypes(
+      boolean fromStaticOrigin, int invocationSiteHashCode) {
     checkState(
         !isConstructor(), "Argument type adapter for constructor is not supported: %s. ", this);
-
     return MethodKey.create(
-            typeAdapterOwner,
+            owner().typeAdapterOwner(invocationSiteHashCode),
             name(),
             fromStaticOrigin ? descriptor() : instanceMethodToStaticDescriptor())
-        .acceptTypeMapper(ClassName.DELIVERY_TYPE_MAPPER);
+        .acceptTypeMapper(ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER);
   }
 
   /** The synthetic constructor for a private constructor. */

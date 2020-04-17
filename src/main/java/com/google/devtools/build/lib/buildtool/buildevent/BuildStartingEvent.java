@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -77,22 +78,22 @@ public final class BuildStartingEvent implements BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.buildStartedId();
+    return BuildEventIdUtil.buildStartedId();
   }
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.of(
         ProgressEvent.INITIAL_PROGRESS_UPDATE,
-        BuildEventId.unstructuredCommandlineId(),
-        BuildEventId.structuredCommandlineId(CommandLineEvent.OriginalCommandLineEvent.LABEL),
-        BuildEventId.structuredCommandlineId(CommandLineEvent.CanonicalCommandLineEvent.LABEL),
-        BuildEventId.structuredCommandlineId(CommandLineEvent.ToolCommandLineEvent.LABEL),
-        BuildEventId.buildMetadataId(),
-        BuildEventId.optionsParsedId(),
-        BuildEventId.workspaceStatusId(),
-        BuildEventId.targetPatternExpanded(request.getTargets()),
-        BuildEventId.buildFinished());
+        BuildEventIdUtil.unstructuredCommandlineId(),
+        BuildEventIdUtil.structuredCommandlineId(CommandLineEvent.OriginalCommandLineEvent.LABEL),
+        BuildEventIdUtil.structuredCommandlineId(CommandLineEvent.CanonicalCommandLineEvent.LABEL),
+        BuildEventIdUtil.structuredCommandlineId(CommandLineEvent.ToolCommandLineEvent.LABEL),
+        BuildEventIdUtil.buildMetadataId(),
+        BuildEventIdUtil.optionsParsedId(),
+        BuildEventIdUtil.workspaceStatusId(),
+        BuildEventIdUtil.targetPatternExpanded(request.getTargets()),
+        BuildEventIdUtil.buildFinished());
   }
 
   @Override

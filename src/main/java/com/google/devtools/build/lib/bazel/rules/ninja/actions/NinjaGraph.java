@@ -34,17 +34,17 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
-import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipeline;
+import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipelineImpl;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -76,9 +76,9 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
       throw ruleContext.throwWithRuleError(
           "Usage of ninja_graph is only allowed with --experimental_ninja_actions flag");
     }
-    Artifact mainArtifact = ruleContext.getPrerequisiteArtifact("main", Mode.TARGET);
+    Artifact mainArtifact = ruleContext.getPrerequisiteArtifact("main", TransitionMode.TARGET);
     ImmutableList<Artifact> ninjaSrcs =
-        ruleContext.getPrerequisiteArtifacts("ninja_srcs", Mode.TARGET).list();
+        ruleContext.getPrerequisiteArtifacts("ninja_srcs", TransitionMode.TARGET).list();
     PathFragment outputRoot =
         PathFragment.create(ruleContext.attributes().get("output_root", Type.STRING));
     PathFragment workingDirectory =
@@ -103,7 +103,6 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
             outputRoot,
             workingDirectory,
             ImmutableSortedMap.of(),
-            ImmutableSortedMap.of(),
             ImmutableSortedSet.of());
     if (ruleContext.hasErrors()) {
       return null;
@@ -119,7 +118,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
               .getWorkspace();
       String ownerTargetName = ruleContext.getLabel().getName();
       List<NinjaTarget> ninjaTargets =
-          new NinjaPipeline(
+          new NinjaPipelineImpl(
                   workspace.getRelative(workingDirectory),
                   MoreExecutors.listeningDecorator(NINJA_POOL),
                   childNinjaFiles,
@@ -147,7 +146,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
           new NinjaGraphProvider(
               outputRoot,
               workingDirectory,
-              targetsPreparer.getUsualTargets(),
+              targetsPreparer.getTargetsMap(),
               targetsPreparer.getPhonyTargetsMap(),
               outputRootSymlinksPathFragments,
               outputRootInputsSymlinksPathFragments);
@@ -206,11 +205,11 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
   }
 
   private static class TargetsPreparer {
-    private ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets;
+    private ImmutableSortedMap<PathFragment, NinjaTarget> targetsMap;
     private ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargetsMap;
 
-    public ImmutableSortedMap<PathFragment, NinjaTarget> getUsualTargets() {
-      return usualTargets;
+    public ImmutableSortedMap<PathFragment, NinjaTarget> getTargetsMap() {
+      return targetsMap;
     }
 
     public ImmutableSortedMap<PathFragment, PhonyTarget> getPhonyTargetsMap() {
@@ -218,18 +217,18 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
     }
 
     void process(List<NinjaTarget> ninjaTargets) throws GenericParsingException {
-      ImmutableSortedMap.Builder<PathFragment, NinjaTarget> usualTargetsBuilder =
+      ImmutableSortedMap.Builder<PathFragment, NinjaTarget> targetsMapBuilder =
           ImmutableSortedMap.naturalOrder();
       ImmutableSortedMap.Builder<PathFragment, NinjaTarget> phonyTargetsBuilder =
           ImmutableSortedMap.naturalOrder();
-      separatePhonyTargets(ninjaTargets, usualTargetsBuilder, phonyTargetsBuilder);
-      usualTargets = usualTargetsBuilder.build();
+      separatePhonyTargets(ninjaTargets, targetsMapBuilder, phonyTargetsBuilder);
+      targetsMap = targetsMapBuilder.build();
       phonyTargetsMap = NinjaPhonyTargetsUtil.getPhonyPathsMap(phonyTargetsBuilder.build());
     }
 
     private static void separatePhonyTargets(
         List<NinjaTarget> ninjaTargets,
-        ImmutableSortedMap.Builder<PathFragment, NinjaTarget> usualTargetsBuilder,
+        ImmutableSortedMap.Builder<PathFragment, NinjaTarget> targetsBuilder,
         ImmutableSortedMap.Builder<PathFragment, NinjaTarget> phonyTargetsBuilder)
         throws GenericParsingException {
       for (NinjaTarget target : ninjaTargets) {
@@ -247,7 +246,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
           phonyTargetsBuilder.put(Iterables.getOnlyElement(target.getAllOutputs()), target);
         } else {
           for (PathFragment output : target.getAllOutputs()) {
-            usualTargetsBuilder.put(output, target);
+            targetsBuilder.put(output, target);
           }
         }
       }
@@ -259,7 +258,8 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
       throws InterruptedException {
     Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     ImmutableSortedSet<String> notSymlinkedDirs =
-        ExternalPackageUtil.getNotSymlinkedInExecrootDirectories(env);
+        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER.getNotSymlinkedInExecrootDirectories(
+            env);
     if (env.valuesMissing()) {
       return;
     }
@@ -270,7 +270,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
           "output_root",
           String.format(
               "Ninja output root directory '%s' must be declared"
-                  + " using global workspace function dont_symlink_directories_in_execroot().",
+                  + " using global workspace function toplevel_output_directories().",
               outputRoot.getPathString()));
     }
 

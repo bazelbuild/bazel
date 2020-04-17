@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** Skylark API for the repository_rule's context. */
+/** Starlark API for the repository_rule's context. */
 @SkylarkModule(
     name = "repository_ctx",
     category = SkylarkModuleCategory.BUILTIN,

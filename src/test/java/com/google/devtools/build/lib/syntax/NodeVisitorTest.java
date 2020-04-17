@@ -25,11 +25,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class NodeVisitorTest {
 
-  private static StarlarkFile parse(String... lines) throws SyntaxError {
+  private static StarlarkFile parse(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input);
     if (!file.ok()) {
-      throw new SyntaxError(file.errors());
+      throw new SyntaxError.Exception(file.errors());
     }
     return file;
   }

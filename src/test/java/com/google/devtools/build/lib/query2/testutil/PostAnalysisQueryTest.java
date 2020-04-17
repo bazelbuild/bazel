@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type;
@@ -348,7 +349,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       BuildOptions result = options.clone();
       result.get(TestOptions.class).testArguments = Collections.singletonList(toOption);
       return result;

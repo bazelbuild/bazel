@@ -16,15 +16,14 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.protobuf.TextFormat;
 import java.util.ArrayList;
@@ -56,7 +55,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
    * Constructs an {@link StructImpl}.
    *
    * @param provider the provider describing the type of this instance
-   * @param location the Skylark location where this instance is created. If null, defaults to
+   * @param location the Starlark location where this instance is created. If null, defaults to
    *     {@link Location#BUILTIN}.
    */
   protected StructImpl(Provider provider, @Nullable Location location) {
@@ -83,8 +82,15 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     if (obj == null) {
       return null;
     }
-    SkylarkType.checkType(obj, type, key);
-    return type.cast(obj);
+    try {
+      return type.cast(obj);
+    } catch (
+        @SuppressWarnings("UnusedException")
+        ClassCastException unused) {
+      throw Starlark.errorf(
+          "for %s field, got %s, want %s",
+          key, Starlark.type(obj), EvalUtils.getDataTypeNameFromClass(type));
+    }
   }
 
   /**
@@ -141,8 +147,8 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
   }
 
   /**
-   * Convert the object to string using Skylark syntax. The output tries to be reversible (but there
-   * is no guarantee, it depends on the actual values).
+   * Convert the object to string using Starlark syntax. The output tries to be reversible (but
+   * there is no guarantee, it depends on the actual values).
    */
   @Override
   public void repr(Printer printer) {

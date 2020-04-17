@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -82,7 +82,7 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for skylark functions relating to rule implemenetation. */
+/** Tests for Starlark functions relating to rule implemenetation. */
 @RunWith(JUnit4.class)
 @SkylarkGlobalLibrary // needed for CallUtils.getBuiltinCallable, sadly
 public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
@@ -401,7 +401,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionBadGenericArg() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected type 'File' for 'outputs' element but got type 'string' instead",
+        "at index 0 of outputs, got element of type string, want File",
         "l = ['a', 'b']",
         "ruleContext.actions.run_shell(",
         "  outputs = l,",
@@ -841,7 +841,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadListGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected type 'File' for 'files' element but got type 'string' instead",
+        "at index 0 of files, got element of type string, want File",
         "ruleContext.runfiles(files = ['some string'])");
   }
 
@@ -857,16 +857,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadMapGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected type 'string' for 'symlinks' key but got type 'int' instead",
+        "got dict<int, File> for 'symlinks', want dict<string, File>",
         "ruleContext.runfiles(symlinks = {123: ruleContext.files.srcs[0]})");
     checkEvalErrorContains(
-        "expected type 'File' for 'symlinks' value but got type 'int' instead",
+        "got dict<string, int> for 'symlinks', want dict<string, File>",
         "ruleContext.runfiles(symlinks = {'some string': 123})");
     checkEvalErrorContains(
-        "expected type 'string' for 'root_symlinks' key but got type 'int' instead",
+        "got dict<int, File> for 'root_symlinks', want dict<string, File>",
         "ruleContext.runfiles(root_symlinks = {123: ruleContext.files.srcs[0]})");
     checkEvalErrorContains(
-        "expected type 'File' for 'root_symlinks' value but got type 'int' instead",
+        "got dict<string, int> for 'root_symlinks', want dict<string, File>",
         "ruleContext.runfiles(root_symlinks = {'some string': 123})");
   }
 
@@ -897,7 +897,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesArtifactsFromDefaultAndFiles() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
     // It would be nice to write [DEFAULT] + ruleContext.files.srcs, but artifacts
-    // is an ImmutableList and Skylark interprets it as a tuple.
+    // is an ImmutableList and Starlark interprets it as a tuple.
     Object result =
         eval("ruleContext.runfiles(collect_default = True, files = ruleContext.files.srcs)");
     // From DEFAULT only libjl.jar comes, see testRunfilesAddFromDependencies().
@@ -2385,20 +2385,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLazyArgMapEachWrongArgCount() throws Exception {
+  public void testMapEachAcceptsBuiltinFunction() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    checkEvalErrorContains(
-        "map_each must be a function that accepts a single",
-        "args = ruleContext.actions.args()",
-        "def bad_fn(val, val2): return str(val)",
-        "args.add_all([1, 2], map_each=bad_fn)",
-        "ruleContext.actions.run(",
-        "  inputs = depset(ruleContext.files.srcs),",
-        "  outputs = ruleContext.files.srcs,",
-        "  arguments = [args],",
-        "  executable = ruleContext.files.tools[0],",
-        ")");
+    // map_each accepts a non-Starlark built-in function such as str.
+    exec("ruleContext.actions.args().add_all(['foo'], map_each = str)");
   }
 
   @Test
@@ -2521,7 +2512,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  return [MyInfo(dep_arg = args)]",
         "dep_rule = rule(implementation = _dep_impl)");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
-    assertThat(e).hasMessageThat().contains("trying to mutate a frozen object");
+    assertThat(e).hasMessageThat().contains("trying to mutate a frozen Args value");
   }
 
   @Test

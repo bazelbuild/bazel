@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;

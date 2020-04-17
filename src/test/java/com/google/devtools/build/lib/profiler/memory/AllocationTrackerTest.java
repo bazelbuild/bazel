@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.HasBinary;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -187,7 +188,9 @@ public final class AllocationTrackerTest {
     assertThat(rules).containsExactly("myrule", new RuleBytes("myrule").addBytes(128L));
   }
 
-  private void exec(String... lines) throws SyntaxError, EvalException, InterruptedException {
+  private void exec(String... lines)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
+    ParserInput input = ParserInput.create(Joiner.on("\n").join(lines), "a.star");
     Mutability mu = Mutability.create("test");
     StarlarkThread thread =
         StarlarkThread.builder(mu)
@@ -198,9 +201,8 @@ public final class AllocationTrackerTest {
                         "sample", new SamplerValue(),
                         "myrule", new MyRuleFunction())))
             .build();
-    ParserInput input = ParserInput.create(Joiner.on("\n").join(lines), "a.star");
     Module module = thread.getGlobals();
-    EvalUtils.exec(input, module, thread);
+    EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
   }
 
   // A fake Bazel rule. The allocation tracker reports retained memory broken down by rule class.

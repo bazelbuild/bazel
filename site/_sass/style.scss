@@ -179,15 +179,10 @@ $md-shadow-3: rgba(0, 0, 0, .12);
   .content {
     max-width: 85%;
   }
-
-  body > .container {
-    padding-left: 0;
-    padding-right: 0;
-  }
 }
 
 .content {
-  padding: 40px 30px;
+  padding: 40px 10px;
   p {
     line-height: 22px;
     margin-bottom: 1rem;

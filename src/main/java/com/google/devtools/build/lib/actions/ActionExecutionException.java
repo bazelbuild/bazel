@@ -13,17 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.causes.ActionFailed;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import javax.annotation.Nullable;
 
 /**
  * This exception gets thrown if {@link Action#execute(ActionExecutionContext)} is unsuccessful.
@@ -35,23 +36,23 @@ public class ActionExecutionException extends Exception {
   private final Action action;
   private final NestedSet<Cause> rootCauses;
   private final boolean catastrophe;
-  @Nullable private final DetailedExitCode detailedExitCode;
+  private final DetailedExitCode detailedExitCode;
 
   public ActionExecutionException(Throwable cause, Action action, boolean catastrophe) {
     super(cause.getMessage(), cause);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
+    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
     this.catastrophe = catastrophe;
-    this.detailedExitCode = null;
   }
 
   public ActionExecutionException(String message,
                                   Throwable cause, Action action, boolean catastrophe) {
     super(message, cause);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
-    this.detailedExitCode = null;
+    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
   }
 
   public ActionExecutionException(
@@ -62,26 +63,26 @@ public class ActionExecutionException extends Exception {
       DetailedExitCode detailedExitCode) {
     super(message, cause);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
-    this.detailedExitCode = detailedExitCode;
+    this.detailedExitCode = checkNotNull(detailedExitCode);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
   }
 
   public ActionExecutionException(String message, Action action, boolean catastrophe) {
     super(message);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
-    this.detailedExitCode = null;
+    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
   }
 
   public ActionExecutionException(String message, Action action, boolean catastrophe,
                                   ExitCode exitCode) {
     super(message);
     this.action = action;
-    this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
     this.detailedExitCode = DetailedExitCode.justExitCode(exitCode);
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
   }
 
   public ActionExecutionException(
@@ -90,20 +91,7 @@ public class ActionExecutionException extends Exception {
     this.action = action;
     this.rootCauses = rootCauses;
     this.catastrophe = catastrophe;
-    this.detailedExitCode = null;
-  }
-
-  public ActionExecutionException(
-      String message,
-      Throwable cause,
-      Action action,
-      NestedSet<Cause> rootCauses,
-      boolean catastrophe) {
-    super(message, cause);
-    this.action = action;
-    this.rootCauses = rootCauses;
-    this.catastrophe = catastrophe;
-    this.detailedExitCode = null;
+    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
   }
 
   public ActionExecutionException(
@@ -117,18 +105,20 @@ public class ActionExecutionException extends Exception {
     this.action = action;
     this.rootCauses = rootCauses;
     this.catastrophe = catastrophe;
-    this.detailedExitCode = detailedExitCode;
+    this.detailedExitCode = checkNotNull(detailedExitCode);
   }
 
-  private static NestedSet<Cause> rootCausesFromAction(Action action) {
+  private static NestedSet<Cause> rootCausesFromAction(
+      Action action, DetailedExitCode detailedExitCode) {
     return action == null || action.getOwner() == null || action.getOwner().getLabel() == null
-        ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER)
-        : NestedSetBuilder.<Cause>create(
+        ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+        : NestedSetBuilder.create(
             Order.STABLE_ORDER,
             new ActionFailed(
                 action.getPrimaryOutput().getExecPath(),
                 action.getOwner().getLabel(),
-                action.getOwner().getConfigurationChecksum()));
+                action.getOwner().getConfigurationChecksum(),
+                detailedExitCode));
   }
 
   /**
@@ -163,28 +153,15 @@ public class ActionExecutionException extends Exception {
   /**
    * Returns the exit code to return from this Bazel invocation because of this action execution
    * failure.
-   *
-   * <p>Returns {@code null} if the exception is not intended to cause the invocation to fail, or if
-   * the failure is attributable to the user. (In the latter case, ExitCode.BUILD_FAILURE with
-   * numeric value 1 will be returned.)
    */
-  @Nullable
   public ExitCode getExitCode() {
-    return detailedExitCode == null ? null : detailedExitCode.getExitCode();
+    return detailedExitCode.getExitCode();
   }
 
   /**
    * Returns the pair of {@link ExitCode} and optional {@link FailureDetail} to return from this
    * Bazel invocation because of this action execution failure.
-   *
-   * <p>Returns {@code null} if the exception is not intended to cause the invocation to fail, or if
-   * the failure is attributable to the user. (In the latter case, ExitCode.BUILD_FAILURE with
-   * numeric value 1 will be returned for an exit code, and no FailureDetail will be returned.)
    */
-  // TODO(b/138456686): for detailed user failures, this must be able to return non-null for
-  //  user-attributable failures. The meaning of "null" must be changed in code paths handling this
-  //  returned value.
-  @Nullable
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;
   }

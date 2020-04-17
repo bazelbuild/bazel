@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkinterface;
 
-/** A category of a Java type exposed to Skylark */
+/** A category of a Java type exposed to Starlark */
 public enum SkylarkModuleCategory {
   CONFIGURATION_FRAGMENT("Configuration Fragments",
       "Configuration fragments give rules access to "

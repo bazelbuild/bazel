@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.Setting
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.HashSet;
@@ -42,14 +42,14 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
 
   @Override
   public ConfigurationTransitionApi transition(
-      BaseFunction implementation,
+      StarlarkCallable implementation,
       Sequence<?> inputs, // <String> expected
       Sequence<?> outputs, // <String> expected
       StarlarkThread thread)
       throws EvalException {
     StarlarkSemantics semantics = thread.getSemantics();
-    List<String> inputsList = inputs.getContents(String.class, "inputs");
-    List<String> outputsList = outputs.getContents(String.class, "outputs");
+    List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
+    List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
     validateBuildSettingKeys(
         inputsList, Settings.INPUTS, semantics.experimentalStarlarkConfigTransitions());
     validateBuildSettingKeys(
@@ -64,7 +64,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       StarlarkThread thread)
       throws EvalException {
     Map<String, Object> changedSettingsMap =
-        changedSettings.getContents(String.class, Object.class, "changed_settings dict");
+        Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
     validateBuildSettingKeys(changedSettingsMap.keySet(), Settings.OUTPUTS, true);
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
         changedSettingsMap, thread.getCallerLocation());

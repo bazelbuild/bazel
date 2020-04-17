@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -106,17 +106,17 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
       StarlarkSemanticsOptions starlarkSemanticsOptions, Path... roots) {
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
                 Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageCacheOptions,
+            packageOptions,
             starlarkSemanticsOptions,
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
@@ -432,17 +432,17 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
     assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
     getSkyframeExecutor().resetEvaluator();
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageCacheOptions,
+            packageOptions,
             Options.getDefaults(StarlarkSemanticsOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),

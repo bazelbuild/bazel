@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
@@ -41,7 +41,7 @@ import java.util.Map;
 @Immutable
 public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
-  /** Name used in Skylark for accessing this provider. */
+  /** Name used in Starlark for accessing this provider. */
   public static final String SKYLARK_NAME = "ToolchainInfo";
 
   /** Provider singleton constant. */
@@ -71,7 +71,7 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
   /**
    * Preprocesses a map of field values to convert the field names and field values to
-   * Skylark-acceptable names and types.
+   * Starlark-acceptable names and types.
    *
    * <p>Entries are ordered by key.
    */

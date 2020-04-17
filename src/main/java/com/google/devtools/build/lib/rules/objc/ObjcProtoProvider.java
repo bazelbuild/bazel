@@ -41,10 +41,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 public class ObjcProtoProvider extends NativeInfo {
 
-  /** Skylark name for the ObjcProtoProvider. */
+  /** Starlark name for the ObjcProtoProvider. */
   public static final String SKYLARK_NAME = "ObjcProto";
 
-  /** Skylark constructor and identifier for AppleExecutableBinaryInfo. */
+  /** Starlark constructor and identifier for AppleExecutableBinaryInfo. */
   public static final NativeProvider<ObjcProtoProvider> SKYLARK_CONSTRUCTOR =
       new NativeProvider<ObjcProtoProvider>(ObjcProtoProvider.class, SKYLARK_NAME) {};
 

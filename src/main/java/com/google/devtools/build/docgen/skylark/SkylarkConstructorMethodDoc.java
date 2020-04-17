@@ -21,9 +21,8 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 /**
- * A class representing a Java method callable from Skylark which constructs a type of
- * skylark object. Such a method is annotated with {@link SkylarkConstructor}, and has special
- * handling.
+ * A class representing a Java method callable from Starlark which constructs a type of Starlark
+ * object. Such a method is annotated with {@link SkylarkConstructor}, and has special handling.
  */
 public final class SkylarkConstructorMethodDoc extends SkylarkMethodDoc {
   private final String fullyQualifiedName;

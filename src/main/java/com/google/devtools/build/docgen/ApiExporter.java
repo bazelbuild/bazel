@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-/** The main class for the Skylark documentation generator. */
+/** The main class for the Starlark documentation generator. */
 public class ApiExporter {
 
   private static void appendTypes(
@@ -316,7 +316,7 @@ public class ApiExporter {
     for (com.google.devtools.build.lib.skylarkinterface.Param param : annot.parameters()) {
       // Implicit * or *args parameter separates transition from positional to named.
       // f (..., *, ... )  or  f(..., *args, ...)
-      if ((param.named() || param.legacyNamed()) && !param.positional() && !hasStar) {
+      if (param.named() && !param.positional() && !hasStar) {
         hasStar = true;
         if (!annot.extraPositionals().name().isEmpty()) {
           star = annot.extraPositionals().name();

@@ -21,6 +21,7 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -32,7 +33,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleClassInfo;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeDefinition;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeValue;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
@@ -60,9 +62,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * An item that is returned by <code>blaze info</code>.
@@ -285,7 +284,7 @@ public abstract class InfoItem {
 
   /** Info item for server_log path. */
   public static class ServerLogInfoItem extends InfoItem {
-    private static final Logger logger = Logger.getLogger(ServerLogInfoItem.class.getName());
+    private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
     /**
      * Constructs an info item for the server log path.
@@ -300,10 +299,9 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       try {
-        Optional<Path> path = env.getRuntime().getServerLogPath();
-        return print(path.map(Path::toString).orElse(""));
+        return print(DebugLoggerConfigurator.getServerLogPath().orElse(""));
       } catch (IOException e) {
-        logger.log(Level.WARNING, "Failed to determine server log location", e);
+        logger.atWarning().withCause(e).log("Failed to determine server log location");
         return print("UNKNOWN LOG LOCATION");
       }
     }
@@ -360,9 +358,8 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(commandOptions);
-      PackageCacheOptions packageCacheOptions =
-          commandOptions.getOptions(PackageCacheOptions.class);
-      return print(Joiner.on(":").join(packageCacheOptions.packagePath));
+      PackageOptions packageOptions = commandOptions.getOptions(PackageOptions.class);
+      return print(Joiner.on(":").join(packageOptions.packagePath));
     }
   }
 
@@ -794,8 +791,8 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(commandOptions);
-      return print(Joiner.on(":").join(
-          commandOptions.getOptions(PackageCacheOptions.class).packagePath));
+      return print(
+          Joiner.on(":").join(commandOptions.getOptions(PackageOptions.class).packagePath));
     }
   }
 

@@ -6108,8 +6108,8 @@ def _impl(ctx):
                     flag_group(
                         flags = [
                             "-fprofile-use=%{fdo_profile_path}",
-                            "-Xclang-only=-Wno-profile-instr-unprofiled",
-                            "-Xclang-only=-Wno-profile-instr-out-of-date",
+                            "-Wno-profile-instr-unprofiled",
+                            "-Wno-profile-instr-out-of-date",
                             "-fprofile-correction",
                         ],
                         expand_if_available = "fdo_profile_path",

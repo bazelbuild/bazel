@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.rules.proto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,7 +35,7 @@ import java.util.List;
 
 /** Configuration for Protocol Buffer Libraries. */
 @Immutable
-// This module needs to be exported to Skylark so it can be passed as a mandatory host/target
+// This module needs to be exported to Starlark so it can be passed as a mandatory host/target
 // configuration fragment in aspect definitions.
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
   /** Command line options. */
@@ -55,13 +55,12 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean generatedProtosInVirtualImports;
 
     @Option(
-      name = "protocopt",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional options to pass to the protobuf compiler."
-    )
+        name = "protocopt",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Additional options to pass to the protobuf compiler.")
     public List<String> protocOpts;
 
     @Option(

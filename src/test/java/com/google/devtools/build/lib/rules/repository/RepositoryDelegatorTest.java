@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -129,7 +130,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            managedDirectoriesKnowledge);
+            managedDirectoriesKnowledge,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
@@ -151,12 +153,12 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
         AnalysisMock.get().getPackageFactoryBuilderForTesting(directories);
-    SkylarkImportLookupFunction skylarkImportLookupFunction =
-        new SkylarkImportLookupFunction(
+    StarlarkImportLookupFunction starlarkImportLookupFunction =
+        new StarlarkImportLookupFunction(
             ruleClassProvider,
             pkgFactoryBuilder.build(ruleClassProvider, fileSystem),
             /*starlarkImportLookupValueCacheSize=*/ 2);
-    skylarkImportLookupFunction.resetCache();
+    starlarkImportLookupFunction.resetCache();
 
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -171,26 +173,33 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(SkyFunctions.REPOSITORY_DIRECTORY, delegatorFunction)
                 .put(
                     SkyFunctions.PACKAGE,
-                    new PackageFunction(null, null, null, null, null, null, null))
+                    new PackageFunction(null, null, null, null, null, null, null, null))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
                 .put(
                     WorkspaceFileValue.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         ruleClassProvider,
-                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
+                        TestPackageFactoryBuilderFactory.getInstance()
                             .builder(directories)
                             .build(ruleClassProvider, fileSystem),
                         directories,
-                        skylarkImportLookupFunction))
+                        starlarkImportLookupFunction))
                 .put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction())
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
-                .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
+                .put(
+                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+                    new LocalRepositoryLookupFunction(
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(
+                    SkyFunctions.EXTERNAL_PACKAGE,
+                    new ExternalPackageFunction(
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())

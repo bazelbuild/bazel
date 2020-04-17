@@ -104,7 +104,7 @@ public interface AppleCommonApi<
 
   @SkylarkCallable(
       // TODO(b/63899207): This currently does not match ObjcProvider.SKYLARK_NAME as it requires
-      // a migration of existing skylark rules.
+      // a migration of existing Starlark rules.
       name = "Objc",
       doc =
           "The constructor/key for the <code>Objc</code> provider.<p>"
@@ -274,7 +274,7 @@ public interface AppleCommonApi<
               defaultValue = "{}",
               doc = "Dictionary of arguments."),
       useStarlarkThread = true)
-  // This method is registered statically for skylark, and never called directly.
+  // This method is registered statically for Starlark, and never called directly.
   ObjcProviderApi<?> newObjcProvider(Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread)
       throws EvalException;
 

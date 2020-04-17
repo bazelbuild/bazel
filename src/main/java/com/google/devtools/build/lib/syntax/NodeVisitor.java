@@ -72,20 +72,26 @@ public class NodeVisitor {
     visitAll(node.getArguments());
   }
 
-  public void visit(@SuppressWarnings("unused") Identifier node) {}
+  public void visit(Identifier node) {}
 
   public void visit(Comprehension node) {
     for (Comprehension.Clause clause : node.getClauses()) {
       if (clause instanceof Comprehension.For) {
-        Comprehension.For forClause = (Comprehension.For) clause;
-        visit(forClause.getVars());
-        visit(forClause.getIterable());
+        visit((Comprehension.For) clause);
       } else {
-        Comprehension.If ifClause = (Comprehension.If) clause;
-        visit(ifClause.getCondition());
+        visit((Comprehension.If) clause);
       }
     }
     visit(node.getBody());
+  }
+
+  public void visit(Comprehension.For node) {
+    visit(node.getVars());
+    visit(node.getIterable());
+  }
+
+  public void visit(Comprehension.If node) {
+    visit(node.getCondition());
   }
 
   public void visit(ForStatement node) {

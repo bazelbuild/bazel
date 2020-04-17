@@ -36,7 +36,6 @@ java_test(
     deps = [
         ":throwable_extension_test_utility",
         "//src/test/java/com/google/devtools/build/android/desugar:mocked_android_os_sdk_for_testing",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
         "//third_party:guava",
         "//third_party:junit4",
@@ -57,7 +56,6 @@ java_test(
     deps = [
         ":throwable_extension_test_utility",
         "//src/test/java/com/google/devtools/build/android/desugar:mocked_android_os_sdk_for_testing",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
         "//third_party:guava",
         "//third_party:junit4",
@@ -77,7 +75,6 @@ java_test(
     deps = [
         ":throwable_extension_test_utility",
         "//src/test/java/com/google/devtools/build/android/desugar:mocked_android_os_sdk_for_testing",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
         "//third_party:guava",
         "//third_party:junit4",

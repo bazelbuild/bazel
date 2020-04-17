@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Joiner;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -31,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  * FUSE filesystem on the provided path.
  */
 class SandboxfsSandboxedSpawn implements SandboxedSpawn {
-  private static final Logger log = Logger.getLogger(SandboxfsSandboxedSpawn.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Sequence number to assign a unique subtree to each action within the mount point. */
   private static final AtomicInteger lastId = new AtomicInteger();
@@ -181,6 +181,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   public void createFileSystem() throws IOException {
     sandboxScratchDir.createDirectory();
 
+    inputs.materializeVirtualInputs(sandboxScratchDir);
+
     Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
     for (PathFragment output : outputs.files()) {
       dirsToCreate.add(output.getParentDirectory());
@@ -214,7 +216,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
         // We use independent subdirectories for each action, so a failure to unmap one, while
         // annoying, is not a big deal.  The sandboxfs instance will be unmounted anyway after
         // the build, which will cause these to go away anyway.
-        log.warning("Cannot unmap " + sandboxName + ": " + e);
+        logger.atWarning().withCause(e).log("Cannot unmap %s", sandboxName);
       }
       sandboxIsMapped = false;
     }

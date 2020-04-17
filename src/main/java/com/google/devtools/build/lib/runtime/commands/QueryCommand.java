@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
@@ -47,7 +47,7 @@ import java.util.Set;
 @Command(
     name = "query",
     options = {
-      PackageCacheOptions.class,
+      PackageOptions.class,
       QueryOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class

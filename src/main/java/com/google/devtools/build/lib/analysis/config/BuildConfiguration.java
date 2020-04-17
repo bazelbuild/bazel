@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -32,10 +30,10 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.analysis.actions.Compression;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -46,7 +44,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -59,7 +56,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
 
 /**
  * Instances of BuildConfiguration represent a collection of context information which may affect a
@@ -101,33 +97,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
   /** Compute the default shell environment for actions from the command line options. */
   public interface ActionEnvironmentProvider {
     ActionEnvironment getActionEnvironment(BuildOptions options);
-  }
-
-  /**
-   * An interface for language-specific configurations.
-   *
-   * <p>All implementations must be immutable and communicate this as clearly as possible (e.g.
-   * declare {@link ImmutableList} signatures on their interfaces vs. {@link List}). This is because
-   * fragment instances may be shared across configurations.
-   *
-   * <p>Fragments are Starlark values, as returned by {@code ctx.fragments.android}, for example.
-   */
-  public abstract static class Fragment implements StarlarkValue {
-    /**
-     * Validates the options for this Fragment. Issues warnings for the use of deprecated options,
-     * and warnings or errors for any option settings that conflict.
-     */
-    @SuppressWarnings("unused")
-    public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {}
-
-    /**
-     * Returns a fragment of the output directory name for this configuration. The output directory
-     * for the whole configuration contains all the short names by all fragments.
-     */
-    @Nullable
-    public String getOutputDirectoryName() {
-      return null;
-    }
   }
 
   private final OutputDirectories outputDirectories;
@@ -363,14 +332,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public static Set<Class<? extends FragmentOptions>> getOptionsClasses(
       Iterable<Class<? extends Fragment>> fragmentClasses, RuleClassProvider ruleClassProvider) {
 
-    Multimap<Class<? extends BuildConfiguration.Fragment>, Class<? extends FragmentOptions>>
+    Multimap<Class<? extends Fragment>, Class<? extends FragmentOptions>>
         fragmentToRequiredOptions = ArrayListMultimap.create();
     for (ConfigurationFragmentFactory fragmentLoader :
-        ((ConfiguredRuleClassProvider) ruleClassProvider).getConfigurationFragments()) {
+        ((FragmentProvider) ruleClassProvider).getConfigurationFragments()) {
       fragmentToRequiredOptions.putAll(fragmentLoader.creates(), fragmentLoader.requiredOptions());
     }
     Set<Class<? extends FragmentOptions>> options = new HashSet<>();
-    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : fragmentClasses) {
+    for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
       options.addAll(fragmentToRequiredOptions.get(fragmentClass));
     }
     return options;
@@ -743,8 +712,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * Returns whether FileWriteAction may transparently compress its contents in the analysis phase
    * to save memory. Semantics are not affected.
    */
-  public FileWriteAction.Compression transparentCompression() {
-    return FileWriteAction.Compression.fromBoolean(options.transparentCompression);
+  public Compression transparentCompression() {
+    return Compression.fromBoolean(options.transparentCompression);
   }
 
   /**
@@ -845,6 +814,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.inprocessSymlinkCreation;
   }
 
+  public boolean enableAggregatingMiddleman() {
+    return options.enableAggregatingMiddleman;
+  }
+
   public boolean skipRunfilesManifests() {
     return options.skipRunfilesManifests;
   }
@@ -902,7 +875,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   public BuildEventId getEventId() {
-    return BuildEventId.configurationId(checksum());
+    return BuildEventIdUtil.configurationId(checksum());
   }
 
   public BuildConfigurationEvent toBuildEvent() {
@@ -914,7 +887,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     BuildEventStreamProtos.BuildEvent.Builder builder =
         BuildEventStreamProtos.BuildEvent.newBuilder();
     builder
-        .setId(eventId.asStreamProto())
+        .setId(eventId)
         .setConfiguration(
             BuildEventStreamProtos.Configuration.newBuilder()
                 .setMnemonic(getMnemonic())

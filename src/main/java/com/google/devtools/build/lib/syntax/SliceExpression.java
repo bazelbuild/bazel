@@ -19,15 +19,27 @@ import javax.annotation.Nullable;
 public final class SliceExpression extends Expression {
 
   private final Expression object;
+  private final int lbracketOffset;
   @Nullable private final Expression start;
   @Nullable private final Expression stop;
   @Nullable private final Expression step;
+  private final int rbracketOffset;
 
-  SliceExpression(Expression object, Expression start, Expression stop, Expression step) {
+  SliceExpression(
+      FileLocations locs,
+      Expression object,
+      int lbracketOffset,
+      Expression start,
+      Expression stop,
+      Expression step,
+      int rbracketOffset) {
+    super(locs);
     this.object = object;
+    this.lbracketOffset = lbracketOffset;
     this.start = start;
     this.stop = stop;
     this.step = step;
+    this.rbracketOffset = rbracketOffset;
   }
 
   public Expression getObject() {
@@ -47,6 +59,20 @@ public final class SliceExpression extends Expression {
   @Nullable
   public Expression getStep() {
     return step;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return object.getStartOffset();
+  }
+
+  @Override
+  public int getEndOffset() {
+    return rbracketOffset + 1;
+  }
+
+  public Location getLbracketLocation() {
+    return locs.getLocation(lbracketOffset);
   }
 
   @Override

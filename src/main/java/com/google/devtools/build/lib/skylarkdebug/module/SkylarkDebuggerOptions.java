@@ -20,7 +20,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
-/** Configuration options for Skylark debugging. */
+/** Configuration options for Starlark debugging. */
 public final class SkylarkDebuggerOptions extends OptionsBase {
   @Option(
       name = "experimental_skylark_debug",

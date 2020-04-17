@@ -53,7 +53,7 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
   private Scenario newTest(String... skylarkOptions) throws IOException {
     return new Scenario(skylarkOptions)
         // A mock implementation of Label to be able to parse lib_cc_configure under default
-        // Skylark environment (lib_cc_configure is meant to be used from the repository
+        // Starlark environment (lib_cc_configure is meant to be used from the repository
         // environment).
         .setUp("def Label(arg):\n  return 42")
         .setUp(

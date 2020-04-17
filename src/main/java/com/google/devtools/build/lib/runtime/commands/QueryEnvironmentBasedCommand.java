@@ -95,7 +95,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
     QueryOptions queryOptions = options.getOptions(QueryOptions.class);
 
     try {
-      env.setupPackageCache(options);
+      env.syncPackageLoading(options);
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("query interrupted"));
       return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);

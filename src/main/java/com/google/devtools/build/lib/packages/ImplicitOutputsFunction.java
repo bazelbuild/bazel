@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static java.util.Collections.singleton;
 import static java.util.stream.Collectors.toCollection;
 
@@ -28,11 +27,12 @@ import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -61,7 +61,8 @@ import java.util.Set;
 public abstract class ImplicitOutputsFunction {
 
   /**
-   * Implicit output functions for Skylark supporting key value access of expanded implicit outputs.
+   * Implicit output functions for Starlark supporting key value access of expanded implicit
+   * outputs.
    */
   public abstract static class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
 
@@ -75,7 +76,7 @@ public abstract class ImplicitOutputsFunction {
     }
   }
 
-  /** Implicit output functions executing Skylark code. */
+  /** Implicit output functions executing Starlark code. */
   @AutoCodec
   public static final class SkylarkImplicitOutputsFunctionWithCallback
       extends SkylarkImplicitOutputsFunction {
@@ -111,7 +112,7 @@ public abstract class ImplicitOutputsFunction {
       try {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (Map.Entry<String, String> entry :
-            castMap(
+            Dict.cast(
                     callback.call(eventHandler, attrs),
                     String.class,
                     String.class,

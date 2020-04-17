@@ -99,7 +99,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_header",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -112,7 +112,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_cache_header",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -126,7 +126,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_exec_header",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -140,7 +140,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_downloader_header",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

@@ -18,10 +18,9 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.util.SpellChecker;
+import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +46,7 @@ public final class EvalUtils {
   }
 
   /**
-   * Compare two Skylark objects.
+   * Compare two Starlark objects.
    *
    * <p>It may throw an unchecked exception ComparisonException that should be wrapped in an
    * EvalException.
@@ -120,7 +119,7 @@ public final class EvalUtils {
   }
 
   /**
-   * Is this object known or assumed to be recursively hashable by Skylark?
+   * Is this object known or assumed to be recursively hashable by Starlark?
    *
    * @param o an Object
    * @return true if the object is known to be a hashable value.
@@ -133,7 +132,7 @@ public final class EvalUtils {
   }
 
   /**
-   * Is this object known or assumed to be recursively immutable by Skylark?
+   * Is this object known or assumed to be recursively immutable by Starlark?
    *
    * @param o an Object
    * @return true if the object is known to be an immutable value.
@@ -147,14 +146,14 @@ public final class EvalUtils {
   }
 
   /**
-   * Is this class known to be *recursively* immutable by Skylark? For instance, class Tuple is not
+   * Is this class known to be *recursively* immutable by Starlark? For instance, class Tuple is not
    * it, because it can contain mutable values.
    *
    * @param c a Class
    * @return true if the class is known to represent only recursively immutable values.
    */
   // NB: This is used as the basis for accepting objects in Depset-s,
-  // as well as for accepting objects as keys for Skylark dict-s.
+  // as well as for accepting objects as keys for Starlark dict-s.
   private static boolean isImmutable(Class<?> c) {
     return c.isAnnotationPresent(Immutable.class) // TODO(bazel-team): beware of containers!
         || c.equals(String.class)
@@ -164,12 +163,12 @@ public final class EvalUtils {
 
   // TODO(bazel-team): move the following few type-related functions to SkylarkType
   /**
-   * Return the Skylark-type of {@code c}
+   * Return the Starlark-type of {@code c}
    *
-   * <p>The result will be a type that Skylark understands and is either equal to {@code c} or is a
+   * <p>The result will be a type that Starlark understands and is either equal to {@code c} or is a
    * supertype of it.
    *
-   * <p>Skylark's type validation isn't equipped to deal with inheritance so we must tell it which
+   * <p>Starlark's type validation isn't equipped to deal with inheritance so we must tell it which
    * of the superclasses or interfaces of {@code c} is the one that matters for type compatibility.
    *
    * @param c a class
@@ -184,7 +183,7 @@ public final class EvalUtils {
         || Class.class.equals(c)) {
       return c;
     }
-    // TODO(bazel-team): We should require all Skylark-addressable values that aren't builtin types
+    // TODO(bazel-team): We should require all Starlark-addressable values that aren't builtin types
     // (String/Boolean/Integer) to implement StarlarkValue. We should also require them to have a
     // (possibly inherited) @SkylarkModule annotation.
     Class<?> parent = SkylarkInterfaceUtils.getParentWithSkylarkModule(c);
@@ -206,8 +205,8 @@ public final class EvalUtils {
   }
 
   /**
-   * Returns a pretty name for the datatype of object {@code object} in Skylark
-   * or the BUILD language, with full details if the {@code full} boolean is true.
+   * Returns a pretty name for the datatype of object {@code object} in Starlark or the BUILD
+   * language, with full details if the {@code full} boolean is true.
    */
   public static String getDataTypeName(Object object, boolean fullDetails) {
     Preconditions.checkNotNull(object);
@@ -229,22 +228,25 @@ public final class EvalUtils {
 
   /**
    * Returns a pretty name for the datatype equivalent of class 'c' in the Build language.
+   *
    * @param highlightNameSpaces Determines whether the result should also contain a special comment
-   * when the given class identifies a Skylark name space.
+   *     when the given class identifies a Starlark name space.
    */
-  public static String getDataTypeNameFromClass(Class<?> c, boolean highlightNameSpaces) {
-    SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(c);
-    if (module != null) {
-      return module.name()
-          + ((module.namespace() && highlightNameSpaces) ? " (a language module)" : "");
-    } else if (c.equals(Object.class)) {
-      return "unknown";
-    } else if (c.equals(String.class)) {
+  private static String getDataTypeNameFromClass(Class<?> c, boolean highlightNameSpaces) {
+    // Check for "direct hits" first to avoid needing to scan for annotations.
+    if (c.equals(String.class)) {
       return "string";
     } else if (c.equals(Integer.class)) {
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
+    }
+
+    SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(c);
+    if (module != null) {
+      return module.namespace() && highlightNameSpaces
+          ? module.name() + " (a language module)"
+          : module.name();
     } else if (List.class.isAssignableFrom(c)) { // This is a Java List that isn't a Sequence
       return "List"; // This case shouldn't happen in normal code, but we keep it for debugging.
     } else if (Map.class.isAssignableFrom(c)) { // This is a Java Map that isn't a Dict
@@ -252,26 +254,23 @@ public final class EvalUtils {
     } else if (StarlarkCallable.class.isAssignableFrom(c)) {
       // TODO(adonovan): each StarlarkCallable should report its own type string.
       return "function";
+    } else if (c.equals(Object.class)) {
+      return "unknown";
     } else {
-      if (c.getSimpleName().isEmpty()) {
-        return c.getName();
-      } else {
-        return c.getSimpleName();
-      }
+      String simpleName = c.getSimpleName();
+      return simpleName.isEmpty() ? c.getName() : simpleName;
     }
   }
 
-  public static void lock(Object object, Location loc) {
-    if (object instanceof Mutability.Freezable) {
-      Mutability.Freezable x = (Mutability.Freezable) object;
-      x.mutability().lock(x, loc);
+  static void addIterator(Object x) {
+    if (x instanceof Mutability.Freezable) {
+      ((Mutability.Freezable) x).updateIteratorCount(+1);
     }
   }
 
-  public static void unlock(Object object, Location loc) {
-    if (object instanceof Mutability.Freezable) {
-      Mutability.Freezable x = (Mutability.Freezable) object;
-      x.mutability().unlock(x, loc);
+  static void removeIterator(Object x) {
+    if (x instanceof Mutability.Freezable) {
+      ((Mutability.Freezable) x).updateIteratorCount(-1);
     }
   }
 
@@ -313,7 +312,7 @@ public final class EvalUtils {
     }
   }
 
-  /** @return true if x is Java null or Skylark None */
+  /** @return true if x is Java null or Starlark None */
   public static boolean isNullOrNone(Object x) {
     return x == null || x == Starlark.NONE;
   }
@@ -405,17 +404,6 @@ public final class EvalUtils {
             return StarlarkList.concat((StarlarkList<?>) x, (StarlarkList<?>) y, mu);
           }
 
-        } else if (x instanceof Depset) {
-          // depset + any
-          // TODO(bazel-team): Remove deprecated operator.
-          if (semantics.incompatibleDepsetUnion()) {
-            throw Starlark.errorf(
-                "`+` operator on a depset is forbidden. See "
-                    + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
-                    + "recommendations. Use --incompatible_depset_union=false "
-                    + "to temporarily disable this check.");
-          }
-          return Depset.unionOf((Depset) x, y);
         }
         break;
 
@@ -425,16 +413,6 @@ public final class EvalUtils {
             // int | int
             return ((Integer) x) | (Integer) y;
           }
-        } else if (x instanceof Depset) {
-          // depset | any
-          if (semantics.incompatibleDepsetUnion()) {
-            throw Starlark.errorf(
-                "`|` operator on a depset is forbidden. See "
-                    + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
-                    + "recommendations. Use --incompatible_depset_union=false "
-                    + "to temporarily disable this check.");
-          }
-          return Depset.unionOf((Depset) x, y);
         }
         break;
 
@@ -705,7 +683,7 @@ public final class EvalUtils {
     if (object instanceof SkylarkIndexable) {
       Object result = ((SkylarkIndexable) object).getIndex(semantics, key);
       // TODO(bazel-team): We shouldn't have this fromJava call here. If it's needed at all,
-      // it should go in the implementations of SkylarkIndexable#getIndex that produce non-Skylark
+      // it should go in the implementations of SkylarkIndexable#getIndex that produce non-Starlark
       // values.
       return result == null ? null : Starlark.fromJava(result, mu);
     } else if (object instanceof String) {
@@ -745,30 +723,27 @@ public final class EvalUtils {
   }
 
   /**
-   * Parses the input as a file, validates it in the module environment using options defined by
-   * {@code thread.getSemantics}, and returns the syntax tree. It uses Starlark (not BUILD)
-   * validation semantics.
-   *
-   * <p>The thread is primarily used for its Module. Scan/parse/validate errors are recorded in the
-   * StarlarkFile. It is the caller's responsibility to inspect them.
+   * Parses the input as a file, validates it in the module environment using the specified options
+   * and returns the syntax tree. Scan/parse/validate errors are recorded in the StarlarkFile. It is
+   * the caller's responsibility to inspect them.
    */
   public static StarlarkFile parseAndValidate(
-      ParserInput input, Module module, StarlarkSemantics semantics) {
-    StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(file, module, semantics, /*isBuildFile=*/ false);
+      ParserInput input, FileOptions options, Module module) {
+    StarlarkFile file = StarlarkFile.parse(input, options);
+    ValidationEnvironment.validateFile(file, module);
     return file;
   }
 
   /**
-   * Parses the input as a file, validates it in the module environment using options defined by
-   * {@code thread.getSemantics}, and executes it. It uses Starlark (not BUILD) validation
-   * semantics.
+   * Parses the input as a file, validates it in the module environment using the specified options
+   * and executes it.
    */
-  public static void exec(ParserInput input, Module module, StarlarkThread thread)
-      throws SyntaxError, EvalException, InterruptedException {
-    StarlarkFile file = parseAndValidate(input, module, thread.getSemantics());
+  public static void exec(
+      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
+    StarlarkFile file = parseAndValidate(input, options, module);
     if (!file.ok()) {
-      throw new SyntaxError(file.errors());
+      throw new SyntaxError.Exception(file.errors());
     }
     exec(file, module, thread);
   }
@@ -791,14 +766,14 @@ public final class EvalUtils {
   }
 
   /**
-   * Parses the input as an expression, validates it in the module environment using options defined
-   * by {@code thread.getSemantics}, and evaluates it. It uses Starlark (not BUILD) validation
-   * semantics.
+   * Parses the input as an expression, validates it in the module environment using the specified
+   * options, and evaluates it.
    */
-  public static Object eval(ParserInput input, Module module, StarlarkThread thread)
-      throws SyntaxError, EvalException, InterruptedException {
-    Expression expr = Expression.parse(input);
-    ValidationEnvironment.validateExpr(expr, module, thread.getSemantics());
+  public static Object eval(
+      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
+    Expression expr = Expression.parse(input, options);
+    ValidationEnvironment.validateExpr(expr, module, options);
 
     // Turn expression into a no-arg StarlarkFunction and call it.
     StarlarkFunction fn =
@@ -807,7 +782,7 @@ public final class EvalUtils {
             expr.getStartLocation(),
             FunctionSignature.NOARGS,
             /*defaultValues=*/ Tuple.empty(),
-            ImmutableList.<Statement>of(new ReturnStatement(expr)),
+            ImmutableList.<Statement>of(ReturnStatement.make(expr)),
             module);
 
     return Starlark.fastcall(thread, fn, NOARGS, NOARGS);
@@ -825,12 +800,12 @@ public final class EvalUtils {
    */
   @Nullable
   public static Object execAndEvalOptionalFinalExpression(
-      ParserInput input, Module module, StarlarkThread thread)
-      throws SyntaxError, EvalException, InterruptedException {
-    StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(file, module, thread.getSemantics(), /*isBuildFile=*/ false);
+      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
+    StarlarkFile file = StarlarkFile.parse(input, options);
+    ValidationEnvironment.validateFile(file, module);
     if (!file.ok()) {
-      throw new SyntaxError(file.errors());
+      throw new SyntaxError.Exception(file.errors());
     }
 
     // If the final statement is an expression, synthesize a return statement.
@@ -841,7 +816,7 @@ public final class EvalUtils {
       stmts =
           ImmutableList.<Statement>builder()
               .addAll(stmts.subList(0, n - 1))
-              .add(new ReturnStatement(expr))
+              .add(ReturnStatement.make(expr))
               .build();
     }
 

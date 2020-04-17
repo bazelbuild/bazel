@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -90,6 +90,7 @@ public final class Dict<K, V>
         StarlarkIterable<K> {
 
   private final LinkedHashMap<K, V> contents;
+  private int iteratorCount; // number of active iterators (unused once frozen)
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
   private Mutability mutability;
@@ -119,6 +120,19 @@ public final class Dict<K, V>
   @Override
   public boolean isImmutable() {
     return mutability().isFrozen();
+  }
+
+  @Override
+  public boolean updateIteratorCount(int delta) {
+    if (mutability().isFrozen()) {
+      return false;
+    }
+    if (delta > 0) {
+      iteratorCount++;
+    } else if (delta < 0) {
+      iteratorCount--;
+    }
+    return iteratorCount > 0;
   }
 
   @Override
@@ -401,7 +415,7 @@ public final class Dict<K, V>
    * @throws EvalException if the key is invalid or the dict is frozen
    */
   public void put(K key, V value, Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     EvalUtils.checkHashable(key);
     contents.put(key, value);
   }
@@ -415,7 +429,7 @@ public final class Dict<K, V>
    */
   public <KK extends K, VV extends V> void putAll(Map<KK, VV> map, Location unused)
       throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
       EvalUtils.checkHashable(k);
@@ -432,7 +446,7 @@ public final class Dict<K, V>
    * @throws EvalException if the dict is frozen
    */
   V remove(Object key, Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     return contents.remove(key);
   }
 
@@ -449,7 +463,7 @@ public final class Dict<K, V>
    * @throws EvalException if the dict is frozen
    */
   private void clear(Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     contents.clear();
   }
 
@@ -464,65 +478,42 @@ public final class Dict<K, V>
   }
 
   /**
-   * If {@code obj} is a {@code Dict}, casts it to an unmodifiable {@code Map<K, V>} after checking
-   * that each of its entries has key type {@code keyType} and value type {@code valueType}. If
-   * {@code obj} is {@code None} or null, treats it as an empty dict.
-   *
-   * <p>The returned map may or may not be a view that is affected by updates to the original dict.
-   *
-   * @param obj the object to cast. null and None are treated as an empty dict.
-   * @param keyType the expected type of all the dict's keys
-   * @param valueType the expected type of all the dict's values
-   * @param description a description of the argument being converted, or null, for debugging
+   * Casts a non-null Starlark value {@code x} to a {@code Dict<K, V>} after checking that all keys
+   * and values are instances of {@code keyType} and {@code valueType}, respectively. On error, it
+   * throws an EvalException whose message includes {@code what}, ideally a string literal, as a
+   * description of the role of {@code x}. If x is null, it returns an immutable empty dict.
    */
-  public static <K, V> Map<K, V> castSkylarkDictOrNoneToDict(
-      Object obj, Class<K> keyType, Class<V> valueType, @Nullable String description)
+  public static <K, V> Dict<K, V> cast(Object x, Class<K> keyType, Class<V> valueType, String what)
       throws EvalException {
-    if (EvalUtils.isNullOrNone(obj)) {
-      return empty();
+    Preconditions.checkNotNull(x);
+    if (!(x instanceof Dict)) {
+      throw Starlark.errorf("got %s for '%s', want dict", Starlark.type(x), what);
     }
-    if (obj instanceof Dict) {
-      return ((Dict<?, ?>) obj).getContents(keyType, valueType, description);
-    }
-    throw Starlark.errorf(
-        "%s is not of expected type dict or NoneType",
-        description == null ? Starlark.repr(obj) : String.format("'%s'", description));
-  }
 
-  /**
-   * Returns an unmodifiable view of this Dict coerced to type {@code Dict<X, Y>}, after
-   * superficially checking that all keys and values are of class {@code keyType} and {@code
-   * valueType} respectively.
-   *
-   * <p>The returned map is a view that reflects subsequent updates to the original dict. If such
-   * updates should insert keys or values of types other than X or Y respectively, the reference
-   * returned by getContents will have a false type that may cause the program to fail in unexpected
-   * and hard-to-debug ways.
-   *
-   * <p>The dynamic checks are necessarily superficial if either of X or Y is itself a parameterized
-   * type. For example, if Y is {@code List<String>}, getContents checks that the dict values are
-   * instances of List, but it does not and cannot check that all the elements of those lists are
-   * Strings. If one of the dict values in fact a List of Integer, the returned reference will again
-   * have a false type.
-   *
-   * @param keyType the expected class of keys
-   * @param valueType the expected class of values
-   * @param description a description of the argument being converted, or null, for debugging
-   */
-  @SuppressWarnings("unchecked")
-  public <X, Y> Map<X, Y> getContents(
-      Class<X> keyType, Class<Y> valueType, @Nullable String description) throws EvalException {
-    Object keyDescription =
-        description == null ? null : Printer.formattable("'%s' key", description);
-    Object valueDescription =
-        description == null ? null : Printer.formattable("'%s' value", description);
-    for (Map.Entry<?, ?> e : this.entrySet()) {
-      SkylarkType.checkType(e.getKey(), keyType, keyDescription);
-      if (e.getValue() != null) {
-        SkylarkType.checkType(e.getValue(), valueType, valueDescription);
+    for (Map.Entry<?, ?> e : ((Map<?, ?>) x).entrySet()) {
+      if (!keyType.isAssignableFrom(e.getKey().getClass())
+          || !valueType.isAssignableFrom(e.getValue().getClass())) {
+        // TODO(adonovan): change message to "found <K2, V2> entry",
+        // without suggesting that the entire dict is <K2, V2>.
+        throw Starlark.errorf(
+            "got dict<%s, %s> for '%s', want dict<%s, %s>",
+            Starlark.type(e.getKey()),
+            Starlark.type(e.getValue()),
+            what,
+            EvalUtils.getDataTypeNameFromClass(keyType),
+            EvalUtils.getDataTypeNameFromClass(valueType));
       }
     }
-    return Collections.unmodifiableMap((Dict<X, Y>) this);
+
+    @SuppressWarnings("unchecked") // safe
+    Dict<K, V> res = (Dict<K, V>) x;
+    return res;
+  }
+
+  /** Like {@link #cast}, but if x is None, returns an empty Dict. */
+  public static <K, V> Dict<K, V> noneableCast(
+      Object x, Class<K> keyType, Class<V> valueType, String what) throws EvalException {
+    return x == Starlark.NONE ? empty() : cast(x, keyType, valueType, what);
   }
 
   @Override
@@ -630,7 +621,7 @@ public final class Dict<K, V>
 
   // disallowed java.util.Map update operations
 
-  // TODO(adonovan): make MutabilityException a subclass of (unchecked)
+  // TODO(adonovan): make mutability exception a subclass of (unchecked)
   // UnsupportedOperationException, allowing the primary Dict operations
   // to satisfy the Map operations below in the usual way (like ImmutableMap does).
   // Add "ForStarlark" suffix to disambiguate SkylarkCallable-annotated methods.

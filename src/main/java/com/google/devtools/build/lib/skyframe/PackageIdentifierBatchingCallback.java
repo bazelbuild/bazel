@@ -18,13 +18,13 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
- * A callback for {@link RecursivePackageProvider#streamPackagesUnderDirectory} that buffers the
- * PackageIdentifiers it receives into fixed-size batches that it delivers to a supplied {@code
- * ThreadSafeBatchCallback<PackageIdentifier, RuntimeException>}.
+ * A callback for {@link
+ * com.google.devtools.build.lib.pkgcache.RecursivePackageProvider#streamPackagesUnderDirectory}
+ * that buffers the PackageIdentifiers it receives into fixed-size batches that it delivers to a
+ * supplied {@code ThreadSafeBatchCallback<PackageIdentifier, RuntimeException>}.
  *
  * <p>The final batch delivered to the delegate callback may be smaller than the fixed size; the
  * callback must be {@link #close() closed} to deliver this final batch.

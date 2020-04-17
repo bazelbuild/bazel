@@ -249,10 +249,19 @@ public final class UnixGlob {
         case '?':
           regexp.append('.');
           break;
-        //escape the regexp special characters that are allowed in wildcards
-        case '^': case '$': case '|': case '+':
-        case '{': case '}': case '[': case ']':
-        case '\\': case '.':
+        case '^':
+        case '$':
+        case '|':
+        case '+':
+        case '(':
+        case ')':
+        case '{':
+        case '}':
+        case '[':
+        case ']':
+        case '\\':
+        case '.':
+          // escape the regexp special characters that are allowed in wildcards
           regexp.append('\\');
           regexp.append(c);
           break;

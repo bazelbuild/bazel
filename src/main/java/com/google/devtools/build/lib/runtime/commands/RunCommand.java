@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -49,7 +50,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
 import com.google.devtools.build.lib.exec.TestPolicy;
-import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -729,15 +729,15 @@ public class RunCommand implements BlazeCommand  {
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
-    Artifact executable = configuredTarget.getProvider(FilesToRunProvider.class).getExecutable();
+    Artifact executable =
+        Preconditions.checkNotNull(
+                configuredTarget.getProvider(FilesToRunProvider.class), configuredTarget)
+            .getExecutable();
     if (executable == null) {
       env.getReporter().handle(Event.error(notExecutableError(target)));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
-    // Shouldn't happen: We just validated the target.
-    Preconditions.checkState(
-        executable != null, "Could not find executable for target %s", configuredTarget);
     Path executablePath = executable.getPath();
     try {
       if (!executablePath.exists() || !executablePath.isExecutable()) {

@@ -266,73 +266,66 @@ public class CppOptions extends FragmentOptions {
   public boolean processHeadersInDependencies;
 
   @Option(
-    name = "copt",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional options to pass to gcc."
-  )
+      name = "copt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional options to pass to gcc.")
   public List<String> coptList;
 
   @Option(
-    name = "cxxopt",
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional option to pass to gcc when compiling C++ source files."
-  )
+      name = "cxxopt",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional option to pass to gcc when compiling C++ source files.")
   public List<String> cxxoptList;
 
   @Option(
-    name = "conlyopt",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional option to pass to gcc when compiling C source files."
-  )
+      name = "conlyopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional option to pass to gcc when compiling C source files.")
   public List<String> conlyoptList;
 
   @Option(
-    name = "linkopt",
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional option to pass to gcc when linking."
-  )
+      name = "linkopt",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional option to pass to gcc when linking.")
   public List<String> linkoptList;
 
   @Option(
-    name = "ltoindexopt",
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional option to pass to the LTO indexing step (under --features=thin_lto)."
-  )
+      name = "ltoindexopt",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional option to pass to the LTO indexing step (under --features=thin_lto).")
   public List<String> ltoindexoptList;
 
   @Option(
-    name = "ltobackendopt",
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional option to pass to the LTO backend step (under --features=thin_lto)."
-  )
+      name = "ltobackendopt",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional option to pass to the LTO backend step (under --features=thin_lto).")
   public List<String> ltobackendoptList;
 
   @Option(
-    name = "stripopt",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional options to pass to strip when generating a '<name>.stripped' binary."
-  )
+      name = "stripopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional options to pass to strip when generating a '<name>.stripped' binary.")
   public List<String> stripoptList;
 
   @Option(
@@ -508,46 +501,44 @@ public class CppOptions extends FragmentOptions {
   public boolean saveTemps;
 
   @Option(
-    name = "per_file_copt",
-    allowMultiple = true,
-    converter = PerLabelOptions.PerLabelOptionsConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Additional options to selectively pass to gcc when compiling certain files. "
-            + "This option can be passed multiple times. "
-            + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
-            + "for a list of include and exclude regular expression patterns (Also see "
-            + "--instrumentation_filter). option_1 to option_n stand for "
-            + "arbitrary command line options. If an option contains a comma it has to be "
-            + "quoted with a backslash. Options can contain @. Only the first @ is used to "
-            + "split the string. Example: "
-            + "--per_file_copt=//foo/.*\\.cc,-//foo/bar\\.cc@-O0 adds the -O0 "
-            + "command line option to the gcc command line of all cc files in //foo/ "
-            + "except bar.cc."
-  )
+      name = "per_file_copt",
+      allowMultiple = true,
+      converter = PerLabelOptions.PerLabelOptionsConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Additional options to selectively pass to gcc when compiling certain files. "
+              + "This option can be passed multiple times. "
+              + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
+              + "for a list of include and exclude regular expression patterns (Also see "
+              + "--instrumentation_filter). option_1 to option_n stand for "
+              + "arbitrary command line options. If an option contains a comma it has to be "
+              + "quoted with a backslash. Options can contain @. Only the first @ is used to "
+              + "split the string. Example: "
+              + "--per_file_copt=//foo/.*\\.cc,-//foo/bar\\.cc@-O0 adds the -O0 "
+              + "command line option to the gcc command line of all cc files in //foo/ "
+              + "except bar.cc.")
   public List<PerLabelOptions> perFileCopts;
 
   @Option(
-    name = "per_file_ltobackendopt",
-    allowMultiple = true,
-    converter = PerLabelOptions.PerLabelOptionsConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Additional options to selectively pass to LTO backend (under --features=thin_lto) when "
-            + "compiling certain backend objects. This option can be passed multiple times. "
-            + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
-            + "for a list of include and exclude regular expression patterns. "
-            + "option_1 to option_n stand for arbitrary command line options. "
-            + "If an option contains a comma it has to be quoted with a backslash. "
-            + "Options can contain @. Only the first @ is used to split the string. Example: "
-            + "--per_file_ltobackendopt=//foo/.*\\.o,-//foo/bar\\.o@-O0 adds the -O0 "
-            + "command line option to the LTO backend command line of all o files in //foo/ "
-            + "except bar.o."
-  )
+      name = "per_file_ltobackendopt",
+      allowMultiple = true,
+      converter = PerLabelOptions.PerLabelOptionsConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Additional options to selectively pass to LTO backend (under --features=thin_lto) when "
+              + "compiling certain backend objects. This option can be passed multiple times. "
+              + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
+              + "for a list of include and exclude regular expression patterns. "
+              + "option_1 to option_n stand for arbitrary command line options. "
+              + "If an option contains a comma it has to be quoted with a backslash. "
+              + "Options can contain @. Only the first @ is used to split the string. Example: "
+              + "--per_file_ltobackendopt=//foo/.*\\.o,-//foo/bar\\.o@-O0 adds the -O0 "
+              + "command line option to the LTO backend command line of all o files in //foo/ "
+              + "except bar.o.")
   public List<PerLabelOptions> perFileLtoBackendOpts;
 
   @Option(
@@ -568,43 +559,39 @@ public class CppOptions extends FragmentOptions {
   public Label hostCrosstoolTop;
 
   @Option(
-    name = "host_copt",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional options to pass to gcc for host tools."
-  )
+      name = "host_copt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional options to pass to gcc for host tools.")
   public List<String> hostCoptList;
 
   @Option(
-    name = "host_cxxopt",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional options to pass to gcc for host tools."
-  )
+      name = "host_cxxopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional options to pass to gcc for host tools.")
   public List<String> hostCxxoptList;
 
   @Option(
-    name = "host_conlyopt",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional option to pass to gcc when compiling C source files for host tools."
-  )
+      name = "host_conlyopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional option to pass to gcc when compiling C source files for host tools.")
   public List<String> hostConlyoptList;
 
   @Option(
-    name = "host_linkopt",
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Additional option to pass to gcc when linking host tools."
-  )
+      name = "host_linkopt",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional option to pass to gcc when linking host tools.")
   public List<String> hostLinkoptList;
 
   @Option(

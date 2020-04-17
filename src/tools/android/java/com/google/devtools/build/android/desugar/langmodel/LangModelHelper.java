@@ -21,11 +21,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Streams;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -158,30 +158,40 @@ public final class LangModelHelper {
    * @param mv The current method visitor that is visiting the class.
    * @param mappers Applies to an operand stack value if tested positive on {@code filter}.
    * @param expectedTypesOnOperandStack The expected types at the bottom of the operand stack. The
-   *     end of the list corresponds to the the bottom of the operand stack.
+   * @param extraConstants Extra constants to be stored in the object array.
    */
   public static ImmutableList<ClassName> collapseStackValuesToObjectArray(
       MethodVisitor mv,
       ImmutableList<Function<ClassName, Optional<MethodInvocationSite>>> mappers,
-      ImmutableList<ClassName> expectedTypesOnOperandStack) {
+      ImmutableList<ClassName> expectedTypesOnOperandStack,
+      ImmutableList<Object> extraConstants) {
     // Creates an array of java/lang/Object to store the values on top of the operand stack that
     // are subject to string concatenation.
-    int numOfValuesOnOperandStack = expectedTypesOnOperandStack.size();
+
+    for (Object constant : extraConstants) {
+      mv.visitLdcInsn(constant);
+    }
+
+    int numOfValuesOnOperandStack = expectedTypesOnOperandStack.size() + extraConstants.size();
+
     visitPushInstr(mv, numOfValuesOnOperandStack);
     mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/Object");
 
     // To preserve the order of the operands to be string-concatenated, we slot the values on
     // the top of the stack to the end of the array.
-    List<ClassName> actualTypesOnObjectArray = new ArrayList<>(expectedTypesOnOperandStack);
+    List<ClassName> actualTypesInObjectArray =
+        Streams.concat(
+                expectedTypesOnOperandStack.stream(),
+                extraConstants.stream().map(Object::getClass).map(ClassName::create))
+            .collect(Collectors.toList());
     for (int i = numOfValuesOnOperandStack - 1; i >= 0; i--) {
-      ClassName operandTypeName = expectedTypesOnOperandStack.get(i);
-      Type operandType = operandTypeName.toAsmObjectType();
+      Type arrayElementType = actualTypesInObjectArray.get(i).toAsmObjectType();
       // Pre-duplicates the array reference for next loop iteration use.
       // Post-operation stack bottom to top:
       //     ..., value_i-1, arrayref, value_i, arrayref.
       mv.visitInsn(
           getTypeSizeAlignedDupOpcode(
-              ImmutableList.of(Type.getType(Object.class)), ImmutableList.of(operandType)));
+              ImmutableList.of(Type.getType(Object.class)), ImmutableList.of(arrayElementType)));
 
       // Pushes the array index and adjusts the order of the values on stack top in the order
       // of <bottom/> arrayref, index, value <top/> before emitting an aastore instruction.
@@ -195,7 +205,7 @@ public final class LangModelHelper {
       mv.visitInsn(
           getTypeSizeAlignedDupOpcode(
               ImmutableList.of(Type.getType(Object.class), Type.getType(int.class)),
-              ImmutableList.of(operandType)));
+              ImmutableList.of(arrayElementType)));
 
       // Pops arrayref, index, leaving the stack top as value_i.
       // Post-operation stack bottom to top:
@@ -206,19 +216,19 @@ public final class LangModelHelper {
 
       int targetArrayIndex = i;
       mappers.stream()
-          .map(mapper -> mapper.apply(actualTypesOnObjectArray.get(targetArrayIndex)))
+          .map(mapper -> mapper.apply(actualTypesInObjectArray.get(targetArrayIndex)))
           .flatMap(Streams::stream)
           .forEach(
               typeConversionSite -> {
                 typeConversionSite.accept(mv);
-                actualTypesOnObjectArray.set(targetArrayIndex, typeConversionSite.returnTypeName());
+                actualTypesInObjectArray.set(targetArrayIndex, typeConversionSite.returnTypeName());
               });
 
       // Post-operation stack bottom to top:
       //     ..., value_i-1, arrayref.
       mv.visitInsn(Opcodes.AASTORE);
     }
-    return ImmutableList.copyOf(actualTypesOnObjectArray);
+    return ImmutableList.copyOf(actualTypesInObjectArray);
   }
 
   /**
@@ -278,6 +288,25 @@ public final class LangModelHelper {
     mv.visitInsn(Opcodes.POP);
   }
 
+  public static ImmutableList<ClassName> mapOperandStackValues(
+      MethodVisitor mv,
+      ImmutableList<Function<ClassName, Optional<MethodInvocationSite>>> mappers,
+      ImmutableList<ClassName> sourceTypesOnOperandStack,
+      ImmutableList<ClassName> targetTypesOnOperandStack,
+      String beginningMarker) {
+    ImmutableList<ClassName> classNames =
+        collapseStackValuesToObjectArray(
+            mv,
+            ImmutableList.<Function<ClassName, Optional<MethodInvocationSite>>>builder()
+                .addAll(mappers)
+                .add(LangModelHelper::anyPrimitiveToBoxedTypeInvocationSite)
+                .build(),
+            sourceTypesOnOperandStack,
+            ImmutableList.of(beginningMarker));
+    expandObjectArrayToStackValues(mv, targetTypesOnOperandStack);
+    return classNames;
+  }
+
   public static Optional<MethodInvocationSite> anyPrimitiveToStringInvocationSite(
       ClassName className) {
     return className.isPrimitive()
@@ -302,6 +331,22 @@ public final class LangModelHelper {
                     Type.getType(String.class), primitiveTypeName.toAsmObjectType())))
         .setIsInterface(false)
         .build();
+  }
+
+  public static Optional<MethodInvocationSite> anyObjectToStringInvocationSite(
+      ClassName className) {
+    return className.isPrimitive()
+        ? Optional.empty()
+        : Optional.of(
+            MethodInvocationSite.builder()
+                .setInvocationKind(MemberUseKind.INVOKEVIRTUAL)
+                .setMethod(
+                    MethodKey.create(
+                        className,
+                        "toString",
+                        Type.getMethodDescriptor(Type.getType(String.class))))
+                .setIsInterface(false)
+                .build());
   }
 
   /** Convenient factory method for converting a primitive type to string call site. */

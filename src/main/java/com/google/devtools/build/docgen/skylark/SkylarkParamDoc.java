@@ -16,9 +16,7 @@ package com.google.devtools.build.docgen.skylark;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 
-/**
- * A class containing the documentation for a Skylark method parameter.
- */
+/** A class containing the documentation for a Starlark method parameter. */
 public final class SkylarkParamDoc extends SkylarkDoc {
   private SkylarkMethodDoc method;
   private Param param;

@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 /** The available xcode versions computed from the {@code available_xcodes} rule. */
 @Immutable
 public class AvailableXcodesInfo extends NativeInfo {
-  /** Skylark name for this provider. */
+  /** Starlark name for this provider. */
   public static final String SKYLARK_NAME = "AvailableXcodesInfo";
 
   /** Provider identifier for {@link AvailableXcodesInfo}. */

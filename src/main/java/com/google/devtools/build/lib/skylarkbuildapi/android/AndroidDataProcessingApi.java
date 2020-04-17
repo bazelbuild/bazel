@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** Skylark-visible methods for working with Android data (manifests, resources, and assets). */
+/** Starlark-visible methods for working with Android data (manifests, resources, and assets). */
 @SkylarkModule(
     name = "android_data",
     doc =

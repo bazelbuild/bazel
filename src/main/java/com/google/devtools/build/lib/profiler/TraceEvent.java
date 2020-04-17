@@ -41,16 +41,6 @@ public abstract class TraceEvent {
         category, name, timestamp, duration, threadId, primaryOutputPath);
   }
 
-  public static TraceEvent create(
-      @Nullable String category,
-      String name,
-      @Nullable Duration timestamp,
-      @Nullable Duration duration,
-      long threadId) {
-    return new AutoValue_TraceEvent(
-        category, name, timestamp, duration, threadId, /* primaryOutputPath= */ null);
-  }
-
   @Nullable
   public abstract String category();
 

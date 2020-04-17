@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
@@ -64,7 +65,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
+import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
@@ -138,6 +139,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected final BlazeDirectories directories;
     protected final PathPackageLocator pkgLocator;
     final AtomicReference<PathPackageLocator> pkgLocatorRef;
+    private final ExternalPackageHelper externalPackageHelper;
     private ExternalFileAction externalFileAction;
     protected ExternalFilesHelper externalFilesHelper;
     protected ConfiguredRuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
@@ -153,6 +155,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         Path installBase,
         Path outputBase,
         ImmutableList<BuildFileName> buildFilesByPriority,
+        ExternalPackageHelper externalPackageHelper,
         ExternalFileAction externalFileAction) {
       this.workspaceDir = workspaceDir.asPath();
       Path devNull = workspaceDir.getRelative("/dev/null");
@@ -168,6 +171,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
               directories.getOutputBase(), ImmutableList.of(workspaceDir), buildFilesByPriority);
       this.pkgLocatorRef = new AtomicReference<>(pkgLocator);
       this.externalFileAction = externalFileAction;
+      this.externalPackageHelper = externalPackageHelper;
     }
 
     public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
@@ -236,7 +240,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
               pkgLocatorRef,
               externalFileAction,
               directories,
-              ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES);
+              ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+              externalPackageHelper);
       return buildImpl();
     }
 
@@ -381,6 +386,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   protected abstract ImmutableList<BuildFileName> getBuildFilesByPriority();
 
+  protected abstract ExternalPackageHelper getExternalPackageHelper();
+
   protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
 
   private ImmutableMap<SkyFunctionName, SkyFunction> makeFreshSkyFunctions() {
@@ -404,6 +411,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             return pkgLocatorRef.get().getPackageBuildFileNullable(packageName, syscallCacheRef);
           }
         };
+    ExternalPackageHelper externalPackageHelper = getExternalPackageHelper();
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
@@ -420,7 +428,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new PackageLookupFunction(
                 /* deletedPackages= */ new AtomicReference<>(ImmutableSet.of()),
                 getCrossRepositoryLabelViolationStrategy(),
-                getBuildFilesByPriority()))
+                getBuildFilesByPriority(),
+                getExternalPackageHelper()))
         .put(
             SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
             new BlacklistedPackagePrefixesFunction(
@@ -428,8 +437,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
         .put(
-            SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
-            new SkylarkImportLookupFunction(ruleClassProvider, pkgFactory))
+            SkyFunctions.STARLARK_IMPORTS_LOOKUP,
+            new StarlarkImportLookupFunction(ruleClassProvider, pkgFactory))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
         .put(
@@ -438,8 +447,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 ruleClassProvider,
                 pkgFactory,
                 directories,
-                /*skylarkImportLookupFunctionForInlining=*/ null))
-        .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
+                /*starlarkImportLookupFunctionForInlining=*/ null))
+        .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
         .put(
             SkyFunctions.PACKAGE,
@@ -450,11 +459,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 packageFunctionCache,
                 astCache,
                 /*numPackagesLoaded=*/ new AtomicInteger(0),
-                /*skylarkImportLookupFunctionForInlining=*/ null,
+                /*starlarkImportLookupFunctionForInlining=*/ null,
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
-                IncrementalityIntent.NON_INCREMENTAL))
+                IncrementalityIntent.NON_INCREMENTAL,
+                externalPackageHelper))
         .putAll(extraSkyFunctions);
     return builder.build();
   }

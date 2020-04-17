@@ -31,8 +31,8 @@ public class EnablingAndDisablingFlag implements StarlarkValue {
         @Param(name = "one", type = String.class, named = true),
         @Param(name = "two", type = Integer.class, named = true),
       },
-      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT)
+      enableOnlyWithFlag = FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES,
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES)
   public String someMethod(String one, Integer two) {
     return "foo";
   }

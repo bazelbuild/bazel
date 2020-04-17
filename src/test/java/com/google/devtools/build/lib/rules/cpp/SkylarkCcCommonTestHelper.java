@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-
-/** Methods useful for tests testing the C++ Skylark API. */
+/** Methods useful for tests testing the C++ Starlark API. */
 public final class SkylarkCcCommonTestHelper {
   public static final String CC_SKYLARK_WHITELIST_FLAG =
       "--experimental_cc_skylark_api_enabled_packages=tools/build_defs,experimental";

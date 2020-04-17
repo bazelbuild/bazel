@@ -31,10 +31,10 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -51,7 +51,7 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException {
     ConfiguredTarget actual =
-        (ConfiguredTarget) ruleContext.getPrerequisite(ATTRIBUTE_NAME, Mode.TARGET);
+        (ConfiguredTarget) ruleContext.getPrerequisite(ATTRIBUTE_NAME, TransitionMode.TARGET);
     if (actual == null) {
       return createEmptyConfiguredTarget(ruleContext);
     }

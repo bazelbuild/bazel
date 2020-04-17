@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -546,7 +546,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     public static final OptionDefinition ALSO_IRRELEVANT_OPTION =
         OptionsParser.getOptionDefinitionByName(DiffResetOptions.class, "also_irrelevant");
     public static final PatchTransition CLEAR_IRRELEVANT =
-        (options) -> {
+        (options, eventHandler) -> {
           BuildOptions cloned = options.clone();
           cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
           cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
@@ -602,17 +602,16 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @SkylarkModule(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
-  private static final class DiffResetFragment extends BuildConfiguration.Fragment
-      implements StarlarkValue {}
+  private static final class DiffResetFragment extends Fragment implements StarlarkValue {}
 
   private static final class DiffResetFactory implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(BuildOptions options) {
+    public Fragment create(BuildOptions options) {
       return new DiffResetFragment();
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
       return DiffResetFragment.class;
     }
 

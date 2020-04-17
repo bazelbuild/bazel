@@ -211,7 +211,7 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
 }
 
 string GetProcessIdAsString() {
-  return ToString(getpid());
+  return blaze_util::ToString(getpid());
 }
 
 string GetHomeDir() { return GetPathEnv("HOME"); }
@@ -262,7 +262,7 @@ class CharPP {
   explicit CharPP(const std::map<string, EnvVarValue>& env) {
     charpp_ = static_cast<char**>(malloc(sizeof(char*) * (env.size() + 1)));
     size_t i = 0;
-    for (auto iter : env) {
+    for (const auto& iter : env) {
       const string& var = iter.first;
       const EnvVarValue& value = iter.second;
 

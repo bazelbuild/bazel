@@ -180,7 +180,7 @@ flag for `IncludeSpecialProjectFeatureX`.
 
 Plans for [truly custom flags](
 https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
-are underway. In the meantime, [`--define`](user-manual.html#flag--define) is
+are underway. In the meantime, [`--define`](command-line-reference.html#flag--define) is
 the best approach for these purposes.
 `--define` is a bit awkward to use and wasn't originally designed for this
 purpose. We recommend using it sparingly until true custom flags are available.
@@ -966,3 +966,49 @@ alias(
 With this setup, you can pass `--define ssl_library=alternative`, and any target
 that depends on either `//:ssl` or `//external:ssl` will see the alternative
 located at `@alternative//:ssl`.
+
+### Why doesn't my select() choose what I expect?
+If `//my:target` has a `select()` that doesn't choose the condition you expect,
+you can debug with [cquery](cquery.html) and `bazel config`:
+
+If `//my:target` is what you're building, run:
+
+```sh
+$ bazel cquery //my:target <desired build flags>
+//my:target (12e23b9a2b534a)
+```
+
+Alternatively, if you're building some other target `//foo` that depends on
+`//my:target` somewhere in its subgraph, run:
+
+```sh
+$ bazel cquery 'somepath(//foo, //my:target)' <desired build flags>
+//foo:foo   (3ag3193fee94a2)
+//foo:intermediate_dep (12e23b9a2b534a)
+//my:target (12e23b9a2b534a)
+```
+
+The "`(12e23b9a2b534a)`" that appears next to `//my:target` is a *hash* of the
+configuration that resolves the `select()`. You can inspect its values with
+`bazel config`:
+
+```sh
+$ bazel config 12e23b9a2b534a
+BuildConfiguration 12e23b9a2b534a
+Fragment com.google.devtools.build.lib.analysis.config.CoreOptions {
+  cpu: darwin
+  compilation_mode: fastbuild
+  ...
+}
+Fragment com.google.devtools.build.lib.rules.cpp.CppOptions {
+  linkopt: [-Dfoo=bar]
+  ...
+}
+...
+```
+
+Then compare this output against the settings that match the `config_setting`s.
+
+It's possible for `//my:target` to exist in multiple configurations in the same
+build. See the [cquery docs](cquery.html) for guidance on using `somepath` to
+get the right one.

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer.TextKind;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
@@ -210,8 +210,7 @@ public class NinjaLexerTest {
   @Test
   public void testZeroByte() {
     byte[] bytes = {'a', 0, 'b'};
-    NinjaLexer lexer =
-        new NinjaLexer(new ByteBufferFragment(ByteBuffer.wrap(bytes), 0, bytes.length));
+    NinjaLexer lexer = new NinjaLexer(new FileFragment(ByteBuffer.wrap(bytes), 0, 0, bytes.length));
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, null);
     assertThat(lexer.hasNextToken()).isFalse();
   }
@@ -234,6 +233,6 @@ public class NinjaLexerTest {
 
   private static NinjaLexer createLexer(String text) {
     ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
-    return new NinjaLexer(new ByteBufferFragment(buffer, 0, buffer.limit()));
+    return new NinjaLexer(new FileFragment(buffer, 0, 0, buffer.limit()));
   }
 }

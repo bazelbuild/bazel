@@ -51,7 +51,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
     return new ProcessPackageDirectory(directories, this::getSkyKeyForSubdirectory)
         .getPackageExistenceAndSubdirDeps(
             recursivePkgKey.getRootedPath(),
-            recursivePkgKey.getRepository(),
+            recursivePkgKey.getRepositoryName(),
             recursivePkgKey.getExcludedPaths(),
             env);
   }
@@ -99,7 +99,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
      * the following circumstances:
      *
      * <ol>
-     *   <li>The BUILD file contains a Skylark load statement that is in error
+     *   <li>The BUILD file contains a Starlark load statement that is in error
      *   <li>TODO(mschaller), not yet implemented: The BUILD file is a symlink that points into a
      *       cycle
      * </ol>
@@ -135,7 +135,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
       PathFragment rootRelativePath = recursivePkgKey.getRootedPath().getRootRelativePath();
       SkyKey packageErrorMessageKey =
           PackageErrorMessageValue.key(
-              PackageIdentifier.create(recursivePkgKey.getRepository(), rootRelativePath));
+              PackageIdentifier.create(recursivePkgKey.getRepositoryName(), rootRelativePath));
       Map<SkyKey, SkyValue> dependentSkyValues =
           env.getValues(Iterables.concat(childDeps, ImmutableList.of(packageErrorMessageKey)));
       if (env.valuesMissing()) {

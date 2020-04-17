@@ -23,9 +23,9 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -275,15 +275,17 @@ public final class TargetUtils {
    *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableMap<String, String> getFilteredExecutionInfo(
-      Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
+      @Nullable Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
       throws EvalException {
     Map<String, String> checkedExecutionRequirements =
         TargetUtils.filter(
-            Dict.castSkylarkDictOrNoneToDict(
-                executionRequirementsUnchecked,
-                String.class,
-                String.class,
-                "execution_requirements"));
+            executionRequirementsUnchecked == null
+                ? ImmutableMap.of()
+                : Dict.noneableCast(
+                    executionRequirementsUnchecked,
+                    String.class,
+                    String.class,
+                    "execution_requirements"));
 
     Map<String, String> executionInfoBuilder = new HashMap<>();
     // adding filtered execution requirements to the execution info map

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -45,7 +44,7 @@ import javax.annotation.Nullable;
 
 /**
  * Action used by extra_action rules to create an action that shadows an existing action. Runs a
- * command-line using {@link SpawnStrategy} for executions.
+ * command-line using {@link com.google.devtools.build.lib.actions.SpawnStrategy} for executions.
  */
 public final class ExtraAction extends SpawnAction {
   private final Action shadowedAction;

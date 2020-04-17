@@ -15,7 +15,7 @@
 """A wrapper to have a portable SHA-256 tool."""
 
 # TODO(dmarting): instead of this tool we should make SHA-256 of artifacts
-# available in Skylark.
+# available in Starlark.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

@@ -46,10 +46,11 @@ public class MapBasedActionGraphTest {
   public void testSmoke() throws Exception {
     MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     Path execRoot = fileSystem.getPath("/");
-    Path root = fileSystem.getPath("/root");
+    String outSegment = "root";
+    Path root = execRoot.getChild(outSegment);
     Path path = root.getRelative("foo");
     Artifact output =
-        ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, root), path);
+        ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, outSegment), path);
     Action action =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -58,7 +59,7 @@ public class MapBasedActionGraphTest {
     actionGraph.registerAction(action);
     actionGraph.unregisterAction(action);
     path = root.getRelative("bar");
-    output = ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, root), path);
+    output = ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, outSegment), path);
     Action action2 =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -74,9 +75,10 @@ public class MapBasedActionGraphTest {
     MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     Path execRoot = fileSystem.getPath("/");
     Path root = fileSystem.getPath("/root");
-    Path path = root.getRelative("/root/foo");
+    Path path = root.getRelative("foo");
     Artifact output =
-        ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, root), path);
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asDerivedRoot(execRoot, root.relativeTo(execRoot).getPathString()), path);
     Action action =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -108,9 +110,11 @@ public class MapBasedActionGraphTest {
           "action-graph-test",
           ErrorClassifier.DEFAULT);
       Path execRoot = fileSystem.getPath("/");
-      Path root = fileSystem.getPath("/root");
-      Path path = root.getRelative("foo");
-      output = ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, root), path);
+      String rootSegment = "root";
+      Path root = execRoot.getChild(rootSegment);
+      Path path = root.getChild("foo");
+      output =
+          ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, rootSegment), path);
       allActions.add(
           new TestAction(
               TestAction.NO_EFFECT,

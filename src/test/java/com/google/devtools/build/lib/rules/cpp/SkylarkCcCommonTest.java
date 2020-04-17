@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -23,13 +23,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
@@ -75,7 +78,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for the {@code cc_common} Skylark module. */
+/** Unit tests for the {@code cc_common} Starlark module. */
 @RunWith(JUnit4.class)
 public class SkylarkCcCommonTest extends BuildViewTestCase {
 
@@ -90,7 +93,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
-      throws Exception {
+      throws LabelSyntaxException {
     Provider.Key key =
         new SkylarkProvider.SkylarkKey(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
@@ -131,7 +134,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     assertThat(allFiles.getSet(Artifact.class)).isEqualTo(toolchain.getAllFiles());
   }
 
@@ -192,7 +195,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     assertThat(staticRuntimeLib.getSet(Artifact.class))
         .isEqualTo(toolchain.getStaticRuntimeLibForTesting());
     assertThat(dynamicRuntimeLib.getSet(Artifact.class))
@@ -233,7 +236,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -401,7 +404,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -450,7 +453,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -1345,7 +1348,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(a);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(
@@ -1381,7 +1384,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(a);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(
-            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", Mode.TARGET));
+            ruleContext, ruleContext.getPrerequisite("$cc_toolchain", TransitionMode.TARGET));
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(
@@ -2373,9 +2376,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.withFeatureSetFromSkylark(withFeatureSetProvider));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for features, got struct, want sequence");
   }
 
   @Test
@@ -2389,9 +2390,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.withFeatureSetFromSkylark(withFeatureSetProvider));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'not_features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for not_features, got struct, want sequence");
   }
 
   @Test
@@ -2407,7 +2406,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             EvalException.class, () -> CcModule.withFeatureSetFromSkylark(withFeatureSetProvider));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'features' element but got type 'struct' instead");
+        .contains("at index 0 of features, got element of type struct, want string");
   }
 
   @Test
@@ -2423,8 +2422,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             EvalException.class, () -> CcModule.withFeatureSetFromSkylark(withFeatureSetProvider));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "expected type 'string' for 'not_features' element but got type 'struct' instead");
+        .contains("at index 0 of not_features, got element of type struct, want string");
   }
 
   private void createCustomWithFeatureSetRule(String pkg, String features, String notFeatures)
@@ -2585,9 +2583,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("'env_entries' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for env_entries, got struct, want sequence");
   }
 
   @Test
@@ -2621,9 +2617,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("'with_features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for with_features, got string, want sequence");
   }
 
   @Test
@@ -3167,9 +3161,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "expected type 'string' for 'execution_requirements' "
-                + "element but got type 'struct' instead");
+        .contains("at index 0 of execution_requirements, got element of type struct, want string");
   }
 
   @Test
@@ -3242,9 +3234,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
               SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
               assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'with_features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for with_features, got struct, want sequence");
   }
 
   @Test
@@ -3277,8 +3267,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "llegal argument: 'execution_requirements' is not of expected type list or NoneType");
+        .contains("for execution_requirements, got string, want sequence");
   }
 
   @Test
@@ -3293,9 +3282,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "expected type 'string' for 'execution_requirements' "
-                + "element but got type 'struct' instead");
+        .contains("at index 0 of execution_requirements, got element of type struct, want string");
   }
 
   private void createCustomToolRule(
@@ -3356,7 +3343,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'actions' element but got type 'struct' instead");
+        .contains("at index 0 of actions, got element of type struct, want string");
   }
 
   @Test
@@ -3496,9 +3483,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(
             EvalException.class,
             () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'flag_groups' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for flag_groups, got struct, want sequence");
   }
 
   @Test
@@ -3514,9 +3499,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(
             EvalException.class,
             () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'with_features' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for with_features, got struct, want sequence");
   }
 
   @Test
@@ -3532,9 +3515,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(
             EvalException.class,
             () -> CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'actions' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for actions, got struct, want sequence");
   }
 
   private void createCustomFlagSetRule(
@@ -3666,7 +3647,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
+        .contains("at index 0 of implies, got element of type struct, want string");
   }
 
   @Test
@@ -3688,7 +3669,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
+        .contains("at index 0 of implies, got element of type struct, want string");
   }
 
   @Test
@@ -3840,9 +3821,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'tools' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for tools, got struct, want sequence");
   }
 
   @Test
@@ -3862,9 +3841,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'flag_sets' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for flag_sets, got bool, want sequence");
   }
 
   @Test
@@ -3884,9 +3861,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.actionConfigFromSkylark(actionConfigStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'implies' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for implies, got struct, want sequence");
   }
 
   private void createCustomActionConfigRule(
@@ -4037,7 +4012,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'implies' element but got type 'struct' instead");
+        .contains("at index 0 of implies, got element of type struct, want string");
   }
 
   @Test
@@ -4061,7 +4036,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
     assertThat(e)
         .hasMessageThat()
-        .contains("expected type 'string' for 'provides' element but got type 'struct' instead");
+        .contains("at index 0 of provides, got element of type struct, want string");
   }
 
   @Test
@@ -4223,9 +4198,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'flag_sets' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for flag_sets, got struct, want sequence");
   }
 
   @Test
@@ -4246,9 +4219,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'env_sets' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for env_sets, got struct, want sequence");
   }
 
   @Test
@@ -4269,9 +4240,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'requires' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for requires, got struct, want sequence");
   }
 
   @Test
@@ -4292,9 +4261,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'implies' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for implies, got struct, want sequence");
   }
 
   @Test
@@ -4315,9 +4282,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Illegal argument: 'provides' is not of expected type list or NoneType");
+    assertThat(e).hasMessageThat().contains("for provides, got struct, want sequence");
   }
 
   @Test
@@ -5685,7 +5650,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveLinkWithDeps() throws Exception {
-    setupTestTransitiveLink(scratch, "        linking_contexts = dep_linking_contexts");
+    setupTestTransitiveLink(scratch, "linking_contexts = dep_linking_contexts");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     assertThat(target).isNotNull();
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
@@ -5751,6 +5716,74 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
     assertThat(artifactsToStrings(getGeneratingAction(executable).getInputs()))
         .contains("src foo/file.o");
+  }
+
+  @Test
+  public void testLinkStampExpliciltyEnabledOverridesNoStampFlag() throws Exception {
+    useConfiguration("--nostamp");
+    setupTestTransitiveLink(scratch, "stamp=1", "linking_contexts=dep_linking_contexts");
+    assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkExplicitlyDisabledOverridesStampFlag() throws Exception {
+    useConfiguration("--nostamp");
+    setupTestTransitiveLink(scratch, "stamp=0", "linking_contexts=dep_linking_contexts");
+    assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampUseFlagStamp() throws Exception {
+    useConfiguration("--stamp");
+    setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
+    assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampUseFlagNoStamp() throws Exception {
+    useConfiguration("--nostamp");
+    setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
+    assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampDisabledByDefaultDespiteStampFlag() throws Exception {
+    useConfiguration("--stamp");
+    setupTestTransitiveLink(scratch, "linking_contexts=dep_linking_contexts");
+    assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
+  }
+
+  @Test
+  public void testLinkStampInvalid() throws Exception {
+    setupTestTransitiveLink(scratch, "stamp=2");
+    checkError(
+        "//foo:bin",
+        "stamp value 2 is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)");
+  }
+
+  private CppCompileAction getLinkstampCompileAction(String label)
+      throws LabelSyntaxException, EvalException {
+    ConfiguredTarget target = getConfiguredTarget(label);
+    Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
+    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    Artifact compiledLinkstamp =
+        ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "version.o");
+    CppCompileAction linkstampCompileAction =
+        (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+    assertThat(linkstampCompileAction.getMnemonic()).isEqualTo("CppLinkstampCompile");
+    return linkstampCompileAction;
+  }
+
+  private void assertStampEnabled(CppCompileAction linkstampAction)
+      throws CommandLineExpansionException {
+    assertThat(linkstampAction.getArguments())
+        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-volatile.h");
+  }
+
+  private void assertStampDisabled(CppCompileAction linkstampAction)
+      throws CommandLineExpansionException {
+    assertThat(linkstampAction.getArguments())
+        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-redacted.h");
   }
 
   @Test
@@ -5924,7 +5957,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    for dep in ctx.attr._deps:",
         "        dep_compilation_contexts.append(dep[CcInfo].compilation_context)",
         "        dep_linking_contexts.append(dep[CcInfo].linking_context)",
-        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
         "    feature_configuration = cc_common.configure_features(",
         "        ctx = ctx,",
         "        cc_toolchain=toolchain,",
@@ -5976,7 +6009,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             + " default=['//foo:extra_compiler_input']),",
         "      '_deps': attr.label_list(default=['//foo:dep1', '//foo:dep2']),",
         "      'aspect_deps': attr.label_list(aspects=[_cc_aspect]),",
-        "      '_cc_toolchain': attr.label(default =",
+        "      '_my_cc_toolchain': attr.label(default =",
         "          configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
         "    },",
         fragments,
@@ -6147,13 +6180,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "        feature_configuration=feature_configuration,",
         "        name = ctx.label.name,",
         "        cc_toolchain=toolchain,",
-        "        " + Joiner.on("").join(additionalLines),
+        "        " + Joiner.on(",\n        ").join(additionalLines),
         "    )",
         "    return [",
         "      MyInfo(",
-        "        library=linking_outputs.library_to_link,",
-        "        executable=linking_outputs.executable",
-        "      )",
+        "          library=linking_outputs.library_to_link,",
+        "          executable=linking_outputs.executable",
+        "      ),",
         "    ]",
         "cc_bin = rule(",
         "    implementation = _cc_bin_impl,",
@@ -6177,6 +6210,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_library(",
         "    name = 'dep1',",
         "    srcs = ['dep1.cc'],",
+        "    linkstamp = 'version.cc',",
         "    hdrs = ['dep1.h'],",
         "    includes = ['dep1/baz'],",
         "    defines = ['DEP1'],",
@@ -6230,6 +6264,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "direct/libs/BUILD",
         "cc_library(",
         "    name = 'foo_lib',",
+        "    srcs = ['foo.cc', 'foo_impl.h'],",
         "    hdrs = ['foo.h'],",
         "    textual_hdrs = ['foo.def'],",
         ")",
@@ -6248,7 +6283,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget fooTarget = getConfiguredTarget("//direct:foo");
     Iterable<Artifact> fooDirectHeaders = getArtifactsFromMyInfo(fooTarget, "direct_headers");
-    assertThat(baseArtifactNames(fooDirectHeaders)).containsExactly("foo.h");
+    assertThat(baseArtifactNames(fooDirectHeaders)).containsExactly("foo.h", "foo_impl.h");
 
     ConfiguredTarget barTarget = getConfiguredTarget("//direct:bar");
     Iterable<Artifact> barDirectHeaders = getArtifactsFromMyInfo(barTarget, "direct_headers");
@@ -6269,5 +6304,34 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     Iterable<Artifact> barDirectTextualHeaders =
         getArtifactsFromMyInfo(barTarget, "direct_textual_headers");
     assertThat(baseArtifactNames(barDirectTextualHeaders)).containsExactly("bar.def");
+  }
+
+  /** Fixes #10580 */
+  @Test
+  public void testMixedLinkerInputsWithOwnerAndWithout() throws Exception {
+    setUpCcLinkingContextTest();
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'crule')", "crule(name='a')");
+    scratch.file(
+        "foo/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  linker_input = cc_common.create_linker_input(owner=ctx.label)",
+        "  linking_context = cc_common.create_linking_context(",
+        "     linker_inputs=depset([linker_input]))",
+        "  linking_context = cc_common.create_linking_context(",
+        "     libraries_to_link=[],)",
+        "  cc_info = CcInfo(linking_context=linking_context)",
+        "  if cc_info.linking_context.linker_inputs.to_list()[0] == linker_input:",
+        "     pass",
+        "  return [cc_info]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    assertThat(getConfiguredTarget("//foo:a")).isNotNull();
+    assertNoEvents();
   }
 }

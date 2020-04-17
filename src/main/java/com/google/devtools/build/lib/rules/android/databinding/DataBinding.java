@@ -17,10 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
@@ -178,7 +178,7 @@ public final class DataBinding {
     if (ruleContext.attributes().has(attr, BuildType.LABEL_LIST)) {
       for (UsesDataBindingProvider provider :
           ruleContext.getPrerequisites(
-              attr, RuleConfiguredTarget.Mode.TARGET, UsesDataBindingProvider.PROVIDER)) {
+              attr, TransitionMode.TARGET, UsesDataBindingProvider.PROVIDER)) {
         dataBindingMetadataOutputs.addAll(provider.getMetadataOutputs());
       }
     }

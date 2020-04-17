@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -41,11 +42,13 @@ import com.google.devtools.build.lib.syntax.Printer;
 public class OutputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final Artifact artifact;
-  private final TransitiveInfoCollection generatingRule;
+  private final ConfiguredTarget generatingRule;
 
   public OutputFileConfiguredTarget(
-      TargetContext targetContext, OutputFile outputFile,
-      TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
+      TargetContext targetContext,
+      OutputFile outputFile,
+      ConfiguredTarget generatingRule,
+      Artifact outputArtifact) {
     this(
         targetContext.getLabel(),
         targetContext.getConfigurationKey(),
@@ -62,7 +65,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
       BuildConfigurationValue.Key configurationKey,
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact,
-      TransitiveInfoCollection generatingRule) {
+      ConfiguredTarget generatingRule) {
 
     super(
         label,
@@ -84,7 +87,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
     return provider == null ? InstrumentedFilesInfo.EMPTY : provider;
   }
 
-  public TransitiveInfoCollection getGeneratingRule() {
+  public ConfiguredTarget getGeneratingRule() {
     return generatingRule;
   }
 

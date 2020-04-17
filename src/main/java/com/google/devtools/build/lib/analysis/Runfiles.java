@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -32,13 +31,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -744,13 +743,13 @@ public final class Runfiles implements RunfilesApi {
               (previous == null) ? "empty file" : previous.getExecPath().toString();
           String artifactStr =
               (artifact == null) ? "empty file" : artifact.getExecPath().toString();
-          String message =
-              String.format(
-                  "overwrote runfile %s, was symlink to %s, now symlink to %s",
-                  path.getSafePathString(),
-                  previousStr,
-                  artifactStr);
-          eventHandler.handle(Event.of(eventKind, location, message));
+          if (!previousStr.equals(artifactStr)) {
+            String message =
+                String.format(
+                    "overwrote runfile %s, was symlink to %s, now symlink to %s",
+                    path.getSafePathString(), previousStr, artifactStr);
+            eventHandler.handle(Event.of(eventKind, location, message));
+          }
         }
       }
       map.put(path, artifact);
@@ -1019,7 +1018,8 @@ public final class Runfiles implements RunfilesApi {
      * Collects runfiles from data dependencies of a target.
      */
     public Builder addDataDeps(RuleContext ruleContext) {
-      addTargets(getPrerequisites(ruleContext, "data", Mode.DONT_CHECK),
+      addTargets(
+          getPrerequisites(ruleContext, "data", TransitionMode.DONT_CHECK),
           RunfilesProvider.DATA_RUNFILES);
       return this;
     }
@@ -1159,8 +1159,8 @@ public final class Runfiles implements RunfilesApi {
           // dependent rules in srcs (except for filegroups and such), but always in deps.
           // TODO(bazel-team): DONT_CHECK is not optimal here. Rules that use split configs need to
           // be changed not to call into here.
-          getPrerequisites(ruleContext, "srcs", Mode.DONT_CHECK),
-          getPrerequisites(ruleContext, "deps", Mode.DONT_CHECK));
+          getPrerequisites(ruleContext, "srcs", TransitionMode.DONT_CHECK),
+          getPrerequisites(ruleContext, "deps", TransitionMode.DONT_CHECK));
     }
 
     /**
@@ -1171,7 +1171,7 @@ public final class Runfiles implements RunfilesApi {
      * <p>If the rule does not have the specified attribute, returns the empty list.
      */
     private static Iterable<? extends TransitiveInfoCollection> getPrerequisites(
-        RuleContext ruleContext, String attributeName, Mode mode) {
+        RuleContext ruleContext, String attributeName, TransitionMode mode) {
       if (ruleContext.getRule().isAttrDefined(attributeName, BuildType.LABEL_LIST)) {
         return ruleContext.getPrerequisites(attributeName, mode);
       } else {

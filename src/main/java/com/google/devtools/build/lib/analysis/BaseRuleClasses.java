@@ -33,7 +33,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -264,9 +264,7 @@ public class BaseRuleClasses {
    */
   public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
 
-  /**
-   * Share common attributes across both base and Skylark base rules.
-   */
+  /** Share common attributes across both base and Starlark base rules. */
   public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
     return builder
         // The visibility attribute is special: it is a nodep label, and loading the
@@ -315,7 +313,7 @@ public class BaseRuleClasses {
                 .value(ACTION_LISTENER))
         .add(
             attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
-                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
@@ -323,7 +321,7 @@ public class BaseRuleClasses {
                     "special logic for constraints and select: see ConstraintSemantics"))
         .add(
             attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
-                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()

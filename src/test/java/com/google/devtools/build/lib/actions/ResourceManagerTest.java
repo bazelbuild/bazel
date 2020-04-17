@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,7 +49,6 @@ public class ResourceManagerTest {
 
   @Before
   public final void configureResourceManager() throws Exception  {
-    rm.setRamUtilizationPercentage(100);
     rm.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
     counter = new AtomicInteger(0);

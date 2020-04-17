@@ -690,50 +690,9 @@ public final class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("tuple({1: 'foo', 2: 'bar'}) == (1, 2)", true);
   }
 
-  // Verifies some legacy functionality that should be deprecated and removed via
-  // an incompatible-change flag: parameters in MethodLibrary functions may be specified by
-  // keyword, or may be None, even in places where it does not quite make sense.
   @Test
-  public void testLegacyNamed() throws Exception {
-    new Scenario("--incompatible_restrict_named_params=false")
-        // Parameters which may be specified by keyword but are not explicitly 'named'.
-        .testExpression("all(elements=[True, True])", Boolean.TRUE)
-        .testExpression("any(elements=[True, False])", Boolean.TRUE)
-        .testEval("sorted(iterable=[3, 0, 2], key=None, reverse=False)", "[0, 2, 3]")
-        .testEval("reversed(sequence=[3, 2, 0])", "[0, 2, 3]")
-        .testEval("tuple(x=[1, 2])", "(1, 2)")
-        .testEval("list(x=(1, 2))", "[1, 2]")
-        .testEval("len(x=(1, 2))", "2")
-        .testEval("str(x=(1, 2))", "'(1, 2)'")
-        .testEval("repr(x=(1, 2))", "'(1, 2)'")
-        .testExpression("bool(x=3)", Boolean.TRUE)
-        .testEval("int(x=3)", "3")
-        .testEval("dict(args=[(1, 2)])", "{1 : 2}")
-        .testExpression("bool(x=3)", Boolean.TRUE)
-        .testEval("enumerate(list=[40, 41])", "[(0, 40), (1, 41)]")
-        .testExpression("hash(value='hello')", "hello".hashCode())
-        .testEval("range(start_or_stop=3, stop_or_none=9, step=2)", "range(3, 9, 2)")
-        .testExpression("hasattr(x=depset(), name='to_list')", Boolean.TRUE)
-        .testExpression("bool(x=3)", Boolean.TRUE)
-        .testExpression("getattr(x='hello', name='cnt', default='default')", "default")
-        .testEval(
-            "dir(x={})",
-            "[\"clear\", \"get\", \"items\", \"keys\","
-                + " \"pop\", \"popitem\", \"setdefault\", \"update\", \"values\"]")
-        .testEval("type(x=5)", "'int'")
-        .testEval("str(depset(items=[0,1]))", "'depset([0, 1])'")
-        .testIfErrorContains("hello", "fail(msg='hello', attr='someattr')")
-        // Parameters which may be None but are not explicitly 'noneable'
-        .testExpression("hasattr(x=None, name='to_list')", Boolean.FALSE)
-        .testEval("getattr(x=None, name='count', default=None)", "None")
-        .testEval("dir(None)", "[]")
-        .testIfErrorContains("None", "fail(msg=None)")
-        .testEval("type(None)", "'NoneType'");
-  }
-
-  @Test
-  public void testExperimentalStarlarkConfig() throws Exception {
-    new Scenario("--incompatible_restrict_named_params")
+  public void testPositionalOnlyArgument() throws Exception {
+    new Scenario()
         .testIfErrorContains(
             "join() got named argument for positional-only parameter 'elements'",
             "','.join(elements=['foo', 'bar'])");
@@ -757,9 +716,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testDepsetDirectInvalidType() throws Exception {
     new Scenario()
-        .testIfErrorContains(
-            "expected type 'sequence' for direct but got type 'string' instead",
-            "depset(direct='hello')");
+        .testIfErrorContains("for direct, got string, want sequence", "depset(direct='hello')");
   }
 
   @Test

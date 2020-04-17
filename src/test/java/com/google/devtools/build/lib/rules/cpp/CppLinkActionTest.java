@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -729,8 +729,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   private Artifact scratchArtifact(String s) {
     Path execRoot = outputBase.getRelative("exec");
-    Path outputRoot = execRoot.getRelative("out");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outputRoot);
+    String outSegment = "out";
+    Path outputRoot = execRoot.getRelative(outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
     try {
       return ActionsTestUtil.createArtifact(
           root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
@@ -888,7 +889,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),
+        ArtifactRoot.asDerivedRoot(execRoot, "out"),
         execPath,
         ActionsTestUtil.NULL_ARTIFACT_OWNER,
         SpecialArtifactType.TREE);

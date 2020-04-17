@@ -363,7 +363,7 @@ public final class CommandInterruptionTest {
                 new BlazeModule() {
                   @Override
                   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-                    // Can't create a Skylark environment without a tools repository!
+                    // Can't create a Starlark environment without a tools repository!
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                     // Can't create a defaults package without the base options in there!
                     builder.addConfigurationOptions(CoreOptions.class);
@@ -437,20 +437,6 @@ public final class CommandInterruptionTest {
     try {
       command.getModuleEnvironment().exit(null);
       throw new AssertionError("It shouldn't be allowed to pass null to exit()!");
-    } catch (NullPointerException expected) {
-      // Good!
-    }
-    command.assertNotFinishedYet();
-    command.requestExitWith(ExitCode.SUCCESS);
-  }
-
-  @Test
-  public void exitForbidsNullExitCode() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
-    try {
-      command.getModuleEnvironment().exit(new AbruptExitException("", null));
-      throw new AssertionError(
-          "It shouldn't be allowed to pass an AbruptExitException with null ExitCode to exit()!");
     } catch (NullPointerException expected) {
       // Good!
     }

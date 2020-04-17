@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -67,7 +67,7 @@ public final class GraphNodeAspect extends NativeAspectClass implements Configur
     if (ruleContext.attributes().has("deps")) {
       children.addAll(
           AnalysisUtils.getProviders(
-              ruleContext.getPrerequisites("deps", Mode.TARGET), GraphNodeInfo.class));
+              ruleContext.getPrerequisites("deps", TransitionMode.TARGET), GraphNodeInfo.class));
     }
     return new ConfiguredAspect.Builder(this, params, ruleContext)
         .addProvider(

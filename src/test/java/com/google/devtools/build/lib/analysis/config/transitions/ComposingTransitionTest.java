@@ -15,15 +15,18 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import java.util.Map;
 import java.util.stream.IntStream;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,6 +37,12 @@ public class ComposingTransitionTest {
   // Use starlark flags for the test since they are easy to set and check.
   private static final Label FLAG_1 = Label.parseAbsoluteUnchecked("//flag1");
   private static final Label FLAG_2 = Label.parseAbsoluteUnchecked("//flag2");
+  private EventHandler eventHandler;
+
+  @Before
+  public void init() {
+    eventHandler = new StoredEventHandler();
+  }
 
   @Test
   public void compose_patch_patch() {
@@ -42,7 +51,8 @@ public class ComposingTransitionTest {
         ComposingTransition.of(new StubPatch(FLAG_1, "value1"), new StubPatch(FLAG_1, "value2"));
 
     assertThat(composed).isNotNull();
-    Map<String, BuildOptions> results = composed.apply(BuildOptions.builder().build());
+    Map<String, BuildOptions> results =
+        composed.apply(BuildOptions.builder().build(), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(1);
     BuildOptions result = Iterables.getOnlyElement(results.values());
@@ -58,7 +68,8 @@ public class ComposingTransitionTest {
             new StubPatch(FLAG_1, "value1"), new StubSplit(FLAG_2, "value2a", "value2b"));
 
     assertThat(composed).isNotNull();
-    Map<String, BuildOptions> results = composed.apply(BuildOptions.builder().build());
+    Map<String, BuildOptions> results =
+        composed.apply(BuildOptions.builder().build(), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 
@@ -81,7 +92,8 @@ public class ComposingTransitionTest {
             new StubSplit(FLAG_1, "value1a", "value1b"), new StubPatch(FLAG_2, "value2"));
 
     assertThat(composed).isNotNull();
-    Map<String, BuildOptions> results = composed.apply(BuildOptions.builder().build());
+    Map<String, BuildOptions> results =
+        composed.apply(BuildOptions.builder().build(), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 
@@ -105,7 +117,9 @@ public class ComposingTransitionTest {
             new StubSplit(FLAG_2, "value2a", "value2b"));
 
     assertThat(composed).isNotNull();
-    assertThrows(IllegalStateException.class, () -> composed.apply(BuildOptions.builder().build()));
+    assertThrows(
+        IllegalStateException.class,
+        () -> composed.apply(BuildOptions.builder().build(), eventHandler));
   }
 
   @Test
@@ -159,7 +173,7 @@ public class ComposingTransitionTest {
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       return updateOptions(options, flagLabel, flagValue);
     }
   }
@@ -174,7 +188,7 @@ public class ComposingTransitionTest {
     }
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions options) {
+    public Map<String, BuildOptions> split(BuildOptions options, EventHandler eventHandler) {
       return IntStream.range(0, flagValues.size())
           .boxed()
           .collect(

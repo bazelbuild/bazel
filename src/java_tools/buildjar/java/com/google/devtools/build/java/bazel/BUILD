@@ -38,4 +38,5 @@ filegroup(
     ]) + [
         "BUILD",
     ],
+    visibility = ["//src:__subpackages__"],
 )

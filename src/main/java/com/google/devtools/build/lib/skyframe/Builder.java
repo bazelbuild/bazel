@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Collection;
@@ -91,6 +91,7 @@ public interface Builder {
       Set<AspectKey> builtAspects,
       OptionsProvider options,
       @Nullable Range<Long> lastExecutionTimeRange,
-      TopLevelArtifactContext topLevelArtifactContext)
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean trustRemoteArtifacts)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;
 }

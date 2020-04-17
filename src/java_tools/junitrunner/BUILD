@@ -12,7 +12,7 @@ filegroup(
         "//src/java_tools/junitrunner/javatests/com/google/testing/junit/junit4/runner:srcs",
         "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:srcs",
     ],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 package_group(

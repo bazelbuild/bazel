@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
@@ -197,7 +198,8 @@ public class MultiArchSplitTransitionProvider
     }
 
     @Override
-    public final Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public final Map<String, BuildOptions> split(
+        BuildOptions buildOptions, EventHandler eventHandler) {
       List<String> cpus;
       DottedVersion actualMinimumOsVersion;
       ConfigurationDistinguisher configurationDistinguisher;

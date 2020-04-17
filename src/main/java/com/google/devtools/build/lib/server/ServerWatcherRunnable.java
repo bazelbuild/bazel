@@ -17,14 +17,13 @@ package com.google.devtools.build.lib.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import io.grpc.Server;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Runnable that checks to see if a {@link Server} server has been idle for too long and shuts down
@@ -33,7 +32,7 @@ import java.util.logging.Logger;
  * <p>TODO(bazel-team): Implement the memory checking aspect.
  */
 class ServerWatcherRunnable implements Runnable {
-  private static final Logger logger = Logger.getLogger(ServerWatcherRunnable.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final Duration IDLE_MEMORY_CHECK_INTERVAL = Duration.ofSeconds(5);
   private static final Duration TIME_IDLE_BEFORE_MEMORY_CHECK = Duration.ofMinutes(5);
   private static final long FREE_MEMORY_KB_ABSOLUTE_THRESHOLD = 1L << 20;
@@ -88,7 +87,7 @@ class ServerWatcherRunnable implements Runnable {
         if (idle) {
           Verify.verify(shutdownTimeNanos > 0);
           if (shutdownOnLowSysMem && exitOnLowMemoryCheck(lastIdleTimeNanos)) {
-            logger.log(Level.SEVERE, "Available RAM is low. Shutting down idle server...");
+            logger.atSevere().log("Available RAM is low. Shutting down idle server...");
             break;
           }
           // Re-run the check every 5 seconds if no other commands have been sent to the server.
@@ -103,7 +102,7 @@ class ServerWatcherRunnable implements Runnable {
       wasIdle = idle;
       idle = commandManager.isEmpty();
       if (wasIdle && idle && BlazeClock.nanoTime() >= shutdownTimeNanos) {
-        logger.info("About to shutdown due to idleness");
+        logger.atInfo().log("About to shutdown due to idleness");
         break;
       }
     }
@@ -134,7 +133,7 @@ class ServerWatcherRunnable implements Runnable {
       return fractionRamFree < FREE_MEMORY_PERCENTAGE_THRESHOLD
           && freeRamKb < FREE_MEMORY_KB_ABSOLUTE_THRESHOLD;
     } catch (IOException e) {
-      logger.log(Level.WARNING, "Unable to read memory info.", e);
+      logger.atWarning().withCause(e).log("Unable to read memory info.");
       return false;
     }
   }

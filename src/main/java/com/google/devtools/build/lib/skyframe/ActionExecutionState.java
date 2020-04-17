@@ -109,10 +109,11 @@ final class ActionExecutionState {
         // No other thread can modify completionFuture until we exit the synchronized block.
         Preconditions.checkState(
             !completionFuture.isDone(),
-            "Completion future modified? %s %s %s",
+            "Completion future modified? %s %s %s %s",
             this.actionLookupData,
             actionLookupData,
-            action);
+            action,
+            completionFuture);
         return null;
       }
       result = state.get();

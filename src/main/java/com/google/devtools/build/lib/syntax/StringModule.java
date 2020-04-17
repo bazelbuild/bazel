@@ -30,9 +30,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Skylark String module.
+ * Starlark String module.
  *
- * <p>This module has special treatment in Skylark, as its methods represent methods represent for
+ * <p>This module has special treatment in Starlark, as its methods represent methods represent for
  * any 'string' objects in the language.
  *
  * <p>Methods of this class annotated with {@link SkylarkCallable} must have a positional-only
@@ -118,8 +118,6 @@ final class StringModule implements StarlarkValue {
         @Param(name = "self", type = String.class),
         @Param(
             name = "elements",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             type = Object.class,
             doc = "The objects to join.")
       })
@@ -203,8 +201,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "chars",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
@@ -228,8 +224,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "chars",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
@@ -254,8 +248,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "chars",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
@@ -275,14 +267,10 @@ final class StringModule implements StarlarkValue {
         @Param(name = "self", type = String.class, doc = "This string."),
         @Param(
             name = "old",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             type = String.class,
             doc = "The string to be replaced."),
         @Param(
             name = "new",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             type = String.class,
             doc = "The string to replace with."),
         @Param(
@@ -290,8 +278,6 @@ final class StringModule implements StarlarkValue {
             type = Integer.class,
             noneable = true,
             defaultValue = "None",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The maximum number of replacements.")
       })
   public String replace(String self, String oldString, String newString, Object maxSplitO)
@@ -332,15 +318,11 @@ final class StringModule implements StarlarkValue {
         @Param(name = "self", type = String.class, doc = "This string."),
         @Param(
             name = "sep",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             type = String.class,
             doc = "The string to split on."),
         @Param(
             name = "maxsplit",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "The maximum number of splits.")
@@ -379,15 +361,11 @@ final class StringModule implements StarlarkValue {
         @Param(name = "self", type = String.class, doc = "This string."),
         @Param(
             name = "sep",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             type = String.class,
             doc = "The string to split on."),
         @Param(
             name = "maxsplit",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "The maximum number of splits.")
@@ -428,8 +406,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "sep",
             type = Object.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
@@ -459,8 +435,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "sep",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
@@ -599,21 +573,15 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "sub",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -633,21 +601,15 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "sub",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -667,21 +629,15 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "sub",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -706,21 +662,15 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "sub",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -744,8 +694,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "keepends",
             type = Boolean.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "False",
             doc = "Whether the line breaks should be included in the resulting list.")
       })
@@ -908,21 +856,15 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "sub",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The substring to count."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -970,21 +912,15 @@ final class StringModule implements StarlarkValue {
               @ParamType(type = String.class),
               @ParamType(type = Tuple.class, generic1 = String.class),
             },
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The substring to check."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position at which to stop comparing.")
@@ -994,10 +930,7 @@ final class StringModule implements StarlarkValue {
     if (sub instanceof String) {
       return str.endsWith((String) sub);
     }
-
-    @SuppressWarnings("unchecked")
-    Tuple<Object> subs = (Tuple<Object>) sub;
-    for (String s : subs.getContents(String.class, "string")) {
+    for (String s : Sequence.cast(sub, String.class, "sub")) {
       if (str.endsWith(s)) {
         return true;
       }
@@ -1044,7 +977,7 @@ final class StringModule implements StarlarkValue {
     @SuppressWarnings("unchecked")
     List<Object> argObjects = (List<Object>) args.getImmutableList();
     return new FormatParser()
-        .format(self, argObjects, kwargs.getContents(String.class, Object.class, "kwargs"));
+        .format(self, argObjects, Dict.cast(kwargs, String.class, Object.class, "kwargs"));
   }
 
   @SkylarkCallable(
@@ -1061,21 +994,15 @@ final class StringModule implements StarlarkValue {
               @ParamType(type = String.class),
               @ParamType(type = Tuple.class, generic1 = String.class),
             },
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The substring(s) to check."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "Stop comparing at this position.")
@@ -1086,10 +1013,7 @@ final class StringModule implements StarlarkValue {
     if (sub instanceof String) {
       return str.startsWith((String) sub);
     }
-
-    @SuppressWarnings("unchecked")
-    Tuple<Object> subs = (Tuple<Object>) sub;
-    for (String s : subs.getContents(String.class, "string")) {
+    for (String s : Sequence.cast(sub, String.class, "sub")) {
       if (str.startsWith(s)) {
         return true;
       }

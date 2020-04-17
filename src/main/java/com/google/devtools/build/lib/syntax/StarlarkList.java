@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -51,6 +50,7 @@ public final class StarlarkList<E> extends AbstractList<E>
   // but without the extra indirection of using ArrayList.
 
   private int size;
+  private int iteratorCount; // number of active iterators (unused once frozen)
   private Object[] elems = EMPTY_ARRAY; // elems[i] == null  iff  i >= size
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
@@ -81,6 +81,19 @@ public final class StarlarkList<E> extends AbstractList<E>
   @Override
   public boolean isHashable() {
     return false; // even a frozen list is unhashable in Starlark
+  }
+
+  @Override
+  public boolean updateIteratorCount(int delta) {
+    if (mutability().isFrozen()) {
+      return false;
+    }
+    if (delta > 0) {
+      iteratorCount++;
+    } else if (delta < 0) {
+      iteratorCount--;
+    }
+    return iteratorCount > 0;
   }
 
   /**
@@ -182,7 +195,12 @@ public final class StarlarkList<E> extends AbstractList<E>
 
   @Override
   public int hashCode() {
-    return 6047 + 4673 * Arrays.hashCode(elems);
+    // Roll our own hash code to avoid iterating through null part of elems.
+    int result = 1;
+    for (int i = 0; i < size; i++) {
+      result = 31 * result + elems[i].hashCode();
+    }
+    return 6047 + 4673 * result;
   }
 
   @Override
@@ -255,7 +273,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * @param unused a nonce value to select this overload, not List.add
    */
   public void add(E element, Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     grow(size + 1);
     elems[size++] = element;
   }
@@ -268,7 +286,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * @param unused a nonce value to select this overload, not List.add
    */
   public void add(int index, E element, Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     grow(size + 1);
     System.arraycopy(elems, index, elems, index + 1, size - index);
     elems[index] = element;
@@ -282,7 +300,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * @param unused a nonce value to select this overload, not List.addAll
    */
   public void addAll(Iterable<? extends E> elements, Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     if (elements instanceof StarlarkList) {
       StarlarkList<?> that = (StarlarkList) elements;
       // (safe even if this == that)
@@ -313,7 +331,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * @param unused a nonce value to select this overload, not List.remove
    */
   public void remove(int index, Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     int n = size - index - 1;
     if (n > 0) {
       System.arraycopy(elems, index + 1, elems, index, n);
@@ -346,7 +364,7 @@ public final class StarlarkList<E> extends AbstractList<E>
    * @param unused a nonce value to select this overload, not List.set
    */
   public void set(int index, E value, Location unused) throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     elems[index] = value;
   }
 
@@ -364,7 +382,7 @@ public final class StarlarkList<E> extends AbstractList<E>
 
   @SkylarkCallable(name = "clear", doc = "Removes all the elements of the list.")
   public NoneType clearMethod() throws EvalException {
-    checkMutable();
+    Starlark.checkMutable(this);
     for (int i = 0; i < size; i++) {
       elems[i] = null; // aid GC
     }

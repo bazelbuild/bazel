@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +27,9 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -39,7 +41,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
@@ -52,9 +54,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * A repository function to delegate work done by skylark remote repositories.
- */
+/** A repository function to delegate work done by Starlark remote repositories. */
 public class SkylarkRepositoryFunction extends RepositoryFunction {
   static final String SEMANTICS = "STARLARK_SEMANTICS";
 
@@ -99,13 +99,11 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       Map<String, String> markerData,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
-    if (rule.getDefinitionInformation() != null) {
-      env.getListener()
-          .post(
-              new SkylarkRepositoryDefinitionLocationEvent(
-                  rule.getName(), rule.getDefinitionInformation()));
-    }
-    StarlarkFunction function = rule.getRuleClassObject().getConfiguredTargetFunction();
+
+    String defInfo = RepositoryResolvedEvent.getRuleDefinitionInformation(rule);
+    env.getListener().post(new SkylarkRepositoryDefinitionLocationEvent(rule.getName(), defInfo));
+
+    StarlarkCallable function = rule.getRuleClassObject().getConfiguredTargetFunction();
     if (declareEnvironmentDependencies(markerData, env, getEnviron(rule)) == null) {
       return null;
     }
@@ -146,7 +144,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
               .build();
-      thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(env.getListener()));
+      thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
 
       // The fetch phase does not need the tools repository
       // or the fragment map because it happens before analysis.
@@ -201,18 +199,23 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
       // it possible to return null and not block but it doesn't seem to be easy with Skylark
       // structure as it is.
-      Object result =
-          Starlark.call(
-              thread,
-              function,
-              /*args=*/ ImmutableList.of(skylarkRepositoryContext),
-              /*kwargs=*/ ImmutableMap.of());
+      Object result;
+      try (SilentCloseable c =
+          Profiler.instance()
+              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, rule.getLabel().toString())) {
+        result =
+            Starlark.call(
+                thread,
+                function,
+                /*args=*/ ImmutableList.of(skylarkRepositoryContext),
+                /*kwargs=*/ ImmutableMap.of());
+      }
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(
               rule, skylarkRepositoryContext.getAttr(), outputDirectory, result);
       if (resolved.isNewInformationReturned()) {
         env.getListener().handle(Event.debug(resolved.getMessage()));
-        env.getListener().handle(Event.debug(rule.getDefinitionInformation()));
+        env.getListener().handle(Event.debug(defInfo));
       }
 
       String ruleClass =
@@ -248,9 +251,9 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
                       + rule.getName()
                       + "':\n   "
                       + e.getMessage()));
-      if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
-        env.getListener().handle(Event.info(rule.getDefinitionInformation()));
-      }
+      env.getListener()
+          .handle(Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(rule)));
+
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 

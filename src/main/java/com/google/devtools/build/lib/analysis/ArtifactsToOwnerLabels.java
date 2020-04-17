@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Morally a {@link SetMultimap} from artifacts to the labels that own them, which may not be just
@@ -66,11 +67,12 @@ public class ArtifactsToOwnerLabels {
         new HashSet<>(artifactsOwnedOnlyByTheirLabels));
   }
 
-  static class Builder {
+  /** Builder for {@link ArtifactsToOwnerLabels}. */
+  public static class Builder {
     private final SetMultimap<Artifact, Label> artifactToMultipleOrDifferentOwnerLabels;
     private final Set<Artifact> artifactsOwnedOnlyByTheirLabels;
 
-    Builder() {
+    public Builder() {
       this(HashMultimap.create(), new HashSet<>());
     }
 
@@ -105,6 +107,13 @@ public class ArtifactsToOwnerLabels {
           addArtifact(artifact);
         }
       }
+      return this;
+    }
+
+    public Builder filterArtifacts(Predicate<Artifact> artifactsToKeep) {
+      Predicate<Artifact> artifactsToRemove = artifactsToKeep.negate();
+      artifactToMultipleOrDifferentOwnerLabels.keySet().removeIf(artifactsToRemove);
+      artifactsOwnedOnlyByTheirLabels.removeIf(artifactsToRemove);
       return this;
     }
 

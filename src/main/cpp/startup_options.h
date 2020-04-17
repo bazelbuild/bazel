@@ -135,6 +135,10 @@ class StartupOptions {
   // Otherwise a default path in the output base is used.
   blaze_util::Path server_jvm_out;
 
+  // If supplied, alternate location to write a serialized failure_detail proto.
+  // Otherwise a default path in the output base is used.
+  blaze_util::Path failure_detail_out;
+
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.
   blaze_util::Path output_base;
@@ -268,6 +272,10 @@ class StartupOptions {
   // transition. This must be set before rule classes are constructed.
   // See https://github.com/bazelbuild/bazel/issues/7935
   bool incompatible_enable_execution_transition;
+
+  // Whether to create symbolic links on Windows for files. Requires
+  // developer mode to be enabled.
+  bool windows_enable_symlinks;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this

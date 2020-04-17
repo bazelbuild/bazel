@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -118,6 +119,19 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ParameterFile.writeParameterFile(out, getArguments(), type, charset);
     return new String(out.toByteArray(), charset);
+  }
+
+  @Override
+  public String getSkylarkContent() throws IOException, EvalException {
+    if (hasInputArtifactToExpand) {
+      // Tree artifact information isn't available at analysis time.
+      return null;
+    }
+    try {
+      return getStringContents();
+    } catch (CommandLineExpansionException e) {
+      throw new EvalException("Error expanding command line: " + e.getMessage());
+    }
   }
 
   @Override

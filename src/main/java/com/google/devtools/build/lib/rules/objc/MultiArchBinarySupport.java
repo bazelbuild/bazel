@@ -26,10 +26,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -58,7 +58,7 @@ public class MultiArchBinarySupport {
       RuleContext ruleContext) {
     ImmutableListMultimap<BuildConfiguration, ToolchainInfo> configToProvider =
         ruleContext.getPrerequisitesByConfiguration(
-            ObjcRuleClasses.CHILD_CONFIG_ATTR, Mode.SPLIT, ToolchainInfo.PROVIDER);
+            ObjcRuleClasses.CHILD_CONFIG_ATTR, TransitionMode.SPLIT, ToolchainInfo.PROVIDER);
 
     ImmutableMap.Builder<BuildConfiguration, CcToolchainProvider> result = ImmutableMap.builder();
     for (BuildConfiguration config : configToProvider.keySet()) {
