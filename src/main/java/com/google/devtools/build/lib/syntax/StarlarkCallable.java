@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.Maps;
+import java.util.LinkedHashMap;
 
 /**
  * The StarlarkCallable interface is implemented by all Starlark values that may be called from
@@ -24,7 +26,6 @@ package com.google.devtools.build.lib.syntax;
  * default, {@code fastcall} delegates to {@code call}, and call throws an exception, so an
  * implementer may override either one.
  */
-// TODO(adonovan): rename to just "Callable", since it's unambiguous.
 public interface StarlarkCallable extends StarlarkValue {
 
   /**
@@ -71,19 +72,13 @@ public interface StarlarkCallable extends StarlarkValue {
       Object[] positional,
       Object[] named)
       throws EvalException, InterruptedException {
-    Object[] arguments =
-        Starlark.matchSignature(
-            FunctionSignature.ANY, // def f(*args, **kwargs)
-            this,
-            /*defaults=*/ null,
-            thread.mutability(),
-            positional,
-            named);
-    @SuppressWarnings("unchecked")
-    Tuple<Object> args = (Tuple<Object>) arguments[0];
-    @SuppressWarnings("unchecked")
-    Dict<String, Object> kwargs = (Dict<String, Object>) arguments[1];
-    return call(thread, args, kwargs);
+    LinkedHashMap<String, Object> kwargs = Maps.newLinkedHashMapWithExpectedSize(named.length >> 1);
+    for (int i = 0; i < named.length; i += 2) {
+      if (kwargs.put((String) named[i], named[i + 1]) != null) {
+        throw Starlark.errorf("%s got multiple values for parameter '%s'", this, named[i]);
+      }
+    }
+    return call(thread, Tuple.of(positional), Dict.wrap(thread.mutability(), kwargs));
   }
 
   /** Returns the form this callable value should take in a stack trace. */
