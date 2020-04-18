@@ -2977,11 +2977,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
           ((InMemoryMemoizingEvaluator) getSkyframeExecutor().getEvaluatorForTesting())
               .getSkyFunctionsForTesting();
       StarlarkImportLookupFunction starlarkImportLookupFunction =
-          new StarlarkImportLookupFunction(
+          StarlarkImportLookupFunction.createForInliningSelfForPackageAndWorkspaceNodes(
               this.getRuleClassProvider(),
               this.getPackageFactory(),
               /*starlarkImportLookupValueCacheSize=*/ 2);
-      starlarkImportLookupFunction.resetCache();
+      starlarkImportLookupFunction.resetSelfInliningCache();
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
           .setStarlarkImportLookupFunctionForInliningForTesting(starlarkImportLookupFunction);
     }

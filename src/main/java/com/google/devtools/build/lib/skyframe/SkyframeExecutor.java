@@ -259,11 +259,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // (because of missing dependencies, within the same evaluate() run) to avoid loading the same
   // package twice (first time loading to find imported bzl files and declare Skyframe
   // dependencies).
-  // TODO(bazel-team): remove this cache once we have skyframe-native package loading
-  // [skyframe-loading]
   private final Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache =
       newPkgFunctionCache();
-  private final Cache<PackageIdentifier, StarlarkFile> fileSyntaxCache = newFileSyntaxCache();
+  // Cache of parsed BUILD files, for PackageFunction. Same motivation as above.
+  private final Cache<PackageIdentifier, StarlarkFile> buildFileSyntaxCache =
+      newBuildFileSyntaxCache();
+
+  // Cache of parsed bzl files, for use when we're inlining ASTFileLookupValue in
+  // StarlarkImportLookupValue. See the comments in StarlarkLookupFunction for motivations and
+  // details.
+  private final Cache<Label, ASTFileLookupValue> astFileLookupValueCache =
+      CacheBuilder.newBuilder().build();
 
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
@@ -525,7 +531,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             packageManager,
             showLoadingProgress,
             packageFunctionCache,
-            fileSyntaxCache,
+            buildFileSyntaxCache,
             numPackagesLoaded,
             starlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
@@ -652,7 +658,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newStarlarkImportLookupFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
-    return new StarlarkImportLookupFunction(ruleClassProvider, this.pkgFactory);
+    return StarlarkImportLookupFunction.create(
+        ruleClassProvider, this.pkgFactory, astFileLookupValueCache);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {
@@ -1141,7 +1148,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return CacheBuilder.newBuilder().build();
   }
 
-  protected Cache<PackageIdentifier, StarlarkFile> newFileSyntaxCache() {
+  protected Cache<PackageIdentifier, StarlarkFile> newBuildFileSyntaxCache() {
     return CacheBuilder.newBuilder().build();
   }
 
@@ -1396,9 +1403,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         packageOptions.maxDirectoriesToEagerlyVisitInGlobbing);
     emittedEventState.clear();
 
-    // If the PackageFunction was interrupted, there may be stale entries here.
+    // Clear internal caches used by SkyFunctions used for package loading. If the SkyFunctions
+    // never had a chance to restart (e.g. due to user interrupt, or an error in a --nokeep_going
+    // build), these may have stale entries.
     packageFunctionCache.invalidateAll();
-    fileSyntaxCache.invalidateAll();
+    buildFileSyntaxCache.invalidateAll();
+    astFileLookupValueCache.invalidateAll();
+
     numPackagesLoaded.set(0);
     if (packageProgress != null) {
       packageProgress.reset();
