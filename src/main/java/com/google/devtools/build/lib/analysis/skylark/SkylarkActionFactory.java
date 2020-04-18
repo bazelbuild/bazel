@@ -221,16 +221,6 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   static final GeneratedMessage.GeneratedExtension<ExtraActionInfo, SpawnInfo> SPAWN_INFO =
       SpawnInfo.spawnInfo;
 
-  private String progressMessageForSymlink(
-      Object /* String or None */ progressMessage, Artifact output) {
-    if (progressMessage != Starlark.NONE) {
-      // Should have been verified by Starlark before this function is called.
-      return (String)progressMessage;
-    }
-
-    return "Creating symlink " + output.getRootRelativePathString();
-  }
-
   /** Return whether exactly one of the passed object is not {@link Starlark.NONE}. */
   private boolean exactlyOneNotNone(Object first, Object... others) {
     boolean seen = first != Starlark.NONE;
@@ -252,69 +242,69 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       Object /* Artifact or None */ targetFile,
       Object /* String or None */ targetPath,
       Boolean isExecutable,
-      Object /* String or None */ progressMessage)
+      Object /* String or None */ progressMessageUnchecked)
       throws EvalException {
     context.checkMutable("actions.symlink");
 
-    if (!exactlyOneNotNone(targetFile, targetPath)) {
-      throw Starlark.errorf("\"target_file\" and \"target_path\" cannot be set at the same time");
+    if ((targetFile == Starlark.NONE) == (targetPath == Starlark.NONE)) {
+      throw Starlark.errorf("Exactly one of \"target_file\" and \"target_path\" is required");
     }
 
-    // Should have been verified by Starlark before this function is called.
     Artifact outputArtifact = (Artifact)output;
+    String progressMessage =
+        (progressMessageUnchecked != Starlark.NONE) ?
+            (String)progressMessageUnchecked :
+            "Creating symlink " + outputArtifact.getRootRelativePathString();
 
+    SymlinkAction action;
     if (targetFile != Starlark.NONE) {
       if (outputArtifact.isSymlink()) {
         throw Starlark.errorf(
-            "output of symlink action with \"target_file\" must be created by declare_file()");
+            "symlink() with \"target_file\" param requires that \"output\" be declared as a "
+                + "regular file, not a symlink (did you mean to use declare_file() instead of "
+                + "declare_symlink()?)");
       }
 
-      // Should have been verified by Starlark before this function is called.
-      Artifact target = (Artifact)targetFile;
       if (isExecutable) {
-        SymlinkAction action =
+        action =
             SymlinkAction.toExecutable(
                 ruleContext.getActionOwner(),
-                target,
+                (Artifact)targetFile,
                 outputArtifact,
-                progressMessageForSymlink(progressMessage, outputArtifact));
-        registerAction(action);
-        return;
+                progressMessage);
+      } else {
+        action =
+            SymlinkAction.toArtifact(
+                ruleContext.getActionOwner(),
+                (Artifact)targetFile,
+                outputArtifact,
+                progressMessage);
       }
-      SymlinkAction action =
-          SymlinkAction.toArtifact(
+    } else {
+      if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
+        throw Starlark.errorf(
+            "actions.symlink() to unresolved symlink is not allowed; "
+                + "use the --experimental_allow_unresolved_symlinks command line option");
+      }
+
+      if (!outputArtifact.isSymlink()) {
+        throw Starlark.errorf(
+            "symlink() with \"target_path\" param requires that \"output\" be declared as a "
+                + "symlink, not a regular file (did you mean to use declare_symlink() instead of "
+                + "declare_file()?)");
+      }
+
+      if (isExecutable) {
+        throw Starlark.errorf("\"is_executable\" cannot be True when using \"target_path\"");
+      }
+
+      action =
+          SymlinkAction.createUnresolved(
               ruleContext.getActionOwner(),
-              target,
               outputArtifact,
-              progressMessageForSymlink(progressMessage, outputArtifact));
-      registerAction(action);
-      return;
+              PathFragment.create((String)targetPath),
+              progressMessage);
     }
-
-    if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
-      throw Starlark.errorf(
-          "actions.symlink() to unresolved symlink is not allowed; "
-              + "use the --experimental_allow_unresolved_symlinks command line option");
-    }
-
-    if (!outputArtifact.isSymlink()) {
-      throw Starlark.errorf("output of symlink action must be created by declare_symlink()");
-    }
-
-    if (isExecutable) {
-      // This action creates a danglink symlink. We cannot enforce that the file this symlink
-      // eventually resolves to is indeed executable.
-      throw Starlark.errorf("files created by declare_symlink() cannot be executable");
-    }
-
-    // Should have been verified by Starlark before this function is called.
-    String target = (String)targetPath;
-    SymlinkAction action =
-        SymlinkAction.createUnresolved(
-            ruleContext.getActionOwner(),
-            outputArtifact,
-            PathFragment.create(target),
-            progressMessageForSymlink(progressMessage, outputArtifact));
     registerAction(action);
   }
 

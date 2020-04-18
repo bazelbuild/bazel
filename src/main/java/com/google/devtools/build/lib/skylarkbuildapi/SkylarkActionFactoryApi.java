@@ -159,12 +159,18 @@ public interface SkylarkActionFactoryApi extends StarlarkValue {
   @SkylarkCallable(
       name = "symlink",
       doc =
-          "Creates a symlink in the file system."
-              + "<p>If the output file is a regular file (i.e. created by "
-              + "<a href=\"#declare_file\"><code>declare_file()</code></a>), the symlink must "
-              + "point to a file. If the output is an unresolved symlink (i.e. created by "
-              + "<a href=\"#declare_symlink\"><code>declare_symlink()</code></a>), a dangling "
-              + "symlink is allowed.</p>",
+          "Creates an action that writes a symlink in the file system."
+              + "<p>This function must be called with exactly one of <code>target_file</code> and "
+              + "<code>target_path</code> specified.</p>"
+              + "<p>If <code>target_file</code> is used, then <code>output</code> must be declared "
+              + "as a regular file (such as by using "
+              + "<a href=\"#declare_file\"><code>declare_file()</code></a>). It will actually be "
+              + "created as a symlink that points to the path of <code>target_file</code>.</p>"
+              + "<p>If target_path is used instead, then <code>output</code> must be declared as a "
+              + "symlink (such as by using "
+              + "<a href=\"#declare_symlink\"><code>declare_symlink()</code>). In this case, the "
+              + "symlink will point to whatever the content of <code>target_path</code> is. This "
+              + "can be used to create a dangling symlink.</p>",
       parameters = {
         @Param(
             name = "output",
@@ -179,10 +185,7 @@ public interface SkylarkActionFactoryApi extends StarlarkValue {
             positional = false,
             noneable = true,
             defaultValue = "None",
-            doc =
-                "The target of the symlink."
-                    + "<p>If this parameter is set, <code>target_path</code> "
-                    + "must be <code>None</code>.</p>"),
+            doc = "The File that the output symlink will point to."),
         @Param(
             name = "target_path",
             type = String.class,
@@ -191,12 +194,8 @@ public interface SkylarkActionFactoryApi extends StarlarkValue {
             noneable = true,
             defaultValue = "None",
             doc =
-                "The target path of the symlink."
-                    + "<p>If this parameter is set, <code>target_file</code> "
-                    + "must be <code>None</code>.</p>"
-                    + "<p><b>Experimental</b> This parameter is experimental and may change at "
-                    + "any time. Please do not depend on it. It may be enabled on an experimental "
-                    + "basis by setting <code>--experimental_allow_unresolved_symlinks</code></p>"),
+                "The exact path that the output symlink will point to. No normalization or other "
+                    + "processing is applied."),
         @Param(
             name = "is_executable",
             type = Boolean.class,
@@ -204,9 +203,13 @@ public interface SkylarkActionFactoryApi extends StarlarkValue {
             positional = false,
             defaultValue = "False",
             doc =
-                "Whether the output file should be executable. "
-                    + "<p>If this is <code>True<code>, <code>target_path</code> must also be "
-                    + "executable.</p>"),
+                "May only be used with <code>target_file</code>, not <code>target_path</code>. "
+                    + "If true, when the action is executed, the <code>target_file</code's path is "
+                    + "checked to confirm that it is executable, and an error is reported if it is "
+                    + "not. Setting <code>is_executable<code> to False does not mean the target is "
+                    + " not executable, just that no verification is done. "
+                    + "<p>This feature does not make sense for <code>target_path<code> because "
+                    + "dangling symlinks might not exist at build time.<p>"),
         @Param(
             name = "progress_message",
             type = String.class,

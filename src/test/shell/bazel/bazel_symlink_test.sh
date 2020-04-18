@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests for unresolved symlinks in Bazel.
+# Tests for symlinks in Bazel.
 
 set -euo pipefail
 
@@ -66,6 +66,19 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+function expect_symlink() {
+  local file=$1
+
+  if "$is_windows"; then
+    # By default, WindowsFileSystem#createSymbolicLink() copies instead of symlinking:
+    # https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/windows/WindowsFileSystem.java;l=96;drc=e86a93b9fba865c3374a5a7ccdabc9863035ef78
+    return 0
+  fi
+  if [[ ! -L "$file" ]]; then
+    fail "expected '$file' to be a symlink"
+  fi
+}
+
 function set_up() {
   mkdir -p symlink
   touch symlink/BUILD
@@ -82,16 +95,6 @@ dangling_symlink = rule(
     implementation = _dangling_symlink_impl,
     attrs = {"link_target": attr.string()},
 )
-
-def _symlink_impl(ctx):
-    symlink = ctx.actions.declare_symlink(ctx.label.name)
-    ctx.actions.symlink(
-        output = symlink,
-        target_path = ctx.attr.link_target,
-    )
-    return DefaultInfo(files = depset([symlink]))
-
-symlink = rule(implementation = _symlink_impl, attrs = {"link_target": attr.string()})
 
 def _write_impl(ctx):
     output = ctx.actions.declare_file(ctx.label.name)
@@ -304,14 +307,14 @@ genrule(name="bwg", srcs=[":bw"], outs=["bwgo"], cmd="echo BWGO > $@")
 genrule(name="bg", srcs=[], outs=["bgo"], cmd = "ln -s /badsymlink $@")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:bsg && fail "build succeeded"
-  [[ "$?" == 1 ]] || fail "unexpected exit code"
+  bazel build --experimental_allow_unresolved_symlinks //a:bsg >& $TEST_log && fail "build succeeded"
+  expect_log "a/bs is not a symlink"
 
-  bazel build --experimental_allow_unresolved_symlinks //a:bwg && fail "build succeeded"
-  [[ "$?" == 1 ]] || fail "unexpected exit code"
+  bazel build --experimental_allow_unresolved_symlinks //a:bwg >& $TEST_log && fail "build succeeded"
+  expect_log "symlink() with \"target_path\" param requires that \"output\" be declared as a symlink, not a regular file"
 
-  bazel build --experimental_allow_unresolved_symlinks //a:bg && fail "build succeeded"
-  [[ "$?" == 1 ]] || fail "unexpected exit code"
+  bazel build --experimental_allow_unresolved_symlinks //a:bg >& $TEST_log && fail "build succeeded"
+  expect_log "declared output 'a/bgo' is a dangling symbolic link"
 }
 
 function test_symlink_instead_of_file() {
@@ -340,8 +343,8 @@ load(":a.bzl", "bad_symlink")
 bad_symlink(name="bs")
 EOF
 
-  bazel build //a:bs && fail "build succeeded"
-  [[ "$?" == 1 ]] || fail "unexpected exit code"
+  bazel build --experimental_allow_unresolved_symlinks //a:bs >& $TEST_log && fail "build succeeded"
+  expect_log "symlink() with \"target_file\" param requires that \"output\" be declared as a regular file, not a symlink"
 }
 
 function test_symlink_created_from_spawn() {
@@ -443,6 +446,7 @@ EOF
 
   bazel build //a:a || fail "build failed"
   assert_contains "Hello, World!" bazel-bin/a/a.link
+  expect_symlink bazel-bin/a/a.link
 }
 
 function test_executable_dangling_symlink() {
@@ -466,8 +470,8 @@ load(":a.bzl", "a")
 a(name="a")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:a && fail "build succeeded"
-  [[ "$?" == 1 ]] || fail "unexpected exit code"
+  bazel build --experimental_allow_unresolved_symlinks //a:a >& $TEST_log && fail "build succeeded"
+  expect_log "\"is_executable\" cannot be True when using \"target_path\""
 }
 
 function test_executable_symlink() {
@@ -500,6 +504,7 @@ EOF
 
   bazel build //a:a || fail "build failed"
   assert_contains "Hello, World!" bazel-bin/a/a.link
+  expect_symlink bazel-bin/a/a.link
 }
 
 function test_executable_symlink_to_nonexecutable_file() {
@@ -542,8 +547,41 @@ EOF
 Hello, World!
 EOF
 
-  bazel build //a:a && fail "build succeeded"
-  [[ "$?" == 1 ]] || fail "unexpected exit code"
+  bazel build //a:a >& $TEST_log && fail "build succeeded"
+  expect_log "failed to create symbolic link 'a/a.link': file 'a/foo.txt' is not executable"
 }
 
-run_suite "Tests for unresolved symlink artifacts"
+function test_symlink_cycle() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    symlink1 = ctx.actions.declare_file(ctx.label.name + "_1")
+    symlink2 = ctx.actions.declare_file(ctx.label.name + "_2")
+    ctx.actions.symlink(
+        output = symlink1,
+        target_file = symlink2,
+    )
+    ctx.actions.symlink(
+        output = symlink2,
+        target_file = symlink1,
+    )
+    return DefaultInfo(files = depset([symlink1, symlink2]))
+
+a = rule(
+    implementation = _a_impl,
+)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(
+    name = "a",
+)
+EOF
+
+  bazel build //a:a >& $TEST_log && fail "build succeeded"
+  expect_log "cycle in dependency graph"
+}
+
+run_suite "Tests for symlink artifacts"
