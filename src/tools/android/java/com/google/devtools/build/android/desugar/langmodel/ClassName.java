@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.function.Predicate;
 import org.objectweb.asm.Type;
 
 /**
@@ -362,6 +363,10 @@ public abstract class ClassName implements TypeMappable<ClassName> {
         originalPrefix);
     checkPackagePrefixFormat(targetPrefix);
     return ClassName.create(targetPrefix + binaryName().substring(originalPrefix.length()));
+  }
+
+  public boolean acceptTypeFilter(Predicate<ClassName> typeFilter) {
+    return typeFilter.test(this);
   }
 
   @Override
