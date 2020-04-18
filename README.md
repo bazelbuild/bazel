@@ -35,7 +35,7 @@ Build and test software of any size, quickly and reliably.
 ## Documentation
 
   * [Bazel command line](https://docs.bazel.build/user-manual.html)
-  * [Rule reference](https://docs.bazel.build/be/overview.html)
+  * [Rule reference](https://docs.bazel.build/be/overview.html#rules)
   * [Use the query command](https://docs.bazel.build/query.html)
   * [Extend Bazel](https://docs.bazel.build/skylark/concepts.html)
   * [Write tests](https://docs.bazel.build/test-encyclopedia.html)
