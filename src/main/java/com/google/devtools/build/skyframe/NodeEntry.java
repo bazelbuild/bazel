@@ -108,14 +108,14 @@ public interface NodeEntry extends ThinNodeEntry {
   Iterable<SkyKey> getDirectDeps() throws InterruptedException;
 
   /**
-   * Returns the number of groups in this node's direct deps.
+   * Returns {@code true} if this node has at least one direct dep.
    *
    * <p>Prefer calling this over {@link #getDirectDeps} if possible.
    *
    * <p>This method may only be called after the evaluation of this node is complete.
    */
   @ThreadSafe
-  int getNumberOfDirectDepGroups() throws InterruptedException;
+  boolean hasAtLeastOneDep() throws InterruptedException;
 
   /** Removes a reverse dependency. */
   @ThreadSafe
