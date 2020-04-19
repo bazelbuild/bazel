@@ -61,6 +61,7 @@ public class NinjaAction extends SpawnAction {
       CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
+      CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       boolean executeUnconditionally,
       @Nullable Artifact depFile) {
@@ -76,7 +77,7 @@ public class NinjaAction extends SpawnAction {
         /* isShellCommand= */ true,
         /* env= */ env,
         /* executionInfo= */ executionInfo,
-        /* progressMessage= */ createProgressMessage(outputs),
+        /* progressMessage= */ progressMessage,
         /* runfilesSupplier= */ runfilesSupplier,
         /* mnemonic= */ MNEMONIC,
         /* executeUnconditionally= */ executeUnconditionally,
@@ -92,12 +93,6 @@ public class NinjaAction extends SpawnAction {
       }
     }
     this.allowedDerivedInputs = allowedDerivedInputsBuilder.build();
-  }
-
-  private static CharSequence createProgressMessage(List<? extends Artifact> outputs) {
-    return String.format(
-        "running Ninja targets: '%s'",
-        outputs.stream().map(Artifact::getFilename).collect(Collectors.joining(", ")));
   }
 
   @Override

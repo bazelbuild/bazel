@@ -169,35 +169,74 @@ public class NinjaActionsHelper {
     NinjaScope targetScope = createTargetScope(target);
     long targetOffset = target.getOffset();
 
-    ImmutableSortedMap<String, List<Pair<Long, String>>> map =
+    ImmutableSortedMap<String, List<Pair<Long, String>>> resolvedMap =
         resolveRuleVariables(targetScope, targetOffset, rule);
-    String command = map.get(NinjaRuleVariable.COMMAND.lowerCaseName()).get(0).getSecond();
-    maybeCreateRspFile(rule, inputsBuilder, map);
+    String command = resolvedMap.get(NinjaRuleVariable.COMMAND.lowerCaseName()).get(0).getSecond();
+    maybeCreateRspFile(rule, inputsBuilder, resolvedMap);
     if (!artifactsHelper.getWorkingDirectory().isEmpty()) {
       command = String.format("cd %s && ", artifactsHelper.getWorkingDirectory()) + command;
     }
     CommandLines commandLines =
         CommandLines.of(ImmutableList.of(shellExecutable.getPathString(), "-c", command));
-    Artifact depFile = getDepfile(map);
+    Artifact depFile = getDepfile(resolvedMap);
     if (depFile != null) {
       outputsBuilder.add(depFile);
     }
+
+    List<Artifact> outputs = outputsBuilder.build();
+
     ruleContext.registerAction(
         new NinjaAction(
             ruleContext.getActionOwner(),
             artifactsHelper.getSourceRoot(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             inputsBuilder.build(),
-            outputsBuilder.build(),
+            outputs,
             commandLines,
             Preconditions.checkNotNull(ruleContext.getConfiguration()).getActionEnvironment(),
             executionInfo,
+            createProgressMessage(rule, target, resolvedMap, outputs),
             EmptyRunfilesSupplier.INSTANCE,
             isAlwaysDirty,
             depFile));
   }
 
-  /** Returns true is the action shpould be marked as always dirty. */
+  /**
+   * Create a progress message for the ninja action.
+   *
+   * 1) If the target has a "description" variable, use that. It has been expanded at parse time
+   * with file variables.
+   * 2) If the rule for the target has a description, use that too. It has been expanded with
+   * rule, build and file variables.
+   * 3) Else, generate a pretty-printed progress message at runtime, using the rule name and
+   * output filenames for a general idea on what the action is doing, without printing the
+   * full command line (which can be surfaced with --subcommands, anyway).
+   */
+  private String createProgressMessage(
+      NinjaRule rule,
+      NinjaTarget target,
+      ImmutableSortedMap<String, List<Pair<Long, String>>> resolvedMap,
+      List<Artifact> outputs) {
+    String targetDescription = target.getVariables().get("description");
+    if (targetDescription != null) {
+      return targetDescription;
+    }
+
+    if (!rule.getDescription().isEmpty()) {
+      return resolvedMap.get(NinjaRuleVariable.DESCRIPTION.lowerCaseName()).get(0).getSecond();
+    }
+
+    StringBuilder messageBuilder = new StringBuilder();
+    if (!rule.getName().isEmpty()) {
+      messageBuilder.append("[rule " + rule.getName() + "] ");
+    }
+    messageBuilder.append("Outputs: ");
+    messageBuilder.append(
+        outputs.stream().map(Artifact::getFilename).collect(Collectors.joining(", ")));
+    return messageBuilder.toString();
+  }
+
+  /** Returns true is the action should be marked as always dirty. */
   private boolean fillArtifacts(
       NinjaTarget target,
       NestedSetBuilder<Artifact> inputsBuilder,
@@ -286,13 +325,16 @@ public class NinjaActionsHelper {
         ImmutableSortedMap.naturalOrder();
     for (Map.Entry<NinjaRuleVariable, NinjaVariableValue> entry : rule.getVariables().entrySet()) {
       NinjaRuleVariable type = entry.getKey();
-      // Skip command for now, and description because we do not use it.
-      if (NinjaRuleVariable.COMMAND.equals(type) || NinjaRuleVariable.DESCRIPTION.equals(type)) {
+      if (NinjaRuleVariable.COMMAND.equals(type)) {
+        // Skip the command variable for now, since its scope expansion semantics allow referencing
+        // other rule variables.
         continue;
       }
       String expandedValue = targetScope.getExpandedValue(targetOffset, entry.getValue());
       builder.put(Ascii.toLowerCase(type.name()), ImmutableList.of(Pair.of(0L, expandedValue)));
     }
+
+    // Expand the command variable value with the rule's complete scope.
     NinjaScope expandedRuleScope = targetScope.createScopeFromExpandedValues(builder.build());
     String command =
         expandedRuleScope.getExpandedValue(
@@ -341,4 +383,5 @@ public class NinjaActionsHelper {
         .modifyExecutionInfo(map, "NinjaRule");
     return map;
   }
+
 }

@@ -41,4 +41,13 @@ public final class NinjaRule {
   public String getName() {
     return name;
   }
+
+  /**
+   * @return the raw description string of the Ninja rule with unexpanded variables. If the rule
+   * does not have a description key, return an empty string instead.
+   */
+  public String getDescription() {
+    NinjaVariableValue value = variables.get(NinjaRuleVariable.DESCRIPTION);
+    return value == null ? "" : value.getRawText();
+  }
 }

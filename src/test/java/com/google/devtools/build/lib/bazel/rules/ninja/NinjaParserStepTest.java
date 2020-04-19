@@ -160,6 +160,9 @@ public class NinjaParserStepTest {
     MockValueExpander expander = new MockValueExpander("###");
     assertThat(variables.get(NinjaRuleVariable.DEPS).getExpandedValue(expander))
         .isEqualTo("###abc $\n ###cde");
+    assertThat(
+        variables.get(
+            NinjaRuleVariable.DESCRIPTION).getRawText()).isEqualTo("Test rule for ${TARGET}");
     assertThat(expander.getRequestedVariables()).containsExactly("abc", "cde");
   }
 
@@ -254,6 +257,28 @@ public class NinjaParserStepTest {
         GenericParsingException.class,
         parser::parseNinjaPool);
   }
+
+  @Test
+  public void testParseDescriptionInRule() throws Exception {
+    NinjaParserStep parser =
+        createParser("rule testRule  \n" + "  description = foobar $out\n");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
+    assertThat(variables.keySet()).containsExactly(NinjaRuleVariable.DESCRIPTION);
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
+    assertThat(ninjaRule.getDescription()).isEqualTo("foobar ${out}");
+  }
+
+  @Test
+  public void testNoDescriptionInRule_isEmptyString() throws Exception {
+    NinjaParserStep parser = createParser("rule testRule  \n" + "  command = foobar\n");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
+    assertThat(variables.keySet()).containsExactly(NinjaRuleVariable.COMMAND);
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
+    assertThat(ninjaRule.getDescription()).isEqualTo("");
+  }
+
 
   @Test
   public void testNinjaRuleParsingException() {

@@ -132,10 +132,6 @@ public final class NinjaTarget {
     return variables;
   }
 
-  public boolean hasInputs() {
-    return !inputs.isEmpty();
-  }
-
   public List<PathFragment> getOutputs() {
     return outputs.get(OutputKind.USUAL);
   }
