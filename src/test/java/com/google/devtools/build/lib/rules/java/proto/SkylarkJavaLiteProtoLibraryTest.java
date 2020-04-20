@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -550,7 +550,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "foo_rule(name = 'foo_rule', dep = 'foo_java_proto')");
     ConfiguredTarget target = getConfiguredTarget("//x:foo_rule");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//x:aspect.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl myInfo = (StructImpl) target.get(key);
     Boolean result = (Boolean) myInfo.getValue("result");

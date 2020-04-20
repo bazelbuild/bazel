@@ -47,8 +47,7 @@ import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider;
@@ -86,7 +85,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
@@ -1322,7 +1321,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:r");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
             "my_provider");
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
@@ -1347,7 +1346,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
             "my_provider");
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
@@ -1373,7 +1372,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
             "my_provider");
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
@@ -1822,8 +1821,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "my_dep_rule(name = 'yyy', dep = ':xxx')"
     );
 
-    SkylarkKey pInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:rule.bzl", ImmutableMap.of()), "PInfo");
+    StarlarkProvider.Key pInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:rule.bzl", ImmutableMap.of()), "PInfo");
 
     ConfiguredTarget targetXXX = getConfiguredTarget("//test:xxx");
     StructImpl structXXX = (StructImpl) targetXXX.get(pInfoKey);
@@ -2177,10 +2177,12 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "inner_rule(name = 'inner')",
         "outer_rule_test(name = 'r', dep = ':inner')");
 
-    SkylarkKey myInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:extension.bzl", ImmutableMap.of()), "MyInfo");
-    SkylarkKey myDepKey =
-        new SkylarkKey(Label.parseAbsolute("//test:extension.bzl", ImmutableMap.of()), "MyDep");
+    StarlarkProvider.Key myInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:extension.bzl", ImmutableMap.of()), "MyInfo");
+    StarlarkProvider.Key myDepKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:extension.bzl", ImmutableMap.of()), "MyDep");
 
     ConfiguredTarget outerTarget = getConfiguredTarget("//test:r");
     StructImpl outerInfo = (StructImpl) outerTarget.get(myInfoKey);

@@ -37,8 +37,8 @@ public class RequiredProvidersTest {
   private static final Provider P_NATIVE =
       new NativeProvider<StructImpl>(StructImpl.class, "p_native") {};
 
-  private static final SkylarkProvider P_SKYLARK =
-      SkylarkProvider.createUnexportedSchemaless(Location.BUILTIN);
+  private static final StarlarkProvider P_SKYLARK =
+      StarlarkProvider.createUnexportedSchemaless(Location.BUILTIN);
 
   static {
     try {

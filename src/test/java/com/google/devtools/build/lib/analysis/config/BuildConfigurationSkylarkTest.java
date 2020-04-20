@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.Dict;
 import org.junit.Test;
@@ -54,7 +54,7 @@ public final class BuildConfigurationSkylarkTest extends BuildViewTestCase {
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/config_skylark:my_target");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//examples/rule:config_test.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl myInfo = (StructImpl) skylarkTarget.get(key);
     assertThat(((Dict) myInfo.getValue("test_env")).get("TEST_ENV_VAR")).isEqualTo("my_value");

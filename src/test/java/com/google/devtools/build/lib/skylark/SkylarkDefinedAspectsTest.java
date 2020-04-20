@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -105,8 +105,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
 
-    SkylarkKey fooKey =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+    StarlarkProvider.Key fooKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
   }
@@ -130,10 +131,12 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
 
-    SkylarkKey fooKey =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
-    SkylarkKey barKey =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "bar");
+    StarlarkProvider.Key fooKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+    StarlarkProvider.Key barKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "bar");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
@@ -159,10 +162,12 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
 
-    SkylarkKey fooKey =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
-    SkylarkKey barKey =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "bar");
+    StarlarkProvider.Key fooKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+    StarlarkProvider.Key barKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "bar");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
@@ -379,7 +384,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "my_rule = rule(implementation = _rule_impl,",
         "   attrs = { 'dep' : attr.label(aspects = [MyAspect]) },",
         ")");
-    SkylarkKey providerKey = new SkylarkKey(Label.parseAbsoluteUnchecked("//test:aspect.bzl"), "p");
+    StarlarkProvider.Key providerKey =
+        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//test:aspect.bzl"), "p");
     scratch.file(
         "test/BUILD",
         "load('//test:aspect.bzl', 'my_rule')",
@@ -2246,8 +2252,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update(ImmutableList.of("//test:aspect.bzl%a3"), "//test:r2_1");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
-    SkylarkKey p3 =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "p3");
+    StarlarkProvider.Key p3 =
+        new StarlarkProvider.Key(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "p3");
     StructImpl p3Provider = (StructImpl) configuredAspect.get(p3);
     assertThat((Sequence<?>) p3Provider.getValue("value"))
         .containsExactly(
@@ -2309,8 +2315,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update(ImmutableList.of(), "//test:rcollect");
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkKey pCollector =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
+    StarlarkProvider.Key pCollector =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl pCollectorProvider = (StructImpl) configuredTarget.get(pCollector);
     assertThat((Sequence<?>) pCollectorProvider.getValue("result"))
         .containsExactly("//test:r1", "//test:r0", "//test:r0+PAspect");
@@ -2348,8 +2355,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
-    SkylarkKey pCollector =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
+    StarlarkProvider.Key pCollector =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(collector.getValue("aspect_attr"))
         .isEqualTo(Label.parseAbsolute("//test:foo", ImmutableMap.of()));
@@ -2391,8 +2399,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
-    SkylarkKey pCollector =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
+    StarlarkProvider.Key pCollector =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(collector.getValue("attr_value")).isEqualTo(30);
   }
@@ -2445,8 +2454,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:quux");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
-    SkylarkKey pCollector =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
+    StarlarkProvider.Key pCollector =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(collector.getValue("attr_value")).isEqualTo(30);
   }
@@ -2485,8 +2495,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
-    SkylarkKey pCollector =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
+    StarlarkProvider.Key pCollector =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(((Depset) collector.getValue("visited")).toCollection())
         .containsExactly(
@@ -2639,8 +2650,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     assertThat(configuredAspect).isNotNull();
 
-    SkylarkKey myInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "MyInfo");
+    StarlarkProvider.Key myInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl myInfo = (StructImpl) configuredAspect.get(myInfoKey);
     assertThat(myInfo.getValue("hidden_attr_label")).isEqualTo("//test:zzz");
   }
@@ -2787,8 +2799,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
     useConfiguration("--experimental_aspect_output_propagation=true");
 
-    SkylarkKey rootInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootInfo");
+    StarlarkProvider.Key rootInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootInfo");
 
     AnalysisResult analysisResultWithFiles = update("//test:test_with_files");
     ConfiguredTarget targetWithFiles =
@@ -2900,10 +2913,12 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     setupAspectOnAspectTargetGraph(
         /* applyRootToGeneratingRules= */ true, /* applyDepToGeneratingRules= */ true);
 
-    SkylarkKey rootInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
-    SkylarkKey depInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
+    StarlarkProvider.Key rootInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
+    StarlarkProvider.Key depInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -2928,10 +2943,12 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     setupAspectOnAspectTargetGraph(
         /* applyRootToGeneratingRules= */ false, /* applyDepToGeneratingRules= */ false);
 
-    SkylarkKey rootInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
-    SkylarkKey depInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
+    StarlarkProvider.Key rootInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
+    StarlarkProvider.Key depInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -2950,10 +2967,12 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     setupAspectOnAspectTargetGraph(
         /* applyRootToGeneratingRules= */ true, /* applyDepToGeneratingRules= */ false);
 
-    SkylarkKey rootInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
-    SkylarkKey depInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
+    StarlarkProvider.Key rootInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
+    StarlarkProvider.Key depInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -2975,10 +2994,12 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     setupAspectOnAspectTargetGraph(
         /* applyRootToGeneratingRules= */ false, /* applyDepToGeneratingRules= */ true);
 
-    SkylarkKey rootInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
-    SkylarkKey depInfoKey =
-        new SkylarkKey(Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
+    StarlarkProvider.Key rootInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootAspectInfo");
+    StarlarkProvider.Key depInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());

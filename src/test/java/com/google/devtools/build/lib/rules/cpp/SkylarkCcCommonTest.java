@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -95,7 +95,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
       throws LabelSyntaxException {
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
@@ -171,7 +171,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     // 1. Build without static_link_cpp_runtimes
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl"), "CruleInfo");
     SkylarkInfo cruleInfo = (SkylarkInfo) r.get(key);
     Depset staticRuntimeLib = (Depset) cruleInfo.getValue("static");
@@ -5822,7 +5822,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratchObjectsProvidingRule();
 
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getOnlyElement(
@@ -5843,7 +5843,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratchObjectsProvidingRule();
 
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
 
     // Default toolchain is without PIC support, so pic_objects should be None

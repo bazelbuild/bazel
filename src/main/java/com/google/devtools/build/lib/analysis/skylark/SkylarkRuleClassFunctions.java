@@ -69,8 +69,8 @@ import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
@@ -257,7 +257,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             : fields instanceof Dict
                 ? Dict.cast(fields, String.class, String.class, "fields").keySet()
                 : null;
-    return SkylarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
+    return StarlarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties

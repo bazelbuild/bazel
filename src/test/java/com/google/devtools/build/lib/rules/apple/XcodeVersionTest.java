@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -79,7 +79,7 @@ public final class XcodeVersionTest extends BuildViewTestCase {
     RuleConfiguredTarget skylarkTarget =
         (RuleConfiguredTarget) getConfiguredTarget("//examples/apple_skylark:my_target");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//examples/rule:apple_rules.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl myInfo = (StructImpl) skylarkTarget.get(key);
     assertThat((String) myInfo.getValue("xcode_version")).isEqualTo("8");

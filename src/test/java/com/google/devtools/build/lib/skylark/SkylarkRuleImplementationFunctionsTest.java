@@ -51,8 +51,7 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -175,7 +174,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
@@ -279,7 +278,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         action.getArguments(), "-c", "dummy_command", "", "--a", "--b");
     assertThat(action.getMnemonic()).isEqualTo("DummyMnemonic");
     assertThat(action.getProgressMessage()).isEqualTo("dummy_message");
-    assertThat(action.getIncompleteEnvironmentForTesting()).isEqualTo(targetConfig.getLocalShellEnvironment());
+    assertThat(action.getIncompleteEnvironmentForTesting())
+        .isEqualTo(targetConfig.getLocalShellEnvironment());
   }
 
   @Test
@@ -1349,7 +1349,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new SkylarkKey(
+            new StarlarkProvider.Key(
                 Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));
   }
 
@@ -1392,7 +1392,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new SkylarkKey(Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "FooInfo"));
+            new StarlarkProvider.Key(
+                Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "FooInfo"));
   }
 
   @Test
@@ -1511,7 +1512,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new SkylarkKey(
+            new StarlarkProvider.Key(
                 Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));
     assertThat(((StructImpl) provider).getValue("a")).isEqualTo(123);
   }
@@ -1560,7 +1561,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new SkylarkKey(
+            new StarlarkProvider.Key(
                 Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));
   }
 

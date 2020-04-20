@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -62,8 +62,9 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
 
-    SkylarkKey fooKey =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+    StarlarkProvider.Key fooKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
 
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();
@@ -123,8 +124,9 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
 
-    SkylarkKey fooKey =
-        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+    StarlarkProvider.Key fooKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();
 

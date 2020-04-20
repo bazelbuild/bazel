@@ -22,7 +22,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -800,7 +800,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
     @SuppressWarnings("unchecked")

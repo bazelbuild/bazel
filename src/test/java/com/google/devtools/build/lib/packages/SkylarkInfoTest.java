@@ -40,21 +40,21 @@ public class SkylarkInfoTest {
 
   @Test
   public void instancesOfUnexportedProvidersAreMutable() throws Exception {
-    SkylarkProvider provider = makeProvider();
+    StarlarkProvider provider = makeProvider();
     SkylarkInfo info = makeInfoWithF1F2Values(provider, 5, null);
     assertThat(info.isImmutable()).isFalse();
   }
 
   @Test
   public void instancesOfExportedProvidersMayBeImmutable() throws Exception {
-    SkylarkProvider provider = makeExportedProvider();
+    StarlarkProvider provider = makeExportedProvider();
     SkylarkInfo info = makeInfoWithF1F2Values(provider, 5, null);
     assertThat(info.isImmutable()).isTrue();
   }
 
   @Test
   public void mutableIfContentsAreMutable() throws Exception {
-    SkylarkProvider provider = makeExportedProvider();
+    StarlarkProvider provider = makeExportedProvider();
     StarlarkValue v = new StarlarkValue() {};
     SkylarkInfo info = makeInfoWithF1F2Values(provider, 5, v);
     assertThat(info.isImmutable()).isFalse();
@@ -62,8 +62,8 @@ public class SkylarkInfoTest {
 
   @Test
   public void equivalence() throws Exception {
-    SkylarkProvider provider1 = makeProvider();
-    SkylarkProvider provider2 = makeProvider();
+    StarlarkProvider provider1 = makeProvider();
+    StarlarkProvider provider2 = makeProvider();
     // equal providers and fields
     assertThat(makeInfoWithF1F2Values(provider1, 4, 5))
         .isEqualTo(makeInfoWithF1F2Values(provider1, 4, 5));
@@ -80,8 +80,8 @@ public class SkylarkInfoTest {
 
   @Test
   public void concatWithDifferentProvidersFails() throws Exception {
-    SkylarkProvider provider1 = makeProvider();
-    SkylarkProvider provider2 = makeProvider();
+    StarlarkProvider provider1 = makeProvider();
+    StarlarkProvider provider2 = makeProvider();
     SkylarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
     SkylarkInfo info2 = makeInfoWithF1F2Values(provider2, 4, 5);
     EvalException expected =
@@ -92,7 +92,7 @@ public class SkylarkInfoTest {
 
   @Test
   public void concatWithOverlappingFieldsFails() throws Exception {
-    SkylarkProvider provider1 = makeProvider();
+    StarlarkProvider provider1 = makeProvider();
     SkylarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
     SkylarkInfo info2 = makeInfoWithF1F2Values(provider1, 4, null);
     EvalException expected =
@@ -104,7 +104,7 @@ public class SkylarkInfoTest {
 
   @Test
   public void concatWithSameFields() throws Exception {
-    SkylarkProvider provider = makeProvider();
+    StarlarkProvider provider = makeProvider();
     SkylarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
     SkylarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
     SkylarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
@@ -115,7 +115,7 @@ public class SkylarkInfoTest {
 
   @Test
   public void concatWithDifferentFields() throws Exception {
-    SkylarkProvider provider = makeProvider();
+    StarlarkProvider provider = makeProvider();
     SkylarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
     SkylarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
     SkylarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
@@ -125,15 +125,15 @@ public class SkylarkInfoTest {
   }
 
   /** Creates an unexported schemaless provider type with builtin location. */
-  private static SkylarkProvider makeProvider() {
-    return SkylarkProvider.createUnexportedSchemaless(Location.BUILTIN);
+  private static StarlarkProvider makeProvider() {
+    return StarlarkProvider.createUnexportedSchemaless(Location.BUILTIN);
   }
 
   /** Creates an exported schemaless provider type with builtin location. */
-  private static SkylarkProvider makeExportedProvider() {
-    SkylarkProvider.SkylarkKey key = new SkylarkProvider.SkylarkKey(
-        Label.parseAbsoluteUnchecked("//package:target"), "provider");
-    return SkylarkProvider.createExportedSchemaless(key, Location.BUILTIN);
+  private static StarlarkProvider makeExportedProvider() {
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//package:target"), "provider");
+    return StarlarkProvider.createExportedSchemaless(key, Location.BUILTIN);
   }
 
   /**
@@ -141,7 +141,7 @@ public class SkylarkInfoTest {
    * value may be null, in which case it is omitted.
    */
   private static SkylarkInfo makeInfoWithF1F2Values(
-      SkylarkProvider provider, @Nullable Object v1, @Nullable Object v2) {
+      StarlarkProvider provider, @Nullable Object v1, @Nullable Object v2) {
     ImmutableMap.Builder<String, Object> values = ImmutableMap.builder();
     if (v1 != null) {
       values.put("f1", v1);

@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -300,8 +300,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private static StarlarkProviderIdentifier declared(String exportedName) {
-    return StarlarkProviderIdentifier.forKey(
-        new SkylarkProvider.SkylarkKey(FAKE_LABEL, exportedName));
+    return StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, exportedName));
   }
 
   @Test
@@ -1370,13 +1369,12 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     );
     assertThat(lookup("d_x")).isEqualTo(1);
     assertThat(lookup("d_y")).isEqualTo("abc");
-    SkylarkProvider dataConstructor = (SkylarkProvider) lookup("data");
+    StarlarkProvider dataConstructor = (StarlarkProvider) lookup("data");
     StructImpl data = (StructImpl) lookup("d");
     assertThat(data.getProvider()).isEqualTo(dataConstructor);
     assertThat(dataConstructor.isExported()).isTrue();
     assertThat(dataConstructor.getPrintableName()).isEqualTo("data");
-    assertThat(dataConstructor.getKey())
-        .isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "data"));
+    assertThat(dataConstructor.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "data"));
   }
 
   @Test
@@ -1391,7 +1389,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     );
     assertThat(lookup("x")).isEqualTo(1);
     assertThat(lookup("y")).isEqualTo("abc");
-    SkylarkProvider dataConstructor = (SkylarkProvider) lookup("data");
+    StarlarkProvider dataConstructor = (StarlarkProvider) lookup("data");
     StructImpl dx = (StructImpl) lookup("dx");
     assertThat(dx.getProvider()).isEqualTo(dataConstructor);
     StructImpl dy = (StructImpl) lookup("dy");
@@ -1615,13 +1613,13 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "     provider() ]",
         "]"
     );
-    SkylarkProvider p = (SkylarkProvider) lookup("p");
+    StarlarkProvider p = (StarlarkProvider) lookup("p");
     SkylarkDefinedAspect a = (SkylarkDefinedAspect) lookup("a");
-    SkylarkProvider p1 = (SkylarkProvider) lookup("p1");
+    StarlarkProvider p1 = (StarlarkProvider) lookup("p1");
     assertThat(p.getPrintableName()).isEqualTo("p");
-    assertThat(p.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));
+    assertThat(p.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "p"));
     assertThat(p1.getPrintableName()).isEqualTo("p1");
-    assertThat(p1.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p1"));
+    assertThat(p1.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "p1"));
     assertThat(a.getAspectClass()).isEqualTo(
         new SkylarkAspectClass(FAKE_LABEL, "a")
     );
@@ -1633,11 +1631,11 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "p = provider()",
         "p1 = p"
     );
-    SkylarkProvider p = (SkylarkProvider) lookup("p");
-    SkylarkProvider p1 = (SkylarkProvider) lookup("p1");
+    StarlarkProvider p = (StarlarkProvider) lookup("p");
+    StarlarkProvider p1 = (StarlarkProvider) lookup("p1");
     assertThat(p).isEqualTo(p1);
-    assertThat(p.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));
-    assertThat(p1.getKey()).isEqualTo(new SkylarkProvider.SkylarkKey(FAKE_LABEL, "p"));
+    assertThat(p.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "p"));
+    assertThat(p1.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "p"));
   }
 
   @Test
@@ -1648,7 +1646,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "x = p1.x",
         "y = p1.y"
     );
-    SkylarkProvider p = (SkylarkProvider) lookup("p");
+    StarlarkProvider p = (StarlarkProvider) lookup("p");
     SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
 
     assertThat(p1.getProvider()).isEqualTo(p);
@@ -1664,7 +1662,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "x = p1.x",
         "y = p1.y"
     );
-    SkylarkProvider p = (SkylarkProvider) lookup("p");
+    StarlarkProvider p = (StarlarkProvider) lookup("p");
     SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
 
     assertThat(p1.getProvider()).isEqualTo(p);
@@ -1679,7 +1677,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "p1 = p(y = 2)",
         "y = p1.y"
     );
-    SkylarkProvider p = (SkylarkProvider) lookup("p");
+    StarlarkProvider p = (StarlarkProvider) lookup("p");
     SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
 
     assertThat(p1.getProvider()).isEqualTo(p);

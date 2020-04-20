@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.Collection;
@@ -152,7 +152,7 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
 
     @SuppressWarnings("unchecked")

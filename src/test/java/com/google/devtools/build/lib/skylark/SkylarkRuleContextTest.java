@@ -42,8 +42,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -2535,8 +2534,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "a(name='a', value={'c': 'c', 'b': 'b', 'a': 'a', 'f': 'f', 'e': 'e', 'd': 'd'})");
 
     ConfiguredTarget a = getConfiguredTarget("//a");
-    SkylarkKey key =
-        new SkylarkKey(Label.parseAbsolute("//a:a.bzl", ImmutableMap.of()), "key_provider");
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//a:a.bzl", ImmutableMap.of()), "key_provider");
 
     SkylarkInfo keyInfo = (SkylarkInfo) a.get(key);
     Sequence<?> keys = (Sequence) keyInfo.getValue("keys");
@@ -2568,7 +2568,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
@@ -2582,7 +2582,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
@@ -2689,7 +2689,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//rule:test_rule.bzl", ImmutableMap.of()), "result"));
 
     assertThat(info).isNotNull();
@@ -2753,7 +2753,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//demo:test_rule.bzl", ImmutableMap.of()), "result"));
 
     assertThat(info).isNotNull();
@@ -2766,7 +2766,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//demo:test_rule.bzl", ImmutableMap.of()), "result"));
 
     assertThat(info).isNotNull();
