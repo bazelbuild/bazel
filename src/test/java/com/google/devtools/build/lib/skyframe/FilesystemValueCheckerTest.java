@@ -767,12 +767,14 @@ public class FilesystemValueCheckerTest {
   }
 
   @Test
-  public void testDirtyActions() throws Exception {
+  // TODO(b/154337187): Reenable once this test is de-flaked.
+  public void disabledTestDirtyActions() throws Exception {
     checkDirtyActions(null, false);
   }
 
   @Test
-  public void testDirtyActionsBatchStat() throws Exception {
+  // TODO(b/154337187): Reenable once this test is de-flaked.
+  public void disabledTestDirtyActionsBatchStat() throws Exception {
     checkDirtyActions(
         new BatchStat() {
           @Override
