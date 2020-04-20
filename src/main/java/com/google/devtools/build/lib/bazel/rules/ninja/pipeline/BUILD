@@ -16,6 +16,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja/file",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja/parser:parser_impl",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
     ],
 )
 
@@ -31,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
 )

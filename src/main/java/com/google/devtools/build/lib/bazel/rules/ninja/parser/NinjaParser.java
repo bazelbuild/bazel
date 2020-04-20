@@ -46,7 +46,7 @@ public class NinjaParser implements DeclarationConsumer {
   public void declaration(FileFragment fragment) throws GenericParsingException, IOException {
     long offset = fragment.getFragmentOffset();
 
-    NinjaLexer lexer = new NinjaLexer(fragment);
+    NinjaLexer lexer = new NinjaLexer(fragment, pipeline.getPathFragmentInterner());
     if (!lexer.hasNextToken()) {
       throw new IllegalStateException("Empty fragment passed as declaration.");
     }
