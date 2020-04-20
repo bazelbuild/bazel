@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -45,7 +46,6 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -63,7 +63,7 @@ import javax.annotation.Nullable;
  * another action that's scheduled to run there.
  */
 public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
-  private static final Logger logger = Logger.getLogger(DynamicSpawnStrategy.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   enum StrategyIdentifier {
     NONE("unknown"),
@@ -248,7 +248,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
       }
       if (Thread.currentThread().isInterrupted()) {
         // Warn but don't throw, in case we're crashing.
-        logger.warning("Interrupted waiting for dynamic execution tasks to finish");
+        logger.atWarning().log("Interrupted waiting for dynamic execution tasks to finish");
       }
     }
     // Check for interruption outside of finally block, so we don't mask any other exceptions.

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -105,7 +106,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -120,7 +120,7 @@ import javax.annotation.Nullable;
  * @see com.google.devtools.build.lib.analysis.BuildView
  */
 public class ExecutionTool {
-  static final Logger logger = Logger.getLogger(ExecutionTool.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final CommandEnvironment env;
   private final BlazeRuntime runtime;
@@ -759,7 +759,7 @@ public class ExecutionTool {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     ResourceSet resources;
     if (options.availableResources != null && !options.removeLocalResources) {
-      logger.warning(
+      logger.atWarning().log(
           "--local_resources will be deprecated. Please use --local_ram_resources "
               + "and/or --local_cpu_resources.");
       resources = options.availableResources;
