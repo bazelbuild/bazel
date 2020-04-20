@@ -101,6 +101,9 @@ public class SkylarkRepositoryContext
           "rules_cc/cc/private/toolchain/unix_cc_configure.bzl",
           "bazel_tools/tools/cpp/unix_cc_configure.bzl");
 
+  /** Max. number of command line args added as a profiler description. */
+  private static final int MAX_PROFILE_ARGS_LEN = 80;
+
   private final Rule rule;
   private final PathPackageLocator packageLocator;
   private final Path outputDirectory;
@@ -444,10 +447,14 @@ public class SkylarkRepositoryContext
       }
     }
 
-    try {
+    ImmutableList<String> arguments = argumentsBuilder.build();
+
+    try (SilentCloseable c =
+        Profiler.instance()
+            .profile(ProfilerTask.STARLARK_REPOSITORY_FN, profileArgsDesc("remote", arguments))) {
       ExecutionResult result =
           remoteExecutor.execute(
-              argumentsBuilder.build(),
+              arguments,
               inputsBuilder.build(),
               getExecProperties(),
               ImmutableMap.copyOf(environment),
@@ -487,6 +494,30 @@ public class SkylarkRepositoryContext
     }
   }
 
+  /** Returns the command line arguments as a string for display in the profiler. */
+  private static String profileArgsDesc(String method, List<String> args) {
+    StringBuilder b = new StringBuilder();
+    b.append(method).append(":");
+
+    final String sep = " ";
+    for (String arg : args) {
+      int appendLen = sep.length() + arg.length();
+      int remainingLen = MAX_PROFILE_ARGS_LEN - b.length();
+
+      if (appendLen <= remainingLen) {
+        b.append(sep);
+        b.append(arg);
+      } else {
+        String shortenedArg = (sep + arg).substring(0, remainingLen);
+        b.append(shortenedArg);
+        b.append("...");
+        break;
+      }
+    }
+
+    return b.toString();
+  }
+
   @Override
   public SkylarkExecutionResult execute(
       Sequence<?> arguments, // <String> or <SkylarkPath> or <Label> expected
@@ -502,10 +533,7 @@ public class SkylarkRepositoryContext
         Dict.cast(uncheckedEnvironment, String.class, String.class, "environment");
 
     if (canExecuteRemote()) {
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.STARLARK_REPOSITORY_FN, "executeRemote")) {
-        return executeRemote(arguments, timeout, environment, quiet, workingDirectory);
-      }
+      return executeRemote(arguments, timeout, environment, quiet, workingDirectory);
     }
 
     // Execute on the local/host machine
@@ -549,13 +577,18 @@ public class SkylarkRepositoryContext
       workingDirectoryPath = getPath("execute()", workingDirectory).getPath();
     }
     createDirectory(workingDirectoryPath);
-    return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
-        .addArguments(args)
-        .setDirectory(workingDirectoryPath.getPathFile())
-        .addEnvironmentVariables(environment)
-        .setTimeout(timeoutMillis)
-        .setQuiet(quiet)
-        .execute();
+
+    try (SilentCloseable c =
+        Profiler.instance()
+            .profile(ProfilerTask.STARLARK_REPOSITORY_FN, profileArgsDesc("local", args))) {
+      return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
+          .addArguments(args)
+          .setDirectory(workingDirectoryPath.getPathFile())
+          .addEnvironmentVariables(environment)
+          .setTimeout(timeoutMillis)
+          .setQuiet(quiet)
+          .execute();
+    }
   }
 
   @Override

@@ -25,6 +25,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -66,21 +69,24 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
   private ExecutionResult downloadOutErr(ActionResult result)
       throws IOException, InterruptedException {
-    byte[] stdout = new byte[0];
-    if (!result.getStdoutRaw().isEmpty()) {
-      stdout = result.getStdoutRaw().toByteArray();
-    } else if (result.hasStdoutDigest()) {
-      stdout = Utils.getFromFuture(remoteCache.downloadBlob(result.getStdoutDigest()));
-    }
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "download stdout/stderr")) {
+      byte[] stdout = new byte[0];
+      if (!result.getStdoutRaw().isEmpty()) {
+        stdout = result.getStdoutRaw().toByteArray();
+      } else if (result.hasStdoutDigest()) {
+        stdout = Utils.getFromFuture(remoteCache.downloadBlob(result.getStdoutDigest()));
+      }
 
-    byte[] stderr = new byte[0];
-    if (!result.getStderrRaw().isEmpty()) {
-      stderr = result.getStderrRaw().toByteArray();
-    } else if (result.hasStderrDigest()) {
-      stderr = Utils.getFromFuture(remoteCache.downloadBlob(result.getStderrDigest()));
-    }
+      byte[] stderr = new byte[0];
+      if (!result.getStderrRaw().isEmpty()) {
+        stderr = result.getStderrRaw().toByteArray();
+      } else if (result.hasStderrDigest()) {
+        stderr = Utils.getFromFuture(remoteCache.downloadBlob(result.getStderrDigest()));
+      }
 
-    return new ExecutionResult(result.getExitCode(), stdout, stderr);
+      return new ExecutionResult(result.getExitCode(), stdout, stderr);
+    }
   }
 
   @Override
@@ -109,23 +115,33 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
               commandHash, merkleTree.getRootDigest(), timeout, acceptCached);
       Digest actionDigest = digestUtil.compute(action);
       ActionKey actionKey = new ActionKey(actionDigest);
-      ActionResult actionResult =
-          remoteCache.downloadActionResult(actionKey, /* inlineOutErr= */ true);
+      ActionResult actionResult;
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
+        actionResult = remoteCache.downloadActionResult(actionKey, /* inlineOutErr= */ true);
+      }
       if (actionResult == null || actionResult.getExitCode() != 0) {
-        Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
-        additionalInputs.put(actionDigest, action);
-        additionalInputs.put(commandHash, command);
-        remoteCache.ensureInputsPresent(merkleTree, additionalInputs);
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload missing inputs")) {
+          Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
+          additionalInputs.put(actionDigest, action);
+          additionalInputs.put(commandHash, command);
 
-        ExecuteRequest executeRequest =
-            ExecuteRequest.newBuilder()
-                .setActionDigest(actionDigest)
-                .setInstanceName(remoteInstanceName)
-                .setSkipCacheLookup(!acceptCached)
-                .build();
+          remoteCache.ensureInputsPresent(merkleTree, additionalInputs);
+        }
 
-        ExecuteResponse response = remoteExecutor.executeRemotely(executeRequest);
-        actionResult = response.getResult();
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.REMOTE_EXECUTION, "execute remotely")) {
+          ExecuteRequest executeRequest =
+              ExecuteRequest.newBuilder()
+                  .setActionDigest(actionDigest)
+                  .setInstanceName(remoteInstanceName)
+                  .setSkipCacheLookup(!acceptCached)
+                  .build();
+
+          ExecuteResponse response = remoteExecutor.executeRemotely(executeRequest);
+          actionResult = response.getResult();
+        }
       }
       return downloadOutErr(actionResult);
     } finally {
