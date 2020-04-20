@@ -67,6 +67,8 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
+import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -223,7 +225,7 @@ import javax.annotation.Nullable;
  * additional artifacts (workspace status and build info artifacts) into SkyFunctions for use during
  * the build.
  */
-public abstract class SkyframeExecutor implements WalkableGraphFactory {
+public abstract class SkyframeExecutor implements WalkableGraphFactory, ConfigurationsCollector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
@@ -1995,6 +1997,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#getConfigurations}.
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
+  @Override
   public ConfigurationsResult getConfigurations(
       ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys)
       throws InvalidConfigurationException {
@@ -2120,52 +2123,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return memoizingEvaluator.getDoneValues().keySet().stream()
         .filter(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
         .collect(ImmutableList.toImmutableList());
-  }
-
-  /**
-   * The result of {@link #getConfigurations(ExtendedEventHandler, BuildOptions, Iterable)} which
-   * also registers if an error was recorded.
-   */
-  public static class ConfigurationsResult {
-    private final Multimap<Dependency, BuildConfiguration> configurations;
-    private final boolean hasError;
-
-    private ConfigurationsResult(
-        Multimap<Dependency, BuildConfiguration> configurations, boolean hasError) {
-      this.configurations = configurations;
-      this.hasError = hasError;
-    }
-
-    public boolean hasError() {
-      return hasError;
-    }
-
-    public Multimap<Dependency, BuildConfiguration> getConfigurationMap() {
-      return configurations;
-    }
-
-    public static Builder newBuilder() {
-      return new Builder();
-    }
-
-    /** Builder for {@link ConfigurationsResult} */
-    public static class Builder {
-      private final Multimap<Dependency, BuildConfiguration> configurations =
-          ArrayListMultimap.<Dependency, BuildConfiguration>create();
-      private boolean hasError = false;
-
-      void put(Dependency key, BuildConfiguration value) {
-        configurations.put(key, value);
-      }
-
-      void setHasError() {
-        this.hasError = true;
-      }
-
-      ConfigurationsResult build() {
-        return new ConfigurationsResult(configurations, hasError);
-      }
-    }
   }
 
   private PlatformMappingValue getPlatformMappingValue(
