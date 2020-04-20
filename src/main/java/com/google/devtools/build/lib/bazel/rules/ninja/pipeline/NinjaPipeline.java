@@ -54,5 +54,10 @@ public interface NinjaPipeline {
    * NinjaTarget}.
    */
   Interner<PathFragment> getPathFragmentInterner();
+
+  /**
+   * An String interner for rule and build statements' variable names.
+   */
+  Interner<String> getVariableNameInterner();
 }
 

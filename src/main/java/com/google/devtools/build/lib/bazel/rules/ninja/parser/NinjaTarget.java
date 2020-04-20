@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.Immutable;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 
 /** Ninja target (build statement) representation. */
 public final class NinjaTarget {
+
   /** Builder for {@link NinjaTarget}. */
   public static class Builder {
     private String ruleName;
@@ -35,13 +37,16 @@ public final class NinjaTarget {
     private final long offset;
 
     private final ImmutableSortedMap.Builder<String, String> variablesBuilder;
+    private final Interner<String> variableNameInterner;
 
-    private Builder(NinjaScope scope, long offset) {
+    private Builder(NinjaScope scope, long offset,
+        Interner<String> variableNameInterner) {
       this.scope = scope;
       this.offset = offset;
       inputsBuilder = ImmutableSortedKeyListMultimap.builder();
       outputsBuilder = ImmutableSortedKeyListMultimap.builder();
       variablesBuilder = ImmutableSortedMap.naturalOrder();
+      this.variableNameInterner = variableNameInterner;
     }
 
     public Builder setRuleName(String ruleName) {
@@ -67,7 +72,7 @@ public final class NinjaTarget {
     public NinjaTarget build() {
       Preconditions.checkNotNull(ruleName);
       return new NinjaTarget(
-          ruleName,
+          variableNameInterner.intern(ruleName),
           inputsBuilder.build(),
           outputsBuilder.build(),
           variablesBuilder.build(),
@@ -168,8 +173,11 @@ public final class NinjaTarget {
     return offset;
   }
 
-  public static Builder builder(NinjaScope scope, long offset) {
-    return new Builder(scope, offset);
+  public static Builder builder(
+      NinjaScope scope,
+      long offset,
+      Interner<String> variableNameInterner) {
+    return new Builder(scope, offset, variableNameInterner);
   }
 
   public String prettyPrint() {

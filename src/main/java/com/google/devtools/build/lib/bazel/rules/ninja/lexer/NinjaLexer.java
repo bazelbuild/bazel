@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.bazel.rules.ninja.lexer;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -49,15 +47,12 @@ public class NinjaLexer {
   private TextKind expectedTextKind = TextKind.IDENTIFIER;
 
   private boolean interpretPoolAsVariable = false;
-  private final Interner<PathFragment> pathFragmentInterner;
 
   /**
    * @param fragment fragment to do the lexing on
-   * @param pathFragmentInterner a thread safe interner for {@link PathFragment}.
    */
-  public NinjaLexer(FileFragment fragment, Interner<PathFragment> pathFragmentInterner) {
+  public NinjaLexer(FileFragment fragment) {
     this.fragment = fragment;
-    this.pathFragmentInterner = pathFragmentInterner;
     step = new NinjaLexerStep(fragment, 0);
     ranges = Lists.newArrayList();
     tokens = Lists.newArrayList();
@@ -232,10 +227,6 @@ public class NinjaLexer {
 
   public FileFragment getFragment() {
     return fragment;
-  }
-
-  public Interner<PathFragment> getPathFragmentInterner() {
-    return pathFragmentInterner;
   }
 
   /**

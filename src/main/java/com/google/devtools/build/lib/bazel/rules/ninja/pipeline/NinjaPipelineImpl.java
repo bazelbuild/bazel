@@ -64,6 +64,7 @@ public class NinjaPipelineImpl implements NinjaPipeline {
   private Integer readBlockSize;
 
   private final Interner<PathFragment> pathFragmentInterner = BlazeInterners.newWeakInterner();
+  private final Interner<String> variableNameInterner = BlazeInterners.newWeakInterner();
 
   /**
    * @param basePath base path for resolving include and subninja paths.
@@ -122,7 +123,10 @@ public class NinjaPipelineImpl implements NinjaPipeline {
         future.add(
             service.submit(
                 () ->
-                    new NinjaParserStep(new NinjaLexer(fragment, pathFragmentInterner))
+                    new NinjaParserStep(
+                        new NinjaLexer(fragment),
+                        pathFragmentInterner,
+                        variableNameInterner)
                         .parseNinjaTarget(currentScope, fragment.getFragmentOffset())));
       }
       queue.addAll(currentScope.getIncludedScopes());
@@ -216,5 +220,10 @@ public class NinjaPipelineImpl implements NinjaPipeline {
   @Override
   public Interner<PathFragment> getPathFragmentInterner() {
     return pathFragmentInterner;
+  }
+
+  @Override
+  public Interner<String> getVariableNameInterner() {
+    return variableNameInterner;
   }
 }
