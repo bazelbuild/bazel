@@ -1142,12 +1142,12 @@ genrule(
 <p>
   When this flag is <code>no</code> and <code>--output</code> is one of
   <code>build</code>, <code>label</code>, <code>label_kind</code>,
-  <code>location</code>, <code>package</code>, <code>proto</code>,
-  <code>record</code> or <code>xml</code>, the outputs will be printed in
-  arbitrary order. <b>This is generally the fastest option</b>. It is not
-  supported though when <code>--output</code> is one of <code>graph</code>,
-  <code>minrank</code> or <code>maxrank</code>: with these formats, bazel will
-  always print results ordered by the dependency order or rank.
+  <code>location</code>, <code>package</code>, <code>proto</code>, or
+  <code>xml</code>, the outputs will be printed in arbitrary order. <b>This is
+  generally the fastest option</b>. It is not supported though when
+  <code>--output</code> is one of <code>graph</code>, <code>minrank</code> or
+  <code>maxrank</code>: with these formats, bazel will always print results
+  ordered by the dependency order or rank.
 </p>
 <p>
   When this flag is <code>deps</code>, bazel will print results ordered by the
