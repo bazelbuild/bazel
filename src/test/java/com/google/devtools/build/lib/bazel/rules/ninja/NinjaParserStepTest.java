@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.ByteBuffer;
@@ -458,7 +459,8 @@ public class NinjaParserStepTest {
 
   private static NinjaParserStep createParser(String text) {
     ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
-    NinjaLexer lexer = new NinjaLexer(new FileFragment(buffer, 0, 0, buffer.limit()));
+    NinjaLexer lexer = new NinjaLexer(new FileFragment(buffer, 0, 0, buffer.limit()),
+        BlazeInterners.newWeakInterner());
     return new NinjaParserStep(lexer);
   }
 

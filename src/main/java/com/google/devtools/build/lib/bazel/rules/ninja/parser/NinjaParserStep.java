@@ -39,16 +39,6 @@ import javax.annotation.Nullable;
 
 /** Ninja files parser. The types of tokens: {@link NinjaToken}. Ninja lexer: {@link NinjaLexer}. */
 public class NinjaParserStep {
-  /**
-   * An interner for {@link PathFragment} instances for the inputs and outputs of {@link
-   * NinjaTarget}.
-   */
-  // TODO(lberki): Make this non-static.
-  // The reason why this field is static is that I haven't grokked yet what the lifetime of each
-  // object in Ninja parsing is. Once I figure out which object has the lifetime of "exactly as long
-  // as the parsing is running", I can just put this in a field of that object and plumb it here.
-  private static final Interner<PathFragment> PATH_FRAGMENT_INTERNER =
-      BlazeInterners.newWeakInterner();
 
   private final NinjaLexer lexer;
 
@@ -311,7 +301,7 @@ public class NinjaParserStep {
           entry.getValue().stream()
               .map(
                   value ->
-                      PATH_FRAGMENT_INTERNER.intern(
+                      lexer.getPathFragmentInterner().intern(
                           PathFragment.create(targetScope.getExpandedValue(Long.MAX_VALUE, value))))
               .collect(Collectors.toList());
       InputOutputKind inputOutputKind = entry.getKey();

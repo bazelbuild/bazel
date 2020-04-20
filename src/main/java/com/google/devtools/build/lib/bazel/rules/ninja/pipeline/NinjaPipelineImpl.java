@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.concurrent.MoreFutures.waitForFuture
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -36,8 +37,10 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayDeque;
@@ -59,6 +62,8 @@ public class NinjaPipelineImpl implements NinjaPipeline {
   private final String ownerTargetName;
   private final Set<Path> childPaths;
   private Integer readBlockSize;
+
+  private Interner<PathFragment> PATH_FRAGMENT_INTERNER = BlazeInterners.newWeakInterner();
 
   /**
    * @param basePath base path for resolving include and subninja paths.
@@ -117,7 +122,7 @@ public class NinjaPipelineImpl implements NinjaPipeline {
         future.add(
             service.submit(
                 () ->
-                    new NinjaParserStep(new NinjaLexer(fragment))
+                    new NinjaParserStep(new NinjaLexer(fragment, PATH_FRAGMENT_INTERNER))
                         .parseNinjaTarget(currentScope, fragment.getFragmentOffset())));
       }
       queue.addAll(currentScope.getIncludedScopes());
@@ -206,5 +211,9 @@ public class NinjaPipelineImpl implements NinjaPipeline {
             return NinjaFileParseResult.merge(pieces);
           }
         });
+  }
+
+  public Interner<PathFragment> getPathFragmentInterner() {
+    return PATH_FRAGMENT_INTERNER;
   }
 }
