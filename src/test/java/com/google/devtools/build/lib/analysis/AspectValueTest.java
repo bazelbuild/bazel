@@ -32,9 +32,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link com.google.devtools.build.lib.skyframe.AspectValue}.
- */
+/** Tests for {@link AspectValue}. */
 @RunWith(JUnit4.class)
 public class AspectValueTest extends AnalysisTestCase {
 
