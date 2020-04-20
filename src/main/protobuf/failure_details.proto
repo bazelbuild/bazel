@@ -96,6 +96,7 @@ message FailureDetail {
     SymlinkForest symlink_forest = 110;
     PackageOptions package_options = 114;
     RemoteExecution remote_execution = 115;
+    Execution execution = 116;
   }
 
   reserved 102; // For internal use
@@ -239,6 +240,16 @@ message RemoteExecution {
     LOG_DIR_CLEANUP_FAILURE = 8 [(metadata) = { exit_code: 36 }];
     CLIENT_SERVER_INCOMPATIBLE = 9 [(metadata) = { exit_code: 34 }];
     DOWNLOADED_INPUTS_DELETION_FAILURE = 10 [(metadata) = { exit_code: 34 }];
+  }
+
+  Code code = 1;
+}
+
+message Execution {
+  enum Code {
+    EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    EXECUTION_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+    EXECUTION_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
