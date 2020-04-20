@@ -377,6 +377,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     for (SkyKey key : dependencies) {
       if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         T dependency = getValueFromKey(key);
+        Preconditions.checkState(
+            dependency != null,
+            "query-requested node '%s' was unavailable in the query environment graph. If you"
+                + " come across this error, please ping b/150301500 or contact the blaze"
+                + " configurability team.",
+            key);
         boolean implicit =
             implicitDeps == null
                 || implicitDeps.contains(
