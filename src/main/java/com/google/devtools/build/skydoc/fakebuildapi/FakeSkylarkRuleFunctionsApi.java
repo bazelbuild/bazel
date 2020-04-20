@@ -23,13 +23,12 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
@@ -113,12 +112,12 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
   /** Constructor for ProviderInfoWrapper. */
   public ProviderInfoWrapper forProviderInfo(
-      BaseFunction identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
+      StarlarkCallable identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
     return new ProviderInfoWrapper(identifier, docString, fieldInfos);
   }
 
   @Override
-  public BaseFunction rule(
+  public StarlarkCallable rule(
       StarlarkFunction implementation,
       Boolean test,
       Object attrs,
@@ -230,21 +229,16 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   /**
-   * A fake {@link BaseFunction} implementation which serves as an identifier for a rule definition.
-   * A Starlark invocation of 'rule()' should spawn a unique instance of this class and return it.
-   * Thus, Starlark code such as 'foo = rule()' will result in 'foo' being assigned to a unique
-   * identifier, which can later be matched to a registered rule() invocation saved by the fake
-   * build API implementation.
+   * A fake {@link StarlarkCallable} implementation which serves as an identifier for a rule
+   * definition. A Starlark invocation of 'rule()' should spawn a unique instance of this class and
+   * return it. Thus, Starlark code such as 'foo = rule()' will result in 'foo' being assigned to a
+   * unique identifier, which can later be matched to a registered rule() invocation saved by the
+   * fake build API implementation.
    */
-  private static class RuleDefinitionIdentifier extends BaseFunction {
+  private static class RuleDefinitionIdentifier implements StarlarkCallable {
 
     private static int idCounter = 0;
     private final String name = "RuleDefinitionIdentifier" + idCounter++;
-
-    @Override
-    public FunctionSignature getSignature() {
-      return FunctionSignature.KWARGS;
-    }
 
     @Override
     public String getName() {

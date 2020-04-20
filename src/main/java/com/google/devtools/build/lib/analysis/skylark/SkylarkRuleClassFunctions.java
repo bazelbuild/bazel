@@ -78,11 +78,9 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
@@ -571,8 +569,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
    *
    * <p>Exactly one of {@link #builder} or {@link #ruleClass} is null except inside {@link #export}.
    */
-  public static final class SkylarkRuleFunction extends BaseFunction
-      implements SkylarkExportable, RuleFunction {
+  public static final class SkylarkRuleFunction
+      implements StarlarkCallable, SkylarkExportable, RuleFunction {
     private RuleClass.Builder builder;
 
     private RuleClass ruleClass;
@@ -610,11 +608,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     @Override
     public String getName() {
       return "rule";
-    }
-
-    @Override
-    public FunctionSignature getSignature() {
-      return FunctionSignature.KWARGS; // just for documentation
     }
 
     @Override
@@ -774,6 +767,16 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     @Override
     public void repr(Printer printer) {
       printer.append("<rule>");
+    }
+
+    @Override
+    public String toString() {
+      return "rule(...)";
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
     }
   }
 

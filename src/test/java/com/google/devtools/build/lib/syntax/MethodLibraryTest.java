@@ -144,7 +144,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
             "in call to startswith(), parameter 'sub' got value of type 'int', want 'string or"
-                + " tuple of strings'",
+                + " tuple'",
             "'test'.startswith(1)")
         .testIfErrorContains("in dict, got string, want iterable", "dict('a')");
   }

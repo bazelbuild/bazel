@@ -74,6 +74,20 @@ import javax.annotation.Nullable;
  */
 // TODO(bazel-team): move the FunctionType side-effect out of the type object
 // and into the validation environment.
+//
+// TODO(adonovan): Move this class into Depset and simplify.
+// Its theory is a mess: the idea that one can obtain "the" type of a value
+// makes no sense in general. The class is riddled with confusions between
+// Java classes, Java parameterized types, and Starlark-oriented type notions.
+//
+// Historically it had two jobs:
+// 1. The interpreter needs a representation of Starlark types for parameter
+//    documentation, for argument-validity checking, and error; that is all.
+//    A set of java Classes now suffices for that..
+// 2. Depset (which belongs in lib.packages) needs a "reified generic" of T
+//    for a NestedSet<T> enclosed in a Depset. This case alone needs a join
+//    operator, but in practice few types are used with depsets and their joins
+//    are usually trivial.
 public abstract class SkylarkType {
 
   // The main primitives to override in subclasses
@@ -521,7 +535,7 @@ public abstract class SkylarkType {
   public static SkylarkType of(Class<?> type) {
     if (Depset.class.isAssignableFrom(type)) { // just an optimization
       return SET;
-    } else if (BaseFunction.class.isAssignableFrom(type)) {
+    } else if (StarlarkCallable.class.isAssignableFrom(type)) {
       return new SkylarkFunctionType("unknown", TOP);
     } else {
       return Simple.forClass(type);
@@ -568,7 +582,7 @@ public abstract class SkylarkType {
 
     @Override
     Class<?> getType() {
-      return BaseFunction.class;
+      return StarlarkCallable.class;
     }
     @Override public String toString() {
       return (returnType == TOP || returnType == null ? "" : returnType + "-returning ")
@@ -578,7 +592,7 @@ public abstract class SkylarkType {
     @Override
     boolean contains(Object value) {
       // This returns true a bit too much, not looking at the result type.
-      return value instanceof BaseFunction;
+      return value instanceof StarlarkCallable;
     }
 
     static SkylarkFunctionType of(String name, SkylarkType returnType) {

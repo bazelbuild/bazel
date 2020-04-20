@@ -121,7 +121,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   public void testExportsFilesLicensesMustBeSequence() throws Exception {
     expectEvalError(
         "in call to exports_files(), parameter 'licenses' got value of type 'depset', want"
-            + " 'sequence of strings or NoneType'",
+            + " 'sequence or NoneType'",
         "exports_files(srcs=[], licenses=depset(['notice']))");
   }
 
@@ -656,8 +656,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.setFailFast(false);
     assertGlobFails(
         "glob(1, exclude=2)",
-        "in call to glob(), parameter 'include' got value of type 'int', want 'sequence of"
-            + " strings'");
+        "in call to glob(), parameter 'include' got value of type 'int', want 'sequence'");
   }
 
   @Test

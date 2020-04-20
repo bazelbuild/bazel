@@ -849,7 +849,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadSetGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "got value of type 'depset', want 'depset of Files or NoneType'",
+        "got a depset of 'int', expected a depset of 'File'",
         "ruleContext.runfiles(transitive_files=depset([1, 2, 3]))");
   }
 

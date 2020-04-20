@@ -445,7 +445,7 @@ public final class Starlark {
    *
    * <p>On failure, it throws an EvalException incorporating {@code func.toString()}.
    */
-  public static Object[] matchSignature(
+  static Object[] matchSignature(
       FunctionSignature signature,
       StarlarkCallable func, // only used in error messages
       @Nullable Tuple<Object> defaults,

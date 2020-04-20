@@ -27,15 +27,14 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -264,15 +263,25 @@ public class WorkspaceFactory {
    */
   private static StarlarkCallable newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
-    return new BaseFunction() {
+    return new StarlarkCallable() {
       @Override
       public String getName() {
         return ruleClassName;
       }
 
       @Override
-      public FunctionSignature getSignature() {
-        return FunctionSignature.KWARGS; // just for documentation
+      public String toString() {
+        return getName() + "(...)";
+      }
+
+      @Override
+      public boolean isImmutable() {
+        return true;
+      }
+
+      @Override
+      public void repr(Printer printer) {
+        printer.append("<built-in function " + getName() + ">");
       }
 
       @Override

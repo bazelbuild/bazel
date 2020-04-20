@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.TokenKind;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -61,49 +63,168 @@ public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObj
     int n = values.size();
     Object[] table = new Object[n + n];
     int i = 0;
-    for (String key : values.keySet()) {
-      table[i++] = key;
+    for (Map.Entry<String, Object> e : values.entrySet()) {
+      table[i] = e.getKey();
+      table[n + i] = Starlark.checkValid(e.getValue());
+      i++;
     }
-    Arrays.sort(table, 0, n);
-    for (i = 0; i < n; i++) {
-      Object x = values.get(table[i]);
-      table[n + i] = Starlark.checkValid(x);
+    // Sort keys, permuting values in parallel.
+    if (n > 1) {
+      sortPairs(table, 0, n - 1);
     }
     return table;
   }
 
   /**
-   * Constructs a SkylarkInfo from a list of (possibly null but otherwise legal) Starlark values
-   * corresponding to a list of field names, which must be sorted. This exists solely for the
-   * SkylarkProvider constructor form {@code p(a=..., b=...)}.
+   * Constructs a SkylarkInfo from an array of alternating key/value pairs as provided by
+   * Starlark.fastcall. Checks that each key is provided at most once, and is defined by the
+   * optional schema, which must be sorted. This optimized zero-allocation function exists solely
+   * for the SkylarkProvider constructor.
    */
-  static SkylarkInfo fromSortedFieldList(
-      Provider provider,
-      ImmutableList<String> sortedFieldNames,
-      Object[] values,
-      @Nullable Location loc) {
-    // Count non-null values.
-    int n = 0;
-    for (Object x : values) {
-      if (x != null) {
-        n++;
+  static SkylarkInfo createFromNamedArgs(
+      Provider provider, Object[] table, @Nullable ImmutableList<String> schema, Location loc)
+      throws EvalException {
+    // Permute fastcall form (k, v, ..., k, v) into table form (k, k, ..., v, v).
+    permute(table);
+
+    int n = table.length >> 1; // number of K/V pairs
+
+    // Sort keys, permuting values in parallel.
+    if (n > 1) {
+      sortPairs(table, 0, n - 1);
+    }
+
+    // Check for duplicate keys, which are now adjacent.
+    for (int i = 0; i < n - 1; i++) {
+      if (table[i].equals(table[i + 1])) {
+        throw Starlark.errorf(
+            "got multiple values for parameter %s in call to instantiate provider %s",
+            table[i], provider.getPrintableName());
       }
     }
 
-    // Copy the non-null values and their keys.
-    Object[] table = new Object[n + n];
-    for (int i = 0, j = 0; i < values.length; i++) {
-      Object x = values[i];
-      if (x != null) {
-        table[j] = sortedFieldNames.get(i);
-        table[n + j] = Starlark.checkValid(x); // redundant defensive check
-        if (++j == n) {
-          break; // remaining values are all null
-        }
+    // Check that schema is a superset of the table's keys.
+    if (schema != null) {
+      List<String> unexpected = unexpectedKeys(schema, table, n);
+      if (unexpected != null) {
+        throw Starlark.errorf(
+            "unexpected keyword%s %s in call to instantiate provider %s",
+            unexpected.size() > 1 ? "s" : "",
+            Joiner.on(", ").join(unexpected),
+            provider.getPrintableName());
       }
     }
 
     return new SkylarkInfo(provider, table, loc, /*unknownFieldError=*/ null);
+  }
+
+  // Permutes array elements from alternating keys/values form,
+  // (as used by fastcall's named array) into keys-then-corresponding-values form,
+  // as used by SkylarkInfo.table.
+  // The permutation preserves the key/value association but not the order of keys.
+  static void permute(Object[] named) {
+    int n = named.length >> 1; // number of K/V pairs
+
+    // Thanks to Murali Ganapathy for the algorithm.
+    // See https://play.golang.org/p/QOKnrj_bIwk.
+    //
+    // i and j are the indices bracketing successive pairs of cells,
+    // working from the outside to the middle.
+    //
+    //   i                  j
+    //   [KV]KVKVKVKVKVKV[KV]
+    //     i              j
+    //   KK[KV]KVKVKVKV[KV]VV
+    //       i          j
+    //   KKKK[KV]KVKV[KV]VVVV
+    //   etc...
+    for (int i = 0; i < n - 1; i += 2) {
+      int j = named.length - i;
+      // rotate two pairs [KV]...[kv] -> [Kk]...[vV]
+      Object tmp = named[i + 1];
+      named[i + 1] = named[j - 2];
+      named[j - 2] = named[j - 1];
+      named[j - 1] = tmp;
+    }
+    // reverse lower half containing keys: [KkvV] -> [kKvV]
+    for (int i = 0; i < n >> 1; i++) {
+      Object tmp = named[n - 1 - i];
+      named[n - 1 - i] = named[i];
+      named[i] = tmp;
+    }
+  }
+
+  // Sorts non-empty slice a[lo:hi] (inclusive) in place.
+  // Elements a[n:2n) are permuted the same way as a[0:n),
+  // where n = a.length / 2. The lower half must be strings.
+  // Precondition: 0 <= lo <= hi < n.
+  static void sortPairs(Object[] a, int lo, int hi) {
+    String pivot = (String) a[lo + (hi - lo) / 2];
+
+    int i = lo;
+    int j = hi;
+    while (i <= j) {
+      while (((String) a[i]).compareTo(pivot) < 0) {
+        i++;
+      }
+      while (((String) a[j]).compareTo(pivot) > 0) {
+        j--;
+      }
+      if (i <= j) {
+        int n = a.length >> 1;
+        swap(a, i, j);
+        swap(a, i + n, j + n);
+        i++;
+        j--;
+      }
+    }
+    if (lo < j) {
+      sortPairs(a, lo, j);
+    }
+    if (i < hi) {
+      sortPairs(a, i, hi);
+    }
+  }
+
+  private static void swap(Object[] a, int i, int j) {
+    Object tmp = a[i];
+    a[i] = a[j];
+    a[j] = tmp;
+  }
+
+  // Returns the list of keys in table[0:n) not defined by the schema,
+  // or null on success.
+  // Allocates no memory on success.
+  // Both table[0:n) and schema are sorted lists of strings.
+  @Nullable
+  private static List<String> unexpectedKeys(ImmutableList<String> schema, Object[] table, int n) {
+    int si = 0;
+    List<String> unexpected = null;
+    table:
+    for (int ti = 0; ti < n; ti++) {
+      String t = (String) table[ti];
+      while (si < schema.size()) {
+        String s = schema.get(si++);
+        int cmp = s.compareTo(t);
+        if (cmp == 0) {
+          // table key matches schema
+          continue table;
+        } else if (cmp > 0) {
+          // table contains unexpected key
+          if (unexpected == null) {
+            unexpected = new ArrayList<>();
+          }
+          unexpected.add(t);
+        } else {
+          // skip over schema key not provided by table
+        }
+      }
+      if (unexpected == null) {
+        unexpected = new ArrayList<>();
+      }
+      unexpected.add(t);
+    }
+    return unexpected;
   }
 
   @Override

@@ -725,10 +725,10 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     // annotation was more permissive than the method declaration.)
     checkEvalErrorContains("got value of type 'function', want 'string'", "attr.string(default=f)");
     checkEvalErrorContains(
-        "got value of type 'function', want 'sequence of strings'", "attr.string_list(default=f)");
+        "got value of type 'function', want 'sequence'", "attr.string_list(default=f)");
     checkEvalErrorContains("got value of type 'function', want 'int'", "attr.int(default=f)");
     checkEvalErrorContains(
-        "got value of type 'function', want 'sequence of ints'", "attr.int_list(default=f)");
+        "got value of type 'function', want 'sequence'", "attr.int_list(default=f)");
     checkEvalErrorContains("got value of type 'function', want 'bool'", "attr.bool(default=f)");
     checkEvalErrorContains(
         "got value of type 'function', want 'dict'", "attr.string_dict(default=f)");
@@ -1703,8 +1703,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "p = provider(fields = ['x', 'y'])",
         "p1 = p(x = 1, y = 2, z = 3)"
     );
-    MoreAsserts.assertContainsEvent(ev.getEventCollector(),
-        "unexpected keyword 'z' in call to p(*, x = ?, y = ?)");
+    MoreAsserts.assertContainsEvent(
+        ev.getEventCollector(), "unexpected keyword z in call to instantiate provider p");
   }
 
   @Test
@@ -1714,8 +1714,17 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "p = provider(fields = [])",
         "p1 = p(x = 1, y = 2, z = 3)"
     );
-    MoreAsserts.assertContainsEvent(ev.getEventCollector(),
-        "unexpected keywords 'x', 'y', 'z' in call to p()");
+    MoreAsserts.assertContainsEvent(
+        ev.getEventCollector(), "unexpected keywords x, y, z in call to instantiate provider p");
+  }
+
+  @Test
+  public void providerWithDuplicateFieldsError() throws Exception {
+    ev.setFailFast(false);
+    evalAndExport("p = provider(fields = ['a', 'b'])", "p(a = 1, b = 2, b = 3)");
+    MoreAsserts.assertContainsEvent(
+        ev.getEventCollector(),
+        "got multiple values for parameter b in call to instantiate provider p");
   }
 
   @Test
