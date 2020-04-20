@@ -97,6 +97,7 @@ message FailureDetail {
     PackageOptions package_options = 114;
     RemoteExecution remote_execution = 115;
     Execution execution = 116;
+    Workspaces workspaces = 117;
   }
 
   reserved 102; // For internal use
@@ -250,6 +251,16 @@ message Execution {
     EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     EXECUTION_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     EXECUTION_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message Workspaces {
+  enum Code {
+    WORKSPACES_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    WORKSPACES_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+    WORKSPACES_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
