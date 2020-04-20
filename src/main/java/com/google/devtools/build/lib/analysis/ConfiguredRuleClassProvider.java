@@ -87,19 +87,6 @@ import javax.annotation.Nullable;
 public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   /**
-   * Predicate for determining whether the analysis cache should be cleared, given the new and old
-   * value of an option which has changed and the values of the other new options.
-   */
-  @FunctionalInterface
-  public interface OptionsDiffPredicate {
-    public static final OptionsDiffPredicate ALWAYS_INVALIDATE =
-        (options, option, oldValue, newValue) -> true;
-
-    public boolean apply(
-        BuildOptions newOptions, OptionDefinition option, Object oldValue, Object newValue);
-  }
-
-  /**
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
    * on other such sets.
    */
