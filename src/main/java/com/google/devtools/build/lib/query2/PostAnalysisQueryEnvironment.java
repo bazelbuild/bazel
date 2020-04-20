@@ -482,8 +482,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   }
 
   @Override
-  public Collection<T> getSiblingTargetsInPackage(T target) {
-    throw new UnsupportedOperationException("siblings() not supported");
+  public Collection<T> getSiblingTargetsInPackage(T target) throws QueryException {
+    throw new QueryException("siblings() not supported for post analysis queries");
   }
 
   @Override

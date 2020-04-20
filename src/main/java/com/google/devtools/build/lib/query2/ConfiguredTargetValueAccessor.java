@@ -128,7 +128,7 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
   public Set<QueryVisibility<ConfiguredTargetValue>> getVisibility(ConfiguredTargetValue from)
       throws QueryException, InterruptedException {
     // TODO(bazel-team): implement this if needed.
-    throw new UnsupportedOperationException();
+    throw new QueryException("visible() is not supported on configured targets");
   }
 
   private Target getTargetFromConfiguredTargetValue(ConfiguredTargetValue configuredTargetValue) {
