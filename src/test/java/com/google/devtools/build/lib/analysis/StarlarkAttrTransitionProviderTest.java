@@ -79,7 +79,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeBasicTestFiles() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
@@ -116,7 +116,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testSplitAttrDoesNotIncludeStarlarkSplit() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
         "test/skylark/rules.bzl",
@@ -162,7 +162,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testAccessStarlarkSplitThrowsError() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
         "test/skylark/rules.bzl",
@@ -220,7 +220,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTargetAndRuleNotInWhitelist() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
@@ -288,7 +288,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeReadSettingsTestFiles() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -338,7 +338,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeOptionConversionTestFiles() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -388,7 +388,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testUndeclaredOptionKey() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -421,7 +421,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testDeclaredOutputNotReturned() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -458,7 +458,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testSettingsContainOnlyInputs() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -495,7 +495,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidInputKey() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -530,7 +530,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidNativeOptionInput() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -566,7 +566,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidNativeOptionOutput() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -601,7 +601,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidOutputKey() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -636,7 +636,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidOptionValue() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -669,7 +669,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testDuplicateOutputs() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -762,7 +762,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testCannotTransitionWithoutFlag() throws Exception {
     writeBasicTestFiles();
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=false");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=false");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/skylark:test");
@@ -813,7 +813,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_fromDefault() throws Exception {
-    setSkylarkSemanticsOptions(
+    setStarlarkSemanticsOptions(
         "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api=true");
     writeWhitelistFile();
     writeBuildSettingsBzl();
@@ -841,7 +841,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_fromCommandLine() throws Exception {
-    setSkylarkSemanticsOptions(
+    setStarlarkSemanticsOptions(
         "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api=true");
     writeWhitelistFile();
     writeBuildSettingsBzl();
@@ -1506,7 +1506,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_badValue() throws Exception {
-    setSkylarkSemanticsOptions(
+    setStarlarkSemanticsOptions(
         "--experimental_build_setting_api=true", "--experimental_starlark_config_transitions");
     writeWhitelistFile();
     writeBuildSettingsBzl();
@@ -1560,7 +1560,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_noSuchTarget() throws Exception {
-    setSkylarkSemanticsOptions(
+    setStarlarkSemanticsOptions(
         "--experimental_build_setting_api=true", "--experimental_starlark_config_transitions");
     writeWhitelistFile();
     writeRulesWithAttrTransitionBzl();
@@ -1582,7 +1582,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_notABuildSetting() throws Exception {
-    setSkylarkSemanticsOptions(
+    setStarlarkSemanticsOptions(
         "--experimental_build_setting_api=true", "--experimental_starlark_config_transitions");
     writeWhitelistFile();
     writeRulesWithAttrTransitionBzl();

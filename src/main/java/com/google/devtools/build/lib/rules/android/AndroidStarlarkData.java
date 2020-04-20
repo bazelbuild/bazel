@@ -56,7 +56,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Starlark-visible methods for working with Android data (manifests, resources, and assets). */
-public abstract class AndroidSkylarkData
+public abstract class AndroidStarlarkData
     implements AndroidDataProcessingApi<
         AndroidDataContext,
         ConfiguredTarget,
@@ -396,7 +396,7 @@ public abstract class AndroidSkylarkData
 
   /**
    * Helper method to get default {@link
-   * com.google.devtools.build.lib.rules.android.AndroidSkylarkData.BinaryDataSettings}.
+   * AndroidStarlarkData.BinaryDataSettings}.
    */
   private BinaryDataSettings defaultBinaryDataSettings(AndroidDataContext ctx)
       throws EvalException {
@@ -621,8 +621,8 @@ public abstract class AndroidSkylarkData
   /**
    * Converts a "Noneable" Object passed by Starlark to an nullable object of the appropriate type.
    *
-   * <p>Skylark "Noneable" types are passed in as an Object that may be either the correct type or a
-   * Starlark.NONE object. Starlark will handle type checking, based on the appropriate @param
+   * <p>Starlark "Noneable" types are passed in as an Object that may be either the correct type or
+   * a Starlark.NONE object. Starlark will handle type checking, based on the appropriate @param
    * annotation, but we still need to do the actual cast (or conversion to null) ourselves.
    *
    * @param object the Noneable object

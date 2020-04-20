@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A module that contains Starlark utilities for Java support. */
-public class JavaSkylarkCommon
+public class JavaStarlarkCommon
     implements JavaCommonApi<
         Artifact,
         JavaInfo,
@@ -43,7 +43,7 @@ public class JavaSkylarkCommon
         SkylarkActionFactory> {
   private final JavaSemantics javaSemantics;
 
-  public JavaSkylarkCommon(JavaSemantics javaSemantics) {
+  public JavaStarlarkCommon(JavaSemantics javaSemantics) {
     this.javaSemantics = javaSemantics;
   }
 

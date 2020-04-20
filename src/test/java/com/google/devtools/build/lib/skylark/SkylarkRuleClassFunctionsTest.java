@@ -253,7 +253,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testDisableDeprecatedParams() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disable_deprecated_attr_params=true");
+    setStarlarkSemanticsOptions("--incompatible_disable_deprecated_attr_params=true");
 
     // Verify 'single_file' deprecation.
     EvalException expected =
@@ -597,7 +597,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrNonEmpty() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disable_deprecated_attr_params=false");
+    setStarlarkSemanticsOptions("--incompatible_disable_deprecated_attr_params=false");
     reset();
 
     Attribute attr = buildAttribute("a1", "attr.string_list(non_empty=True)");
@@ -1784,7 +1784,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testRuleAddExecGroup() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_exec_groups=true");
+    setStarlarkSemanticsOptions("--experimental_exec_groups=true");
     reset();
 
     registerDummyStarlarkFunction();
@@ -1844,7 +1844,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testCreateExecGroup() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_exec_groups=true");
+    setStarlarkSemanticsOptions("--experimental_exec_groups=true");
     reset();
 
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");

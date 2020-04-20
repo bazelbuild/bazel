@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseR
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkCommon;
+import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
@@ -91,7 +91,7 @@ public class JavaRules implements RuleSet {
 
     builder.addSkylarkBootstrap(
         new JavaBootstrap(
-            new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE),
+            new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
             JavaInfo.PROVIDER,
             new JavaProtoSkylarkCommon(),
             JavaCcLinkParamsProvider.PROVIDER));

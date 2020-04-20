@@ -223,7 +223,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testMandatoryProvidersListWithSkylark() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
+    setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file("test/BUILD",
             "load('//test:rules.bzl', 'skylark_rule', 'my_rule', 'my_other_rule')",
             "my_rule(name = 'mylib',",
@@ -264,7 +264,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testMandatoryProvidersListWithNative() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
+    setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file("test/BUILD",
             "load('//test:rules.bzl', 'my_rule', 'my_other_rule')",
             "my_rule(name = 'mylib',",
@@ -899,7 +899,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testDeriveArtifactLegacy() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
+    setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     setRuleContext(createRuleContext("//foo:foo"));
     Object result = eval("ruleContext.new_file(ruleContext.genfiles_dir," + "  'a/b.txt')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
@@ -947,7 +947,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testParamFileLegacy() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
+    setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     setRuleContext(createRuleContext("//foo:foo"));
     Object result =
         eval(
@@ -958,7 +958,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testParamFileSuffixLegacy() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
+    setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     setRuleContext(createRuleContext("//foo:foo"));
     Object result =
         eval(
@@ -1173,7 +1173,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testLabelKeyedStringDictAllowsRulesWithRequiredProviders_legacy() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
+    setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "my_rule.bzl",
         "def _impl(ctx):",
@@ -1594,7 +1594,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testAccessingRunfilesSymlinks_legacy() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
+    setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file("test/a.py");
     scratch.file("test/b.py");
     scratch.file(
@@ -1687,7 +1687,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testAccessingRunfilesRootSymlinks_legacy() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
+    setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file("test/a.py");
     scratch.file("test/b.py");
     scratch.file(
@@ -1905,7 +1905,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testAbstractActionInterface() throws Exception {
-    setSkylarkSemanticsOptions(
+    setStarlarkSemanticsOptions(
         "--incompatible_disallow_struct_provider_syntax=false",
         "--incompatible_no_rule_outputs_param=false");
     scratch.file("test/rules.bzl",
@@ -1950,7 +1950,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testCreatedActions() throws Exception {
-    setSkylarkSemanticsOptions(
+    setStarlarkSemanticsOptions(
         "--incompatible_disallow_struct_provider_syntax=false",
         "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
@@ -2036,7 +2036,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testRunShellUsesHelperScriptForLongCommand() throws Exception {
-    setSkylarkSemanticsOptions(
+    setStarlarkSemanticsOptions(
         "--incompatible_disallow_struct_provider_syntax=false",
         "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
@@ -2386,7 +2386,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
+    setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     scratch.file("test/BUILD",
         "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
         "dep_rule(name = 'dep')",
@@ -2429,7 +2429,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testFrozenRuleContextForAspectsHasInaccessibleAttributes() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
+    setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     List<String> attributes = new ArrayList<>();
     attributes.addAll(ctxAttributes);
     attributes.addAll(ImmutableList.of(
@@ -2508,7 +2508,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
           "  outputs = {'file': 'output.txt'},",
           ")"
       );
-      setSkylarkSemanticsOptions("--incompatible_new_actions_api=true");
+      setStarlarkSemanticsOptions("--incompatible_new_actions_api=true");
       invalidatePackages();
       AssertionError e =
           assertThrows(
@@ -2544,7 +2544,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   private void writeIntFlagBuildSettingFiles() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
     scratch.file(
         "test/build_setting.bzl",
         "BuildSettingInfo = provider(fields = ['name', 'value'])",
@@ -2592,7 +2592,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testBuildSettingValue_nonBuildSettingRule() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
     scratch.file(
         "test/rule.bzl",
         "def _impl(ctx):",
@@ -2792,7 +2792,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "something/BUILD",
         "load('//something:defs.bzl', 'use_exec_groups')",
         "use_exec_groups(name = 'nectarine')");
-    setSkylarkSemanticsOptions("--experimental_exec_groups=true");
+    setStarlarkSemanticsOptions("--experimental_exec_groups=true");
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1");

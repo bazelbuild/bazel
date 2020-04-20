@@ -60,7 +60,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
             Mutability mu = Mutability.create("test");
             StarlarkThread thread =
                 StarlarkThread.builder(mu)
-                    .setSemantics(getSkylarkSemantics())
+                    .setSemantics(getStarlarkSemantics())
                     .setGlobals(
                         globals.withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
@@ -107,8 +107,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   }
 
   protected final SkylarkRuleContext createRuleContext(String label) throws Exception {
-    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), null,
-        getSkylarkSemantics());
+    return new SkylarkRuleContext(
+        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
   }
 
   // Disable BuildViewTestCase's overload to avoid unintended calls.

@@ -80,11 +80,11 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for the {@code cc_common} Starlark module. */
 @RunWith(JUnit4.class)
-public class SkylarkCcCommonTest extends BuildViewTestCase {
+public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Before
-  public void setSkylarkSemanticsOptions() throws Exception {
-    setSkylarkSemanticsOptions(SkylarkCcCommonTestHelper.CC_SKYLARK_WHITELIST_FLAG);
+  public void setStarlarkSemanticsOptions() throws Exception {
+    this.setStarlarkSemanticsOptions(SkylarkCcCommonTestHelper.CC_SKYLARK_WHITELIST_FLAG);
     invalidatePackages();
 
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
@@ -1301,7 +1301,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.PIC,
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    setSkylarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
+    this.setStarlarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
     setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
@@ -1418,7 +1418,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       List<String> dynamicLibraryList)
       throws Exception {
     useConfiguration("--features=-supports_interface_shared_libraries");
-    setSkylarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
+    this.setStarlarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
     if (experimentalCcSharedLibrary) {
       setUpCcLinkingContextTestForExperimentalCcSharedLibrary();
     } else {
@@ -1605,7 +1605,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   // This test should replace the old linking context test when the old API is deprecated.
   private void setUpCcLinkingContextTestForExperimentalCcSharedLibrary() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_cc_shared_library");
+    this.setStarlarkSemanticsOptions("--experimental_cc_shared_library");
     scratch.file(
         "a/BUILD",
         "load('//tools/build_defs/cc:rule.bzl', 'crule')",
@@ -5873,7 +5873,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testIncompatibleRequireLinkerInputCcApi() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_require_linker_input_cc_api");
+    setStarlarkSemanticsOptions("--incompatible_require_linker_input_cc_api");
     setUpCcLinkingContextTest();
     checkError("//a:a", "It may be temporarily re-enabled by setting");
   }
