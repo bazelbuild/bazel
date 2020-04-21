@@ -351,7 +351,14 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
 
     if (execGroups != Starlark.NONE) {
-      builder.addExecGroups(Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group"));
+      Map<String, ExecGroup> execGroupDict =
+          Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
+      for (String group : execGroupDict.keySet()) {
+        if (!Identifier.isValid(group)) {
+          throw Starlark.errorf("exec group name '%s' is not a valid identifier.", group);
+        }
+      }
+      builder.addExecGroups(execGroupDict);
     }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {

@@ -1229,7 +1229,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  public ToolchainCollection<ResolvedToolchainContext> getToolchainContextsForTesting() {
+  public ToolchainCollection<ResolvedToolchainContext> getToolchainContexts() {
     return toolchainContexts;
   }
 

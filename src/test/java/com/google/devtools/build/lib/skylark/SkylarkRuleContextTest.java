@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -2774,14 +2775,19 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(hasConstraint).isFalse();
   }
 
-  @Test
-  public void testExecGroupToolchain() throws Exception {
+  private void writeExecGroups() throws Exception {
     createToolchains();
     createPlatforms();
     scratch.file(
         "something/defs.bzl",
+        "result = provider()",
         "def _impl(ctx):",
-        "  return []",
+        "  exec_groups = ctx.exec_groups",
+        "  toolchain = ctx.exec_groups['dragonfruit'].toolchains['//rule:toolchain_type']",
+        "  return [result(",
+        "    toolchain_value = toolchain.value,",
+        "    exec_groups = exec_groups,",
+        "  )]",
         "use_exec_groups = rule(",
         "  implementation = _impl,",
         "  exec_groups = {",
@@ -2796,14 +2802,97 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1");
+  }
+
+  @Test
+  public void testExecGroupToolchain() throws Exception {
+    writeExecGroups();
+
+    ConfiguredTarget target = getConfiguredTarget("//something:nectarine");
+    StructImpl info =
+        (StructImpl)
+            target.get(
+                new StarlarkProvider.Key(
+                    Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
+    assertThat(info).isNotNull();
+    assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
+    assertThat(info.getValue("exec_groups")).isInstanceOf(ExecGroupCollection.class);
     ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
-        createRuleContext("//something:nectarine")
-            .getRuleContext()
-            .getToolchainContextsForTesting()
-            .getContextMap();
+        ((ExecGroupCollection) info.getValue("exec_groups")).getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
         .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
+  }
+
+  @Test
+  public void testInvalidExecGroup() throws Exception {
+    writeExecGroups();
+
+    scratch.overwriteFile(
+        "something/defs.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  exec_groups = ctx.exec_groups",
+        "  toolchain = ctx.exec_groups['unknown_fruit']",
+        "  return []",
+        "use_exec_groups = rule(",
+        "  implementation = _impl,",
+        "  exec_groups = {",
+        "    'dragonfruit': exec_group(toolchains = ['//rule:toolchain_type']),",
+        "  },",
+        ")");
+
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//something:nectarine"));
+    assertContainsEvent(
+        "unrecognized exec group 'unknown_fruit' requested. Available exec groups: [dragonfruit]");
+  }
+
+  @Test
+  public void testCannotAccessDefaultGroupViaExecGroups() throws Exception {
+    writeExecGroups();
+
+    scratch.overwriteFile(
+        "something/defs.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  exec_groups = ctx.exec_groups",
+        "  toolchain = ctx.exec_groups['" + DEFAULT_EXEC_GROUP_NAME + "']",
+        "  return []",
+        "use_exec_groups = rule(",
+        "  implementation = _impl,",
+        "  exec_groups = {",
+        "    'dragonfruit': exec_group(toolchains = ['//rule:toolchain_type']),",
+        "  },",
+        ")");
+
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//something:nectarine"));
+    assertContainsEvent(
+        "unrecognized exec group '"
+            + DEFAULT_EXEC_GROUP_NAME
+            + "' requested. Available exec groups: [dragonfruit]");
+  }
+
+  @Test
+  public void testInvalidExecGroupName() throws Exception {
+    writeExecGroups();
+    String badName = "1bad-stuff-name";
+
+    scratch.overwriteFile(
+        "something/defs.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  exec_groups = ctx.exec_groups",
+        "  toolchain = ctx.exec_groups['" + badName + "']",
+        "  return []",
+        "use_exec_groups = rule(",
+        "  implementation = _impl,",
+        "  exec_groups = {",
+        "    '" + badName + "': exec_group(toolchains = ['//rule:toolchain_type']),",
+        "  },",
+        ")");
+
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//something:nectarine"));
+    assertContainsEvent("exec group name '" + badName + "' is not a valid identifier.");
   }
 }

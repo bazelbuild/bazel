@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
@@ -695,6 +696,11 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   @Override
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
     return ruleContext.targetPlatformHasConstraint(constraintValue);
+  }
+
+  @Override
+  public ExecGroupCollection execGroups() {
+    return new ExecGroupCollection(ruleContext.getToolchainContexts());
   }
 
   @Override
