@@ -209,15 +209,26 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    */
   public Iterable<Object> getPossibleAttributeValues(Rule rule, Attribute attr) {
     // Values may be null, so use normal collections rather than immutable collections.
-    // This special case for the visibility attribute is needed because its value is replaced
-    // with an empty list during package loading if it is public or private in order not to visit
-    // the package called 'visibility'.
-    if (attr.getName().equals("visibility")) {
-      List<Object> result = new ArrayList<>(1);
-      result.add(rule.getVisibility().getDeclaredLabels());
-      return result;
+
+    switch (attr.getName()) {
+      case "visibility":
+        // This special case for the visibility attribute is needed because its value is replaced
+        // with an empty list during package loading if it is public or private in order not to
+        // visit the package called 'visibility'.
+        return Lists.newArrayList((Object) rule.getVisibility().getDeclaredLabels());
+      case "licenses":
+        // Starlark rules may define their own "licenses" attributes with different types -
+        // we shouldn't trigger the special "licenses" on those cases.
+        if (attr.getType() == BuildType.LICENSE) {
+          return Lists.newArrayList(rule.getLicense());
+        } else {
+          return Lists.newArrayList(visitAttribute(attr.getName(), attr.getType()));
+        }
+      case "distribs":
+        return Lists.newArrayList((Object) rule.getDistributions());
+      default:
+        return Lists.newArrayList(visitAttribute(attr.getName(), attr.getType()));
     }
-    return Lists.<Object>newArrayList(visitAttribute(attr.getName(), attr.getType()));
   }
 
   /**
