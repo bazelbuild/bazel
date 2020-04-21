@@ -33,7 +33,7 @@ def workspace_and_buildfile(ctx):
 
     This rule is inteded to be used in the implementation function of a
     repository rule.
-    It assumes the parameters `name`, `build_file`, `build_file_contents`,
+    It assumes the parameters `name`, `build_file`, `build_file_content`,
     `workspace_file`, and `workspace_file_content` to be
     present in `ctx.attr`, the latter four possibly with value None.
 
