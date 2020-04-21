@@ -209,12 +209,15 @@ public final class CallUtils {
   }
 
   /**
-   * Returns the annotation from the SkylarkCallable-annotated self-call method of the specified
-   * class, or null if not found.
+   * Returns a {@code selfCall=true} method for the given class under the given Starlark semantics,
+   * or null if no such method exists.
    */
-  public static SkylarkCallable getSelfCallAnnotation(Class<?> objClass) {
-    MethodDescriptor selfCall =
-        getSelfCallMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS, objClass);
-    return selfCall == null ? null : selfCall.getAnnotation();
+  @Nullable
+  public static Method getSelfCallMethod(StarlarkSemantics semantics, Class<?> objClass) {
+    MethodDescriptor descriptor = getCacheValue(objClass, semantics).selfCall;
+    if (descriptor == null) {
+      return null;
+    }
+    return descriptor.getMethod();
   }
 }

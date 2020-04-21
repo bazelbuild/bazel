@@ -32,11 +32,13 @@ import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -113,9 +115,12 @@ public class ApiExporter {
       } else {
         SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
         if (typeModule != null) {
-          SkylarkCallable selfCall = CallUtils.getSelfCallAnnotation(obj.getClass());
-          if (selfCall != null) {
-            value = valueFromAnnotation(selfCall);
+          Method selfCallMethod =
+              CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass());
+          if (selfCallMethod != null) {
+            // selfCallMethod may be from a subclass of the annotated method.
+            SkylarkCallable annotation = SkylarkInterfaceUtils.getSkylarkCallable(selfCallMethod);
+            value = valueFromAnnotation(annotation);
           } else {
             value.setName(entry.getKey());
             value.setType(entry.getKey());

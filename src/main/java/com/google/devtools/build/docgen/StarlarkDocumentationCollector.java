@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.CallUtils;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -176,17 +177,11 @@ final class StarlarkDocumentationCollector {
   }
 
   @Nullable
-  private static Map.Entry<Method, SkylarkCallable> getSelfCallConstructorMethod(
-      Class<?> objectClass) {
-    ImmutableMap<Method, SkylarkCallable> methods =
-        CallUtils.collectSkylarkMethodsWithAnnotation(objectClass);
-    for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
-      if (entry.getValue().selfCall()
-          && entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
-        // It's illegal, and checked by the interpreter, for there to be more than one method
-        // annotated with selfCall. Thus, it's valid to return on the first find.
-        return entry;
-      }
+  private static Method getSelfCallConstructorMethod(Class<?> objectClass) {
+    Method selfCallMethod =
+        CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, objectClass);
+    if (selfCallMethod != null && selfCallMethod.isAnnotationPresent(SkylarkConstructor.class)) {
+      return selfCallMethod;
     }
     return null;
   }
@@ -213,12 +208,11 @@ final class StarlarkDocumentationCollector {
   }
 
   private static void collectConstructor(
-      Map<String, StarlarkModuleDoc> modules,
-      Class<?> moduleClass,
-      Method method,
-      SkylarkCallable callable) {
+      Map<String, StarlarkModuleDoc> modules, Class<?> moduleClass, Method method) {
     SkylarkConstructor constructorAnnotation =
         Preconditions.checkNotNull(method.getAnnotation(SkylarkConstructor.class));
+    SkylarkCallable callable =
+        Preconditions.checkNotNull(method.getAnnotation(SkylarkCallable.class));
     Class<?> objectClass = constructorAnnotation.objectType();
     SkylarkModule objectModule = objectClass.getAnnotation(SkylarkModule.class);
     if (objectModule == null || !objectModule.documented()) {
@@ -251,19 +245,21 @@ final class StarlarkDocumentationCollector {
    */
   private static void collectConstructorMethods(
       Class<?> moduleClass, Map<String, StarlarkModuleDoc> modules) {
+    Method selfCallConstructor = getSelfCallConstructorMethod(moduleClass);
+    if (selfCallConstructor != null) {
+      collectConstructor(modules, moduleClass, selfCallConstructor);
+    }
 
     ImmutableMap<Method, SkylarkCallable> methods =
         CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
     for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
       if (entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
-        collectConstructor(modules, moduleClass, entry.getKey(), entry.getValue());
+        collectConstructor(modules, moduleClass, entry.getKey());
       }
       Class<?> returnClass = entry.getKey().getReturnType();
-      Map.Entry<Method, SkylarkCallable> selfCallConstructor =
-          getSelfCallConstructorMethod(returnClass);
-      if (selfCallConstructor != null) {
-        collectConstructor(
-            modules, moduleClass, selfCallConstructor.getKey(), selfCallConstructor.getValue());
+      Method returnClassConstructor = getSelfCallConstructorMethod(returnClass);
+      if (returnClassConstructor != null) {
+        collectConstructor(modules, moduleClass, returnClassConstructor);
       }
     }
   }

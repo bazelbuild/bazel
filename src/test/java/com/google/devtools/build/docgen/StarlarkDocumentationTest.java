@@ -18,12 +18,14 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkModuleDoc;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Depset;
@@ -312,6 +314,23 @@ public class StarlarkDocumentationTest {
     }
   }
 
+  /** A module which has a selfCall method which constructs copies of MockClassA. */
+  @SkylarkModule(
+      name = "MockClassWithSelfCallConstructor",
+      doc = "MockClassWithSelfCallConstructor")
+  private static class MockClassWithSelfCallConstructor implements StarlarkValue {
+    @SkylarkCallable(name = "one", doc = "one")
+    public MockClassCommonNameOne getOne() {
+      return null;
+    }
+
+    @SkylarkCallable(name = "makeMockClassA", selfCall = true, doc = "makeMockClassA")
+    @SkylarkConstructor(objectType = MockClassA.class, receiverNameForDoc = "MockClassA")
+    public MockClassA makeMockClassA() {
+      return new MockClassA();
+    }
+  }
+
   @Test
   public void testSkylarkCallableParameters() throws Exception {
     Map<String, StarlarkModuleDoc> objects = collect(MockClassD.class);
@@ -466,6 +485,18 @@ public class StarlarkDocumentationTest {
     List<String> methodNames =
         methods.stream().map(m -> m.getName()).collect(Collectors.toList());
     assertThat(methodNames).containsExactly("one", "two");
+  }
+
+  @Test
+  public void testDocumentSelfcallConstructor() {
+    Map<String, StarlarkModuleDoc> objects =
+        collect(ImmutableList.of(MockClassA.class, MockClassWithSelfCallConstructor.class));
+    Collection<StarlarkMethodDoc> methods = objects.get("MockClassA").getMethods();
+    StarlarkMethodDoc firstMethod = methods.iterator().next();
+    assertThat(firstMethod).isInstanceOf(StarlarkConstructorMethodDoc.class);
+
+    List<String> methodNames = methods.stream().map(m -> m.getName()).collect(Collectors.toList());
+    assertThat(methodNames).containsExactly("MockClassA", "get");
   }
 
   private Map<String, StarlarkModuleDoc> collect(Iterable<Class<?>> classObjects) {
