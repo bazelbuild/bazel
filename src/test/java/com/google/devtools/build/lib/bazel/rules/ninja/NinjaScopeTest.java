@@ -300,7 +300,7 @@ public class NinjaScopeTest {
 
   private static NinjaRule rule(String name, String command) {
     return new NinjaRule(
-        ImmutableSortedMap.of(
+        name, ImmutableSortedMap.of(
             NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name),
             NinjaRuleVariable.COMMAND, NinjaVariableValue.createPlainText(command)));
   }
@@ -308,7 +308,11 @@ public class NinjaScopeTest {
   private static NinjaVariableValue parseValue(String text) throws Exception {
     ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     NinjaLexer lexer =
-        new NinjaLexer(new FileFragment(bb, 0, 0, bb.limit()), BlazeInterners.newWeakInterner());
-    return new NinjaParserStep(lexer).parseVariableValue();
+        new NinjaLexer(new FileFragment(bb, 0, 0, bb.limit()));
+    return new NinjaParserStep(
+        lexer,
+        BlazeInterners.newWeakInterner(),
+        BlazeInterners.newWeakInterner())
+        .parseVariableValue();
   }
 }

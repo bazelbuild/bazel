@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
@@ -39,9 +40,15 @@ import javax.annotation.Nullable;
 public class NinjaParserStep {
 
   private final NinjaLexer lexer;
+  private final Interner<PathFragment> pathFragmentInterner;
+  private final Interner<String> nameInterner;
 
-  public NinjaParserStep(NinjaLexer lexer) {
+  public NinjaParserStep(NinjaLexer lexer,
+      Interner<PathFragment> pathFragmentInterner,
+      Interner<String> nameInterner) {
     this.lexer = lexer;
+    this.pathFragmentInterner = pathFragmentInterner;
+    this.nameInterner = nameInterner;
   }
 
   /** Parses variable at the current lexer position. */
@@ -50,7 +57,7 @@ public class NinjaParserStep {
     parseExpected(NinjaToken.EQUALS);
 
     NinjaVariableValue value = parseVariableValue();
-    return Pair.of(name, value);
+    return Pair.of(nameInterner.intern(name), value);
   }
 
   @VisibleForTesting
@@ -194,7 +201,7 @@ public class NinjaParserStep {
         parseExpected(NinjaToken.NEWLINE);
       }
     }
-    return new NinjaRule(variablesBuilder.build());
+    return new NinjaRule(nameInterner.intern(name), variablesBuilder.build());
   }
 
   /** Parses Ninja pool at the current lexer position. */
@@ -284,7 +291,7 @@ public class NinjaParserStep {
    */
   public NinjaTarget parseNinjaTarget(NinjaScope fileScope, long offset)
       throws GenericParsingException {
-    NinjaTarget.Builder builder = NinjaTarget.builder(fileScope, offset);
+    NinjaTarget.Builder builder = NinjaTarget.builder(fileScope, offset, nameInterner);
     parseExpected(NinjaToken.BUILD);
 
     Map<InputOutputKind, List<NinjaVariableValue>> pathValuesMap =
@@ -299,11 +306,9 @@ public class NinjaParserStep {
           entry.getValue().stream()
               .map(
                   value ->
-                      lexer
-                          .getPathFragmentInterner()
-                          .intern(
-                              PathFragment.create(
-                                  targetScope.getExpandedValue(Long.MAX_VALUE, value))))
+                      pathFragmentInterner.intern(
+                          PathFragment.create(
+                              targetScope.getExpandedValue(Long.MAX_VALUE, value))))
               .collect(Collectors.toList());
       InputOutputKind inputOutputKind = entry.getKey();
       if (inputOutputKind instanceof InputKind) {
