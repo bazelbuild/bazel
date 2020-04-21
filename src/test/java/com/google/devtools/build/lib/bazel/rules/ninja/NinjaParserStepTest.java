@@ -459,10 +459,9 @@ public class NinjaParserStepTest {
 
   private static NinjaParserStep createParser(String text) {
     ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
-    NinjaLexer lexer =
-        new NinjaLexer(
-            new FileFragment(buffer, 0, 0, buffer.limit()), BlazeInterners.newWeakInterner());
-    return new NinjaParserStep(lexer);
+    NinjaLexer lexer = new NinjaLexer(new FileFragment(buffer, 0, 0, buffer.limit()));
+    return new NinjaParserStep(
+        lexer, BlazeInterners.newWeakInterner(), BlazeInterners.newWeakInterner());
   }
 
   private static class MockValueExpander implements Function<String, String> {
