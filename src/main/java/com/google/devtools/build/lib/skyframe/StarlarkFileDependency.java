@@ -26,12 +26,12 @@ import java.util.Objects;
  * <p>The dependency structure must be acyclic.
  */
 @AutoCodec
-public class SkylarkFileDependency {
+public class StarlarkFileDependency {
 
   private final Label label;
-  private final ImmutableList<SkylarkFileDependency> dependencies;
+  private final ImmutableList<StarlarkFileDependency> dependencies;
 
-  public SkylarkFileDependency(Label label, ImmutableList<SkylarkFileDependency> dependencies) {
+  public StarlarkFileDependency(Label label, ImmutableList<StarlarkFileDependency> dependencies) {
     this.label = label;
     this.dependencies = dependencies;
   }
@@ -40,7 +40,7 @@ public class SkylarkFileDependency {
    * Returns the list of direct Starlark file dependencies of the Starlark extension file
    * corresponding to this object.
    */
-  public ImmutableList<SkylarkFileDependency> getDependencies() {
+  public ImmutableList<StarlarkFileDependency> getDependencies() {
     return dependencies;
   }
 
@@ -54,10 +54,10 @@ public class SkylarkFileDependency {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof SkylarkFileDependency)) {
+    if (!(obj instanceof StarlarkFileDependency)) {
       return false;
     }
-    SkylarkFileDependency other = (SkylarkFileDependency) obj;
+    StarlarkFileDependency other = (StarlarkFileDependency) obj;
     if (!label.equals(other.getLabel())) {
       return false;
     }

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 /** {@link Bootstrap} for Starlark objects related to cpp rules. */
 public class CcBootstrap implements Bootstrap {
   private final CcModuleApi<
-          ? extends SkylarkActionFactoryApi,
+          ? extends StarlarkActionFactoryApi,
           ? extends FileApi,
           ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
           ? extends FeatureConfigurationApi,
@@ -51,7 +51,7 @@ public class CcBootstrap implements Bootstrap {
 
   public CcBootstrap(
       CcModuleApi<
-              ? extends SkylarkActionFactoryApi,
+              ? extends StarlarkActionFactoryApi,
               ? extends FileApi,
               ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
               ? extends FeatureConfigurationApi,

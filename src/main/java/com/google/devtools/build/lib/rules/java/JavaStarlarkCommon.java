@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
@@ -40,7 +40,7 @@ public class JavaStarlarkCommon
         JavaRuntimeInfo,
         ConstraintValueInfo,
         SkylarkRuleContext,
-        SkylarkActionFactory> {
+        StarlarkActionFactory> {
   private final JavaSemantics javaSemantics;
 
   public JavaStarlarkCommon(JavaSemantics javaSemantics) {
@@ -112,7 +112,7 @@ public class JavaStarlarkCommon
 
   @Override
   public Artifact runIjar(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       Artifact jar,
       Object targetLabel,
       JavaToolchainProvider javaToolchain)
@@ -124,7 +124,7 @@ public class JavaStarlarkCommon
 
   @Override
   public Artifact stampJar(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       Artifact jar,
       Label targetLabel,
       JavaToolchainProvider javaToolchain)
@@ -134,7 +134,7 @@ public class JavaStarlarkCommon
 
   @Override
   public Artifact packSources(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       Artifact outputJar,
       Sequence<?> sourceFiles, // <Artifact> expected.
       Sequence<?> sourceJars, // <Artifact> expected.

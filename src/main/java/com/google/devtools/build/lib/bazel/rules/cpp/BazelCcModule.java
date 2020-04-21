@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.syntax.Tuple;
  */
 public class BazelCcModule extends CcModule
     implements BazelCcModuleApi<
-        SkylarkActionFactory,
+        StarlarkActionFactory,
         Artifact,
         ConstraintValueInfo,
         SkylarkRuleContext,
@@ -68,7 +68,7 @@ public class BazelCcModule extends CcModule
 
   @Override
   public Tuple<Object> compile(
-      SkylarkActionFactory skylarkActionFactoryApi,
+      StarlarkActionFactory skylarkActionFactoryApi,
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       Sequence<?> sources, // <Artifact> expected
@@ -115,7 +115,7 @@ public class BazelCcModule extends CcModule
 
   @Override
   public CcLinkingOutputs link(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       Object compilationOutputs,

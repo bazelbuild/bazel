@@ -37,15 +37,15 @@ public class StarlarkImportLookupValue implements SkyValue {
 
   private final Extension environmentExtension;
   /**
-   * The immediate Starlark file dependency descriptor class corresponding to this value.
-   * Using this reference it's possible to reach the transitive closure of Starlark files
-   * on which this Starlark file depends.
+   * The immediate Starlark file dependency descriptor class corresponding to this value. Using this
+   * reference it's possible to reach the transitive closure of Starlark files on which this
+   * Starlark file depends.
    */
-  private final SkylarkFileDependency dependency;
+  private final StarlarkFileDependency dependency;
 
   @VisibleForTesting
   public StarlarkImportLookupValue(
-      Extension environmentExtension, SkylarkFileDependency dependency) {
+      Extension environmentExtension, StarlarkFileDependency dependency) {
     this.environmentExtension = Preconditions.checkNotNull(environmentExtension);
     this.dependency = Preconditions.checkNotNull(dependency);
   }
@@ -57,10 +57,8 @@ public class StarlarkImportLookupValue implements SkyValue {
     return environmentExtension;
   }
 
-  /**
-   * Returns the immediate Starlark file dependency corresponding to this import lookup value.
-   */
-  public SkylarkFileDependency getDependency() {
+  /** Returns the immediate Starlark file dependency corresponding to this import lookup value. */
+  public StarlarkFileDependency getDependency() {
     return dependency;
   }
 

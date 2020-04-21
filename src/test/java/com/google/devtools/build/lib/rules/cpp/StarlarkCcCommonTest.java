@@ -84,7 +84,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Before
   public void setStarlarkSemanticsOptions() throws Exception {
-    this.setStarlarkSemanticsOptions(SkylarkCcCommonTestHelper.CC_SKYLARK_WHITELIST_FLAG);
+    this.setStarlarkSemanticsOptions(StarlarkCcCommonTestHelper.CC_STARLARK_WHITELIST_FLAG);
     invalidatePackages();
 
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");

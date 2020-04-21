@@ -128,7 +128,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
 
   private final boolean isForAspect;
 
-  private final SkylarkActionFactory actionFactory;
+  private final StarlarkActionFactory actionFactory;
 
   // The fields below intended to be final except that they can be cleared by calling `nullify()`
   // when the object becomes featureless.
@@ -159,7 +159,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       @Nullable AspectDescriptor aspectDescriptor,
       StarlarkSemantics starlarkSemantics)
       throws EvalException, InterruptedException, RuleErrorException {
-    this.actionFactory = new SkylarkActionFactory(this, starlarkSemantics, ruleContext);
+    this.actionFactory = new StarlarkActionFactory(this, starlarkSemantics, ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
     this.fragments = new FragmentCollection(ruleContext, NoTransition.INSTANCE);
@@ -494,7 +494,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   }
 
   @Override
-  public SkylarkActionFactory actions() {
+  public StarlarkActionFactory actions() {
     return actionFactory;
   }
 
@@ -618,7 +618,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
           ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
     }
     TransitiveInfoCollection target = (TransitiveInfoCollection) targetUnchecked;
-    return (target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null)
+    return (target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR) != null)
         && InstrumentedFilesCollector.shouldIncludeLocalSources(config, target);
   }
 

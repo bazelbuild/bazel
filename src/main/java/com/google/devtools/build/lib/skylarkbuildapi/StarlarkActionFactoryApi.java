@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc =
         "Module providing functions to create actions. "
             + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>.")
-public interface SkylarkActionFactoryApi extends StarlarkValue {
+public interface StarlarkActionFactoryApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "declare_file",

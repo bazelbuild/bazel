@@ -17,8 +17,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
@@ -38,7 +38,7 @@ public class FakeJavaCommon
         FakeJavaRuntimeInfoApi,
         ConstraintValueInfoApi,
         SkylarkRuleContextApi<ConstraintValueInfoApi>,
-        SkylarkActionFactoryApi> {
+        StarlarkActionFactoryApi> {
 
   @Override
   public ProviderApi getJavaProvider() {
@@ -72,7 +72,7 @@ public class FakeJavaCommon
 
   @Override
   public FileApi runIjar(
-      SkylarkActionFactoryApi actions,
+      StarlarkActionFactoryApi actions,
       FileApi jar,
       Object targetLabel,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain) {
@@ -81,7 +81,7 @@ public class FakeJavaCommon
 
   @Override
   public FileApi stampJar(
-      SkylarkActionFactoryApi actions,
+      StarlarkActionFactoryApi actions,
       FileApi jar,
       Label targetLabel,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain) {
@@ -90,7 +90,7 @@ public class FakeJavaCommon
 
   @Override
   public FileApi packSources(
-      SkylarkActionFactoryApi actions,
+      StarlarkActionFactoryApi actions,
       FileApi outputJar,
       Sequence<?> sourceFiles,
       Sequence<?> sourceJars,

@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
+import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.events.Event;
@@ -161,7 +161,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     }
 
     ConfiguredAspect configuredAspect = builder.build();
-    SkylarkProviderValidationUtil.validateArtifacts(ruleContext);
+    StarlarkProviderValidationUtil.validateArtifacts(ruleContext);
     return configuredAspect;
   }
 

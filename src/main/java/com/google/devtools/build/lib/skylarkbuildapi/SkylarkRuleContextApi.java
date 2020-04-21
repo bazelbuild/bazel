@@ -154,7 +154,7 @@ public interface SkylarkRuleContextApi<ConstraintValueT extends ConstraintValueI
       name = "actions",
       structField = true,
       doc = "Contains methods for declaring output files and the actions that produce them.")
-  SkylarkActionFactoryApi actions();
+  StarlarkActionFactoryApi actions();
 
   @SkylarkCallable(
       name = "created_actions",

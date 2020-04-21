@@ -2096,7 +2096,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ImmutableList.Builder<String> basenames = ImmutableList.builder();
     for (Artifact baselineCoverage :
         target
-            .get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR)
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
             .getBaselineCoverageArtifacts()
             .toList()) {
       BaselineCoverageAction baselineAction =

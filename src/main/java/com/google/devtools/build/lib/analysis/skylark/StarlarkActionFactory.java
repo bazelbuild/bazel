@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -69,14 +69,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 /** Provides a Starlark interface for all action creation needs. */
-public class SkylarkActionFactory implements SkylarkActionFactoryApi {
+public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private final SkylarkRuleContext context;
   private final StarlarkSemantics starlarkSemantics;
   private RuleContext ruleContext;
   /** Counter for actions.run_shell helper scripts. Every script must have a unique name. */
   private int runShellOutputCounter = 0;
 
-  public SkylarkActionFactory(
+  public StarlarkActionFactory(
       SkylarkRuleContext context, StarlarkSemantics starlarkSemantics, RuleContext ruleContext) {
     this.context = context;
     this.starlarkSemantics = starlarkSemantics;
@@ -94,7 +94,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
    *
    * @throws EvalException if actions cannot be registered with this object
    */
-  public ActionRegistry asActionRegistry(SkylarkActionFactory skylarkActionFactory)
+  public ActionRegistry asActionRegistry(StarlarkActionFactory starlarkActionFactory)
       throws EvalException {
     validateActionCreation();
     return new ActionRegistry() {
@@ -106,7 +106,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
       @Override
       public ActionLookupValue.ActionLookupKey getOwner() {
-        return skylarkActionFactory
+        return starlarkActionFactory
             .getActionConstructionContext()
             .getAnalysisEnvironment()
             .getOwner();
@@ -329,7 +329,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   }
 
   /**
-   * Registers actions in the context of this {@link SkylarkActionFactory}.
+   * Registers actions in the context of this {@link StarlarkActionFactory}.
    *
    * <p>Use {@link #getActionConstructionContext()} to obtain the context required to create those
    * actions.

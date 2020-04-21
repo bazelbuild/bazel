@@ -32,22 +32,22 @@ import org.junit.runners.JUnit4;
 /** "White-box" unit test of cc_import rule. */
 @RunWith(JUnit4.class)
 public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase {
-  protected String skylarkImplementationLoadStatement = "";
+  protected String starlarkImplementationLoadStatement = "";
 
   @Before
-  public void setSkylarkImplementationLoadStatement() throws Exception {
-    setStarlarkSemanticsOptions(SkylarkCcCommonTestHelper.CC_SKYLARK_WHITELIST_FLAG);
+  public void setStarlarkImplementationLoadStatement() throws Exception {
+    setStarlarkSemanticsOptions(StarlarkCcCommonTestHelper.CC_STARLARK_WHITELIST_FLAG);
     invalidatePackages();
-    setIsSkylarkImplementation();
+    setIsStarlarkImplementation();
   }
 
-  protected abstract void setIsSkylarkImplementation();
+  protected abstract void setIsStarlarkImplementation();
 
   @Test
   public void testCcImportRule() throws Exception {
     scratch.file(
         "third_party/BUILD",
-        skylarkImplementationLoadStatement,
+        starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'a_import',",
         "  static_library = 'A.a',",
@@ -66,7 +66,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         "a",
         "foo",
         "does not produce any cc_import static_library files " + "(expected .a, .lib or .pic.a)",
-        skylarkImplementationLoadStatement,
+        starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",
         "  static_library = 'libfoo.so',",
@@ -75,7 +75,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         "b",
         "foo",
         "does not produce any cc_import shared_library files (expected .so, .dylib or .dll)",
-        skylarkImplementationLoadStatement,
+        starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",
         "  shared_library = 'libfoo.a',",
@@ -85,7 +85,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         "foo",
         "does not produce any cc_import interface_library files "
             + "(expected .ifso, .tbd, .lib, .so or .dylib)",
-        skylarkImplementationLoadStatement,
+        starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",
         "  shared_library = 'libfoo.dll',",
@@ -95,7 +95,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         "d",
         "foo",
         "'shared_library' shouldn't be specified when 'system_provided' is true",
-        skylarkImplementationLoadStatement,
+        starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",
         "  shared_library = 'libfoo.so',",
@@ -105,7 +105,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         "e",
         "foo",
         "'shared_library' should be specified when 'system_provided' is false",
-        skylarkImplementationLoadStatement,
+        starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",
         "  interface_library = 'libfoo.ifso',",
@@ -128,7 +128,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         scratchConfiguredTarget(
             "a",
             "foo",
-            skylarkImplementationLoadStatement,
+            starlarkImplementationLoadStatement,
             "cc_import(name = 'foo', shared_library = 'libfoo.dll')");
     Artifact dynamicLibrary =
         target
@@ -152,7 +152,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         scratchConfiguredTarget(
             "a",
             "foo",
-            skylarkImplementationLoadStatement,
+            starlarkImplementationLoadStatement,
             "cc_import(name = 'foo', static_library = 'libfoo.a')");
     Artifact library =
         target
@@ -171,7 +171,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         scratchConfiguredTarget(
             "a",
             "foo",
-            skylarkImplementationLoadStatement,
+            starlarkImplementationLoadStatement,
             "cc_import(name = 'foo', shared_library = 'libfoo.so')");
     Artifact dynamicLibrary =
         target
@@ -198,7 +198,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         scratchConfiguredTarget(
             "a",
             "foo",
-            skylarkImplementationLoadStatement,
+            starlarkImplementationLoadStatement,
             "cc_import(name = 'foo', shared_library = 'libfoo.so.1ab2.1_a2')");
     Artifact dynamicLibrary =
         target
@@ -224,7 +224,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         "a",
         "foo",
         "does not produce any cc_import shared_library files " + "(expected .so, .dylib or .dll)",
-        skylarkImplementationLoadStatement,
+        starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",
         "  shared_library = 'libfoo.so.1ab2.ab',",
@@ -238,7 +238,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         scratchConfiguredTarget(
             "b",
             "foo",
-            skylarkImplementationLoadStatement,
+            starlarkImplementationLoadStatement,
             "cc_import(name = 'foo', shared_library = 'libfoo.so',"
                 + " interface_library = 'libfoo.ifso')");
     ;
@@ -266,7 +266,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         scratchConfiguredTarget(
             "a",
             "foo",
-            skylarkImplementationLoadStatement,
+            starlarkImplementationLoadStatement,
             "cc_import(name = 'foo', static_library = 'libfoo.a', shared_library = 'libfoo.so')");
 
     Artifact library =
@@ -302,7 +302,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         scratchConfiguredTarget(
             "a",
             "foo",
-            skylarkImplementationLoadStatement,
+            starlarkImplementationLoadStatement,
             "cc_import(name = 'foo', static_library = 'libfoo.a', alwayslink = 1)");
     boolean alwayslink =
         target
@@ -320,7 +320,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         scratchConfiguredTarget(
             "a",
             "foo",
-            skylarkImplementationLoadStatement,
+            starlarkImplementationLoadStatement,
             "cc_import(name = 'foo', interface_library = 'libfoo.ifso', system_provided = 1)");
     Artifact library =
         target
@@ -344,7 +344,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         scratchConfiguredTarget(
                 "a",
                 "foo",
-                skylarkImplementationLoadStatement,
+                starlarkImplementationLoadStatement,
                 "cc_import(name = 'foo', static_library = 'libfoo.a', hdrs = ['foo.h'])")
             .get(CcInfo.PROVIDER)
             .getCcCompilationContext()

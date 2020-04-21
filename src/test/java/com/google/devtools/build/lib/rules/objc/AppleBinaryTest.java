@@ -1548,7 +1548,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
     ConfiguredTarget bundleTarget = getConfiguredTarget("//examples:bundle");
     InstrumentedFilesInfo instrumentedFilesProvider =
-        bundleTarget.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
+        bundleTarget.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     assertThat(instrumentedFilesProvider).isNotNull();
 
     assertThat(Artifact.toRootRelativePaths(instrumentedFilesProvider.getInstrumentedFiles()))

@@ -72,7 +72,7 @@ import javax.annotation.Nullable;
  * <p>Given a {@link Label} referencing a Starlark file, attempts to locate the file and load it.
  * The Label must be absolute, and must not reference the special {@code external} package. If
  * loading is successful, returns a {@link StarlarkImportLookupValue} that encapsulates the loaded
- * {@link Extension} and {@link SkylarkFileDependency} information. If loading is unsuccessful,
+ * {@link Extension} and {@link StarlarkFileDependency} information. If loading is unsuccessful,
  * throws a {@link StarlarkImportLookupFunctionException} that encapsulates the cause of the
  * failure.
  */
@@ -438,7 +438,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
 
     // Process the loaded imports.
     Map<String, Extension> extensionsForImports = Maps.newHashMapWithExpectedSize(loadMap.size());
-    ImmutableList.Builder<SkylarkFileDependency> fileDependencies =
+    ImmutableList.Builder<StarlarkFileDependency> fileDependencies =
         ImmutableList.builderWithExpectedSize(loadMap.size());
     for (Map.Entry<String, Label> importEntry : loadMap.entrySet()) {
       String importString = importEntry.getKey();
@@ -469,7 +469,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
             repoMapping);
     StarlarkImportLookupValue result =
         new StarlarkImportLookupValue(
-            extension, new SkylarkFileDependency(fileLabel, fileDependencies.build()));
+            extension, new StarlarkFileDependency(fileLabel, fileDependencies.build()));
     return result;
   }
 

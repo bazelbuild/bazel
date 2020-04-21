@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -85,7 +85,7 @@ import javax.annotation.Nullable;
 /** A module that contains Starlark utilities for C++ support. */
 public abstract class CcModule
     implements CcModuleApi<
-        SkylarkActionFactory,
+        StarlarkActionFactory,
         Artifact,
         CcToolchainProvider,
         FeatureConfigurationForStarlark,
@@ -405,8 +405,8 @@ public abstract class CcModule
       String interfaceLibraryPath,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    SkylarkActionFactory skylarkActionFactory =
-        nullIfNone(actionsObject, SkylarkActionFactory.class);
+    StarlarkActionFactory skylarkActionFactory =
+        nullIfNone(actionsObject, StarlarkActionFactory.class);
     FeatureConfigurationForStarlark featureConfiguration =
         nullIfNone(featureConfigurationObject, FeatureConfigurationForStarlark.class);
     CcToolchainProvider ccToolchainProvider =
@@ -1474,7 +1474,7 @@ public abstract class CcModule
 
   @Override
   public Tuple<Object> createLinkingContextFromCompilationOutputs(
-      SkylarkActionFactory skylarkActionFactoryApi,
+      StarlarkActionFactory skylarkActionFactoryApi,
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       CcCompilationOutputs compilationOutputs,
@@ -1490,7 +1490,7 @@ public abstract class CcModule
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     validateLanguage(language);
-    SkylarkActionFactory actions = skylarkActionFactoryApi;
+    StarlarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
@@ -1595,7 +1595,7 @@ public abstract class CcModule
     }
   }
 
-  protected Label getCallerLabel(SkylarkActionFactory actions, String name) throws EvalException {
+  protected Label getCallerLabel(StarlarkActionFactory actions, String name) throws EvalException {
     try {
       return Label.create(
           actions.getActionConstructionContext().getActionOwner().getLabel().getPackageIdentifier(),
@@ -1606,7 +1606,7 @@ public abstract class CcModule
   }
 
   protected Tuple<Object> compile(
-      SkylarkActionFactory skylarkActionFactoryApi,
+      StarlarkActionFactory skylarkActionFactoryApi,
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       Sequence<?> sourcesUnchecked, // <Artifact> expected
@@ -1632,7 +1632,7 @@ public abstract class CcModule
     List<Artifact> publicHeaders = Sequence.cast(publicHeadersUnchecked, Artifact.class, "srcs");
     List<Artifact> privateHeaders = Sequence.cast(privateHeadersUnchecked, Artifact.class, "srcs");
 
-    SkylarkActionFactory actions = skylarkActionFactoryApi;
+    StarlarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
@@ -1721,7 +1721,7 @@ public abstract class CcModule
   }
 
   protected CcLinkingOutputs link(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       CcCompilationOutputs compilationOutputs,

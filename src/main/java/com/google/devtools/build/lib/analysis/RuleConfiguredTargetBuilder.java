@@ -410,7 +410,7 @@ public final class RuleConfiguredTargetBuilder {
             .setInstrumentedFiles(
                 (InstrumentedFilesInfo)
                     providersBuilder.getProvider(
-                        InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR.getKey()));
+                        InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey()));
 
     TestEnvironmentInfo environmentProvider =
         (TestEnvironmentInfo)

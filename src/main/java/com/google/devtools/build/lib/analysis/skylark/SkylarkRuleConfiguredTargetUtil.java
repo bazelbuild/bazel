@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
+import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.test.CoverageCommon;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -156,7 +156,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       if (configuredTarget != null) {
         // If there was error creating the ConfiguredTarget, no further validation is needed.
         // Null will be returned and the errors thus reported.
-        SkylarkProviderValidationUtil.validateArtifacts(ruleContext);
+        StarlarkProviderValidationUtil.validateArtifacts(ruleContext);
         checkDeclaredProviders(configuredTarget, advertisedProviders, location);
       }
       return configuredTarget;

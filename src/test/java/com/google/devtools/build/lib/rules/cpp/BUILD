@@ -27,7 +27,7 @@ java_library(
             "CppConfigurationSkylarkTest.java",
             "CppSysrootTest.java",
             "LinkCommandLineTest.java",
-            "SkylarkCcCommonTestHelper.java",
+            "StarlarkCcCommonTestHelper.java",
             "NonWindowsCcBinaryThinLtoTest.java",
             "SpawnGccStrategyTest.java",
         ],
@@ -115,7 +115,7 @@ java_library(
 
 java_library(
     name = "SkylarkCcCommonTestHelper",
-    srcs = ["SkylarkCcCommonTestHelper.java"],
+    srcs = ["StarlarkCcCommonTestHelper.java"],
 )
 
 java_test(
