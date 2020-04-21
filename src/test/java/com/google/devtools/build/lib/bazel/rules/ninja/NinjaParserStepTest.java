@@ -152,12 +152,11 @@ public class NinjaParserStepTest {
     ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
     assertThat(variables.keySet())
         .containsExactly(
-            NinjaRuleVariable.NAME,
             NinjaRuleVariable.COMMAND,
             NinjaRuleVariable.DESCRIPTION,
             NinjaRuleVariable.RSPFILE,
             NinjaRuleVariable.DEPS);
-    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.DEPS).getRawText()).isEqualTo("${abc} $\n ${cde}");
     MockValueExpander expander = new MockValueExpander("###");
     assertThat(variables.get(NinjaRuleVariable.DEPS).getExpandedValue(expander))
@@ -225,9 +224,8 @@ public class NinjaParserStepTest {
     NinjaRule ninjaRule = parser.parseNinjaRule();
     ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
     assertThat(variables.keySet())
-        .containsExactly(
-            NinjaRuleVariable.NAME, NinjaRuleVariable.COMMAND, NinjaRuleVariable.DESCRIPTION);
-    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+        .containsExactly(NinjaRuleVariable.COMMAND, NinjaRuleVariable.DESCRIPTION);
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.DESCRIPTION).getRawText()).isEmpty();
   }
 
@@ -236,8 +234,8 @@ public class NinjaParserStepTest {
     NinjaParserStep parser = createParser("rule testRule  \n" + " pool = some_pool\n");
     NinjaRule ninjaRule = parser.parseNinjaRule();
     ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
-    assertThat(variables.keySet()).containsExactly(NinjaRuleVariable.NAME, NinjaRuleVariable.POOL);
-    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+    assertThat(variables.keySet()).containsExactly(NinjaRuleVariable.POOL);
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.POOL).getRawText()).isEqualTo("some_pool");
   }
 
@@ -245,10 +243,7 @@ public class NinjaParserStepTest {
   public void testParsePoolDeclaration() throws Exception {
     NinjaParserStep parser = createParser("pool link_pool\n" + "  depth = 4\n");
     NinjaPool ninjaPool = parser.parseNinjaPool();
-    ImmutableSortedMap<NinjaPoolVariable, NinjaVariableValue> variables = ninjaPool.getVariables();
-    assertThat(variables.keySet()).containsExactly(NinjaPoolVariable.NAME, NinjaPoolVariable.DEPTH);
-    assertThat(variables.get(NinjaPoolVariable.NAME).getRawText()).isEqualTo("link_pool");
-    assertThat(variables.get(NinjaPoolVariable.DEPTH).getRawText()).isEqualTo("4");
+    assertThat(ninjaPool.getName()).isEqualTo("link_pool");
     assertThat(ninjaPool.getDepth()).isEqualTo(4);
   }
 
