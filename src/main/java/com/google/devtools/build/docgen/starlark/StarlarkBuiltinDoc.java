@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.docgen.skylark;
+package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
@@ -28,24 +28,24 @@ import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
- * A class representing documentation for a Starlark built-in object with its {@link SkylarkModule}
+ * A class representing documentation for a Starlark built-in object with its {@link StarlarkModule}
  * annotation and with the {@link SkylarkCallable} methods it documents.
  */
-public final class SkylarkModuleDoc extends SkylarkDoc {
+public final class StarlarkBuiltinDoc extends StarlarkDoc {
   private final SkylarkModule module;
   private final Class<?> classObject;
-  private final Multimap<String, SkylarkJavaMethodDoc> javaMethods;
-  private TreeMap<String, SkylarkMethodDoc> methodMap;
+  private final Multimap<String, StarlarkJavaMethodDoc> javaMethods;
+  private TreeMap<String, StarlarkMethodDoc> methodMap;
   private final String title;
   private final boolean deprecated;
-  @Nullable private SkylarkConstructorMethodDoc javaConstructor;
+  @Nullable private StarlarkConstructorMethodDoc javaConstructor;
 
-  public SkylarkModuleDoc(SkylarkModule module, Class<?> classObject) {
+  public StarlarkBuiltinDoc(SkylarkModule module, Class<?> classObject) {
     this.module = Preconditions.checkNotNull(
         module, "Class has to be annotated with SkylarkModule: %s", classObject);
     this.classObject = classObject;
     this.methodMap = new TreeMap<>(Collator.getInstance(Locale.US));
-    this.javaMethods = HashMultimap.<String, SkylarkJavaMethodDoc>create();
+    this.javaMethods = HashMultimap.<String, StarlarkJavaMethodDoc>create();
     this.deprecated = classObject.isAnnotationPresent(StarlarkDeprecated.class);
     if (module.title().isEmpty()) {
       this.title = module.name();
@@ -61,7 +61,7 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
 
   @Override
   public String getDocumentation() {
-    return SkylarkDocUtils.substituteVariables(module.doc());
+    return StarlarkDocUtils.substituteVariables(module.doc());
   }
 
   public String getTitle() {
@@ -81,18 +81,18 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
     return classObject;
   }
 
-  public void setConstructor(SkylarkConstructorMethodDoc method) {
+  public void setConstructor(StarlarkConstructorMethodDoc method) {
     Preconditions.checkState(javaConstructor == null);
     javaConstructor = method;
   }
 
-  public void addMethod(SkylarkJavaMethodDoc method) {
+  public void addMethod(StarlarkJavaMethodDoc method) {
     if (!method.documented()) {
       return;
     }
 
     String shortName = method.getName();
-    Collection<SkylarkJavaMethodDoc> overloads = javaMethods.get(shortName);
+    Collection<StarlarkJavaMethodDoc> overloads = javaMethods.get(shortName);
     if (!overloads.isEmpty()) {
       method.setOverloaded(true);
       // Overload information only needs to be updated if we're discovering the first overload
@@ -116,16 +116,16 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
     return javaMethods.isEmpty();
   }
 
-  public Collection<SkylarkMethodDoc> getJavaMethods() {
-    ImmutableList.Builder<SkylarkMethodDoc> returnedMethods = ImmutableList.builder();
+  public Collection<StarlarkMethodDoc> getJavaMethods() {
+    ImmutableList.Builder<StarlarkMethodDoc> returnedMethods = ImmutableList.builder();
     if (javaConstructor != null) {
       returnedMethods.add(javaConstructor);
     }
     return returnedMethods.addAll(javaMethods.values()).build();
   }
 
-  public Collection<SkylarkMethodDoc> getMethods() {
-    ImmutableList.Builder<SkylarkMethodDoc> methods = ImmutableList.builder();
+  public Collection<StarlarkMethodDoc> getMethods() {
+    ImmutableList.Builder<StarlarkMethodDoc> methods = ImmutableList.builder();
     if (javaConstructor != null) {
       methods.add(javaConstructor);
     }

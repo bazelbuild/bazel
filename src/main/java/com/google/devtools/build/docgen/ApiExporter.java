@@ -20,10 +20,10 @@ import com.google.devtools.build.docgen.builtin.BuiltinProtos.Callable;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Param;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Type;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
-import com.google.devtools.build.docgen.skylark.SkylarkConstructorMethodDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkModuleDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkParamDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -48,19 +48,19 @@ public class ApiExporter {
 
   private static void appendTypes(
       Builtins.Builder builtins,
-      Map<String, SkylarkModuleDoc> types,
+      Map<String, StarlarkModuleDoc> types,
       List<RuleDocumentation> nativeRules)
       throws BuildEncyclopediaDocException {
 
-    for (Entry<String, SkylarkModuleDoc> modEntry : types.entrySet()) {
-      SkylarkModuleDoc mod = modEntry.getValue();
+    for (Entry<String, StarlarkModuleDoc> modEntry : types.entrySet()) {
+      StarlarkModuleDoc mod = modEntry.getValue();
 
       Type.Builder type = Type.newBuilder();
       type.setName(mod.getName());
       type.setDoc(mod.getDocumentation());
-      for (SkylarkMethodDoc meth : mod.getJavaMethods()) {
+      for (StarlarkMethodDoc meth : mod.getJavaMethods()) {
         // Constructors are exported as global symbols.
-        if (!(meth instanceof SkylarkConstructorMethodDoc)) {
+        if (!(meth instanceof StarlarkConstructorMethodDoc)) {
           Value.Builder value = collectMethodInfo(meth);
           // Methods from the native package are available as top level functions in BUILD files.
           if (mod.getName().equals("native")) {
@@ -208,13 +208,13 @@ public class ApiExporter {
     return value;
   }
 
-  private static Value.Builder collectMethodInfo(SkylarkMethodDoc meth) {
+  private static Value.Builder collectMethodInfo(StarlarkMethodDoc meth) {
     Value.Builder field = Value.newBuilder();
     field.setName(meth.getShortName());
     field.setDoc(meth.getDocumentation());
     if (meth.isCallable()) {
       Callable.Builder callable = Callable.newBuilder();
-      for (SkylarkParamDoc par : meth.getParams()) {
+      for (StarlarkParamDoc par : meth.getParams()) {
         Param.Builder param = newParam(par.getName(), par.getDefaultValue().isEmpty());
         param.setType(par.getType());
         param.setDoc(par.getDocumentation());

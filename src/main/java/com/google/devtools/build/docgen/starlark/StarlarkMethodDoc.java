@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.docgen.skylark;
+package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** An abstract class containing documentation for a Starlark method. */
-public abstract class SkylarkMethodDoc extends SkylarkDoc {
+public abstract class StarlarkMethodDoc extends StarlarkDoc {
   /** Returns whether the Starlark method is documented. */
   public abstract boolean documented();
 
@@ -61,11 +61,9 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
     return getName();
   }
 
-  /**
-   * Returns a list containing the documentation for each of the method's parameters.
-   */
-  public List<SkylarkParamDoc> getParams() {
-    return ImmutableList.<SkylarkParamDoc>of();
+  /** Returns a list containing the documentation for each of the method's parameters. */
+  public List<StarlarkParamDoc> getParams() {
+    return ImmutableList.<StarlarkParamDoc>of();
   }
 
   private String getParameterString(Method method) {

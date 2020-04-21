@@ -11,17 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.docgen.skylark;
+package com.google.devtools.build.docgen.starlark;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 
 /** A class containing the documentation for a Starlark method parameter. */
-public final class SkylarkParamDoc extends SkylarkDoc {
-  private SkylarkMethodDoc method;
+public final class StarlarkParamDoc extends StarlarkDoc {
+  private StarlarkMethodDoc method;
   private Param param;
 
-  public SkylarkParamDoc(SkylarkMethodDoc method, Param param) {
+  public StarlarkParamDoc(StarlarkMethodDoc method, Param param) {
     this.method = method;
     this.param = param;
   }
@@ -61,7 +61,7 @@ public final class SkylarkParamDoc extends SkylarkDoc {
     }
   }
 
-  public SkylarkMethodDoc getMethod() {
+  public StarlarkMethodDoc getMethod() {
     return method;
   }
 
@@ -92,7 +92,7 @@ public final class SkylarkParamDoc extends SkylarkDoc {
               + "</code>. Use this flag "
               + "to verify your code is compatible with its imminent removal. <br>";
     }
-    return prefixWarning + SkylarkDocUtils.substituteVariables(param.doc());
+    return prefixWarning + StarlarkDocUtils.substituteVariables(param.doc());
   }
 
   @Override

@@ -15,9 +15,9 @@ package com.google.devtools.build.docgen;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.docgen.skylark.SkylarkDocUtils;
-import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkDocUtils;
+import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
@@ -48,31 +48,31 @@ public final class SkylarkDocumentationProcessor {
       throws IOException, ClassPathException {
     parseOptions(args);
 
-    Map<String, SkylarkModuleDoc> modules =
+    Map<String, StarlarkModuleDoc> modules =
         SkylarkDocumentationCollector.collectModules(Classpath.findClasses(MODULES_PACKAGE_PREFIX));
 
     // Generate the top level module first in the doc
-    SkylarkModuleDoc topLevelModule = modules.remove(
-        SkylarkDocumentationCollector.getTopLevelModule().name());
+    StarlarkModuleDoc topLevelModule =
+        modules.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
     writePage(outputDir, topLevelModule);
 
     // Use a LinkedHashMap to preserve ordering of categories, as the output iterates over
     // this map's entry set to determine category ordering.
-    Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesByCategory = new LinkedHashMap<>();
+    Map<SkylarkModuleCategory, List<StarlarkModuleDoc>> modulesByCategory = new LinkedHashMap<>();
     for (SkylarkModuleCategory c : SkylarkModuleCategory.values()) {
-      modulesByCategory.put(c, new ArrayList<SkylarkModuleDoc>());
+      modulesByCategory.put(c, new ArrayList<StarlarkModuleDoc>());
     }
 
     modulesByCategory.get(topLevelModule.getAnnotation().category()).add(topLevelModule);
 
-    for (SkylarkModuleDoc module : modules.values()) {
+    for (StarlarkModuleDoc module : modules.values()) {
       if (module.getAnnotation().documented()) {
         writePage(outputDir, module);
         modulesByCategory.get(module.getAnnotation().category()).add(module);
       }
     }
     Collator us = Collator.getInstance(Locale.US);
-    for (List<SkylarkModuleDoc> module : modulesByCategory.values()) {
+    for (List<StarlarkModuleDoc> module : modulesByCategory.values()) {
       Collections.sort(module, (doc1, doc2) -> us.compare(doc1.getTitle(), doc2.getTitle()));
     }
     writeCategoryPage(SkylarkModuleCategory.CONFIGURATION_FRAGMENT, outputDir, modulesByCategory);
@@ -90,8 +90,8 @@ public final class SkylarkDocumentationProcessor {
     // module itself).
     List<String> globalFunctions = new ArrayList<>();
     List<String> globalConstants = new ArrayList<>();
-    SkylarkModuleDoc globalModule = findGlobalModule(modulesByCategory);
-    for (SkylarkMethodDoc method : globalModule.getMethods()) {
+    StarlarkModuleDoc globalModule = findGlobalModule(modulesByCategory);
+    for (StarlarkMethodDoc method : globalModule.getMethods()) {
       if (method.documented()) {
         if (method.isCallable()) {
           globalFunctions.add(method.getName());
@@ -101,9 +101,9 @@ public final class SkylarkDocumentationProcessor {
       }
     }
 
-    List<SkylarkModuleDoc> globalModules = new ArrayList<>();
+    List<StarlarkModuleDoc> globalModules = new ArrayList<>();
     for (SkylarkModuleCategory globalCategory : GLOBAL_CATEGORIES) {
-      for (SkylarkModuleDoc module : modulesByCategory.remove(globalCategory)) {
+      for (StarlarkModuleDoc module : modulesByCategory.remove(globalCategory)) {
         if (!module.getName().equals(globalModule.getName())) {
           globalModules.add(module);
         }
@@ -120,12 +120,12 @@ public final class SkylarkDocumentationProcessor {
         modulesByCategory);
   }
 
-  private static SkylarkModuleDoc findGlobalModule(
-      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesByCategory) {
-    List<SkylarkModuleDoc> topLevelModules =
+  private static StarlarkModuleDoc findGlobalModule(
+      Map<SkylarkModuleCategory, List<StarlarkModuleDoc>> modulesByCategory) {
+    List<StarlarkModuleDoc> topLevelModules =
         modulesByCategory.get(SkylarkModuleCategory.TOP_LEVEL_TYPE);
     String globalModuleName = SkylarkDocumentationCollector.getTopLevelModule().name();
-    for (SkylarkModuleDoc module : topLevelModules) {
+    for (StarlarkModuleDoc module : topLevelModules) {
       if (module.getName().equals(globalModuleName)) {
         return module;
       }
@@ -134,7 +134,7 @@ public final class SkylarkDocumentationProcessor {
     throw new IllegalStateException("No globals module in the top level category.");
   }
 
-  private static void writePage(String outputDir, SkylarkModuleDoc module) throws IOException {
+  private static void writePage(String outputDir, StarlarkModuleDoc module) throws IOException {
     File skylarkDocPath = new File(outputDir + "/" + module.getName() + ".html");
     Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_LIBRARY_TEMPLATE);
     page.add("module", module);
@@ -144,17 +144,18 @@ public final class SkylarkDocumentationProcessor {
   private static void writeCategoryPage(
       SkylarkModuleCategory category,
       String outputDir,
-      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modules) throws IOException {
+      Map<SkylarkModuleCategory, List<StarlarkModuleDoc>> modules)
+      throws IOException {
     File skylarkDocPath = new File(String.format("%s/skylark-%s.html",
         outputDir, category.getTemplateIdentifier()));
     Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_MODULE_CATEGORY_TEMPLATE);
     page.add("category", category);
     page.add("modules", modules.get(category));
-    page.add("description", SkylarkDocUtils.substituteVariables(category.getDescription()));
+    page.add("description", StarlarkDocUtils.substituteVariables(category.getDescription()));
     page.write(skylarkDocPath);
   }
 
-  private static void writeNavPage(String outputDir, List<SkylarkModuleDoc> navModules)
+  private static void writeNavPage(String outputDir, List<StarlarkModuleDoc> navModules)
       throws IOException {
     File navFile = new File(outputDir + "/skylark-nav.html");
     Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_NAV_TEMPLATE);
@@ -167,8 +168,8 @@ public final class SkylarkDocumentationProcessor {
       String globalModuleName,
       List<String> globalFunctions,
       List<String> globalConstants,
-      List<SkylarkModuleDoc> globalModules,
-      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesPerCategory)
+      List<StarlarkModuleDoc> globalModules,
+      Map<SkylarkModuleCategory, List<StarlarkModuleDoc>> modulesPerCategory)
       throws IOException {
     File skylarkDocPath = new File(outputDir + "/skylark-overview.html");
     Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_OVERVIEW_TEMPLATE);

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.docgen.skylark;
+package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -24,21 +24,21 @@ import java.util.List;
  * A class representing a Java method callable from Starlark which constructs a type of Starlark
  * object. Such a method is annotated with {@link SkylarkConstructor}, and has special handling.
  */
-public final class SkylarkConstructorMethodDoc extends SkylarkMethodDoc {
+public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   private final String fullyQualifiedName;
   private final Method method;
   private final SkylarkCallable callable;
-  private final ImmutableList<SkylarkParamDoc> params;
+  private final ImmutableList<StarlarkParamDoc> params;
   // TODO(cparsons): Move to superclass when SkylarkBuiltinMethodDoc is removed.
   private final boolean deprecated;
 
-  public SkylarkConstructorMethodDoc(
+  public StarlarkConstructorMethodDoc(
       String fullyQualifiedName, Method method, SkylarkCallable callable) {
     this.fullyQualifiedName = fullyQualifiedName;
     this.method = method;
     this.callable = callable;
     this.params =
-        SkylarkDocUtils.determineParams(
+        StarlarkDocUtils.determineParams(
             this,
             withoutSelfParam(callable, method),
             callable.extraPositionals(),
@@ -67,7 +67,7 @@ public final class SkylarkConstructorMethodDoc extends SkylarkMethodDoc {
 
   @Override
   public String getDocumentation() {
-    return SkylarkDocUtils.substituteVariables(callable.doc());
+    return StarlarkDocUtils.substituteVariables(callable.doc());
   }
 
   @Override
@@ -89,7 +89,7 @@ public final class SkylarkConstructorMethodDoc extends SkylarkMethodDoc {
   }
 
   @Override
-  public List<SkylarkParamDoc> getParams() {
+  public List<StarlarkParamDoc> getParams() {
     return params;
   }
 }

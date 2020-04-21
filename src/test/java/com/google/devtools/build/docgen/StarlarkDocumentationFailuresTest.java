@@ -30,7 +30,7 @@ import org.junit.runners.JUnit4;
  * anywhere in the classpath.
  */
 @RunWith(JUnit4.class)
-public final class SkylarkDocumentationFailuresTest {
+public final class StarlarkDocumentationFailuresTest {
 
   /** MockClassCommonNameOne */
   @SkylarkModule(name = "MockClassCommonName", doc = "MockClassCommonName")

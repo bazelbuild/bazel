@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.docgen.skylark;
+package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.DocgenConsts;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 
 /** A utility class for the documentation generator. */
-public final class SkylarkDocUtils {
-  private SkylarkDocUtils() {}
+public final class StarlarkDocUtils {
+  private StarlarkDocUtils() {}
 
   /**
    * Substitute special variables in the documentation with their actual values
@@ -37,20 +37,20 @@ public final class SkylarkDocUtils {
    * Returns a list of parameter documentation elements for a given method doc and the method's
    * parameters.
    */
-  static ImmutableList<SkylarkParamDoc> determineParams(
-      SkylarkMethodDoc methodDoc,
+  static ImmutableList<StarlarkParamDoc> determineParams(
+      StarlarkMethodDoc methodDoc,
       Param[] userSuppliedParams,
       Param extraPositionals,
       Param extraKeywords) {
-    ImmutableList.Builder<SkylarkParamDoc> paramsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<StarlarkParamDoc> paramsBuilder = ImmutableList.builder();
     for (Param param : userSuppliedParams) {
-      paramsBuilder.add(new SkylarkParamDoc(methodDoc, param));
+      paramsBuilder.add(new StarlarkParamDoc(methodDoc, param));
     }
     if (!extraPositionals.name().isEmpty()) {
-      paramsBuilder.add(new SkylarkParamDoc(methodDoc, extraPositionals));
+      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraPositionals));
     }
     if (!extraKeywords.name().isEmpty()) {
-      paramsBuilder.add(new SkylarkParamDoc(methodDoc, extraKeywords));
+      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraKeywords));
     }
     return paramsBuilder.build();
   }
