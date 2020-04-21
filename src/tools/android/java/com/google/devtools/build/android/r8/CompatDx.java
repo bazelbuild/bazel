@@ -21,6 +21,7 @@ import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.CompatDxSupport;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
+import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
@@ -47,6 +48,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -631,7 +633,23 @@ public class CompatDx {
       if (dexArgs.backportStatics) {
         CompatDxSupport.enableDesugarBackportStatics(builder);
       }
-      CompatDxSupport.run(builder.build(), dexArgs.minimalMainDex);
+      try {
+        // Check if the referenced r8.jar has these methods. If so, the support code accessing
+        // the internals is not required.
+        Method setEnableMainDexListCheck =
+            D8Command.Builder.class.getDeclaredMethod("setEnableMainDexListCheck", boolean.class);
+        Method setMinimalMainDex =
+            D8Command.Builder.class.getDeclaredMethod("setMinimalMainDex", boolean.class);
+        // The methods are package private to not reveal them as part of the external API.
+        setEnableMainDexListCheck.setAccessible(true);
+        setMinimalMainDex.setAccessible(true);
+        setEnableMainDexListCheck.invoke(builder, Boolean.FALSE);
+        setMinimalMainDex.invoke(builder, dexArgs.minimalMainDex);
+        D8.run(builder.build());
+      } catch (ReflectiveOperationException e) {
+        // Go through the support support code accessing the internals for the compilation.
+        CompatDxSupport.run(builder.build(), dexArgs.minimalMainDex);
+      }
     } finally {
       executor.shutdown();
     }
