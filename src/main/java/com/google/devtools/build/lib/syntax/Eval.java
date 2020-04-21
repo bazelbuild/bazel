@@ -127,9 +127,9 @@ final class Eval {
     // They may be discontinuous:
     // def f(a, b=1, *, c, d=2) has a defaults tuple of (1, 2).
     // TODO(adonovan): record the gaps (e.g. c) with a sentinel
-    // to simplify Starlark.matchSignature.
+    // to simplify StarlarkFunction.matchSignature.
     Tuple<Object> defaults = Tuple.empty();
-    int ndefaults = node.getSignature().numOptionals();
+    int ndefaults = sig.numOptionals();
     if (ndefaults > 0) {
       Object[] array = new Object[ndefaults];
       for (int i = sig.numMandatoryPositionals(), j = 0; i < sig.numParameters(); i++) {

@@ -431,32 +431,6 @@ public final class Starlark {
     env.put(annot.name(), v);
   }
 
-  /**
-   * Checks the {@code positional} and {@code named} arguments supplied to an implementation of
-   * {@link StarlarkCallable#fastcall} to ensure they match the {@code signature}. It returns an
-   * array of effective parameter values corresponding to the parameters of the signature. Newly
-   * allocated values (e.g. a {@code **kwargs} dict) use the Mutability {@code mu}.
-   *
-   * <p>If the function has optional parameters, their default values must be supplied by {@code
-   * defaults}; see {@link BaseFunction#getDefaultValues} for details.
-   *
-   * <p>The caller is responsible for accessing the correct element and casting to an appropriate
-   * type.
-   *
-   * <p>On failure, it throws an EvalException incorporating {@code func.toString()}.
-   */
-  static Object[] matchSignature(
-      FunctionSignature signature,
-      StarlarkCallable func, // only used in error messages
-      @Nullable Tuple<Object> defaults,
-      @Nullable Mutability mu,
-      Object[] positional,
-      Object[] named)
-      throws EvalException {
-    // TODO(adonovan): move implementation here.
-    return BaseFunction.matchSignature(signature, func, defaults, mu, positional, named);
-  }
-
   // TODO(adonovan):
   //
   // The code below shows the API that is the destination toward which all of the recent

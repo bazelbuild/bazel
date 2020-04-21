@@ -316,7 +316,7 @@ public abstract class FunctionSignature {
    * @param hasKwargs whether function accepts arbitrary named arguments
    * @param names an Array of String for the parameter names
    */
-  static FunctionSignature of(
+  private static FunctionSignature of(
       int numMandatoryPositionals,
       int numOptionalPositionals,
       int numMandatoryNamedOnly,
@@ -344,30 +344,8 @@ public abstract class FunctionSignature {
    * @param names an Array of String for the positional parameter names
    * @return a FunctionSignature
    */
-  public static FunctionSignature of(String... names) {
+  static FunctionSignature of(String... names) {
     return of(names.length, 0, 0, false, false, names);
-  }
-
-  /**
-   * Constructs a function signature from positional argument names.
-   *
-   * @param numMandatory an int for the number of mandatory positional parameters
-   * @param names an Array of String for the positional parameter names
-   * @return a FunctionSignature
-   */
-  public static FunctionSignature of(int numMandatory, String... names) {
-    return of(numMandatory, names.length - numMandatory, 0, false, false, names);
-  }
-
-  /**
-   * Constructs a function signature from named-only parameter names.
-   *
-   * @param numMandatory an int for the number of mandatory named-only parameters
-   * @param names an Array of String for the named-only parameter names
-   * @return a FunctionSignature
-   */
-  public static FunctionSignature namedOnly(int numMandatory, String... names) {
-    return of(0, 0, numMandatory, false, false, names);
   }
 
   /** Invalid signature from Parser or from SkylarkCallable annotation. */
@@ -386,11 +364,8 @@ public abstract class FunctionSignature {
     }
   }
 
-  /** A ready-made signature to allow only keyword parameters and put them in a kwarg parameter */
-  public static final FunctionSignature KWARGS = of(0, 0, 0, false, true, "kwargs");
-
   /** A ready-made signature that accepts no arguments. */
-  public static final FunctionSignature NOARGS = of(0, 0, 0, false, false);
+  static final FunctionSignature NOARGS = of(0, 0, 0, false, false);
 
   /** A ready-made signature that allows any arguments. */
   public static final FunctionSignature ANY = of(0, 0, 0, true, true, "args", "kwargs");

@@ -460,4 +460,76 @@ public final class FunctionTest extends EvaluationTestCase {
     assertThat(lookup("v2")).isEqualTo("acb|");
     assertThat(lookup("v3")).isEqualTo("a12|");
   }
+
+  @Test
+  public void testKwParam() throws Exception {
+    exec(
+        "def foo(a, b, c=3, d=4, g=7, h=8, *args, **kwargs):\n"
+            + "  return (a, b, c, d, g, h, args, kwargs)\n"
+            + "v1 = foo(1, 2)\n"
+            + "v2 = foo(1, h=9, i=0, *['x', 'y', 'z', 't'])\n"
+            + "v3 = foo(1, i=0, *[2, 3, 4, 5, 6, 7, 8])\n"
+            + "def bar(**kwargs):\n"
+            + "  return kwargs\n"
+            + "b1 = bar(name='foo', type='jpg', version=42).items()\n"
+            + "b2 = bar()\n");
+
+    assertThat(Starlark.repr(lookup("v1"))).isEqualTo("(1, 2, 3, 4, 7, 8, (), {})");
+    assertThat(Starlark.repr(lookup("v2")))
+        .isEqualTo("(1, \"x\", \"y\", \"z\", \"t\", 9, (), {\"i\": 0})");
+    assertThat(Starlark.repr(lookup("v3"))).isEqualTo("(1, 2, 3, 4, 5, 6, (7, 8), {\"i\": 0})");
+    assertThat(Starlark.repr(lookup("b1")))
+        .isEqualTo("[(\"name\", \"foo\"), (\"type\", \"jpg\"), (\"version\", 42)]");
+    assertThat(Starlark.repr(lookup("b2"))).isEqualTo("{}");
+  }
+
+  @Test
+  public void testTrailingCommas() throws Exception {
+    // Test that trailing commas are allowed in function definitions and calls
+    // even after last *args or **kwargs expressions, like python3
+    exec(
+        "def f(*args, **kwargs): pass\n"
+            + "v1 = f(1,)\n"
+            + "v2 = f(*(1,2),)\n"
+            + "v3 = f(a=1,)\n"
+            + "v4 = f(**{\"a\": 1},)\n");
+
+    assertThat(Starlark.repr(lookup("v1"))).isEqualTo("None");
+    assertThat(Starlark.repr(lookup("v2"))).isEqualTo("None");
+    assertThat(Starlark.repr(lookup("v3"))).isEqualTo("None");
+    assertThat(Starlark.repr(lookup("v4"))).isEqualTo("None");
+  }
+
+  @Test
+  public void testCalls() throws Exception {
+    exec("def f(a, b = None): return a, b");
+
+    assertThat(Starlark.repr(eval("f(1)"))).isEqualTo("(1, None)");
+    assertThat(Starlark.repr(eval("f(1, 2)"))).isEqualTo("(1, 2)");
+    assertThat(Starlark.repr(eval("f(a=1)"))).isEqualTo("(1, None)");
+    assertThat(Starlark.repr(eval("f(a=1, b=2)"))).isEqualTo("(1, 2)");
+    assertThat(Starlark.repr(eval("f(b=2, a=1)"))).isEqualTo("(1, 2)");
+
+    checkEvalError(
+        "insufficient arguments received by f(a, b = None) (got 0, expected at least 1)", //
+        "f()");
+    checkEvalError(
+        "too many (3) positional arguments in call to f(a, b = None)", //
+        "f(1, 2, 3)");
+    checkEvalError(
+        "unexpected keywords 'c', 'd' in call to f(a, b = None)", //
+        "f(1, 2, c=3, d=4)");
+    checkEvalError(
+        "missing mandatory positional argument 'a' while calling f(a, b = None)", //
+        "f(b=2)");
+    checkEvalError(
+        "missing mandatory positional argument 'a' while calling f(a, b = None)", //
+        "f(b=2)");
+    checkEvalError(
+        "f(a, b = None) got multiple values for parameter 'a'", //
+        "f(2, a=1)");
+    checkEvalError(
+        "unexpected keyword 'c' in call to f(a, b = None)", //
+        "f(b=2, a=1, c=3)");
+  }
 }

@@ -87,7 +87,6 @@ java_library(
 java_library(
     name = "evaluator",
     srcs = [
-        "BaseFunction.java",
         "BuiltinCallable.java",
         "CallUtils.java",
         "ClassObject.java",
