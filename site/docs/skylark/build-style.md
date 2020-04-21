@@ -21,7 +21,7 @@ generate `BUILD` files.
 
 ```python
 # Test code implmenting the Foo controller.
-package(default_visibility = ["//visibility:public"])
+package(default_testonly = 1)
 
 py_test(
     name = "foo_test",
