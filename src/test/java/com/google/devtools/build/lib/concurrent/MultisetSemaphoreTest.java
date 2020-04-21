@@ -95,7 +95,7 @@ public class MultisetSemaphoreTest {
     // When we have N and M, with M > N and M|N.
     final int n = 10;
     int m = n * 2;
-    Preconditions.checkState(m > n && m % n == 0, "M=%d N=%d", m, n);
+    Preconditions.checkState(m > n && m % n == 0, "M=%s N=%s", m, n);
     // When we have a MultisetSemaphore
     final MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
         // with N max num unique values,
