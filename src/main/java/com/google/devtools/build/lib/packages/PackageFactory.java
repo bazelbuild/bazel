@@ -710,10 +710,9 @@ public final class PackageFactory {
       ImmutableList<Label> skylarkFileDependencies,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws InterruptedException {
-    Package pkg =
-        packageBuilderHelper.createFreshPackage(packageId, ruleClassProvider.getRunfilesPrefix());
     Package.Builder pkgBuilder =
-        new Package.Builder(pkg, semantics)
+        new Package.Builder(
+                packageBuilderHelper, packageId, ruleClassProvider.getRunfilesPrefix(), semantics)
             .setFilename(buildFilePath)
             .setDefaultVisibility(defaultVisibility)
             // "defaultVisibility" comes from the command line.
