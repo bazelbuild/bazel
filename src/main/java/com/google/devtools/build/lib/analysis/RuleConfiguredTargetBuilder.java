@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -213,7 +213,7 @@ public final class RuleConfiguredTargetBuilder {
       Object defaultValue =
           ruleContext
               .attributes()
-              .get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSetting.getType());
+              .get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSetting.getType());
       addProvider(
           BuildSettingProvider.class,
           new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel()));
@@ -365,7 +365,7 @@ public final class RuleConfiguredTargetBuilder {
       NestedSet<Artifact> runfilesMiddlemen, NestedSet<Artifact> filesToBuild) {
     filesToRunBuilder.addTransitive(filesToBuild);
     filesToRunBuilder.addTransitive(runfilesMiddlemen);
-    if (executable != null && ruleContext.getRule().getRuleClassObject().isSkylark()) {
+    if (executable != null && ruleContext.getRule().getRuleClassObject().isStarlark()) {
       filesToRunBuilder.add(executable);
     }
     return filesToRunBuilder.build();

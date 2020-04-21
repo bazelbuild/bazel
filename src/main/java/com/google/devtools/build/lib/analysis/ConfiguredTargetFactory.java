@@ -62,7 +62,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -460,7 +460,7 @@ public final class ConfiguredTargetFactory {
         // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
         return createFailConfiguredTarget(ruleContext);
       }
-      if (rule.getRuleClassObject().isSkylark()) {
+      if (rule.getRuleClassObject().isStarlark()) {
         // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
         ConfiguredTarget target =
             SkylarkRuleConfiguredTargetUtil.buildRule(
@@ -698,7 +698,7 @@ public final class ConfiguredTargetFactory {
       }
     }
 
-    for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
       if (configuredAspect.get(providerId) == null) {
         eventHandler.handle(Event.error(
             target.getLocation(),

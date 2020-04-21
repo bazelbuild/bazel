@@ -708,7 +708,7 @@ public class PackageFunction implements SkyFunction {
         } else {
           skyValue =
               starlarkImportLookupFunctionForInlining
-                  .computeWithInlineCallsForPackageAndWorkspaceNodes(
+                  .computeWithSelfInlineCallsForPackageAndWorkspaceNodes(
                       importLookupKey, env, visitedDepsInToplevelLoad);
         }
       } catch (StarlarkImportFailedException | InconsistentFilesystemException e) {

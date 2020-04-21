@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.testutil.Suite;

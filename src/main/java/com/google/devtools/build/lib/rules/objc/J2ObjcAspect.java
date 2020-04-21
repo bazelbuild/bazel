@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolve
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
@@ -144,7 +144,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .propagateAlongAttribute("deps")
         .propagateAlongAttribute("exports")
         .propagateAlongAttribute("runtime_deps")
-        .requireSkylarkProviders(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .requireSkylarkProviders(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
         .advertiseProvider(ImmutableList.of(ObjcProvider.SKYLARK_CONSTRUCTOR.id()))
         .requiresConfigurationFragments(

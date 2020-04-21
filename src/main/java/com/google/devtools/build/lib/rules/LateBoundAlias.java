@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -68,7 +68,7 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
       Object defaultValue =
           ruleContext
               .attributes()
-              .get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSetting.getType());
+              .get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSetting.getType());
       providers.put(
           BuildSettingProvider.class,
           new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel()));

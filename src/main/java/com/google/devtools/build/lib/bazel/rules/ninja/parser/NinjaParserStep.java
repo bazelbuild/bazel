@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaToken;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget.InputKind;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget.InputOutputKind;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget.OutputKind;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.StandardCharsets;
@@ -39,16 +37,6 @@ import javax.annotation.Nullable;
 
 /** Ninja files parser. The types of tokens: {@link NinjaToken}. Ninja lexer: {@link NinjaLexer}. */
 public class NinjaParserStep {
-  /**
-   * An interner for {@link PathFragment} instances for the inputs and outputs of {@link
-   * NinjaTarget}.
-   */
-  // TODO(lberki): Make this non-static.
-  // The reason why this field is static is that I haven't grokked yet what the lifetime of each
-  // object in Ninja parsing is. Once I figure out which object has the lifetime of "exactly as long
-  // as the parsing is running", I can just put this in a field of that object and plumb it here.
-  private static final Interner<PathFragment> PATH_FRAGMENT_INTERNER =
-      BlazeInterners.newWeakInterner();
 
   private final NinjaLexer lexer;
 
@@ -311,8 +299,11 @@ public class NinjaParserStep {
           entry.getValue().stream()
               .map(
                   value ->
-                      PATH_FRAGMENT_INTERNER.intern(
-                          PathFragment.create(targetScope.getExpandedValue(Long.MAX_VALUE, value))))
+                      lexer
+                          .getPathFragmentInterner()
+                          .intern(
+                              PathFragment.create(
+                                  targetScope.getExpandedValue(Long.MAX_VALUE, value))))
               .collect(Collectors.toList());
       InputOutputKind inputOutputKind = entry.getKey();
       if (inputOutputKind instanceof InputKind) {

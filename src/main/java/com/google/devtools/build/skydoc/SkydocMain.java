@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootst
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -319,16 +318,16 @@ public class SkydocMain {
         recursiveEval(
             semantics, label, ruleInfoList, providerInfoList, aspectInfoList, moduleDocMap);
 
-    Map<BaseFunction, RuleInfoWrapper> ruleFunctions =
+    Map<StarlarkCallable, RuleInfoWrapper> ruleFunctions =
         ruleInfoList.stream()
             .collect(
                 Collectors.toMap(RuleInfoWrapper::getIdentifierFunction, Functions.identity()));
 
-    Map<BaseFunction, ProviderInfoWrapper> providerInfos =
+    Map<StarlarkCallable, ProviderInfoWrapper> providerInfos =
         providerInfoList.stream()
             .collect(Collectors.toMap(ProviderInfoWrapper::getIdentifier, Functions.identity()));
 
-    Map<BaseFunction, AspectInfoWrapper> aspectFunctions =
+    Map<StarlarkCallable, AspectInfoWrapper> aspectFunctions =
         aspectInfoList.stream()
             .collect(
                 Collectors.toMap(AspectInfoWrapper::getIdentifierFunction, Functions.identity()));

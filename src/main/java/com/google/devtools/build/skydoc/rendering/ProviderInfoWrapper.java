@@ -14,36 +14,36 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import java.util.Collection;
 
 /**
- * Stores information about a starlark provider definition, comprised of BaseFunction identifier and
- * a {@link ProviderInfo} proto.
+ * Stores information about a starlark provider definition, comprised of StarlarkCallable identifier
+ * and a {@link ProviderInfo} proto.
  *
  * <p>For example, in
  *
  * <pre>FooInfo = provider(doc = 'My provider', fields = {'bar' : 'a bar'})</pre>
  *
  * , this contains all information about the definition of FooInfo for purposes of generating its
- * documentation, as well as a unique BaseFunction identifier.
+ * documentation, as well as a unique StarlarkCallable identifier.
  */
 public class ProviderInfoWrapper {
 
-  private final BaseFunction identifier;
+  private final StarlarkCallable identifier;
   // Only the Builder is passed to ProviderInfoWrapper as the provider name is not yet available.
   private final ProviderInfo.Builder providerInfo;
 
   public ProviderInfoWrapper(
-      BaseFunction identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
+      StarlarkCallable identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
     this.identifier = identifier;
     this.providerInfo =
         ProviderInfo.newBuilder().setDocString(docString).addAllFieldInfo(fieldInfos);
   }
 
-  public BaseFunction getIdentifier() {
+  public StarlarkCallable getIdentifier() {
     return identifier;
   }
 

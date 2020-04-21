@@ -1,12 +1,9 @@
 /*
  * Copyright 2020 The Bazel Authors. All rights reserved.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
  *    http://www.apache.org/licenses/LICENSE-2.0
- *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,21 +11,16 @@
  * limitations under the License.
  */
 
-package com.google.devtools.build.android.desugar.testing.junit;
+package com.google.devtools.build.android.desugar.io;
 
-import com.google.auto.value.AutoValue;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import java.io.InputStream;
 
-/** A record that tracks a jar entry and its enclosing jar file. */
-@AutoValue
-public abstract class JarEntryRecord {
-
-  public abstract JarFile jarFile();
-
-  public abstract JarEntry jarEntry();
-
-  public static JarEntryRecord create(JarFile jarFile, JarEntry jarEntry) {
-    return new AutoValue_JarEntryRecord(jarFile, jarEntry);
-  }
+/**
+ * Indicates that an implementation class is be capable to provide the class content according to
+ * the given class name.
+ */
+@FunctionalInterface
+public interface ClassFileBatchProvider {
+  FileContentProvider<InputStream> getContent(ClassName className);
 }

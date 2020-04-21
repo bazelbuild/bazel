@@ -27,10 +27,11 @@ import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
@@ -91,10 +92,8 @@ public class ApiExporter {
     for (Entry<String, Object> entry : globalMethods.entrySet()) {
       Object obj = entry.getValue();
       Value.Builder value = Value.newBuilder();
-      if (obj instanceof BaseFunction) {
-        value = valueFromFunction((BaseFunction) obj);
-      } else if (obj instanceof BuiltinCallable) {
-        value = valueFromAnnotation(((BuiltinCallable) obj).getAnnotation());
+      if (obj instanceof StarlarkCallable) {
+        value = valueFromCallable((StarlarkCallable) obj);
       } else {
         value.setName(entry.getKey());
       }
@@ -109,8 +108,8 @@ public class ApiExporter {
       Object obj = entry.getValue();
       Value.Builder value = Value.newBuilder();
 
-      if (obj instanceof BaseFunction) {
-        value = valueFromFunction((BaseFunction) obj);
+      if (obj instanceof StarlarkCallable) {
+        value = valueFromCallable((StarlarkCallable) obj);
       } else {
         SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
         if (typeModule != null) {
@@ -140,8 +139,20 @@ public class ApiExporter {
     }
   }
 
-  private static Value.Builder valueFromFunction(BaseFunction func) {
-    return collectFunctionInfo(func.getName(), func.getSignature(), func.getDefaultValues());
+  private static Value.Builder valueFromCallable(StarlarkCallable x) {
+    // Starlark def statement?
+    if (x instanceof StarlarkFunction) {
+      StarlarkFunction fn = (StarlarkFunction) x;
+      return collectFunctionInfo(fn.getName(), fn.getSignature(), fn.getDefaultValues());
+    }
+
+    // annotated Java method?
+    if (x instanceof BuiltinCallable) {
+      return valueFromAnnotation(((BuiltinCallable) x).getAnnotation());
+    }
+
+    // application-defined callable?
+    return collectFunctionInfo(x.getName(), FunctionSignature.ANY, null);
   }
 
   private static Value.Builder valueFromAnnotation(SkylarkCallable annot) {

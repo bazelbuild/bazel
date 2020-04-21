@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -234,7 +234,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
     if (containsNonNoneKey(arguments, PROVIDERS_ARG)) {
       Object obj = arguments.get(PROVIDERS_ARG);
-      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> providersList =
+      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> providersList =
           buildProviderPredicate(Sequence.cast(obj, Object.class, PROVIDERS_ARG), PROVIDERS_ARG);
 
       // If there is at least one empty set, there is no restriction.
@@ -300,7 +300,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
    *
    * @param argumentName used in error messages.
    */
-  static ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> buildProviderPredicate(
+  static ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> buildProviderPredicate(
       Sequence<?> obj, String argumentName) throws EvalException {
     if (obj.isEmpty()) {
       return ImmutableList.of();
@@ -331,28 +331,28 @@ public final class SkylarkAttr implements SkylarkAttrApi {
    * Converts Starlark identifiers of providers (either a string or a provider value) to their
    * internal representations.
    */
-  static ImmutableSet<SkylarkProviderIdentifier> getSkylarkProviderIdentifiers(Sequence<?> list)
+  static ImmutableSet<StarlarkProviderIdentifier> getSkylarkProviderIdentifiers(Sequence<?> list)
       throws EvalException {
-    ImmutableList.Builder<SkylarkProviderIdentifier> result = ImmutableList.builder();
+    ImmutableList.Builder<StarlarkProviderIdentifier> result = ImmutableList.builder();
 
     for (Object obj : list) {
       if (obj instanceof String) {
-        result.add(SkylarkProviderIdentifier.forLegacy((String) obj));
+        result.add(StarlarkProviderIdentifier.forLegacy((String) obj));
       } else if (obj instanceof Provider) {
         Provider constructor = (Provider) obj;
         if (!constructor.isExported()) {
           throw new EvalException(
               null, "Providers should be top-level values in extension files that define them.");
         }
-        result.add(SkylarkProviderIdentifier.forKey(constructor.getKey()));
+        result.add(StarlarkProviderIdentifier.forKey(constructor.getKey()));
       }
     }
     return ImmutableSet.copyOf(result.build());
   }
 
-  private static ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> getProvidersList(
+  private static ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getProvidersList(
       Sequence<?> skylarkList, String argumentName) throws EvalException {
-    ImmutableList.Builder<ImmutableSet<SkylarkProviderIdentifier>> providersList =
+    ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>> providersList =
         ImmutableList.builder();
     String errorMsg = "Illegal argument: element in '%s' is of unexpected type. "
         + "Either all elements should be providers, "

@@ -51,78 +51,87 @@ public class FileBasedTypeReferenceClosureTest {
   private final ClassName implicitTypeRef =
       ClassName.create("desugar/io/testlib/ImplicitTypeReferenceSource");
 
-  private static boolean inPackageUnderInvestigation(ClassName className) {
-    return className.hasPackagePrefix("desugar/io/testlib/");
-  }
-
   @Test
   public void findReachableReferencedTypes_fromEmpty() {
-    assertThat(
-            FileBasedTypeReferenceClosure.findReachableReferencedTypes(
-                ImmutableSet.of(), FileBasedTypeReferenceClosureTest::inPackageUnderInvestigation))
+    FileBasedTypeReferenceClosure fileBasedTypeReferenceClosure =
+        new FileBasedTypeReferenceClosure(
+            className -> className.hasAnyPackagePrefix("desugar/io/testlib/"),
+            new ResourceBasedClassFiles());
+    assertThat(fileBasedTypeReferenceClosure.findReachableReferencedTypes(ImmutableSet.of()))
         .isEmpty();
   }
 
   @Test
   public void findReachableReferencedTypes_fromAlpha() {
-    assertThat(
-            FileBasedTypeReferenceClosure.findReachableReferencedTypes(
-                ImmutableSet.of(alpha),
-                FileBasedTypeReferenceClosureTest::inPackageUnderInvestigation))
+    FileBasedTypeReferenceClosure fileBasedTypeReferenceClosure =
+        new FileBasedTypeReferenceClosure(
+            className -> className.hasAnyPackagePrefix("desugar/io/testlib/"),
+            new ResourceBasedClassFiles());
+    assertThat(fileBasedTypeReferenceClosure.findReachableReferencedTypes(ImmutableSet.of(alpha)))
         .containsExactly(alpha, bravo, charlie, delta, echo);
   }
 
   @Test
   public void findReachableReferencedTypes_fromBravo() {
-    assertThat(
-            FileBasedTypeReferenceClosure.findReachableReferencedTypes(
-                ImmutableSet.of(bravo),
-                FileBasedTypeReferenceClosureTest::inPackageUnderInvestigation))
+    FileBasedTypeReferenceClosure fileBasedTypeReferenceClosure =
+        new FileBasedTypeReferenceClosure(
+            className -> className.hasAnyPackagePrefix("desugar/io/testlib/"),
+            new ResourceBasedClassFiles());
+    assertThat(fileBasedTypeReferenceClosure.findReachableReferencedTypes(ImmutableSet.of(bravo)))
         .containsExactly(bravo, charlie, delta, echo);
   }
 
   @Test
   public void findReachableReferencedTypes_fromCharlie() {
-    assertThat(
-            FileBasedTypeReferenceClosure.findReachableReferencedTypes(
-                ImmutableSet.of(charlie),
-                FileBasedTypeReferenceClosureTest::inPackageUnderInvestigation))
+    FileBasedTypeReferenceClosure fileBasedTypeReferenceClosure =
+        new FileBasedTypeReferenceClosure(
+            className -> className.hasAnyPackagePrefix("desugar/io/testlib/"),
+            new ResourceBasedClassFiles());
+    assertThat(fileBasedTypeReferenceClosure.findReachableReferencedTypes(ImmutableSet.of(charlie)))
         .containsExactly(charlie, delta, echo);
   }
 
   @Test
   public void findReachableReferencedTypes_fromDelta() {
-    assertThat(
-            FileBasedTypeReferenceClosure.findReachableReferencedTypes(
-                ImmutableSet.of(delta),
-                FileBasedTypeReferenceClosureTest::inPackageUnderInvestigation))
+    FileBasedTypeReferenceClosure fileBasedTypeReferenceClosure =
+        new FileBasedTypeReferenceClosure(
+            className -> className.hasAnyPackagePrefix("desugar/io/testlib/"),
+            new ResourceBasedClassFiles());
+    assertThat(fileBasedTypeReferenceClosure.findReachableReferencedTypes(ImmutableSet.of(delta)))
         .containsExactly(charlie, delta, echo);
   }
 
   @Test
   public void findReachableReferencedTypes_fromEcho() {
-    assertThat(
-            FileBasedTypeReferenceClosure.findReachableReferencedTypes(
-                ImmutableSet.of(echo),
-                FileBasedTypeReferenceClosureTest::inPackageUnderInvestigation))
+    FileBasedTypeReferenceClosure fileBasedTypeReferenceClosure =
+        new FileBasedTypeReferenceClosure(
+            className -> className.hasAnyPackagePrefix("desugar/io/testlib/"),
+            new ResourceBasedClassFiles());
+    assertThat(fileBasedTypeReferenceClosure.findReachableReferencedTypes(ImmutableSet.of(echo)))
         .containsExactly(echo);
   }
 
   @Test
   public void findReachableReferencedTypes_fromAll() {
+    FileBasedTypeReferenceClosure fileBasedTypeReferenceClosure =
+        new FileBasedTypeReferenceClosure(
+            className -> className.hasAnyPackagePrefix("desugar/io/testlib/"),
+            new ResourceBasedClassFiles());
     assertThat(
-            FileBasedTypeReferenceClosure.findReachableReferencedTypes(
-                ImmutableSet.of(alpha, bravo, charlie, delta, echo),
-                FileBasedTypeReferenceClosureTest::inPackageUnderInvestigation))
+            fileBasedTypeReferenceClosure.findReachableReferencedTypes(
+                ImmutableSet.of(alpha, bravo, charlie, delta, echo)))
         .containsExactly(alpha, bravo, charlie, delta, echo);
   }
 
   @Test
   public void findReachableReferencedTypes_implicitTypeReference() {
+    FileBasedTypeReferenceClosure fileBasedTypeReferenceClosure =
+        new FileBasedTypeReferenceClosure(
+            className -> className.hasAnyPackagePrefix("desugar/io/testlib/", "java/io/"),
+            new ResourceBasedClassFiles());
     ImmutableSet<ClassName> reachableReferencedTypes =
-        FileBasedTypeReferenceClosure.findReachableReferencedTypes(
-            ImmutableSet.of(implicitTypeRef),
-            className -> className.hasAnyPackagePrefix("java/io/", "desugar/io/testlib/"));
+        fileBasedTypeReferenceClosure.findReachableReferencedTypes(
+            ImmutableSet.of(implicitTypeRef));
     assertThat(reachableReferencedTypes).contains(ClassName.create("java/io/PrintStream"));
   }
 }

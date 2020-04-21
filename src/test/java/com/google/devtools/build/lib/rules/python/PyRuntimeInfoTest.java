@@ -143,14 +143,14 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_Files() throws Exception {
     checkEvalErrorContains(
-        "got value of type 'string', want 'depset of Files or NoneType'",
+        "got value of type 'string', want 'depset or NoneType'",
         "PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = 'abc',",
         "    python_version = 'PY2',",
         ")");
     checkEvalErrorContains(
-        "got value of type 'depset', want 'depset of Files or NoneType'",
+        "got a depset of 'string', expected a depset of 'File'",
         "PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = depset(['abc']),",

@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageExc
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.Argument;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.CallExpression;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.DefStatement;
@@ -46,7 +45,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.ForStatement;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.IfStatement;
 import com.google.devtools.build.lib.syntax.IntegerLiteral;
@@ -269,18 +267,25 @@ public final class PackageFactory {
   // @SkylarkCallable may accomplish that.)
   private static StarlarkCallable newPackageFunction(
       final ImmutableMap<String, PackageArgument<?>> packageArguments) {
-    FunctionSignature signature =
-        FunctionSignature.namedOnly(0, packageArguments.keySet().toArray(new String[0]));
-
-    return new BaseFunction() {
+    return new StarlarkCallable() {
       @Override
       public String getName() {
         return "package";
       }
 
       @Override
-      public FunctionSignature getSignature() {
-        return signature; // (only for documentation)
+      public String toString() {
+        return "package(...)";
+      }
+
+      @Override
+      public boolean isImmutable() {
+        return true;
+      }
+
+      @Override
+      public void repr(Printer printer) {
+        printer.append("<built-in function package>");
       }
 
       @Override
@@ -343,16 +348,13 @@ public final class PackageFactory {
   }
 
   /** A callable Starlark value that creates Rules for native RuleClasses. */
-  private static class BuiltinRuleFunction extends BaseFunction implements RuleFunction {
+  // TODO(adonovan): why is this distinct from RuleClass itself?
+  // Make RuleClass implement StarlarkCallable directly.
+  private static class BuiltinRuleFunction implements StarlarkCallable, RuleFunction {
     private final RuleClass ruleClass;
 
     BuiltinRuleFunction(RuleClass ruleClass) {
       this.ruleClass = Preconditions.checkNotNull(ruleClass);
-    }
-
-    @Override
-    public FunctionSignature getSignature() {
-      return FunctionSignature.KWARGS; // just for documentation
     }
 
     @Override
@@ -389,6 +391,16 @@ public final class PackageFactory {
     @Override
     public void repr(Printer printer) {
       printer.append("<built-in rule " + getName() + ">");
+    }
+
+    @Override
+    public String toString() {
+      return getName() + "(...)";
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
     }
   }
 
@@ -708,7 +720,7 @@ public final class PackageFactory {
             // Let's give the BUILD file a chance to set default_visibility once,
             // by resetting the PackageBuilder.defaultVisibilitySet flag.
             .setDefaultVisibilitySet(false)
-            .setSkylarkFileDependencies(skylarkFileDependencies)
+            .setStarlarkFileDependencies(skylarkFileDependencies)
             .setWorkspaceName(workspaceName)
             .setRepositoryMapping(repositoryMapping)
             .setThirdPartyLicenceExistencePolicy(

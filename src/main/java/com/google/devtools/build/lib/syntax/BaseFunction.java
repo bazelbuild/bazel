@@ -31,14 +31,15 @@ import javax.annotation.Nullable;
  * #toString}, {@link #repr}, and {@link #isImmutable}. The signature may also be used by
  * documentation tools.
  */
-public abstract class BaseFunction implements StarlarkCallable {
+// TODO(adonovan): merge down into StarlarkFunction and eliminate.
+abstract class BaseFunction implements StarlarkCallable {
 
   /**
    * Returns the signature of this function. This does not affect argument validation; it is only
    * for documentation and error messages. However, subclasses may choose to pass it to {@link
    * Starlark#matchSignature}.
    */
-  public abstract FunctionSignature getSignature();
+  abstract FunctionSignature getSignature();
 
   /**
    * Returns the optional tuple of default values for optional parameters. For example, the defaults
@@ -50,7 +51,7 @@ public abstract class BaseFunction implements StarlarkCallable {
    * Starlark#matchSignature}.
    */
   @Nullable
-  public Tuple<Object> getDefaultValues() {
+  Tuple<Object> getDefaultValues() {
     return null;
   }
 

@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -80,11 +80,11 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for the {@code cc_common} Starlark module. */
 @RunWith(JUnit4.class)
-public class SkylarkCcCommonTest extends BuildViewTestCase {
+public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Before
-  public void setSkylarkSemanticsOptions() throws Exception {
-    setSkylarkSemanticsOptions(SkylarkCcCommonTestHelper.CC_SKYLARK_WHITELIST_FLAG);
+  public void setStarlarkSemanticsOptions() throws Exception {
+    this.setStarlarkSemanticsOptions(SkylarkCcCommonTestHelper.CC_SKYLARK_WHITELIST_FLAG);
     invalidatePackages();
 
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
@@ -95,7 +95,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
       throws LabelSyntaxException {
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
@@ -171,7 +171,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     // 1. Build without static_link_cpp_runtimes
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl"), "CruleInfo");
     SkylarkInfo cruleInfo = (SkylarkInfo) r.get(key);
     Depset staticRuntimeLib = (Depset) cruleInfo.getValue("static");
@@ -1301,7 +1301,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.PIC,
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    setSkylarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
+    this.setStarlarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
     setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
@@ -1418,7 +1418,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       List<String> dynamicLibraryList)
       throws Exception {
     useConfiguration("--features=-supports_interface_shared_libraries");
-    setSkylarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
+    this.setStarlarkSemanticsOptions("--incompatible_depset_for_libraries_to_link_getter");
     if (experimentalCcSharedLibrary) {
       setUpCcLinkingContextTestForExperimentalCcSharedLibrary();
     } else {
@@ -1605,7 +1605,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   // This test should replace the old linking context test when the old API is deprecated.
   private void setUpCcLinkingContextTestForExperimentalCcSharedLibrary() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_cc_shared_library");
+    this.setStarlarkSemanticsOptions("--experimental_cc_shared_library");
     scratch.file(
         "a/BUILD",
         "load('//tools/build_defs/cc:rule.bzl', 'crule')",
@@ -5822,7 +5822,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratchObjectsProvidingRule();
 
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getOnlyElement(
@@ -5832,7 +5832,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 .getLibraries()
                 .toList());
     SkylarkInfo fooInfo =
-        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
+        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
     assertThat(fooLibrary.getObjectFiles()).isEqualTo(fooInfo.getValue("objects"));
     assertThat(fooLibrary.getPicObjectFiles()).isEqualTo(fooInfo.getValue("pic_objects"));
@@ -5843,12 +5843,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratchObjectsProvidingRule();
 
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
 
     // Default toolchain is without PIC support, so pic_objects should be None
     SkylarkInfo fooInfoForPic =
-        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
+        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
     Object picObjects = fooInfoForPic.getValue("pic_objects");
     assertThat(picObjects).isNotEqualTo(Starlark.NONE);
@@ -5864,7 +5864,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
     invalidatePackages();
     SkylarkInfo fooInfoForNoPic =
-        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(SkylarkProviderIdentifier.forKey(key));
+        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
     Object objects = fooInfoForNoPic.getValue("objects");
     assertThat(objects).isNotEqualTo(Starlark.NONE);
@@ -5873,7 +5873,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testIncompatibleRequireLinkerInputCcApi() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_require_linker_input_cc_api");
+    setStarlarkSemanticsOptions("--incompatible_require_linker_input_cc_api");
     setUpCcLinkingContextTest();
     checkError("//a:a", "It may be temporarily re-enabled by setting");
   }

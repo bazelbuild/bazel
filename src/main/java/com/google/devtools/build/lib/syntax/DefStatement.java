@@ -62,7 +62,7 @@ public final class DefStatement extends Statement {
     return parameters;
   }
 
-  public FunctionSignature getSignature() {
+  FunctionSignature getSignature() {
     return signature;
   }
 

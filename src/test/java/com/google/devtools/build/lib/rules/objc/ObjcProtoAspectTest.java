@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -288,7 +288,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ConfiguredTarget topTarget = getConfiguredTarget("//bin:link_target");
 
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//test_skylark:top_level_stub.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl info = (StructImpl) topTarget.get(key);
 

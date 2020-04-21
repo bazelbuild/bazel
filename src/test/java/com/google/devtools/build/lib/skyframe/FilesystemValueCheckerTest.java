@@ -93,6 +93,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -767,11 +768,15 @@ public class FilesystemValueCheckerTest {
   }
 
   @Test
+  // TODO(b/154337187): Remove the following annotation to re-enable once this test is de-flaked.
+  @Ignore
   public void testDirtyActions() throws Exception {
     checkDirtyActions(null, false);
   }
 
   @Test
+  // TODO(b/154337187): Remove the following annotation to re-enable once this test is de-flaked.
+  @Ignore
   public void testDirtyActionsBatchStat() throws Exception {
     checkDirtyActions(
         new BatchStat() {

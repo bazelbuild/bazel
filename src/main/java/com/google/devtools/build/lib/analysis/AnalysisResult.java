@@ -21,7 +21,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import java.util.Collection;
 import javax.annotation.Nullable;
 

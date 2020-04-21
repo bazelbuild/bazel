@@ -125,9 +125,11 @@ public class PyInfoTest extends SkylarkTestCase {
         "missing 1 required named argument: transitive_sources", //
         "PyInfo()");
     checkEvalErrorContains(
-        "got value of type 'string', want 'depset of Files'", "PyInfo(transitive_sources = 'abc')");
+        "got value of type 'string', want 'depset'", //
+        "PyInfo(transitive_sources = 'abc')");
     checkEvalErrorContains(
-        "got value of type 'depset', want 'depset of Files'",
+        "should be a postorder-compatible depset of Files (got a 'default-ordered depset of"
+            + " strings')", //
         "PyInfo(transitive_sources = depset(direct=['abc']))");
     checkEvalErrorContains(
         "'transitive_sources' field should be a postorder-compatible depset of Files",
@@ -144,10 +146,10 @@ public class PyInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_Imports() throws Exception {
     checkEvalErrorContains(
-        "got value of type 'string', want 'depset of strings'",
+        "got value of type 'string', want 'depset'",
         "PyInfo(transitive_sources = depset([]), imports = 'abc')");
     checkEvalErrorContains(
-        "got value of type 'depset', want 'depset of strings'",
+        "should be a depset of strings (got a 'default-ordered depset of ints')",
         "PyInfo(transitive_sources = depset([]), imports = depset(direct=[123]))");
   }
 

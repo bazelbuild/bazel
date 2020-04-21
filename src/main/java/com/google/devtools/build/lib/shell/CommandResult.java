@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.shell;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.flogger.LazyArg;
 import java.io.ByteArrayOutputStream;
 import java.time.Duration;
 import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Encapsulates the results of a command execution, including exit status and output to stdout and
@@ -27,9 +27,7 @@ import java.util.logging.Logger;
  */
 @AutoValue
 public abstract class CommandResult {
-
-  private static final Logger logger =
-      Logger.getLogger("com.google.devtools.build.lib.shell.Command");
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final byte[] NO_BYTES = new byte[0];
 
@@ -107,16 +105,15 @@ public abstract class CommandResult {
   public abstract Optional<Duration> getSystemExecutionTime();
 
   void logThis() {
-    if (!logger.isLoggable(Level.FINER)) {
-      return;
-    }
-    logger.finer(getTerminationStatus().toString());
+    logger.atFiner().log("%s", (LazyArg<TerminationStatus>) () -> getTerminationStatus());
 
     if (getStdoutStream() == NO_OUTPUT_COLLECTED) {
       return;
     }
-    logger.finer("Stdout: " + LogUtil.toTruncatedString(getStdout()));
-    logger.finer("Stderr: " + LogUtil.toTruncatedString(getStderr()));
+    logger.atFiner().log(
+        "Stdout: %s", (LazyArg<String>) () -> LogUtil.toTruncatedString(getStdout()));
+    logger.atFiner().log(
+        "Stderr: %s", (LazyArg<String>) () -> LogUtil.toTruncatedString(getStderr()));
   }
 
   /** Returns a new {@link CommandResult.Builder}. */

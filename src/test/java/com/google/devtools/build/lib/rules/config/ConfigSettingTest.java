@@ -1407,7 +1407,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_matchesFromDefault() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
 
     scratch.file(
         "test/build_settings.bzl",
@@ -1429,7 +1429,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_matchesFromCommandLine() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
 
     scratch.file(
@@ -1456,7 +1456,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    */
   @Test
   public void buildsettings_convertedType() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
 
     scratch.file(
         "test/build_settings.bzl",
@@ -1478,7 +1478,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_doesntMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
 
     scratch.file(
@@ -1501,7 +1501,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_badType() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
 
     scratch.file(
         "test/build_settings.bzl",
@@ -1526,7 +1526,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void notBuildSettingOrFeatureFlag() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
 
     scratch.file(
         "test/rules.bzl",
@@ -1552,7 +1552,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsMatch_featureFlagsMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1582,7 +1582,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsMatch_featureFlagsDontMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1612,7 +1612,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsDontMatch_featureFlagsMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(

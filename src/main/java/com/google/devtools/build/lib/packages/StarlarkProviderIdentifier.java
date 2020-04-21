@@ -24,8 +24,8 @@ import javax.annotation.Nullable;
  * A wrapper around Starlark provider identifier, representing either a declared provider ({@see
  * SkylarkProvider}) or a "legacy" string identifier.
  */
-public final class SkylarkProviderIdentifier {
-  private static final Interner<SkylarkProviderIdentifier> interner =
+public final class StarlarkProviderIdentifier {
+  private static final Interner<StarlarkProviderIdentifier> interner =
       BlazeInterners.newWeakInterner();
 
   @Nullable
@@ -33,27 +33,27 @@ public final class SkylarkProviderIdentifier {
   @Nullable private final Provider.Key key;
 
   /** Creates an id for a declared provider with a given key ({@see SkylarkProvider}). */
-  public static SkylarkProviderIdentifier forKey(Provider.Key key) {
-    return interner.intern(new SkylarkProviderIdentifier(key));
+  public static StarlarkProviderIdentifier forKey(Provider.Key key) {
+    return interner.intern(new StarlarkProviderIdentifier(key));
   }
 
   /** Creates an id for a provider with a given name. */
-  public static SkylarkProviderIdentifier forLegacy(String legacyId) {
-    return interner.intern(new SkylarkProviderIdentifier(legacyId));
+  public static StarlarkProviderIdentifier forLegacy(String legacyId) {
+    return interner.intern(new StarlarkProviderIdentifier(legacyId));
   }
 
-  private SkylarkProviderIdentifier(String legacyId) {
+  private StarlarkProviderIdentifier(String legacyId) {
     this.legacyId = legacyId;
     this.key = null;
   }
 
-  private SkylarkProviderIdentifier(Provider.Key key) {
+  private StarlarkProviderIdentifier(Provider.Key key) {
     this.legacyId = null;
     this.key = key;
   }
 
   /**
-   * Returns true if this {@link SkylarkProviderIdentifier} identifies
+   * Returns true if this {@link StarlarkProviderIdentifier} identifies
    * a legacy provider (with a string name).
    */
   public boolean isLegacy() {
@@ -92,10 +92,10 @@ public final class SkylarkProviderIdentifier {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof SkylarkProviderIdentifier)) {
+    if (!(obj instanceof StarlarkProviderIdentifier)) {
       return false;
     }
-    SkylarkProviderIdentifier other = (SkylarkProviderIdentifier) obj;
+    StarlarkProviderIdentifier other = (StarlarkProviderIdentifier) obj;
     return Objects.equals(legacyId, other.legacyId)
         && Objects.equals(key, other.key);
   }

@@ -89,7 +89,7 @@ assert_eq('a'.endswith(('b',)), False)
 assert_eq('a'.endswith(()), False)
 assert_eq(''.endswith(()), False)
 ---
-'a'.endswith(['a']) ### got .* 'list', want 'string or tuple of strings
+'a'.endswith(['a']) ### got .* 'list', want 'string or tuple'
 ---
 '1'.endswith((1,)) ### at index 0 of sub, got element of type int, want string
 ---
@@ -117,7 +117,7 @@ assert_eq('a'.startswith(('b',)), False)
 assert_eq('a'.startswith(()), False)
 assert_eq(''.startswith(()), False)
 ---
-'a'.startswith(['a']) ### got .* 'list', want 'string or tuple of strings'
+'a'.startswith(['a']) ### got .* 'list', want 'string or tuple'
 ---
 '1'.startswith((1,)) ### at index 0 of sub, got element of type int, want string
 ---

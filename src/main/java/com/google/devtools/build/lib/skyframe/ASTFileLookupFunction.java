@@ -57,6 +57,19 @@ public class ASTFileLookupFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
       InterruptedException {
+    try {
+      return computeInline(skyKey, env, ruleClassProvider);
+    } catch (ErrorReadingSkylarkExtensionException e) {
+      throw new ASTLookupFunctionException(e, e.getTransience());
+    } catch (InconsistentFilesystemException e) {
+      throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
+    }
+  }
+
+  static ASTFileLookupValue computeInline(
+      SkyKey skyKey, Environment env, RuleClassProvider ruleClassProvider)
+      throws ErrorReadingSkylarkExtensionException, InconsistentFilesystemException,
+          InterruptedException {
     Label fileLabel = (Label) skyKey.argument();
 
     // Determine whether the package designated by fileLabel exists.
@@ -69,10 +82,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       pkgLookupValue = (PackageLookupValue) env.getValueOrThrow(
           pkgSkyKey, BuildFileNotFoundException.class, InconsistentFilesystemException.class);
     } catch (BuildFileNotFoundException e) {
-      throw new ASTLookupFunctionException(
-          new ErrorReadingSkylarkExtensionException(e), Transience.PERSISTENT);
-    } catch (InconsistentFilesystemException e) {
-      throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
+      throw new ErrorReadingSkylarkExtensionException(e);
     }
     if (pkgLookupValue == null) {
       return null;
@@ -88,11 +98,8 @@ public class ASTFileLookupFunction implements SkyFunction {
     FileValue fileValue = null;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
-    } catch (InconsistentFilesystemException e) {
-      throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
     } catch (IOException e) {
-      throw new ASTLookupFunctionException(
-          new ErrorReadingSkylarkExtensionException(e), Transience.PERSISTENT);
+      throw new ErrorReadingSkylarkExtensionException(e, Transience.PERSISTENT);
     }
     if (fileValue == null) {
       return null;
@@ -118,12 +125,14 @@ public class ASTFileLookupFunction implements SkyFunction {
     Path path = rootedPath.asPath();
     StarlarkFile file = null;
     try {
-      byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
+      byte[] bytes =
+          fileValue.isSpecialFile()
+              ? FileSystemUtils.readContent(path)
+              : FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
       ParserInput input = ParserInput.create(bytes, path.toString());
       file = StarlarkFile.parseWithDigest(input, path.getDigest(), options);
     } catch (IOException e) {
-      throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
-          Transience.TRANSIENT);
+      throw new ErrorReadingSkylarkExtensionException(e, Transience.TRANSIENT);
     }
 
     // validate (and soon, compile)

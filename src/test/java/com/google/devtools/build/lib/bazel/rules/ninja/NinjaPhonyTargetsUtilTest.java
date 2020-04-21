@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -164,7 +165,9 @@ public class NinjaPhonyTargetsUtilTest {
 
   private static NinjaParserStep createParser(String text) {
     ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
-    NinjaLexer lexer = new NinjaLexer(new FileFragment(buffer, 0, 0, buffer.limit()));
+    NinjaLexer lexer =
+        new NinjaLexer(
+            new FileFragment(buffer, 0, 0, buffer.limit()), BlazeInterners.newWeakInterner());
     return new NinjaParserStep(lexer);
   }
 }

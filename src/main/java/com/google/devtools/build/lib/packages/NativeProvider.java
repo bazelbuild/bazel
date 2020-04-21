@@ -68,8 +68,8 @@ public abstract class NativeProvider<V extends Info> implements StarlarkValue, P
         String.format("'%s' value has no field or method '%%s'", name);
   }
 
-  public final SkylarkProviderIdentifier id() {
-    return SkylarkProviderIdentifier.forKey(getKey());
+  public final StarlarkProviderIdentifier id() {
+    return StarlarkProviderIdentifier.forKey(getKey());
   }
 
   /**

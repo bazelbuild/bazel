@@ -33,19 +33,26 @@ import java.util.function.Predicate;
 @AutoValue
 abstract class FileBasedTypeReferenceNode implements Node<FileBasedTypeReferenceNode> {
 
-  public static FileBasedTypeReferenceNode create(
-      ClassName className, Predicate<ClassName> typeFilter) {
-    return new AutoValue_FileBasedTypeReferenceNode(className, typeFilter);
-  }
-
   abstract ClassName className();
 
   abstract Predicate<ClassName> typeFilter();
 
+  abstract ClassFileBatchProvider classFileBatchProvider();
+
+  public static FileBasedTypeReferenceNode create(
+      ClassName className,
+      Predicate<ClassName> typeFilter,
+      ClassFileBatchProvider classFileBatchProvider) {
+    return new AutoValue_FileBasedTypeReferenceNode(className, typeFilter, classFileBatchProvider);
+  }
+
   @Override
   public final ImmutableSet<FileBasedTypeReferenceNode> getAllChildren() {
-    return FileContentProvider.fromResources(className()).findReferencedTypes(typeFilter()).stream()
-        .map(childClassName -> create(childClassName, typeFilter()))
+    return classFileBatchProvider()
+        .getContent(className())
+        .findReferencedTypes(typeFilter())
+        .stream()
+        .map(childClassName -> create(childClassName, typeFilter(), classFileBatchProvider()))
         .collect(toImmutableSet());
   }
 }

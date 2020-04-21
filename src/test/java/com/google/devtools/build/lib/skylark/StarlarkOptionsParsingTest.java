@@ -120,7 +120,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   // test --non_flag_setting=value
   @Test
   public void testNonFlagParsing() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
 
     scratch.file(
         "test/build_setting.bzl",
@@ -209,7 +209,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   // test --flagA=valueA --flagB=valueB
   @Test
   public void testMultipleFlags() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
 
     scratch.file(
         "test/build_setting.bzl",

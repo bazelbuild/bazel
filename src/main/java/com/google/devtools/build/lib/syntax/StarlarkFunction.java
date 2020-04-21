@@ -32,9 +32,7 @@ public final class StarlarkFunction extends BaseFunction {
   // TODO(adonovan): remove this hack when identifier resolution is accurate.
   boolean isToplevel;
 
-  // TODO(adonovan): make this private. The CodecTests should go through interpreter to instantiate
-  // such things.
-  public StarlarkFunction(
+  StarlarkFunction(
       String name,
       Location location,
       FunctionSignature signature,

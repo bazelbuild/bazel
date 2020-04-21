@@ -93,7 +93,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     scratch.file("java/android/A.java", "package android; public class A {};");
-    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
+    setStarlarkSemanticsOptions("--experimental_google_legacy_api");
   }
 
   @Test

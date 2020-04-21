@@ -577,7 +577,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     Package pkg = validPackageWithoutErrors(skyKey);
-    assertThat(pkg.getSkylarkFileDependencies())
+    assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
             Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
             Label.parseAbsolute("//baz:ext.bzl", ImmutableMap.of()));
@@ -590,7 +590,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
 
     pkg = validPackageWithoutErrors(skyKey);
-    assertThat(pkg.getSkylarkFileDependencies())
+    assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
             Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
             Label.parseAbsolute("//qux:ext.bzl", ImmutableMap.of()));

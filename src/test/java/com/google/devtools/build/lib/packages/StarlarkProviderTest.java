@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -29,13 +28,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SkylarkProvider}. */
+/** Tests for {@link StarlarkProvider}. */
 @RunWith(JUnit4.class)
-public final class SkylarkProviderTest {
+public final class StarlarkProviderTest {
 
   @Test
   public void unexportedProvider_Accessors() {
-    SkylarkProvider provider = SkylarkProvider.createUnexportedSchemaless(/*location=*/ null);
+    StarlarkProvider provider = StarlarkProvider.createUnexportedSchemaless(/*location=*/ null);
     assertThat(provider.isExported()).isFalse();
     assertThat(provider.getName()).isEqualTo("<no name>");
     assertThat(provider.getPrintableName()).isEqualTo("<no name>");
@@ -50,9 +49,9 @@ public final class SkylarkProviderTest {
 
   @Test
   public void exportedProvider_Accessors() throws Exception {
-    SkylarkKey key =
-        new SkylarkKey(Label.parseAbsolute("//foo:bar.bzl", ImmutableMap.of()), "prov");
-    SkylarkProvider provider = SkylarkProvider.createExportedSchemaless(key, /*location=*/ null);
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(Label.parseAbsolute("//foo:bar.bzl", ImmutableMap.of()), "prov");
+    StarlarkProvider provider = StarlarkProvider.createExportedSchemaless(key, /*location=*/ null);
     assertThat(provider.isExported()).isTrue();
     assertThat(provider.getName()).isEqualTo("prov");
     assertThat(provider.getPrintableName()).isEqualTo("prov");
@@ -65,14 +64,14 @@ public final class SkylarkProviderTest {
 
   @Test
   public void schemalessProvider_Instantiation() throws Exception {
-    SkylarkProvider provider = SkylarkProvider.createUnexportedSchemaless(/*location=*/ null);
+    StarlarkProvider provider = StarlarkProvider.createUnexportedSchemaless(/*location=*/ null);
     SkylarkInfo info = instantiateWithA1B2C3(provider);
     assertHasExactlyValuesA1B2C3(info);
   }
 
   @Test
   public void schemafulProvider_Instantiation() throws Exception {
-    SkylarkProvider provider = SkylarkProvider.createUnexportedSchemaful(
+    StarlarkProvider provider = StarlarkProvider.createUnexportedSchemaful(
         ImmutableList.of("a", "b", "c"), /*location=*/ null);
     SkylarkInfo info = instantiateWithA1B2C3(provider);
     assertHasExactlyValuesA1B2C3(info);
@@ -80,13 +79,13 @@ public final class SkylarkProviderTest {
 
   @Test
   public void schemalessProvider_GetFields() throws Exception {
-    SkylarkProvider provider = SkylarkProvider.createUnexportedSchemaless(/*location=*/ null);
+    StarlarkProvider provider = StarlarkProvider.createUnexportedSchemaless(/*location=*/ null);
     assertThat(provider.getFields()).isNull();
   }
 
   @Test
   public void schemafulProvider_GetFields() throws Exception {
-    SkylarkProvider provider = SkylarkProvider.createUnexportedSchemaful(
+    StarlarkProvider provider = StarlarkProvider.createUnexportedSchemaful(
         ImmutableList.of("a", "b", "c"), /*location=*/ null);
     assertThat(provider.getFields()).containsExactly("a", "b", "c").inOrder();
   }
@@ -94,30 +93,30 @@ public final class SkylarkProviderTest {
   @Test
   public void providerEquals() throws Exception {
     // All permutations of differing label and differing name.
-    SkylarkKey keyFooA =
-        new SkylarkKey(Label.parseAbsolute("//foo.bzl", ImmutableMap.of()), "provA");
-    SkylarkKey keyFooB =
-        new SkylarkKey(Label.parseAbsolute("//foo.bzl", ImmutableMap.of()), "provB");
-    SkylarkKey keyBarA =
-        new SkylarkKey(Label.parseAbsolute("//bar.bzl", ImmutableMap.of()), "provA");
-    SkylarkKey keyBarB =
-        new SkylarkKey(Label.parseAbsolute("//bar.bzl", ImmutableMap.of()), "provB");
+    StarlarkProvider.Key keyFooA =
+        new StarlarkProvider.Key(Label.parseAbsolute("//foo.bzl", ImmutableMap.of()), "provA");
+    StarlarkProvider.Key keyFooB =
+        new StarlarkProvider.Key(Label.parseAbsolute("//foo.bzl", ImmutableMap.of()), "provB");
+    StarlarkProvider.Key keyBarA =
+        new StarlarkProvider.Key(Label.parseAbsolute("//bar.bzl", ImmutableMap.of()), "provA");
+    StarlarkProvider.Key keyBarB =
+        new StarlarkProvider.Key(Label.parseAbsolute("//bar.bzl", ImmutableMap.of()), "provB");
 
     // 1 for each key, plus a duplicate for one of the keys, plus 2 that have no key.
-    SkylarkProvider provFooA1 =
-        SkylarkProvider.createExportedSchemaless(keyFooA, /*location=*/ null);
-    SkylarkProvider provFooA2 =
-        SkylarkProvider.createExportedSchemaless(keyFooA, /*location=*/ null);
-    SkylarkProvider provFooB =
-        SkylarkProvider.createExportedSchemaless(keyFooB, /*location=*/ null);
-    SkylarkProvider provBarA =
-        SkylarkProvider.createExportedSchemaless(keyBarA, /*location=*/ null);
-    SkylarkProvider provBarB =
-        SkylarkProvider.createExportedSchemaless(keyBarB, /*location=*/ null);
-    SkylarkProvider provUnexported1 =
-        SkylarkProvider.createUnexportedSchemaless(/*location=*/ null);
-    SkylarkProvider provUnexported2 =
-        SkylarkProvider.createUnexportedSchemaless(/*location=*/ null);
+    StarlarkProvider provFooA1 =
+        StarlarkProvider.createExportedSchemaless(keyFooA, /*location=*/ null);
+    StarlarkProvider provFooA2 =
+        StarlarkProvider.createExportedSchemaless(keyFooA, /*location=*/ null);
+    StarlarkProvider provFooB =
+        StarlarkProvider.createExportedSchemaless(keyFooB, /*location=*/ null);
+    StarlarkProvider provBarA =
+        StarlarkProvider.createExportedSchemaless(keyBarA, /*location=*/ null);
+    StarlarkProvider provBarB =
+        StarlarkProvider.createExportedSchemaless(keyBarB, /*location=*/ null);
+    StarlarkProvider provUnexported1 =
+        StarlarkProvider.createUnexportedSchemaless(/*location=*/ null);
+    StarlarkProvider provUnexported2 =
+        StarlarkProvider.createUnexportedSchemaless(/*location=*/ null);
 
     // For exported providers, different keys -> unequal, same key -> equal. For unexported
     // providers it comes down to object identity.
@@ -132,7 +131,7 @@ public final class SkylarkProviderTest {
   }
 
   /** Instantiates a {@link SkylarkInfo} with fields a=1, b=2, c=3 (and nothing else). */
-  private static SkylarkInfo instantiateWithA1B2C3(SkylarkProvider provider) throws Exception{
+  private static SkylarkInfo instantiateWithA1B2C3(StarlarkProvider provider) throws Exception{
     StarlarkThread thread =
         StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
     Object result =

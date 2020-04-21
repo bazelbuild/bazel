@@ -19,9 +19,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
+import com.google.devtools.build.android.desugar.io.JarItem;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
-import com.google.devtools.build.android.desugar.testing.junit.JarEntryRecord;
 import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
 import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeJarEntry;
@@ -61,7 +61,7 @@ public final class NestAnalyzerTest {
       @RuntimeJarEntry(
               value = "AnalyzedTarget.class",
               round = 0) // Without desugaring at zero-th round.
-          JarEntryRecord analyzedTarget)
+          JarItem analyzedTarget)
       throws IOException {
 
     JarFile jarFile = analyzedTarget.jarFile();

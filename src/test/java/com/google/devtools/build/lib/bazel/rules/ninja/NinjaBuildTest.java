@@ -55,7 +55,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_ninja_actions");
+    setStarlarkSemanticsOptions("--experimental_ninja_actions");
   }
 
   @Test

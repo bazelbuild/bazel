@@ -25,6 +25,8 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
+import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -46,8 +48,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigurationsResult;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -688,7 +688,7 @@ public final class ConfigurationResolver {
    * @param targetsToEvaluate the inputs repackaged as dependencies, including rule-specific
    *     transitions
    * @param eventHandler the error event handler
-   * @param skyframeExecutor the executor used for resolving Skyframe keys
+   * @param configurationsCollector the collector which finds configurations for dependencies
    */
   // TODO(bazel-team): error out early for targets that fail - failed configuration evaluations
   //   should never make it through analysis (and especially not seed ConfiguredTargetValues)
@@ -699,7 +699,7 @@ public final class ConfigurationResolver {
       Iterable<TargetAndConfiguration> defaultContext,
       Multimap<BuildConfiguration, Dependency> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
-      SkyframeExecutor skyframeExecutor)
+      ConfigurationsCollector configurationsCollector)
       throws InvalidConfigurationException {
 
     Map<Label, Target> labelsToTargets = new HashMap<>();
@@ -715,7 +715,7 @@ public final class ConfigurationResolver {
     if (!targetsToEvaluate.isEmpty()) {
       for (BuildConfiguration fromConfig : targetsToEvaluate.keySet()) {
         ConfigurationsResult configurationsResult =
-            skyframeExecutor.getConfigurations(
+            configurationsCollector.getConfigurations(
                 eventHandler, fromConfig.getOptions(), targetsToEvaluate.get(fromConfig));
         hasError |= configurationsResult.hasError();
         for (Map.Entry<Dependency, BuildConfiguration> evaluatedTarget :

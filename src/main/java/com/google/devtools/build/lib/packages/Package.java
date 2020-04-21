@@ -166,7 +166,7 @@ public class Package {
   private boolean containsErrors;
 
   /** The list of transitive closure of the Starlark file dependencies. */
-  private ImmutableList<Label> skylarkFileDependencies;
+  private ImmutableList<Label> starlarkFileDependencies;
 
   /** The package's default "applicable_licenses" attribute. */
   private Set<Label> defaultApplicableLicenses = ImmutableSet.of();
@@ -416,7 +416,7 @@ public class Package {
     }
     this.buildFile = builder.buildFile;
     this.containsErrors = builder.containsErrors;
-    this.skylarkFileDependencies = builder.skylarkFileDependencies;
+    this.starlarkFileDependencies = builder.starlarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
@@ -446,8 +446,8 @@ public class Package {
   }
 
   /** Returns the list of transitive closure of the Starlark file dependencies of this package. */
-  public ImmutableList<Label> getSkylarkFileDependencies() {
-    return skylarkFileDependencies;
+  public ImmutableList<Label> getStarlarkFileDependencies() {
+    return starlarkFileDependencies;
   }
 
   /**
@@ -870,7 +870,7 @@ public class Package {
     private BiMap<String, Target> targets = HashBiMap.create();
     private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
-    private ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
+    private ImmutableList<Label> starlarkFileDependencies = ImmutableList.of();
 
     private final List<String> registeredExecutionPlatforms = new ArrayList<>();
     private final List<String> registeredToolchains = new ArrayList<>();
@@ -1184,8 +1184,8 @@ public class Package {
       return this;
     }
 
-    Builder setSkylarkFileDependencies(ImmutableList<Label> skylarkFileDependencies) {
-      this.skylarkFileDependencies = skylarkFileDependencies;
+    Builder setStarlarkFileDependencies(ImmutableList<Label> starlarkFileDependencies) {
+      this.starlarkFileDependencies = starlarkFileDependencies;
       return this;
     }
 
@@ -1213,6 +1213,11 @@ public class Package {
       this.defaultLicense = license;
     }
 
+    /**
+     * Returns the <b>current</b> default {@link License}. This should be used with caution - its
+     * value may change during package loading, so it might not reflect the package's final default
+     * value.
+     */
     License getDefaultLicense() {
       return defaultLicense;
     }
@@ -1225,10 +1230,6 @@ public class Package {
      */
     void setDefaultDistribs(Set<DistributionType> dists) {
       this.defaultDistributionSet = dists;
-    }
-
-    Set<DistributionType> getDefaultDistribs() {
-      return defaultDistributionSet;
     }
 
     /**

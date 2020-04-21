@@ -209,7 +209,7 @@ public interface QueryEnvironment<T> {
   }
 
   /** Returns all of the targets in <code>target</code>'s package, in some stable order. */
-  Collection<T> getSiblingTargetsInPackage(T target);
+  Collection<T> getSiblingTargetsInPackage(T target) throws QueryException;
 
   /**
    * Invokes {@code callback} with the set of target nodes in the graph for the specified target

@@ -68,7 +68,7 @@ public class StarlarkOptionsTestCase extends SkylarkTestCase {
 
   private void writeBuildSetting(String type, String defaultValue, boolean isFlag)
       throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
 
     String flag = isFlag ? "True" : "False";
 

@@ -628,7 +628,7 @@ public class RuleClass {
      * Name of default attribute implicitly added to all Starlark RuleClasses that are {@code
      * build_setting}s.
      */
-    public static final String SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
+    public static final String STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
 
     public static final String BUILD_SETTING_DEFAULT_NONCONFIGURABLE =
         "Build setting defaults are referenced during analysis.";
@@ -650,13 +650,13 @@ public class RuleClass {
     private String name;
     private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
-    private final boolean skylark;
-    private boolean skylarkTestable = false;
+    private final boolean starlark;
+    private boolean starlarkTestable = false;
     private boolean documented;
     private boolean publicByDefault = false;
     private boolean binaryOutput = true;
     private boolean workspaceOnly = false;
-    private boolean isExecutableSkylark = false;
+    private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
     private boolean hasFunctionTransitionWhitelist = false;
@@ -720,20 +720,20 @@ public class RuleClass {
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
 
     /**
-     * Constructs a new {@code RuleClassBuilder} using all attributes from all
-     * parent rule classes. An attribute cannot exist in more than one parent.
+     * Constructs a new {@code RuleClassBuilder} using all attributes from all parent rule classes.
+     * An attribute cannot exist in more than one parent.
      *
-     * <p>The rule type affects the allowed names and the required
-     * attributes (see {@link RuleClassType}).
+     * <p>The rule type affects the allowed names and the required attributes (see {@link
+     * RuleClassType}).
      *
-     * @throws IllegalArgumentException if an attribute with the same name exists
-     * in more than one parent
+     * @throws IllegalArgumentException if an attribute with the same name exists in more than one
+     *     parent
      */
-    public Builder(String name, RuleClassType type, boolean skylark, RuleClass... parents) {
+    public Builder(String name, RuleClassType type, boolean starlark, RuleClass... parents) {
       this.name = name;
-      this.skylark = skylark;
+      this.starlark = starlark;
       this.type = type;
-      Preconditions.checkState(skylark || type != RuleClassType.PLACEHOLDER, name);
+      Preconditions.checkState(starlark || type != RuleClassType.PLACEHOLDER, name);
       this.documented = type != RuleClassType.ABSTRACT;
       for (RuleClass parent : parents) {
         if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
@@ -812,9 +812,9 @@ public class RuleClass {
           configuredTargetFactory,
           configuredTargetFunction);
       if (!workspaceOnly) {
-        if (skylark) {
-          assertSkylarkRuleClassHasImplementationFunction();
-          assertSkylarkRuleClassHasEnvironmentLabel();
+        if (starlark) {
+          assertStarlarkRuleClassHasImplementationFunction();
+          assertStarlarkRuleClassHasEnvironmentLabel();
         }
         Preconditions.checkState(externalBindingsFunction == NO_EXTERNAL_BINDINGS);
       }
@@ -825,7 +825,7 @@ public class RuleClass {
       if (buildSetting != null) {
         Type<?> type = buildSetting.getType();
         Attribute.Builder<?> attrBuilder =
-            attr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
+            attr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
                 .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE)
                 .mandatory();
         if (BuildType.isLabelType(type)) {
@@ -844,13 +844,13 @@ public class RuleClass {
           callstack,
           key,
           type,
-          skylark,
-          skylarkTestable,
+          starlark,
+          starlarkTestable,
           documented,
           publicByDefault,
           binaryOutput,
           workspaceOnly,
-          isExecutableSkylark,
+          isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
           hasFunctionTransitionWhitelist,
@@ -902,7 +902,7 @@ public class RuleClass {
       ruleClassType.checkAttributes(attributes);
     }
 
-    private void assertSkylarkRuleClassHasImplementationFunction() {
+    private void assertStarlarkRuleClassHasImplementationFunction() {
       Preconditions.checkState(
           (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
               == (configuredTargetFunction != null),
@@ -911,7 +911,7 @@ public class RuleClass {
           configuredTargetFunction);
     }
 
-    private void assertSkylarkRuleClassHasEnvironmentLabel() {
+    private void assertStarlarkRuleClassHasEnvironmentLabel() {
       Preconditions.checkState(
           (type == RuleClassType.NORMAL
                   || type == RuleClassType.TEST
@@ -960,7 +960,7 @@ public class RuleClass {
      * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method takes the
      * Starlark module names of fragments instead of their classes.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+    public Builder requiresConfigurationFragmentsByStarlarkModuleName(
         Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy
           .requiresConfigurationFragmentsBySkylarkModuleName(configurationFragmentNames);
@@ -985,7 +985,7 @@ public class RuleClass {
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+    public Builder requiresConfigurationFragmentsByStarlarkModuleName(
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
           configurationFragmentNames);
@@ -998,9 +998,9 @@ public class RuleClass {
       return this;
     }
 
-    public Builder setSkylarkTestable() {
-      Preconditions.checkState(skylark, "Cannot set skylarkTestable on a non-Starlark rule");
-      skylarkTestable = true;
+    public Builder setStarlarkTestable() {
+      Preconditions.checkState(starlark, "Cannot set starlarkTestable on a non-Starlark rule");
+      starlarkTestable = true;
       return this;
     }
 
@@ -1145,9 +1145,9 @@ public class RuleClass {
       return this;
     }
 
-    public Builder advertiseSkylarkProvider(SkylarkProviderIdentifier... skylarkProviders) {
-      for (SkylarkProviderIdentifier skylarkProviderIdentifier : skylarkProviders) {
-        advertisedProviders.addSkylark(skylarkProviderIdentifier);
+    public Builder advertiseStarlarkProvider(StarlarkProviderIdentifier... starlarkProviders) {
+      for (StarlarkProviderIdentifier starlarkProviderIdentifier : starlarkProviders) {
+        advertisedProviders.addSkylark(starlarkProviderIdentifier);
       }
       return this;
     }
@@ -1279,8 +1279,8 @@ public class RuleClass {
      * This rule class outputs a default executable for every rule with the same name as the
      * rules's. Only works for Starlark.
      */
-    public <TYPE> Builder setExecutableSkylark() {
-      this.isExecutableSkylark = true;
+    public <TYPE> Builder setExecutableStarlark() {
+      this.isExecutableStarlark = true;
       return this;
     }
 
@@ -1497,13 +1497,13 @@ public class RuleClass {
   private final String targetKind;
 
   private final RuleClassType type;
-  private final boolean isSkylark;
-  private final boolean skylarkTestable;
+  private final boolean isStarlark;
+  private final boolean starlarkTestable;
   private final boolean documented;
   private final boolean publicByDefault;
   private final boolean binaryOutput;
   private final boolean workspaceOnly;
-  private final boolean isExecutableSkylark;
+  private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
   private final boolean hasFunctionTransitionWhitelist;
@@ -1631,13 +1631,13 @@ public class RuleClass {
       ImmutableList<StarlarkThread.CallStackEntry> callstack,
       String key,
       RuleClassType type,
-      boolean isSkylark,
-      boolean skylarkTestable,
+      boolean isStarlark,
+      boolean starlarkTestable,
       boolean documented,
       boolean publicByDefault,
       boolean binaryOutput,
       boolean workspaceOnly,
-      boolean isExecutableSkylark,
+      boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
       boolean hasFunctionTransitionWhitelist,
@@ -1667,9 +1667,9 @@ public class RuleClass {
     this.callstack = callstack;
     this.key = key;
     this.type = type;
-    this.isSkylark = isSkylark;
+    this.isStarlark = isStarlark;
     this.targetKind = name + Rule.targetKindSuffix();
-    this.skylarkTestable = skylarkTestable;
+    this.starlarkTestable = starlarkTestable;
     this.documented = documented;
     this.publicByDefault = publicByDefault;
     this.binaryOutput = binaryOutput;
@@ -1688,7 +1688,7 @@ public class RuleClass {
     validateNoClashInPublicNames(attributes);
     this.attributes = ImmutableList.copyOf(attributes);
     this.workspaceOnly = workspaceOnly;
-    this.isExecutableSkylark = isExecutableSkylark;
+    this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
     this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
@@ -2309,14 +2309,6 @@ public class RuleClass {
     if (attr.getName().equals("applicable_licenses")) {
       return pkgBuilder.getDefaultApplicableLicenses();
     }
-    // Starlark rules may define their own "licenses" attributes with different types -
-    // we shouldn't trigger the special "licenses" on those cases.
-    if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
-      return pkgBuilder.getDefaultLicense();
-    }
-    if (attr.getName().equals("distribs")) {
-      return pkgBuilder.getDefaultDistribs();
-    }
     return attr.getDefaultValue(null);
   }
 
@@ -2557,20 +2549,18 @@ public class RuleClass {
   }
 
   /** Returns true if this RuleClass is a Starlark-defined RuleClass. */
-  public boolean isSkylark() {
-    return isSkylark;
+  public boolean isStarlark() {
+    return isStarlark;
   }
 
   /** Returns true if this RuleClass is Starlark-defined and is subject to analysis-time tests. */
-  public boolean isSkylarkTestable() {
-    return skylarkTestable;
+  public boolean isStarlarkTestable() {
+    return starlarkTestable;
   }
 
-  /**
-   * Returns true if this rule class outputs a default executable for every rule.
-   */
-  public boolean isExecutableSkylark() {
-    return isExecutableSkylark;
+  /** Returns true if this rule class outputs a default executable for every rule. */
+  public boolean isExecutableStarlark() {
+    return isExecutableStarlark;
   }
 
   /** Returns true if this rule class is an analysis test (set by analysis_test = true). */

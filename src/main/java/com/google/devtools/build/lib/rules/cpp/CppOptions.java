@@ -37,6 +37,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Command-line options for C++. */
 public class CppOptions extends FragmentOptions {
@@ -167,6 +168,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "The minimum OS version which your compilation targets.")
+  @Nullable
   public String minimumOsVersion;
 
   // O intrepid reaper of unused options: Be warned that the [no]start_end_lib
