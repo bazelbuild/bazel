@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -126,7 +127,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Handler;
-import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -144,7 +144,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static final Pattern suppressFromLog =
       Pattern.compile("--client_env=([^=]*(?:auth|pass|cookie)[^=]*)=", Pattern.CASE_INSENSITIVE);
 
-  private static final Logger logger = Logger.getLogger(BlazeRuntime.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final FileSystem fileSystem;
   private final Iterable<BlazeModule> blazeModules;
@@ -753,8 +753,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // Run Blaze in batch mode.
       System.exit(batchMain(modules, args));
     }
-    logger.info(
-        "Starting Bazel server with " + maybeGetPidString() + "args " + Arrays.toString(args));
+    logger.atInfo().log(
+        "Starting Bazel server with %s, args %s", maybeGetPidString(), Arrays.toString(args));
     try {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
@@ -886,7 +886,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           while (true) {
             count++;
             Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
-            logger.warning("Slow interrupt number " + count + " in batch mode");
+            logger.atWarning().log("Slow interrupt number %d in batch mode", count);
             ThreadUtils.warnAboutSlowInterrupt();
           }
         };
@@ -894,7 +894,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return new InterruptSignalHandler() {
       @Override
       public void run() {
-        logger.info("User interrupt");
+        logger.atInfo().log("User interrupt");
         OutErr.SYSTEM_OUT_ERR.printErrLn("Bazel received an interrupt");
         mainThread.interrupt();
 
@@ -904,7 +904,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           interruptWatcherThread.setDaemon(true);
           interruptWatcherThread.start();
         } else if (curNumInterrupts == 2) {
-          logger.warning("Second --batch interrupt: Reverting to JVM SIGINT handler");
+          logger.atWarning().log("Second --batch interrupt: Reverting to JVM SIGINT handler");
           uninstall();
         }
       }
@@ -918,11 +918,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static int batchMain(Iterable<BlazeModule> modules, String[] args) {
     InterruptSignalHandler signalHandler = captureSigint();
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
-    logger.info(
-        "Running Bazel in batch mode with "
-            + maybeGetPidString()
-            + "startup args "
-            + commandLineOptions.getStartupArgs());
+    logger.atInfo().log(
+        "Running Bazel in batch mode with %s, startup args %s",
+        maybeGetPidString(), commandLineOptions.getStartupArgs());
 
     BlazeRuntime runtime;
     InvocationPolicy policy;
@@ -952,7 +950,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     boolean shutdownDone = false;
 
     try {
-      logger.info(getRequestLogString(commandLineOptions.getOtherArgs()));
+      logger.atInfo().log(getRequestLogString(commandLineOptions.getOtherArgs()));
       BlazeCommandResult result =
           dispatcher.exec(
               policy,
@@ -1001,7 +999,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       } catch (IOException e) {
         // We are in batch mode, thus, stdout/stderr are the same as that of the client.
         System.err.println("Cannot execute process for 'run' command: " + e.getMessage());
-        logger.log(Level.SEVERE, "Exception while executing binary from 'run' command", e);
+        logger.atSevere().withCause(e).log("Exception while executing binary from 'run' command");
         return ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode();
       }
     } catch (InterruptedException e) {
@@ -1053,7 +1051,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           new InterruptSignalHandler() {
             @Override
             public void run() {
-              logger.severe("User interrupt");
+              logger.atSevere().log("User interrupt");
               rpcServer[0].interrupt();
             }
           };
