@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
@@ -1163,17 +1162,5 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
       return this;
     }
-  }
-
-  /**
-   * Listener class to subscribe for WORKSPACE file header refreshes.
-   *
-   * <p>Changes to WORKSPACE file header are computed before the files difference is computed in
-   * {@link #handleDiffs(ExtendedEventHandler, boolean, OptionsProvider)}
-   */
-  public interface WorkspaceFileHeaderListener {
-    boolean workspaceHeaderReloaded(
-        @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue)
-        throws AbruptExitException;
   }
 }

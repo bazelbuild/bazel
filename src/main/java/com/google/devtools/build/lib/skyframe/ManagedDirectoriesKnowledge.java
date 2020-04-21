@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.repository;
+package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.WorkspaceFileHeaderListener;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * <p>Having managed directories as a separate component (and not SkyValue) allows to skip recording
  * the dependency in Skyframe for each FileStateValue and DirectoryListingStateValue.
  */
-public interface ManagedDirectoriesKnowledge extends WorkspaceFileHeaderListener {
+public interface ManagedDirectoriesKnowledge {
   ManagedDirectoriesKnowledge NO_MANAGED_DIRECTORIES =
       new ManagedDirectoriesKnowledge() {
         @Override
@@ -50,6 +50,10 @@ public interface ManagedDirectoriesKnowledge extends WorkspaceFileHeaderListener
           return ImmutableSet.of();
         }
       };
+
+  boolean workspaceHeaderReloaded(
+      @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue)
+      throws AbruptExitException;
 
   /**
    * Returns the owning repository for the incrementally updated path, or null.
