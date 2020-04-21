@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
@@ -175,9 +175,9 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       ImplicitOutputsFunction implicitOutputsFunction =
           ruleContext.getRule().getImplicitOutputsFunction();
 
-      if (implicitOutputsFunction instanceof SkylarkImplicitOutputsFunction) {
-        SkylarkImplicitOutputsFunction func =
-            (SkylarkImplicitOutputsFunction) implicitOutputsFunction;
+      if (implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction) {
+        StarlarkImplicitOutputsFunction func =
+            (StarlarkImplicitOutputsFunction) implicitOutputsFunction;
         for (Map.Entry<String, String> entry :
             func.calculateOutputs(
                     ruleContext.getAnalysisEnvironment().getEventHandler(),
