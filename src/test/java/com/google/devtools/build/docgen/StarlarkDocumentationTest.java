@@ -61,10 +61,10 @@ public class StarlarkDocumentationTest {
       throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, StarlarkModuleDoc> modules =
-        SkylarkDocumentationCollector.collectModules(
-            Classpath.findClasses(SkylarkDocumentationProcessor.MODULES_PACKAGE_PREFIX));
+        StarlarkDocumentationCollector.collectModules(
+            Classpath.findClasses(StarlarkDocumentationProcessor.MODULES_PACKAGE_PREFIX));
     StarlarkModuleDoc topLevel =
-        modules.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
+        modules.remove(StarlarkDocumentationCollector.getTopLevelModule().name());
     for (StarlarkMethodDoc method : topLevel.getMethods()) {
       docMap.put(method.getName(), method.getDocumentation());
     }
@@ -86,7 +86,7 @@ public class StarlarkDocumentationTest {
 
     // These constants are currently undocumented.
     // If they need documentation, the easiest approach would be
-    // to hard-code it in SkylarkDocumentationCollector.
+    // to hard-code it in StarlarkDocumentationCollector.
     undocumentedItems.remove("True");
     undocumentedItems.remove("False");
     undocumentedItems.remove("None");
@@ -374,10 +374,10 @@ public class StarlarkDocumentationTest {
   @Test
   public void testSkylarkGlobalLibraryCallable() throws Exception {
     Map<String, StarlarkModuleDoc> modules =
-        SkylarkDocumentationCollector.collectModules(
-            Classpath.findClasses(SkylarkDocumentationProcessor.MODULES_PACKAGE_PREFIX));
+        StarlarkDocumentationCollector.collectModules(
+            Classpath.findClasses(StarlarkDocumentationProcessor.MODULES_PACKAGE_PREFIX));
     StarlarkModuleDoc topLevel =
-        modules.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
+        modules.remove(StarlarkDocumentationCollector.getTopLevelModule().name());
 
     boolean foundGlobalLibrary = false;
     for (StarlarkMethodDoc methodDoc : topLevel.getMethods()) {
@@ -469,7 +469,7 @@ public class StarlarkDocumentationTest {
   }
 
   private Map<String, StarlarkModuleDoc> collect(Iterable<Class<?>> classObjects) {
-    return SkylarkDocumentationCollector.collectModules(classObjects);
+    return StarlarkDocumentationCollector.collectModules(classObjects);
   }
 
   private Map<String, StarlarkModuleDoc> collect(Class<?> classObject) {

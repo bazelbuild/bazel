@@ -17,7 +17,7 @@ package com.google.devtools.build.docgen;
 import java.util.Arrays;
 
 /** The main class for the Starlark documentation generator. */
-public class SkylarkDocumentationGenerator {
+public class StarlarkDocumentationGenerator {
 
   private static boolean checkArgs(String[] args) {
     if (args.length < 1) {
@@ -40,9 +40,8 @@ public class SkylarkDocumentationGenerator {
     if (checkArgs(args)) {
       System.out.println("Generating Starlark documentation...");
       try {
-        SkylarkDocumentationProcessor.generateDocumentation(
-            args[0],
-            Arrays.copyOfRange(args, 1, args.length));
+        StarlarkDocumentationProcessor.generateDocumentation(
+            args[0], Arrays.copyOfRange(args, 1, args.length));
       } catch (Throwable e) {
         fail(e, true);
       }

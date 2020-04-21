@@ -72,7 +72,7 @@ public final class StarlarkDocumentationFailuresTest {
         assertThrows(
             IllegalStateException.class,
             () ->
-                SkylarkDocumentationCollector.collectModules(
+                StarlarkDocumentationCollector.collectModules(
                     ImmutableList.of(PointsToCommonName.class)));
     assertThat(ex).hasMessageThat().contains("are both modules with the same documentation");
   }

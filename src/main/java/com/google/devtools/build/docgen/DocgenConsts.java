@@ -184,7 +184,7 @@ public class DocgenConsts {
       .build();
 
   // The following variables are not constants as they can be overridden from
-  // SkylarkDocumentationProcessor#parseOptions
+  // StarlarkDocumentationProcessor#parseOptions
 
   // Build Encyclopedia documentation root
   public static String BeDocsRoot = "/versions/master/be";

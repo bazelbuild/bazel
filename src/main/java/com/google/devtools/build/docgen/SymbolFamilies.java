@@ -142,7 +142,7 @@ public class SymbolFamilies {
    * in BZL and BUILD files.
    */
   private Map<String, StarlarkModuleDoc> collectTypes() throws ClassPathException {
-    return SkylarkDocumentationCollector.collectModules(
+    return StarlarkDocumentationCollector.collectModules(
         Classpath.findClasses(MODULES_PACKAGE_PREFIX));
   }
 

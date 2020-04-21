@@ -32,7 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /** A class to assemble documentation for Starlark. */
-public final class SkylarkDocumentationProcessor {
+public final class StarlarkDocumentationProcessor {
 
   private static final ImmutableList<SkylarkModuleCategory> GLOBAL_CATEGORIES =
       ImmutableList.<SkylarkModuleCategory>of(
@@ -41,7 +41,7 @@ public final class SkylarkDocumentationProcessor {
   // Common prefix of packages that may contain Starlark modules.
   @VisibleForTesting static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
 
-  private SkylarkDocumentationProcessor() {}
+  private StarlarkDocumentationProcessor() {}
 
   /** Generates the Starlark documentation to the given output directory. */
   public static void generateDocumentation(String outputDir, String... args)
@@ -49,11 +49,12 @@ public final class SkylarkDocumentationProcessor {
     parseOptions(args);
 
     Map<String, StarlarkModuleDoc> modules =
-        SkylarkDocumentationCollector.collectModules(Classpath.findClasses(MODULES_PACKAGE_PREFIX));
+        StarlarkDocumentationCollector.collectModules(
+            Classpath.findClasses(MODULES_PACKAGE_PREFIX));
 
     // Generate the top level module first in the doc
     StarlarkModuleDoc topLevelModule =
-        modules.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
+        modules.remove(StarlarkDocumentationCollector.getTopLevelModule().name());
     writePage(outputDir, topLevelModule);
 
     // Use a LinkedHashMap to preserve ordering of categories, as the output iterates over
@@ -124,7 +125,7 @@ public final class SkylarkDocumentationProcessor {
       Map<SkylarkModuleCategory, List<StarlarkModuleDoc>> modulesByCategory) {
     List<StarlarkModuleDoc> topLevelModules =
         modulesByCategory.get(SkylarkModuleCategory.TOP_LEVEL_TYPE);
-    String globalModuleName = SkylarkDocumentationCollector.getTopLevelModule().name();
+    String globalModuleName = StarlarkDocumentationCollector.getTopLevelModule().name();
     for (StarlarkModuleDoc module : topLevelModules) {
       if (module.getName().equals(globalModuleName)) {
         return module;

@@ -71,8 +71,8 @@ java_binary(
 
 java_binary(
     name = "skydoc_bin",
-    srcs = ["SkylarkDocumentationGenerator.java"],
-    main_class = "com.google.devtools.build.docgen.SkylarkDocumentationGenerator",
+    srcs = ["StarlarkDocumentationGenerator.java"],
+    main_class = "com.google.devtools.build.docgen.StarlarkDocumentationGenerator",
     runtime_deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
     ],

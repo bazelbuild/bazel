@@ -31,7 +31,7 @@ import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /** A helper class that collects Starlark module documentation. */
-final class SkylarkDocumentationCollector {
+final class StarlarkDocumentationCollector {
   @SkylarkModule(
       name = "globals",
       title = "Globals",
@@ -39,7 +39,7 @@ final class SkylarkDocumentationCollector {
       doc = "Objects, functions and modules registered in the global environment.")
   private static final class TopLevelModule implements StarlarkValue {}
 
-  private SkylarkDocumentationCollector() {}
+  private StarlarkDocumentationCollector() {}
 
   /** Returns the SkylarkModule annotation for the top-level Starlark module. */
   public static SkylarkModule getTopLevelModule() {
