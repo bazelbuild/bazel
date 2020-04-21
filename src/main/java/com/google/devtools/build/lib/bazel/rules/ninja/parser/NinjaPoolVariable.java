@@ -19,12 +19,7 @@ import com.google.common.base.Ascii;
 
 /** Enum to represent {@link NinjaPool} variables with the special value, like name or depth. */
 public enum NinjaPoolVariable {
-  NAME,
   DEPTH;
-
-  public String lowerCaseName() {
-    return Ascii.toLowerCase(name());
-  }
 
   public static NinjaPoolVariable nullOrValue(String name) {
     try {

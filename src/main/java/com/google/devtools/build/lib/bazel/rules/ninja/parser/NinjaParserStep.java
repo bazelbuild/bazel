@@ -184,7 +184,6 @@ public class NinjaParserStep {
 
     ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> variablesBuilder =
         ImmutableSortedMap.naturalOrder();
-    variablesBuilder.put(NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name));
 
     parseExpected(NinjaToken.NEWLINE);
     lexer.interpretPoolAsVariable();
@@ -214,7 +213,6 @@ public class NinjaParserStep {
 
     ImmutableSortedMap.Builder<NinjaPoolVariable, NinjaVariableValue> variablesBuilder =
         ImmutableSortedMap.naturalOrder();
-    variablesBuilder.put(NinjaPoolVariable.NAME, NinjaVariableValue.createPlainText(name));
 
     parseExpected(NinjaToken.NEWLINE);
     while (parseIndentOrFinishDeclaration()) {
@@ -231,7 +229,7 @@ public class NinjaParserStep {
         parseExpected(NinjaToken.NEWLINE);
       }
     }
-    return new NinjaPool(variablesBuilder.build());
+    return new NinjaPool(nameInterner.intern(name), variablesBuilder.build());
   }
 
   private enum NinjaTargetParsingPart {

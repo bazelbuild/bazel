@@ -302,7 +302,6 @@ public class NinjaScopeTest {
     return new NinjaRule(
         name,
         ImmutableSortedMap.of(
-            NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name),
             NinjaRuleVariable.COMMAND, NinjaVariableValue.createPlainText(command)));
   }
 

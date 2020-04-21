@@ -19,7 +19,6 @@ import com.google.common.base.Ascii;
 
 /** Enum to represent {@link NinjaRule} variables with the special value, like name or command. */
 public enum NinjaRuleVariable {
-  NAME,
   COMMAND,
   DEPFILE,
   DEPS,
