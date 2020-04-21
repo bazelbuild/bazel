@@ -322,7 +322,11 @@ function create_and_run_classpath_jar() {
     MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
     MANIFEST_FILE="$(cygpath --windows "$MANIFEST_FILE")"
   fi
-  JARBIN="${JARBIN:-$(rlocation "$1")}"
+  if is_windows; then
+    JARBIN="${JARBIN:=${JAVABIN%/java.exe}/jar.exe}"
+  else
+    JARBIN="${JARBIN:=${JAVABIN%/java}/jar}"
+  fi
   $JARBIN cvfm "$MANIFEST_JAR_FILE" "$MANIFEST_FILE" >/dev/null || \
     die "ERROR: $self failed because $JARBIN failed"
 
@@ -341,10 +345,8 @@ if [ -z "$CLASSPATH_LIMIT" ]; then
   is_windows && CLASSPATH_LIMIT=7000 || CLASSPATH_LIMIT=120000
 fi
 
-if is_windows && (("${#CLASSPATH}" > ${CLASSPATH_LIMIT} )); then
-  create_and_run_classpath_jar "local_jdk/bin/jar.exe"
-elif (("${#CLASSPATH}" > ${CLASSPATH_LIMIT})); then
-  create_and_run_classpath_jar "local_jdk/bin/jar"
+if (("${#CLASSPATH}" > ${CLASSPATH_LIMIT})); then
+  create_and_run_classpath_jar
 else
   exec $JAVABIN -classpath $CLASSPATH "${ARGS[@]}"
 fi
