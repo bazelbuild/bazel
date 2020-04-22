@@ -527,12 +527,11 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaCompilationInfoProvider compilationInfo = info.getCompilationInfoProvider();
     assertThat(
             prettyArtifactNames(
-                compilationInfo.getCompilationClasspath().getSet(Artifact.class).toList()))
+                compilationInfo.getCompilationClasspath().toCollection(Artifact.class)))
         .containsExactly("java/test/libdep-hjar.jar");
 
     assertThat(
-            prettyArtifactNames(
-                compilationInfo.getRuntimeClasspath().getSet(Artifact.class).toList()))
+            prettyArtifactNames(compilationInfo.getRuntimeClasspath().toCollection(Artifact.class)))
         .containsExactly("java/test/libdep.jar", "java/test/libcustom.jar");
 
     assertThat(compilationInfo.getJavacOpts()).contains("-XDone");

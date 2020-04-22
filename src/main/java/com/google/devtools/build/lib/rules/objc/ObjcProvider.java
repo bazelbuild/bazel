@@ -1185,7 +1185,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
         if (key == DEFINE) {
           ccCompilationContextBuilder.addDefines(
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName));
+              Depset.noneableCast(skylarkToAdd, String.class, keyName));
         } else if (key == FRAMEWORK_SEARCH_PATHS) {
           // Due to legacy reasons, There is a mismatch between the starlark interface for the
           // framework search path, and the internal representation.  The interface specifies that
@@ -1194,7 +1194,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           // this ugly conversion.
 
           ImmutableList<PathFragment> frameworks =
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList());
 
@@ -1209,22 +1209,22 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkSearchPaths.build());
         } else if (key == HEADER) {
           ImmutableList<Artifact> hdrs =
-              Depset.getSetFromNoneableParam(skylarkToAdd, Artifact.class, keyName).toList();
+              Depset.noneableCast(skylarkToAdd, Artifact.class, keyName).toList();
           ccCompilationContextBuilder.addDeclaredIncludeSrcs(hdrs);
           ccCompilationContextBuilder.addTextualHdrs(hdrs);
         } else if (key == INCLUDE) {
           ccCompilationContextBuilder.addIncludeDirs(
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList()));
         } else if (key == INCLUDE_SYSTEM) {
           ccCompilationContextBuilder.addSystemIncludeDirs(
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList()));
         } else if (key == IQUOTE) {
           ccCompilationContextBuilder.addQuoteIncludeDirs(
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList()));
         }

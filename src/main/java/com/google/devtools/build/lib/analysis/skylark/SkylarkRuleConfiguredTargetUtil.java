@@ -231,7 +231,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
     // where possible. This allows for multiple events, with independent
     // locations, even for the same root cause.
     // EvalException is the wrong exception for createTarget to throw
-    // since it is neither called by Starlark nor does it call Starlak.
+    // since it is neither called by Starlark nor does it call Starlark.
     //
     // In the meantime, ensure that any EvalException has a location.
     try {
@@ -296,40 +296,13 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
   public static NestedSet<Artifact> convertToOutputGroupValue(String outputGroup, Object objects)
       throws EvalException {
-    String typeErrorMessage =
-        "Output group '%s' is of unexpected type. "
-            + "Should be list or set of Files, but got '%s' instead.";
-
-    if (objects instanceof Sequence) {
-      NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.stableOrder();
-      for (Object o : (Sequence) objects) {
-        if (o instanceof Artifact) {
-          nestedSetBuilder.add((Artifact) o);
-        } else {
-          throw Starlark.errorf(
-              typeErrorMessage,
-              outputGroup,
-              "list with an element of " + EvalUtils.getDataTypeNameFromClass(o.getClass()));
-        }
-      }
-      return nestedSetBuilder.build();
-    }
-
-    if (objects instanceof Depset) {
-      try {
-        return ((Depset) objects).getSet(Artifact.class);
-      } catch (Depset.TypeException exception) {
-        throw new EvalException(
-            null,
-            String.format(
-                typeErrorMessage,
-                outputGroup,
-                "depset of type '" + ((Depset) objects).getContentType() + "'"),
-            exception);
-      }
-    }
-
-    throw Starlark.errorf(typeErrorMessage, outputGroup, Starlark.type(objects));
+    // regrettable preemptive allocation of error message
+    String what = "output group '" + outputGroup + "'";
+    return objects instanceof Sequence
+        ? NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(Sequence.cast(objects, Artifact.class, what))
+            .build()
+        : Depset.cast(objects, Artifact.class, what);
   }
 
   private static void addProviders(
@@ -541,17 +514,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
       for (String field : provider.getFieldNames()) {
         if (field.equals("files")) {
           Object x = provider.getValue("files");
-          // TODO(adonovan): factor with Depset.getSetFromParam and simplify.
-          try {
-            files = (Depset) x; // (ClassCastException)
-            files.getSet(Artifact.class); // (TypeException)
-          } catch (@SuppressWarnings("UnusedException")
-              ClassCastException
-              | Depset.TypeException ex) {
-            throw Starlark.errorf(
-                "expected depset of Files for 'files' but got %s instead",
-                EvalUtils.getDataTypeName(x, true));
-          }
+          Depset.cast(x, Artifact.class, "files"); // may throw exception
+          files = (Depset) x;
         } else if (field.equals("runfiles")) {
           statelessRunfiles = provider.getValue("runfiles", Runfiles.class);
         } else if (field.equals("data_runfiles")) {
@@ -647,12 +611,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
     builder.setFilesToBuild(filesToBuild.build());
 
     if (files != null) {
-      try {
-        // If we specify files_to_build we don't have the executable in it by default.
-        builder.setFilesToBuild(files.getSet(Artifact.class));
-      } catch (Depset.TypeException exception) {
-        throw new EvalException(loc, "'files' field must be a depset of 'file'", exception);
-      }
+      // If we specify files_to_build we don't have the executable in it by default.
+      builder.setFilesToBuild(Depset.cast(files, Artifact.class, "files"));
     }
 
     if (statelessRunfiles == null && dataRunfiles == null && defaultRunfiles == null) {

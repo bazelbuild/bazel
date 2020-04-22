@@ -200,7 +200,7 @@ public final class AndroidAssetsInfo extends NativeInfo
     private static <T> NestedSet<T> nestedSet(Depset from, Class<T> with, String fieldName)
         throws EvalException {
       return NestedSetBuilder.<T>naiveLinkOrder()
-          .addTransitive(from.getSetFromParam(with, fieldName))
+          .addTransitive(Depset.cast(from, with, fieldName))
           .build();
     }
   }

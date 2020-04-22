@@ -248,7 +248,7 @@ public class AndroidResourcesInfo extends NativeInfo
     private static <T> NestedSet<T> nestedSet(Depset from, Class<T> with, String fieldName)
         throws EvalException {
       return NestedSetBuilder.<T>stableOrder()
-          .addTransitive(from.getSetFromParam(with, fieldName))
+          .addTransitive(Depset.cast(from, with, fieldName))
           .build();
     }
 

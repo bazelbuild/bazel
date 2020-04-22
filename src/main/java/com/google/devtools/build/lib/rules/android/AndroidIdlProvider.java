@@ -105,21 +105,20 @@ public final class AndroidIdlProvider extends NativeInfo
       return new AndroidIdlProvider(
           NestedSetBuilder.<String>stableOrder()
               .addTransitive(
-                  transitiveIdlImportRoots.getSetFromParam(
-                      String.class, "transitive_idl_import_roots"))
+                  Depset.cast(
+                      transitiveIdlImportRoots, String.class, "transitive_idl_import_roots"))
               .build(),
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(
-                  transitiveIdlImports.getSetFromParam(Artifact.class, "transitive_idl_imports"))
+                  Depset.cast(transitiveIdlImports, Artifact.class, "transitive_idl_imports"))
+              .build(),
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(Depset.cast(transitiveIdlJars, Artifact.class, "transitive_idl_jars"))
               .build(),
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(
-                  transitiveIdlJars.getSetFromParam(Artifact.class, "transitive_idl_jars"))
-              .build(),
-          NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(
-                  transitiveIdlPreprocessed.getSetFromParam(
-                      Artifact.class, "transitive_idl_preprocessed"))
+                  Depset.cast(
+                      transitiveIdlPreprocessed, Artifact.class, "transitive_idl_preprocessed"))
               .build());
     }
   }

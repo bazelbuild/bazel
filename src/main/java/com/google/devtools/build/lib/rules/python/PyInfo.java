@@ -209,8 +209,8 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
             "'imports' field should be a depset of strings (got a '%s')", describeType(imports));
       }
       // Validate depset parameters
-      transitiveSources.getSetFromParam(Artifact.class, "transitive_sources");
-      imports.getSetFromParam(String.class, "imports");
+      Depset.cast(transitiveSources, Artifact.class, "transitive_sources");
+      Depset.cast(imports, String.class, "imports");
 
       return new PyInfo(
           thread.getCallerLocation(),

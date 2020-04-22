@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -176,7 +175,7 @@ public final class Depset implements StarlarkValue {
       throw Starlark.errorf("depset elements must not be mutable values");
     }
 
-    // Even the looser regime forbids the toplevel constructor to be list or dict.
+    // Even the looser regime forbids the top-level class to be list or dict.
     if (x instanceof StarlarkList || x instanceof Dict) {
       throw Starlark.errorf(
           "depsets cannot contain items of type '%s'", EvalUtils.getDataTypeName(x));
@@ -206,6 +205,15 @@ public final class Depset implements StarlarkValue {
   // One way to do that is to disallow constructing StarlarkTypes for classes
   // that would fail Starlark.valid; however remains the problem that
   // Object.class means "any Starlark value" but in fact allows any Java value.
+  //
+  // TODO(adonovan): it is possible to create an empty depset with a contentType other than EMPTY.
+  // The union operation will fail if it's combined with another depset of incompatible contentType.
+  // Options:
+  // - prohibit or ignore a non-EMPTY contentType when passed an empty NestedSet
+  // - continue to allow empty depsets to be distinguished by their nominal contentTypes for
+  //   union purposes, but allow casting them to NestedSet<T> for arbitrary T.
+  // - distinguish them for both union and casting, i.e. replace set.isEmpty() with a check for the
+  // empty type.
   public static <T> Depset of(SkylarkType contentType, NestedSet<T> set) {
     return new Depset(contentType, set, null, null);
   }
@@ -234,18 +242,8 @@ public final class Depset implements StarlarkValue {
   }
 
   /**
-   * Throws an {@link TypeException} if this nested set does not have elements of the given type.
-   */
-  private void checkHasContentType(Class<?> type) throws TypeException {
-    // Empty sets should be SkylarkType.TOP anyway.
-    if (!set.isEmpty() && !contentType.canBeCastTo(type)) {
-      throw new TypeException();
-    }
-  }
-
-  /**
-   * Returns the embedded {@link NestedSet}, while asserting that its elements all have the given
-   * type. Note that the type itself cannot be a parameterized type, as the type check is shallow.
+   * Returns the embedded {@link NestedSet}, first asserting that its elements are instances of the
+   * given class. Only the top-level class is verified.
    *
    * <p>If you do not specifically need the {@code NestedSet} and you are going to flatten it
    * anyway, prefer {@link #toCollection} to make your intent clear.
@@ -254,105 +252,79 @@ public final class Depset implements StarlarkValue {
    * @return the {@code NestedSet}, with the appropriate generic type
    * @throws TypeException if the type does not accurately describe all elements
    */
-  // The precondition ensures generic type safety, and sets are immutable.
-  @SuppressWarnings("unchecked")
   public <T> NestedSet<T> getSet(Class<T> type) throws TypeException {
-    // TODO(adonovan): eliminate this function and toCollection in favor of ones
-    // that accept a SkylarkType augmented with a type parameter so that it acts
-    // like a "reified generic": whereas a Class symbol can express only the
-    // top-level value tag, a SkylarkType could express an entire type such as
-    // Set<List<String+Integer>>, and act as a "witness" or existential type to
-    // unlock the untyped nested set. For example:
-    //
-    //  public <T> NestedSet<T> getSet(SkylarkType<NestedSet<T>> witness) throws TypeException {
-    //     if (this.type.matches(witness)) {
-    //         return witness.convert(this);
-    //     }
-    //     throw TypeException;
-    // }
-
-    checkHasContentType(type);
-    return (NestedSet<T>) set;
+    if (!set.isEmpty() && !contentType.canBeCastTo(type)) {
+      throw new TypeException(
+          String.format(
+              "got a depset of '%s', expected a depset of '%s'",
+              contentType, EvalUtils.getDataTypeNameFromClass(type)));
+    }
+    @SuppressWarnings("unchecked")
+    NestedSet<T> res = (NestedSet<T>) set;
+    return res;
   }
 
   /**
-   * Returns the embedded {@link NestedSet} without asserting the type of its elements. To validate
-   * the type of elements in the set, call {@link #getSet(Class)} instead.
+   * Returns the embedded {@link NestedSet} without asserting the type of its elements---and thus
+   * cannot fail. To validate the type of elements in the set, call {@link #getSet(Class)} instead.
    */
   public NestedSet<?> getSet() {
     return set;
   }
 
+  // TODO(adonovan): rename these toCollection methods toList.
+
   /**
-   * Returns the contents of the set as a {@link Collection}, asserting that the set type is
-   * compatible with {@code T}.
+   * Returns an ImmutableList containing the set elements, asserting that each element is an
+   * instance of class {@code type}. Requires traversing the entire graph of the underlying
+   * NestedSet.
    *
    * @param type a {@link Class} representing the expected type of the contents
    * @throws TypeException if the type does not accurately describe all elements
    */
-  // The precondition ensures generic type safety.
-  @SuppressWarnings("unchecked")
-  public <T> Collection<T> toCollection(Class<T> type) throws TypeException {
-    checkHasContentType(type);
-    return (Collection<T>) toCollection();
+  public <T> ImmutableList<T> toCollection(Class<T> type) throws TypeException {
+    return getSet(type).toList();
   }
 
-  /** Returns the contents of the set as a {@link Collection}. */
-  public Collection<?> toCollection() {
+  /**
+   * Returns an ImmutableList containing the set elements. Requires traversing the entire graph of
+   * the underlying NestedSet.
+   */
+  public ImmutableList<?> toCollection() {
     return set.toList();
   }
 
   /**
-   * Returns the embedded {@link NestedSet} of this object while asserting that its elements have
-   * the given type.
-   *
-   * <p>This convenience method should be invoked only by methods which are called from Starlark to
-   * validate the parameters of the method, as the exception thrown is specific to param validation.
-   *
-   * @param expectedType a class representing the expected type of the contents
-   * @param fieldName the name of the field being validated, used to construct a descriptive error
-   *     message if validation fails
-   * @return the {@code NestedSet}, with the appropriate generic type
-   * @throws EvalException if the type does not accurately describe the elements of the set
+   * Casts a non-null Starlark value {@code x} to a {@code Depset} and returns its {@code
+   * NestedSet<T>}, after checking that all elements are instances of {@code type}. On error, it
+   * throws an EvalException whose message includes {@code what}, ideally a string literal, as a
+   * description of the role of {@code x}.
    */
-  public <T> NestedSet<T> getSetFromParam(Class<T> expectedType, String fieldName)
-      throws EvalException {
+  public static <T> NestedSet<T> cast(Object x, Class<T> type, String what) throws EvalException {
+    if (!(x instanceof Depset)) {
+      throw Starlark.errorf(
+          "for %s, got %s, want a depset of %s",
+          what, EvalUtils.getDataTypeName(x, true), EvalUtils.getDataTypeNameFromClass(type));
+    }
     try {
-      return getSet(expectedType);
-    } catch (TypeException exception) {
-      throw new EvalException(
-          null,
-          String.format(
-              "for parameter '%s', got a depset of '%s', expected a depset of '%s'",
-              fieldName, getContentType(), EvalUtils.getDataTypeNameFromClass(expectedType)),
-          exception);
+      return ((Depset) x).getSet(type);
+    } catch (TypeException ex) {
+      throw Starlark.errorf("for '%s', %s", what, ex.getMessage());
     }
   }
 
-  /**
-   * Identical to {@link #getSetFromParam(Class, String)}, except that it handles a <b>noneable</b>
-   * depset parameter.
-   *
-   * <p>If the parameter's value is None, returns an empty nested set.
-   *
-   * @throws EvalException if the parameter is neither None nor a Depset, or if it is a Depset of an
-   *     unexpected type
-   */
-  // TODO(b/140932420): Better noneable handling should prevent instanceof checking.
-  public static <T> NestedSet<T> getSetFromNoneableParam(
-      Object depsetOrNone, Class<T> expectedType, String fieldName) throws EvalException {
-    if (depsetOrNone == Starlark.NONE) {
-      return NestedSetBuilder.<T>emptySet(Order.STABLE_ORDER);
+  /** Like {@link #cast}, but if x is None, returns an empty stable-order NestedSet. */
+  public static <T> NestedSet<T> noneableCast(Object x, Class<T> type, String what)
+      throws EvalException {
+    if (x == Starlark.NONE) {
+      @SuppressWarnings("unchecked")
+      NestedSet<T> empty = (NestedSet<T>) EMPTY;
+      return empty;
     }
-    if (depsetOrNone instanceof Depset) {
-      Depset depset = (Depset) depsetOrNone;
-      return depset.getSetFromParam(expectedType, fieldName);
-    } else {
-      throw Starlark.errorf(
-          "expected a depset of '%s' but got '%s' for parameter '%s'",
-          EvalUtils.getDataTypeNameFromClass(expectedType), depsetOrNone, fieldName);
-    }
+    return cast(x, type, what);
   }
+
+  private static final NestedSet<?> EMPTY = NestedSetBuilder.<Object>emptySet(Order.STABLE_ORDER);
 
   public boolean isEmpty() {
     return set.isEmpty();
@@ -462,5 +434,9 @@ public final class Depset implements StarlarkValue {
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */
-  public static class TypeException extends Exception {}
+  public static class TypeException extends Exception {
+    TypeException(String message) {
+      super(message);
+    }
+  }
 }

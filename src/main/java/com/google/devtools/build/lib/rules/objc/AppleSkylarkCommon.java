@@ -222,9 +222,9 @@ public class AppleSkylarkCommon
       Object dynamicFrameworkFiles)
       throws EvalException {
     NestedSet<String> frameworkDirs =
-        Depset.getSetFromNoneableParam(dynamicFrameworkDirs, String.class, "framework_dirs");
+        Depset.noneableCast(dynamicFrameworkDirs, String.class, "framework_dirs");
     NestedSet<Artifact> frameworkFiles =
-        Depset.getSetFromNoneableParam(dynamicFrameworkFiles, Artifact.class, "framework_files");
+        Depset.noneableCast(dynamicFrameworkFiles, Artifact.class, "framework_files");
     Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
 
     return new AppleDynamicFrameworkInfo(

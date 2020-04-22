@@ -76,7 +76,7 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
     public AndroidLibraryResourceClassJarProvider create(Depset jars) throws EvalException {
       return new AndroidLibraryResourceClassJarProvider(
           NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(jars.getSetFromParam(Artifact.class, "jars"))
+              .addTransitive(Depset.cast(jars, Artifact.class, "jars"))
               .build());
     }
   }

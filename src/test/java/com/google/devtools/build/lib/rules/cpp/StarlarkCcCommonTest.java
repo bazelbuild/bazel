@@ -1200,7 +1200,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     getConfiguredTarget("//a:r");
-    assertContainsEvent("expected a depset of 'File' but got '[]' for parameter 'headers'");
+    assertContainsEvent("for headers, got list, want a depset of File");
   }
 
   @Test
@@ -1217,8 +1217,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     assertThat(getConfiguredTarget("//test:x")).isNull();
-    assertContainsEvent(
-        "for parameter 'objects', got a depset of 'int', expected a depset of 'File'");
+    assertContainsEvent("for 'objects', got a depset of 'int', expected a depset of 'File'");
   }
 
   @Test

@@ -198,7 +198,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     context.checkMutable("actions.do_nothing");
     NestedSet<Artifact> inputSet =
         inputs instanceof Depset
-            ? ((Depset) inputs).getSetFromParam(Artifact.class, "inputs")
+            ? Depset.cast(inputs, Artifact.class, "inputs")
             : NestedSetBuilder.<Artifact>compileOrder()
                 .addAll(Sequence.cast(inputs, Artifact.class, "inputs"))
                 .build();
@@ -482,7 +482,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       inputArtifacts = Sequence.cast(inputs, Artifact.class, "inputs");
       builder.addInputs(inputArtifacts);
     } else {
-      NestedSet<Artifact> inputSet = ((Depset) inputs).getSetFromParam(Artifact.class, "inputs");
+      NestedSet<Artifact> inputSet = Depset.cast(inputs, Artifact.class, "inputs");
       builder.addTransitiveInputs(inputSet);
       inputArtifacts = inputSet.toList();
     }
@@ -511,13 +511,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     if (toolsUnchecked != Starlark.UNBOUND) {
-      Iterable<?> toolsIterable;
-      if (toolsUnchecked instanceof Sequence) {
-        toolsIterable = Sequence.cast(toolsUnchecked, Object.class, "tools");
-      } else {
-        toolsIterable = ((Depset) toolsUnchecked).getSet().toList();
-      }
-      for (Object toolUnchecked : toolsIterable) {
+      List<?> tools =
+          toolsUnchecked instanceof Sequence
+              ? Sequence.cast(toolsUnchecked, Object.class, "tools")
+              : Depset.cast(toolsUnchecked, Object.class, "tools").toList();
+
+      for (Object toolUnchecked : tools) {
         if (toolUnchecked instanceof Artifact) {
           Artifact artifact = (Artifact) toolUnchecked;
           builder.addInput(artifact);

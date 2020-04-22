@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 
@@ -101,23 +100,18 @@ public class PyStructUtils {
    * @throws EvalException if the field does not exist or is not a depset of {@link Artifact}
    */
   public static NestedSet<Artifact> getTransitiveSources(StructImpl info) throws EvalException {
-    Object fieldValue = getValue(info, TRANSITIVE_SOURCES);
-    // TODO(adonovan): factor with Depset.getSetFromParam and simplify.
-    try {
-      Depset depset = (Depset) fieldValue; // (ClassCastException)
-      NestedSet<Artifact> set = depset.getSet(Artifact.class); // (TypeException)
-      if (!set.getOrder().isCompatible(Order.COMPILE_ORDER)) {
-        throw Starlark.errorf(
-            "Incompatible depset order for 'transitive_sources': expected 'default' or "
-                + "'postorder', but got '%s'",
-            set.getOrder().getSkylarkName());
-      }
-      return set;
-    } catch (@SuppressWarnings("UnusedException") ClassCastException | Depset.TypeException ex) {
+    Object x = getValue(info, TRANSITIVE_SOURCES);
+    if (x == null) {
       throw Starlark.errorf(
-          "'%s' provider's '%s' field was %s, want depset of Files",
-          PROVIDER_NAME, TRANSITIVE_SOURCES, EvalUtils.getDataTypeName(fieldValue, true));
+          "'%s' provider's '%s' field is missing, want depset", PROVIDER_NAME, TRANSITIVE_SOURCES);
     }
+    NestedSet<Artifact> set = Depset.cast(x, Artifact.class, TRANSITIVE_SOURCES);
+    if (!set.getOrder().isCompatible(Order.COMPILE_ORDER)) {
+      throw Starlark.errorf(
+          "Incompatible depset order for '%s': expected 'default' or 'postorder', but got '%s'",
+          TRANSITIVE_SOURCES, set.getOrder().getSkylarkName());
+    }
+    return set;
   }
 
   /**
@@ -141,16 +135,12 @@ public class PyStructUtils {
    * @throws EvalException if the field exists and is not a depset of strings
    */
   public static NestedSet<String> getImports(StructImpl info) throws EvalException {
-    Object fieldValue = getValue(info, IMPORTS);
-    // TODO(adonovan): factor with Depset.getSetFromParam and simplify.
-    try {
-      Depset depset = (Depset) fieldValue; // (ClassCastException)
-      return depset.getSet(String.class); // (TypeException)
-    } catch (@SuppressWarnings("UnusedException") ClassCastException | Depset.TypeException ex) {
+    Object x = getValue(info, IMPORTS);
+    if (x == null) {
       throw Starlark.errorf(
-          "'%s' provider's '%s' field was %s, want depset of strings",
-          PROVIDER_NAME, IMPORTS, EvalUtils.getDataTypeName(fieldValue, true));
+          "'%s' provider's '%s' field is missing, want depset", PROVIDER_NAME, IMPORTS);
     }
+    return Depset.cast(x, String.class, IMPORTS);
   }
 
   /**

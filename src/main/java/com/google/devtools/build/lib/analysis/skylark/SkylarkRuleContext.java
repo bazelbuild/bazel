@@ -1008,7 +1008,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     }
     if (transitiveFiles != Starlark.NONE) {
       builder.addTransitiveArtifacts(
-          ((Depset) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
+          Depset.cast(transitiveFiles, Artifact.class, "transitive_files"));
     }
     if (!symlinks.isEmpty()) {
       // If Starlark code directly manipulates symlinks, activate more stringent validity checking.

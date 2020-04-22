@@ -947,7 +947,7 @@ class MethodLibrary {
       // This is an extremely inefficient check and should be only done in the
       // "--debug_depset_depth" mode.
       try {
-        result.getSet().toList();
+        result.toCollection(); // may throw exception
       } catch (NestedSetDepthException ex) {
         throw Starlark.errorf("depset exceeded maximum depth %d", ex.getDepthLimit());
       }

@@ -122,8 +122,9 @@ public class PyStructUtilsTest extends FoundationTestCase {
   @Test
   public void getTransitiveSources_WrongType() {
     StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, 123));
-    assertHasWrongTypeMessage(
-        () -> PyStructUtils.getTransitiveSources(info), "transitive_sources", "depset of Files");
+    assertThrowsEvalExceptionContaining(
+        () -> PyStructUtils.getTransitiveSources(info),
+        "for transitive_sources, got int, want a depset of File");
   }
 
   @Test
@@ -172,7 +173,8 @@ public class PyStructUtilsTest extends FoundationTestCase {
   @Test
   public void getImports_WrongType() {
     StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.IMPORTS, 123));
-    assertHasWrongTypeMessage(() -> PyStructUtils.getImports(info), "imports", "depset of strings");
+    assertThrowsEvalExceptionContaining(
+        () -> PyStructUtils.getImports(info), "for imports, got int, want a depset of string");
   }
 
   @Test

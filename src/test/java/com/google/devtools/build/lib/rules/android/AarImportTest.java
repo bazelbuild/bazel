@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -575,8 +576,7 @@ public class AarImportTest extends BuildViewTestCase {
             getConfiguredTarget("//a:bar")
                 .get(JavaInfo.PROVIDER)
                 .getTransitiveExports()
-                .getSet(Label.class)
-                .toList())
+                .toCollection(Label.class))
         .containsExactly(
             Label.parseAbsolute("//a:foo", ImmutableMap.of()),
             Label.parseAbsolute("//java:baz", ImmutableMap.of()));
@@ -584,13 +584,13 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testRClassFromAarImportInCompileClasspath() throws Exception {
-    NestedSet<Artifact> compilationClasspath =
+    Collection<Artifact> compilationClasspath =
         JavaInfo.getProvider(JavaCompilationInfoProvider.class, getConfiguredTarget("//a:library"))
             .getCompilationClasspath()
-            .getSet(Artifact.class);
+            .toCollection(Artifact.class);
 
     assertThat(
-            compilationClasspath.toList().stream()
+            compilationClasspath.stream()
                 .filter(artifact -> artifact.getFilename().equalsIgnoreCase("foo_resources.jar"))
                 .count())
         .isEqualTo(1);
