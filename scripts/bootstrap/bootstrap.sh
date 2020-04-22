@@ -42,7 +42,6 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
-      --distdir=derived/distdir \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
 
