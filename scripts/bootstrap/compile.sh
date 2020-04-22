@@ -16,10 +16,11 @@
 
 # Script for building bazel from scratch without bazel
 
-if [ -d derived/jars ] then
+if [ -d derived/jars ]; then
   PROTOBUF_JARS=derived/jars
 else
-  PROTOBUF_JARS="/usr/share/java/protobuf-3.11.4.jar /usr/share/java/protobuf-java-util-3.11.4.jar"
+  PROTOBUF_JAVA_VERSION=3.11.4
+  PROTOBUF_JARS="/usr/share/java/protobuf-$PROTOBUF_JAVA_VERSION.jar /usr/share/java/protobuf-java-util-$PROTOBUF_JAVA_VERSION.jar"
 fi
 PROTO_FILES=$(find third_party/remoteapis third_party/googleapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/skylarkdebug/proto -name "*.proto")
 LIBRARY_JARS=$(find $PROTOBUF_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")

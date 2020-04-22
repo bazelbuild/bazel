@@ -31,7 +31,7 @@ fi
 
 : ${JAVA_VERSION:="1.8"}
 
-if [ -d derived ] then
+if [ -d derived ]; then
   # Flags we need to bootstrap from the dist archive.
   DIST_BOOTSTRAP_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
       --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
