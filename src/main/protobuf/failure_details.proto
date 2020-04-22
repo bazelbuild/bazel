@@ -241,6 +241,10 @@ message RemoteExecution {
     LOG_DIR_CLEANUP_FAILURE = 8 [(metadata) = { exit_code: 36 }];
     CLIENT_SERVER_INCOMPATIBLE = 9 [(metadata) = { exit_code: 34 }];
     DOWNLOADED_INPUTS_DELETION_FAILURE = 10 [(metadata) = { exit_code: 34 }];
+    REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_DOTD = 11
+        [(metadata) = { exit_code: 2 }];
+    REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS = 12
+        [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
