@@ -196,11 +196,16 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new ExternalPackageFunction(
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-                .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
+                .put(
+                    SkyFunctions.AST_FILE_LOOKUP,
+                    new ASTFileLookupFunction(ruleClassProvider, fileSystem.getDigestFunction()))
                 .put(
                     SkyFunctions.STARLARK_IMPORTS_LOOKUP,
                     StarlarkImportLookupFunction.create(
-                        ruleClassProvider, pkgFactory, CacheBuilder.newBuilder().build()))
+                        ruleClassProvider,
+                        pkgFactory,
+                        fileSystem.getDigestFunction(),
+                        CacheBuilder.newBuilder().build()))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,

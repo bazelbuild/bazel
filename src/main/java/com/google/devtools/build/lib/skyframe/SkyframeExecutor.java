@@ -159,6 +159,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -496,7 +497,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             buildFilesByPriority,
             externalPackageHelper));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
-    map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider));
+    map.put(
+        SkyFunctions.AST_FILE_LOOKUP,
+        new ASTFileLookupFunction(ruleClassProvider, DigestHashFunction.getDefaultUnchecked()));
     map.put(
         SkyFunctions.STARLARK_IMPORTS_LOOKUP,
         newStarlarkImportLookupFunction(ruleClassProvider, pkgFactory));
@@ -661,7 +664,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected SkyFunction newStarlarkImportLookupFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
     return StarlarkImportLookupFunction.create(
-        ruleClassProvider, this.pkgFactory, astFileLookupValueCache);
+        ruleClassProvider,
+        this.pkgFactory,
+        DigestHashFunction.getDefaultUnchecked(),
+        astFileLookupValueCache);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {

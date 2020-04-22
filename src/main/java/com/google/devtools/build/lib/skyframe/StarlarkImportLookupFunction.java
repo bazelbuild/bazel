@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
@@ -100,6 +101,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
   public static StarlarkImportLookupFunction create(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
+      DigestHashFunction digestHashFunction,
       Cache<Label, ASTFileLookupValue> astFileLookupValueCache) {
     return new StarlarkImportLookupFunction(
         ruleClassProvider,
@@ -127,7 +129,8 @@ public class StarlarkImportLookupFunction implements SkyFunction {
         // just a temporary thing for bzl execution. Retaining it forever is pure waste.
         // (b) The memory overhead of the extra Skyframe node and edge per bzl file is pure
         // waste.
-        new InliningAndCachingASTFileLookupValueManager(ruleClassProvider, astFileLookupValueCache),
+        new InliningAndCachingASTFileLookupValueManager(
+            ruleClassProvider, digestHashFunction, astFileLookupValueCache),
         /*selfInliningManager=*/ null);
   }
 
@@ -809,12 +812,15 @@ public class StarlarkImportLookupFunction implements SkyFunction {
   private static class InliningAndCachingASTFileLookupValueManager
       implements ASTFileLookupValueManager {
     private final RuleClassProvider ruleClassProvider;
+    private final DigestHashFunction digestHashFunction;
     private final Cache<Label, ASTFileLookupValue> astFileLookupValueCache;
 
     private InliningAndCachingASTFileLookupValueManager(
         RuleClassProvider ruleClassProvider,
+        DigestHashFunction digestHashFunction,
         Cache<Label, ASTFileLookupValue> astFileLookupValueCache) {
       this.ruleClassProvider = ruleClassProvider;
+      this.digestHashFunction = digestHashFunction;
       this.astFileLookupValueCache = astFileLookupValueCache;
     }
 
@@ -827,7 +833,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       if (value == null) {
         value =
             ASTFileLookupFunction.computeInline(
-                ASTFileLookupValue.key(fileLabel), env, ruleClassProvider);
+                ASTFileLookupValue.key(fileLabel), env, ruleClassProvider, digestHashFunction);
         if (value != null) {
           astFileLookupValueCache.put(fileLabel, value);
         }
