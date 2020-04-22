@@ -73,7 +73,8 @@ class BuildResultPrinter {
             env.getWorkspace(),
             request.getBuildOptions().printWorkspaceInOutputPathsIfNeeded
                 ? env.getWorkingDirectory()
-                : env.getWorkspace());
+                : env.getWorkspace(),
+            request.getBuildOptions().experimentalNoProductNameOutSymlink);
     OutErr outErr = request.getOutErr();
     Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
     Collection<AspectValue> aspectsToPrint = filterAspectsToPrint(aspects);

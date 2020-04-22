@@ -474,6 +474,17 @@ public class BuildRequestOptions extends OptionsBase {
       help = "The number of threads that are used by the FileSystemValueChecker.")
   public int fsvcThreads;
 
+  @Option(
+      name = "experimental_no_product_name_out_symlink",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set to true, the <product>-out symlink will not be created if "
+              + "--symlink_prefix is used.")
+  public boolean experimentalNoProductNameOutSymlink;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
