@@ -111,7 +111,7 @@ message Interrupted {
     // Interrupted at an unspecified time.
     INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
 
-    reserved 1; // For internal use
+    reserved 1, 2; // For internal use
 
     // TODO(mschaller): Add subcategories that specify what was happening at the
     //  time of interruption.
