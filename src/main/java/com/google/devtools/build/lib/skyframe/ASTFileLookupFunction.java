@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -129,8 +130,9 @@ public class ASTFileLookupFunction implements SkyFunction {
           fileValue.isSpecialFile()
               ? FileSystemUtils.readContent(path)
               : FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
+      byte[] digest = getDigestFromFileValueOrFromKnownFileContents(fileValue, bytes);
       ParserInput input = ParserInput.create(bytes, path.toString());
-      file = StarlarkFile.parseWithDigest(input, path.getDigest(), options);
+      file = StarlarkFile.parseWithDigest(input, digest, options);
     } catch (IOException e) {
       throw new ErrorReadingSkylarkExtensionException(e, Transience.TRANSIENT);
     }
@@ -141,6 +143,15 @@ public class ASTFileLookupFunction implements SkyFunction {
     Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
 
     return ASTFileLookupValue.withFile(file);
+  }
+
+  private static byte[] getDigestFromFileValueOrFromKnownFileContents(
+      FileValue fileValue, byte[] contents) {
+    byte[] digest = fileValue.getDigest();
+    if (digest != null) {
+      return digest;
+    }
+    return DigestHashFunction.getDefaultUnchecked().getHashFunction().hashBytes(contents).asBytes();
   }
 
   @Nullable
