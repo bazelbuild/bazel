@@ -29,9 +29,10 @@ public class DefaultToolsSetup implements ToolsSetup {
   private static ImmutableList<String> repos =
       ImmutableList.<String>builder()
           .add("rules_cc")
-          .add("rules_proto")
           .add("rules_java")
           .add("rules_pkg")
+          .add("rules_proto")
+          .add("rules_python")
           .build();
 
   private ImmutableList<String> getRepositoryOverrides() {
