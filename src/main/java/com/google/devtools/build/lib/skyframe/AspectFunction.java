@@ -588,7 +588,6 @@ public final class AspectFunction implements SkyFunction {
     return new AspectValue(
         originalKey,
         aspect,
-        originalTarget.getLabel(),
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
         transitivePackagesForPackageRootResolution);
@@ -649,7 +648,7 @@ public final class AspectFunction implements SkyFunction {
         CurrentRuleTracker.endConfiguredAspect();
       }
     } else {
-      configuredAspect = ConfiguredAspect.forNonapplicableTarget(aspect.getDescriptor());
+      configuredAspect = ConfiguredAspect.forNonapplicableTarget();
     }
 
     events.replayOn(env.getListener());
@@ -672,7 +671,6 @@ public final class AspectFunction implements SkyFunction {
     return new AspectValue(
         key,
         aspect,
-        associatedTarget.getTarget().getLabel(),
         associatedTarget.getTarget().getLocation(),
         configuredAspect,
         transitivePackagesForPackageRootResolution == null

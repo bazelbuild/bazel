@@ -1116,11 +1116,9 @@ public class PackageFunction implements SkyFunction {
           return Preconditions.checkNotNull(
                   (GlobValue) valueOrException.get(), "%s should not be missing", globKey)
               .getMatches();
-        } catch (BuildFileNotFoundException e) {
+        } catch (BuildFileNotFoundException | IOException e) {
           // Legacy package loading is only able to handle an IOException, so a rethrow here is the
           // best we can do.
-          throw new SkyframeGlobbingIOException(e);
-        } catch (IOException e) {
           throw new SkyframeGlobbingIOException(e);
         }
       }

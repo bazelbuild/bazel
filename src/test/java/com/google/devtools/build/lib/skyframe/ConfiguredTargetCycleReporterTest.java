@@ -59,7 +59,6 @@ public class ConfiguredTargetCycleReporterTest extends BuildViewTestCase {
 
     SkyKey aspectKey =
         AspectValueKey.AspectKey.createAspectKey(
-            makeLabel("//foo:a"),
             ctKey,
             ImmutableList.of(),
             null,

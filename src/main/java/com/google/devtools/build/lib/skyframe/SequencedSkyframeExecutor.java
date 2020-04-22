@@ -671,7 +671,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     discardPreExecutionCache(
         topLevelTargets,
         topLevelAspects,
@@ -810,7 +810,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
           } else if (functionName.equals(SkyFunctions.ASPECT)) {
             AspectValue aspectValue = (AspectValue) skyValue;
-            AspectKey aspectKey = aspectValue.getKey();
+            AspectKey aspectKey = (AspectKey) key;
             ConfiguredTargetValue configuredTargetValue =
                 (ConfiguredTargetValue)
                     memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
@@ -842,7 +842,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
           } else if (functionName.equals(SkyFunctions.ASPECT)) {
             AspectValue aspectValue = (AspectValue) skyValue;
-            AspectKey aspectKey = aspectValue.getKey();
+            AspectKey aspectKey = (AspectKey) key;
             ConfiguredTargetValue configuredTargetValue =
                 (ConfiguredTargetValue)
                     memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());

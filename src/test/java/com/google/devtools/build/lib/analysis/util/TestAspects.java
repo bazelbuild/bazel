@@ -239,7 +239,7 @@ public class TestAspects {
       String information = parameters.isEmpty()
           ? ""
           : " data " + Iterables.getFirst(parameters.getAttribute("baz"), null);
-      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
+      return new ConfiguredAspect.Builder(ruleContext)
           .addProvider(
               new AspectInfo(
                   collectAspectData("aspect " + ruleContext.getLabel() + information, ruleContext)))
@@ -286,9 +286,7 @@ public class TestAspects {
         AspectParameters parameters,
         String toolsRepository)
         throws ActionConflictException {
-      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
-          .addProvider(new FooProvider())
-          .build();
+      return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
     }
   }
 
@@ -309,9 +307,7 @@ public class TestAspects {
         AspectParameters parameters,
         String toolsRepository)
         throws ActionConflictException {
-      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
-          .addProvider(new BarProvider())
-          .build();
+      return new ConfiguredAspect.Builder(ruleContext).addProvider(new BarProvider()).build();
     }
   }
 
@@ -463,7 +459,7 @@ public class TestAspects {
         information.append(dep.getLabel());
       }
       information.append("]");
-      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
+      return new ConfiguredAspect.Builder(ruleContext)
           .addProvider(new AspectInfo(collectAspectData(information.toString(), ruleContext)))
           .build();
     }
@@ -502,7 +498,7 @@ public class TestAspects {
         String toolsRepository)
         throws ActionConflictException {
       ruleContext.ruleWarning("Aspect warning on " + ctadBase.getTarget().getLabel());
-      return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
+      return new ConfiguredAspect.Builder(ruleContext).build();
     }
 
     @Override
@@ -563,7 +559,7 @@ public class TestAspects {
         AspectParameters parameters,
         String toolsRepository)
         throws InterruptedException, ActionConflictException {
-      return new ConfiguredAspect.Builder(this, parameters, context).build();
+      return new ConfiguredAspect.Builder(context).build();
     }
   }
   public static final FalseAdvertisementAspect FALSE_ADVERTISEMENT_ASPECT
@@ -812,7 +808,7 @@ public class TestAspects {
         AspectParameters parameters,
         String toolsRepository)
         throws InterruptedException, ActionConflictException {
-      return ConfiguredAspect.builder(this, parameters, context)
+      return ConfiguredAspect.builder(context)
           .addProvider(Provider.class, new Provider(ctadBase.getConfiguredTarget().getLabel()))
           .build();
     }

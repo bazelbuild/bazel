@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFacto
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.causes.Cause;
@@ -30,33 +29,33 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetComple
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Manages completing builds for configured targets. */
-class TargetCompletor implements Completor<ConfiguredTargetValue, TargetCompletionValue> {
-
-  public static SkyFunction targetCompletionFunction(
+class TargetCompletor
+    implements Completor<ConfiguredTargetValue, TargetCompletionValue, TargetCompletionKey> {
+  static SkyFunction targetCompletionFunction(
       PathResolverFactory pathResolverFactory, Supplier<Path> execRootSupplier) {
     return new CompletionFunction<>(pathResolverFactory, new TargetCompletor(), execRootSupplier);
   }
 
   @Override
-  public Event getRootCauseError(ConfiguredTargetValue ctValue, Cause rootCause, Environment env)
+  public Event getRootCauseError(
+      ConfiguredTargetValue ctValue, TargetCompletionKey key, Cause rootCause, Environment env)
       throws InterruptedException {
     ConfiguredTargetAndData configuredTargetAndData =
         ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(ctValue.getConfiguredTarget(), env);
     return Event.error(
         configuredTargetAndData == null ? null : configuredTargetAndData.getTarget().getLocation(),
-        String.format(
-            "%s: missing input file '%s'", ctValue.getConfiguredTarget().getLabel(), rootCause));
+        String.format("%s: missing input file '%s'", key.actionLookupKey().getLabel(), rootCause));
   }
 
   @Override
   @Nullable
   public MissingInputFileException getMissingFilesException(
-      ConfiguredTargetValue value, int missingCount, Environment env) throws InterruptedException {
+      ConfiguredTargetValue value, TargetCompletionKey key, int missingCount, Environment env)
+      throws InterruptedException {
     ConfiguredTargetAndData configuredTargetAndData =
         ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(value.getConfiguredTarget(), env);
     if (configuredTargetAndData == null) {
@@ -82,7 +81,7 @@ class TargetCompletor implements Completor<ConfiguredTargetValue, TargetCompleti
       NestedSet<Cause> rootCauses,
       NestedSet<ArtifactsInOutputGroup> outputs,
       Environment env,
-      TopLevelArtifactContext topLevelArtifactContext)
+      TargetCompletionKey key)
       throws InterruptedException {
     ConfiguredTarget target = value.getConfiguredTarget();
     ConfiguredTargetAndData configuredTargetAndData =
@@ -96,7 +95,7 @@ class TargetCompletor implements Completor<ConfiguredTargetValue, TargetCompleti
   @Override
   @Nullable
   public ExtendedEventHandler.Postable createSucceeded(
-      SkyKey skyKey,
+      TargetCompletionKey skyKey,
       ConfiguredTargetValue value,
       CompletionContext completionContext,
       ArtifactsToBuild artifactsToBuild,
@@ -108,7 +107,7 @@ class TargetCompletor implements Completor<ConfiguredTargetValue, TargetCompleti
     if (configuredTargetAndData == null) {
       return null;
     }
-    if (((TargetCompletionKey) skyKey.argument()).willTest()) {
+    if (skyKey.willTest()) {
       return TargetCompleteEvent.successfulBuildSchedulingTest(
           configuredTargetAndData,
           completionContext,

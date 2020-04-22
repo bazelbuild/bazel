@@ -126,12 +126,7 @@ public final class AnalysisPhaseRunner {
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
-        module.afterAnalysis(
-            env,
-            request,
-            buildOptions,
-            analysisResult.getTargetsToBuild(),
-            analysisResult.getAspects());
+        module.afterAnalysis(env, request, buildOptions, analysisResult.getTargetsToBuild());
       }
 
       reportTargets(env, analysisResult);

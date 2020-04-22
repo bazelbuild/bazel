@@ -56,7 +56,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
       throws ActionConflictException {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
-      return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
+      return new ConfiguredAspect.Builder(ruleContext).build();
     }
 
     List<TransitiveInfoCollection> deps = new ArrayList<>();
@@ -79,7 +79,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
     if (provider != null) {
       runtimeJars.addTransitive(provider.getResourceClassJars());
     }
-    return new ConfiguredAspect.Builder(this, parameters, ruleContext)
+    return new ConfiguredAspect.Builder(ruleContext)
         .addProvider(
             AndroidNeverLinkLibrariesProvider.create(
                 AndroidCommon.collectTransitiveNeverlinkLibraries(

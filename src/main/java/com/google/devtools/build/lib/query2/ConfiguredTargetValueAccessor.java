@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -143,11 +145,12 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
     SkyKey skyKey = configuredTargetKeyExtractor.extractKey(configuredTargetValue);
     Iterable<SkyKey> revDeps =
         Iterables.concat(walkableGraph.getReverseDeps(ImmutableList.of(skyKey)).values());
+    Label label = configuredTargetValue.getConfiguredTarget().getLabel();
     for (SkyKey revDep : revDeps) {
       SkyFunctionName skyFunctionName = revDep.functionName();
       if (SkyFunctions.ASPECT.equals(skyFunctionName)) {
         AspectValue aspectValue = (AspectValue) walkableGraph.getValue(revDep);
-        if (aspectValue.getLabel().equals(configuredTargetValue.getConfiguredTarget().getLabel())) {
+        if (((AspectKey) revDep).getLabel().equals(label)) {
           result.add(aspectValue);
         }
       }

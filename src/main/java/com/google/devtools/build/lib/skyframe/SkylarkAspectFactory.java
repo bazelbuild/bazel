@@ -45,10 +45,9 @@ import java.util.Map;
 
 /** A factory for aspects that are defined in Starlark. */
 public class SkylarkAspectFactory implements ConfiguredAspectFactory {
-
   private final SkylarkDefinedAspect skylarkAspect;
 
-  public SkylarkAspectFactory(SkylarkDefinedAspect skylarkAspect) {
+  SkylarkAspectFactory(SkylarkDefinedAspect skylarkAspect) {
     this.skylarkAspect = skylarkAspect;
   }
 
@@ -111,7 +110,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
                   EvalUtils.getDataTypeName(aspectSkylarkObject)));
           return null;
         }
-        return createAspect(aspectSkylarkObject, aspectDescriptor, ruleContext);
+        return createAspect(aspectSkylarkObject, ruleContext);
       } catch (EvalException e) {
         addAspectToStackTrace(ctadBase.getTarget(), e);
         ruleContext.ruleError("\n" + e.print());
@@ -124,11 +123,10 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     }
   }
 
-  private ConfiguredAspect createAspect(
-      Object aspectSkylarkObject, AspectDescriptor aspectDescriptor, RuleContext ruleContext)
+  private static ConfiguredAspect createAspect(Object aspectSkylarkObject, RuleContext ruleContext)
       throws EvalException, ActionConflictException {
 
-    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(aspectDescriptor, ruleContext);
+    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
 
     if (aspectSkylarkObject instanceof Iterable) {
       addDeclaredProviders(builder, (Iterable) aspectSkylarkObject);
@@ -165,7 +163,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     return configuredAspect;
   }
 
-  private void addDeclaredProviders(
+  private static void addDeclaredProviders(
       ConfiguredAspect.Builder builder, Iterable<?> aspectSkylarkObject) throws EvalException {
     int i = 0;
     for (Object o : aspectSkylarkObject) {

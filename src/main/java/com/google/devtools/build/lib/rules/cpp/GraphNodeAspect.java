@@ -69,7 +69,7 @@ public final class GraphNodeAspect extends NativeAspectClass implements Configur
           AnalysisUtils.getProviders(
               ruleContext.getPrerequisites("deps", TransitionMode.TARGET), GraphNodeInfo.class));
     }
-    return new ConfiguredAspect.Builder(this, params, ruleContext)
+    return new ConfiguredAspect.Builder(ruleContext)
         .addProvider(
             GraphNodeInfo.class, new GraphNodeInfo(ruleContext.getLabel(), children.build()))
         .build();

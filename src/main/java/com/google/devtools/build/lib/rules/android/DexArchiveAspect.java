@@ -186,7 +186,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       AspectParameters params,
       String toolsRepository)
       throws InterruptedException, ActionConflictException {
-    ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, params, ruleContext);
+    ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
     Function<Artifact, Artifact> desugaredJars =
         desugarJarsIfRequested(ctadBase.getConfiguredTarget(), ruleContext, result);
 

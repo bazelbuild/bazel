@@ -95,7 +95,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       AspectParameters parameters,
       String toolsRepository)
       throws InterruptedException, ActionConflictException {
-    ConfiguredAspect.Builder aspect = new ConfiguredAspect.Builder(this, parameters, ruleContext);
+    ConfiguredAspect.Builder aspect = new ConfiguredAspect.Builder(ruleContext);
 
     if (!rpcSupport.checkAttributes(ruleContext, parameters)) {
       return aspect.build();

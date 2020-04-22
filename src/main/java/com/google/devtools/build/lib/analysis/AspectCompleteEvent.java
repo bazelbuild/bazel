@@ -109,7 +109,7 @@ public class AspectCompleteEvent
   @Override
   public BuildEventId getEventId() {
     return BuildEventIdUtil.aspectCompleted(
-        aspectValue.getLabel(),
+        aspectValue.getKey().getLabel(),
         configurationEventId,
         aspectValue.getAspect().getDescriptor().getDescription());
   }

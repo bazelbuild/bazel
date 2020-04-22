@@ -27,7 +27,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -500,8 +499,7 @@ public final class RemoteModule extends BlazeModule {
       CommandEnvironment env,
       BuildRequest request,
       BuildOptions buildOptions,
-      Iterable<ConfiguredTarget> configuredTargets,
-      ImmutableSet<AspectValue> aspects) {
+      Iterable<ConfiguredTarget> configuredTargets) {
     if (remoteOutputsMode != null && remoteOutputsMode.downloadToplevelOutputsOnly()) {
       Preconditions.checkState(actionContextProvider != null, "actionContextProvider was null");
       boolean isTestCommand = env.getCommandName().equals("test");

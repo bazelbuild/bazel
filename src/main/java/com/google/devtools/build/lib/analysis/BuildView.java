@@ -460,7 +460,7 @@ public class BuildView {
     Set<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
         Sets.newLinkedHashSet(skyframeAnalysisResult.getConfiguredTargets());
-    ImmutableSet<AspectValue> aspects = ImmutableSet.copyOf(skyframeAnalysisResult.getAspects());
+    ImmutableMap<AspectKey, ConfiguredAspect> aspects = skyframeAnalysisResult.getAspects();
 
     Set<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
@@ -617,7 +617,7 @@ public class BuildView {
   private void addExtraActionsIfRequested(
       AnalysisOptions viewOptions,
       Collection<ConfiguredTarget> configuredTargets,
-      Collection<AspectValue> aspects,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       ArtifactsToOwnerLabels.Builder artifactsToTopLevelLabelsMap,
       ExtendedEventHandler eventHandler) {
     RegexFilter filter = viewOptions.extraActionFilter;
@@ -659,21 +659,21 @@ public class BuildView {
         }
       }
     }
-    for (AspectValue aspect : aspects) {
+    for (Map.Entry<AspectKey, ConfiguredAspect> aspectEntry : aspects.entrySet()) {
       ExtraActionArtifactsProvider provider =
-          aspect.getConfiguredAspect().getProvider(ExtraActionArtifactsProvider.class);
+          aspectEntry.getValue().getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
         if (viewOptions.extraActionTopLevelOnly) {
           TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
               provider.getExtraActionArtifacts(),
               filter,
-              aspect.getLabel(),
+              aspectEntry.getKey().getLabel(),
               artifactsToTopLevelLabelsMap);
         } else {
           TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
               provider.getTransitiveExtraActionArtifacts(),
               filter,
-              aspect.getLabel(),
+              aspectEntry.getKey().getLabel(),
               artifactsToTopLevelLabelsMap);
         }
       }

@@ -11,19 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.skyframe.AspectFunction;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 
 /**
  * Super-interface for {@link ConfiguredTargetValue} and {@link
  * com.google.devtools.build.lib.analysis.AspectValue}.
  */
-// TODO(janakr): Move this to analysis.
 public interface ConfiguredObjectValue extends ActionLookupValue, NotComparableSkyValue {
   /** Returns the configured target/aspect for this value. */
   ProviderCollection getConfiguredObject();
