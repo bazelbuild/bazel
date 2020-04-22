@@ -305,8 +305,8 @@ public final class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testDefaultArgumentsInsufficientArgNum() throws Exception {
-    checkEvalError("insufficient arguments received by func(a, b = \"b\", c = \"c\") "
-        + "(got 0, expected at least 1)",
+    checkEvalError(
+        "func() missing 1 required positional argument: a",
         "def func(a, b = 'b', c = 'c'):",
         "  return a + b + c",
         "func()");
@@ -328,12 +328,12 @@ public final class FunctionTest extends EvaluationTestCase {
   @Test
   public void testKeywordOnly() throws Exception {
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *, b)",
+        "func() missing 1 required keyword-only argument: b", //
         "def func(a, *, b): pass",
         "func(5)");
 
     checkEvalError(
-        "too many (2) positional arguments in call to func(a, *, b)",
+        "func() accepts no more than 1 positional argument but got 2",
         "def func(a, *, b): pass",
         "func(5, 6)");
 
@@ -345,12 +345,12 @@ public final class FunctionTest extends EvaluationTestCase {
   @Test
   public void testStarArgsAndKeywordOnly() throws Exception {
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *args, b)",
+        "func() missing 1 required keyword-only argument: b",
         "def func(a, *args, b): pass",
         "func(5)");
 
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *args, b)",
+        "func() missing 1 required keyword-only argument: b",
         "def func(a, *args, b): pass",
         "func(5, 6)");
 
@@ -364,12 +364,12 @@ public final class FunctionTest extends EvaluationTestCase {
   @Test
   public void testKeywordOnlyAfterStarArg() throws Exception {
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *b, c)",
+        "func() missing 1 required keyword-only argument: c",
         "def func(a, *b, c): pass",
         "func(5)");
 
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *b, c)",
+        "func() missing 1 required keyword-only argument: c",
         "def func(a, *b, c): pass",
         "func(5, 6, 7)");
 
@@ -398,7 +398,7 @@ public final class FunctionTest extends EvaluationTestCase {
   @Test
   public void testKwargsCollision() throws Exception {
     checkEvalError(
-        "func(a, b) got multiple values for parameter 'b'",
+        "func() got multiple values for parameter 'b'",
         "def func(a, b): return a + b",
         "func('a', 'b', **{'b': 'foo'})");
   }
@@ -406,7 +406,7 @@ public final class FunctionTest extends EvaluationTestCase {
   @Test
   public void testKwargsCollisionWithNamed() throws Exception {
     checkEvalError(
-        "func(a, b) got multiple values for parameter 'b'",
+        "func() got multiple values for parameter 'b'",
         "def func(a, b): return a + b",
         "func('a', b = 'b', **{'b': 'foo'})");
   }
@@ -511,25 +511,33 @@ public final class FunctionTest extends EvaluationTestCase {
     assertThat(Starlark.repr(eval("f(b=2, a=1)"))).isEqualTo("(1, 2)");
 
     checkEvalError(
-        "insufficient arguments received by f(a, b = None) (got 0, expected at least 1)", //
+        "f() missing 1 required positional argument: a", //
         "f()");
     checkEvalError(
-        "too many (3) positional arguments in call to f(a, b = None)", //
+        "f() accepts no more than 2 positional arguments but got 3", //
         "f(1, 2, 3)");
     checkEvalError(
-        "unexpected keywords 'c', 'd' in call to f(a, b = None)", //
+        "f() got unexpected keyword arguments: c, d", //
         "f(1, 2, c=3, d=4)");
     checkEvalError(
-        "missing mandatory positional argument 'a' while calling f(a, b = None)", //
+        "f() missing 1 required positional argument: a", //
         "f(b=2)");
     checkEvalError(
-        "missing mandatory positional argument 'a' while calling f(a, b = None)", //
+        "f() missing 1 required positional argument: a", //
         "f(b=2)");
     checkEvalError(
-        "f(a, b = None) got multiple values for parameter 'a'", //
+        "f() got multiple values for parameter 'a'", //
         "f(2, a=1)");
     checkEvalError(
-        "unexpected keyword 'c' in call to f(a, b = None)", //
+        "f() got unexpected keyword argument: c", //
         "f(b=2, a=1, c=3)");
+
+    exec("def g(*, one, two, three): pass");
+    checkEvalError(
+        "g() got unexpected keyword argument: tree (did you mean 'three'?)", //
+        "g(tree=3)");
+    checkEvalError(
+        "g() does not accept positional arguments, but got 3", //
+        "g(1, 2 ,3)");
   }
 }

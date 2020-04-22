@@ -999,7 +999,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
-    assertContainsEvent("too many (2) positional arguments in call to _impl(settings)");
+    assertContainsEvent("_impl() accepts no more than 1 positional argument but got 2");
   }
 
   @Test

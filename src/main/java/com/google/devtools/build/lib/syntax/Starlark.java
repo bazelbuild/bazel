@@ -353,6 +353,8 @@ public final class Starlark {
   /**
    * Calls the function-like value {@code fn} in the specified thread, passing it the given
    * positional and named arguments in the "fastcall" array representation.
+   *
+   * <p>The caller must not subsequently modify or even inspect the two arrays.
    */
   public static Object fastcall(
       StarlarkThread thread, Object fn, Object[] positional, Object[] named)
