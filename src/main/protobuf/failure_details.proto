@@ -220,6 +220,7 @@ message PackageOptions {
   enum Code {
     PACKAGE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
+    reserved 2; // For internal use
   }
 
   Code code = 1;
