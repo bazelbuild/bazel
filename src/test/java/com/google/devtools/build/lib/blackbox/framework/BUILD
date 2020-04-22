@@ -12,7 +12,16 @@ java_library(
 java_library(
     name = "framework",
     testonly = 1,
-    srcs = glob(["*.java"]),
+    srcs = [
+        "BlackBoxTestContext.java",
+        "BlackBoxTestEnvironment.java",
+        "BuilderRunner.java",
+        "PathUtils.java",
+        "ProcessParameters.java",
+        "ProcessResult.java",
+        "ProcessRunner.java",
+        "ToolsSetup.java",
+    ],
     visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox:__subpackages__"],
     deps = [":deps"],
 )
@@ -20,11 +29,17 @@ java_library(
 java_test(
     name = "framework_tests",
     testonly = 1,
-    srcs = glob(["*.java"]),
+    srcs = [
+        "PathUtilsTest.java",
+        "ProcessRunnerTest.java",
+    ],
     tags = ["black_box_test"],
     test_class = "com.google.devtools.build.lib.AllTests",
     visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox/tests:__pkg__"],
-    deps = [":deps"],
+    deps = [
+        ":deps",
+        ":framework",
+    ],
 )
 
 filegroup(

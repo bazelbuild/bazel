@@ -123,6 +123,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
         .write(
             WORKSPACE,
             "workspace(name = 'main')",
+            BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos(),
             "load(':repo_rule.bzl', 'check_wd')",
             "check_wd(name = 'relative', working_directory = 'relative')",
             "check_wd(name = 'relative2', working_directory = '../relative2')",
@@ -164,10 +165,10 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             WORKSPACE,
+            BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos(),
             String.format(
                 "local_repository(name = 'x', path = '%s',)",
                 PathUtils.pathForStarlarkFile(repoA)));
-    // TODO:  What we need in WORKSPACE is the deps setup for repoA ...!!!!
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
@@ -177,6 +178,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             WORKSPACE,
+            BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos(),
             String.format(
                 "local_repository(name = 'x', path = '%s',)",
                 PathUtils.pathForStarlarkFile(repoB)));
@@ -193,6 +195,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             WORKSPACE,
+            BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos(),
             String.format(
                 "local_repository(name = 'ext', path = '%s',)",
                 PathUtils.pathForStarlarkFile(repo)));

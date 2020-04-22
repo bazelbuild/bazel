@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.blackbox.tests.workspace.RepoWithRul
 import static com.google.devtools.build.lib.blackbox.tests.workspace.RepoWithRuleWritingTextGenerator.loadRule;
 
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
+import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestEnvironment;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
@@ -177,6 +178,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "WORKSPACE",
+            BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos(),
             "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
             "git_repository(",
             "  name='ext',",
@@ -227,6 +229,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "WORKSPACE",
+            BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos(),
             "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
             "git_repository(",
             "  name='ext',",
