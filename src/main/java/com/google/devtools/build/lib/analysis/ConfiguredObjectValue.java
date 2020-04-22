@@ -16,14 +16,11 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skyframe.AspectFunction;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 
 /**
- * Super-interface for {@link ConfiguredTargetValue} and {@link
- * com.google.devtools.build.lib.analysis.AspectValue}.
+ * Super-interface for {@link com.google.devtools.build.lib.skyframe.ConfiguredTargetValue} and
+ * {@link AspectValue}.
  */
 public interface ConfiguredObjectValue extends ActionLookupValue, NotComparableSkyValue {
   /** Returns the configured target/aspect for this value. */
@@ -33,8 +30,9 @@ public interface ConfiguredObjectValue extends ActionLookupValue, NotComparableS
    * Returns the set of packages transitively loaded by this value. Must only be used for
    * constructing the package -> source root map needed for some builds. If the caller has not
    * specified that this map needs to be constructed (via the constructor argument in {@link
-   * ConfiguredTargetFunction#ConfiguredTargetFunction} or {@link AspectFunction#AspectFunction}),
-   * calling this will crash.
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#ConfiguredTargetFunction} or
+   * {@link com.google.devtools.build.lib.skyframe.AspectFunction#AspectFunction}), calling this
+   * will crash.
    */
   NestedSet<Package> getTransitivePackagesForPackageRootResolution();
 
