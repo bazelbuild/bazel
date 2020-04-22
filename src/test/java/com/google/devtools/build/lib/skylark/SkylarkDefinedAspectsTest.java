@@ -2797,8 +2797,6 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "dep_rule(name = 'beta', deps = [':charlie'], output = 'beta_output')",
         "dep_rule(name = 'charlie')");
 
-    useConfiguration("--experimental_aspect_output_propagation=true");
-
     StarlarkProvider.Key rootInfoKey =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//test:lib.bzl", ImmutableMap.of()), "RootInfo");
@@ -2904,8 +2902,6 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "dep_rule(name = 'alpha', deps = [':beta_output'])",
         "dep_rule(name = 'beta', deps = [':charlie'], output = 'beta_output')",
         "dep_rule(name = 'charlie')");
-
-    useConfiguration("--experimental_aspect_output_propagation=true");
   }
 
   @Test
@@ -3014,34 +3010,6 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
             Label.parseAbsolute("//test:alpha", ImmutableMap.of()),
             Label.parseAbsolute("//test:beta", ImmutableMap.of()),
             Label.parseAbsolute("//test:charlie", ImmutableMap.of()));
-  }
-
-  @Test
-  public void testAspectOutputPropagationFlag() throws Exception {
-    scratch.file(
-        "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   return []",
-        "def _rule_impl(ctx):",
-        "   return []",
-        "my_aspect = aspect(implementation=_aspect_impl, apply_to_generating_rules = True)",
-        "my_rule = rule(implementation=_rule_impl)");
-
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "", "my_rule(name = 'xxx')");
-
-    useConfiguration("--experimental_aspect_output_propagation=false");
-    reporter.removeHandler(failFastHandler);
-    try {
-      AnalysisResult analysisResult = update("//test:xxx");
-      assertThat(keepGoing()).isTrue();
-      assertThat(analysisResult.hasError()).isTrue();
-    } catch (ViewCreationFailedException | TargetParsingException e) {
-      // expected
-    }
-
-    assertContainsEvent(
-        "parameter 'apply_to_generating_rules' is experimental and thus "
-            + "unavailable with the current flags");
   }
 
   /** SkylarkAspectTest with "keep going" flag */
