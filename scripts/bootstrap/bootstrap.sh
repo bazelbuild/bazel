@@ -31,13 +31,19 @@ fi
 
 : ${JAVA_VERSION:="1.8"}
 
-_BAZEL_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+if [ -d derived ] then
+  # Flags we need to bootstrap from the dist archive.
+  DIST_BOOTSTRAP_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
       --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
-      --spawn_strategy=standalone \
+      --distdir=derived/distdir"
+fi
+
+_BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
       --distdir=derived/distdir \
+      ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
 
 if [ -z "${BAZEL-}" ]; then
