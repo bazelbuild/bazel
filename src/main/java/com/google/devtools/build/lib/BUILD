@@ -787,6 +787,8 @@ genrule(
     cmd = (
         "cat $(location //site:command-line-reference-prefix.html) > $@ && " +
         "TMP=`mktemp -d /tmp/tmp.XXXXXXXXXX` && " +
+        # TODO(#11179): Remove when the stub template fix is released.
+        "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
         "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
@@ -794,6 +796,7 @@ genrule(
         "help everything-as-html >> $@ 2>/dev/null && " +
         "cat $(location //site:command-line-reference-suffix.html) >> $@"
     ),
+    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer",
     ],
