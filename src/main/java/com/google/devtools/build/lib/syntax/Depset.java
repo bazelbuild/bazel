@@ -36,12 +36,11 @@ import javax.annotation.Nullable;
  * type parameter has been erased, without visiting each element of the often-vast data structure.
  *
  * <p>The content type of a non-empty {@code Depset} is determined by its first element. All
- * elements must have the same type. An empty depset has type {@code SkylarkType.TOP}, and may be
+ * elements must have the same type. An empty depset has type {@code SkylarkType.EMPTY}, and may be
  * combined with any other depset.
  */
 // TODO(adonovan): move to lib.packages, as this is a Bazelism. Requires:
 // - moving the function to StarlarkLibrary.COMMON.
-// - making SkylarkType.getGenericArgType extensible somehow
 // - relaxing StarlarkThread.checkStateEquals (or defining Depset.equals)
 @SkylarkModule(
     name = "depset",
@@ -128,7 +127,7 @@ public final class Depset implements StarlarkValue {
     } else if (item instanceof Sequence) {
       for (Object x : (Sequence) item) {
         checkElement(x, /*strict=*/ true);
-        SkylarkType xt = SkylarkType.of(x);
+        SkylarkType xt = SkylarkType.ofValue(x);
         contentType = checkType(contentType, xt);
         itemsBuilder.add(x);
       }
@@ -172,6 +171,7 @@ public final class Depset implements StarlarkValue {
     // which are Starlark-unhashable even if frozen.
     // TODO(adonovan): also remove StarlarkList.hashCode.
     if (strict && !EvalUtils.isImmutable(x)) {
+      // TODO(adonovan): improve this error message to include type(x).
       throw Starlark.errorf("depset elements must not be mutable values");
     }
 
@@ -184,9 +184,7 @@ public final class Depset implements StarlarkValue {
 
   // implementation of deprecated depset(x) constructor
   static Depset legacyOf(Order order, Object items) throws EvalException {
-    // TODO(adonovan): rethink this API. TOP is a pessimistic type for item, and it's wrong
-    // (should be BOTTOM) if items is an empty Depset or Sequence.
-    return create(order, SkylarkType.TOP, items, null);
+    return create(order, SkylarkType.EMPTY, items, null);
   }
 
   // TODO(laurentlb): Delete the method. It's used only in tests.
@@ -226,15 +224,7 @@ public final class Depset implements StarlarkValue {
       throws EvalException {
     // An initially empty depset takes its type from the first element added.
     // Otherwise, the types of the item and depset must match exactly.
-    //
-    // TODO(adonovan): why is the empty depset TOP, not BOTTOM?
-    // T ^ TOP == TOP, whereas T ^ BOTTOM == T.
-    // This can't be changed without breaking callers of getContentType who
-    // expect to see TOP. Maybe this is minor, but it at least would require
-    // changes to EvalUtils#getDataTypeName so that it
-    // can continue to print "depset of Objects" instead of "depset of EmptyTypes".
-    // Better yet, break the behavior and change it to "empty depset".
-    if (depsetType == SkylarkType.TOP || depsetType.equals(itemType)) {
+    if (depsetType.equals(SkylarkType.EMPTY) || depsetType.equals(itemType)) {
       return itemType;
     }
     throw Starlark.errorf(
@@ -395,7 +385,7 @@ public final class Depset implements StarlarkValue {
       Order order, List<Object> direct, List<Depset> transitive, boolean strict)
       throws EvalException {
     NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
-    SkylarkType type = SkylarkType.TOP;
+    SkylarkType type = SkylarkType.EMPTY;
 
     // Check direct elements' type is equal to elements already added.
     for (Object x : direct) {
@@ -412,7 +402,7 @@ public final class Depset implements StarlarkValue {
       // See b/144992997 or github.com/bazelbuild/bazel/issues/10289.
       checkElement(x, /*strict=*/ strict);
 
-      SkylarkType xt = SkylarkType.of(x);
+      SkylarkType xt = SkylarkType.ofValue(x);
       type = checkType(type, xt);
     }
     builder.addAll(direct);

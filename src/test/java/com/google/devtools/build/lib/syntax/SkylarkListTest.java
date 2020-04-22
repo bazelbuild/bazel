@@ -320,15 +320,4 @@ public final class SkylarkListTest extends EvaluationTestCase {
     wrapped[0] = "goodbye";
     assertThat(mutableList).containsExactly("goodbye");
   }
-
-  @Test
-  public void testGetSkylarkType_GivesExpectedClassesForListsAndTuples() throws Exception {
-    Class<?> emptyTupleClass = Tuple.empty().getClass();
-    Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
-    Class<?> listClass = StarlarkList.copyOf(null, Tuple.of(1, 2, 3)).getClass();
-
-    assertThat(EvalUtils.getSkylarkType(listClass)).isEqualTo(StarlarkList.class);
-    assertThat(EvalUtils.getSkylarkType(emptyTupleClass)).isEqualTo(Tuple.class);
-    assertThat(EvalUtils.getSkylarkType(tupleClass)).isEqualTo(Tuple.class);
-  }
 }
