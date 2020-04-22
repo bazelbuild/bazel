@@ -125,8 +125,9 @@ public class RepoWithRuleWritingTextGenerator {
    * @throws IOException if was not able to create or write to files
    */
   Path setupRepository() throws IOException {
-    Path workspace = PathUtils.writeFileInDir(root, "WORKSPACE",
-        BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos());
+    Path workspace =
+        PathUtils.writeFileInDir(
+            root, "WORKSPACE", BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos());
     PathUtils.writeFileInDir(root, HELPER_FILE, WRITE_TEXT_TO_FILE);
     if (generateBuildFile) {
       PathUtils.writeFileInDir(
