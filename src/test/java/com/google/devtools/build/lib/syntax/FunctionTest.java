@@ -27,15 +27,33 @@ import org.junit.runners.JUnit4;
 public final class FunctionTest extends EvaluationTestCase {
 
   @Test
-  public void testFunctionDef() throws Exception {
-    exec(
-        "def func(a,b,c):", //
-        "  a = 1",
-        "  b = a\n");
-    StarlarkFunction stmt = (StarlarkFunction) lookup("func");
-    assertThat(stmt).isNotNull();
-    assertThat(stmt.getName()).isEqualTo("func");
-    assertThat(stmt.getSignature().numMandatoryPositionals()).isEqualTo(3);
+  public void testDef() throws Exception {
+    exec("def f(a, b=1, *args, c, d=2, **kwargs): pass");
+    StarlarkFunction f = (StarlarkFunction) lookup("f");
+    assertThat(f).isNotNull();
+    assertThat(f.getName()).isEqualTo("f");
+    assertThat(f.getParameterNames())
+        .containsExactly("a", "b", "c", "d", "args", "kwargs")
+        .inOrder();
+    assertThat(f.hasVarargs()).isTrue();
+    assertThat(f.hasKwargs()).isTrue();
+    assertThat(getDefaults(f)).containsExactly(null, 1, null, 2, null, null).inOrder();
+
+    // same, sans varargs
+    exec("def g(a, b=1, *, c, d=2, **kwargs): pass");
+    StarlarkFunction g = (StarlarkFunction) lookup("g");
+    assertThat(g.getParameterNames()).containsExactly("a", "b", "c", "d", "kwargs").inOrder();
+    assertThat(g.hasVarargs()).isFalse();
+    assertThat(g.hasKwargs()).isTrue();
+    assertThat(getDefaults(g)).containsExactly(null, 1, null, 2, null).inOrder();
+  }
+
+  private static List<Object> getDefaults(StarlarkFunction fn) {
+    List<Object> defaults = new ArrayList<>();
+    for (int i = 0; i < fn.getParameterNames().size(); i++) {
+      defaults.add(fn.getDefaultValue(i));
+    }
+    return defaults;
   }
 
   @Test

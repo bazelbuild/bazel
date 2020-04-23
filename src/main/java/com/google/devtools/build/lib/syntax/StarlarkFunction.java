@@ -53,16 +53,57 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   /**
-   * Returns the optional tuple of default values for optional parameters. For example, the defaults
-   * for {@code def f(a, b=1, *, c, d=2)} would be {@code (1, 2)}.
+   * Returns the default value of the ith parameter ({@code 0 <= i < getParameterNames().size()}),
+   * or null if the parameter is not optional. Residual parameters, if any, are always last, and
+   * have no default value.
    */
-  public Tuple<Object> getDefaultValues() {
-    return defaultValues;
+  @Nullable
+  public Object getDefaultValue(int i) {
+    if (i >= 0) {
+      // def f(a, b=1, *args, c, d=2, **kwargs) has defaults tuple (b=1, d=2).
+      // TODO(adonovan): eliminate hole using a sentinel, to simplify this
+      // and other run-time logic.
+      int a = signature.numMandatoryPositionals();
+      int b = signature.numOptionalPositionals();
+      int c = signature.numMandatoryNamedOnly(); // the hole
+      int d = signature.numOptionalNamedOnly();
+      if (i < a) {
+        return null;
+      } else if (i < a + b) {
+        return defaultValues.get(i - a);
+      } else if (i < a + b + c) {
+        return null;
+      } else if (i < a + b + c + d) {
+        return defaultValues.get(i - a - c);
+      } else if (i < getParameterNames().size()) {
+        return null; // *args or **kwargs   TODO(adonovan): make this an error.
+      }
+    }
+    throw new IndexOutOfBoundsException();
   }
 
-  /** Returns the signature of this function. */
-  public FunctionSignature getSignature() {
-    return signature;
+  /**
+   * Returns the names of this function's parameters. The residual {@code *args} and {@code
+   * **kwargs} parameters, if any, are always last.
+   */
+  public ImmutableList<String> getParameterNames() {
+    return signature.getParameterNames();
+  }
+
+  /**
+   * Reports whether this function has a residual positional arguments parameter, {@code def
+   * f(*args)}.
+   */
+  public boolean hasVarargs() {
+    return signature.hasVarargs();
+  }
+
+  /**
+   * Reports whether this function has a residual keyword arguments parameter, {@code def
+   * f(**kwargs)}.
+   */
+  public boolean hasKwargs() {
+    return signature.hasKwargs();
   }
 
   @Override
@@ -111,7 +152,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     Object[] arguments = processArgs(thread.mutability(), positional, named);
 
     StarlarkThread.Frame fr = thread.frame(0);
-    ImmutableList<String> names = getSignature().getParameterNames();
+    ImmutableList<String> names = signature.getParameterNames();
     for (int i = 0; i < names.size(); ++i) {
       fr.locals.put(names.get(i), arguments[i]);
     }
@@ -286,20 +327,18 @@ public final class StarlarkFunction implements StarlarkCallable {
     return n == 1 ? "" : "s";
   }
 
-  /** Render this object in the form of an equivalent Python function signature. */
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append(getName());
     sb.append('(');
-    getSignature().toStringBuilder(sb, this::printDefaultValue);
+    signature.toStringBuilder(sb, this::printDefaultValue);
     sb.append(')');
     return sb.toString();
   }
 
   private String printDefaultValue(int i) {
-    Tuple<Object> defaultValues = getDefaultValues();
-    Object v = defaultValues != null ? defaultValues.get(i) : null;
+    Object v = defaultValues.get(i);
     return v != null ? Starlark.repr(v) : null;
   }
 

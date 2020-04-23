@@ -389,7 +389,7 @@ public final class StarlarkThread {
     ProfilerTask taskKind;
     if (fn instanceof StarlarkFunction) {
       StarlarkFunction sfn = (StarlarkFunction) fn;
-      fr.locals = Maps.newLinkedHashMapWithExpectedSize(sfn.getSignature().numParameters());
+      fr.locals = Maps.newLinkedHashMapWithExpectedSize(sfn.getParameterNames().size());
       taskKind = ProfilerTask.STARLARK_USER_FN;
     } else {
       // built-in function
