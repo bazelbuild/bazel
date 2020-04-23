@@ -574,10 +574,9 @@ public class RemoteCache implements AutoCloseable {
       if (inMemoryOutput != null) {
         inMemoryOutputDownload = downloadBlob(inMemoryOutputDigest);
       }
-      for (ListenableFuture<FileMetadata> download : downloadOutErr(result, outErr)) {
-        getFromFuture(download);
-      }
+      waitForBulkTransfer(downloadOutErr(result, outErr), /* cancelRemainingOnInterrupt=*/ true);
       if (inMemoryOutputDownload != null) {
+        waitForBulkTransfer(ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt=*/ true);
         byte[] data = getFromFuture(inMemoryOutputDownload);
         return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
       }
