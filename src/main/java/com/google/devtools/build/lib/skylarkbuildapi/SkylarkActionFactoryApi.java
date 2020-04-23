@@ -166,8 +166,8 @@ public interface SkylarkActionFactoryApi extends StarlarkValue {
               + "as a regular file (such as by using "
               + "<a href=\"#declare_file\"><code>declare_file()</code></a>). It will actually be "
               + "created as a symlink that points to the path of <code>target_file</code>.</p>"
-              + "<p>If target_path is used instead, then <code>output</code> must be declared as a "
-              + "symlink (such as by using "
+              + "<p>If <code>target_path</code> is used instead, then <code>output</code> must be "
+              + "declared as a symlink (such as by using "
               + "<a href=\"#declare_symlink\"><code>declare_symlink()</code>). In this case, the "
               + "symlink will point to whatever the content of <code>target_path</code> is. This "
               + "can be used to create a dangling symlink.</p>",
@@ -204,11 +204,11 @@ public interface SkylarkActionFactoryApi extends StarlarkValue {
             defaultValue = "False",
             doc =
                 "May only be used with <code>target_file</code>, not <code>target_path</code>. "
-                    + "If true, when the action is executed, the <code>target_file</code's path is "
-                    + "checked to confirm that it is executable, and an error is reported if it is "
-                    + "not. Setting <code>is_executable<code> to False does not mean the target is "
-                    + " not executable, just that no verification is done. "
-                    + "<p>This feature does not make sense for <code>target_path<code> because "
+                    + "If true, when the action is executed, the <code>target_file</code>'s path "
+                    + "is checked to confirm that it is executable, and an error is reported if it "
+                    + "is not. Setting <code>is_executable</code> to False does not mean the "
+                    + "target is not executable, just that no verification is done."
+                    + "<p>This feature does not make sense for <code>target_path</code> because "
                     + "dangling symlinks might not exist at build time.<p>"),
         @Param(
             name = "progress_message",

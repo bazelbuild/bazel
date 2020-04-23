@@ -108,7 +108,7 @@ EOF
 
 function test_smoke() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 
@@ -124,7 +124,7 @@ EOF
 
 function test_inmemory_cache_symlinks() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 
@@ -142,7 +142,7 @@ EOF
 
 function test_on_disk_cache_symlinks() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 
@@ -161,7 +161,7 @@ EOF
 
 function test_no_inmemory_cache_symlinks() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 
@@ -187,7 +187,7 @@ EOF
 
 function test_no_on_disk_cache_symlinks() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 
@@ -214,7 +214,7 @@ EOF
 
 function test_replace_symlink_with_file() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 
@@ -240,7 +240,7 @@ EOF
 
 function test_replace_file_with_symlink() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 
@@ -266,7 +266,7 @@ EOF
 
 function test_file_instead_of_symlink() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 
@@ -274,7 +274,7 @@ function test_file_instead_of_symlink() {
   cat > a/a.bzl <<'EOF'
 def _bad_symlink_impl(ctx):
     symlink = ctx.actions.declare_symlink(ctx.label.name)
-    # Oops, should be "dangling_symlink"
+    # Oops, should be "symlink".
     ctx.actions.write(
         output = symlink,
         content = ctx.attr.link_target,
@@ -349,7 +349,7 @@ EOF
 
 function test_symlink_created_from_spawn() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 
@@ -385,7 +385,7 @@ EOF
 
 function test_dangling_symlink_created_from_symlink_action() {
   if "$is_windows"; then
-    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    # TODO(#10298): Support unresolved symlinks on Windows.
     return 0
   fi
 

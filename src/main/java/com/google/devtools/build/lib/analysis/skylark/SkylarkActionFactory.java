@@ -221,21 +221,6 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   static final GeneratedMessage.GeneratedExtension<ExtraActionInfo, SpawnInfo> SPAWN_INFO =
       SpawnInfo.spawnInfo;
 
-  /** Return whether exactly one of the passed object is not {@link Starlark.NONE}. */
-  private boolean exactlyOneNotNone(Object first, Object... others) {
-    boolean seen = first != Starlark.NONE;
-    for (Object o : others) {
-      if (o == Starlark.NONE) {
-        continue;
-      }
-      if (seen) {
-        return false;
-      }
-      seen = true;
-    }
-    return seen;
-  }
-
   @Override
   public void symlink(
       FileApi output,
