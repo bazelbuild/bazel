@@ -404,7 +404,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             reporter,
             eventBus);
     if (discardAnalysisCache) {
-      buildView.clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+      buildView.clearAnalysisCache(
+          analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
     }
     masterConfig = analysisResult.getConfigurationCollection();
     return analysisResult;

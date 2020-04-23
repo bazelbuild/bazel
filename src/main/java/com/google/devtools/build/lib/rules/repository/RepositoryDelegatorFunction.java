@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -317,7 +318,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   private RepositoryFunction getHandler(Rule rule) {
     RepositoryFunction handler;
-    if (rule.getRuleClassObject().isSkylark()) {
+    if (rule.getRuleClassObject().isStarlark()) {
       handler = skylarkHandler;
     } else {
       handler = handlers.get(rule.getRuleClass());

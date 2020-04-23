@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.util.Pair;
 @AutoCodec
 public final class InstrumentedFilesInfo implements Info, InstrumentedFilesInfoApi {
   /** Singleton provider instance for {@link InstrumentedFilesInfo}. */
-  public static final InstrumentedFilesProvider SKYLARK_CONSTRUCTOR =
+  public static final InstrumentedFilesProvider STARLARK_CONSTRUCTOR =
       new InstrumentedFilesProvider();
 
   public static final InstrumentedFilesInfo EMPTY =
@@ -67,7 +67,7 @@ public final class InstrumentedFilesInfo implements Info, InstrumentedFilesInfoA
 
   @Override
   public InstrumentedFilesProvider getProvider() {
-    return SKYLARK_CONSTRUCTOR;
+    return STARLARK_CONSTRUCTOR;
   }
 
   /** The transitive closure of instrumented source files. */

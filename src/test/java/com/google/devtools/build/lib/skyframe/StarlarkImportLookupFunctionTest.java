@@ -30,15 +30,21 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.StarlarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,6 +53,10 @@ import org.junit.runners.JUnit4;
 /** Tests for StarlarkImportLookupFunction. */
 @RunWith(JUnit4.class)
 public class StarlarkImportLookupFunctionTest extends BuildViewTestCase {
+  @Override
+  protected FileSystem createFileSystem() {
+    return new CustomInMemoryFs();
+  }
 
   @Before
   public final void preparePackageLoading() throws Exception {
@@ -399,5 +409,66 @@ public class StarlarkImportLookupFunctionTest extends BuildViewTestCase {
 
     assertThat(result.get(starlarkImportLookupKey).getEnvironmentExtension().getBindings())
         .containsEntry("a_symbol", 5);
+  }
+
+  @Test
+  public void testErrorReadingBzlFileInlineIsTransient() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
+    scratch.file("a/BUILD");
+    fs.badPathForRead = scratch.file("a/a1.bzl", "doesntmatter");
+
+    SkyKey key = key("//a:a1.bzl");
+    EvaluationResult<StarlarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isTransient();
+  }
+
+  @Test
+  public void testErrorReadingOtherBzlFileIsPersistentFromPerspectiveOfParent() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
+    scratch.file("a/BUILD");
+    scratch.file("a/a1.bzl", "load('//a:a2.bzl', 'a2')");
+    fs.badPathForRead = scratch.file("a/a2.bzl", "doesntmatter");
+
+    SkyKey key = key("//a:a1.bzl");
+    EvaluationResult<StarlarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+  }
+
+  @Test
+  public void testErrorStatingBzlFileInFileStateFunctionIsPersistent() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
+    scratch.file("a/BUILD");
+    fs.badPathForStat = scratch.file("a/a1.bzl", "doesntmatter");
+
+    SkyKey key = key("//a:a1.bzl");
+    EvaluationResult<StarlarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+  }
+
+  private static class CustomInMemoryFs extends InMemoryFileSystem {
+    @Nullable private Path badPathForStat;
+    @Nullable private Path badPathForRead;
+
+    @Override
+    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+      if (path.equals(badPathForStat)) {
+        throw new IOException("bad");
+      }
+      return super.statIfFound(path, followSymlinks);
+    }
+
+    @Override
+    protected InputStream getInputStream(Path path) throws IOException {
+      if (path.equals(badPathForRead)) {
+        throw new IOException("bad");
+      }
+      return super.getInputStream(path);
+    }
   }
 }

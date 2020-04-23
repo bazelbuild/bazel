@@ -37,8 +37,8 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import javax.annotation.Nullable;
 
 /**
- * This configured target pretends to be whatever type of target "actual" is, returning its
- * transitive info providers and target, but returning its own label.
+ * This configured target pretends to be whatever type of target "actual" is, returning its label,
+ * transitive info providers and target.
  *
  * <p>Transitive info providers can also be overridden.
  */

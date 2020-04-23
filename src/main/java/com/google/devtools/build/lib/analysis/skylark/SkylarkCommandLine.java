@@ -25,7 +25,7 @@ public class SkylarkCommandLine implements SkylarkCommandLineApi {
 
   @Override
   public String joinPaths(String separator, Depset files) throws EvalException {
-    NestedSet<Artifact> artifacts = files.getSetFromParam(Artifact.class, "files");
+    NestedSet<Artifact> artifacts = Depset.cast(files, Artifact.class, "files");
     // TODO(bazel-team): This method should be deprecated and strongly discouraged, as it
     // flattens a depset during analysis.
     return Artifact.joinExecPaths(separator, artifacts.toList());

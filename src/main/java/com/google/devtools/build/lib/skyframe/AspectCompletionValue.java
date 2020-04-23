@@ -32,10 +32,8 @@ public class AspectCompletionValue implements SkyValue {
 
   private AspectCompletionValue() {}
 
-  public static Iterable<SkyKey> keys(
-      Collection<AspectValue> targets, final TopLevelArtifactContext ctx) {
-    return Iterables.transform(
-        targets, aspectValue -> AspectCompletionKey.create(aspectValue.getKey(), ctx));
+  public static Iterable<SkyKey> keys(Collection<AspectKey> keys, TopLevelArtifactContext ctx) {
+    return Iterables.transform(keys, k -> AspectCompletionKey.create(k, ctx));
   }
 
   /** The key of an AspectCompletionValue. */

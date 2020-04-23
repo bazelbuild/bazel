@@ -37,10 +37,8 @@ import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -111,8 +109,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
 
   // RepositoryRuleFunction is the result of repository_rule(...).
   // It is a callable value; calling it yields a Rule instance.
-  private static final class RepositoryRuleFunction extends BaseFunction
-      implements SkylarkExportable {
+  private static final class RepositoryRuleFunction implements StarlarkCallable, SkylarkExportable {
     private final RuleClass.Builder builder;
     private final StarlarkCallable implementation;
     private Label extensionLabel;
@@ -129,8 +126,8 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public FunctionSignature getSignature() {
-      return FunctionSignature.KWARGS;
+    public boolean isImmutable() {
+      return true;
     }
 
     @Override

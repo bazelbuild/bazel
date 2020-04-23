@@ -20,7 +20,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -62,9 +61,10 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
+import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.ClassName;
@@ -460,7 +460,7 @@ public final class ConfiguredTargetFactory {
         // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
         return createFailConfiguredTarget(ruleContext);
       }
-      if (rule.getRuleClassObject().isSkylark()) {
+      if (rule.getRuleClassObject().isStarlark()) {
         // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
         ConfiguredTarget target =
             SkylarkRuleConfiguredTargetUtil.buildRule(
@@ -599,7 +599,7 @@ public final class ConfiguredTargetFactory {
       @Nullable ResolvedToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration,
-      ActionLookupValue.ActionLookupKey aspectKey)
+      AspectValueKey.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException {
 
     RuleContext.Builder builder =
@@ -649,10 +649,11 @@ public final class ConfiguredTargetFactory {
             ruleClassProvider.getToolsRepository());
     if (configuredAspect != null) {
       validateAdvertisedProviders(
-          configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
+          configuredAspect,
+          aspectKey,
+          aspect.getDefinition().getAdvertisedProviders(),
           associatedTarget.getTarget(),
-          env.getEventHandler()
-      );
+          env.getEventHandler());
     }
     return configuredAspect;
   }
@@ -680,34 +681,34 @@ public final class ConfiguredTargetFactory {
 
   private void validateAdvertisedProviders(
       ConfiguredAspect configuredAspect,
-      AdvertisedProviderSet advertisedProviders, Target target,
+      AspectValueKey.AspectKey aspectKey,
+      AdvertisedProviderSet advertisedProviders,
+      Target target,
       EventHandler eventHandler) {
     if (advertisedProviders.canHaveAnyProvider()) {
       return;
     }
     for (Class<?> aClass : advertisedProviders.getNativeProviders()) {
       if (configuredAspect.getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) == null) {
-        eventHandler.handle(Event.error(
-            target.getLocation(),
-            String.format(
-                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
-                configuredAspect.getName(),
-                target.getLabel(),
-                aClass.getSimpleName()
-            )));
+        eventHandler.handle(
+            Event.error(
+                target.getLocation(),
+                String.format(
+                    "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                    aspectKey.getAspectClass().getName(),
+                    target.getLabel(),
+                    aClass.getSimpleName())));
       }
     }
 
-    for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
       if (configuredAspect.get(providerId) == null) {
-        eventHandler.handle(Event.error(
-            target.getLocation(),
-            String.format(
-                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
-                configuredAspect.getName(),
-                target.getLabel(),
-                providerId
-            )));
+        eventHandler.handle(
+            Event.error(
+                target.getLocation(),
+                String.format(
+                    "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                    aspectKey.getAspectClass().getName(), target.getLabel(), providerId)));
       }
     }
   }

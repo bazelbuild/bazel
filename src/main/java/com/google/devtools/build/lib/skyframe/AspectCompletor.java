@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -26,38 +26,43 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Manages completing builds for aspects. */
-class AspectCompletor implements Completor<AspectValue, AspectCompletionValue> {
+class AspectCompletor
+    implements Completor<AspectValue, AspectCompletionValue, AspectCompletionKey> {
 
-  public static SkyFunction aspectCompletionFunction(
+  static SkyFunction aspectCompletionFunction(
       PathResolverFactory pathResolverFactory, Supplier<Path> execRootSupplier) {
     return new CompletionFunction<>(pathResolverFactory, new AspectCompletor(), execRootSupplier);
   }
 
   @Override
-  public Event getRootCauseError(AspectValue value, Cause rootCause, Environment env) {
+  public Event getRootCauseError(
+      AspectValue value, AspectCompletionKey key, Cause rootCause, Environment env) {
+    AspectKey aspectKey = key.actionLookupKey();
     return Event.error(
         value.getLocation(),
         String.format(
             "%s, aspect %s: missing input file '%s'",
-            value.getLabel(), value.getConfiguredAspect().getName(), rootCause));
+            aspectKey.getLabel(), aspectKey.getAspectClass().getName(), rootCause));
   }
 
   @Override
   public MissingInputFileException getMissingFilesException(
-      AspectValue value, int missingCount, Environment env) {
+      AspectValue value, AspectCompletionKey key, int missingCount, Environment env) {
+    AspectKey aspectKey = key.actionLookupKey();
     return new MissingInputFileException(
-        value.getLabel()
+        aspectKey.getLabel()
             + ", aspect "
-            + value.getConfiguredAspect().getName()
+            + aspectKey.getAspectClass().getName()
             + missingCount
             + " input file(s) do not exist",
         value.getLocation());
@@ -74,9 +79,10 @@ class AspectCompletor implements Completor<AspectValue, AspectCompletionValue> {
       NestedSet<Cause> rootCauses,
       NestedSet<ArtifactsInOutputGroup> outputs,
       Environment env,
-      TopLevelArtifactContext topLevelArtifactContext)
+      AspectCompletionKey key)
       throws InterruptedException {
-    BuildEventId configurationEventId = getConfigurationEventIdFromAspectValue(value, env);
+    BuildEventId configurationEventId =
+        getConfigurationEventIdFromAspectKey(key.actionLookupKey(), env);
     if (configurationEventId == null) {
       return null;
     }
@@ -84,14 +90,14 @@ class AspectCompletor implements Completor<AspectValue, AspectCompletionValue> {
   }
 
   @Nullable
-  private BuildEventId getConfigurationEventIdFromAspectValue(AspectValue value, Environment env)
+  private BuildEventId getConfigurationEventIdFromAspectKey(AspectKey aspectKey, Environment env)
       throws InterruptedException {
-    if (value.getKey().getBaseConfiguredTargetKey().getConfigurationKey() == null) {
+    if (aspectKey.getBaseConfiguredTargetKey().getConfigurationKey() == null) {
       return BuildEventIdUtil.nullConfigurationId();
     } else {
       BuildConfigurationValue buildConfigurationValue =
           (BuildConfigurationValue)
-              env.getValue(value.getKey().getBaseConfiguredTargetKey().getConfigurationKey());
+              env.getValue(aspectKey.getBaseConfiguredTargetKey().getConfigurationKey());
       if (buildConfigurationValue == null) {
         return null;
       }
@@ -101,13 +107,14 @@ class AspectCompletor implements Completor<AspectValue, AspectCompletionValue> {
 
   @Override
   public ExtendedEventHandler.Postable createSucceeded(
-      SkyKey skyKey,
+      AspectCompletionKey skyKey,
       AspectValue value,
       CompletionContext completionContext,
       ArtifactsToBuild artifactsToBuild,
       Environment env)
       throws InterruptedException {
-    BuildEventId configurationEventId = getConfigurationEventIdFromAspectValue(value, env);
+    AspectKey aspectKey = skyKey.actionLookupKey();
+    BuildEventId configurationEventId = getConfigurationEventIdFromAspectKey(aspectKey, env);
     if (configurationEventId == null) {
       return null;
     }

@@ -20,22 +20,25 @@ import com.google.devtools.build.docgen.builtin.BuiltinProtos.Callable;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Param;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Type;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
-import com.google.devtools.build.docgen.skylark.SkylarkConstructorMethodDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
-import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkModuleDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkParamDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -47,19 +50,19 @@ public class ApiExporter {
 
   private static void appendTypes(
       Builtins.Builder builtins,
-      Map<String, SkylarkModuleDoc> types,
+      Map<String, StarlarkModuleDoc> types,
       List<RuleDocumentation> nativeRules)
       throws BuildEncyclopediaDocException {
 
-    for (Entry<String, SkylarkModuleDoc> modEntry : types.entrySet()) {
-      SkylarkModuleDoc mod = modEntry.getValue();
+    for (Entry<String, StarlarkModuleDoc> modEntry : types.entrySet()) {
+      StarlarkModuleDoc mod = modEntry.getValue();
 
       Type.Builder type = Type.newBuilder();
       type.setName(mod.getName());
       type.setDoc(mod.getDocumentation());
-      for (SkylarkMethodDoc meth : mod.getJavaMethods()) {
+      for (StarlarkMethodDoc meth : mod.getJavaMethods()) {
         // Constructors are exported as global symbols.
-        if (!(meth instanceof SkylarkConstructorMethodDoc)) {
+        if (!(meth instanceof StarlarkConstructorMethodDoc)) {
           Value.Builder value = collectMethodInfo(meth);
           // Methods from the native package are available as top level functions in BUILD files.
           if (mod.getName().equals("native")) {
@@ -91,10 +94,8 @@ public class ApiExporter {
     for (Entry<String, Object> entry : globalMethods.entrySet()) {
       Object obj = entry.getValue();
       Value.Builder value = Value.newBuilder();
-      if (obj instanceof BaseFunction) {
-        value = valueFromFunction((BaseFunction) obj);
-      } else if (obj instanceof BuiltinCallable) {
-        value = valueFromAnnotation(((BuiltinCallable) obj).getAnnotation());
+      if (obj instanceof StarlarkCallable) {
+        value = valueFromCallable((StarlarkCallable) obj);
       } else {
         value.setName(entry.getKey());
       }
@@ -109,14 +110,17 @@ public class ApiExporter {
       Object obj = entry.getValue();
       Value.Builder value = Value.newBuilder();
 
-      if (obj instanceof BaseFunction) {
-        value = valueFromFunction((BaseFunction) obj);
+      if (obj instanceof StarlarkCallable) {
+        value = valueFromCallable((StarlarkCallable) obj);
       } else {
         SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
         if (typeModule != null) {
-          SkylarkCallable selfCall = CallUtils.getSelfCallAnnotation(obj.getClass());
-          if (selfCall != null) {
-            value = valueFromAnnotation(selfCall);
+          Method selfCallMethod =
+              CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass());
+          if (selfCallMethod != null) {
+            // selfCallMethod may be from a subclass of the annotated method.
+            SkylarkCallable annotation = SkylarkInterfaceUtils.getSkylarkCallable(selfCallMethod);
+            value = valueFromAnnotation(annotation);
           } else {
             value.setName(entry.getKey());
             value.setType(entry.getKey());
@@ -140,8 +144,20 @@ public class ApiExporter {
     }
   }
 
-  private static Value.Builder valueFromFunction(BaseFunction func) {
-    return collectFunctionInfo(func.getName(), func.getSignature(), func.getDefaultValues());
+  private static Value.Builder valueFromCallable(StarlarkCallable x) {
+    // Starlark def statement?
+    if (x instanceof StarlarkFunction) {
+      StarlarkFunction fn = (StarlarkFunction) x;
+      return collectFunctionInfo(fn.getName(), fn.getSignature(), fn.getDefaultValues());
+    }
+
+    // annotated Java method?
+    if (x instanceof BuiltinCallable) {
+      return valueFromAnnotation(((BuiltinCallable) x).getAnnotation());
+    }
+
+    // application-defined callable?
+    return collectFunctionInfo(x.getName(), FunctionSignature.ANY, null);
   }
 
   private static Value.Builder valueFromAnnotation(SkylarkCallable annot) {
@@ -197,13 +213,13 @@ public class ApiExporter {
     return value;
   }
 
-  private static Value.Builder collectMethodInfo(SkylarkMethodDoc meth) {
+  private static Value.Builder collectMethodInfo(StarlarkMethodDoc meth) {
     Value.Builder field = Value.newBuilder();
     field.setName(meth.getShortName());
     field.setDoc(meth.getDocumentation());
     if (meth.isCallable()) {
       Callable.Builder callable = Callable.newBuilder();
-      for (SkylarkParamDoc par : meth.getParams()) {
+      for (StarlarkParamDoc par : meth.getParams()) {
         Param.Builder param = newParam(par.getName(), par.getDefaultValue().isEmpty());
         param.setType(par.getType());
         param.setDoc(par.getDocumentation());

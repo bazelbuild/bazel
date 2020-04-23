@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -32,17 +32,16 @@ import javax.annotation.Nullable;
  * A Depset is a Starlark value that wraps a {@link NestedSet}.
  *
  * <p>A NestedSet has a type parameter that describes, at compile time, the elements of the set. By
- * contrast, a Depset has a value, {@link #getContentType}, that describes the elements during
+ * contrast, a Depset has a value, {@link #getElementType}, that describes the elements during
  * execution. This type symbol permits the element type of a Depset value to be queried, after the
  * type parameter has been erased, without visiting each element of the often-vast data structure.
  *
- * <p>The content type of a non-empty {@code Depset} is determined by its first element. All
- * elements must have the same type. An empty depset has type {@code SkylarkType.TOP}, and may be
- * combined with any other depset.
+ * <p>For depsets constructed by Starlark code, the element type of a non-empty {@code Depset} is
+ * determined by its first element. All elements must have the same type. An empty depset has type
+ * {@code ElementType.EMPTY}, and may be combined with any other depset.
  */
 // TODO(adonovan): move to lib.packages, as this is a Bazelism. Requires:
 // - moving the function to StarlarkLibrary.COMMON.
-// - making SkylarkType.getGenericArgType extensible somehow
 // - relaxing StarlarkThread.checkStateEquals (or defining Depset.equals)
 @SkylarkModule(
     name = "depset",
@@ -88,18 +87,18 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class Depset implements StarlarkValue {
-  private final SkylarkType contentType;
+  private final ElementType elemType;
   private final NestedSet<?> set;
   @Nullable private final ImmutableList<Object> items; // TODO(laurentlb): Delete field.
   @Nullable private final ImmutableList<NestedSet<?>> transitiveItems;
 
   @AutoCodec.VisibleForSerialization
   Depset(
-      SkylarkType contentType,
+      ElementType elemType,
       NestedSet<?> set,
       ImmutableList<Object> items,
       ImmutableList<NestedSet<?>> transitiveItems) {
-    this.contentType = Preconditions.checkNotNull(contentType, "type cannot be null");
+    this.elemType = Preconditions.checkNotNull(elemType, "type cannot be null");
     this.set = set;
     this.items = items;
     this.transitiveItems = transitiveItems;
@@ -107,8 +106,7 @@ public final class Depset implements StarlarkValue {
 
   // TODO(laurentlb): Remove the left argument once `unionOf` is deleted.
   private static Depset create(
-      Order order, SkylarkType contentType, Object item, @Nullable Depset left)
-      throws EvalException {
+      Order order, ElementType elemType, Object item, @Nullable Depset left) throws EvalException {
     ImmutableList.Builder<Object> itemsBuilder = ImmutableList.builder();
     ImmutableList.Builder<NestedSet<?>> transitiveItemsBuilder = ImmutableList.builder();
     if (left != null) {
@@ -123,14 +121,14 @@ public final class Depset implements StarlarkValue {
     if (item instanceof Depset) {
       Depset nestedSet = (Depset) item;
       if (!nestedSet.isEmpty()) {
-        contentType = checkType(contentType, nestedSet.contentType);
+        elemType = checkType(elemType, nestedSet.elemType);
         transitiveItemsBuilder.add(nestedSet.set);
       }
     } else if (item instanceof Sequence) {
       for (Object x : (Sequence) item) {
         checkElement(x, /*strict=*/ true);
-        SkylarkType xt = SkylarkType.of(x);
-        contentType = checkType(contentType, xt);
+        ElementType xt = ElementType.of(x.getClass());
+        elemType = checkType(elemType, xt);
         itemsBuilder.add(x);
       }
     } else {
@@ -150,7 +148,7 @@ public final class Depset implements StarlarkValue {
       // Order mismatch between item and builder.
       throw Starlark.errorf("%s", e.getMessage());
     }
-    return new Depset(contentType, builder.build(), items, transitiveItems);
+    return new Depset(elemType, builder.build(), items, transitiveItems);
   }
 
   private static void checkElement(Object x, boolean strict) throws EvalException {
@@ -173,10 +171,11 @@ public final class Depset implements StarlarkValue {
     // which are Starlark-unhashable even if frozen.
     // TODO(adonovan): also remove StarlarkList.hashCode.
     if (strict && !EvalUtils.isImmutable(x)) {
+      // TODO(adonovan): improve this error message to include type(x).
       throw Starlark.errorf("depset elements must not be mutable values");
     }
 
-    // Even the looser regime forbids the toplevel constructor to be list or dict.
+    // Even the looser regime forbids the top-level class to be list or dict.
     if (x instanceof StarlarkList || x instanceof Dict) {
       throw Starlark.errorf(
           "depsets cannot contain items of type '%s'", EvalUtils.getDataTypeName(x));
@@ -185,14 +184,12 @@ public final class Depset implements StarlarkValue {
 
   // implementation of deprecated depset(x) constructor
   static Depset legacyOf(Order order, Object items) throws EvalException {
-    // TODO(adonovan): rethink this API. TOP is a pessimistic type for item, and it's wrong
-    // (should be BOTTOM) if items is an empty Depset or Sequence.
-    return create(order, SkylarkType.TOP, items, null);
+    return create(order, ElementType.EMPTY, items, null);
   }
 
   // TODO(laurentlb): Delete the method. It's used only in tests.
   static Depset unionOf(Depset left, Object right) throws EvalException {
-    return create(left.set.getOrder(), left.contentType, right, left);
+    return create(left.set.getOrder(), left.elemType, right, left);
   }
 
   /**
@@ -206,46 +203,41 @@ public final class Depset implements StarlarkValue {
   // One way to do that is to disallow constructing StarlarkTypes for classes
   // that would fail Starlark.valid; however remains the problem that
   // Object.class means "any Starlark value" but in fact allows any Java value.
-  public static <T> Depset of(SkylarkType contentType, NestedSet<T> set) {
-    return new Depset(contentType, set, null, null);
+  //
+  // TODO(adonovan): it is possible to create an empty depset with a elemType other than EMPTY.
+  // The union operation will fail if it's combined with another depset of incompatible elemType.
+  // Options:
+  // - prohibit or ignore a non-EMPTY elemType when passed an empty NestedSet
+  // - continue to allow empty depsets to be distinguished by their nominal elemTypes for
+  //   union purposes, but allow casting them to NestedSet<T> for arbitrary T.
+  // - distinguish them for both union and casting, i.e. replace set.isEmpty() with a check for the
+  // empty type.
+  //
+  // TODO(adonovan): if we replaced ElementType by Class, we could enforce consistency between the
+  // two arguments: of(Class<T> elemType, NestedSet<T> set). We could also avoid the allocations
+  // done by ElementType.of().
+  public static <T> Depset of(ElementType elemType, NestedSet<T> set) {
+    return new Depset(elemType, set, null, null);
   }
 
   /**
    * Checks that an item type is allowed in a given set type, and returns the type of a new depset
    * with that item inserted.
    */
-  private static SkylarkType checkType(SkylarkType depsetType, SkylarkType itemType)
+  private static ElementType checkType(ElementType existingElemType, ElementType newElemType)
       throws EvalException {
     // An initially empty depset takes its type from the first element added.
     // Otherwise, the types of the item and depset must match exactly.
-    //
-    // TODO(adonovan): why is the empty depset TOP, not BOTTOM?
-    // T ^ TOP == TOP, whereas T ^ BOTTOM == T.
-    // This can't be changed without breaking callers of getContentType who
-    // expect to see TOP. Maybe this is minor, but it at least would require
-    // changes to EvalUtils#getDataTypeName so that it
-    // can continue to print "depset of Objects" instead of "depset of EmptyTypes".
-    // Better yet, break the behavior and change it to "empty depset".
-    if (depsetType == SkylarkType.TOP || depsetType.equals(itemType)) {
-      return itemType;
+    if (existingElemType.equals(ElementType.EMPTY) || existingElemType.equals(newElemType)) {
+      return newElemType;
     }
     throw Starlark.errorf(
-        "cannot add an item of type '%s' to a depset of '%s'", itemType, depsetType);
+        "cannot add an item of type '%s' to a depset of '%s'", newElemType, existingElemType);
   }
 
   /**
-   * Throws an {@link TypeException} if this nested set does not have elements of the given type.
-   */
-  private void checkHasContentType(Class<?> type) throws TypeException {
-    // Empty sets should be SkylarkType.TOP anyway.
-    if (!set.isEmpty() && !contentType.canBeCastTo(type)) {
-      throw new TypeException();
-    }
-  }
-
-  /**
-   * Returns the embedded {@link NestedSet}, while asserting that its elements all have the given
-   * type. Note that the type itself cannot be a parameterized type, as the type check is shallow.
+   * Returns the embedded {@link NestedSet}, first asserting that its elements are instances of the
+   * given class. Only the top-level class is verified.
    *
    * <p>If you do not specifically need the {@code NestedSet} and you are going to flatten it
    * anyway, prefer {@link #toCollection} to make your intent clear.
@@ -254,105 +246,79 @@ public final class Depset implements StarlarkValue {
    * @return the {@code NestedSet}, with the appropriate generic type
    * @throws TypeException if the type does not accurately describe all elements
    */
-  // The precondition ensures generic type safety, and sets are immutable.
-  @SuppressWarnings("unchecked")
   public <T> NestedSet<T> getSet(Class<T> type) throws TypeException {
-    // TODO(adonovan): eliminate this function and toCollection in favor of ones
-    // that accept a SkylarkType augmented with a type parameter so that it acts
-    // like a "reified generic": whereas a Class symbol can express only the
-    // top-level value tag, a SkylarkType could express an entire type such as
-    // Set<List<String+Integer>>, and act as a "witness" or existential type to
-    // unlock the untyped nested set. For example:
-    //
-    //  public <T> NestedSet<T> getSet(SkylarkType<NestedSet<T>> witness) throws TypeException {
-    //     if (this.type.matches(witness)) {
-    //         return witness.convert(this);
-    //     }
-    //     throw TypeException;
-    // }
-
-    checkHasContentType(type);
-    return (NestedSet<T>) set;
+    if (!set.isEmpty() && !elemType.canBeCastTo(type)) {
+      throw new TypeException(
+          String.format(
+              "got a depset of '%s', expected a depset of '%s'",
+              elemType, EvalUtils.getDataTypeNameFromClass(type)));
+    }
+    @SuppressWarnings("unchecked")
+    NestedSet<T> res = (NestedSet<T>) set;
+    return res;
   }
 
   /**
-   * Returns the embedded {@link NestedSet} without asserting the type of its elements. To validate
-   * the type of elements in the set, call {@link #getSet(Class)} instead.
+   * Returns the embedded {@link NestedSet} without asserting the type of its elements---and thus
+   * cannot fail. To validate the type of elements in the set, call {@link #getSet(Class)} instead.
    */
   public NestedSet<?> getSet() {
     return set;
   }
 
+  // TODO(adonovan): rename these toCollection methods toList.
+
   /**
-   * Returns the contents of the set as a {@link Collection}, asserting that the set type is
-   * compatible with {@code T}.
+   * Returns an ImmutableList containing the set elements, asserting that each element is an
+   * instance of class {@code type}. Requires traversing the entire graph of the underlying
+   * NestedSet.
    *
    * @param type a {@link Class} representing the expected type of the contents
    * @throws TypeException if the type does not accurately describe all elements
    */
-  // The precondition ensures generic type safety.
-  @SuppressWarnings("unchecked")
-  public <T> Collection<T> toCollection(Class<T> type) throws TypeException {
-    checkHasContentType(type);
-    return (Collection<T>) toCollection();
+  public <T> ImmutableList<T> toCollection(Class<T> type) throws TypeException {
+    return getSet(type).toList();
   }
 
-  /** Returns the contents of the set as a {@link Collection}. */
-  public Collection<?> toCollection() {
+  /**
+   * Returns an ImmutableList containing the set elements. Requires traversing the entire graph of
+   * the underlying NestedSet.
+   */
+  public ImmutableList<?> toCollection() {
     return set.toList();
   }
 
   /**
-   * Returns the embedded {@link NestedSet} of this object while asserting that its elements have
-   * the given type.
-   *
-   * <p>This convenience method should be invoked only by methods which are called from Starlark to
-   * validate the parameters of the method, as the exception thrown is specific to param validation.
-   *
-   * @param expectedType a class representing the expected type of the contents
-   * @param fieldName the name of the field being validated, used to construct a descriptive error
-   *     message if validation fails
-   * @return the {@code NestedSet}, with the appropriate generic type
-   * @throws EvalException if the type does not accurately describe the elements of the set
+   * Casts a non-null Starlark value {@code x} to a {@code Depset} and returns its {@code
+   * NestedSet<T>}, after checking that all elements are instances of {@code type}. On error, it
+   * throws an EvalException whose message includes {@code what}, ideally a string literal, as a
+   * description of the role of {@code x}.
    */
-  public <T> NestedSet<T> getSetFromParam(Class<T> expectedType, String fieldName)
-      throws EvalException {
+  public static <T> NestedSet<T> cast(Object x, Class<T> type, String what) throws EvalException {
+    if (!(x instanceof Depset)) {
+      throw Starlark.errorf(
+          "for %s, got %s, want a depset of %s",
+          what, EvalUtils.getDataTypeName(x, true), EvalUtils.getDataTypeNameFromClass(type));
+    }
     try {
-      return getSet(expectedType);
-    } catch (TypeException exception) {
-      throw new EvalException(
-          null,
-          String.format(
-              "for parameter '%s', got a depset of '%s', expected a depset of '%s'",
-              fieldName, getContentType(), EvalUtils.getDataTypeNameFromClass(expectedType)),
-          exception);
+      return ((Depset) x).getSet(type);
+    } catch (TypeException ex) {
+      throw Starlark.errorf("for '%s', %s", what, ex.getMessage());
     }
   }
 
-  /**
-   * Identical to {@link #getSetFromParam(Class, String)}, except that it handles a <b>noneable</b>
-   * depset parameter.
-   *
-   * <p>If the parameter's value is None, returns an empty nested set.
-   *
-   * @throws EvalException if the parameter is neither None nor a Depset, or if it is a Depset of an
-   *     unexpected type
-   */
-  // TODO(b/140932420): Better noneable handling should prevent instanceof checking.
-  public static <T> NestedSet<T> getSetFromNoneableParam(
-      Object depsetOrNone, Class<T> expectedType, String fieldName) throws EvalException {
-    if (depsetOrNone == Starlark.NONE) {
-      return NestedSetBuilder.<T>emptySet(Order.STABLE_ORDER);
+  /** Like {@link #cast}, but if x is None, returns an empty stable-order NestedSet. */
+  public static <T> NestedSet<T> noneableCast(Object x, Class<T> type, String what)
+      throws EvalException {
+    if (x == Starlark.NONE) {
+      @SuppressWarnings("unchecked")
+      NestedSet<T> empty = (NestedSet<T>) EMPTY;
+      return empty;
     }
-    if (depsetOrNone instanceof Depset) {
-      Depset depset = (Depset) depsetOrNone;
-      return depset.getSetFromParam(expectedType, fieldName);
-    } else {
-      throw Starlark.errorf(
-          "expected a depset of '%s' but got '%s' for parameter '%s'",
-          EvalUtils.getDataTypeNameFromClass(expectedType), depsetOrNone, fieldName);
-    }
+    return cast(x, type, what);
   }
+
+  private static final NestedSet<?> EMPTY = NestedSetBuilder.<Object>emptySet(Order.STABLE_ORDER);
 
   public boolean isEmpty() {
     return set.isEmpty();
@@ -363,8 +329,8 @@ public final class Depset implements StarlarkValue {
     return !set.isEmpty();
   }
 
-  public SkylarkType getContentType() {
-    return contentType;
+  public ElementType getElementType() {
+    return elemType;
   }
 
   @Override
@@ -423,7 +389,7 @@ public final class Depset implements StarlarkValue {
       Order order, List<Object> direct, List<Depset> transitive, boolean strict)
       throws EvalException {
     NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
-    SkylarkType type = SkylarkType.TOP;
+    ElementType type = ElementType.EMPTY;
 
     // Check direct elements' type is equal to elements already added.
     for (Object x : direct) {
@@ -440,7 +406,7 @@ public final class Depset implements StarlarkValue {
       // See b/144992997 or github.com/bazelbuild/bazel/issues/10289.
       checkElement(x, /*strict=*/ strict);
 
-      SkylarkType xt = SkylarkType.of(x);
+      ElementType xt = ElementType.of(x.getClass());
       type = checkType(type, xt);
     }
     builder.addAll(direct);
@@ -448,7 +414,7 @@ public final class Depset implements StarlarkValue {
     // Add transitive sets, checking that type is equal to elements already added.
     for (Depset x : transitive) {
       if (!x.isEmpty()) {
-        type = checkType(type, x.getContentType());
+        type = checkType(type, x.getElementType());
         if (!order.isCompatible(x.getOrder())) {
           throw Starlark.errorf(
               "Order '%s' is incompatible with order '%s'",
@@ -462,5 +428,111 @@ public final class Depset implements StarlarkValue {
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */
-  public static class TypeException extends Exception {}
+  public static class TypeException extends Exception {
+    TypeException(String message) {
+      super(message);
+    }
+  }
+
+  /**
+   * A ElementType represents the type of elements in a Depset.
+   *
+   * <p>Call {@link #of} to obtain the ElementType for a Java class. The class must be a legal
+   * Starlark value class, such as String, Integer, Boolean, or a subclass of StarlarkValue.
+   *
+   * <p>An element type represents only the top-most type identifier of an element value. That is,
+   * an element type may represent "list" but not "list of string".
+   */
+  // TODO(adonovan): consider deleting this class entirely and using Class directly.
+  // Depset.getElementType would need to document "null means empty",
+  // but almost every caller just wants to stringify it.
+  @Immutable
+  public static final class ElementType {
+
+    @Nullable private final Class<?> cls; // null => empty depset
+
+    private ElementType(@Nullable Class<?> cls) {
+      this.cls = cls;
+    }
+
+    /** The element type of the empty depset. */
+    public static final ElementType EMPTY = new ElementType(null);
+
+    /** The element type of a depset of strings. */
+    public static final ElementType STRING = of(String.class);
+
+    @Override
+    public String toString() {
+      return cls == null ? "empty" : EvalUtils.getDataTypeNameFromClass(cls);
+    }
+
+    /**
+     * Returns the type symbol for a depset whose elements are instances of {@code cls}.
+     *
+     * @throws IllegalArgumentException if {@code cls} is not a legal Starlark value class.
+     */
+    public static ElementType of(Class<?> cls) {
+      return new ElementType(getTypeClass(cls));
+    }
+
+    // Returns the Java class representing the Starlark type of an instance of cls,
+    // which must be one of String, Integer, or Boolean (in which case the result is cls),
+    // or a SkylarkModule-annotated Starlark value class or one of its subclasses,
+    // in which case the result is the annotated class.
+    //
+    // TODO(adonovan): consider publishing something like this as Starlark.typeClass
+    // when we clean up the various EvalUtils.getDataType operators.
+    private static Class<?> getTypeClass(Class<?> cls) {
+      if (cls == String.class || cls == Integer.class || cls == Boolean.class) {
+        return cls; // fast path for common case
+      }
+      Class<?> superclass = SkylarkInterfaceUtils.getParentWithSkylarkModule(cls);
+      if (superclass != null) {
+        return superclass;
+      }
+      if (!StarlarkValue.class.isAssignableFrom(cls)) {
+        throw new IllegalArgumentException(
+            "invalid Depset element type: "
+                + cls.getName()
+                + " is not a subclass of StarlarkValue");
+      }
+      return cls;
+    }
+
+    // Called by precondition check of Depset.getSet conversion.
+    //
+    // Fails if cls is neither Object.class nor a valid Starlark value class.
+    // One might expect that if a ElementType canBeCastTo Integer, then it can
+    // also be cast to Number, but this is not the case: getTypeClass fails if
+    // passed a supertype of a Starlark class that is not itself a valid Starlark
+    // value class. As a special case, Object.class is permitted,
+    // and represents "any value".
+    //
+    // This leads one to wonder why canBeCastTo calls getTypeClass at all.
+    // The answer is that it is yet another hack to support skylarkbuildapi.
+    // For example, (FileApi).canBeCastTo(Artifact.class) reports true,
+    // because a Depset whose elements are nominally of type FileApi is assumed
+    // to actually contain only elements of class Artifact. If there were
+    // a second implementation of FileAPI, the operation would be unsafe.
+    //
+    // TODO(adonovan): once skylarkbuildapi has been deleted, eliminate the
+    // getTypeClass calls here and in ElementType.of, and remove the special
+    // case for Object.class since isAssignableFrom will allow any supertype
+    // of the element type, whether or not it is a Starlark value class.
+    private boolean canBeCastTo(Class<?> cls) {
+      return this.cls == null
+          || cls == Object.class // historical exception
+          || getTypeClass(cls).isAssignableFrom(this.cls);
+    }
+
+    @Override
+    public int hashCode() {
+      return cls == null ? 0 : cls.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object that) {
+      return that instanceof ElementType && this.cls == ((ElementType) that).cls;
+    }
+  }
 }

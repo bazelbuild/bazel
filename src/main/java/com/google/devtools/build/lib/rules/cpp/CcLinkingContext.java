@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -164,7 +163,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Immutable
   public static class LinkerInput implements LinkerInputApi<LibraryToLink, Artifact> {
 
-    public static final SkylarkType TYPE = SkylarkType.of(LinkerInput.class);
+    public static final Depset.ElementType TYPE = Depset.ElementType.of(LinkerInput.class);
 
     // Identifies which target created the LinkerInput. It doesn't have to be unique between
     // LinkerInputs.

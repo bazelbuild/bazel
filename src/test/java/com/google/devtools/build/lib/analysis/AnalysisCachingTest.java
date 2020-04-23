@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -218,8 +217,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
     // We want to force a "dropConfiguredTargetsNow" operation, which won't inform the
     // invalidation receiver about the dropped configured targets.
-    skyframeExecutor.clearAnalysisCache(
-        ImmutableList.<ConfiguredTarget>of(), ImmutableSet.<AspectValue>of());
+    skyframeExecutor.clearAnalysisCache(ImmutableList.of(), ImmutableSet.of());
     assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
     eventCollector.clear();
     scratch.overwriteFile(

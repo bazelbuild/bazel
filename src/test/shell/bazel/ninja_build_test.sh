@@ -52,8 +52,7 @@ build out/test/output.txt: cattool test/cattool.sh
 EOF
 
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 DEPFILE="$(dirname $OUTPUT)/depfile.d"
 
 cat test/{one,two} > $OUTPUT
@@ -159,8 +158,7 @@ EOF
 function test_depfile_junk() {
   setup_basic_ninja_build
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 DEPFILE="$(dirname $OUTPUT)/depfile.d"
 
 cat test/{one,two} > $OUTPUT
@@ -179,8 +177,7 @@ EOF
 function test_depfile_invalid_file() {
   setup_basic_ninja_build
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 DEPFILE="$(dirname $OUTPUT)/depfile.d"
 
 cat test/{one,two} > $OUTPUT
@@ -210,8 +207,7 @@ build out/test/output.txt: cattool test/cattool.sh out/test/generated
 EOF
 
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 DEPFILE="$(dirname $OUTPUT)/depfile.d"
 
 cat test/one out/test/generated  > $OUTPUT
@@ -249,8 +245,7 @@ build out/test/output.txt: cattool test/cattool.sh test/one
 EOF
 
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 DEPFILE="$(dirname $OUTPUT)/depfile.d"
 
 cat test/one out/test/generated  > $OUTPUT
@@ -269,8 +264,7 @@ EOF
 function test_depfile_not_generated() {
   setup_basic_ninja_build
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 
 cat test/{one,two} > $OUTPUT
 EOF
@@ -294,8 +288,7 @@ build out/test/generated: filecopy test/two
 build out/test/output.txt: cattool test/cattool.sh test/one out/test/generated
 EOF
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 DEPFILE="$(dirname $OUTPUT)/depfile.d"
 
 cat test/one  > $OUTPUT
@@ -321,8 +314,7 @@ EOF
   expect_log "INFO: 1 process"
 
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 DEPFILE="$(dirname $OUTPUT)/depfile.d"
 
 cat test/one out/test/generated > $OUTPUT
@@ -370,8 +362,7 @@ build out/test/output.txt: cattool test/cattool.sh test/one external/two
 EOF
 
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 DEPFILE="$(dirname $OUTPUT)/depfile.d"
 
 cat test/one external/two > $OUTPUT
@@ -436,8 +427,7 @@ build out/test/output.txt: cattool test/cattool.sh test/one
 EOF
 
   cat > test/cattool.sh <<'EOF'
-for i in $@; do :; done
-OUTPUT=$i
+OUTPUT=${!#}
 DEPFILE="$(dirname $OUTPUT)/depfile.d"
 
 cat test/one external/foo/two > $OUTPUT
@@ -477,6 +467,96 @@ function test_basic_depfile_processing() {
 
   cat bazel-workspace/out/test/output.txt &> $TEST_log
   expect_log "HELLOb"
+}
+
+function test_depfile_undeclared_generated_inputs() {
+  setup_basic_ninja_build
+
+  cat > test/build.ninja <<'EOF'
+rule filecopy_with_side_effect
+  command = test/filecopy_with_side_effect.sh ${in} ${out}
+rule cattool
+  depfile = out/test/depfile.d
+  command = ${in} ${out}
+build out/test/generated: filecopy_with_side_effect test/one
+build out/test/output.txt: cattool test/cattool.sh out/test/generated
+EOF
+
+  cat > test/filecopy_with_side_effect.sh <<'EOF'
+cat $1 > $2
+cat $1 > out/side_effect
+EOF
+  chmod +x test/filecopy_with_side_effect.sh
+
+  cat > test/cattool.sh <<'EOF'
+OUTPUT=${!#}
+DEPFILE="$(dirname $OUTPUT)/depfile.d"
+
+cat out/test/generated out/side_effect > "$OUTPUT"
+
+echo "$1 : out/test/generated out/side_effect" > "$DEPFILE"
+EOF
+
+  printf "HELLO" > test/one
+  bazel build //test:ninjabuild --experimental_ninja_actions &> "$TEST_log" \
+      || fail "should have generated output successfully"
+
+  cat bazel-workspace/out/test/output.txt &> "$TEST_log"
+  expect_log "HELLOHELLO"
+
+  printf "GOODBYE" > test/one
+
+  bazel build //test:ninjabuild --experimental_ninja_actions &> "$TEST_log" \
+      || fail "should have generated output successfully"
+
+  cat bazel-workspace/out/test/output.txt &> "$TEST_log"
+  expect_log "GOODBYEGOODBYE"
+}
+
+function test_depfile_modify_side_effect_file() {
+  setup_basic_ninja_build
+
+  cat > test/build.ninja <<'EOF'
+rule filecopy_with_side_effect
+  command = test/filecopy_with_side_effect.sh ${in} ${out}
+rule cattool
+  depfile = out/test/depfile.d
+  command = ${in} ${out}
+build out/test/generated: filecopy_with_side_effect test/one
+build out/test/output.txt: cattool test/cattool.sh out/test/generated
+EOF
+
+  cat > test/filecopy_with_side_effect.sh <<'EOF'
+cat $1 > $2
+cat $1 > out/side_effect
+EOF
+  chmod +x test/filecopy_with_side_effect.sh
+
+  cat > test/cattool.sh <<'EOF'
+OUTPUT=${!#}
+DEPFILE="$(dirname $OUTPUT)/depfile.d"
+
+cat out/test/generated out/side_effect > "$OUTPUT"
+
+echo "$1 : out/test/generated out/side_effect" > "$DEPFILE"
+EOF
+
+  printf "HELLO" > test/one
+  bazel build //test:ninjabuild --experimental_ninja_actions &> "$TEST_log" \
+      || fail "should have generated output successfully"
+
+  cat bazel-workspace/out/test/output.txt &> "$TEST_log"
+  expect_log "HELLOHELLO"
+
+  printf "GOODBYE" > bazel-workspace/out/side_effect
+
+  bazel build //test:ninjabuild --experimental_ninja_actions &> "$TEST_log" \
+      || fail "should have generated output successfully"
+
+  cat bazel-workspace/out/test/output.txt &> "$TEST_log"
+  # This verifies that changing out/side_effect retriggers the action.
+  # ("HELLO" is from out/test/generated, "GOODBYE" is from out/side_effect)
+  expect_log "HELLOGOODBYE"
 }
 
 run_suite "ninja_build rule tests"

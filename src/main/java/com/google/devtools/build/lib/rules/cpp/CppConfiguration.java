@@ -306,7 +306,9 @@ public final class CppConfiguration extends Fragment
 
   @SkylarkCallable(
       name = "minimum_os_version",
-      doc = "The minimum OS version for C/C++ compilation.")
+      doc = "The minimum OS version for C/C++ compilation.",
+      allowReturnNones = true)
+  @Nullable
   public String getMinimumOsVersion() {
     return cppOptions.minimumOsVersion;
   }

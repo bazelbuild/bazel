@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -80,7 +81,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -105,7 +105,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -120,7 +119,7 @@ import javax.annotation.Nullable;
  * @see com.google.devtools.build.lib.analysis.BuildView
  */
 public class ExecutionTool {
-  static final Logger logger = Logger.getLogger(ExecutionTool.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final CommandEnvironment env;
   private final BlazeRuntime runtime;
@@ -320,7 +319,6 @@ public class ExecutionTool {
 
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
-    Collection<AspectValue> aspects = analysisResult.getAspects();
 
     if (request.isRunningInEmacs()) {
       // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
@@ -337,7 +335,8 @@ public class ExecutionTool {
         // Free memory by removing cache entries that aren't going to be needed.
         try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
           env.getSkyframeBuildView()
-              .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+              .clearAnalysisCache(
+                  analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
         }
       }
 
@@ -348,9 +347,7 @@ public class ExecutionTool {
               actionGraph,
               // If this supplier is ever consumed by more than one ActionContextProvider, it can be
               // pulled out of the loop and made a memoizing supplier.
-              () ->
-                  TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(
-                      analysisResult, aspects));
+              () -> TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(analysisResult));
         }
       }
       skyframeExecutor.drainChangedFiles();
@@ -371,7 +368,7 @@ public class ExecutionTool {
           analysisResult.getExclusiveTests(),
           analysisResult.getTargetsToBuild(),
           analysisResult.getTargetsToSkip(),
-          analysisResult.getAspects(),
+          analysisResult.getAspectsMap().keySet(),
           executor,
           builtTargets,
           builtAspects,
@@ -421,7 +418,8 @@ public class ExecutionTool {
       try (SilentCloseable c = Profiler.instance().profile("Show results")) {
         buildResult.setSuccessfulTargets(
             determineSuccessfulTargets(configuredTargets, builtTargets));
-        buildResult.setSuccessfulAspects(determineSuccessfulAspects(aspects, builtAspects));
+        buildResult.setSuccessfulAspects(
+            determineSuccessfulAspects(analysisResult.getAspectsMap().keySet(), builtAspects));
         buildResult.setSkippedTargets(analysisResult.getTargetsToSkip());
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
         buildResultPrinter.showBuildResult(
@@ -429,13 +427,14 @@ public class ExecutionTool {
             buildResult,
             configuredTargets,
             analysisResult.getTargetsToSkip(),
-            analysisResult.getAspects());
+            analysisResult.getAspectsMap());
       }
 
       try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
         if (request.getBuildOptions().showArtifacts) {
           BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-          buildResultPrinter.showArtifacts(request, configuredTargets, analysisResult.getAspects());
+          buildResultPrinter.showArtifacts(
+              request, configuredTargets, analysisResult.getAspectsMap().values());
         }
       }
 
@@ -692,17 +691,10 @@ public class ExecutionTool {
     return successfulTargets;
   }
 
-  private Collection<AspectValue> determineSuccessfulAspects(
-      Collection<AspectValue> aspects, Set<AspectKey> builtAspects) {
-    // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
-    // order as configuredTargets.
-    Collection<AspectValue> successfulAspects = new LinkedHashSet<>();
-    for (AspectValue aspect : aspects) {
-      if (builtAspects.contains(aspect.getKey())) {
-        successfulAspects.add(aspect);
-      }
-    }
-    return successfulAspects;
+  private static ImmutableSet<AspectKey> determineSuccessfulAspects(
+      ImmutableSet<AspectKey> aspects, Set<AspectKey> builtAspects) {
+    // Maintain the ordering.
+    return aspects.stream().filter(builtAspects::contains).collect(ImmutableSet.toImmutableSet());
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
@@ -759,7 +751,7 @@ public class ExecutionTool {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     ResourceSet resources;
     if (options.availableResources != null && !options.removeLocalResources) {
-      logger.warning(
+      logger.atWarning().log(
           "--local_resources will be deprecated. Please use --local_ram_resources "
               + "and/or --local_cpu_resources.");
       resources = options.availableResources;

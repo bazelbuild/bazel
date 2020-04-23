@@ -95,12 +95,19 @@ message FailureDetail {
     Crash crash = 108;
     SymlinkForest symlink_forest = 110;
     PackageOptions package_options = 114;
+    RemoteExecution remote_execution = 115;
+    Execution execution = 116;
+    Workspaces workspaces = 117;
+    CrashOptions crash_options = 118;
+    Filesystem filesystem = 119;
+    ExecutionOptions execution_options = 121;
   }
 
   reserved 102; // For internal use
   reserved 105; // For internal use
   reserved 109; // For internal use
   reserved 111 to 113; // For internal use
+  reserved 120; // For internal use
 }
 
 message Interrupted {
@@ -108,7 +115,7 @@ message Interrupted {
     // Interrupted at an unspecified time.
     INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
 
-    reserved 1; // For internal use
+    reserved 1 to 3; // For internal use
 
     // TODO(mschaller): Add subcategories that specify what was happening at the
     //  time of interruption.
@@ -162,6 +169,8 @@ message RemoteOptions {
     CREDENTIALS_READ_FAILURE = 2 [(metadata) = { exit_code: 36 }];
     // Credentials could not be written to a shared, temporary file.
     CREDENTIALS_WRITE_FAILURE = 3 [(metadata) = { exit_code: 36 }];
+    DOWNLOADER_WITHOUT_GRPC_CACHE = 4 [(metadata) = { exit_code: 2 }];
+    EXECUTION_WITH_INVALID_CACHE = 5 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -212,8 +221,82 @@ message SymlinkForest {
 
 message PackageOptions {
   enum Code {
-    PACKAGE_PATH_CACHE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    PACKAGE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
+    reserved 2; // For internal use
+  }
+
+  Code code = 1;
+}
+
+message RemoteExecution {
+  // The association of some of these options with exit code 2, "command line
+  // error", seems sketchy. Especially worth reconsidering are the channel init
+  // failure modes, which can correspond to failures occurring in gRPC setup.
+  // These all correspond with current Bazel behavior.
+  enum Code {
+    REMOTE_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    CAPABILITIES_QUERY_FAILURE = 1 [(metadata) = { exit_code: 34 }];
+    CREDENTIALS_INIT_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+    CACHE_INIT_FAILURE = 3 [(metadata) = { exit_code: 2 }];
+    RPC_LOG_FAILURE = 4 [(metadata) = { exit_code: 2 }];
+    EXEC_CHANNEL_INIT_FAILURE = 5 [(metadata) = { exit_code: 2 }];
+    CACHE_CHANNEL_INIT_FAILURE = 6 [(metadata) = { exit_code: 2 }];
+    DOWNLOADER_CHANNEL_INIT_FAILURE = 7 [(metadata) = { exit_code: 2 }];
+    LOG_DIR_CLEANUP_FAILURE = 8 [(metadata) = { exit_code: 36 }];
+    CLIENT_SERVER_INCOMPATIBLE = 9 [(metadata) = { exit_code: 34 }];
+    DOWNLOADED_INPUTS_DELETION_FAILURE = 10 [(metadata) = { exit_code: 34 }];
+    REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_DOTD = 11
+        [(metadata) = { exit_code: 2 }];
+    REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS = 12
+        [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message Execution {
+  enum Code {
+    EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    EXECUTION_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+    EXECUTION_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message Workspaces {
+  enum Code {
+    WORKSPACES_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    WORKSPACES_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+    WORKSPACES_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message CrashOptions {
+  enum Code {
+    CRASH_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    reserved 1; // For internal use
+  }
+
+  Code code = 1;
+}
+
+message Filesystem {
+  enum Code {
+    FILESYSTEM_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    DEFAULT_DIGEST_HASH_FUNCTION_CHANGED = 1 [(metadata) = { exit_code: 37 }];
+  }
+
+  Code code = 1;
+}
+
+message ExecutionOptions {
+  enum Code {
+    EXECUTION_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    reserved 1, 2; // For internal use
   }
 
   Code code = 1;

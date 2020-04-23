@@ -276,14 +276,14 @@ public final class AspectDefinition {
      * Asserts that this aspect can only be evaluated for rules that supply all of the specified
      * Starlark providers.
      */
-    public Builder requireSkylarkProviders(SkylarkProviderIdentifier... skylarkProviders) {
+    public Builder requireSkylarkProviders(StarlarkProviderIdentifier... skylarkProviders) {
       requiredProviders.addSkylarkSet(ImmutableSet.copyOf(skylarkProviders));
       return this;
     }
 
     public Builder requireAspectsWithProviders(
-        Iterable<ImmutableSet<SkylarkProviderIdentifier>> providerSets) {
-      for (ImmutableSet<SkylarkProviderIdentifier> providerSet : providerSets) {
+        Iterable<ImmutableSet<StarlarkProviderIdentifier>> providerSets) {
+      for (ImmutableSet<StarlarkProviderIdentifier> providerSet : providerSets) {
         if (!providerSet.isEmpty()) {
           requiredAspectProviders.addSkylarkSet(providerSet);
         }
@@ -307,11 +307,9 @@ public final class AspectDefinition {
       return this;
     }
 
-    /**
-     * State that the aspect being built provides given providers.
-     */
-    public Builder advertiseProvider(ImmutableList<SkylarkProviderIdentifier> providers) {
-      for (SkylarkProviderIdentifier provider : providers) {
+    /** State that the aspect being built provides given providers. */
+    public Builder advertiseProvider(ImmutableList<StarlarkProviderIdentifier> providers) {
+      for (StarlarkProviderIdentifier provider : providers) {
         advertisedProviders.addSkylark(provider);
       }
       return this;

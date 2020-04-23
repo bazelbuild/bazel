@@ -21,7 +21,9 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.NinjaMysteryArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -51,6 +53,7 @@ public class NinjaAction extends SpawnAction {
   private final Root sourceRoot;
   @Nullable private final Artifact depFile;
   private final ImmutableMap<PathFragment, Artifact> allowedDerivedInputs;
+  private final ArtifactRoot derivedOutputRoot;
 
   public NinjaAction(
       ActionOwner owner,
@@ -63,7 +66,8 @@ public class NinjaAction extends SpawnAction {
       ImmutableMap<String, String> executionInfo,
       RunfilesSupplier runfilesSupplier,
       boolean executeUnconditionally,
-      @Nullable Artifact depFile) {
+      @Nullable Artifact depFile,
+      ArtifactRoot derivedOutputRoot) {
     super(
         /* owner= */ owner,
         /* tools= */ tools,
@@ -92,6 +96,7 @@ public class NinjaAction extends SpawnAction {
       }
     }
     this.allowedDerivedInputs = allowedDerivedInputsBuilder.build();
+    this.derivedOutputRoot = derivedOutputRoot;
   }
 
   private static CharSequence createProgressMessage(List<? extends Artifact> outputs) {
@@ -149,12 +154,18 @@ public class NinjaAction extends SpawnAction {
           inputArtifact = allowedDerivedInputs.get(execRelativePath);
         }
         if (inputArtifact == null) {
-          // Not a predeclared generated input, so it must be a source file.
           RepositoryName repository =
               PackageIdentifier.discoverFromExecPath(
                       execRelativePath, false, siblingRepositoryLayout)
                   .getRepository();
-          inputArtifact = artifactResolver.resolveSourceArtifact(execRelativePath, repository);
+          if (execRelativePath.startsWith(derivedOutputRoot.getExecPath())) {
+            // This input is a generated file which was not declared in the original inputs for
+            // this action.
+            inputArtifact = new NinjaMysteryArtifact(derivedOutputRoot, execRelativePath);
+          } else {
+            // Source file input.
+            inputArtifact = artifactResolver.resolveSourceArtifact(execRelativePath, repository);
+          }
         }
 
         if (inputArtifact == null) {

@@ -17,10 +17,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.repository;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -50,7 +48,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   }
 
   @Override
-  public BaseFunction repositoryRule(
+  public StarlarkCallable repositoryRule(
       StarlarkCallable implementation,
       Object attrs,
       Boolean local,
@@ -86,13 +84,13 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   }
 
   /**
-   * A fake {@link BaseFunction} implementation which serves as an identifier for a rule definition.
-   * A Starlark invocation of 'rule()' should spawn a unique instance of this class and return it.
-   * Thus, Starlark code such as 'foo = rule()' will result in 'foo' being assigned to a unique
-   * identifier, which can later be matched to a registered rule() invocation saved by the fake
-   * build API implementation.
+   * A fake {@link StarlarkCallable} implementation which serves as an identifier for a rule
+   * definition. A Starlark invocation of 'rule()' should spawn a unique instance of this class and
+   * return it. Thus, Starlark code such as 'foo = rule()' will result in 'foo' being assigned to a
+   * unique identifier, which can later be matched to a registered rule() invocation saved by the
+   * fake build API implementation.
    */
-  private static class RepositoryRuleDefinitionIdentifier extends BaseFunction {
+  private static class RepositoryRuleDefinitionIdentifier implements StarlarkCallable {
 
     private static int idCounter = 0;
     private final String name = "RepositoryRuleDefinitionIdentifier" + idCounter++;
@@ -100,11 +98,6 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     @Override
     public String getName() {
       return name;
-    }
-
-    @Override
-    public FunctionSignature getSignature() {
-      return FunctionSignature.KWARGS;
     }
   }
 

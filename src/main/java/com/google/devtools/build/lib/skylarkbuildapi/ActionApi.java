@@ -103,9 +103,9 @@ public interface ActionApi extends StarlarkValue {
           "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
               + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
               + " the contents of the file to be written, if those contents can be computed during "
-              + " the analysis phase. None if the contents cannot be determined until the "
-              + " execution phase, such as when a directory in an {@code Args} object needs to be "
-              + " expanded.",
+              + " the analysis phase. The value is <code>None</code> if the contents cannot be "
+              + "determined until the execution phase, such as when a directory in an {@code Args} "
+              + "object needs to be expanded.",
       structField = true,
       allowReturnNones = true)
   @Nullable

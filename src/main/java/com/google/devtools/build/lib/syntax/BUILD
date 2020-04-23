@@ -87,7 +87,6 @@ java_library(
 java_library(
     name = "evaluator",
     srcs = [
-        "BaseFunction.java",
         "BuiltinCallable.java",
         "CallUtils.java",
         "ClassObject.java",
@@ -116,7 +115,6 @@ java_library(
         "SkylarkClassObject.java",
         "SkylarkIndexable.java",
         "SkylarkQueryable.java",
-        "SkylarkType.java",
         "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFunction.java",

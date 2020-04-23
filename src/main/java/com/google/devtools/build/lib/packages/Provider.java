@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.syntax.Location;
  * Declared Provider (a constructor for {@link Info}).
  *
  * <p>Declared providers can be declared either natively ({@link NativeProvider} or in Starlark
- * {@link SkylarkProvider}.
+ * {@link StarlarkProvider}.
  *
  * <p>{@link Provider} serves both as "type identifier" for declared provider instances and as a
  * function that can be called to construct a provider. To the Starlark user, there are "providers"

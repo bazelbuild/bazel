@@ -15,15 +15,14 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
 
 /** Fake callable implementation of {@link ProviderApi}. */
-public class FakeProviderApi extends BaseFunction implements ProviderApi {
+public class FakeProviderApi implements StarlarkCallable, ProviderApi {
 
   /**
    * Each fake is constructed with a unique name, controlled by this counter being the name suffix.
@@ -40,11 +39,6 @@ public class FakeProviderApi extends BaseFunction implements ProviderApi {
   @Override
   public String getName() {
     return name;
-  }
-
-  @Override
-  public FunctionSignature getSignature() {
-    return FunctionSignature.KWARGS;
   }
 
   @Override

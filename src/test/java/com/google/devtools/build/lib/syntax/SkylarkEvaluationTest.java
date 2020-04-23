@@ -1164,7 +1164,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
         .setUp("")
         .testIfExactError(
             "in call to with_params(), parameter 'multi' got value of type 'bool', want 'string or"
-                + " int or sequence of ints or NoneType'",
+                + " int or sequence or NoneType'",
             "mock.with_params(1, True, named=True, multi=False)");
 
     // We do not enforce list item parameter type constraints.

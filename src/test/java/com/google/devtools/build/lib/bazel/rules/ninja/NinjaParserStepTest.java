@@ -27,12 +27,12 @@ import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaPool;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaPoolVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.ByteBuffer;
@@ -151,12 +151,11 @@ public class NinjaParserStepTest {
     ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
     assertThat(variables.keySet())
         .containsExactly(
-            NinjaRuleVariable.NAME,
             NinjaRuleVariable.COMMAND,
             NinjaRuleVariable.DESCRIPTION,
             NinjaRuleVariable.RSPFILE,
             NinjaRuleVariable.DEPS);
-    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.DEPS).getRawText()).isEqualTo("${abc} $\n ${cde}");
     MockValueExpander expander = new MockValueExpander("###");
     assertThat(variables.get(NinjaRuleVariable.DEPS).getExpandedValue(expander))
@@ -224,9 +223,8 @@ public class NinjaParserStepTest {
     NinjaRule ninjaRule = parser.parseNinjaRule();
     ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
     assertThat(variables.keySet())
-        .containsExactly(
-            NinjaRuleVariable.NAME, NinjaRuleVariable.COMMAND, NinjaRuleVariable.DESCRIPTION);
-    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+        .containsExactly(NinjaRuleVariable.COMMAND, NinjaRuleVariable.DESCRIPTION);
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.DESCRIPTION).getRawText()).isEmpty();
   }
 
@@ -235,8 +233,8 @@ public class NinjaParserStepTest {
     NinjaParserStep parser = createParser("rule testRule  \n" + " pool = some_pool\n");
     NinjaRule ninjaRule = parser.parseNinjaRule();
     ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
-    assertThat(variables.keySet()).containsExactly(NinjaRuleVariable.NAME, NinjaRuleVariable.POOL);
-    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+    assertThat(variables.keySet()).containsExactly(NinjaRuleVariable.POOL);
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.POOL).getRawText()).isEqualTo("some_pool");
   }
 
@@ -244,10 +242,7 @@ public class NinjaParserStepTest {
   public void testParsePoolDeclaration() throws Exception {
     NinjaParserStep parser = createParser("pool link_pool\n" + "  depth = 4\n");
     NinjaPool ninjaPool = parser.parseNinjaPool();
-    ImmutableSortedMap<NinjaPoolVariable, NinjaVariableValue> variables = ninjaPool.getVariables();
-    assertThat(variables.keySet()).containsExactly(NinjaPoolVariable.NAME, NinjaPoolVariable.DEPTH);
-    assertThat(variables.get(NinjaPoolVariable.NAME).getRawText()).isEqualTo("link_pool");
-    assertThat(variables.get(NinjaPoolVariable.DEPTH).getRawText()).isEqualTo("4");
+    assertThat(ninjaPool.getName()).isEqualTo("link_pool");
     assertThat(ninjaPool.getDepth()).isEqualTo(4);
   }
 
@@ -459,7 +454,8 @@ public class NinjaParserStepTest {
   private static NinjaParserStep createParser(String text) {
     ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     NinjaLexer lexer = new NinjaLexer(new FileFragment(buffer, 0, 0, buffer.limit()));
-    return new NinjaParserStep(lexer);
+    return new NinjaParserStep(
+        lexer, BlazeInterners.newWeakInterner(), BlazeInterners.newWeakInterner());
   }
 
   private static class MockValueExpander implements Function<String, String> {

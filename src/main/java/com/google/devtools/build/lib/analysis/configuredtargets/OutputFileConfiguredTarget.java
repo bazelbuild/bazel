@@ -83,7 +83,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
   private static InstrumentedFilesInfo instrumentedFilesInfo(
       TransitiveInfoCollection generatingRule) {
     Preconditions.checkNotNull(generatingRule);
-    InstrumentedFilesInfo provider = generatingRule.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
+    InstrumentedFilesInfo provider = generatingRule.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     return provider == null ? InstrumentedFilesInfo.EMPTY : provider;
   }
 

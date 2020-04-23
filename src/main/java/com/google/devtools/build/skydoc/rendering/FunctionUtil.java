@@ -103,8 +103,8 @@ public final class FunctionUtil {
   }
 
   private static List<FunctionParamInfo> parameterInfos(
-      StarlarkFunction userDefinedFunction, Map<String, String> paramNameToDocMap) {
-    FunctionSignature signature = userDefinedFunction.getSignature();
+      StarlarkFunction starlarkFunction, Map<String, String> paramNameToDocMap) {
+    FunctionSignature signature = starlarkFunction.getSignature();
     ImmutableList.Builder<FunctionParamInfo> parameterInfos = ImmutableList.builder();
 
     List<String> paramNames = signature.getParameterNames();
@@ -122,7 +122,7 @@ public final class FunctionUtil {
     }
 
     // Parameters with defaults.
-    List<Object> defaultValues = userDefinedFunction.getDefaultValues();
+    List<Object> defaultValues = starlarkFunction.getDefaultValues();
     if (defaultValues != null) {
       for (Object element : defaultValues) {
         String paramName = paramNames.get(paramIndex);

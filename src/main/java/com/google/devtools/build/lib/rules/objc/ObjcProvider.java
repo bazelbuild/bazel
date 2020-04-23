@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -406,7 +405,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     // framework search path, so the best we can do is to append a fake ".framework" directory.
     // This at least preserves the behavior when the field is used for its intended purpose.
     return Depset.of(
-        SkylarkType.STRING,
+        Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             frameworkInclude().stream()
@@ -445,7 +444,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @Override
   public Depset /*<String>*/ includeForStarlark() {
     return Depset.of(
-        SkylarkType.STRING,
+        Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             include().stream()
@@ -464,7 +463,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @Override
   public Depset /*<String>*/ strictIncludeForStarlark() {
     return Depset.of(
-        SkylarkType.STRING,
+        Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getStrictDependencyIncludes().stream()
@@ -522,7 +521,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ linkopt() {
-    return Depset.of(SkylarkType.STRING, get(LINKOPT));
+    return Depset.of(Depset.ElementType.STRING, get(LINKOPT));
   }
 
   @Override
@@ -557,7 +556,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ sdkDylib() {
-    return Depset.of(SkylarkType.STRING, get(SDK_DYLIB));
+    return Depset.of(Depset.ElementType.STRING, get(SDK_DYLIB));
   }
 
   @Override
@@ -932,7 +931,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ dynamicFrameworkNamesForStarlark() {
-    return Depset.of(SkylarkType.STRING, dynamicFrameworkNames());
+    return Depset.of(Depset.ElementType.STRING, dynamicFrameworkNames());
   }
 
   NestedSet<String> dynamicFrameworkNames() {
@@ -941,7 +940,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ dynamicFrameworkPathsForStarlark() {
-    return Depset.of(SkylarkType.STRING, dynamicFrameworkPaths());
+    return Depset.of(Depset.ElementType.STRING, dynamicFrameworkPaths());
   }
 
   NestedSet<String> dynamicFrameworkPaths() {
@@ -950,7 +949,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ staticFrameworkNamesForStarlark() {
-    return Depset.of(SkylarkType.STRING, staticFrameworkNames());
+    return Depset.of(Depset.ElementType.STRING, staticFrameworkNames());
   }
 
   NestedSet<String> staticFrameworkNames() {
@@ -959,7 +958,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ staticFrameworkPathsForStarlark() {
-    return Depset.of(SkylarkType.STRING, staticFrameworkPaths());
+    return Depset.of(Depset.ElementType.STRING, staticFrameworkPaths());
   }
 
   NestedSet<String> staticFrameworkPaths() {
@@ -1185,7 +1184,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
         if (key == DEFINE) {
           ccCompilationContextBuilder.addDefines(
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName));
+              Depset.noneableCast(skylarkToAdd, String.class, keyName));
         } else if (key == FRAMEWORK_SEARCH_PATHS) {
           // Due to legacy reasons, There is a mismatch between the starlark interface for the
           // framework search path, and the internal representation.  The interface specifies that
@@ -1194,7 +1193,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           // this ugly conversion.
 
           ImmutableList<PathFragment> frameworks =
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList());
 
@@ -1209,22 +1208,22 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkSearchPaths.build());
         } else if (key == HEADER) {
           ImmutableList<Artifact> hdrs =
-              Depset.getSetFromNoneableParam(skylarkToAdd, Artifact.class, keyName).toList();
+              Depset.noneableCast(skylarkToAdd, Artifact.class, keyName).toList();
           ccCompilationContextBuilder.addDeclaredIncludeSrcs(hdrs);
           ccCompilationContextBuilder.addTextualHdrs(hdrs);
         } else if (key == INCLUDE) {
           ccCompilationContextBuilder.addIncludeDirs(
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList()));
         } else if (key == INCLUDE_SYSTEM) {
           ccCompilationContextBuilder.addSystemIncludeDirs(
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList()));
         } else if (key == IQUOTE) {
           ccCompilationContextBuilder.addQuoteIncludeDirs(
-              Depset.getSetFromNoneableParam(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList()));
         }

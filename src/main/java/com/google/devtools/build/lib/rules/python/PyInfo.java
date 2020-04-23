@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.syntax.Depset.TypeException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Objects;
@@ -45,9 +44,9 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
    * order.
    */
   private static boolean depsetHasTypeAndCompatibleOrder(
-      Depset depset, SkylarkType type, Order order) {
+      Depset depset, Depset.ElementType type, Order order) {
     // Work around #7266 by special-casing the empty set in the type check.
-    boolean typeOk = depset.isEmpty() || depset.getContentType().equals(type);
+    boolean typeOk = depset.isEmpty() || depset.getElementType().equals(type);
     boolean orderOk = depset.getOrder().isCompatible(order);
     return typeOk && orderOk;
   }
@@ -88,7 +87,7 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
     // that to NAIVE_LINK (preorder). In the meantime, order isn't an invariant of the provider
     // itself, so we use STABLE here to accept any order.
     Preconditions.checkArgument(
-        depsetHasTypeAndCompatibleOrder(imports, SkylarkType.STRING, Order.STABLE_ORDER));
+        depsetHasTypeAndCompatibleOrder(imports, Depset.ElementType.STRING, Order.STABLE_ORDER));
     this.location = location != null ? location : Location.BUILTIN;
     this.transitiveSources = transitiveSources;
     this.usesSharedLibraries = usesSharedLibraries;
@@ -143,7 +142,7 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
       return transitiveSources.getSet(Artifact.class);
     } catch (TypeException e) {
       throw new IllegalStateException(
-          "'transitiveSources' depset was found to be invalid type " + imports.getContentType(), e);
+          "'transitiveSources' depset was found to be invalid type " + imports.getElementType(), e);
     }
   }
 
@@ -162,7 +161,7 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
       return imports.getSet(String.class);
     } catch (TypeException e) {
       throw new IllegalStateException(
-          "'imports' depset was found to be invalid type " + imports.getContentType(), e);
+          "'imports' depset was found to be invalid type " + imports.getElementType(), e);
     }
   }
 
@@ -195,7 +194,7 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
         throws EvalException {
       Depset imports =
           importsUncast.equals(Starlark.UNBOUND)
-              ? Depset.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.COMPILE_ORDER))
+              ? Depset.of(Depset.ElementType.STRING, NestedSetBuilder.emptySet(Order.COMPILE_ORDER))
               : (Depset) importsUncast;
 
       if (!depsetHasTypeAndCompatibleOrder(transitiveSources, Artifact.TYPE, Order.COMPILE_ORDER)) {
@@ -204,13 +203,14 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
                 + " '%s')",
             describeType(transitiveSources));
       }
-      if (!depsetHasTypeAndCompatibleOrder(imports, SkylarkType.STRING, Order.STABLE_ORDER)) {
+      if (!depsetHasTypeAndCompatibleOrder(
+          imports, Depset.ElementType.STRING, Order.STABLE_ORDER)) {
         throw Starlark.errorf(
             "'imports' field should be a depset of strings (got a '%s')", describeType(imports));
       }
       // Validate depset parameters
-      transitiveSources.getSetFromParam(Artifact.class, "transitive_sources");
-      imports.getSetFromParam(String.class, "imports");
+      Depset.cast(transitiveSources, Artifact.class, "transitive_sources");
+      Depset.cast(imports, String.class, "imports");
 
       return new PyInfo(
           thread.getCallerLocation(),
@@ -274,7 +274,7 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
           location,
           Depset.of(Artifact.TYPE, transitiveSources),
           usesSharedLibraries,
-          Depset.of(SkylarkType.STRING, imports),
+          Depset.of(Depset.ElementType.STRING, imports),
           hasPy2OnlySources,
           hasPy3OnlySources);
     }

@@ -15,12 +15,11 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 
 /** Fake implementation of {@link SkylarkAspectApi}. */
-public class FakeSkylarkAspect extends BaseFunction implements SkylarkAspectApi {
+public class FakeSkylarkAspect implements StarlarkCallable, SkylarkAspectApi {
 
   /**
    * Each fake is constructed with a unique name, controlled by this counter being the name suffix.
@@ -32,11 +31,6 @@ public class FakeSkylarkAspect extends BaseFunction implements SkylarkAspectApi 
   @Override
   public String getName() {
     return name;
-  }
-
-  @Override
-  public FunctionSignature getSignature() {
-    return FunctionSignature.KWARGS;
   }
 
   @Override

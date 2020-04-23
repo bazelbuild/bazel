@@ -194,7 +194,8 @@ public class NinjaActionsHelper {
             executionInfo,
             EmptyRunfilesSupplier.INSTANCE,
             isAlwaysDirty,
-            depFile));
+            depFile,
+            artifactsHelper.getDerivedOutputRoot()));
   }
 
   /** Returns true is the action shpould be marked as always dirty. */

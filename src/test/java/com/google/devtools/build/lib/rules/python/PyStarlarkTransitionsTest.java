@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import org.junit.Before;
 import org.junit.Test;
@@ -67,7 +67,7 @@ public final class PyStarlarkTransitionsTest extends BuildViewTestCase {
         "my_rule(name = 'default', wrapped = ':wrapped', python_version = 'DEFAULT')",
         "my_rule(name = 'invalid', wrapped = ':wrapped', python_version = 'invalid')",
         "missing_attr_rule(name = 'missing_attr', wrapped = ':wrapped')");
-    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
+    setStarlarkSemanticsOptions("--experimental_google_legacy_api");
   }
 
   @Test
@@ -105,7 +105,7 @@ public final class PyStarlarkTransitionsTest extends BuildViewTestCase {
   private void verifyVersion(String target, PythonVersion version) throws Exception {
     ConfiguredTarget configuredTarget = getConfiguredTarget(target);
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl myInfo = (StructImpl) configuredTarget.get(key);
     ConfiguredTarget wrapped = (ConfiguredTarget) myInfo.getValue("wrapped");

@@ -31,13 +31,23 @@ import java.util.function.Predicate;
  */
 public final class FileBasedTypeReferenceClosure {
 
-  private FileBasedTypeReferenceClosure() {}
+  private final Predicate<ClassName> typeFilter;
+  private final ClassFileBatchProvider classFileBatchProvider;
 
-  public static ImmutableSet<ClassName> findReachableReferencedTypes(
-      ImmutableSet<ClassName> initialTypes, Predicate<ClassName> typeFilter) {
+  public FileBasedTypeReferenceClosure(
+      Predicate<ClassName> typeFilter, ClassFileBatchProvider classFileBatchProvider) {
+    this.typeFilter = typeFilter;
+    this.classFileBatchProvider = classFileBatchProvider;
+  }
+
+  public ImmutableSet<ClassName> findReachableReferencedTypes(
+      ImmutableSet<ClassName> initialTypes) {
     return DependencyGraph.findAllReachableNodes(
             initialTypes.stream()
-                .map(className -> FileBasedTypeReferenceNode.create(className, typeFilter))
+                .map(
+                    className ->
+                        FileBasedTypeReferenceNode.create(
+                            className, typeFilter, classFileBatchProvider))
                 .collect(toImmutableSet()))
         .stream()
         .map(FileBasedTypeReferenceNode::className)

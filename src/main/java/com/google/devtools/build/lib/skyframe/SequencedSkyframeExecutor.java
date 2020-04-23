@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
@@ -62,7 +63,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
@@ -671,7 +671,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     discardPreExecutionCache(
         topLevelTargets,
         topLevelAspects,
@@ -686,10 +686,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
-          new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, /* numThreads= */ 20)
+          new FilesystemValueChecker(
+                  tsgm, /* lastExecutionTimeRange= */ null, /* numThreads= */ 200)
               .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
-      diff = getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry, /* fsvcThreads= */ 20);
+      diff =
+          getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry, /* fsvcThreads= */ 200);
     }
     syscalls.set(getPerBuildSyscallCache(/*concurrencyLevel=*/ 42));
     recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
@@ -808,7 +810,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
           } else if (functionName.equals(SkyFunctions.ASPECT)) {
             AspectValue aspectValue = (AspectValue) skyValue;
-            AspectKey aspectKey = aspectValue.getKey();
+            AspectKey aspectKey = (AspectKey) key;
             ConfiguredTargetValue configuredTargetValue =
                 (ConfiguredTargetValue)
                     memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
@@ -840,7 +842,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
           } else if (functionName.equals(SkyFunctions.ASPECT)) {
             AspectValue aspectValue = (AspectValue) skyValue;
-            AspectKey aspectKey = aspectValue.getKey();
+            AspectKey aspectKey = (AspectKey) key;
             ConfiguredTargetValue configuredTargetValue =
                 (ConfiguredTargetValue)
                     memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
@@ -1160,17 +1162,5 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
       return this;
     }
-  }
-
-  /**
-   * Listener class to subscribe for WORKSPACE file header refreshes.
-   *
-   * <p>Changes to WORKSPACE file header are computed before the files difference is computed in
-   * {@link #handleDiffs(ExtendedEventHandler, boolean, OptionsProvider)}
-   */
-  public interface WorkspaceFileHeaderListener {
-    boolean workspaceHeaderReloaded(
-        @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue)
-        throws AbruptExitException;
   }
 }

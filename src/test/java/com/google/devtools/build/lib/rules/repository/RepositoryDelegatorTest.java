@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Optional;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -62,7 +64,6 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -151,14 +152,10 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         .addSkylarkBootstrap(new RepositoryBootstrap(new SkylarkRepositoryModule()));
     ConfiguredRuleClassProvider ruleClassProvider = builder.build();
 
-    PackageFactory.BuilderForTesting pkgFactoryBuilder =
-        AnalysisMock.get().getPackageFactoryBuilderForTesting(directories);
-    StarlarkImportLookupFunction starlarkImportLookupFunction =
-        new StarlarkImportLookupFunction(
-            ruleClassProvider,
-            pkgFactoryBuilder.build(ruleClassProvider, fileSystem),
-            /*starlarkImportLookupValueCacheSize=*/ 2);
-    starlarkImportLookupFunction.resetCache();
+    PackageFactory pkgFactory =
+        AnalysisMock.get()
+            .getPackageFactoryBuilderForTesting(directories)
+            .build(ruleClassProvider, fileSystem);
 
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -186,11 +183,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     WorkspaceFileValue.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         ruleClassProvider,
-                        TestPackageFactoryBuilderFactory.getInstance()
-                            .builder(directories)
-                            .build(ruleClassProvider, fileSystem),
+                        pkgFactory,
                         directories,
-                        starlarkImportLookupFunction))
+                        /*starlarkImportLookupFunctionForInlining=*/ null))
                 .put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction())
                 .put(
                     SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
@@ -201,7 +196,16 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new ExternalPackageFunction(
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-                .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
+                .put(
+                    SkyFunctions.AST_FILE_LOOKUP,
+                    new ASTFileLookupFunction(ruleClassProvider, fileSystem.getDigestFunction()))
+                .put(
+                    SkyFunctions.STARLARK_IMPORTS_LOOKUP,
+                    StarlarkImportLookupFunction.create(
+                        ruleClassProvider,
+                        pkgFactory,
+                        fileSystem.getDigestFunction(),
+                        CacheBuilder.newBuilder().build()))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,

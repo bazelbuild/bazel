@@ -907,14 +907,16 @@ public final class Profiler {
     }
 
     private void writeTask(JsonWriter writer, TaskData data) throws IOException {
+      Preconditions.checkNotNull(data);
       String eventType = data.duration == 0 ? "i" : "X";
       writer.setIndent("  ");
       writer.beginObject();
       writer.setIndent("");
-      if (data == null || data.type == null) {
+      if (data.type == null) {
         writer.setIndent("    ");
+      } else {
+        writer.name("cat").value(data.type.description);
       }
-      writer.name("cat").value(data.type.description);
       writer.name("name").value(data.description);
       writer.name("ph").value(eventType);
       writer
@@ -979,6 +981,7 @@ public final class Profiler {
           HashMap<Long, MergedEvent> eventsPerThread = new HashMap<>();
           int eventCount = 0;
           while ((data = queue.take()) != POISON_PILL) {
+            Preconditions.checkNotNull(data);
             eventCount++;
             if (data.type == ProfilerTask.THREAD_NAME) {
               writer.setIndent("  ");

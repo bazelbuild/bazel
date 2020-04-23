@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.LinkedHashMap;
@@ -70,7 +69,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
     fields.put(PyStructUtils.USES_SHARED_LIBRARIES, false);
     fields.put(
         PyStructUtils.IMPORTS,
-        Depset.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
+        Depset.of(Depset.ElementType.STRING, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
     fields.put(PyStructUtils.HAS_PY2_ONLY_SOURCES, false);
     fields.put(PyStructUtils.HAS_PY3_ONLY_SOURCES, false);
     fields.putAll(overrides);
@@ -122,8 +121,9 @@ public class PyStructUtilsTest extends FoundationTestCase {
   @Test
   public void getTransitiveSources_WrongType() {
     StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, 123));
-    assertHasWrongTypeMessage(
-        () -> PyStructUtils.getTransitiveSources(info), "transitive_sources", "depset of Files");
+    assertThrowsEvalExceptionContaining(
+        () -> PyStructUtils.getTransitiveSources(info),
+        "for transitive_sources, got int, want a depset of File");
   }
 
   @Test
@@ -160,7 +160,8 @@ public class PyStructUtilsTest extends FoundationTestCase {
   public void getImports_Good() throws Exception {
     NestedSet<String> imports = NestedSetBuilder.create(Order.COMPILE_ORDER, "abc");
     StructImpl info =
-        makeStruct(ImmutableMap.of(PyStructUtils.IMPORTS, Depset.of(SkylarkType.STRING, imports)));
+        makeStruct(
+            ImmutableMap.of(PyStructUtils.IMPORTS, Depset.of(Depset.ElementType.STRING, imports)));
     assertThat(PyStructUtils.getImports(info)).isSameInstanceAs(imports);
   }
 
@@ -172,7 +173,8 @@ public class PyStructUtilsTest extends FoundationTestCase {
   @Test
   public void getImports_WrongType() {
     StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.IMPORTS, 123));
-    assertHasWrongTypeMessage(() -> PyStructUtils.getImports(info), "imports", "depset of strings");
+    assertThrowsEvalExceptionContaining(
+        () -> PyStructUtils.getImports(info), "for imports, got int, want a depset of string");
   }
 
   @Test

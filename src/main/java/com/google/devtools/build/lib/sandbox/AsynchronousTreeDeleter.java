@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -25,7 +26,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -37,15 +37,14 @@ import javax.annotation.Nullable;
  * finished, this number should be raised to quickly go through any pending deletions.
  */
 class AsynchronousTreeDeleter implements TreeDeleter {
-
-  private static final Logger logger = Logger.getLogger(TreeDeleter.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Thread pool used to execute asynchronous tree deletions; null in synchronous mode. */
   @Nullable private ThreadPoolExecutor service;
 
   /** Constructs a new asynchronous tree deleter backed by just one thread. */
   AsynchronousTreeDeleter() {
-    logger.info("Starting async tree deletion pool with 1 thread");
+    logger.atInfo().log("Starting async tree deletion pool with 1 thread");
 
     ThreadFactory threadFactory =
         new ThreadFactoryBuilder()
@@ -70,7 +69,7 @@ class AsynchronousTreeDeleter implements TreeDeleter {
    */
   void setThreads(int threads) {
     checkState(threads > 0, "Use SynchronousTreeDeleter if no async behavior is desired");
-    logger.info("Resizing async tree deletion pool to " + threads + " threads");
+    logger.atInfo().log("Resizing async tree deletion pool to %d threads", threads);
     checkNotNull(service, "Cannot call setThreads after shutdown").setMaximumPoolSize(threads);
   }
 
@@ -82,7 +81,8 @@ class AsynchronousTreeDeleter implements TreeDeleter {
               try {
                 path.deleteTree();
               } catch (IOException e) {
-                logger.warning("Failed to delete tree " + path + " asynchronously: " + e);
+                logger.atWarning().withCause(e).log(
+                    "Failed to delete tree %s asynchronously", path);
               }
             });
   }
@@ -95,7 +95,8 @@ class AsynchronousTreeDeleter implements TreeDeleter {
               try {
                 path.deleteTreesBelow();
               } catch (IOException e) {
-                logger.warning("Failed to delete contents of " + path + " asynchronously: " + e);
+                logger.atWarning().withCause(e).log(
+                    "Failed to delete contents of %s asynchronously", path);
               }
             });
   }
@@ -103,7 +104,7 @@ class AsynchronousTreeDeleter implements TreeDeleter {
   @Override
   public void shutdown() {
     if (service != null) {
-      logger.info("Finishing " + service.getTaskCount() + " pending async tree deletions");
+      logger.atInfo().log("Finishing %d pending async tree deletions", service.getTaskCount());
       service.shutdown();
       service = null;
     }

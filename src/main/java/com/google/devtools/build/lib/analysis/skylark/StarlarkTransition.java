@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.skylark.FunctionTransitionUtil.COMMAND_LINE_OPTION_PREFIX;
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -310,7 +310,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
           throw new TransitionException(e);
         }
         if (convertedValue.equals(
-            rule.getAttributeContainer().getAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+            rule.getAttributeContainer().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
           if (cleanedOptions == null) {
             cleanedOptions = options.toBuilder();
           }
@@ -394,7 +394,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
                     getActual(buildSettingPackages, setting)
                         .getAssociatedRule()
                         .getAttributeContainer()
-                        .getAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
+                        .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
               }
             });
     return defaultValues.build();

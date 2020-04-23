@@ -156,6 +156,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addProvider(LicensesProviderImpl.EMPTY)
         .addProvider(ConfigMatchingProvider.class, configMatcher)
+        .addRequiredConfigFragments(configMatcher.getRequiredFragmentOptions())
         .build();
   }
 

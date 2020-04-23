@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
@@ -60,7 +61,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
@@ -128,7 +129,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
 
   private final boolean isForAspect;
 
-  private final SkylarkActionFactory actionFactory;
+  private final StarlarkActionFactory actionFactory;
 
   // The fields below intended to be final except that they can be cleared by calling `nullify()`
   // when the object becomes featureless.
@@ -159,7 +160,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       @Nullable AspectDescriptor aspectDescriptor,
       StarlarkSemantics starlarkSemantics)
       throws EvalException, InterruptedException, RuleErrorException {
-    this.actionFactory = new SkylarkActionFactory(this, starlarkSemantics, ruleContext);
+    this.actionFactory = new StarlarkActionFactory(this, starlarkSemantics, ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
     this.fragments = new FragmentCollection(ruleContext, NoTransition.INSTANCE);
@@ -175,9 +176,9 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       ImplicitOutputsFunction implicitOutputsFunction =
           ruleContext.getRule().getImplicitOutputsFunction();
 
-      if (implicitOutputsFunction instanceof SkylarkImplicitOutputsFunction) {
-        SkylarkImplicitOutputsFunction func =
-            (SkylarkImplicitOutputsFunction) implicitOutputsFunction;
+      if (implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction) {
+        StarlarkImplicitOutputsFunction func =
+            (StarlarkImplicitOutputsFunction) implicitOutputsFunction;
         for (Map.Entry<String, String> entry :
             func.calculateOutputs(
                     ruleContext.getAnalysisEnvironment().getEventHandler(),
@@ -377,7 +378,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   }
 
   public boolean isExecutable() {
-    return ruleContext.getRule().getRuleClassObject().isExecutableSkylark();
+    return ruleContext.getRule().getRuleClassObject().isExecutableStarlark();
   }
 
   public boolean isDefaultExecutableCreated() {
@@ -494,14 +495,14 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   }
 
   @Override
-  public SkylarkActionFactory actions() {
+  public StarlarkActionFactory actions() {
     return actionFactory;
   }
 
   @Override
   public StarlarkValue createdActions() throws EvalException {
     checkMutable("created_actions");
-    if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
+    if (ruleContext.getRule().getRuleClassObject().isStarlarkTestable()) {
       return ActionsProvider.create(
           ruleContext.getAnalysisEnvironment().getRegisteredActions());
     } else {
@@ -602,7 +603,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     } else {
       return ruleContext
           .attributes()
-          .get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSettingType);
+          .get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSettingType);
     }
   }
 
@@ -618,7 +619,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
           ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
     }
     TransitiveInfoCollection target = (TransitiveInfoCollection) targetUnchecked;
-    return (target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null)
+    return (target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR) != null)
         && InstrumentedFilesCollector.shouldIncludeLocalSources(config, target);
   }
 
@@ -695,6 +696,11 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   @Override
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
     return ruleContext.targetPlatformHasConstraint(constraintValue);
+  }
+
+  @Override
+  public ExecGroupCollection execGroups() {
+    return new ExecGroupCollection(ruleContext.getToolchainContexts());
   }
 
   @Override
@@ -1002,7 +1008,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     }
     if (transitiveFiles != Starlark.NONE) {
       builder.addTransitiveArtifacts(
-          ((Depset) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
+          Depset.cast(transitiveFiles, Artifact.class, "transitive_files"));
     }
     if (!symlinks.isEmpty()) {
       // If Starlark code directly manipulates symlinks, activate more stringent validity checking.

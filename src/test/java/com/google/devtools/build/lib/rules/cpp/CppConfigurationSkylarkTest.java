@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import java.io.IOException;
 import org.junit.Test;
@@ -25,6 +26,23 @@ import org.junit.runners.JUnit4;
 /** Tests for C++ fragments in Starlark. */
 @RunWith(JUnit4.class)
 public final class CppConfigurationSkylarkTest extends BuildViewTestCase {
+
+  @Test
+  public void testMinimumOsVersion() throws Exception {
+    useConfiguration("--minimum_os_version=-wololoo");
+    writeRuleReturning("ctx.fragments.cpp.minimum_os_version()");
+
+    String result = (String) getConfiguredTarget("//foo:bar").get("result");
+    assertThat(result).isEqualTo("-wololoo");
+  }
+
+  @Test
+  public void testNullMinimumOsVersion() throws Exception {
+    writeRuleReturning("ctx.fragments.cpp.minimum_os_version()");
+
+    Object result = getConfiguredTarget("//foo:bar").get("result");
+    assertThat(result).isInstanceOf(NoneType.class);
+  }
 
   @Test
   public void testCopts() throws Exception {

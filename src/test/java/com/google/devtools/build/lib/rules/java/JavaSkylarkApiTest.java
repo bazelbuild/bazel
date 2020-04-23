@@ -28,8 +28,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.syntax.Depset;
@@ -60,7 +59,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
@@ -312,7 +311,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
     Depset transitiveRuntimeJars = ((Depset) info.getValue("transitive_runtime_jars"));
@@ -411,7 +410,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
     JavaRuleOutputJarsProvider outputs = ((JavaRuleOutputJarsProvider) info.getValue("outputs"));
@@ -528,12 +527,11 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaCompilationInfoProvider compilationInfo = info.getCompilationInfoProvider();
     assertThat(
             prettyArtifactNames(
-                compilationInfo.getCompilationClasspath().getSet(Artifact.class).toList()))
+                compilationInfo.getCompilationClasspath().toCollection(Artifact.class)))
         .containsExactly("java/test/libdep-hjar.jar");
 
     assertThat(
-            prettyArtifactNames(
-                compilationInfo.getRuntimeClasspath().getSet(Artifact.class).toList()))
+            prettyArtifactNames(compilationInfo.getRuntimeClasspath().toCollection(Artifact.class)))
         .containsExactly("java/test/libdep.jar", "java/test/libcustom.jar");
 
     assertThat(compilationInfo.getJavacOpts()).contains("-XDone");
@@ -1061,7 +1059,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
     assertThat(info.getValue("enabled")).isEqualTo(Boolean.TRUE);
@@ -1122,7 +1120,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myConfiguredTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
     Depset rawMyCompileJars = (Depset) info.getValue("compile_jars");
@@ -1188,8 +1186,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
-    SkylarkKey myProviderKey =
-        new SkylarkKey(
+    StarlarkProvider.Key myProviderKey =
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "my_provider");
     StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
     Object javaProvider = declaredProvider.getValue("p");
@@ -1346,7 +1344,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
     @SuppressWarnings("unchecked")
     Sequence<Artifact> sourceJars = (Sequence<Artifact>) (info.getValue("source_jars"));
@@ -1376,7 +1374,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
     Depset sourceJars = (Depset) info.getValue("property");
@@ -1409,7 +1407,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
     Depset sourceJars = (Depset) info.getValue("property");
@@ -1442,7 +1440,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
     Depset sourceJars = (Depset) info.getValue("property");
@@ -1475,7 +1473,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
     Depset exports = (Depset) info.getValue("property");
@@ -1504,7 +1502,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
     JavaGenJarsProvider javaGenJarsProvider = (JavaGenJarsProvider) info.getValue("property");
@@ -1534,7 +1532,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
     JavaCompilationInfoProvider javaCompilationInfoProvider =
@@ -1687,7 +1685,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     assertThat(((String) info.getValue("strict_java_deps"))).isEqualTo("default");
   }
 
@@ -1708,7 +1707,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     assertThat(((String) info.getValue("strict_java_deps"))).isEqualTo("error");
   }
 
@@ -1792,7 +1792,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     Label javaToolchainLabel =
         ((JavaToolchainProvider)
                 ((ConfiguredTarget) info.getValue("java_toolchain_label"))
@@ -1835,7 +1836,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     Label javaToolchainLabel =
         ((JavaToolchainProvider)
                 ((ConfiguredTarget) info.getValue("java_toolchain_label"))

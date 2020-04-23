@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for the {@code android_instrumentation_test} rule. */
@@ -55,7 +55,7 @@ public class AndroidInstrumentationTestBaseRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .mandatoryProviders(
-                    SkylarkProviderIdentifier.forKey(AndroidDeviceBrokerInfo.PROVIDER.getKey())))
+                    StarlarkProviderIdentifier.forKey(AndroidDeviceBrokerInfo.PROVIDER.getKey())))
         /* <!-- #BLAZE_RULE(android_instrumentation_test).ATTRIBUTE(support_apks) -->
         Other APKs to install on the device before the instrumentation test starts.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

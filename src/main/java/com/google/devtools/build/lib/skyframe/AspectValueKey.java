@@ -51,7 +51,6 @@ public abstract class AspectValueKey extends ActionLookupKey {
       BuildConfiguration aspectConfiguration) {
     KeyAndHost aspectKeyAndHost = ConfiguredTargetKey.keyFromConfiguration(aspectConfiguration);
     return AspectKey.createAspectKey(
-        label,
         ConfiguredTargetKey.of(label, baseConfiguration),
         baseKeys,
         aspectDescriptor,
@@ -66,7 +65,6 @@ public abstract class AspectValueKey extends ActionLookupKey {
       BuildConfiguration aspectConfiguration) {
     KeyAndHost aspectKeyAndHost = ConfiguredTargetKey.keyFromConfiguration(aspectConfiguration);
     return AspectKey.createAspectKey(
-        label,
         ConfiguredTargetKey.of(label, baseConfiguration),
         ImmutableList.of(),
         aspectDescriptor,
@@ -104,7 +102,6 @@ public abstract class AspectValueKey extends ActionLookupKey {
   /** A base class for a key representing an aspect applied to a particular target. */
   @AutoCodec
   public static class AspectKey extends AspectValueKey {
-    private final Label label;
     private final ImmutableList<AspectKey> baseKeys;
     private final BuildConfigurationValue.Key aspectConfigurationKey;
     private final ConfiguredTargetKey baseConfiguredTargetKey;
@@ -112,13 +109,11 @@ public abstract class AspectValueKey extends ActionLookupKey {
     private int hashCode;
 
     private AspectKey(
-        Label label,
         BuildConfigurationValue.Key aspectConfigurationKey,
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor) {
       this.baseKeys = baseKeys;
-      this.label = label;
       this.aspectConfigurationKey = aspectConfigurationKey;
       this.baseConfiguredTargetKey = baseConfiguredTargetKey;
       this.aspectDescriptor = aspectDescriptor;
@@ -127,7 +122,6 @@ public abstract class AspectValueKey extends ActionLookupKey {
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static AspectKey createAspectKey(
-        Label label,
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor,
@@ -136,17 +130,9 @@ public abstract class AspectValueKey extends ActionLookupKey {
       return aspectKeyInterner.intern(
           aspectConfigurationIsHost
               ? new HostAspectKey(
-                  label,
-                  aspectConfigurationKey,
-                  baseConfiguredTargetKey,
-                  baseKeys,
-                  aspectDescriptor)
+                  aspectConfigurationKey, baseConfiguredTargetKey, baseKeys, aspectDescriptor)
               : new AspectKey(
-                  label,
-                  aspectConfigurationKey,
-                  baseConfiguredTargetKey,
-                  baseKeys,
-                  aspectDescriptor));
+                  aspectConfigurationKey, baseConfiguredTargetKey, baseKeys, aspectDescriptor));
     }
 
     @Override
@@ -157,7 +143,7 @@ public abstract class AspectValueKey extends ActionLookupKey {
 
     @Override
     public Label getLabel() {
-      return label;
+      return baseConfiguredTargetKey.getLabel();
     }
 
     public AspectClass getAspectClass() {
@@ -249,7 +235,7 @@ public abstract class AspectValueKey extends ActionLookupKey {
 
     private int computeHashCode() {
       return Objects.hashCode(
-          label, baseKeys, aspectConfigurationKey, baseConfiguredTargetKey, aspectDescriptor);
+          baseKeys, aspectConfigurationKey, baseConfiguredTargetKey, aspectDescriptor);
     }
 
     @Override
@@ -263,15 +249,14 @@ public abstract class AspectValueKey extends ActionLookupKey {
       }
 
       AspectKey that = (AspectKey) other;
-      return Objects.equal(label, that.label)
-          && Objects.equal(baseKeys, that.baseKeys)
+      return Objects.equal(baseKeys, that.baseKeys)
           && Objects.equal(aspectConfigurationKey, that.aspectConfigurationKey)
           && Objects.equal(baseConfiguredTargetKey, that.baseConfiguredTargetKey)
           && Objects.equal(aspectDescriptor, that.aspectDescriptor);
     }
 
     public String prettyPrint() {
-      if (label == null) {
+      if (getLabel() == null) {
         return "null";
       }
 
@@ -281,7 +266,7 @@ public abstract class AspectValueKey extends ActionLookupKey {
           : String.format(" (over %s)", baseKeys.toString());
       return String.format(
           "%s with aspect %s%s%s",
-          label.toString(),
+          getLabel().toString(),
           aspectDescriptor.getAspectClass().getName(),
           (aspectConfigurationKey != null && aspectConfigurationIsHost()) ? "(host) " : "",
           baseKeysString);
@@ -289,7 +274,7 @@ public abstract class AspectValueKey extends ActionLookupKey {
 
     @Override
     public String toString() {
-      return (baseKeys == null ? label : baseKeys.toString())
+      return (baseKeys == null ? getLabel() : baseKeys.toString())
           + "#"
           + aspectDescriptor
           + " "
@@ -308,7 +293,6 @@ public abstract class AspectValueKey extends ActionLookupKey {
       }
 
       return createAspectKey(
-          label,
           ConfiguredTargetKey.of(
               label,
               baseConfiguredTargetKey.getConfigurationKey(),
@@ -323,12 +307,11 @@ public abstract class AspectValueKey extends ActionLookupKey {
   /** An {@link AspectKey} for an aspect in the host configuration. */
   static class HostAspectKey extends AspectKey {
     private HostAspectKey(
-        Label label,
         BuildConfigurationValue.Key aspectConfigurationKey,
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor) {
-      super(label, aspectConfigurationKey, baseConfiguredTargetKey, baseKeys, aspectDescriptor);
+      super(aspectConfigurationKey, baseConfiguredTargetKey, baseKeys, aspectDescriptor);
     }
 
     @Override
@@ -453,7 +436,6 @@ public abstract class AspectValueKey extends ActionLookupKey {
 
     AspectKey toAspectKey(AspectClass aspectClass) {
       return AspectKey.createAspectKey(
-          targetLabel,
           baseConfiguredTargetKey,
           ImmutableList.of(),
           new AspectDescriptor(aspectClass, AspectParameters.EMPTY),

@@ -26,11 +26,14 @@ import java.util.Map;
 /**
  * A wrapper class for a map of exec_group names to their relevent ToolchainContext.
  *
- * @param <T> any class that extends ToolchainCollection so this can be used, e.g., both before and
- *     after toolchain resolution.
+ * @param <T> any class that extends ToolchainContext. This generic allows ToolchainCollection to be
+ *     used, e.g., both before and after toolchain resolution.
  */
 public class ToolchainCollection<T extends ToolchainContext> {
-  @VisibleForTesting public static final String DEFAULT_EXEC_GROUP_NAME = "default_exec_group";
+
+  // This is intentionally a string that would fail {@code Identifier.isValid} so that
+  // users can't create a group with the same name.
+  @VisibleForTesting public static final String DEFAULT_EXEC_GROUP_NAME = "default-exec-group";
 
   /** A map of execution group names to toolchain contexts. */
   private final ImmutableMap<String, T> toolchainContexts;
@@ -38,6 +41,10 @@ public class ToolchainCollection<T extends ToolchainContext> {
   private ToolchainCollection(Map<String, T> contexts) {
     Preconditions.checkArgument(contexts.containsKey(DEFAULT_EXEC_GROUP_NAME));
     toolchainContexts = ImmutableMap.copyOf(contexts);
+  }
+
+  ToolchainCollection(ToolchainCollection<T> toCopy) {
+    toolchainContexts = ImmutableMap.copyOf(toCopy.getContextMap());
   }
 
   /** Builder for ToolchainCollection. */
@@ -62,7 +69,7 @@ public class ToolchainCollection<T extends ToolchainContext> {
     }
   }
 
-  public T getDefaultToolchainContext() {
+  T getDefaultToolchainContext() {
     return toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME);
   }
 
@@ -74,6 +81,10 @@ public class ToolchainCollection<T extends ToolchainContext> {
     return toolchainContexts.values().stream()
         .flatMap(c -> c.resolvedToolchainLabels().stream())
         .collect(toImmutableSet());
+  }
+
+  ImmutableSet<String> getExecGroups() {
+    return toolchainContexts.keySet();
   }
 
   public ToolchainCollection<ToolchainContext> asToolchainContexts() {

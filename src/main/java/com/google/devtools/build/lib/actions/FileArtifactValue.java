@@ -177,7 +177,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   public static FileArtifactValue createForSourceArtifact(Artifact artifact, FileValue fileValue)
       throws IOException {
-    Preconditions.checkState(artifact.isSourceArtifact());
+    // Artifacts with known generating actions should obtain the derived artifact's SkyValue
+    // from the generating action, instead.
+    Preconditions.checkState(!artifact.hasKnownGeneratingAction());
     Preconditions.checkState(!artifact.isConstantMetadata());
     boolean isFile = fileValue.isFile();
     return create(

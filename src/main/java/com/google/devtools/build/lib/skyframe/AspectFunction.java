@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectResolver;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -587,7 +588,6 @@ public final class AspectFunction implements SkyFunction {
     return new AspectValue(
         originalKey,
         aspect,
-        originalTarget.getLabel(),
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
         transitivePackagesForPackageRootResolution);
@@ -648,7 +648,7 @@ public final class AspectFunction implements SkyFunction {
         CurrentRuleTracker.endConfiguredAspect();
       }
     } else {
-      configuredAspect = ConfiguredAspect.forNonapplicableTarget(aspect.getDescriptor());
+      configuredAspect = ConfiguredAspect.forNonapplicableTarget();
     }
 
     events.replayOn(env.getListener());
@@ -671,7 +671,6 @@ public final class AspectFunction implements SkyFunction {
     return new AspectValue(
         key,
         aspect,
-        associatedTarget.getTarget().getLabel(),
         associatedTarget.getTarget().getLocation(),
         configuredAspect,
         transitivePackagesForPackageRootResolution == null

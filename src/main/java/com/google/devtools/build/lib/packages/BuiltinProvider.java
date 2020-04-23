@@ -99,10 +99,8 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
     throw Starlark.errorf("'%s' cannot be constructed from Starlark", getPrintableName());
   }
 
-  /**
-   * Returns the identifier of this provider.
-   */
-  public SkylarkProviderIdentifier id() {
-    return SkylarkProviderIdentifier.forKey(getKey());
+  /** Returns the identifier of this provider. */
+  public StarlarkProviderIdentifier id() {
+    return StarlarkProviderIdentifier.forKey(getKey());
   }
 }

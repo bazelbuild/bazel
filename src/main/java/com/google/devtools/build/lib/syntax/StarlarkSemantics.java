@@ -79,8 +79,6 @@ public abstract class StarlarkSemantics {
         "experimental_disable_external_package";
     public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
         "experimental_sibling_repository_layout";
-    public static final String EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION =
-        "experimental_aspect_output_propagation";
     public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
         "experimental_enable_android_migration_apis";
     public static final String EXPERIMENTAL_BUILD_SETTING_API = "experimental_build_setting_api";
@@ -124,8 +122,6 @@ public abstract class StarlarkSemantics {
         return experimentalDisableExternalPackage();
       case FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT:
         return experimentalSiblingRepositoryLayout();
-      case FlagIdentifier.EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION:
-        return experimentalAspectOutputPropagation();
       case FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS:
         return experimentalEnableAndroidMigrationApis();
       case FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API:
@@ -206,8 +202,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean experimentalActionArgs();
 
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
-
-  public abstract boolean experimentalAspectOutputPropagation();
 
   public abstract boolean experimentalBuildSettingApi();
 
@@ -321,7 +315,6 @@ public abstract class StarlarkSemantics {
           .debugDepsetDepth(false)
           .experimentalActionArgs(false)
           .experimentalAllowTagsPropagation(false)
-          .experimentalAspectOutputPropagation(true)
           .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalAllowIncrementalRepositoryUpdates(true)
@@ -374,8 +367,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
 
     public abstract Builder experimentalAllowTagsPropagation(boolean value);
-
-    public abstract Builder experimentalAspectOutputPropagation(boolean value);
 
     public abstract Builder experimentalBuildSettingApi(boolean value);
 

@@ -166,7 +166,7 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
           classJar,
           srcJar,
           NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(inputs.getSetFromParam(Artifact.class, "inputs"))
+              .addTransitive(Depset.cast(inputs, Artifact.class, "inputs"))
               .build());
     }
   }

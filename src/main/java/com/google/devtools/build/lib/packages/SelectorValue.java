@@ -64,7 +64,6 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
     return dictionary;
   }
 
-  // TODO(adonovan): use SkylarkType not Class, like Depset.
   Class<?> getType() {
     return type;
   }

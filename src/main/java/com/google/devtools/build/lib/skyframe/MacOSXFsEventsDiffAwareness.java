@@ -18,8 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.unix.jni.UnixJniLoader;
 import com.google.devtools.common.options.OptionsProvider;
-import java.io.File;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -109,6 +109,9 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
 
   /**
    * JNI code returning the list of absolute path modified since last call.
+   *
+   * @return the list of paths modified since the last call, or null if we can't precisely tell what
+   *     changed
    */
   private native String[] poll();
 
@@ -144,10 +147,15 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
       return EVERYTHING_MODIFIED;
     }
     Preconditions.checkState(!closed);
-    ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
-    for (String path : poll()) {
-      paths.add(new File(path).toPath());
+    String[] polledPaths = poll();
+    if (polledPaths == null) {
+      return EVERYTHING_MODIFIED;
+    } else {
+      ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
+      for (String path : polledPaths) {
+        paths.add(Paths.get(path));
+      }
+      return newView(paths.build());
     }
-    return newView(paths.build());
   }
 }

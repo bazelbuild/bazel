@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
+import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -54,11 +55,13 @@ import javax.annotation.Nullable;
 
 /** CompletionFunction builds the artifactsToBuild collection of a {@link ConfiguredTarget}. */
 public final class CompletionFunction<
-        ValueT extends ConfiguredObjectValue, ResultT extends SkyValue>
+        ValueT extends ConfiguredObjectValue,
+        ResultT extends SkyValue,
+        KeyT extends CompletionFunction.TopLevelActionLookupKey>
     implements SkyFunction {
 
   /** A strategy for completing the build. */
-  interface Completor<ValueT, ResultT extends SkyValue> {
+  interface Completor<ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKey> {
 
     /**
      * Returns the options which determine the artifacts to build for the top-level targets.
@@ -74,12 +77,12 @@ public final class CompletionFunction<
      */
 
     /** Creates an event reporting an absent input artifact. */
-    Event getRootCauseError(ValueT value, Cause rootCause, Environment env)
+    Event getRootCauseError(ValueT value, KeyT key, Cause rootCause, Environment env)
         throws InterruptedException;
 
     /** Creates an error message reporting {@code missingCount} missing input files. */
     MissingInputFileException getMissingFilesException(
-        ValueT value, int missingCount, Environment env) throws InterruptedException;
+        ValueT value, KeyT key, int missingCount, Environment env) throws InterruptedException;
 
     /** Provides a successful completion value. */
     ResultT getResult();
@@ -90,12 +93,12 @@ public final class CompletionFunction<
         NestedSet<Cause> rootCauses,
         NestedSet<ArtifactsInOutputGroup> outputs,
         Environment env,
-        TopLevelArtifactContext topLevelArtifactContext)
+        KeyT key)
         throws InterruptedException;
 
     /** Creates a succeeded completion value. */
     ExtendedEventHandler.Postable createSucceeded(
-        SkyKey skyKey,
+        KeyT skyKey,
         ValueT value,
         CompletionContext completionContext,
         ArtifactsToBuild artifactsToBuild,
@@ -139,18 +142,19 @@ public final class CompletionFunction<
   }
 
   private final PathResolverFactory pathResolverFactory;
-  private final Completor<ValueT, ResultT> completor;
+  private final Completor<ValueT, ResultT, KeyT> completor;
   private final Supplier<Path> execRootSupplier;
 
   CompletionFunction(
       PathResolverFactory pathResolverFactory,
-      Completor<ValueT, ResultT> completor,
+      Completor<ValueT, ResultT, KeyT> completor,
       Supplier<Path> execRootSupplier) {
     this.pathResolverFactory = pathResolverFactory;
     this.completor = completor;
     this.execRootSupplier = execRootSupplier;
   }
 
+  @SuppressWarnings("unchecked") // Cast to KeyT
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -161,7 +165,7 @@ public final class CompletionFunction<
       return null;
     }
 
-    TopLevelActionLookupKey key = (TopLevelActionLookupKey) skyKey;
+    KeyT key = (KeyT) skyKey;
     Pair<ValueT, ArtifactsToBuild> valueAndArtifactsToBuild = getValueAndArtifactsToBuild(key, env);
     if (env.valuesMissing()) {
       return null;
@@ -197,7 +201,7 @@ public final class CompletionFunction<
               env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
               Cause cause = new LabelCause(inputOwner, e.getMessage());
               rootCausesBuilder.add(cause);
-              env.getListener().handle(completor.getRootCauseError(value, cause, env));
+              env.getListener().handle(completor.getRootCauseError(value, key, cause, env));
             }
           } else {
             builtArtifactsBuilder.add(input);
@@ -223,7 +227,7 @@ public final class CompletionFunction<
     expandedFilesets.putAll(topLevelFilesets);
 
     if (missingCount > 0) {
-      missingInputException = completor.getMissingFilesException(value, missingCount, env);
+      missingInputException = completor.getMissingFilesException(value, key, missingCount, env);
       if (missingInputException == null) {
         return null;
       }
@@ -236,8 +240,7 @@ public final class CompletionFunction<
               builtArtifactsBuilder.build(), artifactsToBuild);
 
       ExtendedEventHandler.Postable postable =
-          completor.createFailed(
-              value, rootCauses, builtOutputs, env, key.topLevelArtifactContext());
+          completor.createFailed(value, rootCauses, builtOutputs, env, key);
       if (postable == null) {
         return null;
       }

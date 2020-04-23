@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import javax.annotation.Nullable;
 
 /**
@@ -73,10 +73,10 @@ public interface ProviderCollection {
    * transitive information has to have been added using the Starlark framework.
    *
    * <p>This method dispatches to either {@link #get(Provider.Key)} or {@link #get(String)}
-   * depending on whether {@link SkylarkProviderIdentifier} is for legacy or for declared provider.
+   * depending on whether {@link StarlarkProviderIdentifier} is for legacy or for declared provider.
    */
   @Nullable
-  default Object get(SkylarkProviderIdentifier id) {
+  default Object get(StarlarkProviderIdentifier id) {
     if (id.isLegacy()) {
       return this.get(id.getLegacyId());
     } else {

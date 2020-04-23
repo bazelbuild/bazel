@@ -36,8 +36,8 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   private final StarlarkCallable implementation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
-  private final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders;
-  private final ImmutableSet<SkylarkProviderIdentifier> provides;
+  private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders;
+  private final ImmutableSet<StarlarkProviderIdentifier> provides;
   private final ImmutableSet<String> paramAttributes;
   private final ImmutableSet<String> fragments;
   private final ConfigurationTransition hostTransition;
@@ -51,8 +51,8 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       StarlarkCallable implementation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
-      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders,
-      ImmutableSet<SkylarkProviderIdentifier> provides,
+      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
+      ImmutableSet<StarlarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       // The host transition is in lib.analysis, so we can't reference it directly here.
@@ -80,8 +80,8 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       StarlarkCallable implementation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
-      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders,
-      ImmutableSet<SkylarkProviderIdentifier> provides,
+      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
+      ImmutableSet<StarlarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       // The host transition is in lib.analysis, so we can't reference it directly here.
@@ -177,9 +177,9 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       builder.add(attr);
     }
     builder.requireAspectsWithProviders(requiredAspectProviders);
-    ImmutableList.Builder<SkylarkProviderIdentifier> advertisedSkylarkProviders =
+    ImmutableList.Builder<StarlarkProviderIdentifier> advertisedSkylarkProviders =
         ImmutableList.builder();
-    for (SkylarkProviderIdentifier provider : provides) {
+    for (StarlarkProviderIdentifier provider : provides) {
       advertisedSkylarkProviders.add(provider);
     }
     builder.advertiseProvider(advertisedSkylarkProviders.build());

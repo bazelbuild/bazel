@@ -54,8 +54,8 @@ import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
@@ -69,20 +69,18 @@ import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
@@ -257,7 +255,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             : fields instanceof Dict
                 ? Dict.cast(fields, String.class, String.class, "fields").keySet()
                 : null;
-    return SkylarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
+    return StarlarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -301,7 +299,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         attrObjectToAttributesList(attrs);
 
     if (skylarkTestable) {
-      builder.setSkylarkTestable();
+      builder.setStarlarkTestable();
     }
     if (Boolean.TRUE.equals(analysisTest)) {
       builder.setIsAnalysisTest();
@@ -314,7 +312,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               .value(true)
               .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
               .build());
-      builder.setExecutableSkylark();
+      builder.setExecutableStarlark();
     }
 
     if (implicitOutputs != Starlark.NONE) {
@@ -323,10 +321,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             new StarlarkCallbackHelper(
                 (StarlarkFunction) implicitOutputs, thread.getSemantics(), bazelContext);
         builder.setImplicitOutputsFunction(
-            new SkylarkImplicitOutputsFunctionWithCallback(callback, thread.getCallerLocation()));
+            new StarlarkImplicitOutputsFunctionWithCallback(callback, thread.getCallerLocation()));
       } else {
         builder.setImplicitOutputsFunction(
-            new SkylarkImplicitOutputsFunctionWithMap(
+            new StarlarkImplicitOutputsFunctionWithMap(
                 ImmutableMap.copyOf(
                     Dict.cast(
                         implicitOutputs,
@@ -340,7 +338,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       builder.setOutputToGenfiles();
     }
 
-    builder.requiresConfigurationFragmentsBySkylarkModuleName(
+    builder.requiresConfigurationFragmentsByStarlarkModuleName(
         Sequence.cast(fragments, String.class, "fragments"));
     ConfigAwareRuleClassBuilder.of(builder)
         .requiresHostConfigurationFragmentsBySkylarkModuleName(
@@ -353,7 +351,14 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
 
     if (execGroups != Starlark.NONE) {
-      builder.addExecGroups(Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group"));
+      Map<String, ExecGroup> execGroupDict =
+          Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
+      for (String group : execGroupDict.keySet()) {
+        if (!Identifier.isValid(group)) {
+          throw Starlark.errorf("exec group name '%s' is not a valid identifier.", group);
+        }
+      }
+      builder.addExecGroups(execGroupDict);
     }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
@@ -382,9 +387,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             EvalUtils.getDataTypeName(o, true));
       }
     }
-    for (SkylarkProviderIdentifier skylarkProvider :
+    for (StarlarkProviderIdentifier skylarkProvider :
         SkylarkAttr.getSkylarkProviderIdentifiers(providesArg)) {
-      builder.advertiseSkylarkProvider(skylarkProvider);
+      builder.advertiseStarlarkProvider(skylarkProvider);
     }
 
     if (!execCompatibleWith.isEmpty()) {
@@ -571,8 +576,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
    *
    * <p>Exactly one of {@link #builder} or {@link #ruleClass} is null except inside {@link #export}.
    */
-  public static final class SkylarkRuleFunction extends BaseFunction
-      implements SkylarkExportable, RuleFunction {
+  public static final class SkylarkRuleFunction
+      implements StarlarkCallable, SkylarkExportable, RuleFunction {
     private RuleClass.Builder builder;
 
     private RuleClass ruleClass;
@@ -610,11 +615,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     @Override
     public String getName() {
       return "rule";
-    }
-
-    @Override
-    public FunctionSignature getSignature() {
-      return FunctionSignature.KWARGS; // just for documentation
     }
 
     @Override
@@ -774,6 +774,16 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     @Override
     public void repr(Printer printer) {
       printer.append("<rule>");
+    }
+
+    @Override
+    public String toString() {
+      return "rule(...)";
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
     }
   }
 

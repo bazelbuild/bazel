@@ -166,7 +166,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     private void checkRestrictedUsage(RuleContext ruleContext) {
       Rule rule = ruleContext.getRule();
-      if (rule.getRuleClassObject().isSkylark()
+      if (rule.getRuleClassObject().isStarlark()
           || (!rule.getRuleClass().equals("java_binary")
               && !rule.getRuleClass().equals("java_test")
               && !rule.getRuleClass().equals("py_binary")
@@ -1280,13 +1280,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           return null;
         }
 
-        @SuppressWarnings("unchecked")
-        NestedSet<Tuple<Object>> dynamicDeps =
-            (NestedSet<Tuple<Object>>)
-                (NestedSet<?>)
-                    Depset.getSetFromNoneableParam(dynamicDepsField, Tuple.class, "dynamic_deps");
+        @SuppressWarnings("rawtypes")
+        NestedSet<Tuple> dynamicDeps =
+            Depset.noneableCast(dynamicDepsField, Tuple.class, "dynamic_deps");
 
-        for (Tuple<Object> exportsAndLinkerInput : dynamicDeps.toList()) {
+        for (Tuple<?> exportsAndLinkerInput : dynamicDeps.toList()) {
           List<String> exportsFromDynamicDep =
               Sequence.noneableCast(
                   exportsAndLinkerInput.get(0), String.class, "exports_from_dynamic_dep");

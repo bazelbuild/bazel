@@ -325,15 +325,31 @@ public final class BuiltinCallable implements StarlarkCallable {
   }
 
   private void checkParamValue(ParamDescriptor param, Object value) throws EvalException {
-    // invalid argument?
-    SkylarkType type = param.getSkylarkType();
-    if (!type.contains(value)) {
+    // Value must belong to one of the specified classes.
+    boolean ok = false;
+    for (Class<?> cls : param.getAllowedClasses()) {
+      if (cls.isInstance(value)) {
+        ok = true;
+        break;
+      }
+    }
+    if (!ok) {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
-          methodName, param.getName(), EvalUtils.getDataTypeName(value), type);
+          methodName,
+          param.getName(),
+          EvalUtils.getDataTypeName(value),
+          param.getTypeErrorMessage());
     }
 
-    // unexpected None?
+    // None is valid if and only if the parameter is marked noneable,
+    // in which case the above check passes as the list of classes will include NoneType.
+    // The reason for this check is to ensure that merely having type=Object.class
+    // does not allow None as an argument value; I'm not sure why, that but that's the
+    // historical behavior.
+    //
+    // We do this check second because the first check prints a better error
+    // that enumerates the allowed types.
     if (value == Starlark.NONE && !param.isNoneable()) {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' cannot be None", methodName, param.getName());

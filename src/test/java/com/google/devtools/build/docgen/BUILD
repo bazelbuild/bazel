@@ -45,7 +45,7 @@ java_library(
     name = "documentation-failures-tests",
     testonly = 1,
     srcs = [
-        "SkylarkDocumentationFailuresTest.java",
+        "StarlarkDocumentationFailuresTest.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
@@ -68,7 +68,7 @@ java_library(
         "RuleDocumentationAttributeTest.java",
         "RuleDocumentationTest.java",
         "RuleLinkExpanderTest.java",
-        "SkylarkDocumentationTest.java",
+        "StarlarkDocumentationTest.java",
     ],
     deps = [
         ":testutil",
