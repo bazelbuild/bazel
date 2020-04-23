@@ -137,7 +137,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       // Create the Vulkan validation layers libraries
       for (CToolchain toolchain : crosstool.getToolchainList()) {
         vulkanValidationLayers.append(
-            vulkanValidationLayersTemplate.replace("%cpu%", toolchain.getTargetCpu()));
+            vulkanValidationLayersTemplate
+                .replace("%toolchainName%", toolchain.getToolchainIdentifier())
+                .replace("%cpu%", toolchain.getTargetCpu()));
       }
 
     }
