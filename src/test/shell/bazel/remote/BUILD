@@ -27,6 +27,7 @@ sh_test(
         "//src/tools/remote:worker",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 5,
 )
 
 sh_test(
