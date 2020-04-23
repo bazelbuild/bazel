@@ -329,17 +329,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   @Override
   public String toString() {
-    StringBuilder sb = new StringBuilder();
-    sb.append(getName());
-    sb.append('(');
-    signature.toStringBuilder(sb, this::printDefaultValue);
-    sb.append(')');
-    return sb.toString();
-  }
-
-  private String printDefaultValue(int i) {
-    Object v = defaultValues.get(i);
-    return v != null ? Starlark.repr(v) : null;
+    return String.format("%s(%s)", name, signature);
   }
 
   @Override

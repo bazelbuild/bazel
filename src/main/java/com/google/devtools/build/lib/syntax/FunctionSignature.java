@@ -18,7 +18,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import javax.annotation.Nullable;
 
 /**
  * Function Signatures for BUILD language (same as Python)
@@ -135,24 +134,7 @@ abstract class FunctionSignature {
 
   @Override
   public final String toString() {
-    StringBuilder sb = new StringBuilder();
-    toStringBuilder(sb, null); // no default values
-    return sb.toString();
-  }
-
-  // ElementPrinter returns the string form of the ith element of a sequence.
-  interface ElementPrinter {
-    String print(int i);
-  }
-
-  /**
-   * Appends a representation of this signature to a string buffer.
-   *
-   * @param printer output StringBuilder
-   * @param defaultValuePrinter optional callback for formatting i'th default value (if any).
-   */
-  StringBuilder toStringBuilder(
-      final StringBuilder printer, @Nullable final ElementPrinter defaultValuePrinter) {
+    StringBuilder printer = new StringBuilder();
     final ImmutableList<String> names = getParameterNames();
 
     int mandatoryPositionals = numMandatoryPositionals();
@@ -171,7 +153,6 @@ abstract class FunctionSignature {
 
     class Show {
       private boolean isMore = false;
-      private int j = 0;
 
       void comma() {
         if (isMore) {
@@ -187,10 +168,6 @@ abstract class FunctionSignature {
 
       void optional(int i) {
         mandatory(i);
-        if (defaultValuePrinter != null) {
-          String str = defaultValuePrinter.print(j++);
-          printer.append(" = ").append(str != null ? str : "?");
-        }
       }
     }
 
@@ -222,7 +199,7 @@ abstract class FunctionSignature {
       printer.append(names.get(iKwArg));
     }
 
-    return printer;
+    return printer.toString();
   }
 
   /**
