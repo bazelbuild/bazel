@@ -281,8 +281,23 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(label);
     Artifact coverageArtifact = maybeCreateCoverageArtifact(outputs.output());
     builder.setCoverageArtifact(coverageArtifact);
-    builder.setClasspathEntries(attributes.getCompileTimeClassPath());
-    builder.setBootClassPath(getBootclasspathOrDefault());
+    BootClassPathInfo bootClassPathInfo = getBootclasspathOrDefault();
+    builder.setBootClassPath(bootClassPathInfo);
+    if (!bootClassPathInfo.auxiliary().isEmpty()) {
+      builder.setClasspathEntries(
+          NestedSetBuilder.<Artifact>naiveLinkOrder()
+              .addTransitive(bootClassPathInfo.auxiliary())
+              .addTransitive(attributes.getCompileTimeClassPath())
+              .build());
+      builder.setDirectJars(
+          NestedSetBuilder.<Artifact>naiveLinkOrder()
+              .addTransitive(bootClassPathInfo.auxiliary())
+              .addTransitive(attributes.getDirectJars())
+              .build());
+    } else {
+      builder.setClasspathEntries(attributes.getCompileTimeClassPath());
+      builder.setDirectJars(attributes.getDirectJars());
+    }
     builder.setSourcePathEntries(attributes.getSourcePath());
     builder.setToolsJars(javaToolchain.getTools());
     builder.setJavaBuilder(javaToolchain.getJavaBuilder());
@@ -316,7 +331,6 @@ public final class JavaCompilationHelper {
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
-    builder.setDirectJars(attributes.getDirectJars());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
