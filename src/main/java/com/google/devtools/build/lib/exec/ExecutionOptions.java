@@ -281,29 +281,6 @@ public class ExecutionOptions extends OptionsBase {
   public boolean useResourceAutoSense;
 
   @Option(
-      name = "incompatible_remove_ram_utilization_factor",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If true, fully deprecates --ram_utilization_factor.")
-  public boolean removeRamUtilizationFactor;
-
-  @Option(
-      name = "ram_utilization_factor",
-      defaultValue = "0",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      deprecationWarning =
-          "--ram_utilization_factor will be deprecated. Please use"
-              + " --local_ram_resources=HOST_RAM*<float> instead.",
-      help = "This flag will be deprecated. Please use --local_ram_resources.")
-  public int ramUtilizationPercentage;
-
-  @Option(
       name = "local_resources",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
