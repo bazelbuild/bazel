@@ -13,7 +13,10 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = ["//src:bazel"],
-    data = ["//src/tools/remote:worker"],
+    data = [
+        "//src/tools/remote:worker",
+        "//src/tools/remote:worker_deploy.jar",
+    ],
 )
 
 py_library(
