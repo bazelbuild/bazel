@@ -797,6 +797,8 @@ public class FilesystemValueCheckerTest {
   }
 
   @Test
+  // TODO(b/154337187): Remove the following annotation to re-enable once this test is de-flaked.
+  @Ignore
   public void testDirtyActionsBatchStatWithDigest() throws Exception {
     checkDirtyActions(
         new BatchStat() {
@@ -816,6 +818,8 @@ public class FilesystemValueCheckerTest {
   }
 
   @Test
+  // TODO(b/154337187): Remove the following annotation to re-enable once this test is de-flaked.
+  @Ignore
   public void testDirtyActionsBatchStatFallback() throws Exception {
     checkDirtyActions(
         new BatchStat() {
