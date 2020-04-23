@@ -23,7 +23,10 @@ function start_worker() {
   cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
   worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
+  native_lib="${BAZEL_RUNFILES}/src/main/native/"
   "${REMOTE_WORKER}" \
+      --singlejar \
+      --jvm_flag=-Djava.library.path="${native_lib}" \
       --work_path="${work_path}" \
       --cas_path="${cas_path}" \
       --listen_port=${worker_port} \
