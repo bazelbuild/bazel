@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.syntax.Depset.ElementType;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -37,7 +38,7 @@ public final class DepsetTest extends EvaluationTestCase {
     assertThat(lookup("s")).isInstanceOf(Depset.class);
   }
 
-  private static final SkylarkType TUPLE = SkylarkType.of(Tuple.class);
+  private static final ElementType TUPLE = ElementType.of(Tuple.class);
 
   @Test
   public void testTuples() throws Exception {
@@ -50,10 +51,10 @@ public final class DepsetTest extends EvaluationTestCase {
         "s_six = depset(transitive = [s_one, s_five])",
         "s_seven = depset(direct = [('1', '3')], transitive = [s_one, s_five])",
         "s_eight = depset(direct = [(1, 3)], transitive = [s_one, s_two])"); // note, tuple of int
-    assertThat(get("s_one").getContentType()).isEqualTo(TUPLE);
-    assertThat(get("s_two").getContentType()).isEqualTo(TUPLE);
-    assertThat(get("s_three").getContentType()).isEqualTo(TUPLE);
-    assertThat(get("s_eight").getContentType()).isEqualTo(TUPLE);
+    assertThat(get("s_one").getElementType()).isEqualTo(TUPLE);
+    assertThat(get("s_two").getElementType()).isEqualTo(TUPLE);
+    assertThat(get("s_three").getElementType()).isEqualTo(TUPLE);
+    assertThat(get("s_eight").getElementType()).isEqualTo(TUPLE);
 
     assertThat(get("s_four").getSet(Tuple.class).toList())
         .containsExactly(
@@ -167,31 +168,31 @@ public final class DepsetTest extends EvaluationTestCase {
   @Test
   public void testEmptyGenericType() throws Exception {
     exec("s = depset()");
-    assertThat(get("s").getContentType()).isEqualTo(SkylarkType.EMPTY);
+    assertThat(get("s").getElementType()).isEqualTo(ElementType.EMPTY);
   }
 
   @Test
   public void testHomogeneousGenericType() throws Exception {
     exec("s = depset(['a', 'b', 'c'])");
-    assertThat(get("s").getContentType()).isEqualTo(SkylarkType.STRING);
+    assertThat(get("s").getElementType()).isEqualTo(ElementType.STRING);
   }
 
   @Test
   public void testHomogeneousGenericTypeDirect() throws Exception {
     exec("s = depset(['a', 'b', 'c'], transitive = [])");
-    assertThat(get("s").getContentType()).isEqualTo(SkylarkType.STRING);
+    assertThat(get("s").getElementType()).isEqualTo(ElementType.STRING);
   }
 
   @Test
   public void testHomogeneousGenericTypeItems() throws Exception {
     exec("s = depset(items = ['a', 'b', 'c'], transitive = [])");
-    assertThat(get("s").getContentType()).isEqualTo(SkylarkType.STRING);
+    assertThat(get("s").getElementType()).isEqualTo(ElementType.STRING);
   }
 
   @Test
   public void testHomogeneousGenericTypeTransitive() throws Exception {
     exec("s = depset(['a', 'b', 'c'], transitive = [depset(['x'])])");
-    assertThat(get("s").getContentType()).isEqualTo(SkylarkType.STRING);
+    assertThat(get("s").getElementType()).isEqualTo(ElementType.STRING);
   }
 
   @Test
@@ -539,30 +540,30 @@ public final class DepsetTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testSkylarkTypeOf() {
+  public void testElementTypeOf() {
     // legal values
-    assertThat(SkylarkType.of(String.class).toString()).isEqualTo("string");
-    assertThat(SkylarkType.of(Integer.class).toString()).isEqualTo("int");
-    assertThat(SkylarkType.of(Boolean.class).toString()).isEqualTo("bool");
+    assertThat(ElementType.of(String.class).toString()).isEqualTo("string");
+    assertThat(ElementType.of(Integer.class).toString()).isEqualTo("int");
+    assertThat(ElementType.of(Boolean.class).toString()).isEqualTo("bool");
 
     // concrete non-values
-    assertThrows(IllegalArgumentException.class, () -> SkylarkType.of(Float.class));
+    assertThrows(IllegalArgumentException.class, () -> ElementType.of(Float.class));
 
     // concrete classes that implement StarlarkValue
-    assertThat(SkylarkType.of(StarlarkList.class).toString()).isEqualTo("list");
-    assertThat(SkylarkType.of(Tuple.class).toString()).isEqualTo("tuple");
-    assertThat(SkylarkType.of(Dict.class).toString()).isEqualTo("dict");
+    assertThat(ElementType.of(StarlarkList.class).toString()).isEqualTo("list");
+    assertThat(ElementType.of(Tuple.class).toString()).isEqualTo("tuple");
+    assertThat(ElementType.of(Dict.class).toString()).isEqualTo("dict");
     class V implements StarlarkValue {} // no SkylarkModule annotation
-    assertThat(SkylarkType.of(V.class).toString()).isEqualTo("V");
+    assertThat(ElementType.of(V.class).toString()).isEqualTo("V");
 
     // abstract classes that implement StarlarkValue
-    assertThat(SkylarkType.of(Sequence.class).toString()).isEqualTo("sequence");
-    assertThat(SkylarkType.of(StarlarkCallable.class).toString()).isEqualTo("function");
-    assertThat(SkylarkType.of(StarlarkIterable.class).toString()).isEqualTo("StarlarkIterable");
+    assertThat(ElementType.of(Sequence.class).toString()).isEqualTo("sequence");
+    assertThat(ElementType.of(StarlarkCallable.class).toString()).isEqualTo("function");
+    assertThat(ElementType.of(StarlarkIterable.class).toString()).isEqualTo("StarlarkIterable");
 
     // superclasses of legal values that aren't values themselves
-    assertThrows(IllegalArgumentException.class, () -> SkylarkType.of(Number.class));
-    assertThrows(IllegalArgumentException.class, () -> SkylarkType.of(CharSequence.class));
-    assertThrows(IllegalArgumentException.class, () -> SkylarkType.of(Object.class));
+    assertThrows(IllegalArgumentException.class, () -> ElementType.of(Number.class));
+    assertThrows(IllegalArgumentException.class, () -> ElementType.of(CharSequence.class));
+    assertThrows(IllegalArgumentException.class, () -> ElementType.of(Object.class));
   }
 }

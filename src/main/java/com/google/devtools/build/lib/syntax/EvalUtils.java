@@ -177,7 +177,7 @@ public final class EvalUtils {
     if (fullDetails) {
       if (object instanceof Depset) {
         Depset set = (Depset) object;
-        return "depset of " + set.getContentType() + "s";
+        return "depset of " + set.getElementType() + "s";
       }
     }
     return getDataTypeNameFromClass(object.getClass());

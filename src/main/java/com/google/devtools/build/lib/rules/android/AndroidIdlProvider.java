@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdlProviderApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /**
  * Configured targets implementing this provider can contribute Android IDL information to the
@@ -53,7 +52,7 @@ public final class AndroidIdlProvider extends NativeInfo
 
   @Override
   public Depset /*<String>*/ getTransitiveIdlImportRootsForStarlark() {
-    return Depset.of(SkylarkType.STRING, transitiveIdlImportRoots);
+    return Depset.of(Depset.ElementType.STRING, transitiveIdlImportRoots);
   }
 
   NestedSet<String> getTransitiveIdlImportRoots() {

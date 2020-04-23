@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import javax.annotation.Nullable;
 
 /**
@@ -78,7 +77,7 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
 
   @Override
   public Depset /*<String>*/ getDynamicFrameworkDirs() {
-    return Depset.of(SkylarkType.STRING, dynamicFrameworkDirs);
+    return Depset.of(Depset.ElementType.STRING, dynamicFrameworkDirs);
   }
 
   @Override

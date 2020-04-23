@@ -115,7 +115,6 @@ java_library(
         "SkylarkClassObject.java",
         "SkylarkIndexable.java",
         "SkylarkQueryable.java",
-        "SkylarkType.java",
         "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFunction.java",

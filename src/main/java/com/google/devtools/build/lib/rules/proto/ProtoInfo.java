@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Pair;
 import javax.annotation.Nullable;
 
@@ -147,7 +146,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    */
   @Override
   public Depset /*<String>*/ getTransitiveProtoSourceRootsForStarlark() {
-    return Depset.of(SkylarkType.STRING, transitiveProtoSourceRoots);
+    return Depset.of(Depset.ElementType.STRING, transitiveProtoSourceRoots);
   }
 
   public NestedSet<String> getTransitiveProtoSourceRoots() {

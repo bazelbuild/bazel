@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -141,13 +140,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   @Override
   public Depset getSkylarkDefines() {
-    return Depset.of(SkylarkType.STRING, getDefines());
+    return Depset.of(Depset.ElementType.STRING, getDefines());
   }
 
   @Override
   public Depset getSkylarkNonTransitiveDefines() {
     return Depset.of(
-        SkylarkType.STRING, NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
+        Depset.ElementType.STRING,
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
   }
 
   @Override
@@ -168,7 +168,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getSkylarkSystemIncludeDirs() {
     return Depset.of(
-        SkylarkType.STRING,
+        Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getSystemIncludeDirs().stream()
@@ -179,7 +179,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getSkylarkFrameworkIncludeDirs() {
     return Depset.of(
-        SkylarkType.STRING,
+        Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getFrameworkIncludeDirs().stream()
@@ -190,7 +190,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getSkylarkIncludeDirs() {
     return Depset.of(
-        SkylarkType.STRING,
+        Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getIncludeDirs().stream()
@@ -201,7 +201,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getSkylarkQuoteIncludeDirs() {
     return Depset.of(
-        SkylarkType.STRING,
+        Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getQuoteIncludeDirs().stream()

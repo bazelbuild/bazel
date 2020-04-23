@@ -23,9 +23,6 @@ import javax.annotation.Nullable;
  *
  * <p>See FunctionSignature for how a valid list of Parameters is organized as a signature, e.g. def
  * foo(mandatory, optional = e1, *args, mandatorynamedonly, optionalnamedonly = e2, **kw): ...
- *
- * <p>V is the class of a defaultValue (Expression at compile-time, Object at runtime), T is the
- * class of a type (Expression at compile-time, SkylarkType at runtime).
  */
 public abstract class Parameter extends Node {
 

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** A utility class for converting ObjcProvider values between java and Starlark representation. */
@@ -60,7 +59,7 @@ public class ObjcProviderSkylarkConverters {
     for (PathFragment path : pathFragments.toList()) {
       result.add(path.getSafePathString());
     }
-    return Depset.of(SkylarkType.STRING, result.build());
+    return Depset.of(Depset.ElementType.STRING, result.build());
   }
 
   /** A converter for ObjcProvider values. */
@@ -77,7 +76,7 @@ public class ObjcProviderSkylarkConverters {
 
     @Override
     public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
-      SkylarkType type = SkylarkType.of(javaKey.getType());
+      Depset.ElementType type = Depset.ElementType.of(javaKey.getType());
       return Depset.of(type, javaValue);
     }
 
@@ -118,7 +117,7 @@ public class ObjcProviderSkylarkConverters {
       for (SdkFramework framework : ((NestedSet<SdkFramework>) javaValue).toList()) {
         result.add(framework.getName());
       }
-      return Depset.of(SkylarkType.STRING, result.build());
+      return Depset.of(Depset.ElementType.STRING, result.build());
     }
 
     @Override

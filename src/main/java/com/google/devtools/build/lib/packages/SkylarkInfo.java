@@ -19,11 +19,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.HasBinary;
 import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.ArrayList;
@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 /** An Info (provider instance) for providers defined in Starlark. */
 public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObject {
 
-  public static final SkylarkType TYPE = SkylarkType.of(SkylarkInfo.class);
+  public static final Depset.ElementType TYPE = Depset.ElementType.of(SkylarkInfo.class);
 
   // For a n-element info, the table contains n key strings, sorted,
   // followed by the n corresponding legal Starlark values.

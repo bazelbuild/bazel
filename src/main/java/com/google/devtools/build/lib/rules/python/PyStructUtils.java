@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 
 /** Static helper class for creating and accessing instances of the legacy "py" struct provider. */
@@ -76,7 +75,8 @@ public class PyStructUtils {
     builder.put(USES_SHARED_LIBRARIES, false);
     builder.put(
         IMPORTS,
-        Depset.of(SkylarkType.STRING, NestedSetBuilder.<String>emptySet(Order.COMPILE_ORDER)));
+        Depset.of(
+            Depset.ElementType.STRING, NestedSetBuilder.<String>emptySet(Order.COMPILE_ORDER)));
     builder.put(HAS_PY2_ONLY_SOURCES, false);
     builder.put(HAS_PY3_ONLY_SOURCES, false);
     DEFAULTS = builder.build();
@@ -199,7 +199,7 @@ public class PyStructUtils {
     }
 
     public Builder setImports(NestedSet<String> imports) {
-      this.imports = Depset.of(SkylarkType.STRING, imports);
+      this.imports = Depset.of(Depset.ElementType.STRING, imports);
       return this;
     }
 

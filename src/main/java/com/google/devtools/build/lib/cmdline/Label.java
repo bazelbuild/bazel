@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -62,7 +62,7 @@ public final class Label
     implements Comparable<Label>, Serializable, StarlarkValue, SkyKey, CommandLineItem {
 
   /** The Starlark type symbol for Label values. */
-  public static final SkylarkType TYPE = SkylarkType.of(Label.class);
+  public static final Depset.ElementType TYPE = Depset.ElementType.of(Label.class);
 
   /**
    * Package names that aren't made relative to the current repository because they mean special
