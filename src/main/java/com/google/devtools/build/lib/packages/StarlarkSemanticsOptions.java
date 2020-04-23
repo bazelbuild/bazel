@@ -291,6 +291,19 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalAllowTagsPropagation;
 
   @Option(
+      name = "experimental_use_starlark_python",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help =
+          "If set to true, Python rule implementations in Starlark will be used."
+              + "Java implementation no longer works then.")
+  public boolean experimentalUseStarlarkPython;
+
+  @Option(
       name = "incompatible_always_check_depset_elements",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -649,6 +662,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalDisableExternalPackage(experimentalDisableExternalPackage)
             .experimentalSiblingRepositoryLayout(experimentalSiblingRepositoryLayout)
             .experimentalExecGroups(experimentalExecGroups)
+            .experimentalUseStarlarkPython(experimentalUseStarlarkPython)
             .incompatibleApplicableLicenses(incompatibleApplicableLicenses)
             .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)
             .incompatibleDisableThirdPartyLicenseChecking(

@@ -192,6 +192,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalCcSharedLibrary(rand.nextBoolean())
         .experimentalRepoRemoteExec(rand.nextBoolean())
         .experimentalExecGroups(rand.nextBoolean())
+        .experimentalUseStarlarkPython(rand.nextBoolean())
         .incompatibleAlwaysCheckDepsetElements(rand.nextBoolean())
         .incompatibleApplicableLicenses(rand.nextBoolean())
         .incompatibleDepsetForLibrariesToLinkGetter(rand.nextBoolean())

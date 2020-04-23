@@ -93,6 +93,8 @@ public abstract class StarlarkSemantics {
         "experimental_starlark_unused_inputs_list";
     public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "experimental_repo_remote_exec";
     public static final String EXPERIMENTAL_EXEC_GROUPS = "experimental_exec_groups";
+    public static final String EXPERIMENTAL_USE_STARLARK_PYTHON =
+        "experimental_use_starlark_python";
     public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
         "incompatible_applicable_licenses";
     public static final String INCOMPATIBLE_DISABLE_DEPSET_INPUTS =
@@ -144,6 +146,8 @@ public abstract class StarlarkSemantics {
         return experimentalRepoRemoteExec();
       case FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS:
         return experimentalExecGroups();
+      case FlagIdentifier.EXPERIMENTAL_USE_STARLARK_PYTHON:
+        return experimentalUseStarlarkPython();
       case FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES:
         return incompatibleApplicableLicenses();
       case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS:
@@ -234,6 +238,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean experimentalSiblingRepositoryLayout();
 
   public abstract boolean experimentalExecGroups();
+
+  public abstract boolean experimentalUseStarlarkPython();
 
   public abstract boolean incompatibleAlwaysCheckDepsetElements();
 
@@ -336,6 +342,7 @@ public abstract class StarlarkSemantics {
           .experimentalDisableExternalPackage(false)
           .experimentalSiblingRepositoryLayout(false)
           .experimentalExecGroups(false)
+          .experimentalUseStarlarkPython(false)
           .incompatibleAlwaysCheckDepsetElements(true)
           .incompatibleApplicableLicenses(false)
           .incompatibleDisableTargetProviderFields(false)
@@ -402,6 +409,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalSiblingRepositoryLayout(boolean value);
 
     public abstract Builder experimentalExecGroups(boolean value);
+
+    public abstract Builder experimentalUseStarlarkPython(boolean value);
 
     public abstract Builder incompatibleAlwaysCheckDepsetElements(boolean value);
 
