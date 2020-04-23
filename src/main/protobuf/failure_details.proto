@@ -100,6 +100,7 @@ message FailureDetail {
     Workspaces workspaces = 117;
     CrashOptions crash_options = 118;
     Filesystem filesystem = 119;
+    ExecutionOptions execution_options = 121;
   }
 
   reserved 102; // For internal use
@@ -287,6 +288,15 @@ message Filesystem {
   enum Code {
     FILESYSTEM_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     DEFAULT_DIGEST_HASH_FUNCTION_CHANGED = 1 [(metadata) = { exit_code: 37 }];
+  }
+
+  Code code = 1;
+}
+
+message ExecutionOptions {
+  enum Code {
+    EXECUTION_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    reserved 1, 2; // For internal use
   }
 
   Code code = 1;
