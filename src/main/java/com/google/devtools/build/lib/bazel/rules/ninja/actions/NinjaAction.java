@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Generic class for Ninja actions. Corresponds to the {@link NinjaTarget} in the Ninja file. */
@@ -64,6 +63,7 @@ public class NinjaAction extends SpawnAction {
       CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
+      CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       boolean executeUnconditionally,
       @Nullable Artifact depFile,
@@ -80,7 +80,7 @@ public class NinjaAction extends SpawnAction {
         /* isShellCommand= */ true,
         /* env= */ env,
         /* executionInfo= */ executionInfo,
-        /* progressMessage= */ createProgressMessage(outputs),
+        /* progressMessage= */ progressMessage,
         /* runfilesSupplier= */ runfilesSupplier,
         /* mnemonic= */ MNEMONIC,
         /* executeUnconditionally= */ executeUnconditionally,
@@ -97,12 +97,6 @@ public class NinjaAction extends SpawnAction {
     }
     this.allowedDerivedInputs = allowedDerivedInputsBuilder.build();
     this.derivedOutputRoot = derivedOutputRoot;
-  }
-
-  private static CharSequence createProgressMessage(List<? extends Artifact> outputs) {
-    return String.format(
-        "running Ninja targets: '%s'",
-        outputs.stream().map(Artifact::getFilename).collect(Collectors.joining(", ")));
   }
 
   @Override
