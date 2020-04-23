@@ -106,6 +106,7 @@ message FailureDetail {
   reserved 105; // For internal use
   reserved 109; // For internal use
   reserved 111 to 113; // For internal use
+  reserved 120; // For internal use
 }
 
 message Interrupted {
@@ -113,7 +114,7 @@ message Interrupted {
     // Interrupted at an unspecified time.
     INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
 
-    reserved 1, 2; // For internal use
+    reserved 1 to 3; // For internal use
 
     // TODO(mschaller): Add subcategories that specify what was happening at the
     //  time of interruption.
