@@ -17,14 +17,19 @@
 package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.objectweb.asm.Type;
 
 /** The key to index a class or interface method or constructor. */
 @AutoValue
 public abstract class MethodKey extends ClassMemberKey<MethodKey> {
+
+  private static final Splitter COLON_SPLITTER = Splitter.on(":");
 
   /** The factory method for {@link MethodKey}. */
   public static MethodKey create(ClassName ownerClass, String name, String descriptor) {
@@ -36,6 +41,16 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
         name,
         descriptor);
     return new AutoValue_MethodKey(ownerClass, name, descriptor);
+  }
+
+  public final String encode() {
+    return ownerName() + ":" + name() + ":" + descriptor();
+  }
+
+  public static MethodKey decode(String textFormat) {
+    List<String> payloads = COLON_SPLITTER.splitToList(textFormat);
+    checkState(payloads.size() == 3, "Invalid text format for method key: Actual(%s)", textFormat);
+    return MethodKey.create(ClassName.create(payloads.get(0)), payloads.get(1), payloads.get(2));
   }
 
   /** The return type of a method. */
@@ -56,6 +71,22 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
   /** The formal parameter types of a method. */
   public ImmutableList<Type> getArgumentTypes() {
     return ImmutableList.copyOf(getArgumentTypeArray());
+  }
+
+  /** The formal parameter type names of a method. */
+  public ImmutableList<ClassName> getArgumentTypeNames() {
+    return getArgumentTypes().stream().map(ClassName::create).collect(toImmutableList());
+  }
+
+  public MethodKey toAdapterMethodForArgsAndReturnTypes(
+      boolean fromStaticOrigin, int invocationSiteHashCode) {
+    checkState(
+        !isConstructor(), "Argument type adapter for constructor is not supported: %s. ", this);
+    return MethodKey.create(
+            owner().typeAdapterOwner(invocationSiteHashCode),
+            name(),
+            fromStaticOrigin ? descriptor() : instanceMethodToStaticDescriptor())
+        .acceptTypeMapper(ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER);
   }
 
   /** The synthetic constructor for a private constructor. */
@@ -79,7 +110,7 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
 
   /** The synthetic bridge method for a private instance method in a class. */
   public final MethodKey bridgeOfClassInstanceMethod() {
-    return create(owner(), nameWithSuffix("bridge"), instanceMethodToStaticDescriptor(this));
+    return create(owner(), nameWithSuffix("bridge"), this.instanceMethodToStaticDescriptor());
   }
 
   /** The substitute method for a private static method in an interface. */
@@ -90,20 +121,16 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
 
   /** The substitute method for a private instance method in an interface. */
   public final MethodKey substituteOfInterfaceInstanceMethod() {
-    return create(owner(), name(), instanceMethodToStaticDescriptor(this));
+    return create(owner(), name(), this.instanceMethodToStaticDescriptor());
   }
 
   /** The descriptor of the static version of a given instance method. */
-  private static String instanceMethodToStaticDescriptor(MethodKey methodKey) {
-    checkState(!methodKey.isConstructor(), "Expect a Non-constructor method: %s", methodKey);
-    ImmutableList<Type> argumentTypes = methodKey.getArgumentTypes();
+  private String instanceMethodToStaticDescriptor() {
+    checkState(!isConstructor(), "Expect a Non-constructor method: %s", this);
+    ImmutableList<Type> argumentTypes = getArgumentTypes();
     ImmutableList<Type> bridgeMethodArgTypes =
-        ImmutableList.<Type>builder()
-            .add(methodKey.ownerAsmObjectType())
-            .addAll(argumentTypes)
-            .build();
-    return Type.getMethodDescriptor(
-        methodKey.getReturnType(), bridgeMethodArgTypes.toArray(new Type[0]));
+        ImmutableList.<Type>builder().add(ownerAsmObjectType()).addAll(argumentTypes).build();
+    return Type.getMethodDescriptor(getReturnType(), bridgeMethodArgTypes.toArray(new Type[0]));
   }
 
   @Override

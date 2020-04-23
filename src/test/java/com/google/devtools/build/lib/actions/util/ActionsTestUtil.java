@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -165,7 +166,8 @@ public final class ActionsTestUtil {
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.DEFAULT);
   }
 
   public static ActionExecutionContext createContext(ExtendedEventHandler eventHandler) {
@@ -183,7 +185,8 @@ public final class ActionsTestUtil {
         /*topLevelFilesets=*/ ImmutableMap.of(),
         createDummyArtifactExpander(),
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.DEFAULT);
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(
@@ -193,7 +196,8 @@ public final class ActionsTestUtil {
       FileOutErr fileOutErr,
       Path execRoot,
       MetadataHandler metadataHandler,
-      BuildDriver buildDriver) {
+      BuildDriver buildDriver,
+      NestedSetExpander nestedSetExpander) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
@@ -205,7 +209,8 @@ public final class ActionsTestUtil {
         eventHandler,
         ImmutableMap.of(),
         new BlockingSkyFunctionEnvironment(buildDriver, eventHandler),
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        nestedSetExpander);
   }
 
   private static ArtifactExpander createDummyArtifactExpander() {
@@ -250,6 +255,11 @@ public final class ActionsTestUtil {
         assertThat(output.getExecPathString()).doesNotMatch(endPattern);
       }
     }
+  }
+
+  public static ArtifactRoot createArtifactRootFromTwoPaths(Path root, Path execPath) {
+    return ArtifactRoot.asDerivedRoot(
+        root, execPath.relativeTo(root).getSegments().toArray(new String[0]));
   }
 
   /**

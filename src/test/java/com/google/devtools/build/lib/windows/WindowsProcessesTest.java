@@ -51,7 +51,7 @@ public class WindowsProcessesTest {
     Runfiles runfiles = Runfiles.create();
     mockSubprocess =
         runfiles.rlocation(
-            "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
+            "io_bazel/src/test/java/com/google/devtools/build/lib/windows/MockSubprocess_deploy.jar");
     mockBinary = System.getProperty("java.home") + "\\bin\\java.exe";
 
     process = -1;

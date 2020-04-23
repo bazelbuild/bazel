@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
@@ -352,7 +352,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
         "    ],",
         ")");
 
-    setSkylarkSemanticsOptions("--experimental_platforms_api");
+    setStarlarkSemanticsOptions("--experimental_platforms_api");
     ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
     assertThat(platform).isNotNull();
 
@@ -411,7 +411,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
         "    ],",
         ")");
 
-    setSkylarkSemanticsOptions("--experimental_platforms_api");
+    setStarlarkSemanticsOptions("--experimental_platforms_api");
     ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
     assertThat(platform).isNotNull();
 
@@ -453,7 +453,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
         "constraint_value(name = 'foo',",
         "    constraint_setting = ':basic',",
         ")");
-    setSkylarkSemanticsOptions("--experimental_platforms_api");
+    setStarlarkSemanticsOptions("--experimental_platforms_api");
     checkError(
         "test/platform",
         "custom",

@@ -24,10 +24,11 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.GlobCache;
+import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -51,17 +52,21 @@ public class PackageFactoryApparatus {
   private final ExtendedEventHandler eventHandler;
   private final PackageFactory factory;
 
+  public PackageFactoryApparatus(ExtendedEventHandler eventHandler) {
+    this(eventHandler, PackageValidator.NOOP_VALIDATOR);
+  }
+
   public PackageFactoryApparatus(
-      ExtendedEventHandler eventHandler,
-      PackageFactory.EnvironmentExtension... environmentExtensions) {
+      ExtendedEventHandler eventHandler, PackageValidator packageValidator) {
     this.eventHandler = eventHandler;
     RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     factory =
         new PackageFactory(
             ruleClassProvider,
-            ImmutableList.copyOf(environmentExtensions),
+            /*environmentExtensions=*/ ImmutableList.of(),
             "test",
-            Package.Builder.DefaultHelper.INSTANCE);
+            Package.Builder.DefaultHelper.INSTANCE,
+            packageValidator);
   }
 
   /**

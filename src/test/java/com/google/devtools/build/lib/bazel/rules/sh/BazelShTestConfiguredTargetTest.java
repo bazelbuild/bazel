@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.sh;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,7 +30,7 @@ public class BazelShTestConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("sh/test/BUILD", "sh_test(name = 'foo_test', srcs = ['foo_test.sh'])");
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget ct = getConfiguredTarget("//sh/test:foo_test");
-    assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", Mode.HOST)).isNull();
+    assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", TransitionMode.HOST)).isNull();
   }
 
   @Test
@@ -39,7 +39,11 @@ public class BazelShTestConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("sh/test/BUILD", "sh_test(name = 'foo_test', srcs = ['foo_test.sh'])");
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget ct = getConfiguredTarget("//sh/test:foo_test");
-    assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger", Mode.HOST).getLabel().toString())
+    assertThat(
+            getRuleContext(ct)
+                .getPrerequisite(":lcov_merger", TransitionMode.HOST)
+                .getLabel()
+                .toString())
         .isEqualTo("@bazel_tools//tools/test:lcov_merger");
   }
 }

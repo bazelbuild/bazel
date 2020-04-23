@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/** Represents an aspect which can be attached to a skylark-defined rule attribute. */
+/** Represents an aspect which can be attached to a Starlark-defined rule attribute. */
 public interface SkylarkAspect extends SkylarkAspectApi {
 
   /**

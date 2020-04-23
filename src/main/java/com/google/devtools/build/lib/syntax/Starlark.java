@@ -18,7 +18,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
@@ -146,12 +145,28 @@ public final class Starlark {
   }
 
   /**
+   * Checks whether the Freezable Starlark value is frozen or temporarily immutable due to active
+   * iterators.
+   *
+   * @throws EvalException if the value is not mutable.
+   */
+  public static void checkMutable(Mutability.Freezable x) throws EvalException {
+    if (x.mutability().isFrozen()) {
+      throw Starlark.errorf("trying to mutate a frozen %s value", Starlark.type(x));
+    }
+    if (x.updateIteratorCount(0)) {
+      throw Starlark.errorf(
+          "%s value is temporarily immutable due to active for-loop iteration", Starlark.type(x));
+    }
+  }
+
+  /**
    * Returns an iterable view of {@code x} if it is an iterable Starlark value; throws EvalException
    * otherwise.
    *
-   * <p>Whereas the interpreter temporarily freezes the iterable value using {@link EvalUtils#lock}
-   * and {@link EvalUtils#unlock} while iterating in {@code for} loops and comprehensions, iteration
-   * using this method does not freeze the value. Callers should exercise care not to mutate the
+   * <p>Whereas the interpreter temporarily freezes the iterable value by bracketing {@code for}
+   * loops and comprehensions in calls to {@link Freezable#updateIteratorCount}, iteration using
+   * this method does not freeze the value. Callers should exercise care not to mutate the
    * underlying object during iteration.
    */
   public static Iterable<?> toIterable(Object x) throws EvalException {
@@ -338,6 +353,8 @@ public final class Starlark {
   /**
    * Calls the function-like value {@code fn} in the specified thread, passing it the given
    * positional and named arguments in the "fastcall" array representation.
+   *
+   * <p>The caller must not subsequently modify or even inspect the two arrays.
    */
   public static Object fastcall(
       StarlarkThread thread, Object fn, Object[] positional, Object[] named)
@@ -416,32 +433,6 @@ public final class Starlark {
     env.put(annot.name(), v);
   }
 
-  /**
-   * Checks the {@code positional} and {@code named} arguments supplied to an implementation of
-   * {@link StarlarkCallable#fastcall} to ensure they match the {@code signature}. It returns an
-   * array of effective parameter values corresponding to the parameters of the signature. Newly
-   * allocated values (e.g. a {@code **kwargs} dict) use the Mutability {@code mu}.
-   *
-   * <p>If the function has optional parameters, their default values must be supplied by {@code
-   * defaults}; see {@link BaseFunction#getDefaultValues} for details.
-   *
-   * <p>The caller is responsible for accessing the correct element and casting to an appropriate
-   * type.
-   *
-   * <p>On failure, it throws an EvalException incorporating {@code func.toString()}.
-   */
-  public static Object[] matchSignature(
-      FunctionSignature signature,
-      StarlarkCallable func, // only used in error messages
-      @Nullable Tuple<Object> defaults,
-      @Nullable Mutability mu,
-      Object[] positional,
-      Object[] named)
-      throws EvalException {
-    // TODO(adonovan): move implementation here.
-    return BaseFunction.matchSignature(signature, func, defaults, mu, positional, named);
-  }
-
   // TODO(adonovan):
   //
   // The code below shows the API that is the destination toward which all of the recent
@@ -487,7 +478,7 @@ public final class Starlark {
    */
   public static Module exec(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
-      throws SyntaxError, EvalException, InterruptedException {
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     // Pseudocode:
     // file = StarlarkFile.parse(input)
     // validateFile(file, predeclared.keys, thread.semantics)
@@ -505,7 +496,7 @@ public final class Starlark {
    * exception.
    */
   public static Object eval(StarlarkThread thread, ParserInput input, Map<String, Object> env)
-      throws SyntaxError, EvalException, InterruptedException {
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     // Pseudocode:
     // StarlarkFunction fn = exprFunc(input, env, thread.semantics)
     // return call(thread, fn)
@@ -517,8 +508,9 @@ public final class Starlark {
    * it. If the final statement is an expression, return its value.
    *
    * <p>This complicated function, which combines exec and eval, is intended for use in a REPL or
-   * debugger. In case of parse of validation error, it throws SyntaxError. In case of execution
-   * error, the function returns partial results: the incomplete module plus the exception.
+   * debugger. In case of parse of validation error, it throws SyntaxError.Exception. In case of
+   * execution error, the function returns partial results: the incomplete module plus the
+   * exception.
    *
    * <p>Assignments in the input act as updates to a new module created by this function, which is
    * returned.
@@ -538,7 +530,7 @@ public final class Starlark {
    */
   public static ModuleAndValue execAndEval(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     // Pseudocode:
     // file = StarlarkFile.parse(input)
     // validateFile(file, predeclared.keys, thread.semantics)
@@ -568,16 +560,16 @@ public final class Starlark {
   /**
    * Parse the input as a file, validates it in the specified predeclared environment (a set of
    * names, optionally filtered by the semantics), and compiles it to a Program. It throws
-   * SyntaxError in case of scan/parse/validation error.
+   * SyntaxError.Exception in case of scan/parse/validation error.
    *
    * <p>In addition to the program, it returns the validated syntax tree. This permits clients such
    * as Bazel to inspect the syntax (for BUILD dialect checks, glob prefetching, etc.)
    */
-  public static Pair<Program, StarlarkFile> compileFile(
+  public static Object /*Pair<Program, StarlarkFile>*/ compileFile(
       ParserInput input, //
       Set<String> predeclared,
       StarlarkSemantics semantics)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     // Pseudocode:
     // file = StarlarkFile.parse(input)
     // validateFile(file, predeclared.keys, thread.semantics)
@@ -621,7 +613,7 @@ public final class Starlark {
       ParserInput input, //
       Map<String, Object> env,
       StarlarkSemantics semantics)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     // Pseudocode:
     // expr = Expression.parse(input)
     // validateExpr(expr, env.keys, semantics)

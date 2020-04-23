@@ -22,7 +22,7 @@ java_test(
     runtime_deps = [
         ":documentation-failures-tests",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
     ],
 )
@@ -35,7 +35,8 @@ java_test(
     tags = ["docgen"],
     deps = [
         ":documentation-tests",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:junit4",
     ],
 )
@@ -44,16 +45,15 @@ java_library(
     name = "documentation-failures-tests",
     testonly = 1,
     srcs = [
-        "SkylarkDocumentationFailuresTest.java",
+        "StarlarkDocumentationFailuresTest.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skylark/util",
+        "//src/test/java/com/google/devtools/build/lib/syntax/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -68,20 +68,22 @@ java_library(
         "RuleDocumentationAttributeTest.java",
         "RuleDocumentationTest.java",
         "RuleLinkExpanderTest.java",
-        "SkylarkDocumentationTest.java",
+        "StarlarkDocumentationTest.java",
     ],
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:classpath-util",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
+        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/test/java/com/google/devtools/build/lib:syntax_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
+        "//src/main/java/com/google/devtools/build/lib/util:classpath",
+        "//src/test/java/com/google/devtools/build/lib/skylark/util",
+        "//src/test/java/com/google/devtools/build/lib/syntax/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -94,8 +96,9 @@ java_library(
     srcs = glob(["testutil/*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
     ],
 )
 

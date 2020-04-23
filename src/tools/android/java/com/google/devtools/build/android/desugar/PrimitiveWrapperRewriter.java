@@ -13,10 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
-import static org.objectweb.asm.Opcodes.INVOKESTATIC;
+import static com.google.devtools.build.android.desugar.langmodel.ClassName.IN_PROCESS_LABEL_STRIPPER;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -24,45 +28,159 @@ import org.objectweb.asm.Opcodes;
 /** This class rewrites (or removes) some trivial primitive wrapper methods. */
 public class PrimitiveWrapperRewriter extends ClassVisitor {
 
-  /** Classes with no-op {@code hashCode(primitive)} static methods, and their descriptors. */
-  private static final ImmutableMap<String, String> NOOP_HASHCODE_DESC =
-      ImmutableMap.of(
-          "java/lang/Integer", "(I)I",
-          "java/lang/Short", "(S)I",
-          "java/lang/Byte", "(B)I",
-          "java/lang/Character", "(C)I");
+  private static final ClassName PRIMITIVE_HASH_CODE_OWNER =
+      ClassName.create("com/google/devtools/build/android/desugar/runtime/PrimitiveHashcode");
 
-  private final CoreLibraryRewriter rewriter;
+  private static final ImmutableMap<MethodInvocationSite, MethodInvocationSite>
+      RUNTIME_LIB_IMPL_REPLACEMENTS =
+          ImmutableMap.<MethodInvocationSite, MethodInvocationSite>builder()
+              .put(
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(
+                              ClassName.create("java/lang/Integer"), "hashCode", "(I)I"))
+                      .setIsInterface(false)
+                      .build(),
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(PRIMITIVE_HASH_CODE_OWNER, "identityAsHashCode", "(I)I"))
+                      .setIsInterface(false)
+                      .build())
+              .put(
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(ClassName.create("java/lang/Short"), "hashCode", "(S)I"))
+                      .setIsInterface(false)
+                      .build(),
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(PRIMITIVE_HASH_CODE_OWNER, "identityAsHashCode", "(S)I"))
+                      .setIsInterface(false)
+                      .build())
+              .put(
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(ClassName.create("java/lang/Byte"), "hashCode", "(B)I"))
+                      .setIsInterface(false)
+                      .build(),
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(PRIMITIVE_HASH_CODE_OWNER, "identityAsHashCode", "(B)I"))
+                      .setIsInterface(false)
+                      .build())
+              .put(
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(
+                              ClassName.create("java/lang/Character"), "hashCode", "(C)I"))
+                      .setIsInterface(false)
+                      .build(),
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(PRIMITIVE_HASH_CODE_OWNER, "identityAsHashCode", "(C)I"))
+                      .setIsInterface(false)
+                      .build())
+              .put(
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(ClassName.create("java/lang/Float"), "hashCode", "(F)I"))
+                      .setIsInterface(false)
+                      .build(),
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(MethodKey.create(PRIMITIVE_HASH_CODE_OWNER, "hashCode", "(F)I"))
+                      .setIsInterface(false)
+                      .build())
+              .put(
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(
+                              ClassName.create("java/lang/Boolean"), "hashCode", "(Z)I"))
+                      .setIsInterface(false)
+                      .build(),
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(MethodKey.create(PRIMITIVE_HASH_CODE_OWNER, "hashCode", "(Z)I"))
+                      .setIsInterface(false)
+                      .build())
+              .put(
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(ClassName.create("java/lang/Long"), "hashCode", "(J)I"))
+                      .setIsInterface(false)
+                      .build(),
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(MethodKey.create(PRIMITIVE_HASH_CODE_OWNER, "hashCode", "(J)I"))
+                      .setIsInterface(false)
+                      .build())
+              .put(
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(
+                          MethodKey.create(
+                              ClassName.create("java/lang/Double"), "hashCode", "(D)I"))
+                      .setIsInterface(false)
+                      .build(),
+                  MethodInvocationSite.builder()
+                      .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                      .setMethod(MethodKey.create(PRIMITIVE_HASH_CODE_OWNER, "hashCode", "(D)I"))
+                      .setIsInterface(false)
+                      .build())
+              .build();
 
-  public PrimitiveWrapperRewriter(ClassVisitor cv, CoreLibraryRewriter rewriter) {
+  /**
+   * The counter to record the times of desugar runtime library's hashcode implementation is
+   * invoked.
+   */
+  private final AtomicInteger numOfPrimitiveHashCodeInvoked;
+
+  public PrimitiveWrapperRewriter(ClassVisitor cv, AtomicInteger numOfPrimitiveHashCodeInvoked) {
     super(Opcodes.ASM7, cv);
-    this.rewriter = rewriter;
+    this.numOfPrimitiveHashCodeInvoked = numOfPrimitiveHashCodeInvoked;
   }
 
   @Override
   public MethodVisitor visitMethod(
       int access, String name, String desc, String signature, String[] exceptions) {
-    MethodVisitor visitor = super.cv.visitMethod(access, name, desc, signature, exceptions);
-    return visitor == null ? visitor : new PrimitiveWrapperMethodVisitor(visitor);
+    MethodVisitor visitor = super.visitMethod(access, name, desc, signature, exceptions);
+    return visitor == null ? null : new PrimitiveWrapperMethodVisitor(visitor);
   }
 
   private class PrimitiveWrapperMethodVisitor extends MethodVisitor {
 
-    public PrimitiveWrapperMethodVisitor(MethodVisitor visitor) {
+    PrimitiveWrapperMethodVisitor(MethodVisitor visitor) {
       super(Opcodes.ASM7, visitor);
     }
 
     @Override
-    public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-      String noopDescriptor = NOOP_HASHCODE_DESC.get(rewriter.unprefix(owner));
-      if (opcode == INVOKESTATIC
-          && !itf
-          && name.equals("hashCode")
-          && noopDescriptor != null
-          && noopDescriptor.equals(desc)) {
-        return; // skip: use original primitive value as its hash (b/147139686)
+    public void visitMethodInsn(
+        int opcode, String owner, String name, String desc, boolean isInterface) {
+      MethodInvocationSite verbatimInvocationSite =
+          MethodInvocationSite.create(opcode, owner, name, desc, isInterface)
+              .acceptTypeMapper(IN_PROCESS_LABEL_STRIPPER);
+      MethodInvocationSite replacementSite =
+          RUNTIME_LIB_IMPL_REPLACEMENTS.get(verbatimInvocationSite);
+      if (replacementSite != null) {
+        if (replacementSite.name().equals("identityAsHashCode")) {
+          return; // skip: use original primitive value as its hash (b/147139686)
+        }
+        numOfPrimitiveHashCodeInvoked.incrementAndGet();
+        replacementSite.accept(this); // (b/147139686)
+        return;
       }
-      super.visitMethodInsn(opcode, owner, name, desc, itf);
+      super.visitMethodInsn(opcode, owner, name, desc, isInterface);
     }
   }
 }

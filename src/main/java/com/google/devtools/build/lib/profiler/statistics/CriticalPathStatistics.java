@@ -13,42 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
-import static com.google.devtools.build.lib.profiler.ProfilerTask.CRITICAL_PATH;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.TraceEvent;
-import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
-import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.Task;
 import java.time.Duration;
 import java.util.List;
 
 /**
- * Keeps a predefined list of {@link Task}'s cumulative durations and allows iterating over pairs of
- * their descriptions and relative durations.
+ * Keeps a predefined list of {@link TraceEvent}'s cumulative durations and allows iterating over
+ * pairs of their descriptions and relative durations.
  */
 public final class CriticalPathStatistics {
   private final ImmutableList<TraceEvent> criticalPathEntries;
   private Duration totalDuration = Duration.ZERO;
-
-  public CriticalPathStatistics(ProfileInfo info) {
-    ImmutableList.Builder<TraceEvent> criticalPathEntriesBuilder = new ImmutableList.Builder<>();
-    for (Task task : info.rootTasksById) {
-      if (task.type == CRITICAL_PATH) {
-        for (Task criticalPathEntry : task.subtasks) {
-          totalDuration = totalDuration.plus(Duration.ofNanos(criticalPathEntry.durationNanos));
-          criticalPathEntriesBuilder.add(
-              TraceEvent.create(
-                  ProfilerTask.CRITICAL_PATH_COMPONENT.description,
-                  criticalPathEntry.getDescription(),
-                  Duration.ofNanos(criticalPathEntry.startTime),
-                  Duration.ofNanos(criticalPathEntry.durationNanos),
-                  criticalPathEntry.threadId));
-        }
-      }
-    }
-    this.criticalPathEntries = criticalPathEntriesBuilder.build();
-  }
 
   public CriticalPathStatistics(List<TraceEvent> traceEvents) {
     ImmutableList.Builder<TraceEvent> criticalPathEntriesBuilder = new ImmutableList.Builder<>();

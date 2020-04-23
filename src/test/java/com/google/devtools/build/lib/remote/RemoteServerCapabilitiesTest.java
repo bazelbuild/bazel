@@ -25,6 +25,8 @@ import build.bazel.remote.execution.v2.PriorityCapabilities;
 import build.bazel.remote.execution.v2.PriorityCapabilities.PriorityRange;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
@@ -48,10 +50,9 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -63,12 +64,7 @@ public class RemoteServerCapabilitiesTest {
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();
   private Server fakeServer;
-  private static ListeningScheduledExecutorService retryService;
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
+  private ListeningScheduledExecutorService retryService;
 
   @Before
   public final void setUp() throws Exception {
@@ -78,17 +74,17 @@ public class RemoteServerCapabilitiesTest {
             .directExecutor()
             .build()
             .start();
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }
 
   @After
   public void tearDown() throws Exception {
+    retryService.shutdownNow();
+    retryService.awaitTermination(
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
-  }
-
-  @AfterClass
-  public static void afterEverything() {
-    retryService.shutdownNow();
   }
 
   /** Capture the request headers from a client. Useful for testing metadata propagation. */
@@ -105,6 +101,60 @@ public class RemoteServerCapabilitiesTest {
           .isEqualTo(BlazeVersionInfo.instance().getVersion());
       return next.startCall(call, headers);
     }
+  }
+
+  private static class RequestCustomHeadersValidator implements ServerInterceptor {
+    @Override
+    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+      assertThat(headers.get(Metadata.Key.of("Key1", Metadata.ASCII_STRING_MARSHALLER)))
+          .isEqualTo("Value1");
+      assertThat(headers.get(Metadata.Key.of("Key2", Metadata.ASCII_STRING_MARSHALLER)))
+          .isEqualTo("Value2");
+      return next.startCall(call, headers);
+    }
+  }
+
+  @Test
+  public void testCustomHeadersAreAttached() throws Exception {
+    ServerCapabilities caps =
+        ServerCapabilities.newBuilder()
+            .setExecutionCapabilities(
+                ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+            .build();
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(
+            new CapabilitiesImplBase() {
+              @Override
+              public void getCapabilities(
+                  GetCapabilitiesRequest request,
+                  StreamObserver<ServerCapabilities> responseObserver) {
+                responseObserver.onNext(caps);
+                responseObserver.onCompleted();
+              }
+            },
+            new RequestCustomHeadersValidator()));
+
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("Key1", "Value1"), Maps.immutableEntry("Key2", "Value2"));
+
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new ExponentialBackoff(remoteOptions),
+            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+            retryService);
+    ReferenceCountedChannel channel =
+        new ReferenceCountedChannel(
+            InProcessChannelBuilder.forName(fakeServerName)
+                .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                .directExecutor()
+                .build());
+    RemoteServerCapabilities client =
+        new RemoteServerCapabilities("instance", channel.retain(), null, 3, retrier);
+
+    assertThat(client.get("build-req-id", "command-id")).isEqualTo(caps);
   }
 
   @Test

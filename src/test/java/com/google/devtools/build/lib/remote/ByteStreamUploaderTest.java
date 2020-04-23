@@ -46,6 +46,7 @@ import io.grpc.Server;
 import io.grpc.ServerCall;
 import io.grpc.ServerCall.Listener;
 import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
 import io.grpc.ServerServiceDefinition;
 import io.grpc.Status;
@@ -53,6 +54,7 @@ import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.ByteArrayInputStream;
@@ -71,9 +73,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -93,7 +93,7 @@ public class ByteStreamUploaderTest {
   private static final String INSTANCE_NAME = "foo";
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
-  private static ListeningScheduledExecutorService retryService;
+  private ListeningScheduledExecutorService retryService;
 
   private Server server;
   private ManagedChannel channel;
@@ -101,11 +101,6 @@ public class ByteStreamUploaderTest {
   private Context prevContext;
 
   @Mock private Retrier.Backoff mockBackoff;
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
 
   @Before
   public final void setUp() throws Exception {
@@ -118,6 +113,9 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata =
         TracingMetadataUtils.contextWithMetadata(
             "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
+
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
     // Needs to be repeated in every test that uses the timeout setting, since the tests run
     // on different threads than the setUp.
     prevContext = withEmptyMetadata.attach();
@@ -129,15 +127,14 @@ public class ByteStreamUploaderTest {
     // on different threads than the tearDown.
     withEmptyMetadata.detach(prevContext);
 
+    retryService.shutdownNow();
+    retryService.awaitTermination(
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
     channel.shutdownNow();
     channel.awaitTermination(5, TimeUnit.SECONDS);
     server.shutdownNow();
     server.awaitTermination();
-  }
-
-  @AfterClass
-  public static void afterEverything() {
-    retryService.shutdownNow();
   }
 
   @Test
@@ -687,6 +684,74 @@ public class ByteStreamUploaderTest {
     blockUntilInternalStateConsistent(uploader);
 
     withEmptyMetadata.detach(prevContext);
+  }
+
+  @Test
+  public void customHeadersAreAttachedToRequest() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+
+    Metadata metadata = new Metadata();
+    metadata.put(Metadata.Key.of("Key1", Metadata.ASCII_STRING_MARSHALLER), "Value1");
+    metadata.put(Metadata.Key.of("Key2", Metadata.ASCII_STRING_MARSHALLER), "Value2");
+
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(
+                InProcessChannelBuilder.forName("Server for " + this.getClass())
+                    .intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
+                    .build()),
+            null, /* timeout seconds */
+            60,
+            retrier);
+
+    byte[] blob = new byte[CHUNK_SIZE];
+    Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
+
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(
+            new ByteStreamImplBase() {
+              @Override
+              public StreamObserver<WriteRequest> write(
+                  StreamObserver<WriteResponse> streamObserver) {
+                return new StreamObserver<WriteRequest>() {
+                  @Override
+                  public void onNext(WriteRequest writeRequest) {}
+
+                  @Override
+                  public void onError(Throwable throwable) {
+                    fail("onError should never be called.");
+                  }
+
+                  @Override
+                  public void onCompleted() {
+                    WriteResponse response =
+                        WriteResponse.newBuilder().setCommittedSize(blob.length).build();
+                    streamObserver.onNext(response);
+                    streamObserver.onCompleted();
+                  }
+                };
+              }
+            },
+            new ServerInterceptor() {
+              @Override
+              public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+                  ServerCall<ReqT, RespT> call,
+                  Metadata metadata,
+                  ServerCallHandler<ReqT, RespT> next) {
+                assertThat(metadata.get(Metadata.Key.of("Key1", Metadata.ASCII_STRING_MARSHALLER)))
+                    .isEqualTo("Value1");
+                assertThat(metadata.get(Metadata.Key.of("Key2", Metadata.ASCII_STRING_MARSHALLER)))
+                    .isEqualTo("Value2");
+                assertThat(metadata.get(Metadata.Key.of("Key3", Metadata.ASCII_STRING_MARSHALLER)))
+                    .isEqualTo(null);
+                return next.startCall(call, metadata);
+              }
+            }));
+
+    uploader.uploadBlob(hash, chunker, true);
   }
 
   @Test

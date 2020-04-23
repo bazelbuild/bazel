@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.skyframe.PackageFunction.StarlarkImportResult;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -41,26 +42,24 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * A SkyFunction to parse WORKSPACE files.
- */
+/** A SkyFunction to parse the WORKSPACE file at a given path. */
 public class WorkspaceFileFunction implements SkyFunction {
 
   private final PackageFactory packageFactory;
   private final BlazeDirectories directories;
   private final RuleClassProvider ruleClassProvider;
-  private final SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
+  private final StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining;
   private static final PackageIdentifier rootPackage = PackageIdentifier.createInMainRepo("");
 
   public WorkspaceFileFunction(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       BlazeDirectories directories,
-      SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
+      StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining) {
     this.packageFactory = packageFactory;
     this.directories = directories;
     this.ruleClassProvider = ruleClassProvider;
-    this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
+    this.starlarkImportLookupFunctionForInlining = starlarkImportLookupFunctionForInlining;
   }
 
   @Override
@@ -68,9 +67,9 @@ public class WorkspaceFileFunction implements SkyFunction {
       throws WorkspaceFileFunctionException, InterruptedException {
 
     WorkspaceFileKey key = (WorkspaceFileKey) skyKey.argument();
-    RootedPath workspaceRoot = key.getPath();
-    WorkspaceASTValue workspaceASTValue = (WorkspaceASTValue) env.getValue(
-        WorkspaceASTValue.key(workspaceRoot));
+    RootedPath workspaceFile = key.getPath();
+    WorkspaceASTValue workspaceASTValue =
+        (WorkspaceASTValue) env.getValue(WorkspaceASTValue.key(workspaceFile));
     if (workspaceASTValue == null) {
       return null;
     }
@@ -79,11 +78,9 @@ public class WorkspaceFileFunction implements SkyFunction {
       return null;
     }
 
-    RootedPath repoWorkspace =
-        RootedPath.toRootedPath(workspaceRoot.getRoot(), workspaceRoot.getRootRelativePath());
     Package.Builder builder =
         packageFactory.newExternalPackageBuilder(
-            repoWorkspace, ruleClassProvider.getRunfilesPrefix(), starlarkSemantics);
+            workspaceFile, ruleClassProvider.getRunfilesPrefix(), starlarkSemantics);
 
     if (workspaceASTValue.getASTs().isEmpty()) {
       try {
@@ -92,7 +89,7 @@ public class WorkspaceFileFunction implements SkyFunction {
             /* importMap = */ ImmutableMap.<String, Extension>of(),
             /* importToChunkMap = */ ImmutableMap.<String, Integer>of(),
             /* bindings = */ ImmutableMap.<String, Object>of(),
-            workspaceRoot,
+            workspaceFile,
             /* idx = */ 0, // first fragment
             /* hasNext = */ false,
             ImmutableMap.of(),
@@ -103,7 +100,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     }
     WorkspaceFactory parser;
     WorkspaceFileValue prevValue = null;
-    try (Mutability mutability = Mutability.create("workspace", repoWorkspace)) {
+    try (Mutability mutability = Mutability.create("workspace", workspaceFile)) {
       parser =
           new WorkspaceFactory(
               builder,
@@ -118,7 +115,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       if (key.getIndex() > 0) {
         prevValue =
             (WorkspaceFileValue)
-                env.getValue(WorkspaceFileValue.key(key.getPath(), key.getIndex() - 1));
+                env.getValue(WorkspaceFileValue.key(workspaceFile, key.getIndex() - 1));
         if (prevValue == null) {
           return null;
         }
@@ -128,15 +125,15 @@ public class WorkspaceFileFunction implements SkyFunction {
         parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
       }
       StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
-      PackageFunction.SkylarkImportResult importResult =
+      StarlarkImportResult importResult =
           PackageFunction.fetchImportsFromBuildFile(
-              repoWorkspace,
+              workspaceFile,
               rootPackage,
               /*repoMapping=*/ ImmutableMap.of(),
               ast,
               key.getIndex(),
               env,
-              skylarkImportLookupFunctionForInlining);
+              starlarkImportLookupFunctionForInlining);
       if (importResult == null) {
         return null;
       }
@@ -153,7 +150,7 @@ public class WorkspaceFileFunction implements SkyFunction {
           parser.getImportMap(),
           createImportToChunkMap(prevValue, parser, key),
           parser.getVariableBindings(),
-          workspaceRoot,
+          workspaceFile,
           key.getIndex(),
           key.getIndex() < workspaceASTValue.getASTs().size() - 1,
           ImmutableMap.copyOf(parser.getManagedDirectories()),

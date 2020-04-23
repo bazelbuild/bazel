@@ -92,6 +92,9 @@ final class CrossMateMainCollector extends ClassVisitor {
   public MethodVisitor visitMethod(
       int access, String name, String descriptor, String signature, String[] exceptions) {
     MethodKey methodKey = MethodKey.create(className, name, descriptor);
+    if ((access & Opcodes.ACC_PRIVATE) != 0 && (access & Opcodes.ACC_STATIC) == 0) {
+      classAttributesBuilder.addPrivateInstanceMethod(methodKey);
+    }
     if ((access & Opcodes.ACC_PRIVATE) != 0 && !isInDeclOmissionList(methodKey)) {
       stagingMemberRecord.logMemberDecl(methodKey, classAccessCode, access);
     }

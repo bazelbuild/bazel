@@ -106,7 +106,7 @@ filegroup(
     }),
     visibility = [
         "//src:__pkg__",
-        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/unix/jni:__pkg__",
     ],
 )
 

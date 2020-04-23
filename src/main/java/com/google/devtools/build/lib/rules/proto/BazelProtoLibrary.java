@@ -33,6 +33,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException, RuleErrorException, InterruptedException {
     ProtoCommon.checkRuleHasValidMigrationTag(ruleContext);
+    ProtoCommon.checkSourceFilesAreInSamePackage(ruleContext);
     ProtoInfo protoInfo =
         ProtoCommon.createProtoInfo(
             ruleContext,

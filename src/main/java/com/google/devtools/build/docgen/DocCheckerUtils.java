@@ -54,7 +54,7 @@ public class DocCheckerUtils {
     return getFirstUnclosedTag(src, false);
   }
 
-  // TODO(bazel-team): run this on the Skylark docs too.
+  // TODO(bazel-team): run this on the Starlark docs too.
   private static String getFirstUnclosedTag(String src, boolean printHelp) {
     Matcher commentMatcher = COMMENT_PATTERN.matcher(src);
     src = commentMatcher.replaceAll("");

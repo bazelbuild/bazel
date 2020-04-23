@@ -20,12 +20,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -372,39 +372,49 @@ public final class LocationExpander {
     }
 
     if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
-      for (TransitiveInfoCollection src : ruleContext
-          .getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class)) {
-        mapGet(locationMap, AliasProvider.getDependencyLabel(src))
-            .addAll(src.getProvider(FileProvider.class).getFilesToBuild().toList());
+      for (TransitiveInfoCollection src :
+          ruleContext.getPrerequisitesIf("srcs", TransitionMode.TARGET, FileProvider.class)) {
+        for (Label label : AliasProvider.getDependencyLabels(src)) {
+          mapGet(locationMap, label)
+              .addAll(src.getProvider(FileProvider.class).getFilesToBuild().toList());
+        }
       }
     }
 
     // Add all locations associated with dependencies and tools
     List<TransitiveInfoCollection> depsDataAndTools = new ArrayList<>();
     if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
-      Iterables.addAll(depsDataAndTools,
-          ruleContext.getPrerequisitesIf("deps", Mode.DONT_CHECK, FilesToRunProvider.class));
+      Iterables.addAll(
+          depsDataAndTools,
+          ruleContext.getPrerequisitesIf(
+              "deps", TransitionMode.DONT_CHECK, FilesToRunProvider.class));
     }
     if (allowDataAttributeEntriesInLabel
         && ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
-      Iterables.addAll(depsDataAndTools,
-          ruleContext.getPrerequisitesIf("data", Mode.DONT_CHECK, FilesToRunProvider.class));
+      Iterables.addAll(
+          depsDataAndTools,
+          ruleContext.getPrerequisitesIf(
+              "data", TransitionMode.DONT_CHECK, FilesToRunProvider.class));
     }
     if (ruleContext.getRule().isAttrDefined("tools", BuildType.LABEL_LIST)) {
-      Iterables.addAll(depsDataAndTools,
-          ruleContext.getPrerequisitesIf("tools", Mode.HOST, FilesToRunProvider.class));
+      Iterables.addAll(
+          depsDataAndTools,
+          ruleContext.getPrerequisitesIf("tools", TransitionMode.HOST, FilesToRunProvider.class));
     }
 
     for (TransitiveInfoCollection dep : depsDataAndTools) {
-      Label label = AliasProvider.getDependencyLabel(dep);
+      ImmutableList<Label> labels = AliasProvider.getDependencyLabels(dep);
       FilesToRunProvider filesToRun = dep.getProvider(FilesToRunProvider.class);
       Artifact executableArtifact = filesToRun.getExecutable();
 
       // If the label has an executable artifact add that to the multimaps.
-      if (executableArtifact != null) {
-        mapGet(locationMap, label).add(executableArtifact);
-      } else {
-        mapGet(locationMap, label).addAll(filesToRun.getFilesToRun().toList());
+      Collection<Artifact> values =
+          executableArtifact != null
+              ? ImmutableList.of(executableArtifact)
+              : filesToRun.getFilesToRun().toList();
+
+      for (Label label : labels) {
+        mapGet(locationMap, label).addAll(values);
       }
     }
     return locationMap;

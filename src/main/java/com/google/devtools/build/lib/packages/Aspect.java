@@ -43,7 +43,7 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
    * <p>The native aspects are loaded with blaze and are not stateful. Reference equality works fine
    * in this case.
    *
-   * <p>Caching of Skylark aspects is not yet implemented.
+   * <p>Caching of Starlark aspects is not yet implemented.
    */
   private static final LoadingCache<
           NativeAspectClass, LoadingCache<AspectParameters, AspectDefinition>>

@@ -15,6 +15,7 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/junctions:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
     ],
 )
@@ -28,6 +29,7 @@ java_binary(
         "//src/tools/android/java/com/google/devtools/build/android/desugar/scan",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:dexerdeps",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:idlclass_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:dexerdeps",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:ziputils_lib",
     ],
 )
@@ -101,12 +103,14 @@ java_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/tools/android/java/com/android/tools/r8:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/junctions:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/resources:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:srcs",
     ],

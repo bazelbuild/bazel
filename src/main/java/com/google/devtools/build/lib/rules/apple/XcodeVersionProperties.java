@@ -28,10 +28,10 @@ import javax.annotation.Nullable;
 @Immutable
 public class XcodeVersionProperties extends NativeInfo implements XcodePropertiesApi {
 
-  /** Skylark name for the XcodeVersionProperties provider. */
+  /** Starlark name for the XcodeVersionProperties provider. */
   public static final String SKYLARK_NAME = "XcodeProperties";
 
-  /** Skylark constructor and identifier for XcodeVersionProperties provider. */
+  /** Starlark constructor and identifier for XcodeVersionProperties provider. */
   public static final NativeProvider<XcodeVersionProperties> SKYLARK_CONSTRUCTOR =
       new NativeProvider<XcodeVersionProperties>(XcodeVersionProperties.class, SKYLARK_NAME) {};
 

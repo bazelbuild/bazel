@@ -22,23 +22,25 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -54,6 +56,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -65,8 +68,10 @@ import javax.annotation.concurrent.GuardedBy;
 /**
  * Encapsulates the state needed for a single command. The environment is dropped when the current
  * command is done and all corresponding objects are garbage collected.
+ *
+ * <p>This class is non-final for mocking purposes. DO NOT extend it in production code.
  */
-public final class CommandEnvironment {
+public class CommandEnvironment {
   private final BlazeRuntime runtime;
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
@@ -87,16 +92,21 @@ public final class CommandEnvironment {
   private final OptionsParsingResult options;
   private final PathPackageLocator packageLocator;
 
-  private String[] crashData;
-
   private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private long commandStartTime;
   private OutputService outputService;
   private TopDownActionCache topDownActionCache;
   private Path workingDirectory;
   private String workspaceName;
-  private boolean haveSetupPackageCache = false;
-  private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
+  private boolean hasSyncedPackageLoading = false;
+
+  // This AtomicReference is set to:
+  //   - null, if neither BlazeModuleEnvironment#exit nor #precompleteCommand have been called
+  //   - Optional.of(e), if BlazeModuleEnvironment#exit has been called with value e
+  //   - Optional.empty(), if #precompleteCommand was called before any call to
+  //     BlazeModuleEnvironment#exit
+  private final AtomicReference<Optional<AbruptExitException>> pendingException =
+      new AtomicReference<>();
 
   private final Object fileCacheLock = new Object();
 
@@ -117,7 +127,7 @@ public final class CommandEnvironment {
     public void exit(AbruptExitException exception) {
       Preconditions.checkNotNull(exception);
       Preconditions.checkNotNull(exception.getExitCode());
-      if (pendingException.compareAndSet(null, exception)) {
+      if (pendingException.compareAndSet(null, Optional.of(exception))) {
         // There was no exception, so we're the first one to ask for an exit. Interrupt the command.
         commandThread.interrupt();
       }
@@ -156,7 +166,7 @@ public final class CommandEnvironment {
     timestampGranularityMonitor.setCommandStartTime();
 
     // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
-    // in setupPackageCache(). This leads to NPE if we don't set it here.
+    // in syncPackageLoading(). This leads to NPE if we don't set it here.
     Path workspacePath = directories.getWorkspace();
     this.setWorkingDirectory(workspacePath);
     this.workspaceName = null;
@@ -168,9 +178,7 @@ public final class CommandEnvironment {
           workspace
               .getSkyframeExecutor()
               .createPackageLocator(
-                  reporter,
-                  options.getOptions(PackageCacheOptions.class).packagePath,
-                  workingDirectory);
+                  reporter, options.getOptions(PackageOptions.class).packagePath, workingDirectory);
     } else {
       this.packageLocator = null;
     }
@@ -188,7 +196,6 @@ public final class CommandEnvironment {
     this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
     this.commandId = computeCommandId(commandOptions.invocationId, warnings);
     this.buildRequestId = computeBuildRequestId(commandOptions.buildRequestId, warnings);
-    this.crashData = new String[] { commandId + " (build id)" };
 
     // actionClientEnv contains the environment where values from actionEnvironment are overridden.
     actionClientEnv.putAll(clientEnv);
@@ -232,7 +239,7 @@ public final class CommandEnvironment {
       return false;
     }
     for (int i = 0; i < command.options().length; ++i) {
-      if (command.options()[i] == PackageCacheOptions.class) {
+      if (command.options()[i] == PackageOptions.class) {
         return true;
       }
     }
@@ -515,14 +522,6 @@ public final class CommandEnvironment {
   }
 
   /**
-   * An array of String values useful if Blaze crashes. For now, just returns the build id as soon
-   * as it is determined.
-   */
-  String[] getCrashData() {
-    return crashData;
-  }
-
-  /**
    * Prevents any further interruption of this command by modules, and returns the final exit code
    * from modules, or null if no modules requested an abrupt exit.
    *
@@ -532,7 +531,7 @@ public final class CommandEnvironment {
   private ExitCode finalizeExitCode() {
     // Set the pending exception so that further calls to exit(AbruptExitException) don't lead to
     // unwanted thread interrupts.
-    if (pendingException.compareAndSet(null, new AbruptExitException("", null))) {
+    if (pendingException.compareAndSet(null, Optional.empty())) {
       return null;
     }
     if (Thread.currentThread() == commandThread) {
@@ -554,11 +553,9 @@ public final class CommandEnvironment {
     return finalizeExitCode();
   }
 
-  /**
-   * Returns the current exit code requested by modules, or null if no exit has been requested.
-   */
+  /** Returns the current exit code requested by modules, or null if no exit has been requested. */
   @Nullable
-  public ExitCode getPendingExitCode() {
+  private ExitCode getPendingExitCode() {
     AbruptExitException exception = getPendingException();
     return exception == null ? null : exception.getExitCode();
   }
@@ -568,8 +565,10 @@ public final class CommandEnvironment {
    *
    * <p>Prefer getPendingExitCode or throwPendingException where appropriate.
    */
+  @Nullable
   public AbruptExitException getPendingException() {
-    return pendingException.get();
+    Optional<AbruptExitException> abruptExitExceptionMaybe = pendingException.get();
+    return abruptExitExceptionMaybe == null ? null : abruptExitExceptionMaybe.orElse(null);
   }
 
   /**
@@ -591,24 +590,23 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Initializes the package cache using the given options, and syncs the package cache. Also
-   * injects the skylark semantics using the options for the {@link BuildConfiguration}.
+   * Initializes and syncs the graph with the given options, readying it for the next evaluation.
    */
-  public void setupPackageCache(OptionsProvider options)
+  public void syncPackageLoading(OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    // We want to ensure that we're never calling #setupPackageCache twice in the same build because
-    // it does the very expensive work of diffing the cache between incremental builds.
+    // We want to ensure that we're never calling #syncPackageLoading twice in the same build
+    // because it does the very expensive work of diffing the cache between incremental builds.
     // {@link SequencedSkyframeExecutor#handleDiffs} is the particular method we don't want to be
     // calling twice. We could feasibly factor it out of this call.
-    if (this.haveSetupPackageCache) {
+    if (hasSyncedPackageLoading) {
       throw new IllegalStateException(
           "We should never call this method more than once over the course of a single command");
     }
-    this.haveSetupPackageCache = true;
+    hasSyncedPackageLoading = true;
     getSkyframeExecutor()
         .sync(
             reporter,
-            options.getOptions(PackageCacheOptions.class),
+            options.getOptions(PackageOptions.class),
             packageLocator,
             options.getOptions(StarlarkSemanticsOptions.class),
             getCommandId(),
@@ -697,7 +695,15 @@ public final class CommandEnvironment {
     if (inWorkspace()) {
       if (commonOptions.clientCwd.containsUplevelReferences()) {
         throw new AbruptExitException(
-            "Client cwd contains uplevel references", ExitCode.COMMAND_LINE_ERROR);
+            DetailedExitCode.of(
+                ExitCode.COMMAND_LINE_ERROR,
+                FailureDetail.newBuilder()
+                    .setMessage("Client cwd contains uplevel references")
+                    .setClientEnvironment(
+                        FailureDetails.ClientEnvironment.newBuilder()
+                            .setCode(FailureDetails.ClientEnvironment.Code.CLIENT_CWD_MALFORMED)
+                            .build())
+                    .build()));
       }
       workingDirectory = workspace.getRelative(commonOptions.clientCwd);
     } else {

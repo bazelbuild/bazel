@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.Inval
 import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionFunction.NoToolchainFoundException;
 import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
 import com.google.devtools.build.lib.skyframe.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext.UnloadedToolchainContextKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -66,7 +65,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     UnloadedToolchainContextKey key = (UnloadedToolchainContextKey) skyKey.argument();
 
     try {
-      UnloadedToolchainContext.Builder builder = UnloadedToolchainContext.builder();
+      UnloadedToolchainContextImpl.Builder builder = UnloadedToolchainContextImpl.builder();
 
       // Determine the configuration being used.
       BuildConfigurationValue value =
@@ -328,7 +327,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       Environment environment,
       BuildConfigurationValue.Key configurationKey,
       ImmutableSet<Label> requiredToolchainTypeLabels,
-      UnloadedToolchainContext.Builder builder,
+      UnloadedToolchainContextImpl.Builder builder,
       PlatformKeys platformKeys,
       boolean shouldSanityCheckConfiguration)
       throws InterruptedException, ValueMissingException, InvalidPlatformException,
@@ -545,7 +544,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
   }
 
-  /** Used to indicate errors during the computation of an {@link UnloadedToolchainContext}. */
+  /** Used to indicate errors during the computation of an {@link UnloadedToolchainContextImpl}. */
   private static final class ToolchainResolutionFunctionException extends SkyFunctionException {
     public ToolchainResolutionFunctionException(ToolchainException e) {
       super(e, Transience.PERSISTENT);

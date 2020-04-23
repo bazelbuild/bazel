@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** A class that exposes apple rule implementation internals to skylark. */
+/** A class that exposes apple rule implementation internals to Starlark. */
 public class AppleSkylarkCommon
     implements AppleCommonApi<
         Artifact,
@@ -63,12 +63,17 @@ public class AppleSkylarkCommon
         ApplePlatform> {
 
   @VisibleForTesting
-  public static final String BAD_KEY_ERROR = "Argument %s not a recognized key, 'providers',"
-      + " or 'direct_dep_providers'.";
+  public static final String BAD_KEY_ERROR =
+      "Argument %s not a recognized key,"
+          + " 'strict_include', 'providers', or 'direct_dep_providers'.";
 
   @VisibleForTesting
   public static final String BAD_SET_TYPE_ERROR =
       "Value for key %s must be a set of %s, instead found %s.";
+
+  @VisibleForTesting
+  public static final String BAD_FRAMEWORK_PATH_ERROR =
+      "Value for key framework_search_paths must end in .framework; instead found %s.";
 
   @VisibleForTesting
   public static final String BAD_PROVIDERS_ITER_ERROR =
@@ -184,10 +189,11 @@ public class AppleSkylarkCommon
   }
 
   @Override
-  // This method is registered statically for skylark, and never called directly.
+  // This method is registered statically for Starlark, and never called directly.
   public ObjcProvider newObjcProvider(Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread)
       throws EvalException {
-    ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder(thread.getSemantics());
+    ObjcProvider.StarlarkBuilder resultBuilder =
+        new ObjcProvider.StarlarkBuilder(thread.getSemantics());
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
     }
@@ -195,6 +201,8 @@ public class AppleSkylarkCommon
       Key<?> key = ObjcProvider.getSkylarkKeyForString((String) entry.getKey());
       if (key != null) {
         resultBuilder.addElementsFromSkylark(key, entry.getValue());
+      } else if (entry.getKey().equals("strict_include")) {
+        resultBuilder.addStrictIncludeFromSkylark(entry.getValue());
       } else if (entry.getKey().equals("providers")) {
         resultBuilder.addProvidersFromSkylark(entry.getValue());
       } else if (entry.getKey().equals("direct_dep_providers")) {
@@ -214,9 +222,9 @@ public class AppleSkylarkCommon
       Object dynamicFrameworkFiles)
       throws EvalException {
     NestedSet<String> frameworkDirs =
-        Depset.getSetFromNoneableParam(dynamicFrameworkDirs, String.class, "framework_dirs");
+        Depset.noneableCast(dynamicFrameworkDirs, String.class, "framework_dirs");
     NestedSet<Artifact> frameworkFiles =
-        Depset.getSetFromNoneableParam(dynamicFrameworkFiles, Artifact.class, "framework_files");
+        Depset.noneableCast(dynamicFrameworkFiles, Artifact.class, "framework_files");
     Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
 
     return new AppleDynamicFrameworkInfo(
@@ -235,8 +243,8 @@ public class AppleSkylarkCommon
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
-              ImmutableList.copyOf(extraLinkopts.getContents(String.class, "extra_linkopts")),
-              Sequence.castList(extraLinkInputs, Artifact.class, "extra_link_inputs"));
+              ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
+              Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"));
       return createAppleBinaryOutputSkylarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(null, exception);
@@ -258,7 +266,7 @@ public class AppleSkylarkCommon
   }
 
   /**
-   * Creates a Skylark struct that contains the results of the {@code link_multi_arch_binary}
+   * Creates a Starlark struct that contains the results of the {@code link_multi_arch_binary}
    * function.
    */
   private StructImpl createAppleBinaryOutputSkylarkStruct(
@@ -267,7 +275,7 @@ public class AppleSkylarkCommon
         new NativeProvider<StructImpl>(StructImpl.class, "apple_binary_output") {};
     // We have to transform the output group dictionary into one that contains StarlarkValues
     // instead
-    // of plain NestedSets because the Skylark caller may want to return this directly from their
+    // of plain NestedSets because the Starlark caller may want to return this directly from their
     // implementation function.
     Map<String, StarlarkValue> outputGroups =
         Maps.transformValues(output.getOutputGroups(), v -> Depset.of(Artifact.TYPE, v));

@@ -15,15 +15,18 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import java.util.List;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import java.util.Map;
 import java.util.stream.IntStream;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,6 +37,12 @@ public class ComposingTransitionTest {
   // Use starlark flags for the test since they are easy to set and check.
   private static final Label FLAG_1 = Label.parseAbsoluteUnchecked("//flag1");
   private static final Label FLAG_2 = Label.parseAbsoluteUnchecked("//flag2");
+  private EventHandler eventHandler;
+
+  @Before
+  public void init() {
+    eventHandler = new StoredEventHandler();
+  }
 
   @Test
   public void compose_patch_patch() {
@@ -42,10 +51,11 @@ public class ComposingTransitionTest {
         ComposingTransition.of(new StubPatch(FLAG_1, "value1"), new StubPatch(FLAG_1, "value2"));
 
     assertThat(composed).isNotNull();
-    List<BuildOptions> results = composed.apply(BuildOptions.builder().build());
+    Map<String, BuildOptions> results =
+        composed.apply(BuildOptions.builder().build(), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(1);
-    BuildOptions result = Iterables.getOnlyElement(results);
+    BuildOptions result = Iterables.getOnlyElement(results.values());
     assertThat(result).isNotNull();
     assertThat(result.getStarlarkOptions()).containsEntry(FLAG_1, "value2");
   }
@@ -58,16 +68,17 @@ public class ComposingTransitionTest {
             new StubPatch(FLAG_1, "value1"), new StubSplit(FLAG_2, "value2a", "value2b"));
 
     assertThat(composed).isNotNull();
-    List<BuildOptions> results = composed.apply(BuildOptions.builder().build());
+    Map<String, BuildOptions> results =
+        composed.apply(BuildOptions.builder().build(), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 
-    BuildOptions result0 = results.get(0);
+    BuildOptions result0 = results.get("stub_split0");
     assertThat(result0).isNotNull();
     assertThat(result0.getStarlarkOptions()).containsEntry(FLAG_1, "value1");
     assertThat(result0.getStarlarkOptions()).containsEntry(FLAG_2, "value2a");
 
-    BuildOptions result1 = results.get(1);
+    BuildOptions result1 = results.get("stub_split1");
     assertThat(result1).isNotNull();
     assertThat(result1.getStarlarkOptions()).containsEntry(FLAG_1, "value1");
     assertThat(result1.getStarlarkOptions()).containsEntry(FLAG_2, "value2b");
@@ -81,53 +92,34 @@ public class ComposingTransitionTest {
             new StubSplit(FLAG_1, "value1a", "value1b"), new StubPatch(FLAG_2, "value2"));
 
     assertThat(composed).isNotNull();
-    List<BuildOptions> results = composed.apply(BuildOptions.builder().build());
+    Map<String, BuildOptions> results =
+        composed.apply(BuildOptions.builder().build(), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 
-    BuildOptions result0 = results.get(0);
+    BuildOptions result0 = results.get("stub_split0");
     assertThat(result0).isNotNull();
     assertThat(result0.getStarlarkOptions()).containsEntry(FLAG_1, "value1a");
     assertThat(result0.getStarlarkOptions()).containsEntry(FLAG_2, "value2");
 
-    BuildOptions result1 = results.get(1);
+    BuildOptions result1 = results.get("stub_split1");
     assertThat(result1).isNotNull();
     assertThat(result1.getStarlarkOptions()).containsEntry(FLAG_1, "value1b");
     assertThat(result1.getStarlarkOptions()).containsEntry(FLAG_2, "value2");
   }
 
   @Test
-  public void compose_split_split() {
-    // Different flags, will combine.
+  public void compose_split_split_disallowed() {
+    // Combining two split transitions is not allowed.
     ConfigurationTransition composed =
         ComposingTransition.of(
             new StubSplit(FLAG_1, "value1a", "value1b"),
             new StubSplit(FLAG_2, "value2a", "value2b"));
 
     assertThat(composed).isNotNull();
-    List<BuildOptions> results = composed.apply(BuildOptions.builder().build());
-    assertThat(results).isNotNull();
-    assertThat(results).hasSize(4);
-
-    BuildOptions result0 = results.get(0);
-    assertThat(result0).isNotNull();
-    assertThat(result0.getStarlarkOptions()).containsEntry(FLAG_1, "value1a");
-    assertThat(result0.getStarlarkOptions()).containsEntry(FLAG_2, "value2a");
-
-    BuildOptions result1 = results.get(1);
-    assertThat(result1).isNotNull();
-    assertThat(result1.getStarlarkOptions()).containsEntry(FLAG_1, "value1a");
-    assertThat(result1.getStarlarkOptions()).containsEntry(FLAG_2, "value2b");
-
-    BuildOptions result2 = results.get(2);
-    assertThat(result2).isNotNull();
-    assertThat(result2.getStarlarkOptions()).containsEntry(FLAG_1, "value1b");
-    assertThat(result2.getStarlarkOptions()).containsEntry(FLAG_2, "value2a");
-
-    BuildOptions result3 = results.get(3);
-    assertThat(result3).isNotNull();
-    assertThat(result3.getStarlarkOptions()).containsEntry(FLAG_1, "value1b");
-    assertThat(result3.getStarlarkOptions()).containsEntry(FLAG_2, "value2b");
+    assertThrows(
+        IllegalStateException.class,
+        () -> composed.apply(BuildOptions.builder().build(), eventHandler));
   }
 
   @Test
@@ -181,7 +173,7 @@ public class ComposingTransitionTest {
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       return updateOptions(options, flagLabel, flagValue);
     }
   }
@@ -196,7 +188,7 @@ public class ComposingTransitionTest {
     }
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions options) {
+    public Map<String, BuildOptions> split(BuildOptions options, EventHandler eventHandler) {
       return IntStream.range(0, flagValues.size())
           .boxed()
           .collect(

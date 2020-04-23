@@ -40,7 +40,9 @@ public class J2ObjcSourceTest {
   public final void setRootDir() throws Exception  {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/exec/root"));
+    String outSegment = "root";
+    execRoot.getChild(outSegment).createDirectoryAndParents();
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
   }
 
   @Test

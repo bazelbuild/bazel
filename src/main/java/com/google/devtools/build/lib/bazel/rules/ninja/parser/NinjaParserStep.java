@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
@@ -37,10 +38,18 @@ import javax.annotation.Nullable;
 
 /** Ninja files parser. The types of tokens: {@link NinjaToken}. Ninja lexer: {@link NinjaLexer}. */
 public class NinjaParserStep {
-  private final NinjaLexer lexer;
 
-  public NinjaParserStep(NinjaLexer lexer) {
+  private final NinjaLexer lexer;
+  private final Interner<PathFragment> pathFragmentInterner;
+  private final Interner<String> nameInterner;
+
+  public NinjaParserStep(
+      NinjaLexer lexer,
+      Interner<PathFragment> pathFragmentInterner,
+      Interner<String> nameInterner) {
     this.lexer = lexer;
+    this.pathFragmentInterner = pathFragmentInterner;
+    this.nameInterner = nameInterner;
   }
 
   /** Parses variable at the current lexer position. */
@@ -49,7 +58,7 @@ public class NinjaParserStep {
     parseExpected(NinjaToken.EQUALS);
 
     NinjaVariableValue value = parseVariableValue();
-    return Pair.of(name, value);
+    return Pair.of(nameInterner.intern(name), value);
   }
 
   @VisibleForTesting
@@ -77,8 +86,7 @@ public class NinjaParserStep {
         // Add text together with the spaces between current and previous token.
         int start = previous >= 0 ? previous : lexer.getLastStart();
         String rawText = asString(lexer.getFragment().getBytes(start, lexer.getLastEnd()));
-        String text = NinjaToken.ESCAPED_TEXT.equals(token) ? unescapeText(rawText) : rawText;
-        varBuilder.addText(text);
+        varBuilder.addText(unescapeText(rawText));
       } else {
         lexer.undo();
         break;
@@ -117,8 +125,7 @@ public class NinjaParserStep {
         varBuilder.addVariable(normalizeVariableName(asString(lexer.getTokenBytes())));
       } else if (NinjaToken.TEXT.equals(token) || NinjaToken.ESCAPED_TEXT.equals(token)) {
         String rawText = asString(lexer.getTokenBytes());
-        String text = NinjaToken.ESCAPED_TEXT.equals(token) ? unescapeText(rawText) : rawText;
-        varBuilder.addText(text);
+        varBuilder.addText(unescapeText(rawText));
       } else {
         lexer.undo();
         break;
@@ -177,9 +184,9 @@ public class NinjaParserStep {
 
     ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> variablesBuilder =
         ImmutableSortedMap.naturalOrder();
-    variablesBuilder.put(NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name));
 
     parseExpected(NinjaToken.NEWLINE);
+    lexer.interpretPoolAsVariable();
     while (parseIndentOrFinishDeclaration()) {
       String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
       parseExpected(NinjaToken.EQUALS);
@@ -194,7 +201,35 @@ public class NinjaParserStep {
         parseExpected(NinjaToken.NEWLINE);
       }
     }
-    return new NinjaRule(variablesBuilder.build());
+    return new NinjaRule(nameInterner.intern(name), variablesBuilder.build());
+  }
+
+  /** Parses Ninja pool at the current lexer position. */
+  public NinjaPool parseNinjaPool() throws GenericParsingException {
+    // TODO: consider using generics to condense this and parseNinjaRule into the same
+    // method body.
+    parseExpected(NinjaToken.POOL);
+    String name = asString(parseExpected(NinjaToken.IDENTIFIER));
+
+    ImmutableSortedMap.Builder<NinjaPoolVariable, NinjaVariableValue> variablesBuilder =
+        ImmutableSortedMap.naturalOrder();
+
+    parseExpected(NinjaToken.NEWLINE);
+    while (parseIndentOrFinishDeclaration()) {
+      String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
+      parseExpected(NinjaToken.EQUALS);
+      NinjaVariableValue value = parseVariableValue();
+
+      NinjaPoolVariable ninjaPoolVariable = NinjaPoolVariable.nullOrValue(variableName);
+      if (ninjaPoolVariable == null) {
+        throw new GenericParsingException(String.format("Unexpected variable '%s'", variableName));
+      }
+      variablesBuilder.put(ninjaPoolVariable, value);
+      if (lexer.hasNextToken()) {
+        parseExpected(NinjaToken.NEWLINE);
+      }
+    }
+    return new NinjaPool(nameInterner.intern(name), variablesBuilder.build());
   }
 
   private enum NinjaTargetParsingPart {
@@ -253,9 +288,9 @@ public class NinjaParserStep {
    * Parses Ninja target using {@link NinjaScope} of the file, where it is defined, to expand
    * variables.
    */
-  public NinjaTarget parseNinjaTarget(NinjaScope fileScope, int offset)
+  public NinjaTarget parseNinjaTarget(NinjaScope fileScope, long offset)
       throws GenericParsingException {
-    NinjaTarget.Builder builder = NinjaTarget.builder(fileScope, offset);
+    NinjaTarget.Builder builder = NinjaTarget.builder(fileScope, offset, nameInterner);
     parseExpected(NinjaToken.BUILD);
 
     Map<InputOutputKind, List<NinjaVariableValue>> pathValuesMap =
@@ -270,7 +305,8 @@ public class NinjaParserStep {
           entry.getValue().stream()
               .map(
                   value ->
-                      PathFragment.create(targetScope.getExpandedValue(Integer.MAX_VALUE, value)))
+                      pathFragmentInterner.intern(
+                          PathFragment.create(targetScope.getExpandedValue(Long.MAX_VALUE, value))))
               .collect(Collectors.toList());
       InputOutputKind inputOutputKind = entry.getKey();
       if (inputOutputKind instanceof InputKind) {
@@ -299,9 +335,9 @@ public class NinjaParserStep {
    * @return Ninja scope for expanding input and output paths of that statement
    */
   private NinjaScope parseTargetVariables(
-      int offset, NinjaScope fileScope, NinjaTarget.Builder builder)
+      long offset, NinjaScope fileScope, NinjaTarget.Builder builder)
       throws GenericParsingException {
-    Map<String, List<Pair<Integer, String>>> expandedVariables = Maps.newHashMap();
+    Map<String, List<Pair<Long, String>>> expandedVariables = Maps.newHashMap();
     lexer.interpretPoolAsVariable();
     while (parseIndentOrFinishDeclaration()) {
       Pair<String, NinjaVariableValue> pair = parseVariable();
@@ -310,14 +346,14 @@ public class NinjaParserStep {
       String expandedValue = fileScope.getExpandedValue(offset, value);
       expandedVariables
           .computeIfAbsent(name, k -> Lists.newArrayList())
-          .add(Pair.of(0, expandedValue));
+          .add(Pair.of(0L, expandedValue));
       builder.addVariable(name, expandedValue);
 
       if (lexer.hasNextToken()) {
         parseExpected(NinjaToken.NEWLINE);
       }
     }
-    return fileScope.createTargetsScope(ImmutableSortedMap.copyOf(expandedVariables));
+    return fileScope.createScopeFromExpandedValues(ImmutableSortedMap.copyOf(expandedVariables));
   }
 
   /**

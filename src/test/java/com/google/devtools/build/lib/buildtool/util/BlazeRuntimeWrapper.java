@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -148,7 +149,7 @@ public class BlazeRuntimeWrapper {
                 AnalysisOptions.class,
                 KeepGoingOption.class,
                 LoadingPhaseThreadsOption.class,
-                PackageCacheOptions.class,
+                PackageOptions.class,
                 StarlarkSemanticsOptions.class,
                 UiOptions.class,
                 SandboxOptions.class));
@@ -284,7 +285,7 @@ public class BlazeRuntimeWrapper {
               /* execStartTimeNanos= */ 42,
               /* enabledCpuUsageProfiling= */ false,
               /* slimProfile= */ false,
-              /* enableActionCountProfile= */ false);
+              /* includePrimaryOutput= */ false);
       OutErr outErr = env.getReporter().getOutErr();
       System.setOut(new PrintStream(outErr.getOutputStream(), /*autoflush=*/ true));
       System.setErr(new PrintStream(outErr.getErrorStream(), /*autoflush=*/ true));
@@ -355,8 +356,8 @@ public class BlazeRuntimeWrapper {
       }
 
       try {
-        try (SilentCloseable c = Profiler.instance().profile("setupPackageCache")) {
-          env.setupPackageCache(lastRequest);
+        try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
+          env.syncPackageLoading(lastRequest);
         }
         buildTool.buildTargets(lastRequest, lastResult, null);
         success = true;
@@ -369,7 +370,9 @@ public class BlazeRuntimeWrapper {
         buildTool.stopRequest(
             lastResult,
             null,
-            success ? ExitCode.SUCCESS : ExitCode.BUILD_FAILURE,
+            success
+                ? DetailedExitCode.justExitCode(ExitCode.SUCCESS)
+                : DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE),
             /*startSuspendCount=*/ 0);
         getSkyframeExecutor().notifyCommandComplete(env.getReporter());
       }

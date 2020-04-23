@@ -47,7 +47,7 @@ public interface StarlarkValue {
    * Prints an informal debug representation of the value.
    *
    * <p>This debug representation is only ever printed to the terminal or to another out-of-band
-   * channel, and is never accessible to Skylark code. Therefore, it is safe for the debug
+   * channel, and is never accessible to Starlark code. Therefore, it is safe for the debug
    * representation to reveal properties of the value that are usually hidden for the sake of
    * performance, determinism, or forward-compatibility.
    *

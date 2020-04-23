@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PyInfo;
@@ -74,9 +74,9 @@ public final class BazelPyRuleClasses {
                   .mandatoryProvidersList(
                       ImmutableList.of(
                           // Legacy provider.
-                          // TODO(#7010): Remove this legacy set.
+                          // TODO(b/153363654): Remove this legacy set.
                           ImmutableList.of(
-                              SkylarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
+                              StarlarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
                           // Modern provider.
                           ImmutableList.of(PyInfo.PROVIDER.id())))
                   .allowedFileTypes())
@@ -105,14 +105,13 @@ public final class BazelPyRuleClasses {
           reasons, but they are essentially the same as <code>"PY2"</code> and <code>"PY3"</code>
           and should be avoided.
 
-          <p>Under the old semantics
-          (<code>--incompatible_allow_python_version_transitions=false</code>), it is an error to
-          build any Python target for a version disallowed by its <code>srcs_version</code>
-          attribute. Under the new semantics
-          (<code>--incompatible_allow_python_version_transitions=true</code>), this check is
-          deferred to the executable rule: You can build a <code>srcs_version = "PY3"</code>
-          <code>py_library</code> target for Python 2, but you cannot actually depend on it via
-          <code>deps</code> from a Python 3 <code>py_binary</code>.
+          <p>Note that only the executable rules ({@code py_binary} and {@code py_library}) actually
+          verify the current Python version against the value of this attribute. (This is a feature;
+          since {@code py_library} does not change the current Python version, if it did the
+          validation, it'd be impossible to build both {@code PY2ONLY} and {@code PY3ONLY} libraries
+          in the same invocation.) Furthermore, if there is a version mismatch, the error is only
+          reported in the execution phase. In particular, the error will not appear in a {@code
+          bazel build --nobuild} invocation.)
 
           <p>To get diagnostic information about which dependencies introduce version requirements,
           you can run the <code>find_requirements</code> aspect on your target:
@@ -164,34 +163,13 @@ public final class BazelPyRuleClasses {
           match any filename in <code>srcs</code>, <code>main</code> must be specified.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main", LABEL).allowedFileTypes(PYTHON_SOURCE))
-          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(default_python_version) -->
-          A deprecated alias for <code>python_version</code>; use that instead. This attribute is
-          disabled under <code>--incompatible_remove_old_python_version_api</code>. For migration
-          purposes, if <code>python_version</code> is given then the value of
-          <code>default_python_version</code> is ignored.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(
-              attr(PyCommon.DEFAULT_PYTHON_VERSION_ATTRIBUTE, STRING)
-                  .value(PythonVersion._INTERNAL_SENTINEL.toString())
-                  .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET)
-                  .nonconfigurable(
-                      "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
-                          + " to the configuration"))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(python_version) -->
           Whether to build this target (and its transitive <code>deps</code>) for Python 2 or Python
           3. Valid values are <code>"PY2"</code> and <code>"PY3"</code> (the default).
 
-          <p>Under the old semantics
-          (<code>--incompatible_allow_python_version_transitions=false</code>), the Python version
-          generally cannot be changed once set. This means that the <code>--python_version</code>
-          flag overrides this attribute, and other Python binaries in the <code>data</code> deps of
-          this target are forced to use the same version as this target.
-
-          <p>Under the new semantics
-          (<code>--incompatible_allow_python_version_transitions=true</code>), the Python version
-          is always set (possibly by default) to whatever version is specified by this attribute,
-          regardless of the version specified on the command line or by other targets that depend on
-          this one.
+          <p>The Python version is always reset (possibly by default) to whatever version is
+          specified by this attribute, regardless of the version specified on the command line or by
+          other higher targets that depend on this one.
 
           <p>If you want to <code>select()</code> on the current Python version, you can inspect the
           value of <code>@rules_python//python:python_version</code>. See

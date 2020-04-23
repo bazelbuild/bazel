@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -171,7 +171,7 @@ public final class InstrumentedFilesCollector {
     // Transitive instrumentation data.
     for (TransitiveInfoCollection dep :
         getAllPrerequisites(ruleContext, spec.dependencyAttributes)) {
-      InstrumentedFilesInfo provider = dep.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
+      InstrumentedFilesInfo provider = dep.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
       if (provider != null) {
         instrumentedFilesBuilder.addTransitive(provider.getInstrumentedFiles());
         metadataFilesBuilder.addTransitive(provider.getInstrumentationMetadataFiles());
@@ -189,7 +189,7 @@ public final class InstrumentedFilesCollector {
       NestedSetBuilder<Artifact> localSourcesBuilder = NestedSetBuilder.stableOrder();
       for (TransitiveInfoCollection dep :
           getAllPrerequisites(ruleContext, spec.sourceAttributes)) {
-        if (!spec.splitLists && dep.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null) {
+        if (!spec.splitLists && dep.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR) != null) {
           continue;
         }
         for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild().toList()) {
@@ -363,7 +363,7 @@ public final class InstrumentedFilesCollector {
     for (String attr : attributeNames) {
       if (ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL_LIST) ||
           ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL)) {
-        prerequisites.addAll(ruleContext.getPrerequisites(attr, Mode.DONT_CHECK));
+        prerequisites.addAll(ruleContext.getPrerequisites(attr, TransitionMode.DONT_CHECK));
       }
     }
     return prerequisites;

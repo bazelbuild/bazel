@@ -16,8 +16,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
@@ -44,13 +44,13 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 /** Fake implementation of {@link CcModuleApi}. */
 public class FakeCcModule
     implements BazelCcModuleApi<
-        SkylarkActionFactoryApi,
+        StarlarkActionFactoryApi,
         FileApi,
         ConstraintValueInfoApi,
         SkylarkRuleContextApi<ConstraintValueInfoApi>,
         CcToolchainProviderApi<FeatureConfigurationApi>,
         FeatureConfigurationApi,
-        CcCompilationContextApi,
+        CcCompilationContextApi<FileApi>,
         CcCompilationOutputsApi<FileApi>,
         CcLinkingOutputsApi<FileApi>,
         LinkerInputApi<LibraryToLinkApi<FileApi>, FileApi>,
@@ -180,6 +180,9 @@ public class FakeCcModule
   }
 
   @Override
+  public void checkExperimentalCcSharedLibrary(StarlarkThread thread) {}
+
+  @Override
   public CcLinkingContextApi<FileApi> createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,
@@ -190,12 +193,12 @@ public class FakeCcModule
   }
 
   @Override
-  public CcInfoApi mergeCcInfos(Sequence<?> ccInfos) {
+  public CcInfoApi<FileApi> mergeCcInfos(Sequence<?> ccInfos) {
     return null;
   }
 
   @Override
-  public CcCompilationContextApi createCcCompilationContext(
+  public CcCompilationContextApi<FileApi> createCcCompilationContext(
       Object headers,
       Object systemIncludes,
       Object includes,
@@ -221,7 +224,7 @@ public class FakeCcModule
 
   @Override
   public Tuple<Object> compile(
-      SkylarkActionFactoryApi skylarkActionFactoryApi,
+      StarlarkActionFactoryApi starlarkActionFactoryApi,
       FeatureConfigurationApi skylarkFeatureConfiguration,
       CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
       Sequence<?> sources,
@@ -246,7 +249,7 @@ public class FakeCcModule
 
   @Override
   public Tuple<Object> createLinkingContextFromCompilationOutputs(
-      SkylarkActionFactoryApi skylarkActionFactoryApi,
+      StarlarkActionFactoryApi starlarkActionFactoryApi,
       FeatureConfigurationApi skylarkFeatureConfiguration,
       CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
       CcCompilationOutputsApi<FileApi> compilationOutputs,
@@ -266,7 +269,7 @@ public class FakeCcModule
 
   @Override
   public CcLinkingOutputsApi<FileApi> link(
-      SkylarkActionFactoryApi skylarkActionFactoryApi,
+      StarlarkActionFactoryApi starlarkActionFactoryApi,
       FeatureConfigurationApi skylarkFeatureConfiguration,
       CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
       Object compilationOutputs,
@@ -276,6 +279,7 @@ public class FakeCcModule
       String language,
       String outputType,
       boolean linkDepsStatically,
+      int stamp,
       Sequence<?> additionalInputs,
       Object grepIncludes,
       StarlarkThread thread)

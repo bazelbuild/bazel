@@ -32,7 +32,7 @@ class TestExpansionCycleReporter extends AbstractLabelCycleReporter {
   }
 
   @Override
-  protected boolean shouldSkip(SkyKey key) {
+  protected boolean shouldSkipOnPathToCycle(SkyKey key) {
     return !(key instanceof TestExpansionKey);
   }
 

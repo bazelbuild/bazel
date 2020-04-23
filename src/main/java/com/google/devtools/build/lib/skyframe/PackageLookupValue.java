@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -127,10 +128,15 @@ public abstract class PackageLookupValue implements SkyValue {
     return Key.create(pkgIdentifier);
   }
 
+  static boolean appliesToKey(SkyKey key, Predicate<PackageIdentifier> identifierPredicate) {
+    return SkyFunctions.PACKAGE_LOOKUP.equals(key.functionName())
+        && identifierPredicate.test((PackageIdentifier) key.argument());
+  }
+
   /** {@link SkyKey} for {@link PackageLookupValue} computation. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  public static class Key extends AbstractSkyKey<PackageIdentifier> {
+  static class Key extends AbstractSkyKey<PackageIdentifier> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private Key(PackageIdentifier arg) {

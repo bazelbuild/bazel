@@ -25,12 +25,32 @@ load(
     "write_builtin_include_directory_paths",
 )
 
+def _lookup_env_var(env, name, default = None):
+    """Lookup environment variable case-insensitve.
+
+    If a matching (case-insesitive) entry is found in the env dict both
+    the key and the value are returned. The returned key might differ from
+    name in casing.
+
+    If a matching key was found its value is returned otherwise
+    the default is returned.
+
+    Return a (key, value) tuple"""
+    for key, value in env.items():
+        if name.lower() == key.lower():
+            return (key, value)
+    return (name, default)
+
+def _get_env_var(repository_ctx, name, default = None):
+    """Returns a value from an environment variable."""
+    return _lookup_env_var(repository_ctx.os.environ, name, default)[1]
+
 def _get_path_env_var(repository_ctx, name):
     """Returns a path from an environment variable.
 
     Removes quotes, replaces '/' with '\', and strips trailing '\'s."""
-    if name in repository_ctx.os.environ:
-        value = repository_ctx.os.environ[name]
+    value = _get_env_var(repository_ctx, name)
+    if value != None:
         if value[0] == "\"":
             if len(value) == 1 or value[-1] != "\"":
                 auto_configure_fail("'%s' environment variable has no trailing quote" % name)
@@ -39,9 +59,7 @@ def _get_path_env_var(repository_ctx, name):
             value = value.replace("/", "\\")
         if value[-1] == "\\":
             value = value.rstrip("\\")
-        return value
-    else:
-        return None
+    return value
 
 def _get_temp_env(repository_ctx):
     """Returns the value of TMP, or TEMP, or if both undefined then C:\\Windows."""
@@ -94,9 +112,8 @@ def _get_system_root(repository_ctx):
 
 def _add_system_root(repository_ctx, env):
     """Running VCVARSALL.BAT and VCVARSQUERYREGISTRY.BAT need %SYSTEMROOT%\\\\system32 in PATH."""
-    if "PATH" not in env:
-        env["PATH"] = ""
-    env["PATH"] = env["PATH"] + ";" + _get_system_root(repository_ctx) + "\\system32"
+    env_key, env_value = _lookup_env_var(env, "PATH", default = "")
+    env[env_key] = env_value + ";" + _get_system_root(repository_ctx) + "\\system32"
     return env
 
 def find_vc_path(repository_ctx):
@@ -136,7 +153,27 @@ def find_vc_path(repository_ctx):
         " installed.",
     )
 
-    # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
+    # 2. Use vswhere to locate all Visual Studio installations
+    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)")
+    if not program_files_dir:
+        program_files_dir = "C:\\Program Files (x86)"
+        auto_configure_warning_maybe(
+            repository_ctx,
+            "'PROGRAMFILES(X86)' environment variable is not set, using '%s' as default" % program_files_dir,
+        )
+
+    vswhere_binary = program_files_dir + "\\Microsoft Visual Studio\\Installer\\vswhere.exe"
+    if repository_ctx.path(vswhere_binary).exists:
+        result = repository_ctx.execute([vswhere_binary, "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath", "-latest"])
+        auto_configure_warning_maybe(repository_ctx, "vswhere query result:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                     (result.stdout, result.stderr))
+        installation_path = result.stdout.strip()
+        if not result.stderr and installation_path:
+            vc_dir = installation_path + "\\VC"
+            auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+            return vc_dir
+
+    # 3. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
     # vcvarsqueryregistry.bat / VsDevCmd.bat to detect VC++.
     auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
                                                  "eg. VS140COMNTOOLS")
@@ -149,9 +186,10 @@ def find_vc_path(repository_ctx):
         ("VS100COMNTOOLS", "vcvarsqueryregistry.bat"),
         ("VS90COMNTOOLS", "vcvarsqueryregistry.bat"),
     ]:
-        if vscommontools_env not in repository_ctx.os.environ:
+        path = _get_path_env_var(repository_ctx, vscommontools_env)
+        if path == None:
             continue
-        script = _get_path_env_var(repository_ctx, vscommontools_env) + "\\" + script
+        script = path + "\\" + script
         if not repository_ctx.path(script).exists:
             continue
         repository_ctx.file(
@@ -167,9 +205,8 @@ def find_vc_path(repository_ctx):
         auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 3. User might have purged all environment variables. If so, look for Visual C++ in registry.
+    # 4. User might have purged all environment variables. If so, look for Visual C++ in registry.
     # Works for Visual Studio 2017 and older. (Does not work for Visual Studio 2019 Preview.)
-    # TODO(laszlocsomor): check if "16.0" also has this registry key, after VS 2019 is released.
     auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
@@ -189,15 +226,8 @@ def find_vc_path(repository_ctx):
         auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
-    # 4. Check default directories for VC installation
+    # 5. Check default directories for VC installation
     auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
-    program_files_dir = _get_path_env_var(repository_ctx, "PROGRAMFILES(X86)")
-    if not program_files_dir:
-        program_files_dir = "C:\\Program Files (x86)"
-        auto_configure_warning_maybe(
-            repository_ctx,
-            "'PROGRAMFILES(X86)' environment variable is not set, using '%s' as default" % program_files_dir,
-        )
     for path in [
         "Microsoft Visual Studio\\2019\\Preview\\VC",
         "Microsoft Visual Studio\\2019\\BuildTools\\VC",
@@ -352,13 +382,14 @@ def _get_latest_subversion(repository_ctx, vc_path):
 
 def _get_vc_full_version(repository_ctx, vc_path):
     """Return the value of BAZEL_VC_FULL_VERSION if defined, otherwise the latest version."""
-    if "BAZEL_VC_FULL_VERSION" in repository_ctx.os.environ:
-        return repository_ctx.os.environ["BAZEL_VC_FULL_VERSION"]
+    version = _get_env_var(repository_ctx, "BAZEL_VC_FULL_VERSION")
+    if version != None:
+        return version
     return _get_latest_subversion(repository_ctx, vc_path)
 
 def _get_winsdk_full_version(repository_ctx):
     """Return the value of BAZEL_WINSDK_FULL_VERSION if defined, otherwise an empty string."""
-    return repository_ctx.os.environ.get("BAZEL_WINSDK_FULL_VERSION", default = "")
+    return _get_env_var(repository_ctx, "BAZEL_WINSDK_FULL_VERSION", default = "")
 
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
@@ -454,7 +485,7 @@ def find_llvm_tool(repository_ctx, llvm_path, tool):
 
 def _use_clang_cl(repository_ctx):
     """Returns True if USE_CLANG_CL is set to 1."""
-    return repository_ctx.os.environ.get("USE_CLANG_CL", default = "0") == "1"
+    return _get_env_var(repository_ctx, "USE_CLANG_CL", default = "0") == "1"
 
 def _find_missing_llvm_tools(repository_ctx, llvm_path):
     """Check if any required tool is missing under given LLVM path."""

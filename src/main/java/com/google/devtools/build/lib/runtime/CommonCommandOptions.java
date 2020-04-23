@@ -71,18 +71,17 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enablePlatformSpecificConfig;
 
   @Option(
-    name = "config",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    allowMultiple = true,
-    help =
-        "Selects additional config sections from the rc files; for every <command>, it "
-            + "also pulls in the options from <command>:<config> if such a section exists; "
-            + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
-            + "The config sections and flag combinations they are equivalent to are "
-            + "located in the tools/*.blazerc config files."
-  )
+      name = "config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Selects additional config sections from the rc files; for every <command>, it "
+              + "also pulls in the options from <command>:<config> if such a section exists; "
+              + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
+              + "The config sections and flag combinations they are equivalent to are "
+              + "located in the tools/*.blazerc config files.")
   public List<String> configs;
 
   @Option(
@@ -206,7 +205,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
       name = "build_metadata",
       converter = AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
@@ -221,18 +220,6 @@ public class CommonCommandOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "Custom message to be emitted on an out of memory failure.")
   public String oomMessage;
-
-  @Option(
-      name = "incompatible_remove_binary_profile",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, Bazel will write JSON-format profiles instead of binary profiles.")
-  public boolean removeBinaryProfile;
 
   @Option(
       name = "incompatible_enable_profile_by_default",
@@ -269,28 +256,12 @@ public class CommonCommandOptions extends OptionsBase {
   public TriState enableTracerCompression;
 
   @Option(
-      name = "experimental_post_profile_started_event",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will post the ProfilerStartedEvent including the path to the profile.")
-  public boolean postProfileStartedEvent;
-
-  @Option(
       name = "experimental_profile_cpu_usage",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help = "If set, Bazel will measure cpu usage and add it to the JSON profile.")
   public boolean enableCpuUsageProfiling;
-
-  @Option(
-      name = "experimental_profile_action_counts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will add action counts at the top of the JSON profile.")
-  public boolean enableActionCountProfile;
 
   @Option(
       name = "experimental_profile_additional_tasks",
@@ -303,14 +274,25 @@ public class CommonCommandOptions extends OptionsBase {
   public List<ProfilerTask> additionalProfileTasks;
 
   @Option(
-      name = "experimental_slim_json_profile",
-      defaultValue = "false",
+      name = "slim_profile",
+      oldName = "experimental_slim_json_profile",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
               + " too large.")
-  public boolean enableJsonProfileDiet;
+  public boolean slimProfile;
+
+  @Option(
+      name = "experimental_include_primary_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Includes the extra \"out\" attribute in action events that contains the exec path "
+              + "to the action's primary output.")
+  public boolean includePrimaryOutput;
 
   @Option(
       name = "experimental_announce_profile_path",
@@ -485,18 +467,17 @@ public class CommonCommandOptions extends OptionsBase {
   public ToolCommandLineEvent toolCommandLine;
 
   @Option(
-    name = "unconditional_warning",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    allowMultiple = true,
-    help =
-        "A warning that will unconditionally get printed with build warnings and errors. This is "
-            + "useful to deprecate bazelrc files or --config definitions. If the intent is to "
-            + "effectively deprecate some flag or combination of flags, this is NOT sufficient. "
-            + "The flag or flags should use the deprecationWarning field in the option definition, "
-            + "or the bad combination should be checked for programmatically."
-  )
+      name = "unconditional_warning",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      allowMultiple = true,
+      help =
+          "A warning that will unconditionally get printed with build warnings and errors. This is"
+              + " useful to deprecate bazelrc files or --config definitions. If the intent is to"
+              + " effectively deprecate some flag or combination of flags, this is NOT sufficient."
+              + " The flag or flags should use the deprecationWarning field in the option"
+              + " definition, or the bad combination should be checked for programmatically.")
   public List<String> deprecationWarnings;
 
   @Option(

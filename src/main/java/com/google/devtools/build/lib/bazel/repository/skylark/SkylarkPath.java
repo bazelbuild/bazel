@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
 /**
- * A Path object to be used into Skylark remote repository.
+ * A Path object to be used into Starlark remote repository.
  *
- * <p>This path object enable non-hermetic operations from Skylark and should not be returned by
+ * <p>This path object enable non-hermetic operations from Starlark and should not be returned by
  * something other than a SkylarkRepositoryContext.
  */
 @Immutable

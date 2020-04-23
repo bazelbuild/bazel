@@ -58,7 +58,8 @@ class PackageFactoryBuilderFactoryForBazelUnitTests implements BuilderFactoryFor
           ruleClassProvider,
           environmentExtensions,
           version,
-          packageBuilderHelperForTesting);
+          packageBuilderHelperForTesting,
+          packageValidator);
     }
   }
 }

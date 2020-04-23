@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.lib.skyframe.UnloadedToolchainContextImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,7 +46,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContext.builder()
+        UnloadedToolchainContextImpl.builder()
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
@@ -90,7 +91,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContext.builder()
+        UnloadedToolchainContextImpl.builder()
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
@@ -125,7 +126,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContext.builder()
+        UnloadedToolchainContextImpl.builder()
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
@@ -179,7 +180,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContext.builder()
+        UnloadedToolchainContextImpl.builder()
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(variableToolchainType))

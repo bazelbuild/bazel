@@ -81,7 +81,8 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
 
     @SkylarkCallable(
         name = "ApkInfo",
-        // This is left undocumented as it throws a "not-implemented in Skylark" error when invoked.
+        // This is left undocumented as it throws a "not-implemented in Starlark" error when
+        // invoked.
         documented = false,
         extraKeywords = @Param(name = "kwargs"),
         selfCall = true)

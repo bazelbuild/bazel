@@ -13,25 +13,41 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-
-/** Syntax node for an if/else expression. */
+/** Syntax node for an expression of the form {@code t if cond else f}. */
 public final class ConditionalExpression extends Expression {
 
-  // Python conditional expressions: $thenCase if $condition else $elseCase
-  // https://docs.python.org/3.5/reference/expressions.html#conditional-expressions
-  private final Expression thenCase;
-  private final Expression condition;
-  private final Expression elseCase;
+  private final Expression t;
+  private final Expression cond;
+  private final Expression f;
 
-  public Expression getThenCase() { return thenCase; }
-  public Expression getCondition() { return condition; }
-  public Expression getElseCase() { return elseCase; }
+  public Expression getThenCase() {
+    return t;
+  }
+
+  public Expression getCondition() {
+    return cond;
+  }
+
+  public Expression getElseCase() {
+    return f;
+  }
 
   /** Constructor for a conditional expression */
-  ConditionalExpression(Expression thenCase, Expression condition, Expression elseCase) {
-    this.thenCase = thenCase;
-    this.condition = condition;
-    this.elseCase = elseCase;
+  ConditionalExpression(FileLocations locs, Expression t, Expression cond, Expression f) {
+    super(locs);
+    this.t = t;
+    this.cond = cond;
+    this.f = f;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return t.getStartOffset();
+  }
+
+  @Override
+  public int getEndOffset() {
+    return f.getEndOffset();
   }
 
   @Override

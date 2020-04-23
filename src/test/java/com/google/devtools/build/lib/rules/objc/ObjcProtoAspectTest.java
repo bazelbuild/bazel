@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -69,8 +69,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     assertThat(objcProtoProvider).isNotNull();
   }
 
-  @Test
-  public void testObjcProtoAspectPropagatesProtobufProvider() throws Exception {
+  private void testObjcProtoAspectPropagatesProtobufProvider() throws Exception {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file("x/data_filter.pbascii");
     scratch.file(
@@ -101,6 +100,18 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
 
     assertThat(objcProtoProvider.getProtobufHeaderSearchPaths().toList())
         .containsExactly(includePath, genIncludePath);
+  }
+
+  @Test
+  public void testObjcProtoAspectPropagatesProtobufProviderPreMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
+    testObjcProtoAspectPropagatesProtobufProvider();
+  }
+
+  @Test
+  public void testObjcProtoAspectPropagatesProtobufProviderPostMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
+    testObjcProtoAspectPropagatesProtobufProvider();
   }
 
   @Test
@@ -277,7 +288,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ConfiguredTarget topTarget = getConfiguredTarget("//bin:link_target");
 
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//test_skylark:top_level_stub.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl info = (StructImpl) topTarget.get(key);
 

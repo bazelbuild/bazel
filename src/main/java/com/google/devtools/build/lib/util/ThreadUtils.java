@@ -13,30 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.common.flogger.GoogleLogger;
 import java.util.Map;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Utility methods relating to threads and stack traces.
  */
 public class ThreadUtils {
-  private static final Logger logger = Logger.getLogger(ThreadUtils.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private ThreadUtils() {
   }
 
   /** Write a thread dump to the blaze.INFO log if interrupt took too long. */
   public static synchronized void warnAboutSlowInterrupt() {
-    logger.warning("Interrupt took too long. Dumping thread state.");
+    logger.atWarning().log("Interrupt took too long. Dumping thread state.");
     for (Map.Entry <Thread, StackTraceElement[]> e : Thread.getAllStackTraces().entrySet()) {
       Thread t = e.getKey();
-      logger.warning(
-          "\"" + t.getName() + "\"" + " " + " Thread id=" + t.getId() + " " + t.getState());
+      logger.atWarning().log("\"%s\"  Thread id=%d %s", t.getName(), t.getId(), t.getState());
       for (StackTraceElement line : e.getValue()) {
-        logger.warning("\t" + line);
+        logger.atWarning().log("\t%s", line);
       }
-      logger.warning("");
+      logger.atWarning().log("");
     }
     LoggingUtil.logToRemote(Level.WARNING, "Slow interrupt", new SlowInterruptException());
   }

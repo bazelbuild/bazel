@@ -480,6 +480,25 @@ function assert_not_contains() {
     return 1
 }
 
+function assert_contains_n() {
+    local pattern=$1
+    local expectednum=${2:-1}
+    local file=$3
+    local message=${4:-Expected regexp "$pattern" not found exactly $expectednum times}
+    local count
+    if [[ -f "$file" ]]; then
+      count=$(grep -sc -- "$pattern" "$file")
+    else
+      fail "$file is not a file: $message"
+      return 1
+    fi
+    [[ $count = $expectednum ]] && return 0
+
+    cat "$file" >&2
+    fail "$message"
+    return 1
+}
+
 # Updates the global variables TESTS if
 # sharding is enabled, i.e. ($TEST_TOTAL_SHARDS > 0).
 function __update_shards() {

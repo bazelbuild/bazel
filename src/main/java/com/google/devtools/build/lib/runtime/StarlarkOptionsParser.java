@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -66,7 +66,7 @@ public class StarlarkOptionsParser {
     this.nativeOptionsParser = nativeOptionsParser;
   }
 
-  static StarlarkOptionsParser newStarlarkOptionsParser(
+  public static StarlarkOptionsParser newStarlarkOptionsParser(
       CommandEnvironment env, OptionsParser optionsParser) {
     return new StarlarkOptionsParser(
         env.getSkyframeExecutor(),
@@ -75,6 +75,7 @@ public class StarlarkOptionsParser {
         optionsParser);
   }
 
+  /** Parses all pre "--" residue for Starlark options. */
   // TODO(juliexxia): This method somewhat reinvents the wheel of
   // OptionsParserImpl.identifyOptionAndPossibleArgument. Consider combining. This would probably
   // require multiple rounds of parsing to fit starlark-defined options into native option format.
@@ -98,8 +99,10 @@ public class StarlarkOptionsParser {
 
       parseArg(arg, unparsedArgs, unparsedOptions, eventHandler);
     }
-    residue.addAll(nativeOptionsParser.getPostDoubleDashResidue());
-    nativeOptionsParser.setResidue(residue.build());
+
+    List<String> postDoubleDashResidue = nativeOptionsParser.getPostDoubleDashResidue();
+    residue.addAll(postDoubleDashResidue);
+    nativeOptionsParser.setResidue(residue.build(), postDoubleDashResidue);
 
     if (unparsedOptions.isEmpty()) {
       return;
@@ -133,7 +136,7 @@ public class StarlarkOptionsParser {
           buildSettingTarget
               .getAssociatedRule()
               .getAttributeContainer()
-              .getAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+              .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
         parsedOptions.put(loadedFlag, value);
       }
     }
@@ -187,9 +190,7 @@ public class StarlarkOptionsParser {
   }
 
   private Target loadBuildSetting(
-      String targetToBuild,
-      OptionsParser optionsParser,
-      ExtendedEventHandler eventHandler)
+      String targetToBuild, OptionsParser optionsParser, ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
     Target buildSetting;
     try {
@@ -227,7 +228,7 @@ public class StarlarkOptionsParser {
 
   @VisibleForTesting
   public void setResidueForTesting(List<String> residue) {
-    nativeOptionsParser.setResidue(residue);
+    nativeOptionsParser.setResidue(residue, ImmutableList.of());
   }
 
   @VisibleForTesting

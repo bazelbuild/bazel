@@ -98,9 +98,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
 
   private void doLibrarySandwichTest(boolean legacyProviderAllowed) throws Exception {
     useConfiguration(
-        "--incompatible_disallow_legacy_py_provider=" + (legacyProviderAllowed ? "false" : "true"),
-        // Use new version semantics so we don't validate source versions in py_library.
-        "--incompatible_allow_python_version_transitions=true");
+        "--incompatible_disallow_legacy_py_provider=" + (legacyProviderAllowed ? "false" : "true"));
     defineUserlibRule(legacyProviderAllowed);
     scratch.file(
         "pkg/BUILD",
@@ -142,13 +140,13 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
     }
 
     PyInfo modernInfo = PyProviderUtils.getModernProvider(target);
-    assertThat(modernInfo.getTransitiveSources().getSet(Artifact.class).toList())
+    assertThat(modernInfo.getTransitiveSources().toCollection(Artifact.class))
         .containsExactly(
             getSourceArtifact("pkg/loweruserlib.py"),
             getSourceArtifact("pkg/pylib.py"),
             getSourceArtifact("pkg/upperuserlib.py"));
     assertThat(modernInfo.getUsesSharedLibraries()).isTrue();
-    assertThat(modernInfo.getImports().getSet(String.class).toList())
+    assertThat(modernInfo.getImports().toCollection(String.class))
         .containsExactly("loweruserlib_path", "upperuserlib_path");
     assertThat(modernInfo.getHasPy2OnlySources()).isTrue();
     assertThat(modernInfo.getHasPy3OnlySources()).isTrue();

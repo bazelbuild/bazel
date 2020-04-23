@@ -607,6 +607,7 @@ sh_test(
     data = [
         ":test-deps",
     ],
+    shard_count = 4,
     tags = ["no_windows"],
 )
 
@@ -681,6 +682,15 @@ sh_test(
     data = [":test-deps"],
     tags = ["no_windows"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "target_pattern_file_test",
+    srcs = ["target_pattern_file_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 ########################################################################

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -107,7 +108,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     ProtoInfo protoInfo = checkNotNull(ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER));
 
     try {
-      ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, parameters, ruleContext);
+      ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
       new Impl(ruleContext, protoInfo, cppSemantics, ccToolchainType).addProviders(result);
       return result.build();
     } catch (RuleErrorException e) {
@@ -169,7 +170,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       depsBuilder.addAll(ruleContext.getPrerequisites("deps", TARGET));
       ImmutableList<TransitiveInfoCollection> deps = depsBuilder.build();
 
-      CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
+      checkProtoLibrariesInDeps(ruleContext, deps);
       CcCompilationHelper compilationHelper =
           initializeCompilationHelper(featureConfiguration, deps);
 
@@ -273,6 +274,17 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       }
     }
 
+    private static void checkProtoLibrariesInDeps(
+        RuleErrorConsumer ruleErrorConsumer, Iterable<TransitiveInfoCollection> deps) {
+      for (TransitiveInfoCollection dep : deps) {
+        if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
+          ruleErrorConsumer.attributeError(
+              "deps",
+              String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
+        }
+      }
+    }
+
     private boolean areSrcsBlacklisted() {
       return !new ProtoSourceFileBlacklist(
               ruleContext, getProtoToolchainProvider().blacklistedProtos())
@@ -296,7 +308,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
               ruleContext,
               requestedFeatures.build(),
               unsupportedFeatures.build(),
-              ccToolchain(ruleContext));
+              ccToolchain(ruleContext),
+              cppSemantics);
       return featureConfiguration;
     }
 

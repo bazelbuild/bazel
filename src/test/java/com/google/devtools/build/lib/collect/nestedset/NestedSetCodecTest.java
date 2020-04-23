@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,6 +63,46 @@ public class NestedSetCodecTest {
   public void testCodecWithInMemoryNestedSetStore() throws Exception {
     ObjectCodecs objectCodecs = createCodecs(NestedSetStore.inMemory());
     NestedSetCodecTestUtils.checkCodec(objectCodecs, true, true);
+  }
+
+  @Test
+  public void onlyOneReadPerArray() throws Exception {
+    NestedSet<String> base = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    NestedSet<String> top = NestedSetBuilder.fromNestedSet(base).add("c").build();
+
+    AtomicInteger reads = new AtomicInteger();
+    NestedSetStorageEndpoint endpoint =
+        new NestedSetStorageEndpoint() {
+          InMemoryNestedSetStorageEndpoint delegate = new InMemoryNestedSetStorageEndpoint();
+
+          @Override
+          public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
+            return delegate.put(fingerprint, serializedBytes);
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(ByteString fingerprint) {
+            reads.incrementAndGet();
+            return delegate.get(fingerprint);
+          }
+        };
+
+    ObjectCodecs serializer = createCodecs(new NestedSetStore(endpoint));
+    ByteString serializedBase = serializer.serializeMemoizedAndBlocking(base).getObject();
+    ByteString serializedTop = serializer.serializeMemoizedAndBlocking(top).getObject();
+
+    // When deserializing top, we should perform 2 reads, one for each array in [[a, b], c].
+    ObjectCodecs deserializer = createCodecs(new NestedSetStore(endpoint));
+    NestedSet<?> deserializedTop = (NestedSet<?>) deserializer.deserializeMemoized(serializedTop);
+    assertThat(deserializedTop.toList()).containsExactly("a", "b", "c");
+    assertThat(reads.get()).isEqualTo(2);
+
+    // When deserializing base, we should not need to perform any additional reads since we have
+    // already read [a, b] and it is still in memory.
+    GcFinalization.awaitFullGc();
+    NestedSet<?> deserializedBase = (NestedSet<?>) deserializer.deserializeMemoized(serializedBase);
+    assertThat(deserializedBase.toList()).containsExactly("a", "b");
+    assertThat(reads.get()).isEqualTo(2);
   }
 
   @Test

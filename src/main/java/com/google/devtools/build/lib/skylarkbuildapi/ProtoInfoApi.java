@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.syntax.Depset;
 public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
   /** Provider class for {@link ProtoInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  interface Provider extends ProviderApi {
+  interface ProtoInfoProviderApi extends ProviderApi {
     // Currently empty. ProtoInfo cannot be created from Starlark at the moment.
   }
 
@@ -52,8 +52,8 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
       doc = "Proto sources for this rule and all its dependent protocol buffer rules.",
       structField = true)
   // TODO(bazel-team): The difference between transitive imports and transitive proto sources
-  // should never be used by Skylark or by an Aspect. One of these two should be removed,
-  // preferably soon, before Skylark users start depending on them.
+  // should never be used by Starlark or by an Aspect. One of these two should be removed,
+  // preferably soon, before Starlark users start depending on them.
   Depset /*<FileT>*/ getTransitiveProtoSourcesForStarlark();
 
   @SkylarkCallable(

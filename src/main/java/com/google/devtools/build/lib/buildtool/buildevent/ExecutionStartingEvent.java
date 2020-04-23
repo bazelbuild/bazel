@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.buildtool.ExecutionTool;
-
 import java.util.Collection;
 
 /**
- * This event is fired from {@link ExecutionTool#executeBuild} to indicate that the execution phase
- * of the build is starting.
+ * This event is fired from {@link com.google.devtools.build.lib.buildtool.ExecutionTool} to
+ * indicate that the execution phase of the build is starting.
  */
 public class ExecutionStartingEvent {
   private final Collection<TransitiveInfoCollection> targets;

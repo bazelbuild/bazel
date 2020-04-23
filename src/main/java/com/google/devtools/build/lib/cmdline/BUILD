@@ -5,15 +5,13 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
-# The "cmdline" library: Label validation and target pattern
-# parsing. Both the label syntax and the target pattern syntax are a
-# public interface, and all changes have to be made in a
-# backwards-compatible manner. This library is intentionally
-# standalone so it can be used outside without pulling in any internal
-# code.
+# cmdline provides Label and target pattern parsing.
+#
+# TODO(adonovan): break the dependency from lib.syntax to lib.cmdline by putting
+# the Label of the BUILD/.bzl file in the Starlark thread-local state.
 java_library(
     name = "cmdline",
     srcs = [
@@ -21,7 +19,6 @@ java_library(
         "LabelConstants.java",
         "LabelSerializationProxy.java",
         "LabelSyntaxException.java",
-        "LabelValidator.java",
         "PackageIdentifier.java",
         "RepositoryName.java",
         "ResolvedTargets.java",
@@ -29,16 +26,30 @@ java_library(
         "TargetPattern.java",
         "TargetPatternResolver.java",
     ],
-    visibility = ["//src:__subpackages__"],
     deps = [
+        ":LabelValidator",
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+# LabelValidator provides validation of Bazel build labels.
+# This is a public API.
+# TODO(adonovan): unsplit the lib.cmdline Java package by moving this logic to a subpackage.
+java_library(
+    name = "LabelValidator",
+    srcs = ["LabelValidator.java"],
+    deps = [
         "//third_party:guava",
         "//third_party:jsr305",
     ],

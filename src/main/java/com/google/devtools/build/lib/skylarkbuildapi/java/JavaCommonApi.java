@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** Utilities for Java compilation support in Skylark. */
+/** Utilities for Java compilation support in Starlark. */
 @SkylarkModule(name = "java_common", doc = "Utilities for Java compilation support in Starlark.")
 public interface JavaCommonApi<
         FileT extends FileApi,
@@ -41,7 +41,7 @@ public interface JavaCommonApi<
         JavaRuntimeT extends JavaRuntimeInfoApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
-        SkylarkActionFactoryT extends SkylarkActionFactoryApi>
+        SkylarkActionFactoryT extends StarlarkActionFactoryApi>
     extends StarlarkValue {
 
   @SkylarkCallable(
@@ -249,7 +249,7 @@ public interface JavaCommonApi<
         @Param(
             name = "actions",
             named = true,
-            type = SkylarkActionFactoryApi.class,
+            type = StarlarkActionFactoryApi.class,
             doc = "ctx.actions"),
         @Param(
             name = "jar",
@@ -294,7 +294,7 @@ public interface JavaCommonApi<
         @Param(
             name = "actions",
             named = true,
-            type = SkylarkActionFactoryApi.class,
+            type = StarlarkActionFactoryApi.class,
             doc = "ctx.actions"),
         @Param(
             name = "jar",
@@ -334,7 +334,7 @@ public interface JavaCommonApi<
         @Param(
             name = "actions",
             named = true,
-            type = SkylarkActionFactoryApi.class,
+            type = StarlarkActionFactoryApi.class,
             doc = "ctx.actions"),
         @Param(
             name = "output_jar",
@@ -561,4 +561,11 @@ public interface JavaCommonApi<
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain) throws EvalException;
+
+  @SkylarkCallable(
+      name = "BootClassPathInfo",
+      doc = "The provider used to supply bootclasspath information",
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  ProviderApi getBootClassPathInfo();
 }

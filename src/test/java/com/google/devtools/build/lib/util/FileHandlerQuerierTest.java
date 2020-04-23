@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
@@ -108,7 +108,7 @@ public class FileHandlerQuerierTest {
     logger.addHandler(
         SimpleLogHandler.builder().setPrefix(tmp.getRoot() + File.separator + "hello.log").build());
 
-    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
+    assertThrows(IOException.class, () -> handlerQuerier.getLoggerFilePath(logger));
   }
 
   @Test
@@ -116,6 +116,6 @@ public class FileHandlerQuerierTest {
     FileHandlerQuerier handlerQuerier = new FileHandlerQuerier();
     Logger logger = Logger.getAnonymousLogger();
 
-    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
+    assertThrows(IOException.class, () -> handlerQuerier.getLoggerFilePath(logger));
   }
 }

@@ -30,12 +30,12 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -269,8 +269,8 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     PathPackageLocator pathPackageLocator =
         PathPackageLocator.createWithoutExistenceCheck(
             directories.getOutputBase(), ImmutableList.of(root), getBuildFileNamesByPriority());
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.packagePath = ImmutableList.of(getWorkspacePathString());
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.packagePath = ImmutableList.of(getWorkspacePathString());
     scratch.file("tools/BUILD");
     scratch.file("tools/empty_prelude.bzl");
     ruleClassProvider =
@@ -281,7 +281,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     SkyframeExecutor skyframeExecutor =
         makeSkyframeExecutorFactory()
             .create(
-                TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
+                TestPackageFactoryBuilderFactory.getInstance()
                     .builder(directories)
                     .build(ruleClassProvider, fileSystem),
                 fileSystem,
@@ -303,7 +303,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
     skyframeExecutor.sync(
         reporter,
-        packageCacheOptions,
+        packageOptions,
         pathPackageLocator,
         Options.getDefaults(StarlarkSemanticsOptions.class),
         UUID.randomUUID(),

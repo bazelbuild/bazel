@@ -22,15 +22,37 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 /**
- * Options that affect Starlark semantics.
+ * Options that affect the dynamic behavior of Starlark execution and operators.
  *
- * <p>For descriptions of what these options do, see {@link StarlarkSemanticsOptions}.
+ * <p>For descriptions of what these options do, see {@link packages.StarlarkSemanticsOptions}.
+ *
+ * <p>For options that affect the static behavior of the Starlark frontend (lexer, parser,
+ * validator, compiler), see FileOptions.
  */
 // TODO(brandjon): User error messages that reference options should maybe be substituted with the
 // option name outside of the core Starlark interpreter?
 // TODO(brandjon): Eventually these should be documented in full here, and StarlarkSemanticsOptions
 // should refer to this class for documentation. But this doesn't play nice with the options
 // parser's annotation mechanism.
+//
+// TODO(adonovan): nearly all of these options are Bazel-isms.
+// The only ones that affect the Starlark interpreter directly are are:
+// - incompatibleRestrictNamedParams, which affects calls to many built-ins,
+//   but is used only by copybara and will be deleted soon (CL 298871155);
+// - incompatibleRestrictStringEscapes, which affects the lexer and is thus
+//   properly one of the FileOptions, but piggybacks on the command-line flag
+//   plumbing of StarlarkSemantics; and
+// - internalSkylarkFlagTestCanary, which is used to test propagation of Bazel
+//   command-line flags to the 'print' built-in, but this could easily be
+//   achieved using some other Bazel-specific built-in.
+// Most of the rest are used generically to disable parameters to built-ins,
+// or to disable fields of modules, based on flags. In both of those cases,
+// a generic set-of-feature-strings representation would do.
+// A few could be expressed as Bazel-specific thread state,
+// though several are inspected by the implementations of operations
+// such as SkylarkIndexable, SkylarkQueryable, and SkylarkClassObject.
+// TODO(adonovan): move to lib.packages.BuildLanguageSemantics.
+//
 @AutoValue
 public abstract class StarlarkSemantics {
 
@@ -53,10 +75,10 @@ public abstract class StarlarkSemantics {
     public static final String EXPERIMENTAL_ACTION_ARGS = "experimental_action_args";
     public static final String EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES =
         "experimental_allow_incremental_repository_updates";
+    public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE =
+        "experimental_disable_external_package";
     public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
         "experimental_sibling_repository_layout";
-    public static final String EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION =
-        "experimental_aspect_output_propagation";
     public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
         "experimental_enable_android_migration_apis";
     public static final String EXPERIMENTAL_BUILD_SETTING_API = "experimental_build_setting_api";
@@ -67,39 +89,39 @@ public abstract class StarlarkSemantics {
         "experimental_starlark_config_transition";
     public static final String EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST =
         "experimental_starlark_unused_inputs_list";
-    public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "experimental_cc_shared_library";
     public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "experimental_repo_remote_exec";
+    public static final String EXPERIMENTAL_EXEC_GROUPS = "experimental_exec_groups";
     public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
         "incompatible_applicable_licenses";
     public static final String INCOMPATIBLE_DISABLE_DEPSET_INPUTS =
         "incompatible_disable_depset_inputs";
-    public static final String INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT =
-        "incompatible_no_output_attr_default";
     public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
         "incompatible_no_rule_outputs_param";
-    public static final String INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP =
-        "incompatible_no_target_output_group";
     public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "incompatible_no_attr_license";
     public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
         "incompatible_allow_tags_propagation";
-    public static final String INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES =
-        "incompatible_remove_enable_toolchain_types";
+    public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
+        "incompatible_require_linker_input_cc_api";
+    public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
+        "incompatible_linkopts_to_linklibs";
+    public static final String RECORD_RULE_INSTANTIATION_CALLSTACK =
+        "record_rule_instantiation_callstack";
   }
 
   // TODO(adonovan): replace the fields of StarlarkSemantics
   // by a map from string to object, and make it the clients's job
   // to know the type. This function would then become simply:
   //  return Boolean.TRUE.equals(map.get(flag)).
-  boolean flagValue(String flag) {
+  public boolean flagValue(String flag) {
     switch (flag) {
       case FlagIdentifier.EXPERIMENTAL_ACTION_ARGS:
         return experimentalActionArgs();
       case FlagIdentifier.EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES:
         return experimentalAllowIncrementalRepositoryUpdates();
+      case FlagIdentifier.EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE:
+        return experimentalDisableExternalPackage();
       case FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT:
         return experimentalSiblingRepositoryLayout();
-      case FlagIdentifier.EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION:
-        return experimentalAspectOutputPropagation();
       case FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS:
         return experimentalEnableAndroidMigrationApis();
       case FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API:
@@ -114,26 +136,26 @@ public abstract class StarlarkSemantics {
         return experimentalStarlarkConfigTransitions();
       case FlagIdentifier.EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST:
         return experimentalStarlarkUnusedInputsList();
-      case FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY:
-        return experimentalCcSharedLibrary();
       case FlagIdentifier.EXPERIMENTAL_REPO_REMOTE_EXEC:
         return experimentalRepoRemoteExec();
+      case FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS:
+        return experimentalExecGroups();
       case FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES:
         return incompatibleApplicableLicenses();
       case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS:
         return incompatibleDisableDepsetItems();
-      case FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT:
-        return incompatibleNoOutputAttrDefault();
       case FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM:
         return incompatibleNoRuleOutputsParam();
-      case FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP:
-        return incompatibleNoTargetOutputGroup();
       case FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE:
         return incompatibleNoAttrLicense();
       case FlagIdentifier.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION:
         return experimentalAllowTagsPropagation();
-      case FlagIdentifier.INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES:
-        return incompatibleRemoveEnabledToolchainTypes();
+      case FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API:
+        return incompatibleRequireLinkerInputCcApi();
+      case FlagIdentifier.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS:
+        return incompatibleLinkoptsToLinkLibs();
+      case FlagIdentifier.RECORD_RULE_INSTANTIATION_CALLSTACK:
+        return recordRuleInstantiationCallstack();
       default:
         throw new IllegalArgumentException(flag);
     }
@@ -181,8 +203,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
 
-  public abstract boolean experimentalAspectOutputPropagation();
-
   public abstract boolean experimentalBuildSettingApi();
 
   public abstract ImmutableList<String> experimentalCcSkylarkApiEnabledPackages();
@@ -203,15 +223,15 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalRepoRemoteExec();
 
+  public abstract boolean experimentalDisableExternalPackage();
+
   public abstract boolean experimentalSiblingRepositoryLayout();
+
+  public abstract boolean experimentalExecGroups();
 
   public abstract boolean incompatibleAlwaysCheckDepsetElements();
 
   public abstract boolean incompatibleApplicableLicenses();
-
-  public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
-
-  public abstract boolean incompatibleDepsetUnion();
 
   public abstract boolean incompatibleDisableTargetProviderFields();
 
@@ -231,17 +251,9 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoImplicitFileExport();
 
-  public abstract boolean incompatibleNoOutputAttrDefault();
-
   public abstract boolean incompatibleNoRuleOutputsParam();
 
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
-
-  public abstract boolean incompatibleNoTargetOutputGroup();
-
-  public abstract boolean incompatibleRemoveEnabledToolchainTypes();
-
-  public abstract boolean incompatibleRestrictNamedParams();
 
   public abstract boolean incompatibleRunShellCommandString();
 
@@ -253,11 +265,19 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDepsetForLibrariesToLinkGetter();
 
+  public abstract boolean incompatibleRequireLinkerInputCcApi();
+
   public abstract boolean incompatibleRestrictStringEscapes();
 
   public abstract boolean experimentalAllowTagsPropagation();
 
   public abstract boolean incompatibleUseCcConfigureFromRulesCc();
+
+  public abstract boolean incompatibleLinkoptsToLinkLibs();
+
+  public abstract long maxComputationSteps();
+
+  public abstract boolean recordRuleInstantiationCallstack();
 
   @Memoized
   @Override
@@ -295,7 +315,6 @@ public abstract class StarlarkSemantics {
           .debugDepsetDepth(false)
           .experimentalActionArgs(false)
           .experimentalAllowTagsPropagation(false)
-          .experimentalAspectOutputPropagation(false)
           .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalAllowIncrementalRepositoryUpdates(true)
@@ -307,11 +326,11 @@ public abstract class StarlarkSemantics {
           .experimentalStarlarkUnusedInputsList(true)
           .experimentalCcSharedLibrary(false)
           .experimentalRepoRemoteExec(false)
+          .experimentalDisableExternalPackage(false)
           .experimentalSiblingRepositoryLayout(false)
-          .incompatibleAlwaysCheckDepsetElements(false)
+          .experimentalExecGroups(false)
+          .incompatibleAlwaysCheckDepsetElements(true)
           .incompatibleApplicableLicenses(false)
-          .incompatibleBzlDisallowLoadAfterStatement(true)
-          .incompatibleDepsetUnion(true)
           .incompatibleDisableTargetProviderFields(false)
           .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(true)
@@ -321,19 +340,19 @@ public abstract class StarlarkSemantics {
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
           .incompatibleNoImplicitFileExport(false)
-          .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
-          .incompatibleNoTargetOutputGroup(true)
-          .incompatibleRemoveEnabledToolchainTypes(true)
           .incompatibleRunShellCommandString(false)
-          .incompatibleRestrictNamedParams(true)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
+          .incompatibleRequireLinkerInputCcApi(false)
           .incompatibleRestrictStringEscapes(false)
           .incompatibleUseCcConfigureFromRulesCc(false)
+          .incompatibleLinkoptsToLinkLibs(false)
+          .maxComputationSteps(0)
+          .recordRuleInstantiationCallstack(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -348,8 +367,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
 
     public abstract Builder experimentalAllowTagsPropagation(boolean value);
-
-    public abstract Builder experimentalAspectOutputPropagation(boolean value);
 
     public abstract Builder experimentalBuildSettingApi(boolean value);
 
@@ -371,15 +388,15 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder experimentalRepoRemoteExec(boolean value);
 
+    public abstract Builder experimentalDisableExternalPackage(boolean value);
+
     public abstract Builder experimentalSiblingRepositoryLayout(boolean value);
+
+    public abstract Builder experimentalExecGroups(boolean value);
 
     public abstract Builder incompatibleAlwaysCheckDepsetElements(boolean value);
 
     public abstract Builder incompatibleApplicableLicenses(boolean value);
-
-    public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
-
-    public abstract Builder incompatibleDepsetUnion(boolean value);
 
     public abstract Builder incompatibleDisableTargetProviderFields(boolean value);
 
@@ -399,17 +416,9 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleNoImplicitFileExport(boolean value);
 
-    public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
-
     public abstract Builder incompatibleNoRuleOutputsParam(boolean value);
 
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
-
-    public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
-
-    public abstract Builder incompatibleRemoveEnabledToolchainTypes(boolean value);
-
-    public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
     public abstract Builder incompatibleRunShellCommandString(boolean value);
 
@@ -421,9 +430,17 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDepsetForLibrariesToLinkGetter(boolean value);
 
+    public abstract Builder incompatibleRequireLinkerInputCcApi(boolean value);
+
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
     public abstract Builder incompatibleUseCcConfigureFromRulesCc(boolean value);
+
+    public abstract Builder incompatibleLinkoptsToLinkLibs(boolean value);
+
+    public abstract Builder maxComputationSteps(long value);
+
+    public abstract Builder recordRuleInstantiationCallstack(boolean value);
 
     public abstract StarlarkSemantics build();
   }

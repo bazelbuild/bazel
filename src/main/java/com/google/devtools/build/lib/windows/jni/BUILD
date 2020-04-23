@@ -55,10 +55,10 @@ java_library(
     deps = [":jni-loader"],
 )
 
-#   Java interfaces to various native Windows system services.
+# Java interfaces to various native Windows system services.
 #
-#   All programs that depend on libraries in this package will have
-#   JNI (native code) dependencies.
+# All programs that depend on libraries in this package will have
+# JNI (native code) dependencies.
 java_library(
     name = "jni-loader",
     srcs = ["WindowsJniLoader.java"],

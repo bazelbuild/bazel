@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -49,7 +50,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFr
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -156,6 +156,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addProvider(LicensesProviderImpl.EMPTY)
         .addProvider(ConfigMatchingProvider.class, configMatcher)
+        .addRequiredConfigFragments(configMatcher.getRequiredFragmentOptions())
         .build();
   }
 
@@ -169,7 +170,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     List<ConstraintValueInfo> constraintValues = new ArrayList<>();
     for (TransitiveInfoCollection dep :
         ruleContext.getPrerequisites(
-            ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, Mode.DONT_CHECK)) {
+            ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, TransitionMode.DONT_CHECK)) {
       if (!PlatformProviderUtils.hasConstraintValue(dep)) {
         ruleContext.attributeError(
             ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE,
@@ -464,7 +465,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
       // Get the actual targets the 'flag_values' keys reference.
       Iterable<? extends TransitiveInfoCollection> prerequisites =
-          ruleContext.getPrerequisites(ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET);
+          ruleContext.getPrerequisites(
+              ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, TransitionMode.TARGET);
 
       for (TransitiveInfoCollection target : prerequisites) {
         Label actualLabel = target.getLabel();

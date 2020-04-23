@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -96,7 +96,7 @@ public class PyInfoTest extends SkylarkTestCase {
         "    has_py3_only_sources = True,",
         ")");
     PyInfo info = (PyInfo) lookup("info");
-    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:14");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isTrue();
@@ -110,7 +110,7 @@ public class PyInfoTest extends SkylarkTestCase {
   public void starlarkConstructorDefaults() throws Exception {
     exec("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
     PyInfo info = (PyInfo) lookup("info");
-    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:14");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isFalse();
@@ -125,9 +125,11 @@ public class PyInfoTest extends SkylarkTestCase {
         "missing 1 required named argument: transitive_sources", //
         "PyInfo()");
     checkEvalErrorContains(
-        "got value of type 'string', want 'depset of Files'", "PyInfo(transitive_sources = 'abc')");
+        "got value of type 'string', want 'depset'", //
+        "PyInfo(transitive_sources = 'abc')");
     checkEvalErrorContains(
-        "got value of type 'depset', want 'depset of Files'",
+        "should be a postorder-compatible depset of Files (got a 'default-ordered depset of"
+            + " strings')", //
         "PyInfo(transitive_sources = depset(direct=['abc']))");
     checkEvalErrorContains(
         "'transitive_sources' field should be a postorder-compatible depset of Files",
@@ -144,10 +146,10 @@ public class PyInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_Imports() throws Exception {
     checkEvalErrorContains(
-        "got value of type 'string', want 'depset of strings'",
+        "got value of type 'string', want 'depset'",
         "PyInfo(transitive_sources = depset([]), imports = 'abc')");
     checkEvalErrorContains(
-        "got value of type 'depset', want 'depset of strings'",
+        "should be a depset of strings (got a 'default-ordered depset of ints')",
         "PyInfo(transitive_sources = depset([]), imports = depset(direct=[123]))");
   }
 

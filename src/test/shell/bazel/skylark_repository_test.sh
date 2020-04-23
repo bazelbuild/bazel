@@ -325,7 +325,7 @@ EOF
 function test_skylark_local_repository() {
   create_new_workspace
   repo2=$new_workspace_dir
-  # Remove the WORKSPACE file in the symlinked repo, so our skylark rule has to
+  # Remove the WORKSPACE file in the symlinked repo, so our Starlark rule has to
   # create one.
   rm $repo2/WORKSPACE
 
@@ -387,7 +387,7 @@ def _impl(repository_ctx):
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
-  MARKER="<== skylark flag test ==>"
+  MARKER="<== Starlark flag test ==>"
 
   bazel build @foo//:bar >& $TEST_log \
     || fail "Expected build to succeed"
@@ -473,7 +473,8 @@ def _impl(repository_ctx):
   result = repository_ctx.execute(
     [str(repository_ctx.which("bash")), "-c", "echo PWD=\$PWD TOTO=\$TOTO"],
     1000000,
-    { "TOTO": "titi" })
+    { "TOTO": "titi" },
+    working_directory = "$repo2")
   if result.return_code != 0:
     fail("Incorrect return code from bash: %s != 0\n%s" % (result.return_code, result.stderr))
   print(result.stdout)
@@ -481,6 +482,9 @@ repo = repository_rule(implementation=_impl, local=True)
 EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  if "$is_windows"; then
+    repo2="$(cygpath $repo2)"
+  fi
   expect_log "PWD=$repo2 TOTO=titi"
 }
 
@@ -663,7 +667,7 @@ function environ_invalidation_test_template() {
   # Now try to depends on more variables
   write_environ_skylark "${execution_file}" '"FOO", "BAR", "BAZ"'
 
-  # The skylark rule has changed, so a rebuild should happen
+  # The Starlark rule has changed, so a rebuild should happen
   FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "<5> FOO=BAZ BAR=undefined BAZ=undefined"
@@ -743,7 +747,7 @@ function bzl_invalidation_test_template() {
   ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
 
-  # Changing the skylark file cause a refetch
+  # Changing the Starlark file cause a refetch
   cat <<EOF >>test.bzl
 
 # Just add a comment
@@ -789,7 +793,7 @@ function file_invalidation_test_template() {
   ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
 
-  # Changing the skylark file cause a refetch
+  # Changing the Starlark file cause a refetch
   cat <<EOF >>bar.tpl
 Add more stuff
 EOF
@@ -974,6 +978,11 @@ EOF
 }
 
 function test_skylark_repository_executable_flag() {
+  if "$is_windows"; then
+    # There is no executable flag on Windows.
+    echo "Skipping test_skylark_repository_executable_flag on Windows"
+    return
+  fi
   setup_skylark_repository
 
   # Our custom repository rule
@@ -1039,6 +1048,12 @@ EOF
   diff "${output_base}/external/foo/download_executable_file.sh" \
     "${download_executable_file}" >/dev/null \
     || fail "download_executable_file.sh is not downloaded successfully"
+
+  # No executable flag for file on Windows
+  if "$is_windows"; then
+    return
+  fi
+
   # Test executable
   test ! -x "${output_base}/external/foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is executable"
@@ -1068,6 +1083,12 @@ function test_skylark_repository_context_downloads_return_struct() {
 
   # Start HTTP server with Python
   startup_server "${server_dir}"
+
+  # On Windows, a file url should be file:///C:/foo/bar,
+  # we need to add one more slash at the beginning.
+  if "$is_windows"; then
+    server_dir="/${server_dir}"
+  fi
 
   setup_skylark_repository
   # Our custom repository rule
@@ -1711,10 +1732,16 @@ netrcrepo = repository_rule(
   attrs = {"path": attr.string()},
 )
 EOF
+
+  netrc_dir="$(pwd)"
+  if "$is_windows"; then
+    netrc_dir="$(cygpath -m ${netrc_dir})"
+  fi
+
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:def.bzl", "netrcrepo")
 
-netrcrepo(name = "netrc", path="$(pwd)/.netrc")
+netrcrepo(name = "netrc", path="${netrc_dir}/.netrc")
 EOF
   # ...and that from the parse result, we can read off the
   # credentials for example.com.
@@ -1779,6 +1806,9 @@ password foopass
 machine bar.example.org
 login barusername
 password passbar
+
+machine oauthlife.com
+password TOKEN
 EOF
   # Read a given .netrc file and combine it with a list of URL,
   # and write the obtained authentication dicionary to disk; this
@@ -1787,7 +1817,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
 def _impl(ctx):
   rc = read_netrc(ctx, ctx.attr.path)
-  auth = use_netrc(rc, ctx.attr.urls)
+  auth = use_netrc(rc, ctx.attr.urls, {"oauthlife.com": "Bearer <password>",})
   ctx.file("data.bzl", "auth = %s" % (auth,))
   ctx.file("BUILD", "")
   ctx.file("WORKSPACE", "")
@@ -1799,18 +1829,25 @@ authrepo = repository_rule(
   },
 )
 EOF
+
+  netrc_dir="$(pwd)"
+  if "$is_windows"; then
+    netrc_dir="$(cygpath -m ${netrc_dir})"
+  fi
+
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:def.bzl", "authrepo")
 
 authrepo(
   name = "auth",
-  path="$(pwd)/.netrc",
+  path="${netrc_dir}/.netrc",
   urls = [
     "http://example.org/public/null.tar",
     "https://foo.example.org/file1.tar",
     "https://foo.example.org:8080/file2.tar",
     "https://bar.example.org/file3.tar",
     "https://evil.com/bar.example.org/file4.tar",
+    "https://oauthlife.com/fizz/buzz/file5.tar",
   ],
 )
 EOF
@@ -1832,6 +1869,11 @@ expected = {
       "type" : "basic",
       "login": "barusername",
       "password" : "passbar",
+    },
+    "https://oauthlife.com/fizz/buzz/file5.tar": {
+      "type" : "pattern",
+      "pattern" : "Bearer <password>",
+      "password" : "TOKEN",
     },
 }
 EOF
@@ -1913,12 +1955,16 @@ function test_http_archive_netrc() {
   tar cvf x.tar x
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
+  netrc_dir="$(pwd)"
+  if "$is_windows"; then
+    netrc_dir="$(cygpath -m ${netrc_dir})"
+  fi
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
-  netrc = "$(pwd)/.netrc",
+  netrc = "${netrc_dir}/.netrc",
   sha256="$sha256",
 )
 EOF
@@ -1939,6 +1985,45 @@ EOF
       || fail "Expected success despite needing a file behind basic auth"
 }
 
+function test_http_archive_auth_patterns() {
+  mkdir x
+  echo 'exports_files(["file.txt"])' > x/BUILD
+  echo 'Hello World' > x/file.txt
+  tar cvf x.tar x
+  sha256=$(sha256sum x.tar | head -c 64)
+  serve_file_auth x.tar
+  netrc_dir="$(pwd)"
+  if "$is_windows"; then
+    netrc_dir="$(cygpath -m ${netrc_dir})"
+  fi
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  url = "http://127.0.0.1:$nc_port/x.tar",
+  netrc = "${netrc_dir}/.netrc",
+  sha256="$sha256",
+  auth_patterns = {
+    "127.0.0.1": "Bearer <password>"
+  }
+)
+EOF
+  cat > .netrc <<'EOF'
+machine 127.0.0.1
+password TOKEN
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@ext//x:file.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:it \
+      || fail "Expected success despite needing a file behind bearer auth"
+}
+
 function test_implicit_netrc() {
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
@@ -1948,6 +2033,9 @@ function test_implicit_netrc() {
   serve_file_auth x.tar
 
   export HOME=`pwd`
+  if "$is_windows"; then
+    export USERPROFILE="$(cygpath -m ${HOME})"
+  fi
   cat > .netrc <<'EOF'
 machine 127.0.0.1
 login foo

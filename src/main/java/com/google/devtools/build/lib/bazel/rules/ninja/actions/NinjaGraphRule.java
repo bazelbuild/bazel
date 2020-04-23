@@ -21,20 +21,24 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
- * The rule that parses the Ninja graph and creates {@link NinjaAction} actions.
+ * The rule that parses the Ninja graph and symlinks inputs into output_root.
+ *
+ * <p>The rule exposes {@link NinjaGraphProvider} with maps of usual and phony {@link
+ * com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget} for {@link NinjaBuildRule} to
+ * use for action creation.
+ *
+ * <p>The rules establishes Skyframe dependency on input Ninja files, as each time they change, the
+ * action graph changes.
  *
  * <p>Important aspect is relation to non-symlinked-under-execroot-directories: {@link
  * com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi#dontSymlinkDirectoriesInExecroot(Sequence,
@@ -52,10 +56,6 @@ public class NinjaGraphRule implements RuleDefinition {
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .setDoc("All included or subninja Ninja files describing the action graph."))
         .add(
-            attr("srcs", LABEL_LIST)
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                .setDoc("Source files requested by Ninja graph actions."))
-        .add(
             attr("main", LABEL)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .mandatory()
@@ -66,7 +66,7 @@ public class NinjaGraphRule implements RuleDefinition {
                 .setDoc(
                     "<p>Directory under workspace, where all the intermediate and output artifacts"
                         + " will be created.</p><p>Must not be symlinked to the execroot. For"
-                        + " that, dont_symlink_directories_in_execroot function should be used in"
+                        + " that, toplevel_output_directories function should be used in"
                         + " WORKSPACE file.</p>"))
         .add(
             attr("output_root_inputs", STRING_LIST)
@@ -78,26 +78,20 @@ public class NinjaGraphRule implements RuleDefinition {
                         + " <execroot>/<output_root> will be a separate directory, not a"
                         + " symlink.</p>"))
         .add(
+            attr("output_root_symlinks", STRING_LIST)
+                .value(ImmutableList.of())
+                .setDoc(
+                    "<p>Output paths under output_root, that should be treated as symlink"
+                        + " artifacts.</p><p>In combination with"
+                        + " --experimental_allow_unresolved_symlinks flag, this allows Ninja"
+                        + " actions to create symlinks, not pointing to the existing file.</p>"))
+        .add(
             attr("working_directory", STRING)
                 .value("")
                 .setDoc(
                     "Directory under workspace's exec root to be the root for relative paths and "
                         + "working directory for all Ninja actions. "
                         + "Must be empty or set to the value or output_root."))
-        .add(
-            attr("deps_mapping", BuildType.LABEL_DICT_UNARY)
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                .setDoc(
-                    "Mapping of paths in the Ninja file to the Bazel-built dependencies. Main"
-                        + " output of each dependency will be used as an input to the Ninja"
-                        + " action,which refers to the corresponding path.")
-                .value(ImmutableMap.of()))
-        .add(
-            attr("output_groups", Type.STRING_LIST_DICT)
-                .setDoc(
-                    "Mapping of output groups to the list of output paths in the Ninja file. "
-                        + "Only the output paths mentioned in this attribute will be built."
-                        + " Phony target names may be specified as the output paths."))
         .build();
   }
 

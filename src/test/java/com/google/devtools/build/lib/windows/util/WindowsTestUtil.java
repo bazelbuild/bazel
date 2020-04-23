@@ -63,6 +63,22 @@ public final class WindowsTestUtil {
     }
   }
 
+  /**
+   * Create symbolic links.
+   *
+   * <p>Each key in the map is a symlink path relative to {@link #scratchRoot}. These are the link
+   * names.
+   *
+   * <p>Each value in the map is a file path relative to {@link #scratchRoot}. These are the link
+   * targets.
+   */
+  public void createSymlinks(Map<String, String> links) throws Exception {
+    for (Map.Entry<String, String> entry : links.entrySet()) {
+      WindowsFileOperations.createSymlink(
+          scratchRoot + "/" + entry.getKey(), scratchRoot + "/" + entry.getValue());
+    }
+  }
+
   /** Delete everything under {@link #scratchRoot}/path. */
   public void deleteAllUnder(String path) throws IOException {
     if (Strings.isNullOrEmpty(path)) {

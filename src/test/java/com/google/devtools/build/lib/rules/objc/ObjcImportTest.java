@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -117,7 +118,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
 
   @Test
   public void testProvidesHdrsAndIncludes() throws Exception {
-    checkProvidesHdrsAndIncludes(RULE_TYPE);
+    checkProvidesHdrsAndIncludes(RULE_TYPE, Optional.absent());
   }
 
   @Test

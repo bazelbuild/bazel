@@ -9,6 +9,7 @@ package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_grou
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
+    visibility = ["//src:__subpackages__"],
 )
 
 # Necessary for the bootstrap compilation.

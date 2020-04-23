@@ -24,11 +24,12 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
@@ -51,6 +52,7 @@ public final class TestTargetExecutionSettings {
   private final Runfiles runfiles;
   private final Artifact runfilesInputManifest;
   private final Artifact instrumentedFileManifest;
+  private final boolean testRunnerFailFast;
 
   TestTargetExecutionSettings(
       RuleContext ruleContext,
@@ -84,7 +86,7 @@ public final class TestTargetExecutionSettings {
               persistentTestRunnerFlagFile,
               /* fileContents= */ Joiner.on(System.lineSeparator()).join(testTargetArgs.build()),
               /* makeExecutable= */ false,
-              /* allowCompression= */ FileWriteAction.Compression.DISALLOW));
+              /* allowCompression= */ Compression.DISALLOW));
 
       // When using the persistent test runner the test arguments are passed through --flagfile.
       testArguments =
@@ -102,6 +104,7 @@ public final class TestTargetExecutionSettings {
     runUnderExecutable = getRunUnderExecutable(ruleContext);
 
     this.testFilter = testConfig.getTestFilter();
+    this.testRunnerFailFast = testConfig.getTestRunnerFailFast();
     this.executable = executable;
     this.runfilesSymlinksCreated = runfilesSupport.isBuildRunfileLinks();
     this.runfilesDir = runfilesSupport.getRunfilesDirectory();
@@ -111,8 +114,8 @@ public final class TestTargetExecutionSettings {
   }
 
   private static Artifact getRunUnderExecutable(RuleContext ruleContext) {
-    TransitiveInfoCollection runUnderTarget = ruleContext
-        .getPrerequisite(":run_under", Mode.DONT_CHECK);
+    TransitiveInfoCollection runUnderTarget =
+        ruleContext.getPrerequisite(":run_under", TransitionMode.DONT_CHECK);
     return runUnderTarget == null
         ? null
         : runUnderTarget.getProvider(FilesToRunProvider.class).getExecutable();
@@ -128,6 +131,10 @@ public final class TestTargetExecutionSettings {
 
   public String getTestFilter() {
     return testFilter;
+  }
+
+  public boolean getTestRunnerFailFast() {
+    return testRunnerFailFast;
   }
 
   public int getTotalShards() {

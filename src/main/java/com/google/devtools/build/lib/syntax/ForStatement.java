@@ -20,17 +20,26 @@ import java.util.List;
 /** Syntax node for a for loop statement. */
 public final class ForStatement extends Statement {
 
+  private final int forOffset;
   private final Expression lhs;
   private final Expression collection;
-  private final ImmutableList<Statement> block;
+  private final ImmutableList<Statement> block; // non-empty if well formed
 
   /** Constructs a for loop statement. */
-  ForStatement(Expression lhs, Expression collection, List<Statement> block) {
+  ForStatement(
+      FileLocations locs,
+      int forOffset,
+      Expression lhs,
+      Expression collection,
+      List<Statement> block) {
+    super(locs);
+    this.forOffset = forOffset;
     this.lhs = Preconditions.checkNotNull(lhs);
     this.collection = Preconditions.checkNotNull(collection);
     this.block = ImmutableList.copyOf(block);
   }
 
+  // TODO(adonovan): rename to getVars.
   public Expression getLHS() {
     return lhs;
   }
@@ -44,6 +53,18 @@ public final class ForStatement extends Statement {
 
   public ImmutableList<Statement> getBlock() {
     return block;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return forOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return block.isEmpty()
+        ? collection.getEndOffset() // wrong, but tree is ill formed
+        : block.get(block.size() - 1).getEndOffset();
   }
 
   @Override

@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
+import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -152,6 +153,11 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
                   + "the visibility declaration of the former target if you think "
                   + "the dependency is legitimate",
               AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
+
+      if (prerequisite.getTarget().getTargetKind().equals(InputFile.targetKind())) {
+        errorMessage +=
+            ". To set the visibility of that source file target, use the exports_files() function";
+      }
       context.ruleError(errorMessage);
     }
   }

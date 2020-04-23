@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -41,8 +42,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -53,7 +52,7 @@ import javax.annotation.concurrent.GuardedBy;
  */
 class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
-  private static final Logger logger = Logger.getLogger(RemoteActionInputFetcher.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Object lock = new Object();
 
@@ -191,7 +190,7 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
                   try {
                     path.chmod(0755);
                   } catch (IOException e) {
-                    logger.log(Level.WARNING, "Failed to chmod 755 on " + path, e);
+                    logger.atWarning().withCause(e).log("Failed to chmod 755 on %s", path);
                   }
                 }
 
@@ -203,10 +202,8 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
                   try {
                     path.delete();
                   } catch (IOException e) {
-                    logger.log(
-                        Level.WARNING,
-                        "Failed to delete output file after incomplete download: " + path,
-                        e);
+                    logger.atWarning().withCause(e).log(
+                        "Failed to delete output file after incomplete download: %s", path);
                   }
                 }
               },

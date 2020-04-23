@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
@@ -67,7 +67,10 @@ import javax.annotation.Nullable;
  */
 final class TargetPatternPhaseFunction implements SkyFunction {
 
-  public TargetPatternPhaseFunction() {
+  private final ExternalPackageHelper externalPackageHelper;
+
+  public TargetPatternPhaseFunction(ExternalPackageHelper externalPackageHelper) {
+    this.externalPackageHelper = externalPackageHelper;
   }
 
   @Override
@@ -75,7 +78,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     TargetPatternPhaseKey options = (TargetPatternPhaseKey) key.argument();
     WorkspaceNameValue workspaceName = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
     ImmutableSortedSet<String> notSymlinkedInExecrootDirectories =
-        ExternalPackageUtil.getNotSymlinkedInExecrootDirectories(env);
+        externalPackageHelper.getNotSymlinkedInExecrootDirectories(env);
     if (env.valuesMissing()) {
       return null;
     }
@@ -253,7 +256,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * Interprets the command-line arguments by expanding each pattern to targets and populating the
    * list of {@code failedPatterns}.
    *
-   * @param env the Skylark environment
+   * @param env the Starlark environment
    * @param options the command-line arguments in structured form
    * @param failedPatterns a list into which failed patterns are added
    */

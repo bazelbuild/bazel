@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RequiredProviders;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigFeatureFlagProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 @Immutable
 public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatureFlagProviderApi {
 
-  /** Name used in Skylark for accessing ConfigFeatureFlagProvider. */
+  /** Name used in Starlark for accessing ConfigFeatureFlagProvider. */
   static final String SKYLARK_NAME = "FeatureFlagInfo";
 
   /**
@@ -63,7 +63,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
   }
 
   /**
-   * A constructor callable from Skylark for OutputGroupInfo: {@code
+   * A constructor callable from Starlark for OutputGroupInfo: {@code
    * config_common.FeatureFlagInfo(value="...")}
    */
   @SkylarkModule(name = "FeatureFlagInfo", documented = false)
@@ -90,7 +90,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
     }
   }
 
-  public static SkylarkProviderIdentifier id() {
+  public static StarlarkProviderIdentifier id() {
     return SKYLARK_CONSTRUCTOR.id();
   }
 

@@ -35,17 +35,20 @@ import javax.tools.Diagnostic;
  * Annotation processor for {@link SkylarkConfigurationField}.
  *
  * <p>Checks the following invariants about {@link SkylarkConfigurationField}-annotated methods:
+ *
  * <ul>
- * <li>The annotated method must be on a configuration fragment.</li>
- * <li>The method must have return type Label.</li>
- * <li>The method must be public.</li>
- * <li>The method must have zero arguments.</li>
- * <li>The method must not throw exceptions.</li>
+ *   <li>The annotated method must be on a configuration fragment.
+ *   <li>The method must have return type Label.
+ *   <li>The method must be public.
+ *   <li>The method must have zero arguments.
+ *   <li>The method must not throw exceptions.
  * </ul>
  *
  * <p>These properties can be relied upon at runtime without additional checks.
  */
-@SupportedAnnotationTypes({"com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField"})
+@SupportedAnnotationTypes({
+  "com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField"
+})
 public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor {
 
   private Messager messager;
@@ -68,8 +71,7 @@ public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor 
     labelType =
         elementUtils.getTypeElement("com.google.devtools.build.lib.cmdline.Label");
     configurationFragmentType =
-        elementUtils.getTypeElement(
-            "com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment");
+        elementUtils.getTypeElement("com.google.devtools.build.lib.analysis.config.Fragment");
   }
 
   @Override

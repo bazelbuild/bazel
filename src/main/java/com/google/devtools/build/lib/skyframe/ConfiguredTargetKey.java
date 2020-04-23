@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -43,28 +42,21 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     this.configurationKey = configurationKey;
   }
 
-  private static Label getLabel(ConfiguredTarget configuredTarget) {
-    AliasProvider aliasProvider = configuredTarget.getProvider(AliasProvider.class);
-    return aliasProvider != null
-        ? aliasProvider.getAliasChain().get(0)
-        : configuredTarget.getLabel();
-  }
-
   public static ConfiguredTargetKey of(
       ConfiguredTarget configuredTarget, BuildConfiguration buildConfiguration) {
-    return of(getLabel(configuredTarget), buildConfiguration);
+    return of(configuredTarget.getOriginalLabel(), buildConfiguration);
   }
 
   public static ConfiguredTargetKey of(
       ConfiguredTarget configuredTarget,
       BuildConfigurationValue.Key configurationKey,
       boolean isHostConfiguration) {
-    return of(getLabel(configuredTarget), configurationKey, isHostConfiguration);
+    return of(configuredTarget.getOriginalLabel(), configurationKey, isHostConfiguration);
   }
 
   public static ConfiguredTargetKey inTargetConfig(ConfiguredTarget configuredTarget) {
     return of(
-        getLabel(configuredTarget),
+        configuredTarget.getOriginalLabel(),
         configuredTarget.getConfigurationKey(),
         /*isHostConfiguration=*/ false);
   }

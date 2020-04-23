@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionRewoundEvent;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actionsketch.ActionSketch;
@@ -133,12 +131,12 @@ public class ActionExecutionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionExecutionFunctionException, InterruptedException {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
-    Action action = getActionForLookupData(env, actionLookupData);
+    Action action = ActionUtils.getActionForLookupData(env, actionLookupData);
     if (action == null) {
       return null;
     }
     skyframeActionExecutor.noteActionEvaluationStarted(actionLookupData, action);
-    if (actionDependsOnBuildId(action)) {
+    if (SkyframeActionExecutor.actionDependsOnBuildId(action)) {
       PrecomputedValue.BUILD_ID.get(env);
     }
 
@@ -228,11 +226,10 @@ public class ActionExecutionFunction implements SkyFunction {
     ImmutableSet<Artifact> mandatoryInputs =
         action.discoversInputs() ? action.getMandatoryInputs().toSet() : null;
 
-    int nestedSetSizeThreshold = ArtifactNestedSetFunction.getSizeThreshold();
     NestedSet<Artifact> allInputs = state.allInputs.getAllInputs();
 
     Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps =
-        getInputDeps(env, nestedSetSizeThreshold, allInputs, state);
+        getInputDeps(env, allInputs, state);
     // If there's a missing value.
     if (inputDeps == null) {
       return null;
@@ -342,18 +339,17 @@ public class ActionExecutionFunction implements SkyFunction {
    */
   private static Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getInputDeps(
       Environment env,
-      int nestedSetSizeThreshold,
       NestedSet<Artifact> allInputs,
       ContinuationState state)
       throws InterruptedException {
-    if (evalInputsAsNestedSet(nestedSetSizeThreshold, allInputs)) {
+    if (evalInputsAsNestedSet(allInputs)) {
       // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order
       // to save memory:
       // - This top layer costs 1 extra ArtifactNestedSetKey node.
       // - It's uncommon that 2 actions share the exact same set of inputs
       //   => the top layer offers little in terms of reusability.
       // More details: b/143205147.
-      NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) allInputs);
+      NestedSetView<Artifact> nestedSetView = new NestedSetView<>(allInputs);
 
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
           directArtifactValuesOrExceptions =
@@ -390,8 +386,8 @@ public class ActionExecutionFunction implements SkyFunction {
    * necessary. The default case (without --experimental_nestedset_as_skykey_threshold) will ignore
    * this path.
    */
-  private static boolean evalInputsAsNestedSet(
-      int nestedSetSizeThreshold, NestedSet<Artifact> inputs) {
+  public static boolean evalInputsAsNestedSet(NestedSet<Artifact> inputs) {
+    int nestedSetSizeThreshold = ArtifactNestedSetFunction.getSizeThreshold();
     if (nestedSetSizeThreshold == 1) {
       // Don't even flatten in this case.
       return true;
@@ -578,16 +574,6 @@ public class ActionExecutionFunction implements SkyFunction {
       }
     }
     return inputDepOwners;
-  }
-
-  @Nullable
-  static Action getActionForLookupData(Environment env, ActionLookupData actionLookupData)
-      throws InterruptedException {
-    ActionLookupValue actionLookupValue =
-        ArtifactFunction.getActionLookupValue(actionLookupData.getActionLookupKey(), env);
-    return actionLookupValue != null
-        ? actionLookupValue.getAction(actionLookupData.getActionIndex())
-        : null;
   }
 
   /**
@@ -792,7 +778,7 @@ public class ActionExecutionFunction implements SkyFunction {
           (action instanceof IncludeScannable)
               ? ((IncludeScannable) action).getDiscoveredModules()
               : null,
-          actionDependsOnBuildId(action));
+          SkyframeActionExecutor.actionDependsOnBuildId(action));
     }
 
     // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
@@ -1035,7 +1021,7 @@ public class ActionExecutionFunction implements SkyFunction {
       } else if (retrievedMetadata instanceof ActionExecutionValue) {
         inputData.putWithNoDepOwner(
             input,
-            ArtifactFunction.createSimpleFileArtifactValue(
+            ActionExecutionValue.createSimpleFileArtifactValue(
                 (Artifact.DerivedArtifact) input, (ActionExecutionValue) retrievedMetadata));
       } else if (retrievedMetadata instanceof MissingFileArtifactValue) {
         inputData.putWithNoDepOwner(input, FileArtifactValue.MISSING_FILE_MARKER);
@@ -1268,7 +1254,7 @@ public class ActionExecutionFunction implements SkyFunction {
           action,
           rootCauses.build(),
           firstActionExecutionException.isCatastrophe(),
-          firstActionExecutionException.getExitCode());
+          firstActionExecutionException.getDetailedExitCode());
     }
 
     if (missingCount > 0) {
@@ -1289,16 +1275,6 @@ public class ActionExecutionFunction implements SkyFunction {
     }
     return accumulateInputResultsFactory.create(
         inputArtifactData, expandedArtifacts, filesetsInsideRunfiles, topLevelFilesets);
-  }
-
-  static boolean actionDependsOnBuildId(Action action) {
-    // Volatile build actions may need to execute even if none of their known inputs have changed.
-    // Depending on the build id ensures that these actions have a chance to execute.
-    // SkyframeAwareActions do not need to depend on the build id because their volatility is due to
-    // their dependence on Skyframe nodes that are not captured in the action cache. Any changes to
-    // those nodes will cause this action to be rerun, so a build id dependency is unnecessary.
-    return (action.isVolatile() && !(action instanceof SkyframeAwareAction))
-        || action instanceof NotifyOnActionCacheHit;
   }
 
   @Override

@@ -26,7 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for string representations of Skylark objects. */
+/** Tests for string representations of Starlark objects. */
 @RunWith(JUnit4.class)
 public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
 
@@ -145,11 +145,11 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
 
   /**
    * Creates a set of BUILD and .bzl files that gathers objects of many different types available in
-   * Skylark and creates their string representations by calling `str` and `repr` on them. The
+   * Starlark and creates their string representations by calling `str` and `repr` on them. The
    * strings are available in the configured target for //test/skylark:check
    */
   private void generateFilesToTestStrings() throws Exception {
-    // Generate string representations of Skylark rule contexts, targets, and files.
+    // Generate string representations of Starlark rule contexts, targets, and files.
     // Objects are gathered in the implementation of the `check` rule.
     // prepare_params(objects) converts a dict of objects to a dict of their string representations.
 

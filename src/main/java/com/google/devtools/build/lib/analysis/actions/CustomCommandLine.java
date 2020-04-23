@@ -122,20 +122,20 @@ public final class CustomCommandLine extends CommandLine {
    *   <li>Simply add all arguments
    * </ul>
    *
-   * <pre>
-   *   Examples:
+   * <pre>{@code
+   * Examples:
    *
-   *   List<String> values = ImmutableList.of("1", "2", "3");
+   * List<String> values = ImmutableList.of("1", "2", "3");
    *
-   *   commandBuilder.addAll(VectorArg.format("-l%s").each(values))
-   *   -> ["-l1", "-l2", "-l3"]
+   * commandBuilder.addAll(VectorArg.format("-l%s").each(values))
+   * -> ["-l1", "-l2", "-l3"]
    *
-   *   commandBuilder.addAll(VectorArg.addBefore("-l").each(values))
-   *   -> ["-l", "1", "-l", "2", "-l", "3"]
+   * commandBuilder.addAll(VectorArg.addBefore("-l").each(values))
+   * -> ["-l", "1", "-l", "2", "-l", "3"]
    *
-   *   commandBuilder.addAll(VectorArg.join(":").each(values))
-   *   -> ["1:2:3"]
-   * </pre>
+   * commandBuilder.addAll(VectorArg.join(":").each(values))
+   * -> ["1:2:3"]
+   * }</pre>
    */
   @AutoCodec
   public static class VectorArg<T> {
@@ -444,7 +444,7 @@ public final class CustomCommandLine extends CommandLine {
           int count = (Integer) arguments.get(argi++);
           if (mapFn != null) {
             for (int i = 0; i < count; ++i) {
-              mapFn.expandToCommandLine(arguments.get(argi++), fingerprint);
+              mapFn.expandToCommandLine(arguments.get(argi++), fingerprint::addString);
             }
           } else {
             for (int i = 0; i < count; ++i) {
@@ -1079,9 +1079,9 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
-     * Adds the arguments for all {@link TreeFileArtifact}s under
-     * {@code treeArtifact}, one argument per file. Using {@code expandingFunction} to expand each
-     * {@link TreeFileArtifact} to expected argument.
+     * Adds the arguments for all {@link TreeFileArtifact}s under {@code treeArtifact}, one argument
+     * per file. Using {@code expandFunction} to expand each {@link TreeFileArtifact} to expected
+     * argument.
      *
      * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
      * @param expandFunction the function to generate the argument for each{@link TreeFileArtifact}.

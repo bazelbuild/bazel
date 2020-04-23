@@ -13,18 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -113,20 +108,6 @@ public abstract class FunctionSignature {
     return numPositionals() + numNamedOnly() + (hasStar() ? 1 : 0) + (hasKwargs() ? 1 : 0);
   }
 
-  private static final Interner<ImmutableList<String>> namesInterner =
-      BlazeInterners.newWeakInterner();
-
-  /** Intern a list of names. */
-  private static ImmutableList<String> names(List<String> names) {
-    return namesInterner.intern(
-        names.stream().map(StringCanonicalizer::intern).collect(toImmutableList()));
-  }
-
-  // Interner.
-  // Are there really a significant number of duplicates? Why??
-  private static final Interner<FunctionSignature> signatureInterner =
-      BlazeInterners.newWeakInterner();
-
   // TODO(adonovan): not a user-friendly API. Provide external callers with this function:
   //   FunctionSignature.parse("a, b=1, *, c, d=2, *args, **kwargs")
   // implemented by invoking the Starlark parser. (Most uses are in tests.)
@@ -145,17 +126,14 @@ public abstract class FunctionSignature {
             && 0 <= numMandatoryNamedOnly
             && 0 <= numOptionalNamedOnly);
 
-    FunctionSignature sig =
-        new AutoValue_FunctionSignature(
-            numMandatoryPositionals,
-            numOptionalPositionals,
-            numMandatoryNamedOnly,
-            numOptionalNamedOnly,
-            hasVarargs,
-            hasKwargs,
-            names(parameterNames));
-
-    return signatureInterner.intern(sig);
+    return new AutoValue_FunctionSignature(
+        numMandatoryPositionals,
+        numOptionalPositionals,
+        numMandatoryNamedOnly,
+        numOptionalNamedOnly,
+        hasVarargs,
+        hasKwargs,
+        parameterNames);
   }
 
   @Override
@@ -338,7 +316,7 @@ public abstract class FunctionSignature {
    * @param hasKwargs whether function accepts arbitrary named arguments
    * @param names an Array of String for the parameter names
    */
-  static FunctionSignature of(
+  private static FunctionSignature of(
       int numMandatoryPositionals,
       int numOptionalPositionals,
       int numMandatoryNamedOnly,
@@ -366,30 +344,8 @@ public abstract class FunctionSignature {
    * @param names an Array of String for the positional parameter names
    * @return a FunctionSignature
    */
-  public static FunctionSignature of(String... names) {
+  static FunctionSignature of(String... names) {
     return of(names.length, 0, 0, false, false, names);
-  }
-
-  /**
-   * Constructs a function signature from positional argument names.
-   *
-   * @param numMandatory an int for the number of mandatory positional parameters
-   * @param names an Array of String for the positional parameter names
-   * @return a FunctionSignature
-   */
-  public static FunctionSignature of(int numMandatory, String... names) {
-    return of(numMandatory, names.length - numMandatory, 0, false, false, names);
-  }
-
-  /**
-   * Constructs a function signature from named-only parameter names.
-   *
-   * @param numMandatory an int for the number of mandatory named-only parameters
-   * @param names an Array of String for the named-only parameter names
-   * @return a FunctionSignature
-   */
-  public static FunctionSignature namedOnly(int numMandatory, String... names) {
-    return of(0, 0, numMandatory, false, false, names);
   }
 
   /** Invalid signature from Parser or from SkylarkCallable annotation. */
@@ -408,11 +364,8 @@ public abstract class FunctionSignature {
     }
   }
 
-  /** A ready-made signature to allow only keyword parameters and put them in a kwarg parameter */
-  public static final FunctionSignature KWARGS = of(0, 0, 0, false, true, "kwargs");
-
   /** A ready-made signature that accepts no arguments. */
-  public static final FunctionSignature NOARGS = of(0, 0, 0, false, false);
+  static final FunctionSignature NOARGS = of(0, 0, 0, false, false);
 
   /** A ready-made signature that allows any arguments. */
   public static final FunctionSignature ANY = of(0, 0, 0, true, true, "args", "kwargs");

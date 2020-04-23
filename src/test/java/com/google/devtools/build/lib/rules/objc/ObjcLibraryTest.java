@@ -21,16 +21,16 @@ import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLU
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
@@ -377,10 +376,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setAndCreateFiles("hdrs", "d.h", "e.m")
             .setList("deps", "//objc:lib")
             .write();
-    assertThat(getArifactPaths(target, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h", "objc/f.m");
-    assertThat(getArifactPaths(depender, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h", "objc/f.m", "objc2/d.h", "objc2/e.m");
+    assertThat(getArifactPathsOfHeaders(target))
+        .containsExactly("objc/a.h", "objc/b.h", "objc/f.m", "objc/private.h");
+    assertThat(getArifactPathsOfHeaders(depender))
+        .containsExactly(
+            "objc/a.h",
+            "objc/b.h",
+            "objc/f.m",
+            "objc/private.h",
+            "objc2/d.h",
+            "objc2/e.m",
+            "objc2/private.h");
   }
 
   @Test
@@ -497,9 +503,23 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompileWithFrameworkImportsIncludesFlags() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-    addBinWithTransitiveDepOnFrameworkImport();
+  public void testCompileWithFrameworkImportsIncludesFlagsPreMigration() throws Exception {
+    useConfiguration(
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
+        "--incompatible_objc_compile_info_migration=false");
+    addBinWithTransitiveDepOnFrameworkImport(false);
+    CommandAction compileAction = compileAction("//lib:lib", "a.o");
+
+    assertThat(compileAction.getArguments()).doesNotContain("-framework");
+    assertThat(Joiner.on("").join(compileAction.getArguments())).contains("-Ffx");
+  }
+
+  @Test
+  public void testCompileWithFrameworkImportsIncludesFlagsPostMigration() throws Exception {
+    useConfiguration(
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
+        "--incompatible_objc_compile_info_migration=true");
+    addBinWithTransitiveDepOnFrameworkImport(true);
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
     assertThat(compileAction.getArguments()).doesNotContain("-framework");
@@ -992,15 +1012,21 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(getArifactPaths(target, LIBRARY)).containsExactly("objc/liblib.a");
     assertThat(getArifactPaths(depender, LIBRARY)).containsExactly(
         "objc/liblib.a", "objc2/liblib.a");
-    assertThat(getArifactPaths(target, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h");
-    assertThat(getArifactPaths(depender, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h", "objc2/c.h", "objc2/d.h");
+    assertThat(getArifactPathsOfHeaders(target))
+        .containsExactly("objc/a.h", "objc/b.h", "objc/private.h");
+    assertThat(getArifactPathsOfHeaders(depender))
+        .containsExactly(
+            "objc/a.h", "objc/b.h", "objc/private.h", "objc2/c.h", "objc2/d.h", "objc2/private.h");
   }
 
-  private Iterable<String> getArifactPaths(ConfiguredTarget target, Key<Artifact> artifactKey) {
+  private static Iterable<String> getArifactPaths(
+      ConfiguredTarget target, ObjcProvider.Key<Artifact> artifactKey) {
     return Artifact.toRootRelativePaths(
         target.get(ObjcProvider.SKYLARK_CONSTRUCTOR).get(artifactKey));
+  }
+
+  private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
+    return Artifact.toRootRelativePaths(target.get(ObjcProvider.SKYLARK_CONSTRUCTOR).header());
   }
 
   @Test
@@ -1565,7 +1591,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testProvidesHdrsAndIncludes() throws Exception {
-    checkProvidesHdrsAndIncludes(RULE_TYPE);
+    checkProvidesHdrsAndIncludes(RULE_TYPE, Optional.of("x/private.h"));
   }
 
   @Test

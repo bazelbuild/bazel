@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,14 +31,8 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.AspectClass;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.Arrays;
 import java.util.Map;
@@ -62,18 +55,12 @@ import javax.annotation.Nullable;
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
 @Immutable
-@AutoCodec
-public final class ConfiguredAspect {
-  private final AspectDescriptor descriptor;
+public final class ConfiguredAspect implements ProviderCollection {
   private final ImmutableList<ActionAnalysisMetadata> actions;
   private final TransitiveInfoProviderMap providers;
 
-  @AutoCodec.VisibleForSerialization
-  ConfiguredAspect(
-      AspectDescriptor descriptor,
-      ImmutableList<ActionAnalysisMetadata> actions,
-      TransitiveInfoProviderMap providers) {
-    this.descriptor = descriptor;
+  private ConfiguredAspect(
+      ImmutableList<ActionAnalysisMetadata> actions, TransitiveInfoProviderMap providers) {
     this.actions = actions;
     this.providers = providers;
 
@@ -86,20 +73,6 @@ public final class ConfiguredAspect {
     }
   }
 
-  /**
-   * Returns the aspect name.
-   */
-  public String getName() {
-    return descriptor.getAspectClass().getName();
-  }
-
-  /**
-   *  The aspect descriptor originating this ConfiguredAspect.
-   */
-  public AspectDescriptor getDescriptor() {
-    return descriptor;
-  }
-
   public ImmutableList<ActionAnalysisMetadata> getActions() {
     return actions;
   }
@@ -109,25 +82,19 @@ public final class ConfiguredAspect {
     return providers;
   }
 
+  @Override
   @Nullable
-  @VisibleForTesting
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     AnalysisUtils.checkProvider(providerClass);
     return providers.getProvider(providerClass);
   }
 
-  public Object getProvider(SkylarkProviderIdentifier id) {
-    if (id.isLegacy()) {
-      return get(id.getLegacyId());
-    } else {
-      return get(id.getKey());
-    }
-  }
-
+  @Override
   public Info get(Provider.Key key) {
     return providers.get(key);
   }
 
+  @Override
   public Object get(String legacyKey) {
     if (OutputGroupInfo.SKYLARK_NAME.equals(legacyKey)) {
       return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey());
@@ -136,19 +103,17 @@ public final class ConfiguredAspect {
   }
 
   public static ConfiguredAspect forAlias(ConfiguredAspect real) {
-    return new ConfiguredAspect(real.descriptor, real.getActions(), real.getProviders());
+    return new ConfiguredAspect(real.getActions(), real.getProviders());
   }
 
-  public static ConfiguredAspect forNonapplicableTarget(AspectDescriptor descriptor) {
+  public static ConfiguredAspect forNonapplicableTarget() {
     return new ConfiguredAspect(
-        descriptor,
         ImmutableList.of(),
         new TransitiveInfoProviderMapBuilder().add().build());
   }
 
-  public static Builder builder(
-      AspectClass aspectClass, AspectParameters parameters, RuleContext ruleContext) {
-    return new Builder(aspectClass, parameters, ruleContext);
+  public static Builder builder(RuleContext ruleContext) {
+    return new Builder(ruleContext);
   }
 
   /**
@@ -159,17 +124,8 @@ public final class ConfiguredAspect {
         new TransitiveInfoProviderMapBuilder();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final RuleContext ruleContext;
-    private final AspectDescriptor descriptor;
 
-    public Builder(
-        AspectClass aspectClass,
-        AspectParameters parameters,
-        RuleContext context) {
-      this(new AspectDescriptor(aspectClass, parameters), context);
-    }
-
-    public Builder(AspectDescriptor descriptor, RuleContext ruleContext) {
-      this.descriptor = descriptor;
+    public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
     }
 
@@ -225,12 +181,6 @@ public final class ConfiguredAspect {
     }
 
     public Builder addSkylarkTransitiveInfo(String name, Object value) {
-      providers.put(name, value);
-      return this;
-    }
-
-    public Builder addSkylarkTransitiveInfo(String name, Object value, Location loc)
-        throws EvalException {
       providers.put(name, value);
       return this;
     }
@@ -296,7 +246,6 @@ public final class ConfiguredAspect {
       }
 
       return new ConfiguredAspect(
-          descriptor,
           generatingActions.getActions(),
           providers.build());
     }

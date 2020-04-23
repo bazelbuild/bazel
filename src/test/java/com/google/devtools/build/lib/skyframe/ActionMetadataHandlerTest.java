@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,7 +56,8 @@ public class ActionMetadataHandlerTest {
   public final void setRootDir() throws Exception  {
     scratch = new Scratch();
     sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/workspace")));
-    outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/output"), scratch.dir("/output/bin"));
+    scratch.dir("/output/bin");
+    outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/output"), "bin");
   }
 
   @Test
@@ -404,6 +405,11 @@ public class ActionMetadataHandlerTest {
     assertThat(treeValue.getChildPaths())
         .containsExactly(PathFragment.create("foo"), PathFragment.create("bar"));
     assertThat(treeValue.getChildValues().values()).containsExactly(fooValue, barValue);
+    ActionExecutionValue actionExecutionValue =
+        ActionExecutionValue.createFromOutputStore(handler.getOutputStore(), null, null, false);
+    treeValue
+        .getChildren()
+        .forEach(t -> assertThat(actionExecutionValue.getArtifactValue(t)).isNotNull());
   }
 
   @Test

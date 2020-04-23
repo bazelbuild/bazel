@@ -23,15 +23,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -64,10 +65,15 @@ import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -75,8 +81,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.skyframe.AspectValue;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -100,7 +105,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -115,7 +119,7 @@ import javax.annotation.Nullable;
  * @see com.google.devtools.build.lib.analysis.BuildView
  */
 public class ExecutionTool {
-  static final Logger logger = Logger.getLogger(ExecutionTool.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final CommandEnvironment env;
   private final BlazeRuntime runtime;
@@ -136,24 +140,41 @@ public class ExecutionTool {
       throw new ExecutorInitException("Execroot creation failed", e);
     }
 
-    ExecutorBuilder builder = new ExecutorBuilder();
+    ExecutorBuilder executorBuilder = new ExecutorBuilder();
+    ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
+        executorBuilder.asModuleActionContextRegistryBuilder(ModuleActionContextRegistry.builder());
+    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
+        executorBuilder.asSpawnStrategyRegistryBuilder(SpawnStrategyRegistry.builder());
+    actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
+    executorBuilder.addStrategyByContext(SpawnStrategyResolver.class, "");
+
     for (BlazeModule module : runtime.getBlazeModules()) {
-      try (SilentCloseable closeable = Profiler.instance().profile(module + ".executorInit")) {
-        module.executorInit(env, request, builder);
+      try (SilentCloseable ignored = Profiler.instance().profile(module + ".executorInit")) {
+        module.executorInit(env, request, executorBuilder);
+      }
+
+      try (SilentCloseable ignored =
+          Profiler.instance().profile(module + ".registerActionContexts")) {
+        module.registerActionContexts(actionContextRegistryBuilder, env, request);
+      }
+
+      try (SilentCloseable ignored =
+          Profiler.instance().profile(module + ".registerSpawnStrategies")) {
+        module.registerSpawnStrategies(spawnStrategyRegistryBuilder, env);
       }
     }
-    builder.addActionContext(
+    actionContextRegistryBuilder.register(
         SymlinkTreeActionContext.class,
         new SymlinkTreeStrategy(env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually
     // depends on them.
-    builder
-        .addStrategyByContext(WorkspaceStatusAction.Context.class, "")
-        .addStrategyByContext(SymlinkTreeActionContext.class, "");
+    actionContextRegistryBuilder
+        .restrictTo(WorkspaceStatusAction.Context.class, "")
+        .restrictTo(SymlinkTreeActionContext.class, "");
 
-    this.prefetcher = builder.getActionInputPrefetcher();
-    this.executorLifecycleListeners = builder.getExecutorLifecycleListeners();
+    this.prefetcher = executorBuilder.getActionInputPrefetcher();
+    this.executorLifecycleListeners = executorBuilder.getExecutorLifecycleListeners();
 
     // There are many different SpawnActions, and we want to control the action context they use
     // independently from each other, for example, to run genrules locally and Java compile action
@@ -161,19 +182,27 @@ public class ExecutionTool {
     // context class, but also the mnemonic of the action.
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     // TODO(jmmv): This should live in some testing-related Blaze module, not here.
-    builder.addStrategyByContext(TestActionContext.class, options.testStrategy);
-    spawnActionContextMaps = builder.getSpawnActionContextMaps();
+    actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.testStrategy);
+
+    SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
+    actionContextRegistryBuilder.register(SpawnStrategyRegistry.class, spawnStrategyRegistry);
+    actionContextRegistryBuilder.register(DynamicStrategyRegistry.class, spawnStrategyRegistry);
+    actionContextRegistryBuilder.register(RemoteLocalFallbackRegistry.class, spawnStrategyRegistry);
+
+    executorBuilder.addActionContext(SpawnStrategyRegistry.class, spawnStrategyRegistry);
+    executorBuilder.addStrategyByContext(SpawnStrategyRegistry.class, "");
+
+    ModuleActionContextRegistry moduleActionContextRegistry = actionContextRegistryBuilder.build();
+    executorBuilder.addActionContext(
+        ModuleActionContextRegistry.class, moduleActionContextRegistry);
+    executorBuilder.addStrategyByContext(ModuleActionContextRegistry.class, "");
+
+    spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new ExecutorInitException(
           "--local_resources is deprecated. Please use "
               + "--local_ram_resources and/or --local_cpu_resources");
-    }
-
-    if (options.removeRamUtilizationFactor && options.ramUtilizationPercentage != 0) {
-      throw new ExecutorInitException(
-          "--ram_utilization_factor is deprecated. "
-              + "Please use --local_ram_resources=HOST_RAM*<float>");
     }
   }
 
@@ -285,7 +314,6 @@ public class ExecutionTool {
 
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
-    Collection<AspectValue> aspects = analysisResult.getAspects();
 
     if (request.isRunningInEmacs()) {
       // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
@@ -302,7 +330,8 @@ public class ExecutionTool {
         // Free memory by removing cache entries that aren't going to be needed.
         try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
           env.getSkyframeBuildView()
-              .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+              .clearAnalysisCache(
+                  analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
         }
       }
 
@@ -313,9 +342,7 @@ public class ExecutionTool {
               actionGraph,
               // If this supplier is ever consumed by more than one ActionContextProvider, it can be
               // pulled out of the loop and made a memoizing supplier.
-              () ->
-                  TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(
-                      analysisResult, aspects));
+              () -> TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(analysisResult));
         }
       }
       skyframeExecutor.drainChangedFiles();
@@ -325,6 +352,10 @@ public class ExecutionTool {
       }
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
+      boolean shouldTrustRemoteArtifacts =
+          env.getOutputService() == null
+              ? false
+              : env.getOutputService().shouldTrustRemoteArtifacts();
       builder.buildArtifacts(
           env.getReporter(),
           analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
@@ -332,13 +363,14 @@ public class ExecutionTool {
           analysisResult.getExclusiveTests(),
           analysisResult.getTargetsToBuild(),
           analysisResult.getTargetsToSkip(),
-          analysisResult.getAspects(),
+          analysisResult.getAspectsMap().keySet(),
           executor,
           builtTargets,
           builtAspects,
           request,
           env.getBlazeWorkspace().getLastExecutionTimeRange(),
-          topLevelArtifactContext);
+          topLevelArtifactContext,
+          shouldTrustRemoteArtifacts);
       buildCompleted = true;
     } catch (BuildFailedException | TestExecException e) {
       buildCompleted = true;
@@ -381,7 +413,8 @@ public class ExecutionTool {
       try (SilentCloseable c = Profiler.instance().profile("Show results")) {
         buildResult.setSuccessfulTargets(
             determineSuccessfulTargets(configuredTargets, builtTargets));
-        buildResult.setSuccessfulAspects(determineSuccessfulAspects(aspects, builtAspects));
+        buildResult.setSuccessfulAspects(
+            determineSuccessfulAspects(analysisResult.getAspectsMap().keySet(), builtAspects));
         buildResult.setSkippedTargets(analysisResult.getTargetsToSkip());
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
         buildResultPrinter.showBuildResult(
@@ -389,13 +422,14 @@ public class ExecutionTool {
             buildResult,
             configuredTargets,
             analysisResult.getTargetsToSkip(),
-            analysisResult.getAspects());
+            analysisResult.getAspectsMap());
       }
 
       try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
         if (request.getBuildOptions().showArtifacts) {
           BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-          buildResultPrinter.showArtifacts(request, configuredTargets, analysisResult.getAspects());
+          buildResultPrinter.showArtifacts(
+              request, configuredTargets, analysisResult.getAspectsMap().values());
         }
       }
 
@@ -652,17 +686,10 @@ public class ExecutionTool {
     return successfulTargets;
   }
 
-  private Collection<AspectValue> determineSuccessfulAspects(
-      Collection<AspectValue> aspects, Set<AspectKey> builtAspects) {
-    // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
-    // order as configuredTargets.
-    Collection<AspectValue> successfulAspects = new LinkedHashSet<>();
-    for (AspectValue aspect : aspects) {
-      if (builtAspects.contains(aspect.getKey())) {
-        successfulAspects.add(aspect);
-      }
-    }
-    return successfulAspects;
+  private static ImmutableSet<AspectKey> determineSuccessfulAspects(
+      ImmutableSet<AspectKey> aspects, Set<AspectKey> builtAspects) {
+    // Maintain the ordering.
+    return aspects.stream().filter(builtAspects::contains).collect(ImmutableSet.toImmutableSet());
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
@@ -707,7 +734,7 @@ public class ExecutionTool {
                 .setVerboseExplanations(options.verboseExplanations)
                 .build()),
         env.getTopDownActionCache(),
-        request.getPackageCacheOptions().checkOutputFiles
+        request.getPackageOptions().checkOutputFiles
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
         env.getFileCache(),
@@ -719,24 +746,13 @@ public class ExecutionTool {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     ResourceSet resources;
     if (options.availableResources != null && !options.removeLocalResources) {
-      logger.warning(
+      logger.atWarning().log(
           "--local_resources will be deprecated. Please use --local_ram_resources "
               + "and/or --local_cpu_resources.");
       resources = options.availableResources;
-      resourceMgr.setRamUtilizationPercentage(100);
-    } else if (options.ramUtilizationPercentage != 0) {
-      logger.warning(
-          "--ram_utilization_factor will soon be deprecated. Please use "
-              + "--local_ram_resources=HOST_RAM*<float>, where <float> is the percentage of "
-              + "available RAM you want to devote to Bazel.");
-      resources =
-          ResourceSet.createWithRamCpu(
-              LocalHostCapacity.getLocalHostCapacity().getMemoryMb(), options.localCpuResources);
-      resourceMgr.setRamUtilizationPercentage(options.ramUtilizationPercentage);
     } else {
       resources =
           ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
-      resourceMgr.setRamUtilizationPercentage(100);
     }
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
 
@@ -758,7 +774,7 @@ public class ExecutionTool {
     actionCache.mergeIntoActionCacheStatistics(builder);
 
     AutoProfiler p =
-        AutoProfiler.profiledAndLogged("Saving action cache", ProfilerTask.INFO, logger);
+        GoogleAutoProfilerUtils.profiledAndLogged("Saving action cache", ProfilerTask.INFO);
     try {
       builder.setSizeInBytes(actionCache.save());
     } catch (IOException e) {

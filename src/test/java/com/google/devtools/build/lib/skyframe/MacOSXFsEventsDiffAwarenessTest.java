@@ -14,26 +14,36 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static org.junit.Assume.assumeFalse;
+
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.Options;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Logger;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,6 +51,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link MacOSXFsEventsDiffAwareness} */
 @RunWith(JUnit4.class)
 public class MacOSXFsEventsDiffAwarenessTest {
+
+  private static Logger logger = Logger.getLogger(MacOSXFsEventsDiffAwarenessTest.class.getName());
 
   private static void rmdirs(Path directory) throws IOException {
     Files.walkFileTree(
@@ -80,14 +92,14 @@ public class MacOSXFsEventsDiffAwarenessTest {
     rmdirs(watchedPath);
   }
 
-  private void scratchFile(String path, String content) throws IOException {
+  private void scratchDir(String path) throws IOException {
     Path p = watchedPath.resolve(path);
-    p.getParent().toFile().mkdirs();
-    com.google.common.io.Files.write(content.getBytes(StandardCharsets.UTF_8), p.toFile());
+    p.toFile().mkdirs();
   }
 
   private void scratchFile(String path) throws IOException {
-    scratchFile(path, "");
+    Path p = watchedPath.resolve(path);
+    com.google.common.io.Files.write(new byte[] {}, p.toFile());
   }
 
   /**
@@ -98,7 +110,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
    * @param rawPaths the files to expect in the view
    * @return the new view
    */
-  private View assertDiff(View view1, String... rawPaths)
+  private View assertDiff(View view1, Iterable<String> rawPaths)
       throws IncompatibleViewException, BrokenDiffAwarenessException, InterruptedException {
     Set<PathFragment> pathsYetToBeSeen = new HashSet<>();
     for (String path : rawPaths) {
@@ -114,8 +126,14 @@ public class MacOSXFsEventsDiffAwarenessTest {
     for (; ; ) {
       View view2 = underTest.getCurrentView(watchFsEnabledProvider);
 
-      ImmutableSet<PathFragment> modifiedSourceFiles =
-          underTest.getDiff(view1, view2).modifiedSourceFiles();
+      ModifiedFileSet diff = underTest.getDiff(view1, view2);
+      // If fsevents lost events (e.g. because we weren't fast enough processing them or because
+      // too many happened at the same time), there is nothing we can do. Yes, this means that if
+      // our fsevents monitor always returns "everything modified", we aren't really testing
+      // anything here... but let's assume we don't have such an obvious bug...
+      assumeFalse("Lost events; diff unknown", diff.equals(ModifiedFileSet.EVERYTHING_MODIFIED));
+
+      ImmutableSet<PathFragment> modifiedSourceFiles = diff.modifiedSourceFiles();
       pathsYetToBeSeen.removeAll(modifiedSourceFiles);
       if (pathsYetToBeSeen.isEmpty()) {
         // Found all paths that we wanted to see as modified.
@@ -125,6 +143,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
       if (attempts == 600) {
         throw new AssertionError("Paths " + pathsYetToBeSeen + " not found as modified");
       }
+      logger.info("Still have to see " + pathsYetToBeSeen.size() + " paths");
       Thread.sleep(100);
       attempts++;
       view1 = view2; // getDiff requires views to be sequential if we want to get meaningful data.
@@ -132,17 +151,66 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
-  @Ignore("test is flaky, see https://github.com/bazelbuild/bazel/issues/10776")
   public void testSimple() throws Exception {
     View view1 = underTest.getCurrentView(watchFsEnabledProvider);
 
+    scratchDir("a/b");
     scratchFile("a/b/c");
+    scratchDir("b/c");
     scratchFile("b/c/d");
-    View view2 = assertDiff(view1, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
+    View view2 = assertDiff(view1, Arrays.asList("a", "a/b", "a/b/c", "b", "b/c", "b/c/d"));
 
     rmdirs(watchedPath.resolve("a"));
     rmdirs(watchedPath.resolve("b"));
-    assertDiff(view2, "a", "a/b", "a/b/c", "b", "b/c", "b/c/d");
+    assertDiff(view2, Arrays.asList("a", "a/b", "a/b/c", "b", "b/c", "b/c/d"));
+  }
+
+  @Test
+  public void testStress() throws Exception {
+    View view1 = underTest.getCurrentView(watchFsEnabledProvider);
+
+    // Attempt to cause fsevents to drop events by performing a lot of concurrent file accesses
+    // which then may result in our own callback in fsevents.cc not being able to keep up.
+    // There is no guarantee that we'll trigger this condition, but on 2020-02-28 on a Mac Pro
+    // 2013, this happened pretty predictably with the settings below.
+    logger.info("Starting file creation under " + watchedPath);
+    ExecutorService executor = Executors.newCachedThreadPool();
+    int nThreads = 100;
+    int nFilesPerThread = 100;
+    Multimap<String, String> dirToFilesToCreate = HashMultimap.create();
+    for (int i = 0; i < nThreads; i++) {
+      String dir = "" + i;
+      for (int j = 0; j < nFilesPerThread; j++) {
+        String file = dir + "/" + j;
+        dirToFilesToCreate.put(dir, file);
+      }
+    }
+    CountDownLatch latch = new CountDownLatch(nThreads);
+    AtomicReference<IOException> firstError = new AtomicReference<>(null);
+    dirToFilesToCreate
+        .asMap()
+        .forEach(
+            (dir, files) ->
+                executor.submit(
+                    () -> {
+                      try {
+                        scratchDir(dir);
+                        for (String file : files) {
+                          scratchFile(file);
+                        }
+                      } catch (IOException e) {
+                        firstError.compareAndSet(null, e);
+                      }
+                      latch.countDown();
+                    }));
+    latch.await();
+    executor.shutdown();
+    IOException e = firstError.get();
+    if (e != null) {
+      throw e;
+    }
+
+    assertDiff(view1, Iterables.concat(dirToFilesToCreate.keySet(), dirToFilesToCreate.values()));
   }
 
   /**

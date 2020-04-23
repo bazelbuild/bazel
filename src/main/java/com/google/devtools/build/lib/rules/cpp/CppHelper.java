@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -51,7 +52,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -105,9 +104,9 @@ public class CppHelper {
   public static TransitiveInfoCollection mallocForTarget(
       RuleContext ruleContext, String mallocAttrName) {
     if (ruleContext.getFragment(CppConfiguration.class).customMalloc() != null) {
-      return ruleContext.getPrerequisite(":default_malloc", Mode.TARGET);
+      return ruleContext.getPrerequisite(":default_malloc", TransitionMode.TARGET);
     } else {
-      return ruleContext.getPrerequisite(mallocAttrName, Mode.TARGET);
+      return ruleContext.getPrerequisite(mallocAttrName, TransitionMode.TARGET);
     }
   }
 
@@ -173,7 +172,7 @@ public class CppHelper {
 
     if (ruleContext.attributes().has("additional_linker_inputs", LABEL_LIST)) {
       for (TransitiveInfoCollection current :
-          ruleContext.getPrerequisites("additional_linker_inputs", Mode.TARGET)) {
+          ruleContext.getPrerequisites("additional_linker_inputs", TransitionMode.TARGET)) {
         builder.put(
             AliasProvider.getDependencyLabel(current),
             current.getProvider(FileProvider.class).getFilesToBuild().toList());
@@ -243,11 +242,11 @@ public class CppHelper {
    * non-default feature configuration, or risk a mismatch.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
-      RuleContext ruleContext) throws RuleErrorException {
+      RuleContext ruleContext, CppSemantics semantics) throws RuleErrorException {
     try {
-      return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext);
+      return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext, semantics);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
   }
 
@@ -259,14 +258,14 @@ public class CppHelper {
    * non-default feature configuration, or risk a mismatch.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(
-      RuleContext ruleContext) throws EvalException {
+      RuleContext ruleContext, CppSemantics semantics) throws EvalException {
     CcToolchainProvider defaultToolchain =
         getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     if (defaultToolchain == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
 
     return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
   }
@@ -276,18 +275,18 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
-      RuleContext ruleContext) throws RuleErrorException {
+      RuleContext ruleContext, CppSemantics semantics) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     if (defaultToolchain == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
     try {
       return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
   }
 
@@ -303,7 +302,8 @@ public class CppHelper {
       // TODO(bazel-team): Report an error or throw an exception in this case.
       return null;
     }
-    TransitiveInfoCollection dep = ruleContext.getPrerequisite(toolchainAttribute, Mode.TARGET);
+    TransitiveInfoCollection dep =
+        ruleContext.getPrerequisite(toolchainAttribute, TransitionMode.TARGET);
     return getToolchain(ruleContext, dep);
   }
 
@@ -748,7 +748,7 @@ public class CppHelper {
     try {
       return ImmutableList.copyOf(featureConfiguration.getCommandLine(actionName, variables));
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      throw ruleErrorConsumer.throwWithRuleError(e);
     }
   }
 
@@ -761,7 +761,7 @@ public class CppHelper {
     try {
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      throw ruleErrorConsumer.throwWithRuleError(e);
     }
   }
 
@@ -814,7 +814,7 @@ public class CppHelper {
     try {
       return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
     } catch (EvalException e) {
-      ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      ruleErrorConsumer.throwWithRuleError(e);
       throw new IllegalStateException("Should not be reached");
     }
   }
@@ -844,7 +844,7 @@ public class CppHelper {
       RuleContext ruleContext, FeatureConfiguration featureConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_EXPORT_ALL_SYMBOLS)
         && !featureConfiguration.isEnabled(CppRuleClasses.NO_WINDOWS_EXPORT_ALL_SYMBOLS)
-        && ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET) == null;
+        && ruleContext.getPrerequisiteArtifact("win_def_file", TransitionMode.TARGET) == null;
   }
 
   /**
@@ -976,17 +976,6 @@ public class CppHelper {
     return new CcNativeLibraryProvider(result.build());
   }
 
-  public static void checkProtoLibrariesInDeps(
-      RuleErrorConsumer ruleErrorConsumer, Iterable<TransitiveInfoCollection> deps) {
-    for (TransitiveInfoCollection dep : deps) {
-      if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
-        ruleErrorConsumer.attributeError(
-            "deps",
-            String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
-      }
-    }
-  }
-
   static boolean useToolchainResolution(RuleContext ruleContext) {
     CppOptions cppOptions =
         Preconditions.checkNotNull(
@@ -1028,7 +1017,7 @@ public class CppHelper {
 
   public static Artifact getGrepIncludes(RuleContext ruleContext) {
     return ruleContext.attributes().has("$grep_includes")
-        ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
+        ? ruleContext.getPrerequisiteArtifact("$grep_includes", TransitionMode.HOST)
         : null;
   }
 

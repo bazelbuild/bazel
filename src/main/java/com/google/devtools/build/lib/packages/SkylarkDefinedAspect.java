@@ -22,22 +22,22 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-/** A Skylark value that is a result of an 'aspect(..)' function call. */
+/** A Starlark value that is a result of an 'aspect(..)' function call. */
 @AutoCodec
 public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
-  private final BaseFunction implementation;
+  private final StarlarkCallable implementation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
-  private final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders;
-  private final ImmutableSet<SkylarkProviderIdentifier> provides;
+  private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders;
+  private final ImmutableSet<StarlarkProviderIdentifier> provides;
   private final ImmutableSet<String> paramAttributes;
   private final ImmutableSet<String> fragments;
   private final ConfigurationTransition hostTransition;
@@ -48,11 +48,11 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   private SkylarkAspectClass aspectClass;
 
   public SkylarkDefinedAspect(
-      BaseFunction implementation,
+      StarlarkCallable implementation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
-      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders,
-      ImmutableSet<SkylarkProviderIdentifier> provides,
+      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
+      ImmutableSet<StarlarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       // The host transition is in lib.analysis, so we can't reference it directly here.
@@ -77,11 +77,11 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   @VisibleForSerialization
   @AutoCodec.Instantiator
   SkylarkDefinedAspect(
-      BaseFunction implementation,
+      StarlarkCallable implementation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
-      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders,
-      ImmutableSet<SkylarkProviderIdentifier> provides,
+      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
+      ImmutableSet<StarlarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       // The host transition is in lib.analysis, so we can't reference it directly here.
@@ -105,7 +105,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
     this.aspectClass = aspectClass;
   }
 
-  public BaseFunction getImplementation() {
+  public StarlarkCallable getImplementation() {
     return implementation;
   }
 
@@ -177,9 +177,9 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       builder.add(attr);
     }
     builder.requireAspectsWithProviders(requiredAspectProviders);
-    ImmutableList.Builder<SkylarkProviderIdentifier> advertisedSkylarkProviders =
+    ImmutableList.Builder<StarlarkProviderIdentifier> advertisedSkylarkProviders =
         ImmutableList.builder();
-    for (SkylarkProviderIdentifier provider : provides) {
+    for (StarlarkProviderIdentifier provider : provides) {
       advertisedSkylarkProviders.add(provider);
     }
     builder.advertiseProvider(advertisedSkylarkProviders.build());

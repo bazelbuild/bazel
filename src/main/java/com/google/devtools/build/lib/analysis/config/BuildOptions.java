@@ -31,6 +31,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -66,8 +67,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -79,7 +78,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   private static final Comparator<Class<? extends FragmentOptions>>
       lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
   private static final Comparator<Label> skylarkOptionsComparator = Ordering.natural();
-  private static final Logger logger = Logger.getLogger(BuildOptions.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static Map<Label, Object> labelizeStarlarkOptions(Map<String, Object> starlarkOptions) {
     return starlarkOptions.entrySet().stream()
@@ -169,7 +168,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /*
-   * Returns a BuildOptions class that only has skylark options.
+   * Returns a BuildOptions class that only has Starlark options.
    */
   @VisibleForTesting
   public static BuildOptions of(Map<Label, Object> skylarkOptions) {
@@ -231,7 +230,7 @@ public final class BuildOptions implements Cloneable, Serializable {
 
   /**
    * Creates a copy of the BuildOptions object that contains copies of the FragmentOptions and
-   * skylark options.
+   * Starlark options.
    */
   @Override
   public BuildOptions clone() {
@@ -307,7 +306,7 @@ public final class BuildOptions implements Cloneable, Serializable {
 
   /** Maps options class definitions to FragmentOptions objects. */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
-  /** Maps skylark options names to skylark options values. */
+  /** Maps Starlark options names to Starlark options values. */
   private final ImmutableMap<Label, Object> skylarkOptionsMap;
 
   @AutoCodec.VisibleForSerialization
@@ -634,7 +633,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       }
     }
 
-    // Compare skylark options for the two classes.
+    // Compare Starlark options for the two classes.
     Map<Label, Object> skylarkFirst = first.getStarlarkOptions();
     Map<Label, Object> skylarkSecond = second.getStarlarkOptions();
     for (Label buildSetting : Sets.union(skylarkFirst.keySet(), skylarkSecond.keySet())) {
@@ -754,7 +753,7 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     private final Map<Label, Object> skylarkFirst = new LinkedHashMap<>();
     // TODO(b/112041323): This should also be multimap but we don't diff multiple times with
-    // skylark options anywhere yet so add that feature when necessary.
+    // Starlark options anywhere yet so add that feature when necessary.
     private final Map<Label, Object> skylarkSecond = new LinkedHashMap<>();
 
     private final List<Label> extraStarlarkOptionsFirst = new ArrayList<>();
@@ -1185,14 +1184,9 @@ public final class BuildOptions implements Cloneable, Serializable {
           int optionsDiffSize = byteStringOut.size();
           bytes = byteStringOut.toByteString();
           cache.putBytesFromOptionsDiff(diff, bytes);
-          if (logger.isLoggable(Level.FINE)) {
-            logger.fine(
-                "Serialized OptionsDiffForReconstruction "
-                    + diff
-                    + ". Diff took "
-                    + optionsDiffSize
-                    + " bytes.");
-          }
+          logger.atFine().log(
+              "Serialized OptionsDiffForReconstruction %s. Diff took %d bytes.",
+              diff, optionsDiffSize);
         }
         codedOut.writeBytesNoTag(bytes);
       }

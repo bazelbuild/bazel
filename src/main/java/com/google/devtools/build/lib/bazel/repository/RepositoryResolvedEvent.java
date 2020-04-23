@@ -21,9 +21,9 @@ import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunct
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -82,10 +83,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     String originalClass =
         rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
     resolvedInformationBuilder.put(ORIGINAL_RULE_CLASS, originalClass);
-
-    if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
-      resolvedInformationBuilder.put(DEFINITION_INFORMATION, rule.getDefinitionInformation());
-    }
+    resolvedInformationBuilder.put(DEFINITION_INFORMATION, getRuleDefinitionInformation(rule));
 
     ImmutableMap.Builder<String, Object> origAttrBuilder = ImmutableMap.builder();
     ImmutableMap.Builder<String, Object> defaults = ImmutableMap.builder();
@@ -218,18 +216,61 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     return message;
   }
 
+  /** Returns an unstructured message explaining the origin of this rule. */
+  public static String getRuleDefinitionInformation(Rule rule) {
+    StringBuilder buf = new StringBuilder();
+
+    // Emit stack of rule instantiation.
+    buf.append("Repository ").append(rule.getName()).append(" instantiated at:\n");
+    ImmutableList<StarlarkThread.CallStackEntry> stack = rule.getCallStack().toList();
+    if (stack.isEmpty()) {
+      buf.append("  no stack (--record_rule_instantiation_callstack not enabled)\n");
+    } else {
+      for (StarlarkThread.CallStackEntry frame : stack) {
+        buf.append("  ").append(frame.location).append(": in ").append(frame.name).append('\n');
+      }
+    }
+
+    // Emit stack of rule class declaration.
+    stack = rule.getRuleClassObject().getCallStack();
+    if (stack.isEmpty()) {
+      buf.append("Repository rule ").append(rule.getRuleClass()).append(" is built-in.\n");
+    } else {
+      buf.append("Repository rule ").append(rule.getRuleClass()).append(" defined at:\n");
+      for (StarlarkThread.CallStackEntry frame : stack) {
+        buf.append("  ").append(frame.location).append(": in ").append(frame.name).append('\n');
+      }
+    }
+
+    return buf.toString();
+  }
+
+  /**
+   * Attributes that may be defined on a repository rule without affecting its canonical
+   * representation. These may be created implicitly by Bazel.
+   */
+  private static final ImmutableSet<String> IGNORED_ATTRIBUTE_NAMES =
+      ImmutableSet.of("generator_name", "generator_function", "generator_location");
+
   /**
    * Compare two maps from Strings to objects, returning a pair of the map with all entries not in
    * the original map or in the original map, but with a different value, and the keys dropped from
    * the original map. However, ignore changes where a value is explicitly set to its default.
+   *
+   * <p>Ignores attributes listed in {@code IGNORED_ATTRIBUTE_NAMES}.
    */
   static Pair<Map<String, Object>, List<String>> compare(
       Map<String, Object> orig, Map<String, Object> defaults, Map<?, ?> modified) {
     ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.<String, Object>builder();
     for (Map.Entry<?, ?> entry : modified.entrySet()) {
       if (entry.getKey() instanceof String) {
-        Object value = entry.getValue();
         String key = (String) entry.getKey();
+        if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
+          // The dict returned by the repo rule really shouldn't know about these anyway, but
+          // for symmetry we'll ignore them if they happen to be present.
+          continue;
+        }
+        Object value = entry.getValue();
         Object old = orig.get(key);
         if (old == null) {
           Object defaultValue = defaults.get(key);
@@ -245,6 +286,9 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     }
     ImmutableList.Builder<String> keysDropped = ImmutableList.<String>builder();
     for (String key : orig.keySet()) {
+      if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
+        continue;
+      }
       if (!modified.containsKey(key)) {
         keysDropped.add(key);
       }

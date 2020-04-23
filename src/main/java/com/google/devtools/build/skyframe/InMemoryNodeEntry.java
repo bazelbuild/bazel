@@ -211,8 +211,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public int getNumberOfDirectDepGroups() {
-    return GroupedList.numGroups(getCompressedDirectDepsForDoneEntry());
+  public boolean hasAtLeastOneDep() {
+    return GroupedList.numGroups(getCompressedDirectDepsForDoneEntry()) > 0;
   }
 
   /** Returns the compressed {@link GroupedList} of direct deps. Can only be called when done. */

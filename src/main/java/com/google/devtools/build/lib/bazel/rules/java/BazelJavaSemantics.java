@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -184,7 +184,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       return ImmutableList.of();
     }
 
-    return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET).list();
+    return ruleContext.getPrerequisiteArtifacts("resources", TransitionMode.TARGET).list();
   }
 
   /**
@@ -617,7 +617,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
       // Add the coverage runner to the list of dependencies when compiling in coverage mode.
       TransitiveInfoCollection runnerTarget =
-          helper.getRuleContext().getPrerequisite("$jacocorunner", Mode.TARGET);
+          helper.getRuleContext().getPrerequisite("$jacocorunner", TransitionMode.TARGET);
       if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, runnerTarget) != null) {
         helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
       } else {
@@ -650,7 +650,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       boolean usingNativeSinglejar,
       // Explicitly ignoring params since Bazel doesn't yet support one version
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      Artifact oneVersionWhitelistArtifact) {
+      Artifact oneVersionWhitelistArtifact,
+      Artifact sharedArchive) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
             mainClass,

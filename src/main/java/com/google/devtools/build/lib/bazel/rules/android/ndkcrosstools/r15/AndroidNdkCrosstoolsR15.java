@@ -30,7 +30,7 @@ final class AndroidNdkCrosstoolsR15 {
    * release revision. The crosstools are generated through code rather than checked in as a flat
    * file to reduce the amount of templating needed (for parameters like the release name and
    * certain paths), to reduce duplication, and to make it easier to support future versions of the
-   * NDK. TODO(bazel-team): Eventually we should move this into Skylark so the crosstools can be
+   * NDK. TODO(bazel-team): Eventually we should move this into Starlark so the crosstools can be
    * updated independently of Bazel itself.
    *
    * @return A CrosstoolRelease for the Android NDK.

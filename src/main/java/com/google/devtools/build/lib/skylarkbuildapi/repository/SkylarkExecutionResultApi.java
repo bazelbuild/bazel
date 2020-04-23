@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * A structure callable from Skylark that stores the result of repository_ctx.execute() method. It
+ * A structure callable from Starlark that stores the result of repository_ctx.execute() method. It
  * contains the standard output stream content, the standard error stream content and the execution
  * return code.
  */

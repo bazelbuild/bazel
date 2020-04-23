@@ -58,6 +58,19 @@ public final class AliasProvider implements TransitiveInfoProvider {
   }
 
   /**
+   * Returns all labels by which it can be referred to in the BUILD file.
+   *
+   * <p>For non-alias rules, it's the label of the rule itself. For alias rules, they're the label
+   * of the alias and the label of alias' target rule.
+   */
+  public static ImmutableList<Label> getDependencyLabels(TransitiveInfoCollection dep) {
+    AliasProvider aliasProvider = dep.getProvider(AliasProvider.class);
+    return aliasProvider != null
+        ? ImmutableList.of(aliasProvider.getAliasChain().get(0), dep.getLabel())
+        : ImmutableList.of(dep.getLabel());
+  }
+
+  /**
    * Returns the list of aliases from top to bottom (i.e. the last alias depends on the actual
    * resolved target and the first alias is the one that was in the attribute of the rule currently
    * being analyzed)

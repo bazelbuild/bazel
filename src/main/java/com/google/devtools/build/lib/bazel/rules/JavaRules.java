@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBuildInfoFactory;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaImportRule;
@@ -41,7 +40,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseR
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkCommon;
+import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
@@ -64,9 +63,6 @@ public class JavaRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationOptions(JavaOptions.class);
     builder.addConfigurationFragment(new JavaConfigurationLoader());
-    // TestConfiguration is only required by the java rules to know when the persistent test runner
-    // is enabled.
-    builder.addConfigurationFragment(new TestConfiguration.Loader());
 
     builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());
 
@@ -95,7 +91,7 @@ public class JavaRules implements RuleSet {
 
     builder.addSkylarkBootstrap(
         new JavaBootstrap(
-            new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE),
+            new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
             JavaInfo.PROVIDER,
             new JavaProtoSkylarkCommon(),
             JavaCcLinkParamsProvider.PROVIDER));

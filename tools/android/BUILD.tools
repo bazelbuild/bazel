@@ -151,6 +151,7 @@ genrule(
         --sources  $(location @bazel_tools//tools/jdk:platformclasspath) \
         --include_prefixes "java/lang/invoke/" \
         --include_prefixes "java/lang/annotation/" \
+        --normalize \
         --output $@""",
     tools = ["@bazel_tools//tools/jdk:singlejar"],
     visibility = ["//visibility:private"],
@@ -395,10 +396,10 @@ filegroup(
 )
 
 java_binary(
-    name = "exec_binary",
+    name = "databinding_exec",
     main_class = "android.databinding.AndroidDataBinding",
     runtime_deps = [
-        "//third_party/java/android_databinding:exec",
+        "//src/tools/android/java/com/google/devtools/build/android:all_android_tools",
     ],
 )
 

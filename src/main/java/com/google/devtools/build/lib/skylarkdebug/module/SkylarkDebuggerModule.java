@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
-/** Blaze module for setting up Skylark debugging. */
+/** Blaze module for setting up Starlark debugging. */
 public final class SkylarkDebuggerModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {

@@ -5,14 +5,6 @@ title: Toolchains
 
 # Toolchains
 
-- [Overview](#overview)
-- [Motivation](#motivation)
-- [Writing rules that use toolchains](#writing-rules-that-use-toolchains)
-- [Defining toolchains](#defining-toolchains)
-- [Registering and building with toolchains](#registering-and-building-with-toolchains)
-- [Toolchain resolution](#toolchain-resolution)
-- [Debugging toolchains](#debugging-toolchains)
-
 ## Overview
 
 This page describes the toolchain framework -- a way for rule authors to
@@ -356,7 +348,7 @@ has `@platforms//os:linux` and therefore resolve the
 This will end up building `//bar_tools:barc_linux` but not
 `//barc_tools:barc_windows`.
 
-## Toolchain Resolution
+## Toolchain resolution
 
 **Note:** [Some Bazel rules](platforms-intro.html#status) do not yet support
 toolchain resolution.
@@ -386,7 +378,7 @@ The resolution steps are as follows.
 
 1. A `target_compatible_with` or `exec_compatible_with` clause *matches* a
    platform iff, for each `constraint_value` in its list, the platform also has
-   that `contraint_value` (either explicitly or as a default).
+   that `constraint_value` (either explicitly or as a default).
 
    If the platform has `constraint_value`s from `constraint_setting`s not
    referenced by the clause, these do not affect matching.

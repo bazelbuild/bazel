@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
@@ -55,10 +54,10 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * A builder of values for {@link ArtifactSkyKey} keys when the key is not a simple generated
- * artifact. To save memory, ordinary generated artifacts (non-middleman, non-tree) have their
- * metadata accessed directly from the corresponding {@link ActionExecutionValue}. This SkyFunction
- * is therefore only usable for source, middleman, and tree artifacts.
+ * A builder of values for {@link Artifact} keys when the key is not a simple generated artifact. To
+ * save memory, ordinary generated artifacts (non-middleman, non-tree) have their metadata accessed
+ * directly from the corresponding {@link ActionExecutionValue}. This SkyFunction is therefore only
+ * usable for source, middleman, and tree artifacts.
  */
 class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
@@ -83,7 +82,9 @@ class ArtifactFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
     Artifact artifact = (Artifact) skyKey;
-    if (artifact.isSourceArtifact()) {
+    if (!artifact.hasKnownGeneratingAction()) {
+      // If the artifact has no known generating action, it is either a source artifact, or a
+      // NinjaMysteryArtifact, which undergoes the same handling here.
       try {
         return createSourceValue(artifact, env);
       } catch (IOException e) {
@@ -203,7 +204,8 @@ class ArtifactFunction implements SkyFunction {
 
       for (TreeFileArtifact treeFileArtifact : treeFileArtifacts) {
         FileArtifactValue value =
-            createSimpleFileArtifactValue(treeFileArtifact, actionExecutionValue);
+            ActionExecutionValue.createSimpleFileArtifactValue(
+                treeFileArtifact, actionExecutionValue);
         map.put(treeFileArtifact, value);
       }
     }
@@ -282,33 +284,6 @@ class ArtifactFunction implements SkyFunction {
     return new MissingFileArtifactValue(ex);
   }
 
-  /**
-   * Create {@link FileArtifactValue} for artifact that must be non-middleman non-tree derived
-   * artifact.
-   */
-  static FileArtifactValue createSimpleFileArtifactValue(
-      Artifact.DerivedArtifact artifact, ActionExecutionValue actionValue) {
-    Preconditions.checkState(!artifact.isMiddlemanArtifact(), "%s %s", artifact, actionValue);
-    Preconditions.checkState(!artifact.isTreeArtifact(), "%s %s", artifact, actionValue);
-    FileArtifactValue value = actionValue.getArtifactValue(artifact);
-    if (value != null) {
-      return value;
-    }
-    FileArtifactValue data =
-        Preconditions.checkNotNull(
-            actionValue.getArtifactValue(artifact), "%s %s", artifact, actionValue);
-    Preconditions.checkNotNull(
-        data.getDigest(), "Digest should already have been calculated for %s (%s)", artifact, data);
-    // Directories are special-cased because their mtimes are used, so should have been constructed
-    // during execution of the action (in ActionMetadataHandler#maybeStoreAdditionalData).
-    Preconditions.checkState(
-        data.getType() == FileStateType.REGULAR_FILE || data.getType() == FileStateType.SYMLINK,
-        "Should be file or symlink %s (%s)",
-        artifact,
-        data);
-    return data;
-  }
-
   @Nullable
   private static AggregatingArtifactValue createAggregatingValue(
       Artifact artifact,
@@ -334,7 +309,7 @@ class ArtifactFunction implements SkyFunction {
         fileInputsBuilder.add(
             Pair.of(
                 input,
-                createSimpleFileArtifactValue(
+                ActionExecutionValue.createSimpleFileArtifactValue(
                     (DerivedArtifact) input, (ActionExecutionValue) inputValue)));
       } else if (inputValue instanceof TreeArtifactValue) {
         directoryInputsBuilder.add(Pair.of(input, (TreeArtifactValue) inputValue));

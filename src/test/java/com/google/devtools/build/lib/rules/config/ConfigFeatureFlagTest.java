@@ -178,8 +178,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     ConfiguredTarget top = getConfiguredTarget("//test:top");
     ConfiguredTarget wrapper =
         (ConfiguredTarget) Iterables.getOnlyElement(getPrerequisites(top, "deps"));
-    SkylarkRuleContext ctx = new SkylarkRuleContext(getRuleContextForSkylark(wrapper), null,
-        getSkylarkSemantics());
+    SkylarkRuleContext ctx =
+        new SkylarkRuleContext(getRuleContextForStarlark(wrapper), null, getStarlarkSemantics());
     update("ruleContext", ctx);
     update("config_common", new ConfigSkylarkCommon());
     String value = (String) eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");

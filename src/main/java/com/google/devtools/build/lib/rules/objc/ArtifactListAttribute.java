@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import java.util.Locale;
 
 /**
@@ -38,7 +38,7 @@ public enum ArtifactListAttribute {
     if (context.attributes().getAttributeDefinition(attrName()) == null) {
       return ImmutableList.of();
     } else {
-      return context.getPrerequisiteArtifacts(attrName(), Mode.TARGET).list();
+      return context.getPrerequisiteArtifacts(attrName(), TransitionMode.TARGET).list();
     }
   }
 }

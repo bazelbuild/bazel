@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
- * Bazel implementation of {@link SkylarkBuildApiGlobals}: a collection of global skylark build
- * API functions that belong in the global namespace.
+ * Bazel implementation of {@link SkylarkBuildApiGlobals}: a collection of global Starlark build API
+ * functions that belong in the global namespace.
  */
 public class BazelBuildApiGlobals implements SkylarkBuildApiGlobals {
 

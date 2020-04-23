@@ -23,19 +23,19 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.Iterator;
@@ -50,7 +50,8 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
     TransitiveInfoCollection prerequisite =
-        ruleContext.getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, Mode.TARGET);
+        ruleContext.getPrerequisite(
+            JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, TransitionMode.TARGET);
     return from(prerequisite, ruleContext);
   }
 
@@ -77,7 +78,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javabuilderJvmOptions,
       ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
-      NestedSet<Artifact> bootclasspath,
+      BootClassPathInfo bootclasspath,
       @Nullable Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
@@ -131,7 +132,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   private final Label label;
-  private final NestedSet<Artifact> bootclasspath;
+  private final BootClassPathInfo bootclasspath;
   @Nullable private final Artifact javac;
   private final NestedSet<Artifact> tools;
   private final FilesToRunProvider javaBuilder;
@@ -162,7 +163,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   @VisibleForSerialization
   JavaToolchainProvider(
       Label label,
-      NestedSet<Artifact> bootclasspath,
+      BootClassPathInfo bootclasspath,
       @Nullable Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
@@ -227,7 +228,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   /** @return the target Java bootclasspath */
-  public NestedSet<Artifact> getBootclasspath() {
+  public BootClassPathInfo getBootclasspath() {
     return bootclasspath;
   }
 
@@ -419,7 +420,7 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   @Override
   public Depset getSkylarkBootclasspath() {
-    return Depset.of(Artifact.TYPE, getBootclasspath());
+    return Depset.of(Artifact.TYPE, getBootclasspath().bootclasspath());
   }
 
   @Override

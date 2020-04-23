@@ -14,15 +14,24 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 
-/** Indicates some sort of IO error while dealing with a Skylark extension. */
+/** Indicates some sort of IO error while dealing with a Starlark extension. */
 public class ErrorReadingSkylarkExtensionException extends Exception {
+  private final Transience transience;
+
   public ErrorReadingSkylarkExtensionException(BuildFileNotFoundException e) {
     super(e.getMessage(), e);
+    this.transience = Transience.PERSISTENT;
   }
 
-  public ErrorReadingSkylarkExtensionException(IOException e) {
+  public ErrorReadingSkylarkExtensionException(IOException e, Transience transience) {
     super(e.getMessage(), e);
+    this.transience = transience;
+  }
+
+  Transience getTransience() {
+    return transience;
   }
 }

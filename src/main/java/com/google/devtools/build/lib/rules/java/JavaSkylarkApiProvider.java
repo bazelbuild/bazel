@@ -16,23 +16,23 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaSkylarkApiProviderApi;
 
 /**
- * A class that exposes the Java providers to Skylark. It is intended to provide a simple and stable
- * interface for Skylark users.
+ * A class that exposes the Java providers to Starlark. It is intended to provide a simple and
+ * stable interface for Starlark users.
  */
 public final class JavaSkylarkApiProvider extends SkylarkApiProvider
     implements JavaSkylarkApiProviderApi<Artifact> {
-  /** The name of the field in Skylark used to access this class. */
+  /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "java";
-  /** The name of the field in Skylark proto aspects used to access this class. */
-  public static final SkylarkProviderIdentifier SKYLARK_NAME =
-      SkylarkProviderIdentifier.forLegacy(NAME);
+  /** The name of the field in Starlark proto aspects used to access this class. */
+  public static final StarlarkProviderIdentifier SKYLARK_NAME =
+      StarlarkProviderIdentifier.forLegacy(NAME);
 
   /**
-   * Creates a Skylark API provider that reads information from its associated target's providers.
+   * Creates a Starlark API provider that reads information from its associated target's providers.
    */
   public static JavaSkylarkApiProvider fromRuleContext() {
     return new JavaSkylarkApiProvider();

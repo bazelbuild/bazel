@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,9 +31,10 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Progress;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TargetComplete;
@@ -395,7 +396,7 @@ public class BinaryFormatFileTransportTest {
     @Override
     public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext context) {
       return BuildEventStreamProtos.BuildEvent.newBuilder()
-          .setId(BuildEventId.progressId(id).asStreamProto())
+          .setId(BuildEventIdUtil.progressId(id))
           .setProgress(
               BuildEventStreamProtos.Progress.newBuilder()
                   .setStdout(
@@ -409,12 +410,12 @@ public class BinaryFormatFileTransportTest {
 
     @Override
     public BuildEventId getEventId() {
-      return BuildEventId.progressId(id);
+      return BuildEventIdUtil.progressId(id);
     }
 
     @Override
     public Collection<BuildEventId> getChildrenEvents() {
-      return ImmutableList.of(BuildEventId.progressId(id + 1));
+      return ImmutableList.of(BuildEventIdUtil.progressId(id + 1));
     }
   }
 }

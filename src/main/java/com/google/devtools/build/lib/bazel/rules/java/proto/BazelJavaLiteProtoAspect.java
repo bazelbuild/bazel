@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
 public class BazelJavaLiteProtoAspect extends JavaLiteProtoAspect {
 
   public static final String DEFAULT_PROTO_TOOLCHAIN_LABEL =
-      "@com_google_protobuf_javalite//:javalite_toolchain";
+      "@com_google_protobuf//:javalite_toolchain";
 
   public BazelJavaLiteProtoAspect(RuleDefinitionEnvironment env) {
     super(BazelJavaSemantics.INSTANCE, DEFAULT_PROTO_TOOLCHAIN_LABEL, env);

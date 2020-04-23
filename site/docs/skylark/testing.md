@@ -8,8 +8,6 @@ title: Testing
 There are several different approaches to testing Starlark code in Bazel. This
 page gathers the current best practices and frameworks by use case.
 
-* ToC
-{:toc}
 
 ## For testing rules
 
@@ -139,7 +137,7 @@ myrule(
 
 # Call a macro that defines targets that perform the tests at analysis time,
 # and that can be executed with "bazel test" to return the result.
-myrules_test_suite(name = "myrules_tests")
+myrules_test_suite(name = "myrules_test")
 ```
 
 The test can be run with `bazel test //mypkg:myrules_test`.
@@ -179,7 +177,7 @@ Then:
 Note that the labels of all targets can conflict with other labels in the same
 BUILD package, so it's helpful to use a unique name for the test.
 
-### Failure Testing
+### Failure testing
 
 It may be useful to verify that a rule fails given certain inputs or in certain
 state. This can be done using the analysis test framework:
@@ -220,7 +218,7 @@ def _test_failure():
 # ":failure_testing_test" to the suite's test targets.
 ```
 
-### Verifying Registered Actions
+### Verifying registered actions
 
 You may want to write tests which make assertions about the actions that your
 rule registers, for example, using `ctx.actions.run()`. This can be done in your
@@ -243,7 +241,7 @@ Note that `analysistest.target_actions(env)` returns a list of
 [`Action`](lib/Action.html) objects which represent actions registered by the
 target under test.
 
-### Verifying Rule Behavior Under Different Flags
+### Verifying rule behavior under different flags
 
 You may want to verify your real rule behaves a certain way given certain build
 flags. For example, your rule may behave differently if a user specifies:

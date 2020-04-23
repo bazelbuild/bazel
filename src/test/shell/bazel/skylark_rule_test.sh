@@ -14,14 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests building with rules defined in Skylark.
+# Tests building with rules defined in Starlark.
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Test a basic skylark rule which touches an output file
+# Test a basic Starlark rule which touches an output file
 function test_basic_output() {
   mkdir -p test
   cat << EOF >> test/BUILD
@@ -54,7 +54,7 @@ EOF
       || fail "should have generated output successfully"
 }
 
-# Test a basic skylark rule which is valid except the action fails on execution.
+# Test a basic Starlark rule which is valid except the action fails on execution.
 function test_execution_failure() {
   mkdir -p test
   cat << EOF >> test/BUILD

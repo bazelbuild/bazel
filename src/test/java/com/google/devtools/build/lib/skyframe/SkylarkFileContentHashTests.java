@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -40,8 +40,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for the hash code calculated for Skylark RuleClasses based on the transitive closure
- * of the imports of their respective definition SkylarkEnvironments.
+ * Tests for the hash code calculated for Starlark RuleClasses based on the transitive closure of
+ * the imports of their respective definition SkylarkEnvironments.
  */
 @RunWith(JUnit4.class)
 public class SkylarkFileContentHashTests extends BuildViewTestCase {
@@ -149,26 +149,26 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     assertThat(getHash("pkg", "foo2")).isEqualTo(foo2);
   }
 
-  private void assertNotEquals(String hash, String hash2) {
+  private static void assertNotEquals(String hash, String hash2) {
     assertThat(hash.equals(hash2)).isFalse();
   }
 
   /**
    * Returns the hash code of the rule target defined by the pkg and the target name parameters.
-   * Asserts that the targets and it's Skylark dependencies were loaded properly.
+   * Asserts that the targets and it's Starlark dependencies were loaded properly.
    */
   private String getHash(String pkg, String name) throws Exception {
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageCacheOptions,
+            packageOptions,
             Options.getDefaults(StarlarkSemanticsOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),

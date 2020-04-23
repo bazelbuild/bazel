@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 
 /**
- * A class to contain the common functionality for analysis-phase Skylark tests. The less stuff
+ * A class to contain the common functionality for analysis-phase Starlark tests. The less stuff
  * here, the better.
  */
 public abstract class SkylarkTestCase extends BuildViewTestCase {
@@ -60,12 +60,12 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
             Mutability mu = Mutability.create("test");
             StarlarkThread thread =
                 StarlarkThread.builder(mu)
-                    .setSemantics(getSkylarkSemantics())
+                    .setSemantics(getStarlarkSemantics())
                     .setGlobals(
                         globals.withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                     .build();
-            thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
+            thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
 
             // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
             // Rule creation is tested by SkylarkIntegrationTest.
@@ -107,8 +107,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   }
 
   protected final SkylarkRuleContext createRuleContext(String label) throws Exception {
-    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), null,
-        getSkylarkSemantics());
+    return new SkylarkRuleContext(
+        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
   }
 
   // Disable BuildViewTestCase's overload to avoid unintended calls.

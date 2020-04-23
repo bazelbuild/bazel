@@ -1902,11 +1902,10 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
             getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
 
     String expectedCompilerFlag =
-        "-Xclang-only=-prefetch-hints-file="
+        "-prefetch-hints-file="
             + (asLabel ? ".*/prefetch.afdo" : "(blaze|bazel)-out/.*/fdo/.*/prefetch.afdo");
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
-        .containsMatch(
-            "-Xclang-only=-mllvm " + expectedCompilerFlag);
+        .containsMatch("-mllvm " + expectedCompilerFlag);
 
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
         .contains("prefetch.afdo");
@@ -1930,5 +1929,15 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
   @Test
   public void testFdoCachePrefetchAndFdoLLVMOptionsToBackendFromLabel() throws Exception {
     testLLVMCachePrefetchBackendOption("--fdo_optimize=./profile.zip", true);
+  }
+
+  @Test
+  public void testThinLtoWithoutSupportsStartEndLibError() throws Exception {
+    createBuildFiles("bin", "testonly = 1,");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.THIN_LTO));
+    checkError("//pkg:bin", "The feature supports_start_end_lib must be enabled.");
   }
 }

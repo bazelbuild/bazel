@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Ascii;
@@ -81,11 +81,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.ConfigsMode;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
@@ -105,6 +106,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -123,22 +125,25 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -147,6 +152,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -203,7 +209,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private ConfigsMode configsMode = ConfigsMode.NOTRIM;
 
   protected OptionsParser optionsParser;
-  private PackageCacheOptions packageCacheOptions;
+  private PackageOptions packageOptions;
   private StarlarkSemanticsOptions starlarkSemanticsOptions;
   protected PackageFactory pkgFactory;
 
@@ -250,8 +256,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         "  pass");
     initializeMockClient();
 
-    packageCacheOptions = parsePackageCacheOptions();
-    starlarkSemanticsOptions = parseSkylarkSemanticsOptions();
+    packageOptions = parsePackageOptions();
+    starlarkSemanticsOptions = parseStarlarkSemanticsOptions();
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
@@ -271,13 +277,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
             PrecomputedValue.injected(
-                PrecomputedValue.BUILD_INFO_FACTORIES,
+                BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                 ruleClassProvider.getBuildInfoFactoriesAsMap()));
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
-            .setEnvironmentExtensions(getEnvironmentExtensions());
+            .setEnvironmentExtensions(getEnvironmentExtensions())
+            .setPackageValidator(getPackageValidator());
     if (!doPackageLoadingChecks) {
       pkgFactoryBuilder.disableChecks();
     }
@@ -295,17 +302,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setManagedDirectoriesKnowledge(getManagedDirectoriesKnowledge())
             .build();
-    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+    SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
             ImmutableList.of(root),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-        packageCacheOptions,
+        packageOptions,
         starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -345,8 +352,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.<EnvironmentExtension>of();
   }
 
-  protected StarlarkSemantics getSkylarkSemantics() {
+  protected StarlarkSemantics getStarlarkSemantics() {
     return starlarkSemanticsOptions.toSkylarkSemantics();
+  }
+
+  protected PackageValidator getPackageValidator() {
+    return PackageValidator.NOOP_VALIDATOR;
   }
 
   protected final BuildConfigurationCollection createConfigurations(
@@ -413,22 +424,22 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,
-            packageCacheOptions.packagePath,
+            packageOptions.packagePath,
             reporter,
             rootDirectory,
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        packageCacheOptions,
+        packageOptions,
         starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -442,25 +453,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 Optional.<RootedPath>absent())));
   }
 
-  protected void setPackageCacheOptions(String... options) throws Exception {
-    packageCacheOptions = parsePackageCacheOptions(options);
+  protected void setPackageOptions(String... options) throws Exception {
+    packageOptions = parsePackageOptions(options);
     setUpSkyframe();
   }
 
-  protected void setSkylarkSemanticsOptions(String... options) throws Exception {
-    starlarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
+  protected void setStarlarkSemanticsOptions(String... options) throws Exception {
+    starlarkSemanticsOptions = parseStarlarkSemanticsOptions(options);
     setUpSkyframe();
   }
 
-  private static PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
-    OptionsParser parser =
-        OptionsParser.builder().optionsClasses(PackageCacheOptions.class).build();
+  private static PackageOptions parsePackageOptions(String... options) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(PackageOptions.class).build();
     parser.parse("--default_visibility=public");
     parser.parse(options);
-    return parser.getOptions(PackageCacheOptions.class);
+    return parser.getOptions(PackageOptions.class);
   }
 
-  private static StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+  private static StarlarkSemanticsOptions parseStarlarkSemanticsOptions(String... options)
       throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
@@ -514,13 +524,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Sets host and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    *
-   * TODO(juliexxia): when skylark option parsing exists, find a way to combine these parameters
-   * into a single parameter so skylark/native options don't have to be specified separately.
+   * <p>TODO(juliexxia): when Starlark option parsing exists, find a way to combine these parameters
+   * into a single parameter so Starlark/native options don't have to be specified separately.
    *
-   * @param skylarkOptions map of skylark-defined options where the keys are option names (in the
+   * @param skylarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
-   *
    * @throws IllegalArgumentException
    */
   protected void useConfiguration(ImmutableMap<String, Object> skylarkOptions, String... args)
@@ -634,9 +643,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    *
    * <p>Historically this meant they contained the same object reference. But with upcoming dynamic
    * configurations that may no longer be true (for example, they may have the same values but not
-   * the same {@link BuildConfiguration.Fragment}s. So this method abstracts the
-   * "configuration equivalency" checking into one place, where the implementation logic can evolve
-   * as needed.
+   * the same {@link Fragment}s. So this method abstracts the "configuration equivalency" checking
+   * into one place, where the implementation logic can evolve as needed.
    */
   protected void assertConfigurationsEqual(BuildConfiguration config1, BuildConfiguration config2) {
     // BuildOptions and crosstool files determine a configuration's content. Within the context
@@ -660,11 +668,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Creates and returns a rule context to use for Skylark tests that is equivalent to the one
-   * that was used to create the given configured target.
+   * Creates and returns a rule context to use for Starlark tests that is equivalent to the one that
+   * was used to create the given configured target.
    */
-  protected RuleContext getRuleContextForSkylark(ConfiguredTarget target)
-      throws Exception {
+  protected RuleContext getRuleContextForStarlark(ConfiguredTarget target) throws Exception {
     // TODO(bazel-team): we need this horrible workaround because CachingAnalysisEnvironment
     // only works with StoredErrorEventListener despite the fact it accepts the interface
     // ErrorEventListener, so it's not possible to create it with reporter.
@@ -778,7 +785,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   @Nullable
-  private ParameterFileWriteAction paramFileWriteActionForAction(Action action) {
+  protected ParameterFileWriteAction paramFileWriteActionForAction(Action action) {
     for (Artifact input : action.getInputs().toList()) {
       if (!(input instanceof SpecialArtifact)) {
         Action generatingAction = getGeneratingAction(input);
@@ -1119,7 +1126,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void checkLoadingPhaseError(String target, String expectedErrorMessage) {
     reporter.removeHandler(failFastHandler);
-    // The error happens during the loading of the Skylark file so checkError doesn't work here
+    // The error happens during the loading of the Starlark file so checkError doesn't work here
     assertThrows(Exception.class, () -> getTarget(target));
     assertContainsEvent(expectedErrorMessage);
   }
@@ -1351,8 +1358,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        (AspectValue.AspectKey)
-            AspectValue.createAspectKey(
+        (AspectKey)
+            AspectValueKey.createAspectKey(
                     owner.getLabel(),
                     getConfiguration(owner),
                     new AspectDescriptor(creatingAspectFactory, parameters),
@@ -1437,10 +1444,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
   }
 
-  protected AspectValue.AspectKey getOwnerForAspect(
+  protected AspectKey getOwnerForAspect(
       ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
-    return (AspectValue.AspectKey)
-        AspectValue.createAspectKey(
+    return (AspectKey)
+        AspectValueKey.createAspectKey(
                 owner.getLabel(),
                 getConfiguration(owner),
                 new AspectDescriptor(creatingAspectFactory, params),
@@ -1515,6 +1522,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected Path getOutputPath() {
     return directories.getOutputPath(ruleClassProvider.getRunfilesPrefix());
+  }
+
+  protected String getRelativeOutputPath() {
+    return directories.getRelativeOutputPath();
   }
 
   /**
@@ -1759,7 +1770,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       try {
         return skyframeExecutor.getConfigurationForTesting(
-            reporter, fromConfig.fragmentClasses(), transition.patch(fromConfig.getOptions()));
+            reporter,
+            fromConfig.fragmentClasses(),
+            transition.patch(fromConfig.getOptions(), eventCollector));
       } catch (OptionsParsingException | InvalidConfigurationException e) {
         throw new AssertionError(e);
       }
@@ -1990,6 +2003,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ExtendedEventHandler getEventHandler() {
       return reporter;
     }
@@ -2078,7 +2096,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ImmutableList.Builder<String> basenames = ImmutableList.builder();
     for (Artifact baselineCoverage :
         target
-            .get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR)
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
             .getBaselineCoverageArtifacts()
             .toList()) {
       BaselineCoverageAction baselineAction =
@@ -2277,7 +2295,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /*topLevelFilesets=*/ ImmutableMap.of(),
           artifactExpander,
           /*actionFileSystem=*/ null,
-          /*skyframeDepsResult*/ null);
+          /*skyframeDepsResult*/ null,
+          NestedSetExpander.DEFAULT);
     }
   }
 }

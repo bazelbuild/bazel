@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -334,9 +333,11 @@ public class TestRunnerAction extends AbstractAction
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException {
+    // TODO(b/150305897): use addUUID?
     fp.addString(GUID);
-    fp.addStrings(executionSettings.getArgs().arguments());
+    fp.addIterableStrings(executionSettings.getArgs().arguments());
     fp.addString(Strings.nullToEmpty(executionSettings.getTestFilter()));
+    fp.addBoolean(executionSettings.getTestRunnerFailFast());
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.getValue());
     fp.addStringMap(extraTestEnv);
@@ -348,12 +349,12 @@ public class TestRunnerAction extends AbstractAction
     fp.addString(testProperties.getSize().toString());
     fp.addString(testProperties.getTimeout().toString());
     fp.addStrings(testProperties.getTags());
-    fp.addInt(testProperties.isRemotable() ? 1 : 0);
+    fp.addBoolean(testProperties.isRemotable());
     fp.addInt(shardNum);
     fp.addInt(executionSettings.getTotalShards());
     fp.addInt(runNumber);
     fp.addInt(executionSettings.getTotalRuns());
-    fp.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
+    fp.addBoolean(configuration.isCodeCoverageEnabled());
     fp.addStringMap(getExecutionInfo());
   }
 
@@ -383,25 +384,35 @@ public class TestRunnerAction extends AbstractAction
 
   /** Returns the cache from disk, or null if the file doesn't exist or if there is an error. */
   @Nullable
-  private TestResultData readCacheStatus() {
-    try (InputStream in = cacheStatus.getPath().getInputStream()) {
-      return TestResultData.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
+  private TestResultData maybeReadCacheStatus() {
+    try {
+      return readCacheStatus();
     } catch (IOException expected) {
       return null;
+    }
+  }
+
+  @VisibleForTesting
+  TestResultData readCacheStatus() throws IOException {
+    try (InputStream in = cacheStatus.getPath().getInputStream()) {
+      return TestResultData.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
     }
   }
 
   private boolean computeExecuteUnconditionallyFromTestStatus() {
     return !canBeCached(
         testConfiguration.cacheTestResults(),
-        readCacheStatus(),
+        maybeReadCacheStatus(),
         testProperties.isExternal(),
         executionSettings.getTotalRuns());
   }
 
   @VisibleForTesting
   static boolean canBeCached(
-      TriState cacheTestResults, TestResultData prevStatus, boolean isExternal, int runsPerTest) {
+      TriState cacheTestResults,
+      @Nullable TestResultData prevStatus,
+      boolean isExternal,
+      int runsPerTest) {
     if (cacheTestResults == TriState.NO) {
       return false;
     }
@@ -442,6 +453,8 @@ public class TestRunnerAction extends AbstractAction
                   .getContext(TestActionContext.class)
                   .newCachedTestResult(executor.getExecRoot(), this, readCacheStatus()));
     } catch (IOException e) {
+      // TODO(b/150311421): Produce a user facing warning/error and a TestResult with information
+      //  about the failure to retrieve cached test status.
       LoggingUtil.logToRemote(Level.WARNING, "Failed creating cached protocol buffer", e);
     }
   }
@@ -534,6 +547,9 @@ public class TestRunnerAction extends AbstractAction
     String testFilter = getExecutionSettings().getTestFilter();
     if (testFilter != null) {
       env.put(TEST_BRIDGE_TEST_FILTER_ENV, testFilter);
+    }
+    if (testConfiguration.getTestRunnerFailFast()) {
+      env.put("TESTBRIDGE_TEST_RUNNER_FAIL_FAST", "1");
     }
 
     env.put("TEST_WARNINGS_OUTPUT_FILE", getTestWarningsPath().getPathString());

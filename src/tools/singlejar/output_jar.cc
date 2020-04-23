@@ -122,28 +122,7 @@ int OutputJar::Doit(Options *options) {
 
   // Copy launcher if it is set.
   if (!options_->java_launcher.empty()) {
-    const char *const launcher_path = options_->java_launcher.c_str();
-    int in_fd = open(launcher_path, O_RDONLY);
-    struct stat statbuf;
-    if (file_ == nullptr || fstat(in_fd, &statbuf)) {
-      diag_err(1, "%s", launcher_path);
-    }
-    // TODO(asmundak):  Consider going back to sendfile() or reflink
-    // (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.  The launcher preamble can
-    // be very large for targets with many native deps.
-    ssize_t byte_count = AppendFile(in_fd, 0, statbuf.st_size);
-    if (byte_count < 0) {
-      diag_err(1, "%s:%d: Cannot copy %s to %s", __FILE__, __LINE__,
-               launcher_path, options_->output_jar.c_str());
-    } else if (byte_count != statbuf.st_size) {
-      diag_err(1, "%s:%d: Copied only %zu bytes out of %" PRIu64 " from %s",
-               __FILE__, __LINE__, byte_count, statbuf.st_size, launcher_path);
-    }
-    close(in_fd);
-    if (options_->verbose) {
-      fprintf(stderr, "Prepended %s (%" PRIu64 " bytes)\n", launcher_path,
-              statbuf.st_size);
-    }
+    AppendFile(options_, options_->java_launcher.c_str());
   }
 
   if (!options_->main_class.empty()) {
@@ -151,6 +130,11 @@ int OutputJar::Doit(Options *options) {
     manifest_.Append("Main-Class: ");
     manifest_.Append(options_->main_class);
     manifest_.Append("\r\n");
+  }
+
+  // Copy CDS archive file (.jsa) if it is set.
+  if (!options_->cds_archive.empty()) {
+    AppendCDSArchive(options->cds_archive);
   }
 
   for (auto &manifest_line : options_->manifest_lines) {
@@ -959,7 +943,7 @@ void OutputJar::ClasspathResource(const std::string &resource_name,
   }
 }
 
-ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
+ssize_t OutputJar::CopyAppendData(int in_fd, off64_t offset, size_t count) {
   if (count == 0) {
     return 0;
   }
@@ -1003,6 +987,73 @@ ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
 #endif  // _WIN32
 
   return total_written;
+}
+
+void OutputJar::AppendFile(Options *options, const char *const file_path) {
+  int in_fd = open(file_path, O_RDONLY);
+  struct stat statbuf;
+  if (fstat(in_fd, &statbuf)) {
+    diag_err(1, "%s", file_path);
+  }
+  // TODO(asmundak):  Consider going back to sendfile() or reflink
+  // (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.  The launcher preamble can
+  // be very large for targets with many native deps.
+  ssize_t byte_count = CopyAppendData(in_fd, 0, statbuf.st_size);
+  if (byte_count < 0) {
+    diag_err(1, "%s:%d: Cannot copy %s to %s", __FILE__, __LINE__,
+             file_path, options->output_jar.c_str());
+  } else if (byte_count != statbuf.st_size) {
+    diag_err(1, "%s:%d: Copied only %zu bytes out of %" PRIu64 " from %s",
+             __FILE__, __LINE__, byte_count, statbuf.st_size, file_path);
+  }
+  close(in_fd);
+  if (options->verbose) {
+    fprintf(stderr, "Prepended %s (%" PRIu64 " bytes)\n", file_path,
+            statbuf.st_size);
+  }
+}
+
+void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
+  // Align the shared archive start offset at page alignment, which is
+  // required by mmap.
+  off64_t cur_offset = Position();
+  size_t pagesize;
+#ifdef _WIN32
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  pagesize = si.dwPageSize;
+#else
+  pagesize = sysconf(_SC_PAGESIZE);
+#endif
+  off64_t aligned_offset = (cur_offset + (pagesize - 1)) & ~(pagesize - 1);
+  size_t gap = aligned_offset - cur_offset;
+  size_t written;
+  if (gap > 0) {
+    char *zeros = (char *)malloc(gap);
+    if (!zeros) {
+      return;
+    }
+    memset(zeros, 0, gap);
+    written = fwrite(zeros, 1, gap, file_);
+    outpos_ += written;
+    free(zeros);
+  }
+
+  // Copy archived data
+  AppendFile(options_, cds_archive.c_str());
+
+  // Write the file offset of the shared archive section as a manifest
+  // attribute.
+  char cds_manifest_attr[50];
+  snprintf( cds_manifest_attr, sizeof(cds_manifest_attr),
+    "Jsa-Offset: %ld", (long)aligned_offset); // NOLINT(runtime/int,
+                                              // google-runtime-int)
+  manifest_.Append(cds_manifest_attr);
+  manifest_.Append("\r\n");
+
+  // Add to build_properties
+  build_properties_.AddProperty("cds.archive",
+                                cds_archive.c_str());
 }
 
 void OutputJar::ExtraCombiner(const std::string &entry_name,

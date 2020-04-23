@@ -156,7 +156,9 @@ public class PatchUtil {
     GIT_HEADER,
     RENAME_FROM,
     RENAME_TO,
-    GIT_LINE,
+    NEW_MODE,
+    NEW_FILE_MODE,
+    OTHER_GIT_LINE,
     UNKNOWN
   }
 
@@ -203,9 +205,15 @@ public class PatchUtil {
         if (line.startsWith("rename to ")) {
           return LineType.RENAME_TO;
         }
+        if (line.startsWith("new mode ")) {
+          return LineType.NEW_MODE;
+        }
+        if (line.startsWith("new file mode ")) {
+          return LineType.NEW_FILE_MODE;
+        }
         for (String prefix : GIT_LINE_PREFIXES) {
           if (line.startsWith(prefix)) {
-            return LineType.GIT_LINE;
+            return LineType.OTHER_GIT_LINE;
           }
         }
       }
@@ -229,8 +237,35 @@ public class PatchUtil {
     FileSystemUtils.writeLinesAs(file, StandardCharsets.UTF_8, content);
   }
 
+  private static boolean getReadPermission(int permission) {
+    // Parse read permission from posix file permission notation
+    return (permission & 4) == 4;
+  }
+
+  private static boolean getWritePermission(int permission) {
+    // Parse write permission from posix file permission notation
+    return (permission & 2) == 2;
+  }
+
+  private static boolean getExecutablePermission(int permission) {
+    // Parse executable permission from posix file permission notation
+    return (permission & 1) == 1;
+  }
+
+  private static int getFilePermissionValue(Path file) throws IOException {
+    return (file.isReadable() ? 4 : 0)
+        + (file.isWritable() ? 2 : 0)
+        + (file.isExecutable() ? 1 : 0);
+  }
+
+  private static void setFilePermission(Path file, int permission) throws IOException {
+    file.setReadable(getReadPermission(permission));
+    file.setWritable(getWritePermission(permission));
+    file.setExecutable(getExecutablePermission(permission));
+  }
+
   private static void applyPatchToFile(
-      Patch<String> patch, Path oldFile, Path newFile, boolean isRenaming)
+      Patch<String> patch, Path oldFile, Path newFile, boolean isRenaming, int filePermission)
       throws IOException, PatchFailedException {
     // The file we should read oldContent from.
     Path inputFile = null;
@@ -245,6 +280,10 @@ public class PatchUtil {
       oldContent = new ArrayList<>();
     } else {
       oldContent = readFile(inputFile);
+      // Preserve old file permission if no explicit permission is set.
+      if (filePermission == -1) {
+        filePermission = getFilePermissionValue(inputFile);
+      }
     }
 
     List<String> newContent = OffsetPatch.applyTo(patch, oldContent);
@@ -268,6 +307,9 @@ public class PatchUtil {
 
     if (outputFile != null && !isDeleteFile) {
       writeFile(outputFile, newContent);
+      if (filePermission != -1) {
+        setFilePermission(outputFile, filePermission);
+      }
     }
   }
 
@@ -448,6 +490,7 @@ public class PatchUtil {
     Path newFile = null;
     int oldLineCount = 0;
     int newLineCount = 0;
+    int filePermission = -1;
     Result result;
 
     for (int i = 0; i < patchFileLines.size(); i++) {
@@ -463,6 +506,18 @@ public class PatchUtil {
           patchContent.add(line);
           newFileStr = extractPath(line, strip, i + 1);
           newFile = getFilePath(newFileStr, outputDirectory, i + 1);
+          break;
+        case NEW_MODE:
+        case NEW_FILE_MODE:
+          // The line should look like: "new mode 100755" or "new file mode 100755"
+          // 7 is the file permission for owner, which is at index 12 or 17
+          int index = type == LineType.NEW_MODE ? 12 : 17;
+          char c = line.charAt(index);
+          if (c < '0' || c > '7') {
+            throw new PatchFailedException(
+                "Wrong file mode format at line " + (i + 1) + ": " + line);
+          }
+          filePermission = Character.getNumericValue(c);
           break;
         case CHUNK_HEAD:
           int pos = line.indexOf("@@", 2);
@@ -543,7 +598,7 @@ public class PatchUtil {
             newFile = getFilePath(newFileStr, outputDirectory, i + 1);
           }
           break;
-        case GIT_LINE:
+        case OTHER_GIT_LINE:
           break;
         case GIT_HEADER:
         case UNKNOWN:
@@ -553,7 +608,7 @@ public class PatchUtil {
           // Renaming is a git only format
           boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
 
-          if (!patchContent.isEmpty() || isRenaming) {
+          if (!patchContent.isEmpty() || isRenaming || filePermission != -1) {
             // We collected something useful, let's do some sanity checks before applying the patch.
             int patchStartLocation = i + 1 - patchContent.size();
 
@@ -569,7 +624,7 @@ public class PatchUtil {
             checkFilesStatusForPatching(
                 patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
 
-            applyPatchToFile(patch, oldFile, newFile, isRenaming);
+            applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
           }
 
           patchContent.clear();
@@ -578,11 +633,27 @@ public class PatchUtil {
           newFileStr = null;
           oldFile = null;
           newFile = null;
+          filePermission = -1;
           oldLineCount = 0;
           newLineCount = 0;
           isReadingChunk = false;
           // If the new patch starts with "diff --git " then it's a git diff.
           isGitDiff = type == LineType.GIT_HEADER;
+          if (isGitDiff) {
+            // In case there is no line starting with +++ and --- (file permission change),
+            // try to parse the file names from the line starting with "diff --git"
+            List<String> args = Splitter.on(' ').splitToList(line);
+            if (args.size() >= 4) {
+              oldFileStr = stripPath(args.get(2), strip);
+              if (!oldFileStr.isEmpty()) {
+                oldFile = getFilePath(oldFileStr, outputDirectory, i + 1);
+              }
+              newFileStr = stripPath(args.get(3), strip);
+              if (!newFileStr.isEmpty()) {
+                newFile = getFilePath(newFileStr, outputDirectory, i + 1);
+              }
+            }
+          }
           hasRenameFrom = false;
           hasRenameTo = false;
           break;

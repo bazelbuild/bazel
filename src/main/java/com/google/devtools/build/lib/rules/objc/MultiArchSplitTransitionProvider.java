@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.rules.apple.AppleConfiguration.IOS_CPU_PREFIX;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
@@ -196,7 +198,8 @@ public class MultiArchSplitTransitionProvider
     }
 
     @Override
-    public final Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public final Map<String, BuildOptions> split(
+        BuildOptions buildOptions, EventHandler eventHandler) {
       List<String> cpus;
       DottedVersion actualMinimumOsVersion;
       ConfigurationDistinguisher configurationDistinguisher;
@@ -303,7 +306,7 @@ public class MultiArchSplitTransitionProvider
         }
 
         appleCommandLineOptions.configurationDistinguisher = configurationDistinguisher;
-        splitBuildOptions.put(cpu, splitOptions);
+        splitBuildOptions.put(IOS_CPU_PREFIX + cpu, splitOptions);
       }
       return splitBuildOptions.build();
     }

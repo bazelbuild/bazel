@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,9 +39,9 @@ import org.junit.runners.JUnit4;
 /**
  * A test for {@link BuildOptions}.
  *
- * <p>Currently this tests native options and skylark options completely separately since these two
+ * <p>Currently this tests native options and Starlark options completely separately since these two
  * types of options do not interact. In the future when we begin to migrate native options to
- * skylark options, the format of this test class will need to accommodate that overlap.
+ * Starlark options, the format of this test class will need to accommodate that overlap.
  */
 @RunWith(JUnit4.class)
 public final class BuildOptionsTest {

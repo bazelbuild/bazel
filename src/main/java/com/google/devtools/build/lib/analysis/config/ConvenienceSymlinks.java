@@ -164,12 +164,13 @@ public final class ConvenienceSymlinks {
 
   /** Symlinks to the output directory. */
   public enum OutputSymlink implements SymlinkDefinition {
+    // TODO(mitchellhyang): Symlink is omitted if '--experimental_no_product_name_out_symlink=true'.
+    //  After confirming that if '--symlink_prefix' is used and '<product>-out' symlink is no longer
+    //  needed, PRODUCT_NAME can be removed.
     PRODUCT_NAME {
       @Override
       public String getLinkName(
           String symlinkPrefix, String productName, String workspaceBaseName) {
-        // TODO(b/35234395): This symlink is created for backwards compatibility, remove it once
-        // we're sure it won't cause any other issues.
         return productName + "-out";
       }
     },
@@ -198,12 +199,15 @@ public final class ConvenienceSymlinks {
    *
    * <p>The order of the result indicates precedence for {@link PathPrettyPrinter}.
    */
-  public static ImmutableList<SymlinkDefinition> getStandardLinkDefinitions() {
+  public static ImmutableList<SymlinkDefinition> getStandardLinkDefinitions(
+      boolean includeProductOut) {
     ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
     builder.add(BIN_SYMLINK);
     builder.add(TESTLOGS_SYMLINK);
     builder.add(GENFILES_SYMLINK);
-    builder.add(OutputSymlink.PRODUCT_NAME);
+    if (includeProductOut) {
+      builder.add(OutputSymlink.PRODUCT_NAME);
+    }
     builder.add(OutputSymlink.SYMLINK_PREFIX);
     builder.add(ExecRootSymlink.INSTANCE);
     return builder.build();

@@ -29,19 +29,20 @@ import javax.annotation.Nullable;
  * <p>The dep's configuration can be specified in one of two ways:
  *
  * <p>Explicit configurations: includes the target and the configuration of the dependency
- * configured target and any aspects that may be required, as well as the configurations for
- * these aspects.
+ * configured target and any aspects that may be required, as well as the configurations for these
+ * aspects and an optional transition key. {@link Dependency#getTransitionKey} provides some more
+ * context on transition keys.
  *
- * <p>Configuration transitions: includes the target and the desired configuration transitions
- * that should be applied to produce the dependency's configuration. It's the caller's
- * responsibility to construct an actual configuration out of that. A set of aspects is also
- * included; the caller must also construct configurations for each of these.
+ * <p>Configuration transitions: includes the target and the desired configuration transitions that
+ * should be applied to produce the dependency's configuration. It's the caller's responsibility to
+ * construct an actual configuration out of that. A set of aspects is also included; the caller must
+ * also construct configurations for each of these.
  *
  * <p>Note that the presence of an aspect here does not necessarily mean that it will be created.
  * They will be filtered based on the {@link TransitiveInfoProvider} instances their associated
- * configured targets have (we cannot do that here because the configured targets are not
- * available yet). No error or warning is reported in this case, because it is expected that rules
- * sometimes over-approximate the providers they supply in their definitions.
+ * configured targets have (we cannot do that here because the configured targets are not available
+ * yet). No error or warning is reported in this case, because it is expected that rules sometimes
+ * over-approximate the providers they supply in their definitions.
  */
 public abstract class Dependency {
 
@@ -62,9 +63,11 @@ public abstract class Dependency {
    */
   public static Dependency withConfiguration(Label label, BuildConfiguration configuration) {
     return new ExplicitConfigurationDependency(
-        label, configuration,
+        label,
+        configuration,
         AspectCollection.EMPTY,
-        ImmutableMap.<AspectDescriptor, BuildConfiguration>of());
+        ImmutableMap.<AspectDescriptor, BuildConfiguration>of(),
+        null);
   }
 
   /**
@@ -80,8 +83,30 @@ public abstract class Dependency {
     for (AspectDescriptor aspect : aspects.getAllAspects()) {
       aspectBuilder.put(aspect, configuration);
     }
-    return new ExplicitConfigurationDependency(label, configuration, aspects,
-        aspectBuilder.build());
+    return new ExplicitConfigurationDependency(
+        label, configuration, aspects, aspectBuilder.build(), null);
+  }
+
+  /**
+   * Creates a new {@link Dependency} with the given configuration, aspects, and transition key. The
+   * configuration is also applied to all aspects. This should be preferred over {@link
+   * Dependency#withConfigurationAndAspects} if the {@code configuration} was derived from a {@link
+   * ConfigurationTransition}, and so there is a corresponding transition key.
+   *
+   * <p>The configuration and aspects must not be {@code null}.
+   */
+  public static Dependency withConfigurationAspectsAndTransitionKey(
+      Label label,
+      BuildConfiguration configuration,
+      AspectCollection aspects,
+      @Nullable String transitionKey) {
+    ImmutableMap.Builder<AspectDescriptor, BuildConfiguration> aspectBuilder =
+        new ImmutableMap.Builder<>();
+    for (AspectDescriptor aspect : aspects.getAllAspects()) {
+      aspectBuilder.put(aspect, configuration);
+    }
+    return new ExplicitConfigurationDependency(
+        label, configuration, aspects, aspectBuilder.build(), transitionKey);
   }
 
   /**
@@ -96,7 +121,7 @@ public abstract class Dependency {
       AspectCollection aspects,
       Map<AspectDescriptor, BuildConfiguration> aspectConfigurations) {
     return new ExplicitConfigurationDependency(
-        label, configuration, aspects, ImmutableMap.copyOf(aspectConfigurations));
+        label, configuration, aspects, ImmutableMap.copyOf(aspectConfigurations), null);
   }
 
   /**
@@ -159,6 +184,14 @@ public abstract class Dependency {
   public abstract BuildConfiguration getAspectConfiguration(AspectDescriptor aspect);
 
   /**
+   * Returns the key of a configuration transition, if exists, associated with this dependency. See
+   * {@link ConfigurationTransition#apply} for more details.
+   *
+   * @throws IllegalStateException if {@link #hasExplicitConfiguration()} returns false.
+   */
+  public abstract String getTransitionKey();
+
+  /**
    * Implementation of a dependency with no configuration, suitable for, e.g., source files or
    * visibility.
    */
@@ -194,6 +227,12 @@ public abstract class Dependency {
       return null;
     }
 
+    @Nullable
+    @Override
+    public String getTransitionKey() {
+      return null;
+    }
+
     @Override
     public int hashCode() {
       return label.hashCode();
@@ -221,15 +260,19 @@ public abstract class Dependency {
     private final BuildConfiguration configuration;
     private final AspectCollection aspects;
     private final ImmutableMap<AspectDescriptor, BuildConfiguration> aspectConfigurations;
+    @Nullable private final String transitionKey;
 
     public ExplicitConfigurationDependency(
-        Label label, BuildConfiguration configuration,
+        Label label,
+        BuildConfiguration configuration,
         AspectCollection aspects,
-        ImmutableMap<AspectDescriptor, BuildConfiguration> aspectConfigurations) {
+        ImmutableMap<AspectDescriptor, BuildConfiguration> aspectConfigurations,
+        @Nullable String transitionKey) {
       super(label);
       this.configuration = Preconditions.checkNotNull(configuration);
       this.aspects = Preconditions.checkNotNull(aspects);
       this.aspectConfigurations = Preconditions.checkNotNull(aspectConfigurations);
+      this.transitionKey = transitionKey;
     }
 
     @Override
@@ -258,9 +301,15 @@ public abstract class Dependency {
       return aspectConfigurations.get(aspect);
     }
 
+    @Nullable
+    @Override
+    public String getTransitionKey() {
+      return transitionKey;
+    }
+
     @Override
     public int hashCode() {
-      return Objects.hash(label, configuration, aspectConfigurations);
+      return Objects.hash(label, configuration, aspectConfigurations, transitionKey);
     }
 
     @Override
@@ -322,6 +371,12 @@ public abstract class Dependency {
     public BuildConfiguration getAspectConfiguration(AspectDescriptor aspect) {
       throw new IllegalStateException(
           "This dependency has a transition, not an explicit aspect configuration.");
+    }
+
+    @Override
+    public String getTransitionKey() {
+      throw new IllegalStateException(
+          "This dependency has a transition, not an explicit configuration.");
     }
 
     @Override

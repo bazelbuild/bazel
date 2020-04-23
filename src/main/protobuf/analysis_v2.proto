@@ -97,6 +97,9 @@ message Action {
 
   // The list of param files. This will be only set if explicitly requested.
   repeated ParamFile param_files = 12;
+
+  // The id to an Artifact that is the primary output of this action.
+  uint32 primary_output_id = 13;
 }
 
 // Represents a single target (without configuration information) that is
@@ -129,7 +132,7 @@ message AspectDescriptor {
   uint32 id = 1;
 
   // The name of the corresponding aspect. For native aspects, it's the Java
-  // class name, for Skylark aspects it's the bzl file followed by a % sign
+  // class name, for Starlark aspects it's the bzl file followed by a % sign
   // followed by the name of the aspect.
   string name = 2;
 

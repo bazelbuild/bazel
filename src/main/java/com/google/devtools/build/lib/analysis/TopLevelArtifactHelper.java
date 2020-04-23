@@ -24,10 +24,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.util.RegexFilter;
+import java.time.Duration;
 import java.util.Collection;
-import java.util.logging.Logger;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -35,8 +37,6 @@ import javax.annotation.Nullable;
  * extra top-level artifacts into the build.
  */
 public final class TopLevelArtifactHelper {
-  private static Logger logger = Logger.getLogger(TopLevelArtifactHelper.class.getName());
-
   /** Set of {@link Artifact}s in an output group. */
   @Immutable
   public static final class ArtifactsInOutputGroup {
@@ -120,11 +120,13 @@ public final class TopLevelArtifactHelper {
     // Prevent instantiation.
   }
 
+  private static final Duration MIN_LOGGING = Duration.ofMillis(10);
+
   @VisibleForTesting
   public static ArtifactsToOwnerLabels makeTopLevelArtifactsToOwnerLabels(
-      AnalysisResult analysisResult, Iterable<AspectValue> aspects) {
-    try (AutoProfiler ignored = AutoProfiler.logged("assigning owner labels", logger, 10)) {
-
+      AnalysisResult analysisResult) {
+    try (AutoProfiler ignored =
+        GoogleAutoProfilerUtils.logged("assigning owner labels", MIN_LOGGING)) {
       ArtifactsToOwnerLabels.Builder artifactsToOwnerLabelsBuilder =
           analysisResult.getTopLevelArtifactsToOwnerLabels().toBuilder();
     TopLevelArtifactContext artifactContext = analysisResult.getTopLevelContext();
@@ -135,11 +137,12 @@ public final class TopLevelArtifactHelper {
             target.getLabel(),
             artifactsToOwnerLabelsBuilder);
     }
-    for (AspectValue aspect : aspects) {
+      for (Map.Entry<AspectKey, ConfiguredAspect> aspectEntry :
+          analysisResult.getAspectsMap().entrySet()) {
         addArtifactsWithOwnerLabel(
-            getAllArtifactsToBuild(aspect, artifactContext).getAllArtifacts(),
+            getAllArtifactsToBuild(aspectEntry.getValue(), artifactContext).getAllArtifacts(),
             null,
-            aspect.getLabel(),
+            aspectEntry.getKey().getLabel(),
             artifactsToOwnerLabelsBuilder);
     }
     if (analysisResult.getTargetsToTest() != null) {
@@ -156,7 +159,7 @@ public final class TopLevelArtifactHelper {
     }
   }
 
-  static void addArtifactsWithOwnerLabel(
+  public static void addArtifactsWithOwnerLabel(
       NestedSet<? extends Artifact> artifacts,
       @Nullable RegexFilter filter,
       Label ownerLabel,
@@ -165,7 +168,7 @@ public final class TopLevelArtifactHelper {
         artifacts.toList(), filter, ownerLabel, artifactsToOwnerLabelsBuilder);
   }
 
-  static void addArtifactsWithOwnerLabel(
+  public static void addArtifactsWithOwnerLabel(
       Collection<? extends Artifact> artifacts,
       @Nullable RegexFilter filter,
       Label ownerLabel,
@@ -179,29 +182,20 @@ public final class TopLevelArtifactHelper {
 
   /**
    * Returns all artifacts to build if this target is requested as a top-level target. The resulting
-   * set includes the temps and either the files to compile, if
-   * {@code context.compileOnly() == true}, or the files to run.
+   * set includes the temps and either the files to compile, if {@code context.compileOnly() ==
+   * true}, or the files to run.
    *
    * <p>Calls to this method should generally return quickly; however, the runfiles computation can
    * be lazy, in which case it can be expensive on the first call. Subsequent calls may or may not
    * return the same {@code Iterable} instance.
    */
-  public static ArtifactsToBuild getAllArtifactsToBuild(TransitiveInfoCollection target,
-      TopLevelArtifactContext context) {
+  public static ArtifactsToBuild getAllArtifactsToBuild(
+      ProviderCollection target, TopLevelArtifactContext context) {
     return getAllArtifactsToBuild(
         OutputGroupInfo.get(target),
         target.getProvider(FileProvider.class),
         context
     );
-  }
-
-  public static ArtifactsToBuild getAllArtifactsToBuild(
-      AspectValue aspectValue, TopLevelArtifactContext context) {
-    ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
-    return getAllArtifactsToBuild(
-        OutputGroupInfo.get(configuredAspect),
-        configuredAspect.getProvider(FileProvider.class),
-        context);
   }
 
   static ArtifactsToBuild getAllArtifactsToBuild(

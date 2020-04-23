@@ -27,7 +27,7 @@ java_test(
         "-Djacoco_agent_jar=$(location //src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jacoco_agent_jar)",
     ],
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:desugar_rule",
         "//third_party:asm",
         "//third_party:asm-tree",
@@ -36,7 +36,6 @@ java_test(
         "//third_party:jsr330_inject",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party:truth8",
     ],
 )
 

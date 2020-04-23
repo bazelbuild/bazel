@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -29,10 +28,10 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -78,6 +77,7 @@ public interface JavaSemantics {
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
       fromTemplates("%{name}_proguard.config");
   SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT = fromTemplates("%{name}-one-version.txt");
+  SafeImplicitOutputsFunction SHARED_ARCHIVE_ARTIFACT = fromTemplates("%{name}.jsa");
 
   SafeImplicitOutputsFunction JAVA_COVERAGE_RUNTIME_CLASS_PATH_TXT =
       fromTemplates("%{name}-runtime-classpath.txt");
@@ -172,19 +172,20 @@ public interface JavaSemantics {
               ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
 
   @AutoCodec
-  LabelListLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZERS =
-      LabelListLateBoundDefault.fromTargetConfiguration(
+  LabelLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZER =
+      LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
+          null,
           (rule, attributes, javaConfig) -> {
             // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
             boolean hasProguardSpecs =
                 attributes.has("proguard_specs")
                     && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
-            if (!hasProguardSpecs) {
-              return ImmutableList.<Label>of();
+            JavaConfiguration.NamedLabel optimizer = javaConfig.getBytecodeOptimizer();
+            if (!hasProguardSpecs || !optimizer.label().isPresent()) {
+              return null;
             }
-            return ImmutableList.copyOf(
-                Optional.presentInstances(javaConfig.getBytecodeOptimizers().values()));
+            return optimizer.label().get();
           });
 
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
@@ -263,7 +264,8 @@ public interface JavaSemantics {
       Artifact launcher,
       boolean usingNativeSinglejar,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      Artifact oneVersionWhitelistArtifact);
+      Artifact oneVersionWhitelistArtifact,
+      Artifact sharedArchive);
 
   /**
    * Creates the action that writes the Java executable stub script.
@@ -326,10 +328,6 @@ public interface JavaSemantics {
         && ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
   }
 
-  static boolean isPersistentTestRunner(RuleContext ruleContext) {
-    return ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
-  }
-
   static Runfiles getTestSupportRunfiles(RuleContext ruleContext) {
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
     if (testSupport == null) {
@@ -359,7 +357,8 @@ public interface JavaSemantics {
 
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
     if (createExecutable && ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
-      return Iterables.getOnlyElement(ruleContext.getPrerequisites("$testsupport", Mode.TARGET));
+      return Iterables.getOnlyElement(
+          ruleContext.getPrerequisites("$testsupport", TransitionMode.TARGET));
     } else {
       return null;
     }

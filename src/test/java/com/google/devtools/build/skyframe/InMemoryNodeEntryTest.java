@@ -15,8 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.NodeEntrySubjectFactory.assertThatNodeEntry;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -847,7 +847,6 @@ public class InMemoryNodeEntryTest {
       }
     }
     entry.setValue(new IntegerValue(42), IntVersion.of(42L));
-    assertThat(entry.getNumberOfDirectDepGroups()).isEqualTo(groupedDirectDeps.size());
     int i = 0;
     GroupedList<SkyKey> entryGroupedDirectDeps =
         GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
@@ -855,6 +854,32 @@ public class InMemoryNodeEntryTest {
     for (Iterable<SkyKey> depGroup : entryGroupedDirectDeps) {
       assertThat(depGroup).containsExactlyElementsIn(groupedDirectDeps.get(i++));
     }
+  }
+
+  @Test
+  public void hasAtLeastOneDep_true() throws Exception {
+    SkyKey dep = key("dep");
+    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(null)
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    entry.markRebuilding();
+    entry.addTemporaryDirectDeps(GroupedListHelper.create(dep));
+    entry.signalDep(ZERO_VERSION, dep);
+    entry.setValue(new IntegerValue(1), ZERO_VERSION);
+    assertThat(entry.hasAtLeastOneDep()).isTrue();
+  }
+
+  @Test
+  public void hasAtLeastOneDep_false() throws Exception {
+    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(null)
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    entry.markRebuilding();
+    entry.addTemporaryDirectDeps(new GroupedListHelper<>());
+    entry.setValue(new IntegerValue(1), ZERO_VERSION);
+    assertThat(entry.hasAtLeastOneDep()).isFalse();
   }
 
   private static Set<SkyKey> setValue(

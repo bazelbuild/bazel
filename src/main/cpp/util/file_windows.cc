@@ -646,6 +646,15 @@ bool MakeDirectories(const Path& path, unsigned int mode) {
   return MakeDirectoriesW(path.AsNativePath(), mode);
 }
 
+string CreateTempDir(const std::string &prefix) {
+  string result = prefix + blaze_util::ToString(GetCurrentProcessId());
+  if (!blaze_util::MakeDirectories(result, 0777)) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "couldn't create '" << result
+        << "': " << blaze_util::GetLastErrorString();
+  }
+  return result;
+}
 
 static bool RemoveContents(wstring path) {
   static const wstring kDot(L".");

@@ -91,6 +91,7 @@ test_suite(
     tests = [
         "//tools/android:all_windows_tests",
         "//tools/aquery_differ:aquery_differ_test",
+        "//tools/aquery_differ:aquery_differ_v2_test",
         "//tools/bash:all_windows_tests",
         "//tools/build_defs:all_windows_tests",
         "//tools/cpp/runfiles:all_windows_tests",

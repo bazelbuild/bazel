@@ -18,10 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -110,16 +110,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @AutoCodec
-  static class DummyTestOptionsFragment extends BuildConfiguration.Fragment {}
+  static class DummyTestOptionsFragment extends Fragment {}
 
   private static class DummyTestOptionsLoader implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
+    public Fragment create(BuildOptions buildOptions) {
       return new DummyTestOptionsFragment();
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
       return DummyTestOptionsFragment.class;
     }
 
@@ -342,7 +342,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
     checkError(
         "foo",
         "none",
-        "ERROR /workspace/foo/BUILD:1:1: //foo:none: "
+        "ERROR /workspace/foo/BUILD:1:15: //foo:none: "
             + "expected value of type 'string' for dict value element, but got None (NoneType)",
         "config_setting(",
         "    name = 'none',",
@@ -1407,7 +1407,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_matchesFromDefault() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
 
     scratch.file(
         "test/build_settings.bzl",
@@ -1429,7 +1429,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_matchesFromCommandLine() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
 
     scratch.file(
@@ -1456,7 +1456,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    */
   @Test
   public void buildsettings_convertedType() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
 
     scratch.file(
         "test/build_settings.bzl",
@@ -1478,7 +1478,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_doesntMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
 
     scratch.file(
@@ -1501,7 +1501,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_badType() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
 
     scratch.file(
         "test/build_settings.bzl",
@@ -1526,7 +1526,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void notBuildSettingOrFeatureFlag() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
 
     scratch.file(
         "test/rules.bzl",
@@ -1552,7 +1552,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsMatch_featureFlagsMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1582,7 +1582,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsMatch_featureFlagsDontMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1612,7 +1612,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsDontMatch_featureFlagsMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(

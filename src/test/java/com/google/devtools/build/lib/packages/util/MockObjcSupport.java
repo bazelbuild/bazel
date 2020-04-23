@@ -72,7 +72,6 @@ public final class MockObjcSupport {
   public static ImmutableList<String> requiredObjcCrosstoolFlagsNoXcodeConfig() {
 
     ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
-    argsBuilder.addAll(TestConstants.OSX_CROSSTOOL_FLAGS);
 
     // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
     // AppleCrosstoolTransition

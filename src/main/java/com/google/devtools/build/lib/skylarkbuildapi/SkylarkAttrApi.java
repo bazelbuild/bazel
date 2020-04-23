@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 /**
  * The "attr" module of the Build API.
  *
- * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Skylark users
+ * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Starlark users
  * for creating attribute definitions.
  */
 @SkylarkModule(
@@ -89,7 +89,7 @@ public interface SkylarkAttrApi extends StarlarkValue {
           + "attribute.";
 
   String CONFIGURATION_ARG = "cfg";
-  // TODO(bazel-team): Update when new Skylark-based configuration framework is implemented.
+  // TODO(bazel-team): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
       "<a href=\"../rules.$DOC_EXT#configurations\">Configuration</a> of the attribute. It can be "
           + "either <code>\"host\"</code> or <code>\"target\"</code>.";
@@ -728,19 +728,6 @@ public interface SkylarkAttrApi extends StarlarkValue {
       doc = "Creates a schema for an output (label) attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
-            name = DEFAULT_ARG,
-            allowedTypes = {
-              @ParamType(type = Label.class),
-              @ParamType(type = StarlarkFunction.class)
-            },
-            noneable = true,
-            defaultValue = "None",
-            named = true,
-            positional = false,
-            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
-            valueWhenDisabled = "None",
-            doc = DEFAULT_DOC),
-        @Param(
             name = DOC_ARG,
             type = String.class,
             defaultValue = "''",
@@ -756,8 +743,7 @@ public interface SkylarkAttrApi extends StarlarkValue {
             doc = MANDATORY_DOC)
       },
       useStarlarkThread = true)
-  Descriptor outputAttribute(
-      Object defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
+  Descriptor outputAttribute(String doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -770,19 +756,6 @@ public interface SkylarkAttrApi extends StarlarkValue {
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
-        @Param(
-            name = DEFAULT_ARG,
-            allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = Label.class),
-              @ParamType(type = StarlarkFunction.class)
-            },
-            noneable = true,
-            defaultValue = "None",
-            named = true,
-            positional = false,
-            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
-            valueWhenDisabled = "None",
-            doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
             type = String.class,
@@ -808,7 +781,6 @@ public interface SkylarkAttrApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor outputListAttribute(
       Boolean allowEmpty,
-      Object defaultValue,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
@@ -920,7 +892,7 @@ public interface SkylarkAttrApi extends StarlarkValue {
   @SkylarkCallable(
       name = "license",
       doc = "Creates a schema for a license attribute.",
-      // TODO(bazel-team): Implement proper license support for Skylark.
+      // TODO(bazel-team): Implement proper license support for Starlark.
       parameters = {
         // TODO(bazel-team): ensure this is the correct default value
         @Param(

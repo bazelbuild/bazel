@@ -41,9 +41,9 @@ public interface WrapCcHelperApi<
         ConstraintValueT extends ConstraintValueInfoApi,
         SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
-        CompilationInfoT extends CompilationInfoApi,
+        CompilationInfoT extends CompilationInfoApi<FileT>,
         FileT extends FileApi,
-        CcCompilationContextT extends CcCompilationContextApi,
+        CcCompilationContextT extends CcCompilationContextApi<FileT>,
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
     extends StarlarkValue {
 
@@ -123,7 +123,7 @@ public interface WrapCcHelperApi<
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
         @Param(name = "swig_includes", positional = false, named = true, type = Depset.class),
       })
-  // TODO(plf): Not written in Skylark because of PythonRunfilesProvider.
+  // TODO(plf): Not written in Starlark because of PythonRunfilesProvider.
   public WrapCcIncludeProviderT getWrapCcIncludeProvider(
       SkylarkRuleContextT skylarkRuleContext, Depset swigIncludes)
       throws EvalException, InterruptedException;
@@ -182,7 +182,7 @@ public interface WrapCcHelperApi<
               @ParamType(type = NoneType.class)
             })
       })
-  // TODO(plf): Write in Skylark when all 3 SWIG rules are in Skylark.
+  // TODO(plf): Write in Starlark when all 3 SWIG rules are in Starlark.
   public void registerSwigAction(
       SkylarkRuleContextT skylarkRuleContext,
       CcToolchainProviderT ccToolchain,

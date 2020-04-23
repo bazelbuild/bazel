@@ -19,7 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
@@ -53,60 +53,69 @@ public class NinjaFileParseResult {
     void call() throws GenericParsingException, InterruptedException, IOException;
   }
 
-  private final NavigableMap<String, List<Pair<Integer, NinjaVariableValue>>> variables;
-  private final NavigableMap<String, List<Pair<Integer, NinjaRule>>> rules;
-  private final List<ByteFragmentAtOffset> targets;
-  private final NavigableMap<Integer, NinjaPromise<NinjaFileParseResult>> includedFilesFutures;
-  private final NavigableMap<Integer, NinjaPromise<NinjaFileParseResult>> subNinjaFilesFutures;
+  private final NavigableMap<String, List<Pair<Long, NinjaVariableValue>>> variables;
+  private final NavigableMap<String, List<Pair<Long, NinjaRule>>> rules;
+  private final NavigableMap<String, List<Pair<Long, NinjaPool>>> pools;
+  private final List<FileFragment> targets;
+  private final NavigableMap<Long, NinjaPromise<NinjaFileParseResult>> includedFilesFutures;
+  private final NavigableMap<Long, NinjaPromise<NinjaFileParseResult>> subNinjaFilesFutures;
 
   public NinjaFileParseResult() {
     variables = Maps.newTreeMap();
     rules = Maps.newTreeMap();
+    pools = Maps.newTreeMap();
     targets = Lists.newArrayList();
     includedFilesFutures = Maps.newTreeMap();
     subNinjaFilesFutures = Maps.newTreeMap();
   }
 
-  public void addIncludeScope(int offset, NinjaPromise<NinjaFileParseResult> promise) {
+  public void addIncludeScope(long offset, NinjaPromise<NinjaFileParseResult> promise) {
     includedFilesFutures.put(offset, promise);
   }
 
-  public void addSubNinjaScope(int offset, NinjaPromise<NinjaFileParseResult> promise) {
+  public void addSubNinjaScope(long offset, NinjaPromise<NinjaFileParseResult> promise) {
     subNinjaFilesFutures.put(offset, promise);
   }
 
-  public void addTarget(ByteFragmentAtOffset fragment) {
+  public void addTarget(FileFragment fragment) {
     targets.add(fragment);
   }
 
-  public void addVariable(String name, int offset, NinjaVariableValue value) {
+  public void addVariable(String name, long offset, NinjaVariableValue value) {
     variables.computeIfAbsent(name, k -> Lists.newArrayList()).add(Pair.of(offset, value));
   }
 
-  public void addRule(int offset, NinjaRule rule) {
+  public void addRule(long offset, NinjaRule rule) {
     rules.computeIfAbsent(rule.getName(), k -> Lists.newArrayList()).add(Pair.of(offset, rule));
   }
 
+  public void addPool(long offset, NinjaPool pool) {
+    pools.computeIfAbsent(pool.getName(), k -> Lists.newArrayList()).add(Pair.of(offset, pool));
+  }
+
   @VisibleForTesting
-  public Map<String, List<Pair<Integer, NinjaVariableValue>>> getVariables() {
+  public Map<String, List<Pair<Long, NinjaVariableValue>>> getVariables() {
     return variables;
   }
 
   @VisibleForTesting
-  public Map<String, List<Pair<Integer, NinjaRule>>> getRules() {
+  public Map<String, List<Pair<Long, NinjaRule>>> getRules() {
     return rules;
   }
 
-  public List<ByteFragmentAtOffset> getTargets() {
+  public List<FileFragment> getTargets() {
     return targets;
   }
 
   @VisibleForTesting
   public void sortResults() {
-    for (List<Pair<Integer, NinjaVariableValue>> list : variables.values()) {
+    for (List<Pair<Long, NinjaVariableValue>> list : variables.values()) {
       list.sort(Comparator.comparing(Pair::getFirst));
     }
-    for (List<Pair<Integer, NinjaRule>> list : rules.values()) {
+    for (List<Pair<Long, NinjaRule>> list : rules.values()) {
+      list.sort(Comparator.comparing(Pair::getFirst));
+    }
+    for (List<Pair<Long, NinjaPool>> list : pools.values()) {
       list.sort(Comparator.comparing(Pair::getFirst));
     }
   }
@@ -117,14 +126,18 @@ public class NinjaFileParseResult {
       return result;
     }
     for (NinjaFileParseResult part : parts) {
-      for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry :
+      for (Map.Entry<String, List<Pair<Long, NinjaVariableValue>>> entry :
           part.variables.entrySet()) {
         String name = entry.getKey();
         result.variables.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(entry.getValue());
       }
-      for (Map.Entry<String, List<Pair<Integer, NinjaRule>>> entry : part.rules.entrySet()) {
+      for (Map.Entry<String, List<Pair<Long, NinjaRule>>> entry : part.rules.entrySet()) {
         String name = entry.getKey();
         result.rules.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(entry.getValue());
+      }
+      for (Map.Entry<String, List<Pair<Long, NinjaPool>>> entry : part.pools.entrySet()) {
+        String name = entry.getKey();
+        result.pools.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(entry.getValue());
       }
       result.targets.addAll(part.targets);
       result.includedFilesFutures.putAll(part.includedFilesFutures);
@@ -139,17 +152,17 @@ public class NinjaFileParseResult {
    * Fills in passed {@link NinjaScope} with the expanded variables and rules, and <code>rawTargets
    * </code> - map of NinjaScope to list of fragments with unparsed Ninja targets.
    */
-  public void expandIntoScope(
-      NinjaScope scope, Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets)
+  public void expandIntoScope(NinjaScope scope, Map<NinjaScope, List<FileFragment>> rawTargets)
       throws InterruptedException, GenericParsingException, IOException {
     scope.setRules(rules);
+    scope.setPools(pools);
     rawTargets.put(scope, targets);
 
-    TreeMap<Integer, NinjaCallable> resolvables = Maps.newTreeMap();
-    for (Map.Entry<String, List<Pair<Integer, NinjaVariableValue>>> entry : variables.entrySet()) {
+    TreeMap<Long, NinjaCallable> resolvables = Maps.newTreeMap();
+    for (Map.Entry<String, List<Pair<Long, NinjaVariableValue>>> entry : variables.entrySet()) {
       String name = entry.getKey();
-      for (Pair<Integer, NinjaVariableValue> pair : entry.getValue()) {
-        int offset = Preconditions.checkNotNull(pair.getFirst());
+      for (Pair<Long, NinjaVariableValue> pair : entry.getValue()) {
+        Long offset = Preconditions.checkNotNull(pair.getFirst());
         NinjaVariableValue variableValue = Preconditions.checkNotNull(pair.getSecond());
         resolvables.put(
             offset,
@@ -158,9 +171,9 @@ public class NinjaFileParseResult {
                     offset, name, scope.getExpandedValue(offset, variableValue)));
       }
     }
-    for (Map.Entry<Integer, NinjaPromise<NinjaFileParseResult>> entry :
+    for (Map.Entry<Long, NinjaPromise<NinjaFileParseResult>> entry :
         includedFilesFutures.entrySet()) {
-      Integer offset = entry.getKey();
+      Long offset = entry.getKey();
       resolvables.put(
           offset,
           () -> {
@@ -169,9 +182,9 @@ public class NinjaFileParseResult {
             fileParseResult.expandIntoScope(includedScope, rawTargets);
           });
     }
-    for (Map.Entry<Integer, NinjaPromise<NinjaFileParseResult>> entry :
+    for (Map.Entry<Long, NinjaPromise<NinjaFileParseResult>> entry :
         subNinjaFilesFutures.entrySet()) {
-      Integer offset = entry.getKey();
+      Long offset = entry.getKey();
       resolvables.put(
           offset,
           () -> {

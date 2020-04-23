@@ -242,6 +242,22 @@ public class GroupedListTest {
   }
 
   @Test
+  public void createCompressedWithFourGroups() {
+    GroupedList<String> groupedList = new GroupedList<>();
+    groupedList.appendGroup(ImmutableList.of("a"));
+    groupedList.appendGroup(ImmutableList.of("b", "c"));
+    groupedList.appendGroup(ImmutableList.of("d", "e", "f"));
+    groupedList.appendGroup(ImmutableList.of("g", "h", "i", "j"));
+    assertThat(
+            GroupedList.createCompressedWithFourGroups(
+                "a",
+                ImmutableList.of("b", "c"),
+                ImmutableList.of("d", "e", "f"),
+                ImmutableList.of("g", "h", "i", "j")))
+        .isEqualTo(groupedList.compress());
+  }
+
+  @Test
   public void removeMakesEmpty() {
     GroupedList<String> groupedList = new GroupedList<>();
     assertThat(groupedList.isEmpty()).isTrue();

@@ -19,7 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.ClientOptions;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -38,7 +38,7 @@ public class StarlarkOptionsTestCase extends SkylarkTestCase {
 
   private static final List<Class<? extends OptionsBase>> requiredOptionsClasses =
       ImmutableList.of(
-          PackageCacheOptions.class,
+          PackageOptions.class,
           StarlarkSemanticsOptions.class,
           KeepGoingOption.class,
           LoadingOptions.class,
@@ -68,7 +68,7 @@ public class StarlarkOptionsTestCase extends SkylarkTestCase {
 
   private void writeBuildSetting(String type, String defaultValue, boolean isFlag)
       throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
 
     String flag = isFlag ? "True" : "False";
 

@@ -22,20 +22,24 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
- * Interface for a global Skylark library containing rule-related helper and registration functions.
+ * Interface for a global Starlark library containing rule-related helper and registration
+ * functions.
  */
 @SkylarkGlobalLibrary
 public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
+
+  String EXEC_COMPATIBLE_WITH_PARAM = "exec_compatible_with";
+  String TOOLCHAINS_PARAM = "toolchains";
 
   String PROVIDES_DOC =
       "A list of providers that the implementation function must return."
@@ -134,7 +138,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "implicitly added and must not be specified. Attributes "
                     + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
                     + "<code>testonly</code>, and <code>features</code> are implicitly added and "
-                    + "cannot be overridden."),
+                    + "cannot be overridden. Most rules need only a handful of attributes. To "
+                    + "limit memory usage, the rule function imposes a cap on the size of attrs."),
         // TODO(bazel-team): need to give the types of these builtin attributes
         @Param(
             name = "outputs",
@@ -245,7 +250,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "This should only be used for testing the analysis-time behavior of "
                     + "Starlark rules. This flag may be removed in the future."),
         @Param(
-            name = "toolchains",
+            name = TOOLCHAINS_PARAM,
             type = Sequence.class,
             named = true,
             generic1 = String.class,
@@ -271,7 +276,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
-            name = "exec_compatible_with",
+            name = EXEC_COMPATIBLE_WITH_PARAM,
             type = Sequence.class,
             generic1 = String.class,
             named = true,
@@ -327,10 +332,21 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             doc =
                 "If set, points to the configuration transition the rule will "
-                    + "apply to its own configuration before analysis.")
+                    + "apply to its own configuration before analysis."),
+        @Param(
+            name = "exec_groups",
+            type = Dict.class,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            positional = false,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+            valueWhenDisabled = "None",
+            // TODO(juliexxia): beef up this description when we actually hook up to something"
+            doc = "Dictionary to declare execution groups. DO NOT USE - not function yet.")
       },
       useStarlarkThread = true)
-  BaseFunction rule(
+  StarlarkCallable rule(
       StarlarkFunction implementation,
       Boolean test,
       Object attrs,
@@ -347,6 +363,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object analysisTest,
       Object buildSetting,
       Object cfg,
+      Object execGroups,
       StarlarkThread thread)
       throws EvalException;
 
@@ -448,7 +465,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                 "List of names of configuration fragments that the aspect requires "
                     + "in host configuration."),
         @Param(
-            name = "toolchains",
+            name = TOOLCHAINS_PARAM,
             type = Sequence.class,
             named = true,
             generic1 = String.class,
@@ -472,8 +489,6 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             positional = false,
             defaultValue = "False",
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION,
-            valueWhenDisabled = "False",
             doc =
                 "If true, the aspect will, when applied to an output file, instead apply to the "
                     + "output file's generating rule. "
@@ -511,7 +526,6 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "label_string",
             type = String.class,
-            legacyNamed = true,
             doc = "the label string."),
         @Param(
             name = "relative_to_caller_repository",
@@ -531,5 +545,36 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useStarlarkThread = true)
   @SkylarkConstructor(objectType = Label.class)
   Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
+      throws EvalException;
+
+  @SkylarkCallable(
+      name = "exec_group",
+      // TODO(juliexxia); uncomment or remove based on resolution of b/152637857
+      // enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+      doc =
+          "<i>experimental</i> Creates an execution group which can be used to create"
+              + "actions for a specific execution platform during rule implementation. This is "
+              + "ongoing work and not yet functional - DO NOT USE.",
+      parameters = {
+        @Param(
+            name = TOOLCHAINS_PARAM,
+            type = Sequence.class,
+            generic1 = String.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "<i>Experimental</i> The set of toolchains this execution group requires."),
+        @Param(
+            name = EXEC_COMPATIBLE_WITH_PARAM,
+            type = Sequence.class,
+            generic1 = String.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "<i>Experimental</i> A list of constraints on the execution platform."),
+      },
+      useStarlarkThread = true)
+  ExecGroupApi execGroup(
+      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread)
       throws EvalException;
 }

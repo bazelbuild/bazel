@@ -35,11 +35,11 @@ public class FakePyWrapCcHelper
         FileApi,
         ConstraintValueInfoApi,
         SkylarkRuleContextApi<ConstraintValueInfoApi>,
-        CcInfoApi,
+        CcInfoApi<FileApi>,
         FeatureConfigurationApi,
         CcToolchainProviderApi<FeatureConfigurationApi>,
-        CompilationInfoApi,
-        CcCompilationContextApi,
+        CompilationInfoApi<FileApi>,
+        CcCompilationContextApi<FileApi>,
         WrapCcIncludeProviderApi> {
 
   @Override
@@ -61,8 +61,8 @@ public class FakePyWrapCcHelper
   }
 
   @Override
-  public PyWrapCcInfoApi getPyWrapCcInfo(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, CcInfoApi ccInfo) {
+  public PyWrapCcInfoApi<FileApi> getPyWrapCcInfo(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, CcInfoApi<FileApi> ccInfo) {
     return null;
   }
 
@@ -96,7 +96,7 @@ public class FakePyWrapCcHelper
       SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FeatureConfigurationApi featureConfiguration,
-      CcCompilationContextApi wrapperCcCompilationContext,
+      CcCompilationContextApi<FileApi> wrapperCcCompilationContext,
       Depset swigIncludes,
       FileApi swigSource,
       Sequence<?> subParameters,
@@ -110,7 +110,7 @@ public class FakePyWrapCcHelper
       Object zipTool) {}
 
   @Override
-  public CompilationInfoApi skylarkCreateCompileActions(
+  public CompilationInfoApi<FileApi> skylarkCreateCompileActions(
       SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       FeatureConfigurationApi featureConfiguration,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,

@@ -55,8 +55,7 @@ final class NodePrinter {
       // of StarlarkFile. So don't bother word-wrapping and just print
       // it on a single line.
       printIndent();
-      buf.append("# ");
-      buf.append(comment.getValue());
+      buf.append(comment.getText());
 
     } else if (n instanceof Argument) {
       printArgument((Argument) n);

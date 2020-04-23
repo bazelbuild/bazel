@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -72,10 +72,12 @@ import java.util.List;
 )
 public class MobileInstallCommand implements BlazeCommand {
 
-  /**
-   * An enumeration of all the modes that mobile-install supports.
-   */
-  public enum Mode { CLASSIC, CLASSIC_INTERNAL_TEST_DO_NOT_USE, SKYLARK }
+  /** An enumeration of all the modes that mobile-install supports. */
+  public enum Mode {
+    CLASSIC,
+    CLASSIC_INTERNAL_TEST_DO_NOT_USE,
+    SKYLARK
+  }
 
   /**
    * Converter for the --mode option.
@@ -116,17 +118,16 @@ public class MobileInstallCommand implements BlazeCommand {
     public boolean incremental;
 
     @Option(
-      name = "mode",
-      defaultValue = "classic",
-      converter = ModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Select how to run mobile-install. \"classic\" runs the current version of "
-              + "mobile-install. \"skylark\" uses the new skylark version, which has support for "
-              + "android_test."
-    )
+        name = "mode",
+        defaultValue = "classic",
+        converter = ModeConverter.class,
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "Select how to run mobile-install. \"classic\" runs the current version of"
+                + " mobile-install. \"skylark\" uses the new Starlark version, which has support"
+                + " for android_test.")
     public Mode mode;
 
     @Option(
@@ -181,8 +182,9 @@ public class MobileInstallCommand implements BlazeCommand {
               env.getReporter().getOutErr(),
               env.getCommandId(),
               env.getCommandStartTime());
-      ExitCode exitCode = new BuildTool(env).processRequest(request, null).getExitCondition();
-      return BlazeCommandResult.exitCode(exitCode);
+      DetailedExitCode detailedExitCode =
+          new BuildTool(env).processRequest(request, null).getDetailedExitCode();
+      return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
 
     // This list should look like: ["//executable:target", "arg1", "arg2"]
@@ -211,7 +213,7 @@ public class MobileInstallCommand implements BlazeCommand {
 
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running target"));
-      return BlazeCommandResult.exitCode(result.getExitCondition());
+      return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
     }
 
     Collection<ConfiguredTarget> targetsBuilt = result.getSuccessfulTargets();
@@ -334,7 +336,7 @@ public class MobileInstallCommand implements BlazeCommand {
       } else {
         optionsParser.parse(
             PriorityCategory.COMMAND_LINE,
-            "Options required by the skylark implementation of mobile-install command",
+            "Options required by the Starlark implementation of mobile-install command",
             ImmutableList.of(
                 "--aspects=" + options.mobileInstallAspect + "%MIASPECT",
                 "--output_groups=mobile_install" + INTERNAL_SUFFIX,
@@ -347,9 +349,9 @@ public class MobileInstallCommand implements BlazeCommand {
 
   private boolean isTargetSupported(
       CommandEnvironment env, ConfiguredTarget target, List<String> mobileInstallSupportedRules) {
-    while (target instanceof AliasConfiguredTarget) {
-      target = ((AliasConfiguredTarget) target).getActual();
-    }
+    // Dereference any aliases that might be present.
+    target = target.getActual();
+
     if (target instanceof AbstractConfiguredTarget) {
       String ruleType = ((AbstractConfiguredTarget) target).getRuleClassString();
       return isRuleSupported(env, mobileInstallSupportedRules, ruleType);

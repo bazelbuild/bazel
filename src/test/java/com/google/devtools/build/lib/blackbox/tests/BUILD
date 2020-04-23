@@ -58,7 +58,6 @@ java_test(
     tags = ["black_box_test"],
     deps = [
         ":common_deps",
-        "//src/main/java/com/google/devtools/build/lib:bazel-ninja",
     ],
 )
 

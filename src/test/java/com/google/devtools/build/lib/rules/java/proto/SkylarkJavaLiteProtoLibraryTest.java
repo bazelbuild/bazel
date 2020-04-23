@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
@@ -52,7 +52,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for the Skylark version of java_lite_proto_library rule. */
+/** Tests for the Starlark version of java_lite_proto_library rule. */
 @RunWith(JUnit4.class)
 public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   private static final String RULE_DIRECTORY = "tools/build_rules/java_lite_proto_library";
@@ -88,7 +88,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public final void setupSkylarkRule() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_new_actions_api=false");
+    setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
 
     File[] files = Runfiles.location(RULE_DIRECTORY).listFiles();
     for (File file : files) {
@@ -265,7 +265,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   @Ignore
-  // TODO(elenairina): Enable this test when proguard specs are supported in the Skylark version of
+  // TODO(elenairina): Enable this test when proguard specs are supported in the Starlark version of
   // java_lite_proto_library OR delete this if Proguard support will be removed from Java rules.
   public void testExportsProguardSpecsForSupportLibraries() throws Exception {
     scratch.overwriteFile(
@@ -323,7 +323,8 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   }
 
   /**
-   * Verify that a java_lite_proto_library exposes Skylark providers for the Java code it generates.
+   * Verify that a java_lite_proto_library exposes Starlark providers for the Java code it
+   * generates.
    */
   @Test
   public void testJavaProtosExposeSkylarkProviders() throws Exception {
@@ -520,7 +521,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     }
   }
 
-  /** Tests that java_lite_proto_library's aspect exposes a Skylark provider named 'proto_java'. */
+  /** Tests that java_lite_proto_library's aspect exposes a Starlark provider named 'proto_java'. */
   @Test
   @Ignore
   // TODO(elenairina): Enable this test when proto_java is returned from the aspect in Skylark
@@ -549,7 +550,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "foo_rule(name = 'foo_rule', dep = 'foo_java_proto')");
     ConfiguredTarget target = getConfiguredTarget("//x:foo_rule");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//x:aspect.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl myInfo = (StructImpl) target.get(key);
     Boolean result = (Boolean) myInfo.getValue("result");

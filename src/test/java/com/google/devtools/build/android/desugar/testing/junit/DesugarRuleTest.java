@@ -18,8 +18,9 @@ package com.google.devtools.build.android.desugar.testing.junit;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.android.desugar.io.JarItem;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle.MemberUseContext;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -148,11 +149,11 @@ public final class DesugarRuleTest {
       @RuntimeJarEntry(
               value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
               round = 1)
-          JarEntryRecord interfaceSubjectToDesugarJarEntryRound1,
+          JarItem interfaceSubjectToDesugarJarEntryRound1,
       @RuntimeJarEntry(
               value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
               round = 2)
-          JarEntryRecord interfaceSubjectToDesugarJarEntryRound2) {
+          JarItem interfaceSubjectToDesugarJarEntryRound2) {
     assertThat(interfaceSubjectToDesugarJarEntryRound1.jarEntry().getCrc())
         .isEqualTo(interfaceSubjectToDesugarJarEntryRound2.jarEntry().getCrc());
   }

@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** The interface for skylark-defined aspects in the Build API. */
+/** The interface for Starlark-defined aspects in the Build API. */
 @SkylarkModule(
     name = "Aspect",
     category = SkylarkModuleCategory.BUILTIN,

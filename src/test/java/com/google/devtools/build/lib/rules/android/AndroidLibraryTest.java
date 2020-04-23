@@ -2262,13 +2262,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     ImmutableList<Artifact> bClasspath =
         JavaInfo.getProvider(JavaCompilationInfoProvider.class, bTarget)
             .getCompilationClasspath()
-            .getSet(Artifact.class)
-            .toList();
+            .toCollection(Artifact.class);
     ImmutableList<Artifact> cClasspath =
         JavaInfo.getProvider(JavaCompilationInfoProvider.class, cTarget)
             .getCompilationClasspath()
-            .getSet(Artifact.class)
-            .toList();
+            .toCollection(Artifact.class);
 
     assertThat(bClasspath).isEmpty();
     assertThat(cClasspath)
@@ -2369,7 +2367,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "java/android/BUILD",
         "android_library(",
         "    name = 'test',",
-        "    inline_constants = 0,",
         "    manifest = 'AndroidManifest.xml',",
         "    resource_files = ['res/values/strings.xml'],",
         "    deps = [",
@@ -2379,13 +2376,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")",
         "android_library(",
         "    name = 't1',",
-        "    inline_constants = 0,",
         "    manifest = 'AndroidManifest.xml',",
         "    resource_files = ['res/values/strings.xml'],",
         ")",
         "android_library(",
         "    name = 't2',",
-        "    inline_constants = 0,",
         "    manifest = 'AndroidManifest.xml',",
         "    resource_files = ['res/values/strings.xml'],",
         ")");

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
@@ -39,8 +38,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -52,7 +51,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
-/** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
+/** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
 @AutoCodec
 public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> {
@@ -366,7 +365,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   @Override
   public Depset /*<Label>*/ getTransitiveExports() {
     return Depset.of(
-        SkylarkType.of(Label.class),
+        Depset.ElementType.of(Label.class),
         getProviderAsNestedSet(
             JavaExportsProvider.class, JavaExportsProvider::getTransitiveExports));
   }
@@ -500,6 +499,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
     public Builder maybeTransitiveOnlyRuntimeJarsToJavaInfo(
         List<? extends TransitiveInfoCollection> deps, boolean shouldAdd) {
+      // TODO(b/149926109): Currently all callers call with shouldAdd=true as a temporary workaround
+      // to make --trim_test_configuration work again.
       if (shouldAdd) {
         deps.stream()
             .map(JavaInfo::getJavaInfo)

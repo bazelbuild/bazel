@@ -18,12 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Whitelist;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
@@ -44,8 +43,7 @@ import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
 @Immutable
-public class AndroidConfiguration extends BuildConfiguration.Fragment
-    implements AndroidConfigurationApi {
+public class AndroidConfiguration extends Fragment implements AndroidConfigurationApi {
 
   /**
    * Converter for {@link
@@ -799,11 +797,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           "--strategy=AndroidAssetMerger=worker",
           "--strategy=AndroidResourceMerger=worker",
           "--strategy=AndroidCompiledResourceMerger=worker",
-          // TODO(jingwen): ManifestMerger prints to stdout when there's a manifest merge
-          // conflict. The worker protocol does not like this because it uses std i/o to
-          // for communication. To get around this, re-configure manifest merger to *not*
-          // use stdout for merge conflict warnings.
-          // "--strategy=ManifestMerger=worker",
+          "--strategy=ManifestMerger=worker",
+          "--strategy=AndroidManifestMerger=worker",
+          "--strategy=Aapt2Optimize=worker",
+          "--strategy=AARGenerator=worker",
         })
     public Void persistentResourceProcessor;
 

@@ -30,6 +30,7 @@ import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import com.google.devtools.build.android.desugar.langmodel.TypeMappable;
 import com.google.devtools.build.android.desugar.langmodel.TypeMapper;
 import java.io.ByteArrayInputStream;
@@ -88,6 +89,10 @@ public abstract class NestDigest implements TypeMappable<NestDigest> {
 
   public boolean hasAnyUse(ClassMemberKey<?> classMemberKey, MemberUseKind useKind) {
     return findAllMemberUseKinds(classMemberKey).contains(useKind);
+  }
+
+  public boolean isPrivateInstanceMethod(MethodKey methodKey) {
+    return classAttributeRecord().getPrivateInstanceMethods(methodKey.owner()).contains(methodKey);
   }
 
   public ImmutableList<MemberUseKind> findAllMemberUseKinds(ClassMemberKey<?> classMemberKey) {

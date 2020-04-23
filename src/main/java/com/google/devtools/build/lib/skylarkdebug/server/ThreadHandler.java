@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Breakpoint;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Error;
@@ -27,6 +26,8 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Val
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FileOptions;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -279,7 +280,7 @@ final class ThreadHandler {
     try {
       Object result = doEvaluate(thread, statement);
       return DebuggerSerialization.getValueProto(objectMap, "Evaluation result", result);
-    } catch (SyntaxError | EvalException | InterruptedException e) {
+    } catch (SyntaxError.Exception | EvalException | InterruptedException e) {
       throw new DebugRequestException(e.getMessage());
     }
   }
@@ -293,12 +294,14 @@ final class ThreadHandler {
    * running.
    */
   private Object doEvaluate(StarlarkThread thread, String content)
-      throws SyntaxError, EvalException, InterruptedException {
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     try {
       servicingEvalRequest.set(true);
 
       ParserInput input = ParserInput.create(content, "<debug eval>");
-      Object x = EvalUtils.execAndEvalOptionalFinalExpression(input, thread.getGlobals(), thread);
+      Object x =
+          EvalUtils.execAndEvalOptionalFinalExpression(
+              input, FileOptions.DEFAULT, thread.getGlobals(), thread);
       return x != null ? x : Starlark.NONE;
     } finally {
       servicingEvalRequest.set(false);
@@ -385,7 +388,7 @@ final class ThreadHandler {
     }
     try {
       return Starlark.truth(doEvaluate(thread, condition));
-    } catch (SyntaxError | EvalException | InterruptedException e) {
+    } catch (SyntaxError.Exception | EvalException | InterruptedException e) {
       throw new ConditionalBreakpointException(e.getMessage());
     }
   }

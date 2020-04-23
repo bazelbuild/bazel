@@ -11,7 +11,7 @@ See the instructions for installing Bazel on:
 *   [macOS](install-os-x.md)
 *   [Windows](install-windows.md)
 
-## Community-Supported Packages
+## Community-supported packages
 
 *   [Arch Linux](https://www.archlinux.org/packages/community/x86_64/bazel/)
 *   [Fedora 25, 26, 27, 28, and CentOS 7](install-redhat.md)
@@ -23,7 +23,7 @@ See the instructions for installing Bazel on:
 *   [Parabola](https://www.parabola.nu/packages/?q=bazel)
 *   [Scoop](https://github.com/scoopinstaller/scoop-main/blob/master/bucket/bazel.json)
 
-## Community-Supported Architectures
+## Community-supported architectures
 *   [ppc64le](https://oplab9.parqtec.unicamp.br/pub/ppc64el/bazel)
 
 

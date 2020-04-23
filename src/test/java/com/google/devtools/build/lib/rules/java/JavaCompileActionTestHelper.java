@@ -78,6 +78,10 @@ public final class JavaCompileActionTestHelper {
     return getOptions(javac).getBootClassPath();
   }
 
+  public static String getSystem(JavaCompileAction javac) throws Exception {
+    return getOptions(javac).getSystem();
+  }
+
   public static List<String> getSourcePathEntries(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getSourcePath();
   }

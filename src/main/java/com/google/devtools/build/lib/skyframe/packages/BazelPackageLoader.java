@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryF
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.skyframe.DirectoryListingFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -56,6 +57,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class BazelPackageLoader extends AbstractPackageLoader {
   private static final ImmutableList<BuildFileName> BUILD_FILES_BY_PRIORITY =
       BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY;
+
+  private static final ExternalPackageHelper EXTERNAL_PACKAGE_HELPER =
+      BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER;
 
   /** Returns a fresh {@link Builder} instance. */
   public static Builder builder(Root workspaceDir, Path installBase, Path outputBase) {
@@ -85,6 +89,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           installBase,
           outputBase,
           BUILD_FILES_BY_PRIORITY,
+          EXTERNAL_PACKAGE_HELPER,
           ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS);
       this.isFetch = isFetch;
     }
@@ -106,7 +111,9 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)))
               .put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction())
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
-              .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
+              .put(
+                  SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+                  new LocalRepositoryLookupFunction(EXTERNAL_PACKAGE_HELPER))
               .put(
                   SkyFunctions.REPOSITORY_DIRECTORY,
                   new RepositoryDelegatorFunction(
@@ -115,7 +122,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       isFetch,
                       ImmutableMap::of,
                       directories,
-                      ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES))
+                      ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+                      EXTERNAL_PACKAGE_HELPER))
               .put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction())
               .build());
       addExtraPrecomputedValues(
@@ -162,6 +170,11 @@ public class BazelPackageLoader extends AbstractPackageLoader {
   @Override
   protected ImmutableList<BuildFileName> getBuildFilesByPriority() {
     return BUILD_FILES_BY_PRIORITY;
+  }
+
+  @Override
+  protected ExternalPackageHelper getExternalPackageHelper() {
+    return EXTERNAL_PACKAGE_HELPER;
   }
 
   @Override

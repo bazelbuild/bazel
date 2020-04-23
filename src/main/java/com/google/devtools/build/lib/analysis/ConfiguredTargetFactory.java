@@ -20,18 +20,15 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
@@ -64,10 +61,10 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
-import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionException;
+import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.ClassName;
@@ -182,7 +179,7 @@ public final class ConfiguredTargetFactory {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext)
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException {
     if (target instanceof Rule) {
       try {
@@ -195,7 +192,7 @@ public final class ConfiguredTargetFactory {
             configuredTargetKey,
             prerequisiteMap,
             configConditions,
-            toolchainContext);
+            toolchainContexts);
       } finally {
         CurrentRuleTracker.endConfiguredTarget();
       }
@@ -240,7 +237,7 @@ public final class ConfiguredTargetFactory {
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(
                   analysisEnvironment.getSkylarkSemantics().experimentalSiblingRepositoryLayout()),
-              inputFile.getPackage().getSourceRoot(),
+              inputFile.getPackage().getSourceRoot().get(),
               ConfiguredTargetKey.of(target.getLabel(), config));
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
     } else if (target instanceof PackageGroup) {
@@ -271,9 +268,9 @@ public final class ConfiguredTargetFactory {
    * See {@link RuleConfiguredTargetBuilder#maybeAddRequiredConfigFragmentsProvider} for the
    * remaining pieces of config state.
    *
-   * <p>The strings can be names of {@link BuildConfiguration.Fragment}s, names of {@link
-   * FragmentOptions}, and labels of user-defined options such as Starlark flags and Android feature
-   * flags.
+   * <p>The strings can be names of {@link Fragment}s, names of {@link
+   * com.google.devtools.build.lib.analysis.config.FragmentOptions}, and labels of user-defined
+   * options such as Starlark flags and Android feature flags.
    *
    * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
    * result includes only the config state considered to be directly required by this rule. If it's
@@ -292,12 +289,13 @@ public final class ConfiguredTargetFactory {
    *     specified for this rule
    * @param configurationFragmentPolicy source of truth for the fragments required by this rule's
    *     rule class
-   * @param configConditions {@link FragmentOptions} required by {@code select}s on this rule. This
-   *     is a different type than the others: options and fragments are different concepts. There's
-   *     some subtlety to their relationship (e.g. a {@link FragmentOptions} can be associated with
-   *     multiple {@link BuildConfiguration.Fragment}s). Rather than trying to merge all results
-   *     into a pure set of {@link BuildConfiguration.Fragment}s we just allow the mix. In practice
-   *     the conceptual dependencies remain clear enough without trying to resolve these subtleties.
+   * @param configConditions {@link com.google.devtools.build.lib.analysis.config.FragmentOptions}
+   *     required by {@code select}s on this rule. This is a different type than the others: options
+   *     and fragments are different concepts. There's some subtlety to their relationship (e.g. a
+   *     {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} can be associated
+   *     with multiple {@link Fragment}s). Rather than trying to merge all results into a pure set
+   *     of {@link Fragment}s we just allow the mix. In practice the conceptual dependencies remain
+   *     clear enough without trying to resolve these subtleties.
    * @param prerequisites all prerequisties of this rule
    * @return An alphabetically ordered set of required fragments, options, and labels of
    *     user-defined options.
@@ -305,7 +303,7 @@ public final class ConfiguredTargetFactory {
   private static ImmutableSet<String> getRequiredConfigFragments(
       Rule rule,
       BuildConfiguration configuration,
-      Collection<Class<? extends BuildConfiguration.Fragment>> universallyRequiredFragments,
+      Collection<Class<? extends Fragment>> universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       Collection<ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
@@ -407,7 +405,7 @@ public final class ConfiguredTargetFactory {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext)
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException {
     ConfigurationFragmentPolicy configurationFragmentPolicy =
         rule.getRuleClassObject().getConfigurationFragmentPolicy();
@@ -426,7 +424,7 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap, rule))
             .setConfigConditions(configConditions)
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
-            .setToolchainContext(toolchainContext)
+            .setToolchainContexts(toolchainContexts)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
                 getRequiredConfigFragments(
@@ -462,7 +460,7 @@ public final class ConfiguredTargetFactory {
         // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
         return createFailConfiguredTarget(ruleContext);
       }
-      if (rule.getRuleClassObject().isSkylark()) {
+      if (rule.getRuleClassObject().isStarlark()) {
         // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
         ConfiguredTarget target =
             SkylarkRuleConfiguredTargetUtil.buildRule(
@@ -601,8 +599,8 @@ public final class ConfiguredTargetFactory {
       @Nullable ResolvedToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration,
-      ActionLookupValue.ActionLookupKey aspectKey)
-      throws AspectFunctionException, InterruptedException {
+      AspectValueKey.AspectKey aspectKey)
+      throws InterruptedException, ActionConflictException {
 
     RuleContext.Builder builder =
         new RuleContext.Builder(
@@ -643,23 +641,19 @@ public final class ConfiguredTargetFactory {
       return null;
     }
 
-    ConfiguredAspect configuredAspect;
-    try {
-      configuredAspect =
-          aspectFactory.create(
-              associatedTarget,
-              ruleContext,
-              aspect.getParameters(),
-              ruleClassProvider.getToolsRepository());
-    } catch (ActionConflictException e) {
-      throw new AspectFunctionException(e);
-    }
+    ConfiguredAspect configuredAspect =
+        aspectFactory.create(
+            associatedTarget,
+            ruleContext,
+            aspect.getParameters(),
+            ruleClassProvider.getToolsRepository());
     if (configuredAspect != null) {
       validateAdvertisedProviders(
-          configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
+          configuredAspect,
+          aspectKey,
+          aspect.getDefinition().getAdvertisedProviders(),
           associatedTarget.getTarget(),
-          env.getEventHandler()
-      );
+          env.getEventHandler());
     }
     return configuredAspect;
   }
@@ -687,34 +681,34 @@ public final class ConfiguredTargetFactory {
 
   private void validateAdvertisedProviders(
       ConfiguredAspect configuredAspect,
-      AdvertisedProviderSet advertisedProviders, Target target,
+      AspectValueKey.AspectKey aspectKey,
+      AdvertisedProviderSet advertisedProviders,
+      Target target,
       EventHandler eventHandler) {
     if (advertisedProviders.canHaveAnyProvider()) {
       return;
     }
     for (Class<?> aClass : advertisedProviders.getNativeProviders()) {
       if (configuredAspect.getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) == null) {
-        eventHandler.handle(Event.error(
-            target.getLocation(),
-            String.format(
-                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
-                configuredAspect.getName(),
-                target.getLabel(),
-                aClass.getSimpleName()
-            )));
+        eventHandler.handle(
+            Event.error(
+                target.getLocation(),
+                String.format(
+                    "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                    aspectKey.getAspectClass().getName(),
+                    target.getLabel(),
+                    aClass.getSimpleName())));
       }
     }
 
-    for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
-      if (configuredAspect.getProvider(providerId) == null) {
-        eventHandler.handle(Event.error(
-            target.getLocation(),
-            String.format(
-                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
-                configuredAspect.getName(),
-                target.getLabel(),
-                providerId
-            )));
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+      if (configuredAspect.get(providerId) == null) {
+        eventHandler.handle(
+            Event.error(
+                target.getLocation(),
+                String.format(
+                    "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                    aspectKey.getAspectClass().getName(), target.getLabel(), providerId)));
       }
     }
   }

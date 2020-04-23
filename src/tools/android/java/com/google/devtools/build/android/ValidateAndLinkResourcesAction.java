@@ -59,7 +59,7 @@ public class ValidateAndLinkResourcesAction {
         name = "compiledDep",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "",
+        defaultValue = "null",
         converter = Converters.PathListConverter.class,
         category = "input",
         allowMultiple = true,
@@ -154,7 +154,8 @@ public class ValidateAndLinkResourcesAction {
   public static void main(String[] args) throws Exception {
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class, Aapt2ConfigOptions.class)
+            .optionsClasses(
+                Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parse(args);

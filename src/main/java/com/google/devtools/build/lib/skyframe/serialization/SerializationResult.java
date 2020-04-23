@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.protobuf.ByteString;
 import javax.annotation.Nullable;
 
 /**
@@ -27,7 +26,7 @@ import javax.annotation.Nullable;
  * #getFutureToBlockWritesOn} completes successfully.
  *
  * @param <T> Some serialized representation of an object, for instance a {@code byte[]} or a {@link
- *     ByteString}.
+ *     com.google.protobuf.ByteString}.
  */
 public abstract class SerializationResult<T> {
   private final T object;

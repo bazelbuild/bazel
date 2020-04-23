@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleLoadableBundleBi
 public final class AppleLoadableBundleBinaryInfo extends NativeInfo
     implements AppleLoadableBundleBinaryApi {
 
-  /** Skylark name for the AppleLoadableBundleBinary. */
+  /** Starlark name for the AppleLoadableBundleBinary. */
   public static final String SKYLARK_NAME = "AppleLoadableBundleBinary";
 
-  /** Skylark constructor and identifier for AppleLoadableBundleBinary. */
+  /** Starlark constructor and identifier for AppleLoadableBundleBinary. */
   public static final NativeProvider<AppleLoadableBundleBinaryInfo> SKYLARK_CONSTRUCTOR =
       new NativeProvider<AppleLoadableBundleBinaryInfo>(
           AppleLoadableBundleBinaryInfo.class, SKYLARK_NAME) {};

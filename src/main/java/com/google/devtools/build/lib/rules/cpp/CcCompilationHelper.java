@@ -29,12 +29,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -198,7 +198,7 @@ public final class CcCompilationHelper {
   // TODO(plf): Rename so that it's not confused with CcCompilationContext and also consider
   // merging
   // this class with {@code CcCompilationOutputs}.
-  public static final class CompilationInfo implements CompilationInfoApi {
+  public static final class CompilationInfo implements CompilationInfoApi<Artifact> {
     private final CcCompilationContext ccCompilationContext;
     private final CcCompilationOutputs compilationOutputs;
 
@@ -440,17 +440,6 @@ public final class CcCompilationHelper {
     }
     
     this.privateHeaders.add(privateHeader);
-    return this;
-  }
-
-  /**
-   * Add directly to privateHeaders, which are added to the compilation prerequisites and can be
-   * removed by include scanning. This is only used to work around cases where we are not
-   * propagating transitive dependencies properly via scheduling dependency middleman (i.e. objc
-   * compiles).
-   */
-  public CcCompilationHelper addPrivateHeadersUnchecked(Collection<Artifact> privateHeaders) {
-    this.privateHeaders.addAll(privateHeaders);
     return this;
   }
 
@@ -1012,9 +1001,9 @@ public final class CcCompilationHelper {
     // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs
     // Note: no include dir for STRICT mode.
     if (headersCheckingMode == HeadersCheckingMode.LOOSE) {
-      ccCompilationContextBuilder.addDeclaredIncludeDir(label.getPackageFragment());
+      ccCompilationContextBuilder.addLooseHdrsDir(label.getPackageFragment());
       for (PathFragment looseIncludeDir : looseIncludeDirs) {
-        ccCompilationContextBuilder.addDeclaredIncludeDir(looseIncludeDir);
+        ccCompilationContextBuilder.addLooseHdrsDir(looseIncludeDir);
       }
       ccCompilationContextBuilder.setHeadersCheckingMode(headersCheckingMode);
     }
@@ -1085,7 +1074,8 @@ public final class CcCompilationHelper {
       CcCompilationOutputs ccCompilationOutputs) {
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
     for (OutputGroupInfo dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+        ruleContext.getPrerequisites(
+            "deps", TransitionMode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
       headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
     }
     if (cppConfiguration.processHeadersInDependencies()) {
@@ -1151,7 +1141,7 @@ public final class CcCompilationHelper {
 
   public static CcCompilationContext getStlCcCompilationContext(RuleContext ruleContext) {
     if (ruleContext.attributes().has("$stl", BuildType.LABEL)) {
-      CcInfo ccInfo = ruleContext.getPrerequisite("$stl", Mode.TARGET, CcInfo.PROVIDER);
+      CcInfo ccInfo = ruleContext.getPrerequisite("$stl", TransitionMode.TARGET, CcInfo.PROVIDER);
       if (ccInfo != null) {
         return ccInfo.getCcCompilationContext();
       } else {
@@ -2058,7 +2048,8 @@ public final class CcCompilationHelper {
       // b) Traversing the transitive closure for each C++ compile action would require more complex
       //    implementation (with caching results of this method) to avoid O(N^2) slowdown.
       if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
-        for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+        for (TransitiveInfoCollection dep :
+            ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
           CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
           if (ccInfo != null
               && InstrumentedFilesCollector.shouldIncludeLocalSources(configuration, dep)) {

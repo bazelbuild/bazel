@@ -16,15 +16,14 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.protobuf.TextFormat;
 import java.util.ArrayList;
@@ -56,7 +55,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
    * Constructs an {@link StructImpl}.
    *
    * @param provider the provider describing the type of this instance
-   * @param location the Skylark location where this instance is created. If null, defaults to
+   * @param location the Starlark location where this instance is created. If null, defaults to
    *     {@link Location#BUILTIN}.
    */
   protected StructImpl(Provider provider, @Nullable Location location) {
@@ -83,8 +82,15 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     if (obj == null) {
       return null;
     }
-    SkylarkType.checkType(obj, type, key);
-    return type.cast(obj);
+    try {
+      return type.cast(obj);
+    } catch (
+        @SuppressWarnings("UnusedException")
+        ClassCastException unused) {
+      throw Starlark.errorf(
+          "for %s field, got %s, want %s",
+          key, Starlark.type(obj), EvalUtils.getDataTypeNameFromClass(type));
+    }
   }
 
   /**
@@ -141,8 +147,8 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
   }
 
   /**
-   * Convert the object to string using Skylark syntax. The output tries to be reversible (but there
-   * is no guarantee, it depends on the actual values).
+   * Convert the object to string using Starlark syntax. The output tries to be reversible (but
+   * there is no guarantee, it depends on the actual values).
    */
   @Override
   public void repr(Printer printer) {
@@ -270,9 +276,8 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       for (String field : ((ClassObject) value).getFieldNames()) {
         sb.append(join);
         join = ",";
-        sb.append("\"");
-        sb.append(field);
-        sb.append("\":");
+        appendJSONStringLiteral(sb, field);
+        sb.append(':');
         printJson(((ClassObject) value).getValue(field), sb, "struct field", field);
       }
       sb.append("}");
@@ -289,9 +294,8 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
               container,
               key != null ? " '" + key + "'" : "");
         }
-        sb.append("\"");
-        sb.append(entry.getKey());
-        sb.append("\":");
+        appendJSONStringLiteral(sb, (String) entry.getKey());
+        sb.append(':');
         printJson(entry.getValue(), sb, "dict value", String.valueOf(entry.getKey()));
       }
       sb.append("}");
@@ -305,9 +309,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       }
       sb.append("]");
     } else if (value instanceof String) {
-      sb.append("\"");
-      sb.append(jsonEscapeString((String) value));
-      sb.append("\"");
+      appendJSONStringLiteral(sb, (String) value);
     } else if (value instanceof Integer || value instanceof Boolean) {
       sb.append(value);
     } else {
@@ -318,10 +320,11 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     }
   }
 
-  private static String jsonEscapeString(String string) {
-    return escapeDoubleQuotesAndBackslashesAndNewlines(string)
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
+  private static void appendJSONStringLiteral(StringBuilder out, String s) {
+    out.append('"');
+    out.append(
+        escapeDoubleQuotesAndBackslashesAndNewlines(s).replace("\r", "\\r").replace("\t", "\\t"));
+    out.append('"');
   }
 
   @Override

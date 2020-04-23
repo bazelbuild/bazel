@@ -106,7 +106,7 @@ linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
 
 # Test data
 testdata_path=${BAZEL_RUNFILES}/src/test/shell/bazel/testdata
-python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
+python_server="$(rlocation io_bazel/src/test/shell/bazel/testing_server.py)"
 
 # Third-party
 protoc_compiler="${BAZEL_RUNFILES}/src/test/shell/integration/protoc"
@@ -270,9 +270,6 @@ common --show_progress_rate_limit=-1
 
 # Disable terminal-specific features.
 common --color=no --curses=no
-
-# TODO(#7899): Remove once we flip the flag default.
-build --incompatible_use_python_toolchains=true
 
 # Prevent SIGBUS during JVM actions.
 build --sandbox_tmpfs_path=/tmp

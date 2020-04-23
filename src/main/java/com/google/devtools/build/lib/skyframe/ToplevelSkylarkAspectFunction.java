@@ -17,8 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
-import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
-import com.google.devtools.build.lib.skyframe.AspectValue.SkylarkAspectLoadingKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.SkylarkAspectLoadingKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -26,20 +25,14 @@ import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
 /**
- * SkyFunction to load aspects from Skylark extensions and calculate their values.
+ * SkyFunction to load aspects from Starlark extensions and calculate their values.
  *
- * Used for loading top-level aspects. At top level, in
- * {@link com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke two SkyFunctions
- * one after another, so BuildView calls this function to do the work.
+ * <p>Used for loading top-level aspects. At top level, in {@link
+ * com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke two SkyFunctions one after
+ * another, so BuildView calls this function to do the work.
  */
 public class ToplevelSkylarkAspectFunction implements SkyFunction {
-
-  @Nullable private final SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
-
-  ToplevelSkylarkAspectFunction(
-      @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
-    this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
-  }
+  ToplevelSkylarkAspectFunction() {}
 
   @Nullable
   @Override
@@ -51,9 +44,7 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
 
     SkylarkAspect skylarkAspect;
     try {
-      skylarkAspect =
-          AspectFunction.loadSkylarkAspect(
-              env, skylarkFileLabel, skylarkValueName, skylarkImportLookupFunctionForInlining);
+      skylarkAspect = AspectFunction.loadSkylarkAspect(env, skylarkFileLabel, skylarkValueName);
       if (skylarkAspect == null) {
         return null;
       }

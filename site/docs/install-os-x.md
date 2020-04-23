@@ -43,7 +43,7 @@ sudo xcodebuild -license accept
 Next, download the Bazel binary installer named `bazel-<version>-installer-darwin-x86_64.sh` from the [Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases).
 
 Note: **on MacOS Catalina**, due to Apple's new app notarization requirements,
-you will need to download the installer using from the terminal using `curl`:
+you will need to download the installer from the terminal using `curl`:
 
 ```
 # Replace <version> as appropriate.

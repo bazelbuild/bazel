@@ -99,12 +99,13 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return true;
   }
 
+  private final SandboxHelpers helpers;
   private final Path execRoot;
   private final boolean allowNetwork;
   private final Path processWrapper;
   private final Path sandboxBase;
   private final Duration timeoutKillDelay;
-  private final @Nullable SandboxfsProcess sandboxfsProcess;
+  @Nullable private final SandboxfsProcess sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
 
@@ -120,6 +121,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
    * {@code sandbox-exec} binary.
    *
+   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param timeoutKillDelay additional grace period before killing timing out commands
@@ -128,6 +130,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
    */
   DarwinSandboxedSpawnRunner(
+      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
@@ -136,8 +139,9 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       TreeDeleter treeDeleter)
       throws IOException {
     super(cmdEnv);
+    this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
-    this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
+    this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
     this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
@@ -218,7 +222,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
     // the normal execroot does.
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    String workspaceName = execRoot.getBaseName();
+    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
     sandboxExecRoot.getParentDirectory().createDirectory();
     sandboxExecRoot.createDirectory();
 
@@ -229,7 +234,14 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, environment);
     writableDirs.addAll(extraWritableDirs);
 
-    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
+    SandboxInputs inputs =
+        helpers.processInputFiles(
+            context.getInputMapping(
+                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+            spawn,
+            context.getArtifactExpander(),
+            execRoot);
+    SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
     Duration timeout = context.getTimeout();
@@ -260,17 +272,11 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         allowNetwork
             || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
 
-    SandboxInputs inputs =
-        SandboxHelpers.processInputFiles(
-            spawn,
-            context,
-            execRoot,
-            getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree);
-
     if (sandboxfsProcess != null) {
       return new SandboxfsSandboxedSpawn(
           sandboxfsProcess,
           sandboxPath,
+          workspaceName,
           commandLine,
           environment,
           inputs,

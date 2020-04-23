@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
@@ -47,7 +47,7 @@ import java.util.Set;
 @Command(
     name = "query",
     options = {
-      PackageCacheOptions.class,
+      PackageOptions.class,
       QueryOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class
@@ -104,6 +104,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       streamedFormatter.setOptions(
           queryOptions,
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
+      streamedFormatter.setEventHandler(env.getReporter());
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
       callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
@@ -158,7 +159,8 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             targets,
             formatter,
             out,
-            queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
+            queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
+            env.getReporter());
       } catch (ClosedByInterruptException | InterruptedException e) {
         env.getReporter().handle(Event.error("query interrupted"));
         return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.INTERRUPTED));

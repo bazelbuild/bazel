@@ -23,10 +23,13 @@ public final class DictExpression extends Expression {
   public static final class Entry extends Node {
 
     private final Expression key;
+    private final int colonOffset;
     private final Expression value;
 
-    Entry(Expression key, Expression value) {
+    Entry(FileLocations locs, Expression key, int colonOffset, Expression value) {
+      super(locs);
       this.key = key;
+      this.colonOffset = colonOffset;
       this.value = value;
     }
 
@@ -39,15 +42,44 @@ public final class DictExpression extends Expression {
     }
 
     @Override
+    public int getStartOffset() {
+      return key.getStartOffset();
+    }
+
+    @Override
+    public int getEndOffset() {
+      return value.getEndOffset();
+    }
+
+    public Location getColonLocation() {
+      return locs.getLocation(colonOffset);
+    }
+
+    @Override
     public void accept(NodeVisitor visitor) {
       visitor.visit(this);
     }
   }
 
+  private final int lbraceOffset;
   private final ImmutableList<Entry> entries;
+  private final int rbraceOffset;
 
-  DictExpression(List<Entry> entries) {
+  DictExpression(FileLocations locs, int lbraceOffset, List<Entry> entries, int rbraceOffset) {
+    super(locs);
+    this.lbraceOffset = lbraceOffset;
     this.entries = ImmutableList.copyOf(entries);
+    this.rbraceOffset = rbraceOffset;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return lbraceOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return rbraceOffset + 1;
   }
 
   @Override

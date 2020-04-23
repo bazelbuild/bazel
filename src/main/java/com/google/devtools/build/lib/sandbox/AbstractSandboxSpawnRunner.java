@@ -51,7 +51,6 @@ import java.util.Map;
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
-  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
   private static final String SANDBOX_DEBUG_SUGGESTION =
       "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
@@ -193,7 +192,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     boolean wasTimeout =
         (useSubprocessTimeout && terminationStatus.timedOut())
             || (!useSubprocessTimeout && wasTimeout(timeout, wallTime));
-    int exitCode = wasTimeout ? POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
+    int exitCode =
+        wasTimeout ? SpawnResult.POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
     Status status =
         wasTimeout
             ? Status.TIMEOUT

@@ -596,8 +596,9 @@ sh_test(
     name = "bazel_docgen_test",
     size = "large",
     srcs = ["bazel_docgen_test.sh"],
-    data = ["//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia"],
+    data = ["//src/main/java/com/google/devtools/build/lib:generated_docs"],
     tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(
@@ -728,7 +729,6 @@ sh_test(
     ],
     shard_count = 6,
     tags = [
-        "no_windows",
         "requires-network",
     ],
 )
@@ -737,6 +737,14 @@ sh_test(
     name = "skylark_rule_test",
     size = "large",
     srcs = ["skylark_rule_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "ninja_build_test",
+    size = "large",
+    srcs = ["ninja_build_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )
@@ -1112,7 +1120,7 @@ sh_test(
         ":test-deps",
         "//src:embedded_jdk_allmodules",
         "//src:jdeps_modules.golden",
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["no_windows"],

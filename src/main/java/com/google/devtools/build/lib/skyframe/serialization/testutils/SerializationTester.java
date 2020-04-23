@@ -15,12 +15,13 @@
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assert_;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
@@ -32,8 +33,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Utility for testing serialization of given subjects.
@@ -45,7 +44,7 @@ public class SerializationTester {
   public static final int DEFAULT_JUNK_INPUTS = 20;
   public static final int JUNK_LENGTH_UPPER_BOUND = 20;
 
-  private static final Logger logger = Logger.getLogger(SerializationTester.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Interface for testing successful deserialization of an object. */
   @FunctionalInterface
@@ -112,7 +111,6 @@ public class SerializationTester {
     return this;
   }
 
-  @SuppressWarnings("rawtypes")
   public <T> SerializationTester setVerificationFunction(
       VerificationFunction<T> verificationFunction) {
     this.verificationFunction = verificationFunction;
@@ -179,13 +177,9 @@ public class SerializationTester {
         verificationFunction.verifyDeserialized(subject, deserialized);
       }
     }
-    logger.log(
-        Level.INFO,
-        subjects.get(0).getClass().getSimpleName()
-            + " total serialized bytes = "
-            + totalBytes
-            + ", "
-            + timer);
+    logger.atInfo().log(
+        "%s total serialized bytes = %d, %s",
+        subjects.get(0).getClass().getSimpleName(), totalBytes, timer);
   }
 
   /** Runs serialized bytes stability tests. */
@@ -213,6 +207,6 @@ public class SerializationTester {
         return;
       }
     }
-    assert_().fail("all junk was parsed successfully");
+    assertWithMessage("all junk was parsed successfully").fail();
   }
 }

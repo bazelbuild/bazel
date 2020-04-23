@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.test.CoverageCommon;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 
-/** Rules exposing testing infrastructure to Skylark */
+/** Rules exposing testing infrastructure to Starlark */
 public final class TestingSupportRules implements RuleSet {
   public static final TestingSupportRules INSTANCE = new TestingSupportRules();
 

@@ -60,16 +60,15 @@ class DexFileSplitter implements Closeable {
    */
   public static class Options extends OptionsBase {
     @Option(
-      name = "input",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      abbrev = 'i',
-      help = "Input dex archive."
-    )
+        name = "input",
+        allowMultiple = true,
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        abbrev = 'i',
+        help = "Input dex archive.")
     public List<Path> inputArchives;
 
     @Option(

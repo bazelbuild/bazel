@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
@@ -144,6 +145,11 @@ public final class AnalysisTestUtil {
     @Override
     public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getSymlinkArtifact(rootRelativePath, root);
+    }
+
+    @Override
+    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
+      return original.getSourceArtifactForNinjaBuild(execPath, root);
     }
 
     @Override
@@ -341,6 +347,11 @@ public final class AnalysisTestUtil {
 
     @Override
     public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+      return null;
+    }
+
+    @Override
+    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
       return null;
     }
 

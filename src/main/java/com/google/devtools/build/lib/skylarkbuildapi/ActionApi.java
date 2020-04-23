@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/** Interface for actions in Skylark. */
+/** Interface for actions in Starlark. */
 @SkylarkModule(
     name = "Action",
     category = SkylarkModuleCategory.BUILTIN,
@@ -86,15 +86,30 @@ public interface ActionApi extends StarlarkValue {
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS)
   Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
 
+  /**
+   * If the action writes a file whose content is known at analysis time, returns that content;
+   * returns null otherwise.
+   *
+   * <p>The content might be unknown if, for instance, the action expands an {@code Args} object
+   * that includes a directory ({@link TreeArtifact}) with {@code expand_directories=False}.
+   *
+   * @throws EvalException if there is a Starlark evaluation error, e.g. in an {@code Args} object's
+   *     call to a {@code map_each} callback.
+   * @throws IOException if there is a non-Starlark error in expanding an {@code Args} object.
+   */
   @SkylarkCallable(
       name = "content",
       doc =
           "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
               + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
-              + " the contents of the file to be written.",
+              + " the contents of the file to be written, if those contents can be computed during "
+              + " the analysis phase. The value is <code>None</code> if the contents cannot be "
+              + "determined until the execution phase, such as when a directory in an {@code Args} "
+              + "object needs to be expanded.",
       structField = true,
       allowReturnNones = true)
-  String getSkylarkContent() throws IOException;
+  @Nullable
+  String getSkylarkContent() throws IOException, EvalException;
 
   @SkylarkCallable(
       name = "substitutions",

@@ -26,22 +26,23 @@ import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.logging.Logger;
 
 /**
  * Implements SymlinkTreeAction by using the output service or by running an embedded script to
  * create the symlink tree.
  */
 public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
-  private static final Logger logger = Logger.getLogger(SymlinkTreeStrategy.class.getName());
+  private static final Duration MIN_LOGGING = Duration.ofMillis(100);
 
   @VisibleForTesting
   static final Function<Artifact, PathFragment> TO_PATH =
@@ -61,8 +62,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       throws ActionExecutionException, InterruptedException {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     try (AutoProfiler p =
-        AutoProfiler.logged(
-            "running " + action.prettyPrint(), logger, /*minTimeForLoggingInMilliseconds=*/ 100)) {
+        GoogleAutoProfilerUtils.logged("running " + action.prettyPrint(), MIN_LOGGING)) {
       try {
         if (outputService != null && outputService.canCreateSymlinkTree()) {
           Path inputManifest =

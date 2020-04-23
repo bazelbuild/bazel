@@ -19,8 +19,12 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
+import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -28,7 +32,6 @@ import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -40,7 +43,7 @@ import javax.annotation.Nullable;
  */
 public abstract class BugReport {
 
-  private static final Logger logger = Logger.getLogger(BugReport.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   static final BugReporter REPORTER_INSTANCE = new DefaultBugReporter();
 
@@ -68,12 +71,13 @@ public abstract class BugReport {
      * Perform all possible clean-up before crashing, posting events etc. so long as crashing isn't
      * significantly delayed or another crash isn't triggered.
      */
-    void cleanUpForCrash(ExitCode exitCode);
+    void cleanUpForCrash(DetailedExitCode exitCode);
   }
 
   public static void setRuntime(BlazeRuntimeInterface newRuntime) {
     Preconditions.checkNotNull(newRuntime);
-    Preconditions.checkState(runtime == null, "runtime already set: %s, %s", runtime, newRuntime);
+    Preconditions.checkState(
+        runtime == null || IN_TEST, "runtime already set: %s, %s", runtime, newRuntime);
     runtime = newRuntime;
   }
 
@@ -121,7 +125,7 @@ public abstract class BugReport {
           "Bug reports in tests should crash: " + args + ", " + Arrays.toString(values), exception);
     }
     if (!versionInfo.isReleasedBlaze()) {
-      logger.info("(Not a released binary; not logged.)");
+      logger.atInfo().log("(Not a released binary; not logged.)");
       return;
     }
 
@@ -129,7 +133,7 @@ public abstract class BugReport {
   }
 
   private static void logCrash(Throwable throwable, boolean sendBugReport, String... args) {
-    logger.severe("Crash: " + throwable + " " + Throwables.getStackTraceAsString(throwable));
+    logger.atSevere().withCause(throwable).log("Crash");
     if (sendBugReport) {
       BugReport.sendBugReport(throwable, Arrays.asList(args));
     }
@@ -146,7 +150,12 @@ public abstract class BugReport {
    */
   public static void handleCrashWithoutSendingBugReport(
       Throwable throwable, ExitCode exitCode, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ false, exitCode, args);
+    // TODO(b/78555988): allow call sites to specialize DetailedExitCode
+    handleCrash(
+        throwable,
+        /*sendBugReport=*/ false,
+        DetailedExitCode.of(exitCode, CrashFailureDetails.forThrowable(throwable)),
+        args);
   }
 
   /**
@@ -156,7 +165,12 @@ public abstract class BugReport {
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
   public static void handleCrash(Throwable throwable, ExitCode exitCode, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ true, exitCode, args);
+    // TODO(b/78555988): allow call sites to specialize DetailedExitCode
+    handleCrash(
+        throwable,
+        /*sendBugReport=*/ true,
+        DetailedExitCode.of(exitCode, CrashFailureDetails.forThrowable(throwable)),
+        args);
   }
 
   /**
@@ -165,25 +179,37 @@ public abstract class BugReport {
    *
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
-  public static void handleCrash(Throwable throwable, String... args) {
-    handleCrash(throwable, /*sendBugReport=*/ true, /*exitCode=*/ null, args);
+  public static RuntimeException handleCrash(Throwable throwable, String... args) {
+    throw handleCrash(
+        throwable,
+        /*sendBugReport=*/ true,
+        CrashFailureDetails.detailedExitCodeForThrowable(throwable),
+        args);
   }
 
-  private static void handleCrash(
-      Throwable throwable, boolean sendBugReport, @Nullable ExitCode exitCode, String... args) {
-    ExitCode exitCodeToUse = exitCode == null ? getExitCodeForThrowable(throwable) : exitCode;
+  private static RuntimeException handleCrash(
+      Throwable throwable,
+      boolean sendBugReport,
+      DetailedExitCode detailedExitCode,
+      String... args) {
+    ExitCode exitCodeToUse = detailedExitCode.getExitCode();
     int numericExitCode = exitCodeToUse.getNumericExitCode();
     try {
       synchronized (LOCK) {
         if (IN_TEST) {
           unprocessedThrowableInTest = throwable;
         }
-        logCrash(throwable, sendBugReport, args);
+        // Don't try to send a bug report during a crash in a test, it will throw itself.
+        if (!IN_TEST || !sendBugReport) {
+          logCrash(throwable, sendBugReport, args);
+        }
         try {
           if (runtime != null) {
-            runtime.cleanUpForCrash(exitCodeToUse);
+            runtime.cleanUpForCrash(detailedExitCode);
           }
           CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode);
+          CustomFailureDetailPublisher.maybeWriteFailureDetailFile(
+              detailedExitCode.getFailureDetail());
         } finally {
           // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
           // trigger our Blaze crash handler (this method). Calling System#exit() here, would
@@ -209,6 +235,7 @@ public abstract class BugReport {
 
       Runtime.getRuntime().halt(numericExitCode);
     }
+    throw new IllegalStateException("never get here", throwable);
   }
 
   /** Get exit code corresponding to throwable. */
@@ -222,7 +249,7 @@ public abstract class BugReport {
     PrintStream err = new PrintStream(outErr.getErrorStream());
     e.printStackTrace(err);
     err.flush();
-    logger.log(Level.SEVERE, getProductName() + " crashed", e);
+    logger.atSevere().withCause(e).log("%s crashed", getProductName());
   }
 
   /**
@@ -272,7 +299,7 @@ public abstract class BugReport {
   // Log the exception.  Because this method is only called in a blaze release,
   // this will result in a report being sent to a remote logging service.
   private static void logException(Throwable exception, List<String> args, String... values) {
-    logger.severe("Exception: " + Throwables.getStackTraceAsString(exception));
+    logger.atSevere().withCause(exception).log("Exception");
     // The preamble is used in the crash watcher, so don't change it
     // unless you know what you're doing.
     String preamble = getProductName()
@@ -291,6 +318,11 @@ public abstract class BugReport {
     @Override
     public void sendBugReport(Throwable exception, List<String> args, String... values) {
       BugReport.sendBugReport(exception, args, values);
+    }
+
+    @Override
+    public RuntimeException handleCrash(Throwable throwable, String... args) {
+      throw BugReport.handleCrash(throwable, args);
     }
   }
 }

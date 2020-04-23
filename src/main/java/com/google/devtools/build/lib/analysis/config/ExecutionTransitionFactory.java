@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import javax.annotation.Nullable;
 
@@ -88,7 +89,7 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
     private static final BuildOptionsCache<Label> cache = new BuildOptionsCache<>();
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       if (executionPlatform == null) {
         // No execution platform is known, so don't change anything.
         return options;

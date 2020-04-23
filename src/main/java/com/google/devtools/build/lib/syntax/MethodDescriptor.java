@@ -79,7 +79,7 @@ final class MethodDescriptor {
     return annotation;
   }
 
-  /** @return Skylark method descriptor for provided Java method and signature annotation. */
+  /** @return Starlark method descriptor for provided Java method and signature annotation. */
   static MethodDescriptor of(
       Method method, SkylarkCallable annotation, StarlarkSemantics semantics) {
     // This happens when the interface is public but the implementation classes

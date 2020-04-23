@@ -364,4 +364,21 @@ TEST(FileTest, TestRemoveRecursivelyPosix) {
   EXPECT_TRUE(PathExists(file_symlink_target));
 }
 
+TEST(FileTest, TestCreateTempDirDoesntClobberParentPerms) {
+  const char* tempdir_cstr = getenv("TEST_TMPDIR");
+  ASSERT_NE(tempdir_cstr, nullptr);
+  string tempdir(tempdir_cstr);
+  ASSERT_TRUE(PathExists(tempdir));
+
+  string existing_parent_dir(JoinPath(tempdir, "existing"));
+  ASSERT_TRUE(MakeDirectories(existing_parent_dir, 0700));
+  string prefix(JoinPath(existing_parent_dir, "mytmp"));
+  string result(CreateTempDir(prefix));
+  ASSERT_EQ(0, result.find(prefix));
+  EXPECT_TRUE(PathExists(result));
+  struct stat filestat = {};
+  ASSERT_EQ(0, stat(existing_parent_dir.c_str(), &filestat));
+  ASSERT_EQ(mode_t(0700), filestat.st_mode & 0777);
+}
+
 }  // namespace blaze_util

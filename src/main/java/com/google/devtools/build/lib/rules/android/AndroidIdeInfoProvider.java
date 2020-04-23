@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.rules.android.AndroidSkylarkData.fromNoneable;
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -335,12 +335,11 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Dict<?, ?> nativeLibs) // <String, Depset>
         throws EvalException {
       Map<String, Depset> nativeLibsMap =
-          nativeLibs.getContents(String.class, Depset.class, "native_libs");
+          Dict.cast(nativeLibs, String.class, Depset.class, "native_libs");
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
       for (Map.Entry<String, Depset> entry : nativeLibsMap.entrySet()) {
-        builder.put(
-            entry.getKey(), entry.getValue().getSetFromParam(Artifact.class, "native_libs"));
+        builder.put(entry.getKey(), Depset.cast(entry.getValue(), Artifact.class, "native_libs"));
       }
       return new AndroidIdeInfoProvider(
           fromNoneable(javaPackage, String.class),
@@ -353,10 +352,10 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           fromNoneable(resourceJar, OutputJar.class),
           definesAndroidResources,
           fromNoneable(aar, Artifact.class),
-          ImmutableList.copyOf(idlSrcs.getContents(Artifact.class, "idl_srcs")),
+          ImmutableList.copyOf(Sequence.cast(idlSrcs, Artifact.class, "idl_srcs")),
           ImmutableList.copyOf(
-              idlGeneratedJavaFiles.getContents(Artifact.class, "idl_generated_java_files")),
-          ImmutableList.copyOf(apksUnderTest.getContents(Artifact.class, "apks_under_test")),
+              Sequence.cast(idlGeneratedJavaFiles, Artifact.class, "idl_generated_java_files")),
+          ImmutableList.copyOf(Sequence.cast(apksUnderTest, Artifact.class, "apks_under_test")),
           builder.build(),
           fromNoneable(resourceApk, Artifact.class));
     }

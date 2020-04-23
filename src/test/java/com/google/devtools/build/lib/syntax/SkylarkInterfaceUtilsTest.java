@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -25,7 +25,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Test Skylark interface annotations and utilities. */
+/** Test Starlark interface annotations and utilities. */
 @RunWith(JUnit4.class)
 public class SkylarkInterfaceUtilsTest {
 
@@ -111,14 +111,12 @@ public class SkylarkInterfaceUtilsTest {
   public static interface ExtendsInterfaceB extends InterfaceBModule {}
 
   /**
-   * A mock class which has two transitive superclasses ({@link ClassAModule} and
-   * {@link InterfaceBModule})) which are unrelated modules. This is invalid as the skylark type
-   * of such an object is ambiguous.
+   * A mock class which has two transitive superclasses ({@link ClassAModule} and {@link
+   * InterfaceBModule})) which are unrelated modules. This is invalid as the Starlark type of such
+   * an object is ambiguous.
    *
-   * In other words:
-   *   AmbiguousClass -> ClassAModule
-   *   AmbiguousClass -> InterfaceBModule
-   *   ... but ClassAModule and InterfaceBModule have no relation.
+   * <p>In other words: AmbiguousClass -> ClassAModule AmbiguousClass -> InterfaceBModule ... but
+   * ClassAModule and InterfaceBModule have no relation.
    */
   public static class AmbiguousClass extends ExtendsClassA implements ExtendsInterfaceB {}
 
@@ -127,15 +125,13 @@ public class SkylarkInterfaceUtilsTest {
   public static class SubclassOfBoth extends ExtendsClassA implements ExtendsInterfaceB {}
 
   /**
-   * A mock class similar to {@link AmbiugousClass} in that it has two separate superclass-paths
-   * to skylark modules, but is resolvable.
+   * A mock class similar to {@link AmbiugousClass} in that it has two separate superclass-paths to
+   * Starlark modules, but is resolvable.
    *
-   * Concretely:
-   *   UnambiguousClass -> SubclassOfBoth
-   *   UnambiguousClass -> InterfaceBModule
-   *   SubclassOfBoth -> InterfaceBModule
+   * <p>Concretely: UnambiguousClass -> SubclassOfBoth UnambiguousClass -> InterfaceBModule
+   * SubclassOfBoth -> InterfaceBModule
    *
-   * ... so UnambiguousClass is of type SubclassOfBoth.
+   * <p>... so UnambiguousClass is of type SubclassOfBoth.
    */
   public static class UnambiguousClass extends SubclassOfBoth implements ExtendsInterfaceB {}
 

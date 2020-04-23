@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.skylark.util.StarlarkOptionsTestCase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -120,7 +120,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   // test --non_flag_setting=value
   @Test
   public void testNonFlagParsing() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
 
     scratch.file(
         "test/build_setting.bzl",
@@ -209,7 +209,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   // test --flagA=valueA --flagB=valueB
   @Test
   public void testMultipleFlags() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
 
     scratch.file(
         "test/build_setting.bzl",

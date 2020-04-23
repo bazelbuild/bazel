@@ -19,16 +19,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
 import com.google.devtools.build.lib.syntax.Debugger;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/** Manages the network socket and debugging state for threads running Skylark code. */
+/** Manages the network socket and debugging state for threads running Starlark code. */
 public final class SkylarkDebugServer implements Debugger {
 
   /**

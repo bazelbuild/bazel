@@ -18,9 +18,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import javax.annotation.Nullable;
 
-/**
- * Helpers for accessing Skylark interface annotations.
- */
+/** Helpers for accessing Starlark interface annotations. */
 public class SkylarkInterfaceUtils {
 
   /**

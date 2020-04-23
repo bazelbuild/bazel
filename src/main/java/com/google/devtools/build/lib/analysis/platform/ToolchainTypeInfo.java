@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainTypeInfoApi;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.Objects;
 
@@ -29,7 +29,7 @@ import java.util.Objects;
 @Immutable
 @AutoCodec
 public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoApi {
-  /** Name used in Skylark for accessing this provider. */
+  /** Name used in Starlark for accessing this provider. */
   public static final String SKYLARK_NAME = "ToolchainTypeInfo";
 
   /** Provider singleton constant. */

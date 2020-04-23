@@ -56,7 +56,7 @@ public final class UsesDataBindingProvider extends NativeInfo
     public UsesDataBindingProvider createInfo(Sequence<?> metadataOutputs) // <Artifact>
         throws EvalException {
       return new UsesDataBindingProvider(
-          metadataOutputs.getContents(Artifact.class, "metadata_outputs"));
+          Sequence.cast(metadataOutputs, Artifact.class, "metadata_outputs"));
     }
   }
 }

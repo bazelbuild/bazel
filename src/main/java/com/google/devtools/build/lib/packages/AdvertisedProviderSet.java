@@ -23,7 +23,7 @@ import java.util.Objects;
  * Captures the set of providers rules and aspects can advertise. It is either of:
  *
  * <ul>
- *   <li>a set of native and skylark providers
+ *   <li>a set of native and Starlark providers
  *   <li>"can have any provider" set that alias rules have.
  * </ul>
  *
@@ -35,28 +35,27 @@ import java.util.Objects;
 public final class AdvertisedProviderSet {
   private final boolean canHaveAnyProvider;
   private final ImmutableSet<Class<?>> nativeProviders;
-  private final ImmutableSet<SkylarkProviderIdentifier> skylarkProviders;
+  private final ImmutableSet<StarlarkProviderIdentifier> skylarkProviders;
 
-  private AdvertisedProviderSet(boolean canHaveAnyProvider,
+  private AdvertisedProviderSet(
+      boolean canHaveAnyProvider,
       ImmutableSet<Class<?>> nativeProviders,
-      ImmutableSet<SkylarkProviderIdentifier> skylarkProviders) {
+      ImmutableSet<StarlarkProviderIdentifier> skylarkProviders) {
     this.canHaveAnyProvider = canHaveAnyProvider;
     this.nativeProviders = nativeProviders;
     this.skylarkProviders = skylarkProviders;
   }
 
   public static final AdvertisedProviderSet ANY =
-      new AdvertisedProviderSet(true,
-          ImmutableSet.<Class<?>>of(),
-          ImmutableSet.<SkylarkProviderIdentifier>of());
+      new AdvertisedProviderSet(
+          true, ImmutableSet.<Class<?>>of(), ImmutableSet.<StarlarkProviderIdentifier>of());
   public static final AdvertisedProviderSet EMPTY =
-      new AdvertisedProviderSet(false,
-          ImmutableSet.<Class<?>>of(),
-          ImmutableSet.<SkylarkProviderIdentifier>of());
+      new AdvertisedProviderSet(
+          false, ImmutableSet.<Class<?>>of(), ImmutableSet.<StarlarkProviderIdentifier>of());
 
   public static AdvertisedProviderSet create(
       ImmutableSet<Class<?>> nativeProviders,
-      ImmutableSet<SkylarkProviderIdentifier> skylarkProviders) {
+      ImmutableSet<StarlarkProviderIdentifier> skylarkProviders) {
     if (nativeProviders.isEmpty() && skylarkProviders.isEmpty()) {
       return EMPTY;
     }
@@ -109,10 +108,8 @@ public final class AdvertisedProviderSet {
     return nativeProviders;
   }
 
-  /**
-   * Get all advertised Skylark providers.
-   */
-  public ImmutableSet<SkylarkProviderIdentifier> getSkylarkProviders() {
+  /** Get all advertised Starlark providers. */
+  public ImmutableSet<StarlarkProviderIdentifier> getSkylarkProviders() {
     return skylarkProviders;
   }
 
@@ -133,9 +130,9 @@ public final class AdvertisedProviderSet {
 
   /**
    * Returns {@code true} if this provider set can have any provider, or if it advertises the
-   * specific skylark provider requested.
+   * specific Starlark provider requested.
    */
-  public boolean advertises(SkylarkProviderIdentifier skylarkProvider) {
+  public boolean advertises(StarlarkProviderIdentifier skylarkProvider) {
     if (canHaveAnyProvider()) {
       return true;
     }
@@ -146,7 +143,8 @@ public final class AdvertisedProviderSet {
   public static class Builder {
     private boolean canHaveAnyProvider;
     private final ArrayList<Class<?>> nativeProviders;
-    private final ArrayList<SkylarkProviderIdentifier> skylarkProviders;
+    private final ArrayList<StarlarkProviderIdentifier> skylarkProviders;
+
     private Builder() {
       nativeProviders = new ArrayList<>();
       skylarkProviders = new ArrayList<>();
@@ -184,17 +182,17 @@ public final class AdvertisedProviderSet {
     }
 
     public Builder addSkylark(String providerName) {
-      skylarkProviders.add(SkylarkProviderIdentifier.forLegacy(providerName));
+      skylarkProviders.add(StarlarkProviderIdentifier.forLegacy(providerName));
       return this;
     }
 
-    public Builder addSkylark(SkylarkProviderIdentifier id) {
+    public Builder addSkylark(StarlarkProviderIdentifier id) {
       skylarkProviders.add(id);
       return this;
     }
 
     public Builder addSkylark(Provider.Key id) {
-      skylarkProviders.add(SkylarkProviderIdentifier.forKey(id));
+      skylarkProviders.add(StarlarkProviderIdentifier.forKey(id));
       return this;
     }
   }

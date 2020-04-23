@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
@@ -73,6 +74,11 @@ public final class CqueryCommand implements BlazeCommand {
           PriorityCategory.COMPUTED_DEFAULT,
           "cquery should include 'tags = [\"manual\"]' targets by default",
           ImmutableList.of("--build_manual_tests"));
+      optionsParser.parse(
+          PriorityCategory.COMPUTED_DEFAULT,
+          // https://github.com/bazelbuild/bazel/issues/11078
+          "cquery should not exclude test_suite rules",
+          ImmutableList.of("--noexpand_test_suites"));
       if (cqueryOptions.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
         optionsParser.parse(
             PriorityCategory.COMPUTED_DEFAULT,
@@ -128,8 +134,8 @@ public final class CqueryCommand implements BlazeCommand {
             env.getReporter().getOutErr(),
             env.getCommandId(),
             env.getCommandStartTime());
-    ExitCode exitCode =
-        new CqueryBuildTool(env, expr).processRequest(request, null).getExitCondition();
-    return BlazeCommandResult.exitCode(exitCode);
+    DetailedExitCode detailedExitCode =
+        new CqueryBuildTool(env, expr).processRequest(request, null).getDetailedExitCode();
+    return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }
 }

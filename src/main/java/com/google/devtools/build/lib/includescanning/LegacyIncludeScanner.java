@@ -359,11 +359,23 @@ public class LegacyIncludeScanner implements IncludeScanner {
       LocateOnPathResult result =
           cache.computeIfAbsent(
               inclusion, key -> locateOnPaths(key, pathToLegalOutputArtifact, false));
-      // It is not safe to cache lookups which viewed illegal output files. Their nonexistence do
-      // not imply nonexistence for actions using the same include scanner, but executed later on.
-      // See bug 2097998. For performance reasons, take a small shortcut: only avoid caching when
-      // the path lookup result from locateOnPaths() is empty.
-      if (result.path != null || !result.viewedIllegalOutputFile) {
+      // If the previous computation for this inclusion had a different pathToLegalOutputArtifact
+      // map, result may not be valid for this lookup. Because this is a hot spot, we tolerate a
+      // known correctness bug but try to catch most issues.
+      // (1) [correct]: The prior computation found an output file, but that file is not in the
+      // current lookup's inputs. We don't reuse the computation. b/149935208.
+      // (2) [correct]: The prior computation checked an output path not in its legal outputs, and
+      // then didn't find a file anywhere. However, that output file is a legal input for this
+      // lookup. We don't reuse the computation. b/2097998.
+      // (3) [INCORRECT]: Same as (2), except that the prior computation found a file after checking
+      // the output path not in its legal inputs. We incorrectly cache this computation, assuming it
+      // is very rare. b/150307245.
+      if (result.path != null) {
+        if (result.path.isSourceArtifact()
+            || result.path.equals(pathToLegalOutputArtifact.get(result.path.getExecPath()))) {
+          return result;
+        }
+      } else if (!result.viewedIllegalOutputFile) {
         return result;
       }
 
@@ -745,7 +757,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     /** The set of all processed inclusions, to avoid processing duplicate inclusions. */
     private final Set<ArtifactWithInclusionContext> visitedInclusions = Sets.newConcurrentHashSet();
 
-    public LegacyIncludeVisitor(
+    LegacyIncludeVisitor(
         ActionExecutionMetadata actionExecutionMetadata,
         ActionExecutionContext actionExecutionContext,
         @Nullable Artifact grepIncludes,

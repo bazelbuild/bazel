@@ -127,7 +127,7 @@ java_import(
 
 java_import(
     name = "apache_commons_pool2",
-    jars = ["apache_commons_pool2/commons-pool2-2.3.jar"],
+    jars = ["apache_commons_pool2/commons-pool2-2.8.0.jar"],
 )
 
 java_import(
@@ -394,18 +394,18 @@ java_import(
 java_import(
     name = "flogger",
     jars = [
-        "flogger/flogger-0.3.1.jar",
-        "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar",
+        "flogger/flogger-0.5.1.jar",
+        "flogger/flogger-system-backend-0.5.1.jar",
+        "flogger/google-extensions-0.5.1.jar",
     ],
 )
 
 filegroup(
     name = "flogger-jars",
     srcs = [
-        "flogger/flogger-0.3.1.jar",
-        "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar",
+        "flogger/flogger-0.5.1.jar",
+        "flogger/flogger-system-backend-0.5.1.jar",
+        "flogger/google-extensions-0.5.1.jar",
     ],
 )
 
@@ -486,9 +486,9 @@ genrule(
     srcs = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
     outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
     cmd = "cp $< $@ && " +
-      # End successfully if there is nothing to be deleted from the archive
-      "if [ -n '" + UNNECESSARY_DYNAMIC_LIBRARIES + "' ]; then " +
-      "zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES + "; fi",
+          # End successfully if there is nothing to be deleted from the archive
+          "if [ -n '" + UNNECESSARY_DYNAMIC_LIBRARIES + "' ]; then " +
+          "zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES + "; fi",
 )
 
 java_import(
@@ -528,7 +528,7 @@ java_import(
     name = "junit4",
     jars = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.12.jar",
+        "junit/junit-4.13.jar",
     ],
 )
 
@@ -558,7 +558,10 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.45.jar"],
+    jars = ["truth/truth-1.0.1.jar"],
+    exports = [
+        ":truth8",
+    ],
     deps = [
         ":diffutils",
     ],
@@ -566,7 +569,7 @@ java_import(
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-0.45.jar"],
+    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
 )
 
 java_import(
@@ -579,7 +582,7 @@ filegroup(
     name = "junit4-jars",
     srcs = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.12.jar",
+        "junit/junit-4.13.jar",
     ],
 )
 

@@ -26,11 +26,12 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -38,11 +39,14 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 
 /**
- * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique
- * {@link WorkspaceStatusValue} and the constant {@link PrecomputedValue#BUILD_INFO_FACTORIES}
- * injected value.
+ * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique {@link
+ * WorkspaceStatusValue} and the constant {@link #BUILD_INFO_FACTORIES} injected value.
  */
 public class BuildInfoCollectionFunction implements SkyFunction {
+
+  public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
+      new Precomputed<>("build_info_factories");
+
   private final ActionKeyContext actionKeyContext;
   // Supplier only because the artifact factory has not yet been created at constructor time.
   private final Supplier<ArtifactFactory> artifactFactory;
@@ -73,8 +77,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
 
     BuildConfiguration config =
         ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey())).getConfiguration();
-    Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories =
-        PrecomputedValue.BUILD_INFO_FACTORIES.get(env);
+    Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories = BUILD_INFO_FACTORIES.get(env);
     BuildInfoFactory buildInfoFactory = buildInfoFactories.get(keyAndConfig.getInfoKey());
     Preconditions.checkState(buildInfoFactory.isEnabled(config));
 

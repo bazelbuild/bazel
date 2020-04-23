@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains Skylark rules used to build the embedded_tools.zip."""
+"""Contains Starlark rules used to build the embedded_tools.zip."""
 
 def _embedded_tools(ctx):
     # The list of arguments we pass to the script.

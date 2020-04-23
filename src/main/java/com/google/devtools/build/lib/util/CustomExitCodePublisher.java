@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -28,23 +29,33 @@ import javax.annotation.Nullable;
  * <p>Uses Java 8 {@link Path} objects rather than Bazel ones to avoid depending on the rest of
  * Bazel.
  */
+// TODO(b/138456686): When the Bazel server is completely converted to use FailureDetail messages
+//  for its failure modes, this publishing mechanism and the file it creates can probably be
+//  deleted. We'll need to confirm that nothing other than the Bazel client consumes it.
 public class CustomExitCodePublisher {
   private static final String EXIT_CODE_FILENAME = "exit_code_to_use_on_abrupt_exit";
-  @Nullable private static Path abruptExitCodeFilePath = null;
+  @Nullable private static volatile Path abruptExitCodeFilePath = null;
+
+  private CustomExitCodePublisher() {}
 
   public static void setAbruptExitStatusFileDir(String path) {
     abruptExitCodeFilePath = Paths.get(path).resolve(EXIT_CODE_FILENAME);
   }
 
+  @VisibleForTesting
+  public static void resetAbruptExitStatusFile() {
+    abruptExitCodeFilePath = null;
+  }
+
   public static void maybeWriteExitStatusFile(int exitCode) {
-    if (abruptExitCodeFilePath != null) {
+    Path path = CustomExitCodePublisher.abruptExitCodeFilePath;
+    if (path != null) {
       try {
-        Files.write(
-            abruptExitCodeFilePath, String.valueOf(exitCode).getBytes(StandardCharsets.UTF_8));
+        Files.write(path, String.valueOf(exitCode).getBytes(StandardCharsets.UTF_8));
       } catch (IOException ioe) {
         System.err.printf(
             "io error writing %d to abrupt exit status file %s: %s\n",
-            exitCode, abruptExitCodeFilePath, ioe.getMessage());
+            exitCode, path, ioe.getMessage());
       }
     }
   }

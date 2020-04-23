@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.dynamic;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static junit.framework.TestCase.fail;
+import static org.junit.Assert.assertThrows;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -47,7 +49,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -67,7 +71,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -80,6 +83,8 @@ import org.junit.runners.Parameterized.Parameters;
 /** Tests for {@link DynamicSpawnStrategy}. */
 @RunWith(Parameterized.class)
 public class DynamicSpawnStrategyTest {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private Path testRoot;
   private ExecutorService executorServiceForCleanup;
   private FileOutErr outErr;
@@ -316,16 +321,36 @@ public class DynamicSpawnStrategyTest {
     checkState(executorServiceForCleanup == null);
     executorServiceForCleanup = executorService;
 
-    ExecutorBuilder executorBuilder =
-        new ExecutorBuilder()
-            .addActionContext(SpawnStrategy.class, localStrategy, "mock-local")
-            .addActionContext(SpawnStrategy.class, remoteStrategy, "mock-remote");
+    ExecutorBuilder executorBuilder = new ExecutorBuilder();
+    ModuleActionContextRegistry.Builder moduleActionContextRegistryBuilder =
+        executorBuilder.asModuleActionContextRegistryBuilder(ModuleActionContextRegistry.builder());
+    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
+        executorBuilder.asSpawnStrategyRegistryBuilder(SpawnStrategyRegistry.builder());
+
+    spawnStrategyRegistryBuilder.registerStrategy(localStrategy, "mock-local");
+    spawnStrategyRegistryBuilder.registerStrategy(remoteStrategy, "mock-remote");
 
     if (sandboxedStrategy != null) {
-      executorBuilder.addActionContext(SpawnStrategy.class, sandboxedStrategy, "mock-sandboxed");
+      spawnStrategyRegistryBuilder.registerStrategy(sandboxedStrategy, "mock-sandboxed");
     }
 
-    new DynamicExecutionModule(executorService).initStrategies(executorBuilder, options);
+    DynamicExecutionModule dynamicExecutionModule = new DynamicExecutionModule(executorService);
+    // TODO(b/63987502): This only exists during the migration to SpawnStrategyRegistry.
+    executorBuilder.addStrategyByContext(SpawnStrategy.class, "dynamic");
+    dynamicExecutionModule.registerSpawnStrategies(spawnStrategyRegistryBuilder, options);
+
+    SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
+    executorBuilder.addActionContext(SpawnStrategyRegistry.class, spawnStrategyRegistry);
+    executorBuilder.addStrategyByContext(SpawnStrategyRegistry.class, "");
+
+    moduleActionContextRegistryBuilder.register(
+        DynamicStrategyRegistry.class, spawnStrategyRegistry);
+    ModuleActionContextRegistry moduleActionContextRegistry =
+        moduleActionContextRegistryBuilder.build();
+    executorBuilder.addActionContext(
+        ModuleActionContextRegistry.class, moduleActionContextRegistry);
+    executorBuilder.addStrategyByContext(ModuleActionContextRegistry.class, "");
+
     SpawnActionContextMaps spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
 
     Executor executor =
@@ -655,7 +680,7 @@ public class DynamicSpawnStrategyTest {
     if (legacyBehavior) {
       // The legacy spawn scheduler does not implement cross-cancellations of the two parallel
       // branches so this test makes no sense in that case.
-      Logger.getLogger(DynamicSpawnStrategyTest.class.getName()).info("Skipping test");
+      logger.atInfo().log("Skipping test");
       return;
     }
 
@@ -803,7 +828,7 @@ public class DynamicSpawnStrategyTest {
       // have strong reasons to believe that the races are due to inherent problems in these tests,
       // not in the actual DynamicSpawnScheduler implementation. So whatever. I'll revisit these
       // later as a new set of tests once I'm less tired^W^W^W the legacy spawn scheduler goes away.
-      Logger.getLogger(DynamicSpawnStrategyTest.class.getName()).info("Skipping test");
+      logger.atInfo().log("Skipping test");
       return;
     }
 

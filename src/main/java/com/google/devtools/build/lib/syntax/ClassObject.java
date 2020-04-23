@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableCollection;
 import javax.annotation.Nullable;
 
-/** An interface for Skylark values (such as structs) that have fields. */
+/** An interface for Starlark values (such as structs) that have fields. */
 // TODO(adonovan): rename "HasFields".
 public interface ClassObject extends StarlarkValue {
 

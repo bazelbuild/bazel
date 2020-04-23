@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Collections;
@@ -23,14 +24,13 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
  * Representation of a Fileset manifest.
  */
 public final class FilesetManifest {
-  private static final Logger logger = Logger.getLogger(FilesetManifest.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Mode that determines how to handle relative target paths.
@@ -122,26 +122,22 @@ public final class FilesetManifest {
       } while (++traversals <= MAX_SYMLINK_TRAVERSALS && actual != null && seen.add(actual));
 
       if (traversals >= MAX_SYMLINK_TRAVERSALS) {
-        logger.warning(
-            "Symlink "
-                + location
-                + " is part of a chain of length at least "
-                + traversals
-                + " which exceeds Blaze's maximum allowable symlink chain length");
+        logger.atWarning().log(
+            "Symlink %s is part of a chain of length at least %d"
+                + " which exceeds Blaze's maximum allowable symlink chain length",
+            location, traversals);
       } else if (actual != null) {
         // TODO(b/113128395): throw here.
-        logger.warning("Symlink " + location + " forms a symlink cycle: " + seen);
+        logger.atWarning().log("Symlink %s forms a symlink cycle: %s", location, seen);
       } else if (!entries.containsKey(actualLocation)) {
         // We've found a relative symlink that points out of the fileset. We should really always
         // throw here, but current behavior is that we tolerate such symlinks when they occur in
         // runfiles, which is the only time this code is hit.
         // TODO(b/113128395): throw here.
-        logger.warning(
-            "Symlink "
-                + location
-                + " (transitively) points to "
-                + actualLocation
-                + " that is not in this fileset (or was pruned because of a cycle)");
+        logger.atWarning().log(
+            "Symlink %s (transitively) points to %s"
+                + " that is not in this fileset (or was pruned because of a cycle)",
+            location, actualLocation);
       } else {
         // We have successfully resolved the symlink.
         entries.put(location, entries.get(actualLocation));

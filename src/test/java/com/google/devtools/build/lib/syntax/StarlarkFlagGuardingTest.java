@@ -275,23 +275,23 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
     predeclare(
         "GlobalSymbol",
         FlagGuardedValue.onlyWhenIncompatibleFlagIsFalse(
-            FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP, "foo"));
+            FlagIdentifier.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, "foo"));
 
     String errorMessage =
         "GlobalSymbol is deprecated and will be removed soon. It may be "
-            + "temporarily re-enabled by setting --incompatible_no_target_output_group=false";
+            + "temporarily re-enabled by setting --incompatible_linkopts_to_linklibs=false";
 
-    new Scenario("--incompatible_no_target_output_group=false")
+    new Scenario("--incompatible_linkopts_to_linklibs=false")
         .setUp("var = GlobalSymbol")
         .testLookup("var", "foo");
 
-    new Scenario("--incompatible_no_target_output_group=true")
+    new Scenario("--incompatible_linkopts_to_linklibs=true")
         .testIfErrorContains(errorMessage, "var = GlobalSymbol");
 
-    new Scenario("--incompatible_no_target_output_group=true")
+    new Scenario("--incompatible_linkopts_to_linklibs=true")
         .testIfErrorContains(errorMessage, "def my_function():", "  var = GlobalSymbol");
 
-    new Scenario("--incompatible_no_target_output_group=true")
+    new Scenario("--incompatible_linkopts_to_linklibs=true")
         .setUp("GlobalSymbol = 'other'", "var = GlobalSymbol")
         .testLookup("var", "other");
   }

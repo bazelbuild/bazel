@@ -16,21 +16,23 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaPool;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.ByteBuffer;
@@ -49,7 +51,7 @@ public class NinjaParserStepTest {
     doTestSimpleVariable("a=b\nc", "a", "b");
     doTestSimpleVariable("a=b # comment", "a", "b");
     doTestSimpleVariable("a.b.c =    some long:    value", "a.b.c", "some long:    value");
-    doTestSimpleVariable("a_11_24-rt.15= ^&%=#@", "a_11_24-rt.15", "^&%=");
+    doTestSimpleVariable("a_11_24-rt.15= ^&%=#@", "a_11_24-rt.15", "^&%=#@");
   }
 
   @Test
@@ -149,17 +151,66 @@ public class NinjaParserStepTest {
     ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
     assertThat(variables.keySet())
         .containsExactly(
-            NinjaRuleVariable.NAME,
             NinjaRuleVariable.COMMAND,
             NinjaRuleVariable.DESCRIPTION,
             NinjaRuleVariable.RSPFILE,
             NinjaRuleVariable.DEPS);
-    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.DEPS).getRawText()).isEqualTo("${abc} $\n ${cde}");
     MockValueExpander expander = new MockValueExpander("###");
     assertThat(variables.get(NinjaRuleVariable.DEPS).getExpandedValue(expander))
         .isEqualTo("###abc $\n ###cde");
     assertThat(expander.getRequestedVariables()).containsExactly("abc", "cde");
+  }
+
+  @Test
+  public void testNinjaRuleWithHash() throws Exception {
+    // Additionally test the situation when we get more line separators in the end.
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + " command = executable --flag $TARGET $out && sed -e 's/#.*$$//' -e '/^$$/d'\n"
+                + " description = Test rule for $TARGET");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
+        // Variables are wrapped with {} by print function, $$ escape sequence is unescaped.
+        .isEqualTo("executable --flag ${TARGET} ${out} && sed -e 's/#.*$//' -e '/^$/d'");
+  }
+
+  @Test
+  public void testNinjaRuleWithDollarSign() throws Exception {
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + "  command = something && $\n"
+                + "    something_else\n"
+                + "  description = Test $\n"
+                + "    rule");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    // Ensure that the dollar sign doesn't exist in the parsed command variable value.
+    // Deliberately omit them because it could cause problems in multiline shell commands.
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
+        .isEqualTo("something && \n    something_else");
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
+        .isEqualTo("Test \n    rule");
+  }
+
+  @Test
+  public void testNinjaRuleWithStickyDollarSign() throws Exception {
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + "  command = something &&$\n"
+                + "    something_else\n"
+                + "  description = Test$\n"
+                + "    rule");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    // Ensure that the dollar sign doesn't exist in the parsed command variable value.
+    // Deliberately omit them because it could cause problems in multiline shell commands.
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
+        .isEqualTo("something &&\n    something_else");
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.DESCRIPTION).getRawText())
+        .isEqualTo("Test\n    rule");
   }
 
   @Test
@@ -172,10 +223,36 @@ public class NinjaParserStepTest {
     NinjaRule ninjaRule = parser.parseNinjaRule();
     ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
     assertThat(variables.keySet())
-        .containsExactly(
-            NinjaRuleVariable.NAME, NinjaRuleVariable.COMMAND, NinjaRuleVariable.DESCRIPTION);
-    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+        .containsExactly(NinjaRuleVariable.COMMAND, NinjaRuleVariable.DESCRIPTION);
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.DESCRIPTION).getRawText()).isEmpty();
+  }
+
+  @Test
+  public void testParsePoolInRule() throws Exception {
+    NinjaParserStep parser = createParser("rule testRule  \n" + " pool = some_pool\n");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
+    assertThat(variables.keySet()).containsExactly(NinjaRuleVariable.POOL);
+    assertThat(ninjaRule.getName()).isEqualTo("testRule");
+    assertThat(variables.get(NinjaRuleVariable.POOL).getRawText()).isEqualTo("some_pool");
+  }
+
+  @Test
+  public void testParsePoolDeclaration() throws Exception {
+    NinjaParserStep parser = createParser("pool link_pool\n" + "  depth = 4\n");
+    NinjaPool ninjaPool = parser.parseNinjaPool();
+    assertThat(ninjaPool.getName()).isEqualTo("link_pool");
+    assertThat(ninjaPool.getDepth()).isEqualTo(4);
+  }
+
+  @Test
+  public void testParsePoolDeclaration_withInvalidDepth() throws Exception {
+    NinjaParserStep parser = createParser("pool link_pool\n" + "  depth = NaN\n");
+    assertThrows(
+        "Expected an integer for the 'depth' value, but got 'NaN'.",
+        GenericParsingException.class,
+        parser::parseNinjaPool);
   }
 
   @Test
@@ -302,6 +379,20 @@ public class NinjaParserStepTest {
   }
 
   @Test
+  public void testNinjaTargetsPathWithEscapedNewline() throws Exception {
+    NinjaTarget target =
+        parseNinjaTarget(
+            "build $\n" + "  output : $\n" + "  command input$\n" + "  with$\n" + "  newline");
+    assertThat(target.getRuleName()).isEqualTo("command");
+    assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
+    assertThat(target.getUsualInputs())
+        .containsExactly(
+            PathFragment.create("input"),
+            PathFragment.create("with"),
+            PathFragment.create("newline"));
+  }
+
+  @Test
   public void testNinjaTargetWithScope() throws Exception {
     NinjaTarget target = parseNinjaTarget("build output : command input\n  pool = abc\n");
     assertThat(target.getRuleName()).isEqualTo("command");
@@ -362,8 +453,9 @@ public class NinjaParserStepTest {
 
   private static NinjaParserStep createParser(String text) {
     ByteBuffer buffer = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
-    NinjaLexer lexer = new NinjaLexer(new ByteBufferFragment(buffer, 0, buffer.limit()));
-    return new NinjaParserStep(lexer);
+    NinjaLexer lexer = new NinjaLexer(new FileFragment(buffer, 0, 0, buffer.limit()));
+    return new NinjaParserStep(
+        lexer, BlazeInterners.newWeakInterner(), BlazeInterners.newWeakInterner());
   }
 
   private static class MockValueExpander implements Function<String, String> {

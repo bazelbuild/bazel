@@ -17,9 +17,9 @@ We mark Windows-related Bazel issues on GitHub with the "team-Windows"
 label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Ateam-Windows)
 
 <a name="running-bazel-shells"></a>
-## Running Bazel: MSYS2 shell vs. Command Prompt vs. PowerShell
+## Running Bazel: MSYS2 shell vs. command prompt vs. PowerShell
 
-We recommend running Bazel from the Command Prompt (`cmd.exe`) or from
+We recommend running Bazel from the command prompt (`cmd.exe`) or from
 PowerShell.
 
 As of 2020-01-15, we **do not recommend** running Bazel from `bash` -- either

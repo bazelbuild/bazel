@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIPO;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
@@ -316,7 +314,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       throws InterruptedException, OptionsParsingException, InvalidConfigurationException {
     ImmutableList.Builder<BuildConfiguration> splitConfigs = ImmutableList.builder();
 
-    for (BuildOptions splitOptions : splitTransition.split(configuration.getOptions()).values()) {
+    for (BuildOptions splitOptions :
+        splitTransition.split(configuration.getOptions(), eventCollector).values()) {
       splitConfigs.add(getSkyframeExecutor().getConfigurationForTesting(
           reporter, configuration.fragmentClasses(), splitOptions));
     }
@@ -468,15 +467,19 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertHasRequirement(action, ExecutionRequirements.REQUIRES_DARWIN);
   }
 
-  protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport() throws Exception {
-    ConfiguredTarget lib = addLibWithDepOnFrameworkImport();
+  protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport(boolean compileInfoMigration)
+      throws Exception {
+    ConfiguredTarget lib =
+        compileInfoMigration
+            ? addLibWithDepOnFrameworkImportPostMigration()
+            : addLibWithDepOnFrameworkImportPreMigration();
     return createBinaryTargetWriter("//bin:bin")
         .setList("deps", lib.getLabel().toString())
         .write();
 
   }
 
-  private ConfiguredTarget addLibWithDepOnFrameworkImport() throws Exception {
+  private ConfiguredTarget addLibWithDepOnFrameworkImportPreMigration() throws Exception {
     scratch.file(
         "fx/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
@@ -492,6 +495,35 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "custom_static_framework_import(",
         "    name = 'fx',",
         "    framework_search_paths = ['fx/fx1.framework', 'fx/fx2.framework'],",
+        ")");
+    return createLibraryTargetWriter("//lib:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setList("deps", "//fx:fx")
+        .write();
+  }
+
+  private ConfiguredTarget addLibWithDepOnFrameworkImportPostMigration() throws Exception {
+    scratch.file(
+        "fx/defs.bzl",
+        "def _custom_static_framework_import_impl(ctx):",
+        "    return [",
+        "        apple_common.new_objc_provider(),",
+        "        CcInfo(",
+        "            compilation_context=cc_common.create_compilation_context(",
+        "                framework_includes=depset(ctx.attr.framework_search_paths)",
+        "            ),",
+        "        )",
+        "    ]",
+        "custom_static_framework_import = rule(",
+        "    _custom_static_framework_import_impl,",
+        "    attrs={'framework_search_paths': attr.string_list()},",
+        ")");
+    scratch.file(
+        "fx/BUILD",
+        "load(':defs.bzl', 'custom_static_framework_import')",
+        "custom_static_framework_import(",
+        "    name = 'fx',",
+        "    framework_search_paths = ['fx'],",
         ")");
     return createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -527,16 +559,20 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertContainsSublist(compileAction("//x:x", "b.o").getArguments(), includeFlags);
   }
 
-  protected void checkProvidesHdrsAndIncludes(RuleType ruleType) throws Exception {
+  protected void checkProvidesHdrsAndIncludes(RuleType ruleType, Optional<String> privateHdr)
+      throws Exception {
     scratch.file("x/a.h");
-    ruleType.scratchTarget(scratch,
-        "hdrs", "['a.h']",
-        "includes", "['incdir']");
+    ruleType.scratchTarget(scratch, "hdrs", "['a.h']", "includes", "['incdir']");
     ObjcProvider provider =
         getConfiguredTarget("//x:x", getAppleCrosstoolConfiguration())
             .get(ObjcProvider.SKYLARK_CONSTRUCTOR);
-    assertThat(provider.get(HEADER).toList()).containsExactly(getSourceArtifact("x/a.h"));
-    assertThat(provider.get(INCLUDE).toList())
+    if (privateHdr.isPresent()) {
+      assertThat(provider.header().toList())
+          .containsExactly(getSourceArtifact("x/a.h"), getSourceArtifact(privateHdr.get()));
+    } else {
+      assertThat(provider.header().toList()).containsExactly(getSourceArtifact("x/a.h"));
+    }
+    assertThat(provider.include())
         .containsExactly(
             PathFragment.create("x/incdir"),
             getAppleCrosstoolConfiguration().getGenfilesFragment().getRelative("x/incdir"));

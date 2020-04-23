@@ -22,6 +22,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Flushables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
+import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -62,7 +64,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Dispatches to the Blaze commands; that is, given a command line, this abstraction looks up the
@@ -70,7 +71,7 @@ import java.util.logging.Logger;
  * Also, this object provides the runtime state (BlazeRuntime) to the commands.
  */
 public class BlazeCommandDispatcher implements CommandDispatcher {
-  private static final Logger logger = Logger.getLogger(BlazeCommandDispatcher.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final ImmutableList<String> HELP_COMMAND = ImmutableList.of("help");
 
@@ -83,7 +84,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   private String currentClientDescription = null;
   private String shutdownReason = null;
   private OutputStream logOutputStream = null;
-  private Level lastLogVerbosityLevel = null;
   private final LoadingCache<BlazeCommand, OpaqueOptionsData> optionsDataCache =
       CacheBuilder.newBuilder().build(
           new CacheLoader<BlazeCommand, OpaqueOptionsData>() {
@@ -117,10 +117,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
    */
   @VisibleForTesting
   public BlazeCommandDispatcher(BlazeRuntime runtime) {
-    this(runtime, BugReporter.defaultInstance());
+    this(runtime, runtime.getBugReporter());
   }
 
-  private BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
+  @VisibleForTesting
+  public BlazeCommandDispatcher(BlazeRuntime runtime, BugReporter bugReporter) {
     this.runtime = runtime;
     this.bugReporter = bugReporter;
     this.commandLock = new Object();
@@ -220,6 +221,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // execExclusively() which is not an explicit shutdown.
         shutdownReason = "explicitly by client " + clientDescription;
       }
+      if (!result.getDetailedExitCode().isSuccess()) {
+        logger.atInfo().log("Exit status was %s", result.getDetailedExitCode());
+      }
       return result;
     } finally {
       synchronized (commandLock) {
@@ -300,17 +304,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         && commonOptions.enableProfileByDefault
         && !profileExplicitlyDisabled) {
       commonOptions.enableTracer = true;
-      if (!options.containsExplicitOption("experimental_slim_json_profile")) {
-        commonOptions.enableJsonProfileDiet = true;
-      }
       if (!options.containsExplicitOption("experimental_profile_cpu_usage")) {
         commonOptions.enableCpuUsageProfiling = true;
-      }
-      if (!options.containsExplicitOption("experimental_profile_action_counts")) {
-        commonOptions.enableActionCountProfile = true;
-      }
-      if (!options.containsExplicitOption("experimental_post_profile_started_event")) {
-        commonOptions.postProfileStartedEvent = true;
       }
     }
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
@@ -325,9 +320,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             env,
             execStartTimeNanos,
             waitTimeInMs);
-    if (commonOptions.postProfileStartedEvent) {
-      storedEventHandler.post(profilerStartedEvent);
-    }
+    storedEventHandler.post(profilerStartedEvent);
 
     // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
     if (!commonOptions.starlarkCpuProfile.isEmpty()) {
@@ -357,6 +350,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         try (SilentCloseable closeable = Profiler.instance().profile(module + ".beforeCommand")) {
           module.beforeCommand(env);
         } catch (AbruptExitException e) {
+          logger.atInfo().withCause(e).log("Error in %s", module);
           // Don't let one module's complaints prevent the other modules from doing necessary
           // setup. We promised to call beforeCommand exactly once per-module before each command
           // and will be calling afterCommand soon in the future - a module's afterCommand might
@@ -408,23 +402,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           outErr = bufferErr(outErr);
         }
 
-        if (!commonOptions.verbosity.equals(lastLogVerbosityLevel)) {
-          BlazeRuntime.setupLogging(commonOptions.verbosity);
-          lastLogVerbosityLevel = commonOptions.verbosity;
-        }
+        DebugLoggerConfigurator.setupLogging(commonOptions.verbosity);
 
         EventHandler handler = createEventHandler(outErr, eventHandlerOptions);
         reporter.addHandler(handler);
         env.getEventBus().register(handler);
 
         int oomMoreEagerlyThreshold = commonOptions.oomMoreEagerlyThreshold;
-        if (oomMoreEagerlyThreshold == 100) {
-          oomMoreEagerlyThreshold =
-              runtime
-                  .getStartupOptionsProvider()
-                  .getOptions(BlazeServerStartupOptions.class)
-                  .oomMoreEagerlyThreshold;
-        }
         runtime.getRetainedHeapLimiter().updateThreshold(oomMoreEagerlyThreshold);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
@@ -496,6 +480,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // Notify the BlazeRuntime, so it can do some initial setup.
         env.beforeCommand(waitTimeInMs, invocationPolicy);
       } catch (AbruptExitException e) {
+        logger.atInfo().withCause(e).log("Error before command");
         reporter.handle(Event.error(e.getMessage()));
         result = BlazeCommandResult.exitCode(e.getExitCode());
         return result;
@@ -523,12 +508,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           && !commandAnnotation.name().equals("clean")
           && !commandAnnotation.name().equals("info")) {
         try {
-          env.setupPackageCache(options);
+          env.syncPackageLoading(options);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           reporter.handle(Event.error("command interrupted while setting up package cache"));
           earlyExitCode = ExitCode.INTERRUPTED;
         } catch (AbruptExitException e) {
+          logger.atInfo().withCause(e).log("Error package loading");
           reporter.handle(Event.error(e.getMessage()));
           earlyExitCode = e.getExitCode();
         }
@@ -589,9 +575,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               + Throwables.getStackTraceAsString(e));
       e.printStackTrace();
       BugReport.printBug(outErr, e, commonOptions.oomMessage);
-      bugReporter.sendBugReport(e, args, env.getCrashData());
-      logger.log(Level.SEVERE, "Shutting down due to exception", e);
-      result = BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
+      bugReporter.sendBugReport(e, args);
+      logger.atSevere().withCause(e).log("Shutting down due to exception");
+      result = BlazeCommandResult.createShutdown(e);
       return result;
     } finally {
       if (!afterCommandCalled) {
@@ -687,8 +673,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsData(optionsData)
-            .skippedPrefix("--//")
-            .skippedPrefix("--@")
+            .skipStarlarkOptionPrefixes()
             .allowResidue(annotation.allowResidue())
             .build();
     return parser;

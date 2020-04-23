@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.exec;
 
 /** This exception gets thrown if there was a problem with parsing a test.xml file. */
-final class TestXmlOutputParserException extends Exception {
+public final class TestXmlOutputParserException extends Exception {
   public TestXmlOutputParserException(String message, Throwable cause) {
     super(message, cause);
   }

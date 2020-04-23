@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -29,11 +29,12 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -47,9 +48,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Integration test for skylark repository not as heavyweight than shell integration tests.
- */
+/** Integration test for Starlark repository not as heavyweight than shell integration tests. */
 @RunWith(JUnit4.class)
 public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
@@ -69,7 +68,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     @Override
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
         BlazeDirectories directories) {
-      // Add both the local repository and the skylark repository functions
+      // Add both the local repository and the Starlark repository functions
       // The RepositoryCache mock injected with the SkylarkRepositoryFunction
       DownloadManager downloader = Mockito.mock(DownloadManager.class);
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
@@ -85,7 +84,8 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
               new AtomicBoolean(true),
               ImmutableMap::of,
               directories,
-              ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES);
+              ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+              BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
       return ImmutableMap.of(
           SkyFunctions.REPOSITORY_DIRECTORY,
           function,
@@ -120,7 +120,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testSkylarkLocalRepository() throws Exception {
-    // A simple test that recreates local_repository with Skylark.
+    // A simple test that recreates local_repository with Starlark.
     scratch.file("/repo2/WORKSPACE");
     scratch.file("/repo2/bar.txt");
     scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
@@ -178,7 +178,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testfailWithIncompatibleUseCcConfigureFromRulesCcDoesNothing() throws Exception {
-    // A simple test that recreates local_repository with Skylark.
+    // A simple test that recreates local_repository with Starlark.
     scratch.file("/repo2/WORKSPACE");
     scratch.file("/repo2/bar.txt");
     scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");

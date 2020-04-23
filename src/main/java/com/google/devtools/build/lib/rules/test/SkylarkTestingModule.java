@@ -19,19 +19,19 @@ import com.google.devtools.build.lib.skylarkbuildapi.test.TestingModuleApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/** A class that exposes testing infrastructure to skylark. */
+/** A class that exposes testing infrastructure to Starlark. */
 public class SkylarkTestingModule implements TestingModuleApi {
 
   @Override
   public ExecutionInfo executionInfo(Dict<?, ?> requirements /* <String, String> */)
       throws EvalException {
-    return new ExecutionInfo(requirements.getContents(String.class, String.class, "requirements"));
+    return new ExecutionInfo(Dict.cast(requirements, String.class, String.class, "requirements"));
   }
 
   @Override
   public TestEnvironmentInfo testEnvironment(Dict<?, ?> environment /* <String, String> */)
       throws EvalException {
     return new TestEnvironmentInfo(
-        environment.getContents(String.class, String.class, "environment"));
+        Dict.cast(environment, String.class, String.class, "environment"));
   }
 }

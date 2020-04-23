@@ -24,9 +24,7 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.syntax.Starlark;
 
-/**
- * The basis for a Skylark Environment with all build-related modules registered.
- */
+/** The basis for a Starlark Environment with all build-related modules registered. */
 public final class SkylarkModules {
 
   private SkylarkModules() { }
@@ -45,7 +43,7 @@ public final class SkylarkModules {
           DefaultInfo.PROVIDER);
 
   /**
-   * Adds bindings for skylark built-ins and non-rules-specific globals of the build API to the
+   * Adds bindings for Starlark built-ins and non-rules-specific globals of the build API to the
    * given environment map builder.
    */
   public static void addSkylarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> env) {

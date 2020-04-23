@@ -72,9 +72,8 @@ public final class ActionInputHelper {
   private static class BasicActionInput implements ActionInput {
     private final String path;
 
-    public BasicActionInput(String path) {
+    BasicActionInput(String path) {
       this.path = Preconditions.checkNotNull(path);
-      Preconditions.checkArgument(!path.isEmpty());
     }
 
     // TODO(lberki): Plumb this flag from InputTree.build() somehow.

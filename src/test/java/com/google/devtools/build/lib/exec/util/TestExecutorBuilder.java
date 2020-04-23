@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
@@ -28,7 +29,10 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -49,8 +53,13 @@ public class TestExecutorBuilder {
   private Reporter reporter = new Reporter(new EventBus());
   private OptionsParser optionsParser =
       OptionsParser.builder().optionsClasses(DEFAULT_OPTIONS).build();
+  // TODO(jcater): Remove parallel registration once migration has finished.
   private final SpawnActionContextMaps.Builder spawnMapsBuilder =
       new SpawnActionContextMaps.Builder();
+  private final ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
+      ModuleActionContextRegistry.builder();
+  private final SpawnStrategyRegistry.Builder strategyRegistryBuilder =
+      SpawnStrategyRegistry.builder();
 
   public TestExecutorBuilder(
       FileSystem fileSystem, BlazeDirectories directories, BinTools binTools) {
@@ -60,9 +69,10 @@ public class TestExecutorBuilder {
   public TestExecutorBuilder(FileSystem fileSystem, Path execRoot, BinTools binTools) {
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
-    addStrategy(FileWriteActionContext.class, new FileWriteStrategy());
-    addStrategy(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
-    addStrategy(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, binTools));
+    addContext(FileWriteActionContext.class, new FileWriteStrategy());
+    addContext(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
+    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, binTools));
+    addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 
   public TestExecutorBuilder setReporter(Reporter reporter) {
@@ -86,19 +96,49 @@ public class TestExecutorBuilder {
    * <p>If two action contexts are registered with the same identifying type and commandline
    * identifier the last registered will take precedence.
    */
-  public <T extends ActionContext> TestExecutorBuilder addStrategy(
-      Class<T> identifyingType, T strategy, String... commandlineIdentifiers) {
+  public <T extends ActionContext> TestExecutorBuilder addContext(
+      Class<T> identifyingType, T context, String... commandlineIdentifiers) {
     spawnMapsBuilder.strategyByContextMap().put(identifyingType, "");
-    spawnMapsBuilder.addContext(identifyingType, strategy, commandlineIdentifiers);
+    // TODO(katre): Remove duplication once migration ends.
+    spawnMapsBuilder.addContext(identifyingType, context, commandlineIdentifiers);
+    if (SpawnStrategy.class.isAssignableFrom(identifyingType)) {
+      SpawnStrategy spawnStrategy = (SpawnStrategy) context;
+      strategyRegistryBuilder.registerStrategy(spawnStrategy, commandlineIdentifiers);
+    }
+    actionContextRegistryBuilder.register(identifyingType, context, commandlineIdentifiers);
+    return this;
+  }
+
+  /** Makes the given strategy available in the execution phase. */
+  public TestExecutorBuilder addStrategy(SpawnStrategy strategy, String... commandlineIdentifiers) {
+    // TODO(katre): Remove duplication once migration ends.
+    spawnMapsBuilder.addContext(SpawnStrategy.class, strategy, commandlineIdentifiers);
+    strategyRegistryBuilder.registerStrategy(strategy, commandlineIdentifiers);
+    return this;
+  }
+
+  /**
+   * Sets the default strategies to use if none are supplied by the user.
+   *
+   * <p>Replaces any previously set default strategies.
+   */
+  public TestExecutorBuilder setDefaultStrategies(String... strategies) {
+    // TODO(katre): Remove duplication once migration ends.
+    spawnMapsBuilder.strategyByMnemonicMap().replaceValues("", ImmutableList.copyOf(strategies));
+    strategyRegistryBuilder.setDefaultStrategies(ImmutableList.copyOf(strategies));
     return this;
   }
 
   public TestExecutorBuilder setExecution(String mnemonic, String strategy) {
+    // TODO(katre): Remove duplication once migration ends.
     spawnMapsBuilder.strategyByMnemonicMap().replaceValues(mnemonic, ImmutableList.of(strategy));
+    strategyRegistryBuilder.addMnemonicFilter(mnemonic, ImmutableList.of(strategy));
     return this;
   }
 
   public BlazeExecutor build() throws ExecutorInitException {
+    SpawnStrategyRegistry strategyRegistry = strategyRegistryBuilder.build();
+    addContext(SpawnStrategyRegistry.class, strategyRegistry);
     SpawnActionContextMaps spawnActionContextMaps = spawnMapsBuilder.build();
     return new BlazeExecutor(
         fileSystem,
@@ -106,6 +146,7 @@ public class TestExecutorBuilder {
         reporter,
         BlazeClock.instance(),
         optionsParser,
+        // TODO(katre): Use the registries when BlazeExecutor is updated.
         spawnActionContextMaps);
   }
 }

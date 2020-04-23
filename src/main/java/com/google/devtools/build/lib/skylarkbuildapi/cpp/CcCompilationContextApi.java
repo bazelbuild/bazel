@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
@@ -29,7 +31,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc =
         "Immutable store of information needed for C++ compilation that is aggregated across "
             + "dependencies.")
-public interface CcCompilationContextApi extends StarlarkValue {
+public interface CcCompilationContextApi<FileT extends FileApi> extends StarlarkValue {
   @SkylarkCallable(
       name = "defines",
       doc =
@@ -85,4 +87,19 @@ public interface CcCompilationContextApi extends StarlarkValue {
               + " or absolute. Usually passed with -iquote.",
       structField = true)
   Depset getSkylarkQuoteIncludeDirs();
+
+  @SkylarkCallable(
+      name = "direct_headers",
+      doc =
+          "Returns the list of modular headers that are declared by this target. This includes both"
+              + " public headers (such as those listed in \"hdrs\") and private headers (such as"
+              + " those listed in \"srcs\").",
+      structField = true)
+  StarlarkList<FileT> getSkylarkDirectModularHeaders();
+
+  @SkylarkCallable(
+      name = "direct_textual_headers",
+      doc = "Returns the list of textual headers that are declared by this target.",
+      structField = true)
+  StarlarkList<FileT> getSkylarkDirectTextualHeaders();
 }

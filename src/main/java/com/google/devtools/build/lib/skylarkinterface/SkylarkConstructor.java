@@ -20,20 +20,18 @@ import java.lang.annotation.Target;
 
 /**
  * An annotation to mark {@link SkylarkCallable}-annotated methods as representing top-level
- * constructors for other Skylark objects. This is used only for documentation purposes.
+ * constructors for other Starlark objects. This is used only for documentation purposes.
  *
- * <p>For example, a "Foo" type skylark object might be constructable at the top level using
- * a global callable "Foo()". One can annotate that callable with this annotation to ensure that
- * the documentation for "Foo()" appears alongside the documentation for the Foo type, and not
- * the available globals.
+ * <p>For example, a "Foo" type Starlark object might be constructable at the top level using a
+ * global callable "Foo()". One can annotate that callable with this annotation to ensure that the
+ * documentation for "Foo()" appears alongside the documentation for the Foo type, and not the
+ * available globals.
  */
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface SkylarkConstructor {
 
-  /**
-   * The java class of the skylark type that this annotation's method is a constructor for.
-   */
+  /** The java class of the Starlark type that this annotation's method is a constructor for. */
   Class<?> objectType();
 
   /**

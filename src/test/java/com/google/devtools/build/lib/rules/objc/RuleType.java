@@ -162,11 +162,11 @@ public abstract class RuleType {
   }
 
   /**
-   * Returns a string (of one or more lines) required by BUILD files which reference targets of
-   * this rule type.
+   * Returns a string (of one or more lines) required by BUILD files which reference targets of this
+   * rule type.
    *
    * <p>Subclasses of {@link RuleType} should override this method if using the rule requires
-   * skylark files to be loaded.
+   * Starlark files to be loaded.
    */
   public String skylarkLoadPrerequisites() {
     return "";

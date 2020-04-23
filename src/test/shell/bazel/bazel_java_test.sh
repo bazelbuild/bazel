@@ -1564,4 +1564,66 @@ EOF
       || fail "Expected success"
 }
 
+
+# Build and run a java_binary that calls a C++ function through JNI.
+# This test exercises the built-in @bazel_tools//tools/jdk:jni target.
+#
+# The java_binary wrapper script specifies -Djava.library.path=$runfiles/test,
+# and the Java program expects to find a DSO there---except on MS Windows,
+# which lacks support for symbolic links. Really there needs to
+# be a cleaner mechanism for finding and loading the JNI library (and better
+# hygiene around the library namespace). By contrast, Blaze links all the
+# native code and the JVM into a single executable, which is an elegant solution.
+#
+function test_jni() {
+  # Skip on MS Windows, as Bazel does not create a runfiles symlink tree.
+  # (MSYS_NT is the system name reported by MinGW uname.)
+  # TODO(adonovan): make this work.
+  uname -s | grep -q MSYS_NT && return
+
+  # Skip on Darwin, as System.loadLibrary looks for a file named
+  # .dylib, not .so, and that's not what the file is called.
+  # TODO(adonovan): make this just work.
+  uname -s | grep -q Darwin && return
+
+  mkdir -p test/
+  cat > test/BUILD <<'EOF'
+java_binary(
+  name = "app",
+  srcs = ["App.java"],
+  main_class = 'foo.App',
+  data = [":libnative.so"],
+  jvm_flags = ["-Djava.library.path=test"],
+)
+cc_binary(
+  name = "libnative.so",
+  srcs = ["native.cc"],
+  linkshared = 1,
+  deps = ["@bazel_tools//tools/jdk:jni"],
+)
+EOF
+  cat > test/App.java <<'EOF'
+package foo;
+
+public class App {
+  static { System.loadLibrary("native"); }
+  public static void main(String[] args) { f(123); }
+  private static native void f(int x);
+}
+EOF
+  cat > test/native.cc <<'EOF'
+#include <jni.h>
+#include <stdio.h>
+
+extern "C" JNIEXPORT void JNICALL Java_foo_App_f(JNIEnv *env, jclass clazz, jint x) {
+  printf("hello %d\n", x);
+}
+EOF
+  bazel run //test:app > $TEST_log || {
+    find bazel-bin/ | native # helpful for debugging
+    fail "bazel run command failed"
+  }
+  expect_log "hello 123"
+}
+
 run_suite "Java integration tests"

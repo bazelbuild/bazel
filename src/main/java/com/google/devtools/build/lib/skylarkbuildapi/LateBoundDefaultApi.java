@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** The interface for late bound defaults in Skylark. */
+/** The interface for late bound defaults in Starlark. */
 @SkylarkModule(
     name = "LateBoundDefault",
     category = SkylarkModuleCategory.BUILTIN,

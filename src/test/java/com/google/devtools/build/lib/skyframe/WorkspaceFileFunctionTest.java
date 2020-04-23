@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -53,7 +53,6 @@ import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Set;
@@ -66,8 +65,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 import org.mockito.hamcrest.MockitoHamcrest;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
 /**
  * Test for {@link WorkspaceFileFunction}.
@@ -107,6 +104,11 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     }
 
     @Override
+    public boolean isFile() {
+      return exists;
+    }
+
+    @Override
     public ImmutableList<RootedPath> logicalChainDuringResolution() {
       throw new UnsupportedOperationException();
     }
@@ -134,8 +136,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
             ruleClassProvider,
             pkgFactory,
             directories,
-            /*skylarkImportLookupFunctionForInlining=*/ null);
-    externalSkyFunc = new ExternalPackageFunction();
+            /*starlarkImportLookupFunctionForInlining=*/ null);
+    externalSkyFunc =
+        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     astSkyFunc = new WorkspaceASTFunction(ruleClassProvider);
     fakeWorkspaceFileValue = new FakeFileValue();
   }
@@ -151,7 +154,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     return ImmutableList.of();
   }
 
-  private Label getLabelMapping(Package pkg, String name) throws NoSuchTargetException {
+  private static Label getLabelMapping(Package pkg, String name) throws NoSuchTargetException {
     return (Label) ((Rule) pkg.getTarget(name)).getAttributeContainer().getAttr("actual");
   }
 
@@ -183,46 +186,50 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   private SkyFunction.Environment getEnv() throws InterruptedException {
+    PathPackageLocator locator = Mockito.mock(PathPackageLocator.class);
+    Mockito.when(locator.getPathEntries())
+        .thenReturn(ImmutableList.of(Root.fromPath(directories.getWorkspace())));
+
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(FileValue.FILE))))
-        .thenReturn(fakeWorkspaceFileValue);
+        .then(
+            invocation -> {
+              SkyKey key = (SkyKey) invocation.getArguments()[0];
+              String path = ((RootedPath) key.argument()).getRootRelativePath().getPathString();
+              FakeFileValue result = new FakeFileValue();
+              result.setExists(path.equals("WORKSPACE"));
+              return result;
+            });
     Mockito.when(
             env.getValue(
                 MockitoHamcrest.argThat(new SkyKeyMatchers(WorkspaceFileValue.WORKSPACE_FILE))))
         .then(
-            new Answer<SkyValue>() {
-              @Override
-              public SkyValue answer(InvocationOnMock invocation) throws Throwable {
-                SkyKey key = (SkyKey) invocation.getArguments()[0];
-                return workspaceSkyFunc.compute(key, getEnv());
-              }
+            invocation -> {
+              SkyKey key = (SkyKey) invocation.getArguments()[0];
+              return workspaceSkyFunc.compute(key, getEnv());
             });
     Mockito.when(
             env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_AST))))
         .then(
-            new Answer<SkyValue>() {
-              @Override
-              public SkyValue answer(InvocationOnMock invocation) throws Throwable {
-                SkyKey key = (SkyKey) invocation.getArguments()[0];
-                return astSkyFunc.compute(key, getEnv());
-              }
+            invocation -> {
+              SkyKey key = (SkyKey) invocation.getArguments()[0];
+              return astSkyFunc.compute(key, getEnv());
             });
     Mockito.when(
             env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
         .then(
-            new Answer<SkyValue>() {
-              @Override
-              public SkyValue answer(InvocationOnMock invocation) throws Throwable {
-                SkyKey key = (SkyKey) invocation.getArguments()[0];
-                if (key.equals(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting())) {
-                  return new PrecomputedValue(StarlarkSemantics.DEFAULT_SEMANTICS);
-                } else if (key.equals(
-                    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE
-                        .getKeyForTesting())) {
-                  return new PrecomputedValue(Optional.<RootedPath>absent());
-                } else {
-                  return null;
-                }
+            invocation -> {
+              SkyKey key = (SkyKey) invocation.getArguments()[0];
+              if (key.equals(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting())) {
+                return new PrecomputedValue(StarlarkSemantics.DEFAULT_SEMANTICS);
+              } else if (key.equals(
+                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE
+                      .getKeyForTesting())) {
+                return new PrecomputedValue(Optional.<RootedPath>absent());
+              } else if (key.equals(PrecomputedValue.PATH_PACKAGE_LOCATOR.getKeyForTesting())) {
+                return new PrecomputedValue(locator);
+              } else {
+                return null;
               }
             });
     return env;
@@ -621,38 +628,38 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
       PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithNinjaActions);
 
       assertThat(
-              parseWorkspaceFileValue("dont_symlink_directories_in_execroot(paths = [\"out\"])")
+              parseWorkspaceFileValue("toplevel_output_directories(paths = [\"out\"])")
                   .getDoNotSymlinkInExecrootPaths())
           .containsExactly("out");
       assertThat(
               parseWorkspaceFileValue(
-                      "dont_symlink_directories_in_execroot(paths = [\"out\", \"one more with"
+                      "toplevel_output_directories(paths = [\"out\", \"one more with"
                           + " space\"])")
                   .getDoNotSymlinkInExecrootPaths())
           .containsExactly("out", "one more with space");
       // Empty sequence is allowed.
       assertThat(
-              parseWorkspaceFileValue("dont_symlink_directories_in_execroot(paths = [])")
+              parseWorkspaceFileValue("toplevel_output_directories(paths = [])")
                   .getDoNotSymlinkInExecrootPaths())
           .isEmpty();
 
       parseWorkspaceFileValueWithError(
-          "dont_symlink_directories_in_execroot should not "
+          "toplevel_output_directories should not "
               + "contain duplicate values: \"out\" is specified more then once.",
-          "dont_symlink_directories_in_execroot(paths = [\"out\", \"out\"])");
+          "toplevel_output_directories(paths = [\"out\", \"out\"])");
       parseWorkspaceFileValueWithError(
-          "dont_symlink_directories_in_execroot can only accept "
+          "toplevel_output_directories can only accept "
               + "top level directories under workspace, \"out/subdir\" "
               + "can not be specified as an attribute.",
-          "dont_symlink_directories_in_execroot(paths = [\"out/subdir\"])");
+          "toplevel_output_directories(paths = [\"out/subdir\"])");
       parseWorkspaceFileValueWithError(
-          "Empty path can not be passed to " + "dont_symlink_directories_in_execroot.",
-          "dont_symlink_directories_in_execroot(paths = [\"\"])");
+          "Empty path can not be passed to " + "toplevel_output_directories.",
+          "toplevel_output_directories(paths = [\"\"])");
       parseWorkspaceFileValueWithError(
-          "dont_symlink_directories_in_execroot can only "
+          "toplevel_output_directories can only "
               + "accept top level directories under workspace, \"/usr/local/bin\" "
               + "can not be specified as an attribute.",
-          "dont_symlink_directories_in_execroot(paths = [\"/usr/local/bin\"])");
+          "toplevel_output_directories(paths = [\"/usr/local/bin\"])");
     } finally {
       PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
     }

@@ -201,8 +201,7 @@ class ActionTempTest(test_base.TestBase):
         'build', '--color=no', '--curses=no', '--spawn_strategy=foo'
     ])
     self.AssertExitCode(exit_code, 2, stderr)
-    pattern = re.compile(
-        r'^ERROR:.*is an invalid value for.*Valid values are: (.*)$')
+    pattern = re.compile(r'^ERROR:.*no strategy.*Valid values are: \[(.*)\]$')
     for line in stderr:
       m = pattern.match(line)
       if m:

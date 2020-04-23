@@ -15,19 +15,20 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static junit.framework.TestCase.fail;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaPool;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
-import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipeline;
+import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipelineImpl;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -48,7 +49,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipeline}. */
+/** Tests for {@link com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipelineImpl}. */
 @RunWith(JUnit4.class)
 public class NinjaPipelineTest {
   private static class Tester {
@@ -114,8 +115,8 @@ public class NinjaPipelineTest {
             "  command = c $in $out",
             "build t1: r1 in1 in2",
             "build t2: r1 in3");
-    NinjaPipeline pipeline =
-        new NinjaPipeline(
+    NinjaPipelineImpl pipeline =
+        new NinjaPipelineImpl(
             vfsPath.getParentDirectory(), tester.getService(), ImmutableList.of(), "ninja_target");
     List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
@@ -141,8 +142,8 @@ public class NinjaPipelineTest {
             "",
             "build t2: r1 in3",
             "");
-    NinjaPipeline pipeline =
-        new NinjaPipeline(
+    NinjaPipelineImpl pipeline =
+        new NinjaPipelineImpl(
             vfsPath.getParentDirectory(), tester.getService(), ImmutableList.of(), "ninja_target");
     List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
@@ -154,8 +155,8 @@ public class NinjaPipelineTest {
         tester.writeTmpFile(
             "test.ninja", "rule r1", "  command = c $in $out", "include child.ninja");
     Path childFile = tester.writeTmpFile("child.ninja", "build t1: r1 in1 in2", "build t2: r1 in3");
-    NinjaPipeline pipeline =
-        new NinjaPipeline(
+    NinjaPipelineImpl pipeline =
+        new NinjaPipelineImpl(
             vfsPath.getParentDirectory(),
             tester.getService(),
             ImmutableList.of(childFile),
@@ -174,8 +175,8 @@ public class NinjaPipelineTest {
             "  command = c $in $out",
             "include ${subfile}.ninja");
     Path childFile = tester.writeTmpFile("child.ninja", "build t1: r1 in1 in2", "build t2: r1 in3");
-    NinjaPipeline pipeline =
-        new NinjaPipeline(
+    NinjaPipelineImpl pipeline =
+        new NinjaPipelineImpl(
             vfsPath.getParentDirectory(),
             tester.getService(),
             ImmutableList.of(childFile),
@@ -202,8 +203,8 @@ public class NinjaPipelineTest {
             "var_for_sub=in3",
             "subninja ${subninja_file}.ninja");
     Path subFile = tester.writeTmpFile("sub.ninja", "build t2: r1 ${var_for_sub}");
-    NinjaPipeline pipeline =
-        new NinjaPipeline(
+    NinjaPipelineImpl pipeline =
+        new NinjaPipelineImpl(
             vfsPath.getParentDirectory(),
             tester.getService(),
             ImmutableList.of(childFile, subFile),
@@ -215,8 +216,8 @@ public class NinjaPipelineTest {
   @Test
   public void testEmptyFile() throws Exception {
     Path vfsPath = tester.writeTmpFile("test.ninja");
-    NinjaPipeline pipeline =
-        new NinjaPipeline(
+    NinjaPipelineImpl pipeline =
+        new NinjaPipelineImpl(
             vfsPath.getParentDirectory(), tester.getService(), ImmutableList.of(), "ninja_target");
     List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     assertThat(targets).isEmpty();
@@ -229,7 +230,7 @@ public class NinjaPipelineTest {
         assertThrows(
             GenericParsingException.class,
             () ->
-                new NinjaPipeline(
+                new NinjaPipelineImpl(
                         vfsPath.getParentDirectory(),
                         tester.getService(),
                         ImmutableList.of(),
@@ -247,8 +248,8 @@ public class NinjaPipelineTest {
     Path vfsPath = tester.writeTmpFile("test.ninja", "include one.ninja");
     Path oneFile = tester.writeTmpFile("one.ninja", "include two.ninja");
     Path twoFile = tester.writeTmpFile("two.ninja", "include one.ninja");
-    NinjaPipeline pipeline =
-        new NinjaPipeline(
+    NinjaPipelineImpl pipeline =
+        new NinjaPipelineImpl(
             vfsPath.getParentDirectory(),
             tester.getService(),
             ImmutableList.of(oneFile, twoFile),
@@ -282,8 +283,8 @@ public class NinjaPipelineTest {
             "   ",
             "build t1: r1 in1 in2");
     Path childFile = tester.writeTmpFile("child.ninja");
-    NinjaPipeline pipeline =
-        new NinjaPipeline(
+    NinjaPipelineImpl pipeline =
+        new NinjaPipelineImpl(
             vfsPath.getParentDirectory(),
             tester.getService(),
             ImmutableList.of(childFile),
@@ -295,21 +296,24 @@ public class NinjaPipelineTest {
   @Test
   public void testBigFile() throws Exception {
     String[] lines = new String[1000];
-    for (int i = 0; i < lines.length - 1; i++) {
+    for (int i = 0; i < lines.length - 2; i++) {
       lines[i] = "rule rule" + i + "\n command = echo 'Hello' > ${out}";
     }
-    lines[999] = "build out: rule1";
+    lines[998] = "build out: rule1";
+    lines[999] = "pool link_pool\n  depth = 4";
     Path path = tester.writeTmpFile("big_file.ninja", lines);
-    NinjaPipeline pipeline =
-        new NinjaPipeline(
+    NinjaPipelineImpl pipeline =
+        new NinjaPipelineImpl(
             path.getParentDirectory(), tester.getService(), ImmutableList.of(), "ninja_target");
     // Test specifically that all manipulations with connecting buffers are working fine:
     // for that, have relatively long file and small buffer size.
     pipeline.setReadBlockSize(100);
     List<NinjaTarget> targets = pipeline.pipeline(path);
     assertThat(targets).hasSize(1);
-    Map<String, List<Pair<Integer, NinjaRule>>> rules = targets.get(0).getScope().getRules();
-    assertThat(rules).hasSize(999);
+    Map<String, List<Pair<Long, NinjaPool>>> pools = targets.get(0).getScope().getPools();
+    assertThat(pools).hasSize(1);
+    Map<String, List<Pair<Long, NinjaRule>>> rules = targets.get(0).getScope().getRules();
+    assertThat(rules).hasSize(998);
     assertThat(rules.get("rule1")).hasSize(1);
     NinjaVariableValue expectedValue =
         NinjaVariableValue.builder().addText("echo 'Hello' > ").addVariable("out").build();

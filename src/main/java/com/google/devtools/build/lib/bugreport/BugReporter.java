@@ -33,4 +33,7 @@ public interface BugReporter {
 
   /** Reports an exception, see {@link BugReport#sendBugReport(Throwable, List, String[])}. */
   void sendBugReport(Throwable exception, List<String> args, String... values);
+
+  /** See {@link BugReport#handleCrash}. */
+  RuntimeException handleCrash(Throwable throwable, String... args);
 }

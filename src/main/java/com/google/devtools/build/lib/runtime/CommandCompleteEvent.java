@@ -14,25 +14,21 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.util.DetailedExitCode;
+
 /**
  * This event is fired when the Blaze command is complete
  * (clean, build, test, etc.).
  */
 public class CommandCompleteEvent extends CommandEvent {
+  private final DetailedExitCode detailedExitCode;
 
-  private final int exitCode;
-
-  /**
-   * @param exitCode the exit code of the blaze command
-   */
-  public CommandCompleteEvent(int exitCode) {
-    this.exitCode = exitCode;
+  public CommandCompleteEvent(DetailedExitCode detailedExitCode) {
+    this.detailedExitCode = detailedExitCode;
   }
 
-  /**
-   * @return the exit code of the blaze command
-   */
-  public int getExitCode() {
-    return exitCode;
+  /** Returns the exit code of the blaze command. */
+  public DetailedExitCode getExitCode() {
+    return detailedExitCode;
   }
 }

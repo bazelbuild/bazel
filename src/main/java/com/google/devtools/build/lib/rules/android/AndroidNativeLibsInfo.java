@@ -61,7 +61,7 @@ public final class AndroidNativeLibsInfo extends NativeInfo
 
     @Override
     public AndroidNativeLibsInfo createInfo(Depset nativeLibs) throws EvalException {
-      return new AndroidNativeLibsInfo(nativeLibs.getSetFromParam(Artifact.class, "native_libs"));
+      return new AndroidNativeLibsInfo(Depset.cast(nativeLibs, Artifact.class, "native_libs"));
     }
   }
 }

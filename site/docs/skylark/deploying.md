@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Deploying Rules
+title: Deploying rules
 ---
 
-# Deploying Rules
+# Deploying rules
 
 This documentation is for rule writers who are planning to make their
 rules available to others.

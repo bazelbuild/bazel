@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -180,7 +180,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "single arg to append."),
         @Param(
             name = "map_fn",
-            type = BaseFunction.class,
+            type = StarlarkCallable.class,
             named = true,
             positional = false,
             defaultValue = "None",
@@ -254,7 +254,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
             doc = "The list, tuple, or depset whose items will be appended."),
         @Param(
             name = "map_each",
-            type = BaseFunction.class,
+            type = StarlarkCallable.class,
             named = true,
             positional = false,
             defaultValue = "None",
@@ -413,7 +413,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "<a href='string.html#join'><code>string.join()</code></a>."),
         @Param(
             name = "map_each",
-            type = BaseFunction.class,
+            type = StarlarkCallable.class,
             named = true,
             positional = false,
             defaultValue = "None",

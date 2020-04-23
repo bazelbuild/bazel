@@ -76,18 +76,18 @@ class DexFileMerger {
    */
   public static class Options extends OptionsBase {
     @Option(
-      name = "input",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      abbrev = 'i',
-      help = "Input archives with .dex files to merge.  Inputs are processed in given order, so "
-          + "classes from later inputs will be added after earlier inputs.  Duplicate classes "
-          + "are dropped."
-    )
+        name = "input",
+        allowMultiple = true,
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        abbrev = 'i',
+        help =
+            "Input archives with .dex files to merge.  Inputs are processed in given order, so"
+                + " classes from later inputs will be added after earlier inputs.  Duplicate"
+                + " classes are dropped.")
     public List<Path> inputArchives;
 
     @Option(

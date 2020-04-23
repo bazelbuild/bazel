@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type;
@@ -348,7 +349,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       BuildOptions result = options.clone();
       result.get(TestOptions.class).testArguments = Collections.singletonList(toOption);
       return result;
@@ -412,6 +413,37 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     assertThat(getConfiguration(Iterables.getOnlyElement(eval("//test:dep"))))
         .isNotEqualTo(getConfiguration(Iterables.getOnlyElement(eval("//test:top-level"))));
+  }
+
+  private void writeSimpleTarget() throws Exception {
+    MockRule simpleRule =
+        () ->
+            MockRule.define(
+                "simple_rule", attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE));
+    helper.useRuleClassProvider(setRuleClassProviders(simpleRule).build());
+
+    writeFile("test/BUILD", "simple_rule(name = 'target')");
+  }
+
+  @Test
+  public void testVisibleFunctionDoesNotWork() throws Exception {
+    writeSimpleTarget();
+    assertThat(evalThrows("visible(//test:target, //test:*)", true))
+        .isEqualTo("visible() is not supported on configured targets");
+  }
+
+  @Test
+  public void testSiblingsFunctionDoesNotWork() throws Exception {
+    writeSimpleTarget();
+    assertThat(evalThrows("siblings(//test:target)", true))
+        .isEqualTo("siblings() not supported for post analysis queries");
+  }
+
+  @Test
+  public void testBuildfilesFunctionDoesNotWork() throws Exception {
+    writeSimpleTarget();
+    assertThat(evalThrows("buildfiles(//test:target)", true))
+        .isEqualTo("buildfiles() doesn't make sense for the configured target graph");
   }
 
   // LabelListAttr not currently supported.

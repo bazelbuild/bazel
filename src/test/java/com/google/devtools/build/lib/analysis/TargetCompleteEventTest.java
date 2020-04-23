@@ -41,7 +41,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     ConfiguredTarget ct = Iterables.getOnlyElement(result.getTargetsToBuild());
     TargetAndConfiguration tac = Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs());
     ConfiguredTargetAndData ctAndData =
-        new ConfiguredTargetAndData(ct, tac.getTarget(), tac.getConfiguration());
+        new ConfiguredTargetAndData(ct, tac.getTarget(), tac.getConfiguration(), null);
     TopLevelArtifactContext context =
         new TopLevelArtifactContext(false, false, OutputGroupInfo.DEFAULT_GROUPS);
     ArtifactsToBuild artifactsToBuild =

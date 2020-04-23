@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -279,7 +278,8 @@ public class TypeTest {
   @Test
   public void testListDepsetConversion() throws Exception {
     Object input =
-        Depset.of(SkylarkType.STRING, NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"));
+        Depset.of(
+            Depset.ElementType.STRING, NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"));
     Type.STRING_LIST.convert(input, null);
   }
 

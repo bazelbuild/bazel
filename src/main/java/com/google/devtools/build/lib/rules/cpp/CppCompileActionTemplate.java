@@ -168,7 +168,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
         cppCompileActionBuilder.buildMandatoryInputs(),
         cppCompileActionBuilder.buildPrunableHeaders(),
-        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeDirs(),
+        cppCompileActionBuilder.getCcCompilationContext().getLooseHdrsDirs(),
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),
         cppCompileActionBuilder.buildInputsForInvalidation(),
         toolchain

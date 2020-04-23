@@ -22,8 +22,9 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.OutputGroup;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 
@@ -57,7 +57,7 @@ public class AspectCompleteEvent
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
     for (Cause cause : getRootCauses().toList()) {
-      postedAfterBuilder.add(BuildEventId.fromCause(cause));
+      postedAfterBuilder.add(cause.getIdProto());
     }
     this.postedAfter = postedAfterBuilder.build();
     this.completionContext = completionContext;
@@ -108,8 +108,8 @@ public class AspectCompleteEvent
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.aspectCompleted(
-        aspectValue.getLabel(),
+    return BuildEventIdUtil.aspectCompleted(
+        aspectValue.getKey().getLabel(),
         configurationEventId,
         aspectValue.getAspect().getDescriptor().getDescription());
   }

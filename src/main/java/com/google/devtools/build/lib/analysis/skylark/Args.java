@@ -26,16 +26,15 @@ import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -268,7 +267,7 @@ public abstract class Args implements CommandLineArgsApi {
         Object mapFn,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final String argName;
       if (value == Starlark.UNBOUND) {
         value = argNameOrValue;
@@ -297,7 +296,7 @@ public abstract class Args implements CommandLineArgsApi {
       addScalarArg(
           value,
           format != Starlark.NONE ? (String) format : null,
-          mapFn != Starlark.NONE ? (BaseFunction) mapFn : null,
+          mapFn != Starlark.NONE ? (StarlarkCallable) mapFn : null,
           thread.getCallerLocation());
       return this;
     }
@@ -315,7 +314,7 @@ public abstract class Args implements CommandLineArgsApi {
         Object terminateWith,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -329,7 +328,7 @@ public abstract class Args implements CommandLineArgsApi {
           values,
           argName,
           /* mapAll= */ null,
-          mapEach != Starlark.NONE ? (BaseFunction) mapEach : null,
+          mapEach != Starlark.NONE ? (StarlarkCallable) mapEach : null,
           formatEach != Starlark.NONE ? (String) formatEach : null,
           beforeEach != Starlark.NONE ? (String) beforeEach : null,
           /* joinWith= */ null,
@@ -355,7 +354,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean expandDirectories,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -369,7 +368,7 @@ public abstract class Args implements CommandLineArgsApi {
           values,
           argName,
           /* mapAll= */ null,
-          mapEach != Starlark.NONE ? (BaseFunction) mapEach : null,
+          mapEach != Starlark.NONE ? (StarlarkCallable) mapEach : null,
           formatEach != Starlark.NONE ? (String) formatEach : null,
           /* beforeEach= */ null,
           joinWith,
@@ -385,8 +384,8 @@ public abstract class Args implements CommandLineArgsApi {
     private void addVectorArg(
         Object value,
         String argName,
-        BaseFunction mapAll,
-        BaseFunction mapEach,
+        StarlarkCallable mapAll,
+        StarlarkCallable mapEach,
         String formatEach,
         String beforeEach,
         String joinWith,
@@ -399,21 +398,19 @@ public abstract class Args implements CommandLineArgsApi {
         throws EvalException {
       SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof Depset) {
-        Depset skylarkNestedSet = ((Depset) value);
+        Depset skylarkNestedSet = (Depset) value;
         NestedSet<?> nestedSet = skylarkNestedSet.getSet();
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
         }
         vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(nestedSet);
       } else {
-        @SuppressWarnings("unchecked")
-        Sequence<Object> skylarkList = (Sequence<Object>) value;
+        Sequence<?> skylarkList = (Sequence) value;
         if (expandDirectories) {
           scanForDirectories(skylarkList);
         }
         vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(skylarkList);
       }
-      validateMapEach(mapEach);
       validateFormatString("format_each", formatEach);
       validateFormatString("format_joined", formatJoined);
       vectorArg
@@ -448,22 +445,6 @@ public abstract class Args implements CommandLineArgsApi {
       }
     }
 
-    private void validateMapEach(@Nullable BaseFunction mapEach) throws EvalException {
-      if (mapEach == null) {
-        return;
-      }
-      FunctionSignature sig = mapEach.getSignature();
-      boolean valid =
-          sig.numMandatoryPositionals() == 1
-              && sig.numOptionalPositionals() == 0
-              && sig.numMandatoryNamedOnly() == 0
-              && sig.numOptionalPositionals() == 0;
-      if (!valid) {
-        throw Starlark.errorf(
-            "map_each must be a function that accepts a single positional argument");
-      }
-    }
-
     private void validateFormatString(String argumentName, @Nullable String formatStr)
         throws EvalException {
       if (formatStr != null
@@ -474,7 +455,7 @@ public abstract class Args implements CommandLineArgsApi {
       }
     }
 
-    private void addScalarArg(Object value, String format, BaseFunction mapFn, Location loc)
+    private void addScalarArg(Object value, String format, StarlarkCallable mapFn, Location loc)
         throws EvalException {
       validateNoDirectory(value);
       validateFormatString("format", format);
@@ -503,7 +484,7 @@ public abstract class Args implements CommandLineArgsApi {
     @Override
     public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
         throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
@@ -519,7 +500,7 @@ public abstract class Args implements CommandLineArgsApi {
 
     @Override
     public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
-      checkMutable();
+      Starlark.checkMutable(this);
       final ParameterFileType parameterFileType;
       switch (format) {
         case "shell":

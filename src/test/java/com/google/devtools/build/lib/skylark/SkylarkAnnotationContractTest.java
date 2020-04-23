@@ -36,21 +36,21 @@ import org.junit.runners.JUnit4;
 public class SkylarkAnnotationContractTest {
 
   // Common prefix of packages in bazel that may have classes that implement or extend a
-  // Skylark type.
+  // Starlark type.
   private static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
 
   /**
-   * Verifies that every class in bazel that implements or extends a Skylark type has a clearly
+   * Verifies that every class in bazel that implements or extends a Starlark type has a clearly
    * resolvable type.
    *
    * <p>If this test fails, it indicates the following error scenario:
    *
-   * <p>Suppose class A is a subclass of both B and C, where B and C are annotated with
-   * @SkylarkModule annotations (and are thus considered "skylark types"). If B is not a
-   * subclass of C (nor visa versa), then it's impossible to resolve whether A is of type
-   * B or if A is of type C. It's both! The way to resolve this is usually to have A be its own
-   * type (annotated with @SkylarkModule), and thus have the explicit type of A be semantically
-   * "B and C".
+   * <p>Suppose class A is a subclass of both B and C, where B and C are annotated
+   * with @SkylarkModule annotations (and are thus considered "skylark types"). If B is not a
+   * subclass of C (nor visa versa), then it's impossible to resolve whether A is of type B or if A
+   * is of type C. It's both! The way to resolve this is usually to have A be its own type
+   * (annotated with @SkylarkModule), and thus have the explicit type of A be semantically "B and
+   * C".
    */
   @Test
   public void testResolvableSkylarkModules() throws Exception {

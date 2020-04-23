@@ -51,13 +51,12 @@ public class TestOptions extends OptionsBase {
    */
 
   @Option(
-    name = "test_multiple_string",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP},
-    defaultValue = "", // default value is ignored when allowMultiple=true.
-    allowMultiple = true,
-    help = "a repeatable string-valued flag with its own unhelpful help text"
-  )
+      name = "test_multiple_string",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null",
+      allowMultiple = true,
+      help = "a repeatable string-valued flag with its own unhelpful help text")
   public List<String> testMultipleString;
 
   /*
@@ -65,16 +64,15 @@ public class TestOptions extends OptionsBase {
    */
 
   @Option(
-    name = "test_list_converters",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP},
-    defaultValue = "",
-    allowMultiple = true,
-    converter = ToListConverter.class,
-    help =
-        "a repeatable flag that accepts lists, but doesn't want to have lists of lists "
-            + "as a final type"
-  )
+      name = "test_list_converters",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = ToListConverter.class,
+      help =
+          "a repeatable flag that accepts lists, but doesn't want to have lists of lists "
+              + "as a final type")
   public List<String> testListConverters;
 
   /*

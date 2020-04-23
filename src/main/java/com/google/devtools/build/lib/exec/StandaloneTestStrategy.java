@@ -31,13 +31,14 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
+import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
@@ -296,16 +297,15 @@ public class StandaloneTestStrategy extends TestStrategy {
     Path err = resolvedPaths.getTestStderr();
     FileOutErr testOutErr = new FileOutErr(out, err);
     Closeable streamed = null;
-    if (executionOptions.testOutput.equals(TestOutputFormat.STREAMED)) {
+    if (executionOptions.testOutput.equals(ExecutionOptions.TestOutputFormat.STREAMED)) {
       streamed =
-          new StreamedTestOutput(
+          createStreamedTestOutput(
               Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), out);
     }
     long startTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
+    SpawnStrategyResolver resolver = actionExecutionContext.getContext(SpawnStrategyResolver.class);
     SpawnContinuation spawnContinuation =
-        actionExecutionContext
-            .getContext(SpawnStrategy.class)
-            .beginExecution(spawn, actionExecutionContext.withFileOutErr(testOutErr));
+        resolver.beginExecution(spawn, actionExecutionContext.withFileOutErr(testOutErr));
     return new BazelTestAttemptContinuation(
         testAction,
         actionExecutionContext,
@@ -603,13 +603,14 @@ public class StandaloneTestStrategy extends TestStrategy {
           && fileOutErr.getOutputPath().exists()
           && !xmlOutputPath.exists()) {
         Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(testAction, primaryResult);
-        SpawnStrategy strategy = actionExecutionContext.getContext(SpawnStrategy.class);
+        SpawnStrategyResolver spawnStrategyResolver =
+            actionExecutionContext.getContext(SpawnStrategyResolver.class);
         // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
         // the test if this fails. We redirect the output to a temporary file.
         FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr();
         try {
           SpawnContinuation xmlContinuation =
-              strategy.beginExecution(
+              spawnStrategyResolver.beginExecution(
                   xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
           return new BazelXmlCreationContinuation(
               resolvedPaths, xmlSpawnOutErr, builder, spawnResults, xmlContinuation);

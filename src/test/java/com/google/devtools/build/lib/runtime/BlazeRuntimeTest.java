@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -132,7 +133,7 @@ public class BlazeRuntimeTest {
             options,
             ImmutableList.of());
     runtime.beforeCommand(env, options.getOptions(CommonCommandOptions.class));
-    runtime.cleanUpForCrash(ExitCode.OOM_ERROR);
+    runtime.cleanUpForCrash(DetailedExitCode.justExitCode(ExitCode.OOM_ERROR));
     BlazeCommandResult mainThreadCrash = BlazeCommandResult.exitCode(ExitCode.BLAZE_INTERNAL_ERROR);
     assertThat(runtime.afterCommand(env, mainThreadCrash).getExitCode())
         .isEqualTo(ExitCode.OOM_ERROR);

@@ -112,7 +112,7 @@ targets.
 
 Take a look at the `BUILD` file in the `cpp-tutorial/stage1/main` directory:
 
-```
+```python
 cc_binary(
     name = "hello-world",
     srcs = ["hello-world.cc"],
@@ -172,7 +172,7 @@ Let's visualize our sample project's dependencies. First, generate a text
 representation of the dependency graph (run the command at the workspace root):
 
 ```
-bazel query --notool_deps --noimplicit_deps 'deps(//main:hello-world)' \
+bazel query --notool_deps --noimplicit_deps "deps(//main:hello-world)" \
   --output graph
 ```
 
@@ -193,7 +193,7 @@ Then you can generate and view the graph by piping the text output above
 straight to xdot:
 
 ```
-xdot <(bazel query --notool_deps --noimplicit_deps 'deps(//main:hello-world)' \
+xdot <(bazel query --notool_deps --noimplicit_deps "deps(//main:hello-world)" \
   --output graph)
 ```
 
@@ -217,7 +217,7 @@ building multiple parts of a project at once.
 Let's split our sample project build into two targets. Take a look at the
 `BUILD` file in the `cpp-tutorial/stage2/main` directory:
 
-```
+```python
 cc_library(
     name = "hello-greet",
     srcs = ["hello-greet.cc"],

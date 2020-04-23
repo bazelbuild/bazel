@@ -15,7 +15,10 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -32,7 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,17 +51,17 @@ class BuildResultPrinter {
   }
 
   /**
-   * Shows the result of the build. Information includes the list of up-to-date
-   * and failed targets and list of output artifacts for successful targets
+   * Shows the result of the build. Information includes the list of up-to-date and failed targets
+   * and list of output artifacts for successful targets
    *
    * <p>This corresponds to the --show_result flag.
    */
-  public void showBuildResult(
+  void showBuildResult(
       BuildRequest request,
       BuildResult result,
       Collection<ConfiguredTarget> configuredTargets,
       Collection<ConfiguredTarget> configuredTargetsToSkip,
-      Collection<AspectValue> aspects) {
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects) {
     // NOTE: be careful what you print!  We don't want to create a consistency
     // problem where the summary message and the exit code disagree.  The logic
     // here is already complex.
@@ -73,12 +76,12 @@ class BuildResultPrinter {
             env.getWorkspace(),
             request.getBuildOptions().printWorkspaceInOutputPathsIfNeeded
                 ? env.getWorkingDirectory()
-                : env.getWorkspace());
+                : env.getWorkspace(),
+            request.getBuildOptions().experimentalNoProductNameOutSymlink);
     OutErr outErr = request.getOutErr();
     Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
-    Collection<AspectValue> aspectsToPrint = filterAspectsToPrint(aspects);
     final boolean success;
-    if (aspectsToPrint.isEmpty()) {
+    if (aspects.isEmpty()) {
       // Suppress summary if --show_result value is exceeded:
       if (targetsToPrint.size() > request.getBuildOptions().maxResultTargets) {
         return;
@@ -134,23 +137,25 @@ class BuildResultPrinter {
       success = failed.isEmpty();
     } else {
       // Suppress summary if --show_result value is exceeded:
-      if (aspectsToPrint.size() > request.getBuildOptions().maxResultTargets) {
+      if (aspects.size() > request.getBuildOptions().maxResultTargets) {
         return;
       }
       // Filter the targets we care about into two buckets:
-      Collection<AspectValue> succeeded = new ArrayList<>();
-      Collection<AspectValue> failed = new ArrayList<>();
-      Collection<AspectValue> successfulAspects = result.getSuccessfulAspects();
-      for (AspectValue aspect : aspectsToPrint) {
+      Collection<AspectKey> succeeded = new ArrayList<>();
+      Collection<AspectKey> failed = new ArrayList<>();
+      ImmutableSet<AspectKey> successfulAspects = result.getSuccessfulAspects();
+      for (AspectKey aspect : aspects.keySet()) {
         (successfulAspects.contains(aspect) ? succeeded : failed).add(aspect);
       }
       TopLevelArtifactContext context = request.getTopLevelArtifactContext();
-      for (AspectValue aspect : succeeded) {
+      for (AspectKey aspect : succeeded) {
         Label label = aspect.getLabel();
-        String aspectName = aspect.getConfiguredAspect().getName();
+        ConfiguredAspect configuredAspect = aspects.get(aspect);
+        String aspectName = aspect.getAspectClass().getName();
         boolean headerFlag = true;
         NestedSet<Artifact> importantArtifacts =
-            TopLevelArtifactHelper.getAllArtifactsToBuild(aspect, context).getImportantArtifacts();
+            TopLevelArtifactHelper.getAllArtifactsToBuild(configuredAspect, context)
+                .getImportantArtifacts();
         for (Artifact importantArtifact : importantArtifacts.toList()) {
           if (headerFlag) {
             outErr.printErr("Aspect " + aspectName + " of " + label + " up-to-date:\n");
@@ -165,9 +170,9 @@ class BuildResultPrinter {
               "Aspect " + aspectName + " of " + label + " up-to-date (nothing to build)\n");
         }
       }
-      for (AspectValue aspect : failed) {
+      for (AspectKey aspect : failed) {
         Label label = aspect.getLabel();
-        String aspectName = aspect.getConfiguredAspect().getName();
+        String aspectName = aspect.getAspectClass().getName();
         outErr.printErr("Aspect " + aspectName + " of " + label + " failed to build\n");
       }
       success = failed.isEmpty();
@@ -190,25 +195,24 @@ class BuildResultPrinter {
    *
    * <p>This corresponds to the --experimental_show_artifacts flag.
    */
-  public void showArtifacts(
+  void showArtifacts(
       BuildRequest request,
       Collection<ConfiguredTarget> configuredTargets,
-      Collection<AspectValue> aspects) {
+      Collection<ConfiguredAspect> aspects) {
 
     TopLevelArtifactContext context = request.getTopLevelArtifactContext();
     Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
-    Collection<AspectValue> aspectsToPrint = filterAspectsToPrint(aspects);
 
     NestedSetBuilder<Artifact> artifactsBuilder = NestedSetBuilder.stableOrder();
-    for (ConfiguredTarget target : targetsToPrint) {
-      artifactsBuilder.addTransitive(
-          TopLevelArtifactHelper.getAllArtifactsToBuild(target, context).getImportantArtifacts());
-    }
+    targetsToPrint.forEach(
+        t ->
+            artifactsBuilder.addTransitive(
+                TopLevelArtifactHelper.getAllArtifactsToBuild(t, context).getImportantArtifacts()));
 
-    for (AspectValue aspect : aspectsToPrint) {
-      artifactsBuilder.addTransitive(
-          TopLevelArtifactHelper.getAllArtifactsToBuild(aspect, context).getImportantArtifacts());
-    }
+    aspects.forEach(
+        a ->
+            artifactsBuilder.addTransitive(
+                TopLevelArtifactHelper.getAllArtifactsToBuild(a, context).getImportantArtifacts()));
 
     OutErr outErr = request.getOutErr();
     outErr.printErrLn("Build artifacts:");
@@ -261,9 +265,5 @@ class BuildResultPrinter {
       result.add(configuredTarget);
     }
     return result.build();
-  }
-
-  private Collection<AspectValue> filterAspectsToPrint(Collection<AspectValue> aspects) {
-    return aspects;
   }
 }

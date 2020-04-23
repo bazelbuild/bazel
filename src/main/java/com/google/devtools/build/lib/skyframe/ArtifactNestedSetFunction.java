@@ -43,7 +43,7 @@ import java.util.concurrent.ConcurrentMap;
  * <p>[1] Heuristic: If the size of the NestedSet exceeds a certain threshold, we evaluate it as an
  * ArtifactNestedSetKey.
  */
-class ArtifactNestedSetFunction implements SkyFunction {
+public class ArtifactNestedSetFunction implements SkyFunction {
 
   /**
    * A concurrent map from Artifacts' SkyKeys to their ValueOrException, for Artifacts that are part
@@ -68,8 +68,15 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * therefore not populating artifactSkyKeyToValueOrException with X2's member Artifacts. Hence if
    * we clear artifactSkyKeyToValueOrException between build 0 and 1, X2's member artifacts'
    * SkyValues would not be available in the map.
+   *
+   * <p>We can't make this a:
+   *
+   * <p>- Weak-keyd map since ActionExecutionValue holds a reference to Artifact.
+   *
+   * <p>- Weak-valued map since there's nothing else holding on to ValueOrException and the entry
+   * will GCed immediately.
    */
-  private final ConcurrentMap<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
+  private ConcurrentMap<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
       artifactSkyKeyToValueOrException;
 
   /**
@@ -132,6 +139,10 @@ class ArtifactNestedSetFunction implements SkyFunction {
   public static ArtifactNestedSetFunction createInstance() {
     singleton = new ArtifactNestedSetFunction();
     return singleton;
+  }
+
+  public void resetArtifactSkyKeyToValueOrException() {
+    artifactSkyKeyToValueOrException = Maps.newConcurrentMap();
   }
 
   Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>

@@ -16,32 +16,22 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Streams;
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 /** A utility class for the desguaring of nest-based access control classes. */
 public final class LangModelHelper {
-
-  /**
-   * The primitive type as specified at
-   * https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-2.html#jvms-2.3
-   */
-  private static final ImmutableMap<Type, Type> PRIMITIVES_TO_BOXED_TYPES =
-      ImmutableMap.<Type, Type>builder()
-          .put(Type.INT_TYPE, Type.getObjectType("java/lang/Integer"))
-          .put(Type.BOOLEAN_TYPE, Type.getObjectType("java/lang/Boolean"))
-          .put(Type.BYTE_TYPE, Type.getObjectType("java/lang/Byte"))
-          .put(Type.CHAR_TYPE, Type.getObjectType("java/lang/Character"))
-          .put(Type.SHORT_TYPE, Type.getObjectType("java/lang/Short"))
-          .put(Type.DOUBLE_TYPE, Type.getObjectType("java/lang/Double"))
-          .put(Type.FLOAT_TYPE, Type.getObjectType("java/lang/Float"))
-          .put(Type.LONG_TYPE, Type.getObjectType("java/lang/Long"))
-          .build();
 
   /**
    * The lookup table for dup instructional opcodes. The row key is the count of words on stack top
@@ -59,15 +49,6 @@ public final class LangModelHelper {
           .put(1, 2, Opcodes.DUP_X2)
           .put(2, 2, Opcodes.DUP2_X2)
           .build();
-
-  /** Whether the given type is a primitive type */
-  public static boolean isPrimitive(Type type) {
-    return PRIMITIVES_TO_BOXED_TYPES.containsKey(type);
-  }
-
-  public static Type toBoxedType(Type primitiveType) {
-    return PRIMITIVES_TO_BOXED_TYPES.get(primitiveType);
-  }
 
   /**
    * Returns the operation code for pop operations with a single instruction support by their type
@@ -161,6 +142,270 @@ public final class LangModelHelper {
     } else {
       mv.visitLdcInsn(value);
     }
+  }
+
+  /**
+   * Emits bytecode to allocate a new object array, stores the bottom values in the operand stack to
+   * the new array, and replaces the bottom values with a reference to the newly-allocated array.
+   *
+   * <p>Operand Stack:
+   * <li>Before instructions: [Stack Top]..., value_n, value_n-1, ..., value_2, value_1, value_0
+   * <li>After instructions: [Stack Top] ..., value_n, arrayref
+   *
+   *     <p>where n is the size of {@code expectedTypesOnOperandStack} and is expected to be equal
+   *     to array length referenced by arrayref
+   *
+   * @param mv The current method visitor that is visiting the class.
+   * @param mappers Applies to an operand stack value if tested positive on {@code filter}.
+   * @param expectedTypesOnOperandStack The expected types at the bottom of the operand stack. The
+   * @param extraConstants Extra constants to be stored in the object array.
+   */
+  public static ImmutableList<ClassName> collapseStackValuesToObjectArray(
+      MethodVisitor mv,
+      ImmutableList<Function<ClassName, Optional<MethodInvocationSite>>> mappers,
+      ImmutableList<ClassName> expectedTypesOnOperandStack,
+      ImmutableList<Object> extraConstants) {
+    // Creates an array of java/lang/Object to store the values on top of the operand stack that
+    // are subject to string concatenation.
+
+    for (Object constant : extraConstants) {
+      mv.visitLdcInsn(constant);
+    }
+
+    int numOfValuesOnOperandStack = expectedTypesOnOperandStack.size() + extraConstants.size();
+
+    visitPushInstr(mv, numOfValuesOnOperandStack);
+    mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/Object");
+
+    // To preserve the order of the operands to be string-concatenated, we slot the values on
+    // the top of the stack to the end of the array.
+    List<ClassName> actualTypesInObjectArray =
+        Streams.concat(
+                expectedTypesOnOperandStack.stream(),
+                extraConstants.stream().map(Object::getClass).map(ClassName::create))
+            .collect(Collectors.toList());
+    for (int i = numOfValuesOnOperandStack - 1; i >= 0; i--) {
+      Type arrayElementType = actualTypesInObjectArray.get(i).toAsmObjectType();
+      // Pre-duplicates the array reference for next loop iteration use.
+      // Post-operation stack bottom to top:
+      //     ..., value_i-1, arrayref, value_i, arrayref.
+      mv.visitInsn(
+          getTypeSizeAlignedDupOpcode(
+              ImmutableList.of(Type.getType(Object.class)), ImmutableList.of(arrayElementType)));
+
+      // Pushes the array index and adjusts the order of the values on stack top in the order
+      // of <bottom/> arrayref, index, value <top/> before emitting an aastore instruction.
+      // https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.aastore
+      // Post-operation stack bottom to top:
+      //     ..., value_i-1, arrayref, value_i, arrayref, i.
+      visitPushInstr(mv, i);
+      // Cross-duplicates the array reference and index.
+      // Post-operation stack bottom to top:
+      //     ..., value_i-1, arrayref, arrayref, i, value_i, arrayref, i.
+      mv.visitInsn(
+          getTypeSizeAlignedDupOpcode(
+              ImmutableList.of(Type.getType(Object.class), Type.getType(int.class)),
+              ImmutableList.of(arrayElementType)));
+
+      // Pops arrayref, index, leaving the stack top as value_i.
+      // Post-operation stack bottom to top:
+      //     ..., value_i-1, arrayref, arrayref, i, value_i.
+      mv.visitInsn(
+          getTypeSizeAlignedPopOpcode(
+              ImmutableList.of(Type.getType(Object.class), Type.getType(int.class))));
+
+      int targetArrayIndex = i;
+      mappers.stream()
+          .map(mapper -> mapper.apply(actualTypesInObjectArray.get(targetArrayIndex)))
+          .flatMap(Streams::stream)
+          .forEach(
+              typeConversionSite -> {
+                typeConversionSite.accept(mv);
+                actualTypesInObjectArray.set(targetArrayIndex, typeConversionSite.returnTypeName());
+              });
+
+      // Post-operation stack bottom to top:
+      //     ..., value_i-1, arrayref.
+      mv.visitInsn(Opcodes.AASTORE);
+    }
+    return ImmutableList.copyOf(actualTypesInObjectArray);
+  }
+
+  /**
+   * Emits bytecode to replace the object array reference at the operand stack bottom with its array
+   * element values.
+   *
+   * <p>Operand Stack:
+   * <li>Before instructions: [Stack Top] ..., value_n, arrayref
+   * <li>After instructions: [Stack Top]..., value_n, value_n-1, ..., value_2, value_1, value_0
+   *
+   *     <p>where n is the array length referenced by arrayref and is expected to be equal to the
+   *     size of {@code expectedTypesOnOperandStack} expanded on the operand stack.
+   *
+   * @param mv The current method visitor that is visiting the class.
+   * @param expectedTypesOnOperandStack The expected types at the bottom of the operand stack. The
+   *     end of the list corresponds to the the bottom of the operand stack.
+   */
+  public static void expandObjectArrayToStackValues(
+      MethodVisitor mv, ImmutableList<ClassName> expectedTypesOnOperandStack) {
+    int numOfValuesExpandedOnOperandStack = expectedTypesOnOperandStack.size();
+    for (int i = 0; i < numOfValuesExpandedOnOperandStack; i++) {
+      ClassName operandTypeName = expectedTypesOnOperandStack.get(i);
+      // Pre-duplicates the array reference for next loop iteration use.
+      // Post-operation stack bottom to top:
+      //     ..., arrayref, arrayref
+      mv.visitInsn(Opcodes.DUP);
+
+      // Pushes the current array index on stack.
+      // Post-operation stack bottom to top:
+      //     ..., arrayref, arrayref, i
+      visitPushInstr(mv, i);
+
+      // Post-operation stack bottom to top:
+      //     ..., arrayref, obj_value_i
+      mv.visitInsn(Opcodes.AALOAD);
+
+      // Post-operation stack bottom to top:
+      //     ..., arrayref, cast_and_unboxed_value_i
+      if (operandTypeName.isPrimitive()) {
+        ClassName boxedTypeName = operandTypeName.toBoxedType();
+        mv.visitTypeInsn(Opcodes.CHECKCAST, boxedTypeName.binaryName());
+        createBoxedTypeToPrimitiveInvocationSite(boxedTypeName).accept(mv);
+      } else if (!ClassName.create(Object.class).equals(operandTypeName)) {
+        mv.visitTypeInsn(Opcodes.CHECKCAST, operandTypeName.binaryName());
+      }
+
+      //     ..., cast_and_unboxed_value_i, arrayref
+      if (operandTypeName.isWideType()) {
+        mv.visitInsn(Opcodes.DUP2_X1);
+        mv.visitInsn(Opcodes.POP2);
+      } else {
+        mv.visitInsn(Opcodes.SWAP);
+      }
+    }
+
+    // pops out the original arrayref.
+    mv.visitInsn(Opcodes.POP);
+  }
+
+  public static ImmutableList<ClassName> mapOperandStackValues(
+      MethodVisitor mv,
+      ImmutableList<Function<ClassName, Optional<MethodInvocationSite>>> mappers,
+      ImmutableList<ClassName> sourceTypesOnOperandStack,
+      ImmutableList<ClassName> targetTypesOnOperandStack,
+      String beginningMarker) {
+    ImmutableList<ClassName> classNames =
+        collapseStackValuesToObjectArray(
+            mv,
+            ImmutableList.<Function<ClassName, Optional<MethodInvocationSite>>>builder()
+                .addAll(mappers)
+                .add(LangModelHelper::anyPrimitiveToBoxedTypeInvocationSite)
+                .build(),
+            sourceTypesOnOperandStack,
+            ImmutableList.of(beginningMarker));
+    expandObjectArrayToStackValues(mv, targetTypesOnOperandStack);
+    return classNames;
+  }
+
+  public static Optional<MethodInvocationSite> anyPrimitiveToStringInvocationSite(
+      ClassName className) {
+    return className.isPrimitive()
+        ? Optional.of(createPrimitiveToStringInvocationSite(className))
+        : Optional.empty();
+  }
+
+  /** Convenient factory method for converting a primitive type to string call site. */
+  private static MethodInvocationSite createPrimitiveToStringInvocationSite(
+      ClassName primitiveTypeName) {
+    checkArgument(
+        primitiveTypeName.isPrimitive(),
+        "Expected a primitive type for a type boxing call site, but got %s",
+        primitiveTypeName);
+    return MethodInvocationSite.builder()
+        .setInvocationKind(MemberUseKind.INVOKESTATIC)
+        .setMethod(
+            MethodKey.create(
+                primitiveTypeName.toBoxedType(),
+                "toString",
+                Type.getMethodDescriptor(
+                    Type.getType(String.class), primitiveTypeName.toAsmObjectType())))
+        .setIsInterface(false)
+        .build();
+  }
+
+  public static Optional<MethodInvocationSite> anyObjectToStringInvocationSite(
+      ClassName className) {
+    return className.isPrimitive()
+        ? Optional.empty()
+        : Optional.of(
+            MethodInvocationSite.builder()
+                .setInvocationKind(MemberUseKind.INVOKEVIRTUAL)
+                .setMethod(
+                    MethodKey.create(
+                        className,
+                        "toString",
+                        Type.getMethodDescriptor(Type.getType(String.class))))
+                .setIsInterface(false)
+                .build());
+  }
+
+  /** Convenient factory method for converting a primitive type to string call site. */
+  public static Optional<MethodInvocationSite> anyPrimitiveToBoxedTypeInvocationSite(
+      ClassName className) {
+    return className.isPrimitive()
+        ? Optional.of(createPrimitiveToBoxedTypeInvocationSite(className))
+        : Optional.empty();
+  }
+
+  private static MethodInvocationSite createPrimitiveToBoxedTypeInvocationSite(
+      ClassName primitiveTypeName) {
+    checkArgument(
+        primitiveTypeName.isPrimitive(),
+        "Expected a primitive type for a type boxing call site, but got %s",
+        primitiveTypeName);
+    return MethodInvocationSite.builder()
+        .setInvocationKind(MemberUseKind.INVOKESTATIC)
+        .setMethod(
+            MethodKey.create(
+                primitiveTypeName.toBoxedType(),
+                "valueOf",
+                Type.getMethodDescriptor(
+                    primitiveTypeName.toBoxedType().toAsmObjectType(),
+                    primitiveTypeName.toAsmObjectType())))
+        .setIsInterface(false)
+        .build();
+  }
+
+  private static MethodInvocationSite createBoxedTypeToPrimitiveInvocationSite(
+      ClassName boxedType) {
+    String boxedTypeBinaryName = boxedType.binaryName();
+    final MethodKey typeUnboxingMethod;
+    if ("java/lang/Boolean".contentEquals(boxedTypeBinaryName)) {
+      typeUnboxingMethod = MethodKey.create(boxedType, "booleanValue", "()Z");
+    } else if ("java/lang/Character".contentEquals(boxedTypeBinaryName)) {
+      typeUnboxingMethod = MethodKey.create(boxedType, "charValue", "()C");
+    } else if ("java/lang/Byte".contentEquals(boxedTypeBinaryName)) {
+      typeUnboxingMethod = MethodKey.create(boxedType, "byteValue", "()B");
+    } else if ("java/lang/Short".contentEquals(boxedTypeBinaryName)) {
+      typeUnboxingMethod = MethodKey.create(boxedType, "shortValue", "()S");
+    } else if ("java/lang/Integer".contentEquals(boxedTypeBinaryName)) {
+      typeUnboxingMethod = MethodKey.create(boxedType, "intValue", "()I");
+    } else if ("java/lang/Float".contentEquals(boxedTypeBinaryName)) {
+      typeUnboxingMethod = MethodKey.create(boxedType, "floatValue", "()F");
+    } else if ("java/lang/Long".contentEquals(boxedTypeBinaryName)) {
+      typeUnboxingMethod = MethodKey.create(boxedType, "longValue", "()J");
+    } else if ("java/lang/Double".contentEquals(boxedTypeBinaryName)) {
+      typeUnboxingMethod = MethodKey.create(boxedType, "doubleValue", "()D");
+    } else {
+      throw new IllegalArgumentException(
+          String.format(
+              "Expected a boxed type to create a type boxing call site, but got %s", boxedType));
+    }
+    return MethodInvocationSite.builder()
+        .setInvocationKind(MemberUseKind.INVOKEVIRTUAL)
+        .setMethod(typeUnboxingMethod)
+        .setIsInterface(false)
+        .build();
   }
 
   private LangModelHelper() {}

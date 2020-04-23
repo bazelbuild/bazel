@@ -14,25 +14,25 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 
-/** Stores information about a skylark aspect definition. */
+/** Stores information about a Starlark aspect definition. */
 public class AspectInfoWrapper {
-  private final BaseFunction identifierFunction;
+  private final StarlarkCallable identifierFunction;
   private final Location location;
   // Only the Builder is passed to AspectInfoWrapper as the aspect name is not yet available.
   private final AspectInfo.Builder aspectInfo;
 
   public AspectInfoWrapper(
-      BaseFunction identifierFunction, Location location, AspectInfo.Builder aspectInfo) {
+      StarlarkCallable identifierFunction, Location location, AspectInfo.Builder aspectInfo) {
     this.identifierFunction = identifierFunction;
     this.location = location;
     this.aspectInfo = aspectInfo;
   }
 
-  public BaseFunction getIdentifierFunction() {
+  public StarlarkCallable getIdentifierFunction() {
     return identifierFunction;
   }
 

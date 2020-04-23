@@ -14,26 +14,26 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 
-/** Stores information about a skylark rule definition. */
+/** Stores information about a Starlark rule definition. */
 public class RuleInfoWrapper {
 
-  private final BaseFunction identifierFunction;
+  private final StarlarkCallable identifierFunction;
   private final Location location;
   // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
   private final RuleInfo.Builder ruleInfo;
 
   public RuleInfoWrapper(
-      BaseFunction identifierFunction, Location location, RuleInfo.Builder ruleInfo) {
+      StarlarkCallable identifierFunction, Location location, RuleInfo.Builder ruleInfo) {
     this.identifierFunction = identifierFunction;
     this.location = location;
     this.ruleInfo = ruleInfo;
   }
 
-  public BaseFunction getIdentifierFunction() {
+  public StarlarkCallable getIdentifierFunction() {
     return identifierFunction;
   }
 

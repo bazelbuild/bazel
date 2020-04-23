@@ -182,7 +182,7 @@ public final class ConfigurationFragmentPolicy {
 
   /**
    * A dictionary that maps configurations (NONE for target configuration, HOST for host
-   * configuration) to lists of Skylark module names of required configuration fragments.
+   * configuration) to lists of Starlark module names of required configuration fragments.
    */
   private final ImmutableSetMultimap<ConfigurationTransition, String>
       starlarkRequiredConfigurationFragments;

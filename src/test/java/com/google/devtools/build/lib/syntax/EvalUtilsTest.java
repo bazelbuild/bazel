@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -121,40 +121,6 @@ public final class EvalUtilsTest extends EvaluationTestCase {
     assertThrows(
         ComparisonException.class,
         () -> EvalUtils.SKYLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
-  }
-
-  @SkylarkModule(name = "ParentType", doc = "A parent class annotated with @SkylarkModule.")
-  private static class ParentClassWithSkylarkModule implements StarlarkValue {}
-
-  private static class ChildClass extends ParentClassWithSkylarkModule {}
-
-  private static class StarlarkValueSubclass implements StarlarkValue {
-    @Override
-    public void repr(Printer printer) {
-      printer.append("StarlarkValueSubclass");
-    }
-  }
-
-  private static class NonStarlarkValueSubclass {}
-
-  @Test
-  public void testGetSkylarkType() {
-    assertThat(EvalUtils.getSkylarkType(ParentClassWithSkylarkModule.class))
-        .isEqualTo(ParentClassWithSkylarkModule.class);
-    assertThat(EvalUtils.getSkylarkType(ChildClass.class))
-        .isEqualTo(ParentClassWithSkylarkModule.class);
-    assertThat(EvalUtils.getSkylarkType(StarlarkValueSubclass.class))
-        .isEqualTo(StarlarkValueSubclass.class);
-
-    IllegalArgumentException expected =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> EvalUtils.getSkylarkType(NonStarlarkValueSubclass.class));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "class com.google.devtools.build.lib.syntax.EvalUtilsTest$NonStarlarkValueSubclass "
-                + "is not allowed as a Starlark value");
   }
 
   @Test

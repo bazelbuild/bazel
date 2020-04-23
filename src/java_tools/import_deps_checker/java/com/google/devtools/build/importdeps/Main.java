@@ -48,56 +48,54 @@ public class Main {
   /** Command line options. */
   public static class Options extends OptionsBase {
     @Option(
-      name = "input",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      abbrev = 'i',
-      help = "Input jars with classes to check the completeness of their dependencies."
-    )
+        name = "input",
+        allowMultiple = true,
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        abbrev = 'i',
+        help = "Input jars with classes to check the completeness of their dependencies.")
     public List<Path> inputJars;
 
     @Option(
-      name = "directdep",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      help = "Subset of Jars listed in --classpath_entry that --input Jars are allowed to depend "
-          + "on directly."
-    )
+        name = "directdep",
+        allowMultiple = true,
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        help =
+            "Subset of Jars listed in --classpath_entry that --input Jars are allowed to depend "
+                + "on directly.")
     public List<Path> directClasspath;
 
     @Option(
-      name = "classpath_entry",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      help =
-          "Ordered classpath (Jar) to resolve symbols in the --input jars, like javac's -cp flag."
-    )
+        name = "classpath_entry",
+        allowMultiple = true,
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        help =
+            "Ordered classpath (Jar) to resolve symbols in the --input jars, like javac's -cp"
+                + " flag.")
     public List<Path> fullClasspath;
 
     @Option(
-      name = "bootclasspath_entry",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      help =
-          "Bootclasspath that was used to compile the --input Jar with, like javac's "
-              + "-bootclasspath_entry flag (required)."
-    )
+        name = "bootclasspath_entry",
+        allowMultiple = true,
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        help =
+            "Bootclasspath that was used to compile the --input Jar with, like javac's "
+                + "-bootclasspath_entry flag (required).")
     public List<Path> bootclasspath;
 
     @Option(
@@ -130,22 +128,20 @@ public class Main {
     public String ruleLabel;
 
     @Option(
-      name = "checking_mode",
-      defaultValue = "WARNING",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = CheckingModeConverter.class,
-      help = "Controls the behavior of the checker."
-    )
+        name = "checking_mode",
+        defaultValue = "WARNING",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = CheckingModeConverter.class,
+        help = "Controls the behavior of the checker.")
     public CheckingMode checkingMode;
 
     @Option(
-      name = "check_missing_members",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Whether to check whether referenced fields and methods are defined."
-    )
+        name = "check_missing_members",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Whether to check whether referenced fields and methods are defined.")
     public boolean checkMissingMembers;
   }
 
@@ -281,9 +277,7 @@ public class Main {
     }
   }
 
-  /**
-   * The checking mode of the dependency checker.
-   */
+  /** The checking mode of the dependency checker. */
   public enum CheckingMode {
     /** Emit 'errors' on missing or incomplete dependencies. */
     ERROR,

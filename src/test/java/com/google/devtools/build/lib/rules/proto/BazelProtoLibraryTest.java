@@ -358,7 +358,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/foo/WORKSPACE");
@@ -464,7 +464,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/yolo_repo/WORKSPACE");
@@ -518,7 +518,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/yolo_repo/WORKSPACE");
@@ -573,7 +573,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/yolo_repo/WORKSPACE");
@@ -627,7 +627,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     if (siblingRepoLayout) {
-      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+      setStarlarkSemanticsOptions("--experimental_sibling_repository_layout");
     }
 
     scratch.file("/yolo_repo/WORKSPACE");
@@ -1002,5 +1002,42 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     scratch.file("a/BUILD", "proto_library(", "    name = 'a',", "    srcs = ['a.proto'],", ")");
 
     getConfiguredTarget("//a");
+  }
+
+  @Test
+  public void testNoExperimentalProtoDescriptorSetsIncludeSourceInfo() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(",
+        "    name = 'a_proto',",
+        "    srcs = ['a.proto'],",
+        ")");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a_proto"));
+    assertThat(commandLine).doesNotContain("--include_source_info");
+  }
+
+  @Test
+  public void testExperimentalProtoDescriptorSetsIncludeSourceInfo() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    useConfiguration("--experimental_proto_descriptor_sets_include_source_info");
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(",
+        "    name = 'a_proto',",
+        "    srcs = ['a.proto'],",
+        ")");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//x:a_proto"));
+    assertThat(commandLine).contains("--include_source_info");
   }
 }

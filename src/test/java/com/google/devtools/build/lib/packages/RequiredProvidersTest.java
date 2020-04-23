@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,8 +37,8 @@ public class RequiredProvidersTest {
   private static final Provider P_NATIVE =
       new NativeProvider<StructImpl>(StructImpl.class, "p_native") {};
 
-  private static final SkylarkProvider P_SKYLARK =
-      SkylarkProvider.createUnexportedSchemaless(Location.BUILTIN);
+  private static final StarlarkProvider P_SKYLARK =
+      StarlarkProvider.createUnexportedSchemaless(Location.BUILTIN);
 
   static {
     try {
@@ -48,12 +48,12 @@ public class RequiredProvidersTest {
     }
   }
 
-  private static final SkylarkProviderIdentifier ID_NATIVE =
-      SkylarkProviderIdentifier.forKey(P_NATIVE.getKey());
-  private static final SkylarkProviderIdentifier ID_SKYLARK =
-      SkylarkProviderIdentifier.forKey(P_SKYLARK.getKey());
-  private static final SkylarkProviderIdentifier ID_LEGACY =
-      SkylarkProviderIdentifier.forLegacy("p_legacy");
+  private static final StarlarkProviderIdentifier ID_NATIVE =
+      StarlarkProviderIdentifier.forKey(P_NATIVE.getKey());
+  private static final StarlarkProviderIdentifier ID_SKYLARK =
+      StarlarkProviderIdentifier.forKey(P_SKYLARK.getKey());
+  private static final StarlarkProviderIdentifier ID_LEGACY =
+      StarlarkProviderIdentifier.forLegacy("p_legacy");
 
   private static boolean satisfies(AdvertisedProviderSet providers,
       RequiredProviders requiredProviders) {
@@ -212,10 +212,10 @@ public class RequiredProvidersTest {
   private static boolean validateSkylark(
       AdvertisedProviderSet providerSet,
       String missing,
-      ImmutableSet<SkylarkProviderIdentifier>... sets) {
+      ImmutableSet<StarlarkProviderIdentifier>... sets) {
     RequiredProviders.Builder anyBuilder = RequiredProviders.acceptAnyBuilder();
     RequiredProviders.Builder noneBuilder = RequiredProviders.acceptNoneBuilder();
-    for (ImmutableSet<SkylarkProviderIdentifier> set : sets) {
+    for (ImmutableSet<StarlarkProviderIdentifier> set : sets) {
       anyBuilder.addSkylarkSet(set);
       noneBuilder.addSkylarkSet(set);
     }

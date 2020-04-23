@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** The interface for a license in Skylark. */
+/** The interface for a license in Starlark. */
 @SkylarkModule(
     name = "License",
     category = SkylarkModuleCategory.BUILTIN,

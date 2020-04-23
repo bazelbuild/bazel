@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,11 +32,11 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
@@ -325,8 +325,11 @@ public class ProtoCompileActionBuilder {
       RuleContext ruleContext, ProtoInfo protoInfo, Services allowServices)
       throws InterruptedException {
     Artifact output = protoInfo.getDirectDescriptorSet();
+    ImmutableList<ProtoInfo> protoDeps =
+        ImmutableList.copyOf(
+            ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProtoInfo.PROVIDER));
     NestedSet<Artifact> dependenciesDescriptorSets =
-        ProtoCommon.computeDependenciesDescriptorSets(ruleContext);
+        ProtoCommon.computeDependenciesDescriptorSets(protoDeps);
     if (protoInfo.getDirectProtoSources().isEmpty()) {
       ruleContext.registerAction(
           FileWriteAction.createEmptyWithInputs(
@@ -337,7 +340,9 @@ public class ProtoCompileActionBuilder {
     SpawnAction.Builder actions =
         createActions(
             ruleContext,
-            ImmutableList.of(createDescriptorSetToolchain(output.getExecPathString())),
+            ImmutableList.of(
+                createDescriptorSetToolchain(
+                    ruleContext.getFragment(ProtoConfiguration.class), output.getExecPathString())),
             protoInfo,
             ruleContext.getLabel(),
             ImmutableList.of(output),
@@ -353,7 +358,13 @@ public class ProtoCompileActionBuilder {
     ruleContext.registerAction(actions.build(ruleContext));
   }
 
-  private static ToolchainInvocation createDescriptorSetToolchain(CharSequence outReplacement) {
+  private static ToolchainInvocation createDescriptorSetToolchain(
+      ProtoConfiguration configuration, CharSequence outReplacement) {
+    ImmutableList.Builder<String> protocOpts = ImmutableList.builder();
+    if (configuration.experimentalProtoDescriptorSetsIncludeSourceInfo()) {
+      protocOpts.add("--include_source_info");
+    }
+
     return new ToolchainInvocation(
         "dontcare",
         ProtoLangToolchainProvider.create(
@@ -365,7 +376,8 @@ public class ProtoCompileActionBuilder {
             /* pluginExecutable= */ null,
             /* runtime= */ null,
             /* blacklistedProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER)),
-        outReplacement);
+        outReplacement,
+        protocOpts.build());
   }
 
   /** Whether to use exports in the proto compile action. */
@@ -449,7 +461,7 @@ public class ProtoCompileActionBuilder {
     }
 
     FilesToRunProvider compilerTarget =
-        ruleContext.getExecutablePrerequisite(":proto_compiler", RuleConfiguredTarget.Mode.HOST);
+        ruleContext.getExecutablePrerequisite(":proto_compiler", TransitionMode.HOST);
     if (compilerTarget == null) {
       return null;
     }
@@ -552,6 +564,8 @@ public class ProtoCompileActionBuilder {
             "--plugin=protoc-gen-PLUGIN_%s=%s",
             invocation.name, toolchain.pluginExecutable().getExecutable().getExecPath());
       }
+
+      cmdLine.addAll(invocation.protocOpts);
     }
 
     cmdLine.addAll(protocOpts);
@@ -749,13 +763,23 @@ public class ProtoCompileActionBuilder {
     final String name;
     public final ProtoLangToolchainProvider toolchain;
     final CharSequence outReplacement;
+    final ImmutableList<String> protocOpts;
 
     public ToolchainInvocation(
         String name, ProtoLangToolchainProvider toolchain, CharSequence outReplacement) {
-      checkState(!name.contains(" "), "Name %s should not contain spaces", name);
+      this(name, toolchain, outReplacement, ImmutableList.of());
+    }
+
+    public ToolchainInvocation(
+        String name,
+        ProtoLangToolchainProvider toolchain,
+        CharSequence outReplacement,
+        ImmutableList<String> protocOpts) {
+      Preconditions.checkState(!name.contains(" "), "Name %s should not contain spaces", name);
       this.name = name;
       this.toolchain = toolchain;
       this.outReplacement = outReplacement;
+      this.protocOpts = Preconditions.checkNotNull(protocOpts);
     }
   }
 }

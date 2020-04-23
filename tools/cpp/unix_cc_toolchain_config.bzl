@@ -354,8 +354,8 @@ def _impl(ctx):
                     flag_group(
                         flags = [
                             "-fprofile-use=%{fdo_profile_path}",
-                            "-Xclang-only=-Wno-profile-instr-unprofiled",
-                            "-Xclang-only=-Wno-profile-instr-out-of-date",
+                            "-Wno-profile-instr-unprofiled",
+                            "-Wno-profile-instr-out-of-date",
                             "-fprofile-correction",
                         ],
                         expand_if_available = "fdo_profile_path",
@@ -808,8 +808,8 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-Xclang-only=-mllvm",
-                            "-Xclang-only=-prefetch-hints-file=%{fdo_prefetch_hints_path}",
+                            "-mllvm",
+                            "-prefetch-hints-file=%{fdo_prefetch_hints_path}",
                         ],
                         expand_if_available = "fdo_prefetch_hints_path",
                     ),

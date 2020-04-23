@@ -70,7 +70,7 @@ public final class ProguardSpecProvider extends NativeInfo
     public ProguardSpecProvider create(Depset specs) throws EvalException {
       return new ProguardSpecProvider(
           NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(specs.getSetFromParam(Artifact.class, "specs"))
+              .addTransitive(Depset.cast(specs, Artifact.class, "specs"))
               .build());
     }
   }

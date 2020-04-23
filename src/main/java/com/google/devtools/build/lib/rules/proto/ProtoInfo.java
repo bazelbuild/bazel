@@ -18,14 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.Pair;
 import javax.annotation.Nullable;
 
@@ -37,13 +36,14 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact> {
   /** Provider class for {@link ProtoInfo} objects. */
-  public static class Provider extends BuiltinProvider<ProtoInfo> implements ProtoInfoApi.Provider {
-    public Provider() {
+  public static class ProtoInfoProvider extends BuiltinProvider<ProtoInfo>
+      implements ProtoInfoProviderApi {
+    public ProtoInfoProvider() {
       super(ProtoBootstrap.PROTO_INFO_STARLARK_NAME, ProtoInfo.class);
     }
   }
 
-  public static final Provider PROVIDER = new Provider();
+  public static final ProtoInfoProvider PROVIDER = new ProtoInfoProvider();
 
   private final ImmutableList<Artifact> directProtoSources;
   private final ImmutableList<Artifact> originalDirectProtoSources;
@@ -146,7 +146,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    */
   @Override
   public Depset /*<String>*/ getTransitiveProtoSourceRootsForStarlark() {
-    return Depset.of(SkylarkType.STRING, transitiveProtoSourceRoots);
+    return Depset.of(Depset.ElementType.STRING, transitiveProtoSourceRoots);
   }
 
   public NestedSet<String> getTransitiveProtoSourceRoots() {

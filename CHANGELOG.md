@@ -1,3 +1,195 @@
+## Release 3.1.0 (2020-04-21)
+
+```
+Baseline: 17ebbf15bea3733c0c21e0376fb5906e391edb49
+
+Cherry picks:
+
+   + 71fb56b4bb669a419f473598c8722e125dbb5c9e:
+     Suppress last-ditch download exceptions w/cleanup
+   + fd60614c38da0db22431d91a793423904dff801f:
+     In repo rules, don't warn about generator_* attributes being
+     non-canonical
+   + 2a372792f5cc09bd0e8389d5fc4bbfdd2f5d6e37:
+     Refactor configureFeatures and prevent NPE
+   + 777a6ee6ed95cae4ddb949d52b63ee8a66024f03:
+     Automated rollback of commit
+     0bbe38176e15d891a4e4cab2d8425e292de6cc5f.
+   + 2ee53c9267eb6de8eae109950ca8f3953bf1ae66:
+     Guard parseActionResultMetadata with bulk wrapper
+```
+
+Incompatible changes:
+
+  - The deprecated startup options
+    --experimental_oom_more_eagerly(_threshold) are removed.
+
+Important changes:
+
+  - Remove flag
+    --incompatible_load_proto_toolchain_for_javalite_from_com_google_p
+    rotobuf which has been flipped in Bazel 3.0.
+  - Allow assembly file sources in cc_common.compile.
+  - Set default .netrc file on Windows to %USERPROFILE%
+  - A maximum 150 attributes per RuleClass is enforced
+  - Increase max targets per rule class limit to 200
+  - ctx.split_attr now includes attributes with Starlark split
+    transitions.
+  - The --max_computation_steps flag bounds the computation done by a
+    BUILD file.
+  - Native patch can handle file permission properly
+  - Aspects may now propagate through dependencies on rule outputs by
+    being defined with `apply_to_generating_rules = True`.
+  - 'query --output=build' now shows where rule classes (not just
+    rules) are created.
+  - The flag `incompatible_bzl_disallow_load_after_statement` is
+    removed.
+  - ctx.split_attr now includes attributes with Starlark split
+    transitions.
+  - The flag `incompatible_no_output_attr_default` is removed.
+  - Fix wall-time of the SpawnResult in WorkerSpawnRunner
+  - Add stamp parameter for cc_common.link to enable including build
+    info
+  - The flag `--incompatible_restrict_named_params` is removed.
+  - The flag `--incompatible_depset_union` is removed.
+  - Bazel uses fewer compiler flags by default when building
+    Objective-C. In
+    particular, Bazel no longer sets `-O0`, `-DDEBUG=1`,
+    `-fstack-protector`, `-fstack-protector-all`, or `-g` in dbg
+    mode, and
+    Bazel no longer sets `-Os`, `-DNDEBUG=1`, `-Wno-unused-variable`,
+    `-Winit-self`, or `-Wno-extra` in opt mode. If you want to apply
+    these
+    flags to your project, you can reenable them in your CROSSTOOL.
+  - A maximum attribute name length is 128 is enforced
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Benjamin Peterson, Benjamin Romano, Bor Kae Hwang, Chris Heisterkamp, Cristian Hancila, Dmitri G, Douglas Parker, George Gensure, Gregor Jasny, John Millikin, Keith Smiley, Leo, Mike Fourie, Patrick Balestra, Robbert Van Ginkel, Ryota, Samuel Giddins, Ulf Adams, Ulf Adams, Vertexwahn, Xavier Bonaventura, Yannic Bonenberger.
+
+## Release 3.0.0 (2020-04-06)
+
+```
+Baseline: 3c7cc747ac653dca8b88a9e43726a794e2c27a9c
+
+Cherry picks:
+
+   + 19e214b44df9c82a8a3bd3381344f7145813c572:
+     Use prefix encoding for paths.
+   + 63b01f7b1cd6603a08bf2a8ae813388c201e3448:
+     Avoid file operations in the sandbox creation critical path.
+   + 80a2d7cc5f8a22816934dcd2ca9bdf87050f3d9f:
+     Implementation (but not plumbing) of the gRPC remote downloader
+   + 586eabf419972c74fdd5fef328cfe9a259e035ed:
+     Implement RemoteDownloader w/ `--experimental_remote_downloader`
+```
+
+Incompatible changes:
+
+  - Flip --incompatible_remove_enabled_toolchain_types, so that rules
+    can no longer access enabled toolchain types from the platform
+    fragment.
+  - The --incompatible_use_jdk11_as_host_javabase flag has been
+    removed (it was flipped in Bazel 0.25.0).
+  - Using JDK 9 or 10 as a `--host_javabase` is no longer officially
+    supported. As always, you can use the
+    `@bazel_tools//tools/jdk:toolchain_vanilla` Java toolchain to use
+    older or newer JDKs than what Bazel currently supports.
+  - --fatal_event_bus_exceptions is deprecated and should not be
+    used. Any crashes should be reported so that they can be fixed.
+  - The old-style binary profile format is no longer suppported, use
+    the new JSON trace profile instead.
+
+Important changes:
+
+  - Improve the performance of creating a sandboxed execution root
+    for workers when the number of inputs is large (>1000).
+  - Treat .cu and .cl files as C++ source. CUDA or OpenCL are not
+    natively supported and will require custom flags to compile with
+    e.g. clang.
+  - Add actions' primary output details in JSON profile and
+    analysis_v2.proto.
+  - Add --cds_archive option for embedding CDS archive into deploy
+    JAR.
+  - Add new global attribute: applicable_licenses
+    - Package level default with default_applicable_licenses
+    - guarded by --incompatible_applicable_licenses (default true for
+    Blaze, false for Bazel)
+    - In support of
+    https://docs.google.com/document/d/1uwBuhAoBNrw8tmFs-NxlssI6VRolid
+    GYdYqagLqHWt8/edit#
+  - Non-test Java rules no longer require the TestConfiguration and
+    thus --trim_test_configuration is again usable for Java builds
+  - The flag `--incompatible_always_check_depset_elements` is enabled
+    by default.
+  - --incompatible_objc_compile_info_migration determines
+    whether native rules can assume compile info has been migrated to
+    CcInfo. See https://github.com/bazelbuild/bazel/issues/10854.
+  - --incompatible_remove_local_resources is true by default. Please
+    use --local_ram_resources and --local_cpu_resources instead of
+    --local_resources.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Benjamin Peterson, Christy Norman, Dave hughes, David Haxton, David Neil, garyschulte, George Chiramel, George Gensure, Gibson Fahnestock, Greg Estren, Greg, Jason Hoch, Jin, John Millikin, Jonathan Springer, Keith Smiley, Laurent Le Brun, Ulf Adams, Yannic Bonenberger, Yannic, Yihong Wang, Yuchen Dai.
+
+## Release 2.2.0 (2020-03-03)
+
+```
+Baseline: 78055efad0917b848078bf8d97b3adfddf91128d
+```
+
+Incompatible changes:
+
+  - The --[no]incompatible_windows_bashless_run_command flag is no
+    longer supported. It was flipped in Bazel 1.0
+  - The --[no]incompatible_windows_native_test_wrapper flag is no
+    longer supported. It was flipped in Bazel 1.0
+
+Important changes:
+
+  - Consistent target naming style in example target names.
+  - cquery's config() now supports arbitrary configurations.
+  - The flag --incompatible_disallow_dict_lookup_unhashable_keys is
+    removed.
+  - Include target label in Python version error message.
+  - The flag --incompatible_remap_main_repo is removed.
+  - Windows: we now discourage running Bazel from MSYS2 because of a
+    newly found bug (#10573)
+  - Reduced the packaging time (`package-bazel.sh`) for the
+    `//src:bazel-dev` Bazel development build target from 14s to 6s.
+    Use `//src:bazel-dev` if you're iterating rapidly on a local
+    Bazel changes, and use `//src:bazel --compilation_mode=opt` for
+    release builds.
+  - cquery: "//foo:bar" now means "all configured targets with label
+    //foo:bar" instead of "choose an arbitrary configured target with
+    label //foo:bar". See cquery docs for details.
+  - WORKSPACE and BUILD.bazel files of http_archive repositories can
+    now be patched using the "patch_cmds" and "patches" attributes.
+  - Actions with "parse" on the critical path should no longer finish
+    in the future.
+  - Flags that affect external repositories like
+    "--override_repository" can now be addressed in bazelrc files
+    using the "common" command, without causing commands like "bazel
+    shutdown" to fail.
+  - The flag --incompatible_disallow_unverified_http_downloads is
+    removed.
+  - Create the incompatibleApplicableLicenses flag.
+    We plan to flip this from false to true in Bazel 4.x.
+    Implementation to follow.
+  - Treat .cu and .cl files as C++ source. CUDA or OpenCL are not
+    natively supported and will require custom flags to compile with
+    e.g. clang.
+  - Treat .cu and .cl files as C++ source. CUDA or OpenCL are not
+    natively supported and will require custom flags to compile with
+    e.g. clang.
+  - The --starlark_cpu_profile=<file> flag writes a profile in
+    pprof format containing a statistical summary of CPU usage
+    by all Starlark execution during the bazel command. Use it
+    to identify slow Starlark functions in loading and analysis.
+  - --ram_utilization_factor will be deprecated. Please use
+    --local_ram_resources=HOST_RAM*<float>
+  - Docs: glob() documentation is rewritten, and now it points out a
+    pitfall of rules shadowing glob-matched files.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alex Kirchhoff, aman, Artur Dryomov, Benjamin Peterson, Benjamin Peterson, David Ostrovsky, Elliotte Rusty Harold, Eric Klein, George Chiramel, George Gensure, Guillaume Bouchard, Hui-Zhi, John Millikin, Jonathan Springer, Laurent Le Brun, Michael McLoughlin, nikola-sh, Nikolaus Wittenstein, Nikolay Shelukhin, Yannic Bonenberger, Yannic.
+
 ## Release 2.1.0 (2020-02-07)
 
 ```

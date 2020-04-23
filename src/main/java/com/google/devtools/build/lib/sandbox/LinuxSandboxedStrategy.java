@@ -38,6 +38,7 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
+   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param timeoutKillDelay additional grace period before killing timing out commands
@@ -46,6 +47,7 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
    * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
    */
   static LinuxSandboxedSpawnRunner create(
+      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
@@ -66,6 +68,7 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
     inaccessibleHelperDir.setExecutable(false);
 
     return new LinuxSandboxedSpawnRunner(
+        helpers,
         cmdEnv,
         sandboxBase,
         inaccessibleHelperFile,

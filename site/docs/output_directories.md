@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Output Directory Layout
+title: Output directory layout
 ---
 
-# Output Directory Layout
+# Output directory layout
 
 ## Requirements
 
@@ -20,7 +20,7 @@ Requirements for an output directory layout:
 * All the build state per user should be underneath one directory ("I'd like to
   clean all the .o files from all my clients.")
 
-## Documentation of the current Bazel output directory layout
+## Current layout
 
 The solution that's currently implemented:
 
@@ -55,7 +55,7 @@ directories inside a target-specific directory inside the output directory.
 These symlinks are only for the user's convenience, as Bazel itself does not
 use them. Also, we only do this if the workspace directory is writable.
 
-## Bazel internals: Directory layout
+## Layout diagram
 
 The directories are laid out as follows:
 

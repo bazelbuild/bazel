@@ -99,7 +99,8 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
+  public ListenableFuture<ActionResult> downloadActionResult(
+      ActionKey actionKey, boolean inlineOutErr) {
     return Utils.downloadAsActionResult(
         actionKey, (digest, out) -> download(digest, out, /* isActionCache= */ true));
   }

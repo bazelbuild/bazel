@@ -67,7 +67,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "extra_execution_platforms",
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       allowMultiple = true,
       effectTags = {OptionEffectTag.EXECUTION},
@@ -111,7 +111,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "extra_toolchains",
-      defaultValue = "",
+      defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       allowMultiple = true,
@@ -130,7 +130,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "toolchain_resolution_override",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -155,21 +155,6 @@ public class PlatformOptions extends FragmentOptions {
           "Print debug information while finding toolchains for a rule. This might help developers "
               + "of Bazel or Starlark rules with debugging failures due to missing toolchains.")
   public boolean toolchainResolutionDebug;
-
-  @Option(
-      name = "enabled_toolchain_types",
-      defaultValue = "",
-      converter = LabelListConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      deprecationWarning =
-          "Use --incompatible_enable_cc_toolchain_resolution to enable toolchain for cc rules. "
-              + "Other rules will define separate flags as needed.",
-      help =
-          "Enable toolchain resolution for the given toolchain type, if the rules used support "
-              + "that. This does not directly change the core Blaze machinery, but is a signal to "
-              + "participating rule implementations that toolchain resolution should be used.")
-  public List<Label> enabledToolchainTypes;
 
   @Option(
       name = "incompatible_auto_configure_host_platform",
@@ -219,7 +204,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "experimental_add_exec_constraints_to_targets",
       converter = RegexFilterToLabelListConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       allowMultiple = true,
@@ -242,7 +227,6 @@ public class PlatformOptions extends FragmentOptions {
     host.platformMappings = this.platformMappings;
     host.extraExecutionPlatforms = this.extraExecutionPlatforms;
     host.extraToolchains = this.extraToolchains;
-    host.enabledToolchainTypes = this.enabledToolchainTypes;
     host.toolchainResolutionDebug = this.toolchainResolutionDebug;
     host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
     host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
