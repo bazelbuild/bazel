@@ -221,6 +221,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // execExclusively() which is not an explicit shutdown.
         shutdownReason = "explicitly by client " + clientDescription;
       }
+      if (!result.getDetailedExitCode().isSuccess()) {
+        logger.atInfo().log("Exit status was %s", result.getDetailedExitCode());
+      }
       return result;
     } finally {
       synchronized (commandLock) {
@@ -347,6 +350,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         try (SilentCloseable closeable = Profiler.instance().profile(module + ".beforeCommand")) {
           module.beforeCommand(env);
         } catch (AbruptExitException e) {
+          logger.atInfo().withCause(e).log("Error in %s", module);
           // Don't let one module's complaints prevent the other modules from doing necessary
           // setup. We promised to call beforeCommand exactly once per-module before each command
           // and will be calling afterCommand soon in the future - a module's afterCommand might
@@ -476,6 +480,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // Notify the BlazeRuntime, so it can do some initial setup.
         env.beforeCommand(waitTimeInMs, invocationPolicy);
       } catch (AbruptExitException e) {
+        logger.atInfo().withCause(e).log("Error before command");
         reporter.handle(Event.error(e.getMessage()));
         result = BlazeCommandResult.exitCode(e.getExitCode());
         return result;
@@ -509,6 +514,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           reporter.handle(Event.error("command interrupted while setting up package cache"));
           earlyExitCode = ExitCode.INTERRUPTED;
         } catch (AbruptExitException e) {
+          logger.atInfo().withCause(e).log("Error package loading");
           reporter.handle(Event.error(e.getMessage()));
           earlyExitCode = e.getExitCode();
         }
