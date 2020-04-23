@@ -89,66 +89,45 @@ import javax.annotation.Nullable;
 public final class Depset implements StarlarkValue {
   private final ElementType elemType;
   private final NestedSet<?> set;
-  @Nullable private final ImmutableList<Object> items; // TODO(laurentlb): Delete field.
-  @Nullable private final ImmutableList<NestedSet<?>> transitiveItems;
 
   @AutoCodec.VisibleForSerialization
-  Depset(
-      ElementType elemType,
-      NestedSet<?> set,
-      ImmutableList<Object> items,
-      ImmutableList<NestedSet<?>> transitiveItems) {
-    this.elemType = Preconditions.checkNotNull(elemType, "type cannot be null");
+  Depset(ElementType elemType, NestedSet<?> set) {
+    this.elemType = Preconditions.checkNotNull(elemType, "element type cannot be null");
     this.set = set;
-    this.items = items;
-    this.transitiveItems = transitiveItems;
   }
 
-  // TODO(laurentlb): Remove the left argument once `unionOf` is deleted.
-  private static Depset create(
-      Order order, ElementType elemType, Object item, @Nullable Depset left) throws EvalException {
-    ImmutableList.Builder<Object> itemsBuilder = ImmutableList.builder();
-    ImmutableList.Builder<NestedSet<?>> transitiveItemsBuilder = ImmutableList.builder();
-    if (left != null) {
-      if (left.items == null) { // SkylarkSet created from native NestedSet
-        transitiveItemsBuilder.add(left.set);
-      } else { // Preserving the left-to-right addition order.
-        itemsBuilder.addAll(left.items);
-        transitiveItemsBuilder.addAll(left.transitiveItems);
-      }
-    }
-    // Adding the item
-    if (item instanceof Depset) {
-      Depset nestedSet = (Depset) item;
+  // Implementation of deprecated depset(items) constructor, where items is
+  // supplied positionally. See https://github.com/bazelbuild/bazel/issues/9017.
+  static Depset legacyOf(Order order, Object items) throws EvalException {
+    ElementType elemType = ElementType.EMPTY;
+    NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
+
+    if (items instanceof Depset) {
+      Depset nestedSet = (Depset) items;
       if (!nestedSet.isEmpty()) {
         elemType = checkType(elemType, nestedSet.elemType);
-        transitiveItemsBuilder.add(nestedSet.set);
+        try {
+          builder.addTransitive(nestedSet.set);
+        } catch (IllegalArgumentException e) {
+          // Order mismatch between items and builder.
+          throw Starlark.errorf("%s", e.getMessage());
+        }
       }
-    } else if (item instanceof Sequence) {
-      for (Object x : (Sequence) item) {
+
+    } else if (items instanceof Sequence) {
+      for (Object x : (Sequence) items) {
         checkElement(x, /*strict=*/ true);
         ElementType xt = ElementType.of(x.getClass());
         elemType = checkType(elemType, xt);
-        itemsBuilder.add(x);
+        builder.add(x);
       }
+
     } else {
       throw Starlark.errorf(
-          "cannot union value of type '%s' to a depset", EvalUtils.getDataTypeName(item));
+          "depset: got value of type '%s', want depset or sequence", Starlark.type(items));
     }
-    ImmutableList<Object> items = itemsBuilder.build();
-    ImmutableList<NestedSet<?>> transitiveItems = transitiveItemsBuilder.build();
-    // Initializing the real nested set
-    NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
-    builder.addAll(items);
-    try {
-      for (NestedSet<?> nestedSet : transitiveItems) {
-        builder.addTransitive(nestedSet);
-      }
-    } catch (IllegalArgumentException e) {
-      // Order mismatch between item and builder.
-      throw Starlark.errorf("%s", e.getMessage());
-    }
-    return new Depset(elemType, builder.build(), items, transitiveItems);
+
+    return new Depset(elemType, builder.build());
   }
 
   private static void checkElement(Object x, boolean strict) throws EvalException {
@@ -182,16 +161,6 @@ public final class Depset implements StarlarkValue {
     }
   }
 
-  // implementation of deprecated depset(x) constructor
-  static Depset legacyOf(Order order, Object items) throws EvalException {
-    return create(order, ElementType.EMPTY, items, null);
-  }
-
-  // TODO(laurentlb): Delete the method. It's used only in tests.
-  static Depset unionOf(Depset left, Object right) throws EvalException {
-    return create(left.set.getOrder(), left.elemType, right, left);
-  }
-
   /**
    * Returns a Depset that wraps the specified NestedSet.
    *
@@ -217,7 +186,7 @@ public final class Depset implements StarlarkValue {
   // two arguments: of(Class<T> elemType, NestedSet<T> set). We could also avoid the allocations
   // done by ElementType.of().
   public static <T> Depset of(ElementType elemType, NestedSet<T> set) {
-    return new Depset(elemType, set, null, null);
+    return new Depset(elemType, set);
   }
 
   /**
@@ -242,7 +211,7 @@ public final class Depset implements StarlarkValue {
    * <p>If you do not specifically need the {@code NestedSet} and you are going to flatten it
    * anyway, prefer {@link #toCollection} to make your intent clear.
    *
-   * @param type a {@link Class} representing the expected type of the contents
+   * @param type a {@link Class} representing the expected type of the elements
    * @return the {@code NestedSet}, with the appropriate generic type
    * @throws TypeException if the type does not accurately describe all elements
    */
@@ -273,7 +242,7 @@ public final class Depset implements StarlarkValue {
    * instance of class {@code type}. Requires traversing the entire graph of the underlying
    * NestedSet.
    *
-   * @param type a {@link Class} representing the expected type of the contents
+   * @param type a {@link Class} representing the expected type of the elements
    * @throws TypeException if the type does not accurately describe all elements
    */
   public <T> ImmutableList<T> toCollection(Class<T> type) throws TypeException {
@@ -424,7 +393,7 @@ public final class Depset implements StarlarkValue {
       }
     }
 
-    return new Depset(type, builder.build(), null, null);
+    return new Depset(type, builder.build());
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */

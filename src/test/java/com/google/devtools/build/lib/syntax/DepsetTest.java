@@ -16,14 +16,11 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.syntax.Depset.ElementType;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -343,7 +340,12 @@ public final class DepsetTest extends EvaluationTestCase {
         boolean compatible = true;
 
         try {
-          Depset.unionOf(s1, s2);
+          // merge
+          Depset.fromDirectAndTransitive(
+              first,
+              /*direct=*/ ImmutableList.of(),
+              /*transitive=*/ ImmutableList.of(s1, s2),
+              /*strict=*/ true);
         } catch (Exception ex) {
           compatible = false;
         }
@@ -353,71 +355,8 @@ public final class DepsetTest extends EvaluationTestCase {
     }
   }
 
-  private boolean areOrdersCompatible(Order first, Order second) {
+  private static boolean areOrdersCompatible(Order first, Order second) {
     return first == Order.STABLE_ORDER || second == Order.STABLE_ORDER || first == second;
-  }
-
-  @Test
-  public void testOrderComplexUnion() throws Exception {
-    // {1, 11, {2, 22}, {3, 33}, {4, 44}}
-    List<String> preOrder = Arrays.asList("1", "11", "2", "22", "3", "33", "4", "44");
-    List<String> postOrder = Arrays.asList("2", "22", "3", "33", "4", "44", "1", "11");
-
-    MergeStrategy strategy =
-        new MergeStrategy() {
-          @Override
-          public Depset merge(Depset[] sets) throws Exception {
-            Depset union = Depset.unionOf(sets[0], sets[1]);
-            union = Depset.unionOf(union, sets[2]);
-            union = Depset.unionOf(union, sets[3]);
-
-            return union;
-          }
-        };
-
-    runComplexOrderTest(strategy, preOrder, postOrder);
-  }
-
-  @Test
-  public void testOrderBalancedTree() throws Exception {
-    // {{1, 11, {2, 22}}, {3, 33, {4, 44}}}
-    List<String> preOrder = Arrays.asList("1", "11", "2", "22", "3", "33", "4", "44");
-    List<String> postOrder = Arrays.asList("2", "22", "4", "44", "3", "33", "1", "11");
-
-    MergeStrategy strategy =
-        new MergeStrategy() {
-          @Override
-          public Depset merge(Depset[] sets) throws Exception {
-            Depset leftUnion = Depset.unionOf(sets[0], sets[1]);
-            Depset rightUnion = Depset.unionOf(sets[2], sets[3]);
-            Depset union = Depset.unionOf(leftUnion, rightUnion);
-
-            return union;
-          }
-        };
-
-    runComplexOrderTest(strategy, preOrder, postOrder);
-  }
-
-  @Test
-  public void testOrderManyLevelsOfNesting() throws Exception {
-    // {1, 11, {2, 22, {3, 33, {4, 44}}}}
-    List<String> preOrder = Arrays.asList("1", "11", "2", "22", "3", "33", "4", "44");
-    List<String> postOrder = Arrays.asList("4", "44", "3", "33", "2", "22", "1", "11");
-
-    MergeStrategy strategy =
-        new MergeStrategy() {
-          @Override
-          public Depset merge(Depset[] sets) throws Exception {
-            Depset union = Depset.unionOf(sets[2], sets[3]);
-            union = Depset.unionOf(sets[1], union);
-            union = Depset.unionOf(sets[0], union);
-
-            return union;
-          }
-        };
-
-    runComplexOrderTest(strategy, preOrder, postOrder);
   }
 
   @Test
@@ -500,43 +439,6 @@ public final class DepsetTest extends EvaluationTestCase {
             "  return None")
         .testEval("create_depset(1000)", "None")
         .testIfErrorContains("depset exceeded maximum depth 2000", "create_depset(3000)");
-  }
-
-  private interface MergeStrategy {
-    Depset merge(Depset[] sets) throws Exception;
-  }
-
-  private void runComplexOrderTest(
-      MergeStrategy strategy, List<String> preOrder, List<String> postOrder) throws Exception {
-    Map<Order, List<String>> expected = createExpectedMap(preOrder, postOrder);
-    for (Order order : Order.values()) {
-      Depset union = strategy.merge(makeFourSets(order));
-      assertThat(union.toCollection()).containsExactlyElementsIn(expected.get(order)).inOrder();
-    }
-  }
-
-  private Map<Order, List<String>> createExpectedMap(
-      List<String> preOrder, List<String> postOrder) {
-    Map<Order, List<String>> expected = new HashMap<>();
-
-    for (Order order : Order.values()) {
-      expected.put(order, isPostOrder(order) ? postOrder : preOrder);
-    }
-
-    return expected;
-  }
-
-  private boolean isPostOrder(Order order) {
-    return order == Order.STABLE_ORDER || order == Order.COMPILE_ORDER;
-  }
-
-  private Depset[] makeFourSets(Order order) throws Exception {
-    return new Depset[] {
-      Depset.legacyOf(order, Tuple.of("1", "11")),
-      Depset.legacyOf(order, Tuple.of("2", "22")),
-      Depset.legacyOf(order, Tuple.of("3", "33")),
-      Depset.legacyOf(order, Tuple.of("4", "44"))
-    };
   }
 
   @Test
