@@ -101,6 +101,7 @@ message FailureDetail {
     CrashOptions crash_options = 118;
     Filesystem filesystem = 119;
     ExecutionOptions execution_options = 121;
+    Command command = 122;
   }
 
   reserved 102; // For internal use
@@ -117,6 +118,7 @@ message Interrupted {
     BUILD = 4 [(metadata) = { exit_code: 8 }];
     BUILD_COMPLETION = 5 [(metadata) = { exit_code: 8 }];
     reserved 1 to 3; // For internal use
+    PACKAGE_LOADING_SYNC = 6 [(metadata) = { exit_code: 8 }];
 
     // TODO(mschaller): Add subcategories that specify what was happening at the
     //  time of interruption.
@@ -298,6 +300,26 @@ message ExecutionOptions {
   enum Code {
     EXECUTION_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     reserved 1, 2; // For internal use
+  }
+
+  Code code = 1;
+}
+
+message Command {
+  enum Code {
+    // The name "COMMAND_UNKNOWN" might reasonably be interpreted as "command
+    // not found". The enum's default value should represent a lack of knowledge
+    // about the failure instead.
+    COMMAND_FAILURE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    COMMAND_NOT_FOUND = 1 [(metadata) = { exit_code: 2 }];
+    ANOTHER_COMMAND_RUNNING = 2 [(metadata) = { exit_code: 9 }];
+    PREVIOUSLY_SHUTDOWN = 3 [(metadata) = { exit_code: 36 }];
+    STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE = 4
+        [(metadata) = { exit_code: 36 }];
+    STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE = 5
+        [(metadata) = { exit_code: 36 }];
+    STARLARK_CPU_PROFILE_FILE_WRITE_FAILURE = 6
+        [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
