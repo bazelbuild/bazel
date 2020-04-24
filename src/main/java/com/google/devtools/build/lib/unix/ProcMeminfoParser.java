@@ -27,6 +27,8 @@ import java.util.HashMap;
 
 /**
  * Parse and return information from /proc/meminfo.
+ * In case of duplicate entries the first one is used
+ * and other values are skipped.
  */
 public class ProcMeminfoParser {
 
