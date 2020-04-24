@@ -81,7 +81,7 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Starlark functions relating to rule implemenetation. */
+/** Tests for Starlark functions relating to rule implementation. */
 @RunWith(JUnit4.class)
 @SkylarkGlobalLibrary // needed for CallUtils.getBuiltinCallable, sadly
 public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
