@@ -96,7 +96,7 @@ bind(
 http_archive(
     name = "com_google_protobuf",
     patch_args = ["-p1"],
-    patches = ["@io_bazel//third_party/protobuf:3.11.3.patch"],
+    patches = ["//third_party/protobuf:3.11.3.patch"],
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
