@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Location;
 
 /**
@@ -49,7 +48,7 @@ public interface Provider extends ProviderApi {
 
   /**
    * Returns an error message format string for instances to use for their {@link
-   * ClassObject#getErrorMessageForUnknownField(String)}.
+   * com.google.devtools.build.lib.syntax.ClassObject#getErrorMessageForUnknownField(String)}.
    *
    * <p>The format string must contain one {@code '%s'} placeholder for the field name.
    */

@@ -139,25 +139,6 @@ java_library(
     ],
 )
 
-# Provides core configuration transition abstractions and Blaze-common (i.e not
-# rule-specific) transitions.
-java_library(
-    name = "config-transitions",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition_factory",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/null_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/split_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
-    ],
-)
-
 java_library(
     name = "syntax",
     srcs = [],
