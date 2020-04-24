@@ -288,6 +288,12 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         @Override
         public void createFileSystem() throws IOException {
           super.createFileSystem();
+
+          // The set of writable dirs includes the path to the execroot in the sandbox tree, but not
+          // the path to the sibling sandboxfs hierarchy. We must explicitly grant access to this to
+          // let builds work when the output tree is not under the default path hanging from tmp.
+          writableDirs.add(getSandboxExecRoot());
+
           writeConfig(
               sandboxConfigPath,
               writableDirs,
