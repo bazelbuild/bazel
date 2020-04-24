@@ -66,6 +66,7 @@ public class ProcMeminfoParserTest {
         "Hugepagesize:     2048 kB",
         "Bogus: not_a_number",
         "Bogus2: 1000000000000000000000000000000000000000000000000 kB",
+        "Writeback:         123 kB",
         "Not even a valid line"
     );
 
@@ -75,6 +76,7 @@ public class ProcMeminfoParserTest {
     assertThat(memInfo.getFreeRamKb()).isEqualTo(14717640);
     assertThat(memInfo.getRamKb("Cached")).isEqualTo(509940);
     assertThat(memInfo.getTotalKb()).isEqualTo(3091732);
+    assertThat(memInfo.getRamKb("Writeback")).isEqualTo(123);
     assertThrows(ProcMeminfoParser.KeywordNotFoundException.class,
         () -> memInfo.getRamKb("Bogus"));
     assertThrows(ProcMeminfoParser.KeywordNotFoundException.class,

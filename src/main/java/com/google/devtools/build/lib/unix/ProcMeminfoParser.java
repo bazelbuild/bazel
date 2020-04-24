@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Parse and return information from /proc/meminfo.
@@ -45,6 +46,7 @@ public class ProcMeminfoParser {
   public ProcMeminfoParser(String fileName) throws IOException {
     List<String> lines = Files.readLines(new File(fileName), Charset.defaultCharset());
     ImmutableMap.Builder<String, Long> builder = ImmutableMap.builder();
+    Map<String, Long> newMemInfo = new HashMap<>();
     for (String line : lines) {
       int colon = line.indexOf(':');
       if (colon == -1) {
@@ -54,11 +56,14 @@ public class ProcMeminfoParser {
       String valString = line.substring(colon + 1);
       try {
         long val =  Long.parseLong(CharMatcher.inRange('0', '9').retainFrom(valString));
-        builder.put(keyword, val);
+        if (!newMemInfo.containsKey(keyword)) {
+          newMemInfo.put(keyword, val);
+        }
       } catch (NumberFormatException e) {
         // Ignore: we'll fail later if somebody tries to capture this value.
       }
     }
+    builder.putAll(newMemInfo);
     memInfo = builder.build();
   }
 
