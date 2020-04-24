@@ -25,7 +25,7 @@ filegroup(
     visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
-# The Starlark frontend (syntax, scanner, parser, validator)
+# The Starlark frontend (syntax, scanner, parser, resolver)
 java_library(
     name = "frontend",
     srcs = [
@@ -60,6 +60,7 @@ java_library(
         "Parameter.java",
         "Parser.java",
         "ParserInput.java",
+        "Resolver.java",
         "ReturnStatement.java",
         "SliceExpression.java",
         "StarlarkFile.java",
@@ -68,7 +69,6 @@ java_library(
         "SyntaxError.java",
         "TokenKind.java",
         "UnaryOperatorExpression.java",
-        "ValidationEnvironment.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",

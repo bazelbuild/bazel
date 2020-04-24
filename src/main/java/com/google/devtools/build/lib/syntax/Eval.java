@@ -289,14 +289,14 @@ final class Eval {
       assignSequence(fr, list.getElements(), value);
 
     } else {
-      // Not possible for validated ASTs.
+      // Not possible for resolved ASTs.
       throw Starlark.errorf("cannot assign to '%s'", lhs);
     }
   }
 
   private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value)
       throws EvalException {
-    ValidationEnvironment.Scope scope = id.getScope();
+    Resolver.Scope scope = id.getScope();
     // Legacy hack for incomplete identifier resolution.
     // In a <toplevel> function, assignments to unresolved identifiers
     // update the module, except for load statements and comprehensions,
@@ -307,8 +307,8 @@ final class Eval {
     if (scope == null) {
       scope =
           fn(fr).isToplevel && fr.compcount == 0
-              ? ValidationEnvironment.Scope.Module //
-              : ValidationEnvironment.Scope.Local;
+              ? Resolver.Scope.Module //
+              : Resolver.Scope.Local;
     }
 
     String name = id.getName();
@@ -393,7 +393,7 @@ final class Eval {
           stmt.getOperatorLocation(), "cannot perform augmented assignment on a list literal");
 
     } else {
-      // Not possible for validated ASTs.
+      // Not possible for resolved ASTs.
       throw new EvalException(
           stmt.getOperatorLocation(), "cannot perform augmented assignment on '" + lhs + "'");
     }
@@ -621,7 +621,7 @@ final class Eval {
         return result;
       }
 
-      // Assuming validation was successfully applied before execution
+      // Assuming resolution was successfully applied before execution
       // (which is not yet true for copybara, but will be soon),
       // then the identifier must have been resolved but the
       // resolution was not annotated onto the syntax tree---because
@@ -651,7 +651,7 @@ final class Eval {
     if (result == null) {
       // Since Scope was set, we know that the variable is defined in the scope.
       // However, the assignment was not yet executed.
-      String error = ValidationEnvironment.getErrorForObsoleteThreadLocalVars(id.getName());
+      String error = Resolver.getErrorForObsoleteThreadLocalVars(id.getName());
       if (error == null) {
         error =
             id.getScope().getQualifier()

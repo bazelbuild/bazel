@@ -20,39 +20,39 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests of the Starlark validator. */
+/** Tests of the Starlark resolver. */
 @RunWith(JUnit4.class)
-public class ValidationTest {
+public class ResolverTest {
 
   private final FileOptions.Builder options = FileOptions.builder();
 
-  // Validates a file using the current options.
-  private StarlarkFile validateFile(String... lines) throws SyntaxError.Exception {
+  // Resolves a file using the current options.
+  private StarlarkFile resolveFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     Module module = Module.createForBuiltins(Starlark.UNIVERSE);
     return EvalUtils.parseAndValidate(input, options.build(), module);
   }
 
-  // Assertions that parsing and validation succeeds.
+  // Assertions that parsing and resolution succeeds.
   private void assertValid(String... lines) throws SyntaxError.Exception {
-    StarlarkFile file = validateFile(lines);
+    StarlarkFile file = resolveFile(lines);
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
   }
 
-  // Asserts that parsing of the program succeeds but validation fails
+  // Asserts that parsing of the program succeeds but resolution fails
   // with at least the specified error.
   private void assertInvalid(String expectedError, String... lines) throws SyntaxError.Exception {
-    List<SyntaxError> errors = getValidationErrors(lines);
+    List<SyntaxError> errors = getResolutionErrors(lines);
     assertContainsError(errors, expectedError);
   }
 
-  // Returns the non-empty list of validation errors of the program.
-  private List<SyntaxError> getValidationErrors(String... lines) throws SyntaxError.Exception {
-    StarlarkFile file = validateFile(lines);
+  // Returns the non-empty list of resolution errors of the program.
+  private List<SyntaxError> getResolutionErrors(String... lines) throws SyntaxError.Exception {
+    StarlarkFile file = resolveFile(lines);
     if (file.ok()) {
-      throw new AssertionError("validation succeeded unexpectedly");
+      throw new AssertionError("resolution succeeded unexpectedly");
     }
     return file.errors();
   }
@@ -79,7 +79,7 @@ public class ValidationTest {
   @Test
   public void testLoadAfterStatement() throws Exception {
     options.requireLoadStatementsFirst(true);
-    List<SyntaxError> errors = getValidationErrors("a = 5", "load(':b.bzl', 'c')");
+    List<SyntaxError> errors = getResolutionErrors("a = 5", "load(':b.bzl', 'c')");
     assertContainsError(errors, ":2:1: load statements must appear before any other statement");
     assertContainsError(errors, ":1:1: \tfirst non-load statement appears here");
   }
@@ -131,7 +131,7 @@ public class ValidationTest {
   }
 
   @Test
-  public void testFunctionLocalVariableDoesNotEffectGlobalValidationEnv() throws Exception {
+  public void testFunctionLocalVariableDoesNotEffectGlobalEnv() throws Exception {
     assertInvalid(
         "name 'a' is not defined", //
         "def func1():",
@@ -141,7 +141,7 @@ public class ValidationTest {
   }
 
   @Test
-  public void testFunctionParameterDoesNotEffectGlobalValidationEnv() throws Exception {
+  public void testFunctionParameterDoesNotEffectGlobalEnv() throws Exception {
     assertInvalid(
         "name 'a' is not defined", //
         "def func1(a):",
@@ -161,7 +161,7 @@ public class ValidationTest {
   }
 
   @Test
-  public void testLocalValidationEnvironmentsAreSeparated() throws Exception {
+  public void testLocalEnvironmentsAreSeparate() throws Exception {
     assertValid(
         "def func1():", //
         "  a = 1",
@@ -176,14 +176,14 @@ public class ValidationTest {
 
   @Test
   public void testNoGlobalReassign() throws Exception {
-    List<SyntaxError> errors = getValidationErrors("a = 1", "a = 2");
+    List<SyntaxError> errors = getResolutionErrors("a = 1", "a = 2");
     assertContainsError(errors, ":2:1: cannot reassign global 'a'");
     assertContainsError(errors, ":1:1: 'a' previously declared here");
   }
 
   @Test
   public void testTwoFunctionsWithTheSameName() throws Exception {
-    List<SyntaxError> errors = getValidationErrors("def foo(): pass", "def foo(): pass");
+    List<SyntaxError> errors = getResolutionErrors("def foo(): pass", "def foo(): pass");
     assertContainsError(errors, ":2:5: cannot reassign global 'foo'");
     assertContainsError(errors, ":1:5: 'foo' previously declared here");
   }

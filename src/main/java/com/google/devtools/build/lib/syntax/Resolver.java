@@ -25,25 +25,22 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * A class for doing static checks on files, before evaluating them.
- *
- * <p>We implement the semantics discussed in
- * https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md
+ * The Resolver resolves each identifier in a syntax tree to its binding, and performs other
+ * validity checks.
  *
  * <p>When a variable is defined, it is visible in the entire block. For example, a global variable
  * is visible in the entire file; a variable in a function is visible in the entire function block
  * (even on the lines before its first assignment).
  *
- * <p>Validation is a mutation of the syntax tree, as it attaches scope information to Identifier
+ * <p>Resolution is a mutation of the syntax tree, as it attaches scope information to Identifier
  * nodes. (In the future, it will attach additional information to functions to support lexical
- * scope, and even compilation of the trees to bytecode.) Validation errors are reported in the
+ * scope, and even compilation of the trees to bytecode.) Resolution errors are reported in the
  * analogous manner to scan/parse errors: for a StarlarkFile, they are appended to {@code
  * StarlarkFile.errors}; for an expression they are reported by an SyntaxError.Exception exception.
- * It is legal to validate a file that already contains scan/parse errors, though it may lead to
- * secondary validation errors.
+ * It is legal to resolve a file that already contains scan/parse errors, though it may lead to
+ * secondary errors.
  */
-// TODO(adonovan): make this class private. Call it through the EvalUtils facade.
-public final class ValidationEnvironment extends NodeVisitor {
+public final class Resolver extends NodeVisitor {
 
   enum Scope {
     /** Symbols defined inside a function or a comprehension. */
@@ -117,7 +114,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   private Block block;
   private int loopCount;
 
-  private ValidationEnvironment(List<SyntaxError> errors, Module module, FileOptions options) {
+  private Resolver(List<SyntaxError> errors, Module module, FileOptions options) {
     this.errors = errors;
     this.module = module;
     this.options = options;
@@ -458,7 +455,7 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
-  private void validateToplevelStatements(List<Statement> statements) {
+  private void resolveToplevelStatements(List<Statement> statements) {
     // Check that load() statements are on top.
     if (options.requireLoadStatementsFirst()) {
       checkLoadAfterStatement(statements);
@@ -480,23 +477,23 @@ public final class ValidationEnvironment extends NodeVisitor {
    * defined by {@code module}. The StarlarkFile is mutated. Errors are appended to {@link
    * StarlarkFile#errors}.
    */
-  public static void validateFile(StarlarkFile file, Module module) {
-    ValidationEnvironment venv = new ValidationEnvironment(file.errors, module, file.getOptions());
-    venv.validateToplevelStatements(file.getStatements());
+  public static void resolveFile(StarlarkFile file, Module module) {
+    Resolver r = new Resolver(file.errors, module, file.getOptions());
+    r.resolveToplevelStatements(file.getStatements());
     // Check that no closeBlock was forgotten.
-    Preconditions.checkState(venv.block.parent == null);
+    Preconditions.checkState(r.block.parent == null);
   }
 
   /**
    * Performs static checks, including resolution of identifiers in {@code expr} in the environment
    * defined by {@code module}. This operation mutates the Expression.
    */
-  public static void validateExpr(Expression expr, Module module, FileOptions options)
+  public static void resolveExpr(Expression expr, Module module, FileOptions options)
       throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
-    ValidationEnvironment venv = new ValidationEnvironment(errors, module, options);
+    Resolver r = new Resolver(errors, module, options);
 
-    venv.visit(expr);
+    r.visit(expr);
 
     if (!errors.isEmpty()) {
       throw new SyntaxError.Exception(errors);

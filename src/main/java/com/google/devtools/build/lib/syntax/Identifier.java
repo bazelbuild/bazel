@@ -30,8 +30,8 @@ public final class Identifier extends Expression {
   private final int nameOffset;
 
   // The scope of the variable. The value is set when the AST has been analysed by
-  // ValidationEnvironment.
-  @Nullable private ValidationEnvironment.Scope scope;
+  // Resolver.
+  @Nullable private Resolver.Scope scope;
 
   Identifier(FileLocations locs, String name, int nameOffset) {
     super(locs);
@@ -61,11 +61,11 @@ public final class Identifier extends Expression {
     return name.startsWith("_");
   }
 
-  ValidationEnvironment.Scope getScope() {
+  Resolver.Scope getScope() {
     return scope;
   }
 
-  void setScope(ValidationEnvironment.Scope scope) {
+  void setScope(Resolver.Scope scope) {
     Preconditions.checkState(this.scope == null);
     this.scope = scope;
   }

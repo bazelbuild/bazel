@@ -56,9 +56,9 @@ import javax.annotation.Nullable;
  *
  * <p>One creates an StarlarkThread using the {@link #builder} function, before evaluating code in
  * it with {@link StarlarkFile#eval}, or with {@link StarlarkFile#exec} (where the AST was obtained
- * by passing a {@link ValidationEnvironment} constructed from the StarlarkThread to {@link
- * StarlarkFile#parse}. When the computation is over, the frozen StarlarkThread can still be queried
- * with {@link #lookup}.
+ * by passing a {@link Resolver} constructed from the StarlarkThread to {@link StarlarkFile#parse}.
+ * When the computation is over, the frozen StarlarkThread can still be queried with {@link
+ * #lookup}.
  */
 public final class StarlarkThread {
 

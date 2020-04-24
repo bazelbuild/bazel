@@ -930,14 +930,14 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
     flowStatementAfterLoop("continue");
   }
 
-  // TODO(adonovan): move this and all tests that use it to Validation tests.
-  private void assertValidationError(String expectedError, final String... lines) throws Exception {
+  // TODO(adonovan): move this and all tests that use it to ResolverTest.
+  private void assertResolutionError(String expectedError, final String... lines) throws Exception {
     SyntaxError.Exception error = assertThrows(SyntaxError.Exception.class, () -> exec(lines));
     assertThat(error).hasMessageThat().contains(expectedError);
   }
 
   private void flowStatementInsideFunction(String statement) throws Exception {
-    assertValidationError(
+    assertResolutionError(
         statement + " statement must be inside a for loop",
         //
         "def foo():",
@@ -946,7 +946,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   }
 
   private void flowStatementAfterLoop(String statement) throws Exception {
-    assertValidationError(
+    assertResolutionError(
         statement + " statement must be inside a for loop",
         //
         "def foo2():",
@@ -958,7 +958,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStructMembersAreImmutable() throws Exception {
-    assertValidationError("cannot assign to 's.x'", "s = struct(x = 'a')", "s.x = 'b'\n");
+    assertResolutionError("cannot assign to 's.x'", "s = struct(x = 'a')", "s.x = 'b'\n");
   }
 
   @Test
@@ -1494,7 +1494,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testInvalidAugmentedAssignment_ListExpression() throws Exception {
-    assertValidationError(
+    assertResolutionError(
         "cannot perform augmented assignment on a list or tuple expression",
         //
         "def f(a, b):",
@@ -1505,7 +1505,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testInvalidAugmentedAssignment_NotAnLValue() throws Exception {
-    assertValidationError(
+    assertResolutionError(
         "cannot assign to 'x + 1'",
         //
         "x + 1 += 2");
@@ -1753,9 +1753,9 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  // TODO(adonovan): move to Validation tests.
+  // TODO(adonovan): move to ResolverTest.
   public void testTypo() throws Exception {
-    assertValidationError(
+    assertResolutionError(
         "name 'my_variable' is not defined (did you mean 'myVariable'?)",
         //
         "myVariable = 2",

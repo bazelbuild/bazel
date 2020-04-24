@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Resolver;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,7 +40,7 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
- * A Skyframe function that reads, parses and validates the .bzl file denoted by a Label.
+ * A Skyframe function that reads, parses, and resolves the .bzl file denoted by a Label.
  *
  * <p>Given a {@link Label} referencing a Starlark file, loads it as a syntax tree ({@link
  * StarlarkFile}). The Label must be absolute, and must not reference the special {@code external}
@@ -122,7 +122,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
 
-    // Options for scanning, parsing, and validating a .bzl file (including the prelude).
+    // Options for scanning, parsing, and resolving a .bzl file (including the prelude).
     FileOptions options =
         FileOptions.builder()
             .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
@@ -144,9 +144,8 @@ public class ASTFileLookupFunction implements SkyFunction {
       throw new ErrorReadingSkylarkExtensionException(e, Transience.TRANSIENT);
     }
 
-    // validate (and soon, compile)
-    ValidationEnvironment.validateFile(
-        file, Module.createForBuiltins(ruleClassProvider.getEnvironment()));
+    // resolve (and soon, compile)
+    Resolver.resolveFile(file, Module.createForBuiltins(ruleClassProvider.getEnvironment()));
     Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
 
     return ASTFileLookupValue.withFile(file);

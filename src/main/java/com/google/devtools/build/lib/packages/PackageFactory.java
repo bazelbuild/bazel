@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.syntax.NodeVisitor;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Resolver;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -64,7 +65,6 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.Tuple;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -782,7 +782,7 @@ public final class PackageFactory {
       Module module = thread.getGlobals();
 
       // Validate.
-      ValidationEnvironment.validateFile(file, module);
+      Resolver.resolveFile(file, module);
       if (!file.ok()) {
         Event.replayEventsOn(pkgContext.eventHandler, file.errors());
         return false;
