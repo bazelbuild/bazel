@@ -12,6 +12,18 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+bool_flag(
+    name = "incompatible_no_build_defs_pkg_deb",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
+    name = "incompatible_no_build_defs_pkg_rpm",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

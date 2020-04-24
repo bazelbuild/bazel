@@ -22,7 +22,7 @@ spec_filetype = [".spec"]
 def _pkg_rpm_impl(ctx):
     """Implements to pkg_rpm rule."""
 
-    if ctx.attr._no_build_defs_pkg_flag[BuildSettingInfo].value:
+    if ctx.attr._no_build_defs_pkg_flag_rpm[BuildSettingInfo].value:
         fail("The built-in version of pkg_rpm has been removed. Please use" +
              " https://github.com/bazelbuild/rules_pkg/blob/master/pkg.")
 
@@ -166,7 +166,7 @@ pkg_rpm = rule(
             allow_files = True,
         ),
         "_no_build_defs_pkg_flag": attr.label(
-            default = "//tools/build_defs/pkg:incompatible_no_build_defs_pkg",
+            default = "//tools/build_defs/pkg:incompatible_no_build_defs_pkg_rpm",
         ),
     },
     executable = False,

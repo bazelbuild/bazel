@@ -129,7 +129,7 @@ def _pkg_tar_impl(ctx):
 def _pkg_deb_impl(ctx):
     """The implementation for the pkg_deb rule."""
 
-    if ctx.attr._no_build_defs_pkg_flag[BuildSettingInfo].value:
+    if ctx.attr._no_build_defs_pkg_flag_deb[BuildSettingInfo].value:
         fail("The built-in version of pkg_deb has been removed. Please use" +
              " https://github.com/bazelbuild/rules_pkg/blob/master/pkg.")
 
@@ -342,7 +342,7 @@ _pkg_deb = rule(
         "deb": attr.output(mandatory = True),
         "changes": attr.output(mandatory = True),
         "_no_build_defs_pkg_flag": attr.label(
-            default = "//tools/build_defs/pkg:incompatible_no_build_defs_pkg",
+            default = "//tools/build_defs/pkg:incompatible_no_build_defs_pkg_deb",
         ),
     },
 )
