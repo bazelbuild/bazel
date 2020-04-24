@@ -59,6 +59,7 @@ import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -177,30 +178,31 @@ public class MemoizingEvaluatorTest {
   protected Set<InconsistencyData> setupGraphInconsistencyReceiver(boolean allowDuplicates) {
     Set<InconsistencyData> inconsistencies = Sets.newConcurrentHashSet();
     tester.setGraphInconsistencyReceiver(
-        (key, otherKeys, inconsistency) -> {
-          if (otherKeys == null) {
-            Preconditions.checkState(
-                inconsistencies.add(
-                        InconsistencyData.create(key, /*otherKey=*/ null, inconsistency))
-                    || allowDuplicates,
-                "Duplicate inconsistency: (%s, %s, %s)\nexisting = %s",
-                key,
-                null,
-                inconsistency,
-                inconsistencies);
-          } else {
-            for (SkyKey otherKey : otherKeys) {
-              Preconditions.checkState(
-                  inconsistencies.add(InconsistencyData.create(key, otherKey, inconsistency))
-                      || allowDuplicates,
-                  "Duplicate inconsistency: (%s, %s, %s)\nexisting = %s",
-                  key,
-                  otherKey,
-                  inconsistency,
-                  inconsistencies);
-            }
-          }
-        });
+        restartEnabledInconsistencyReceiver(
+            (key, otherKeys, inconsistency) -> {
+              if (otherKeys == null) {
+                Preconditions.checkState(
+                    inconsistencies.add(
+                            InconsistencyData.create(key, /*otherKey=*/ null, inconsistency))
+                        || allowDuplicates,
+                    "Duplicate inconsistency: (%s, %s, %s)\nexisting = %s",
+                    key,
+                    null,
+                    inconsistency,
+                    inconsistencies);
+              } else {
+                for (SkyKey otherKey : otherKeys) {
+                  Preconditions.checkState(
+                      inconsistencies.add(InconsistencyData.create(key, otherKey, inconsistency))
+                          || allowDuplicates,
+                      "Duplicate inconsistency: (%s, %s, %s)\nexisting = %s",
+                      key,
+                      otherKey,
+                      inconsistency,
+                      inconsistencies);
+                }
+              }
+            }));
     // #initialize must be called after setting the GraphInconsistencyReceiver for the receiver to
     // be registered with the test's memoizing evaluator.
     tester.initialize(/*keepEdges=*/ true);
@@ -2413,12 +2415,14 @@ public class MemoizingEvaluatorTest {
     StringValue expectedValue = new StringValue("done");
     AtomicInteger numInconsistencyCalls = new AtomicInteger(0);
     tester.setGraphInconsistencyReceiver(
-        (key, otherKey, inconsistency) -> {
-          Preconditions.checkState(otherKey == null, otherKey);
-          Preconditions.checkState(inconsistency == Inconsistency.RESET_REQUESTED, inconsistency);
-          Preconditions.checkState(restartingKey.equals(key), key);
-          numInconsistencyCalls.incrementAndGet();
-        });
+        restartEnabledInconsistencyReceiver(
+            (key, otherKey, inconsistency) -> {
+              Preconditions.checkState(otherKey == null, otherKey);
+              Preconditions.checkState(
+                  inconsistency == Inconsistency.RESET_REQUESTED, inconsistency);
+              Preconditions.checkState(restartingKey.equals(key), key);
+              numInconsistencyCalls.incrementAndGet();
+            }));
     tester.initialize(/*keepEdges=*/ true);
     AtomicInteger numFunctionCalls = new AtomicInteger(0);
     tester
@@ -2471,12 +2475,14 @@ public class MemoizingEvaluatorTest {
     SkyKey restartingKey = GraphTester.skyKey("restart");
     AtomicInteger numInconsistencyCalls = new AtomicInteger(0);
     tester.setGraphInconsistencyReceiver(
-        (key, otherKey, inconsistency) -> {
-          Preconditions.checkState(otherKey == null, otherKey);
-          Preconditions.checkState(inconsistency == Inconsistency.RESET_REQUESTED, inconsistency);
-          Preconditions.checkState(restartingKey.equals(key), key);
-          numInconsistencyCalls.incrementAndGet();
-        });
+        restartEnabledInconsistencyReceiver(
+            (key, otherKey, inconsistency) -> {
+              Preconditions.checkState(otherKey == null, otherKey);
+              Preconditions.checkState(
+                  inconsistency == Inconsistency.RESET_REQUESTED, inconsistency);
+              Preconditions.checkState(restartingKey.equals(key), key);
+              numInconsistencyCalls.incrementAndGet();
+            }));
     tester.initialize(mode != RunResetNodeOnRequestWithDepsMode.NO_KEEP_EDGES_SO_NO_REEVALUATION);
     StringValue expectedValue = new StringValue("done");
     SkyKey alreadyRequestedDep = GraphTester.skyKey("alreadyRequested");
@@ -2573,18 +2579,19 @@ public class MemoizingEvaluatorTest {
     SkyKey missingChild = GraphTester.skyKey("missing");
     AtomicInteger numInconsistencyCalls = new AtomicInteger(0);
     tester.setGraphInconsistencyReceiver(
-        (key, otherKeys, inconsistency) -> {
-          Preconditions.checkState(otherKeys.size() == 1, otherKeys);
-          Preconditions.checkState(
-              missingChild.equals(Iterables.getOnlyElement(otherKeys)),
-              "%s %s",
-              missingChild,
-              otherKeys);
-          Preconditions.checkState(
-              inconsistency == Inconsistency.DIRTY_PARENT_HAD_MISSING_CHILD, inconsistency);
-          Preconditions.checkState(topKey.equals(key), key);
-          numInconsistencyCalls.incrementAndGet();
-        });
+        restartEnabledInconsistencyReceiver(
+            (key, otherKeys, inconsistency) -> {
+              Preconditions.checkState(otherKeys.size() == 1, otherKeys);
+              Preconditions.checkState(
+                  missingChild.equals(Iterables.getOnlyElement(otherKeys)),
+                  "%s %s",
+                  missingChild,
+                  otherKeys);
+              Preconditions.checkState(
+                  inconsistency == Inconsistency.DIRTY_PARENT_HAD_MISSING_CHILD, inconsistency);
+              Preconditions.checkState(topKey.equals(key), key);
+              numInconsistencyCalls.incrementAndGet();
+            }));
     tester.initialize(/*keepEdges=*/ true);
     tester.getOrCreate(missingChild).setConstantValue(new StringValue("will go missing"));
     SkyKey presentChild = GraphTester.nonHermeticKey("present");
@@ -5429,5 +5436,21 @@ public class MemoizingEvaluatorTest {
     default String extractTag(SkyKey skyKey) {
       return null;
     }
+  }
+
+  private static GraphInconsistencyReceiver restartEnabledInconsistencyReceiver(
+      GraphInconsistencyReceiver delegate) {
+    return new GraphInconsistencyReceiver() {
+      @Override
+      public void noteInconsistencyAndMaybeThrow(
+          SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
+        delegate.noteInconsistencyAndMaybeThrow(key, otherKeys, inconsistency);
+      }
+
+      @Override
+      public boolean restartPermitted() {
+        return true;
+      }
+    };
   }
 }

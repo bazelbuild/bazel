@@ -306,6 +306,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
+    public boolean isRewindingEnabled() {
+      return actionExecutionContext.isRewindingEnabled();
+    }
+
+    @Override
     public void checkForLostInputs() throws LostInputsExecException {
       try {
         actionExecutionContext.checkForLostInputs();

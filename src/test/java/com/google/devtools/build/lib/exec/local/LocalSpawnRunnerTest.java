@@ -279,6 +279,11 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
+    public boolean isRewindingEnabled() {
+      return false;
+    }
+
+    @Override
     public void checkForLostInputs() {}
 
     @Override

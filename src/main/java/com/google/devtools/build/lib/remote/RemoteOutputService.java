@@ -59,7 +59,8 @@ public class RemoteOutputService implements OutputService {
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
-      Iterable<Artifact> outputArtifacts) {
+      Iterable<Artifact> outputArtifacts,
+      boolean trackFailedRemoteReads) {
     Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
     return new RemoteActionFileSystem(
         sourceDelegate,

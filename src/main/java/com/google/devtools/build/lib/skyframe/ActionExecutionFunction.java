@@ -284,7 +284,8 @@ public class ActionExecutionFunction implements SkyFunction {
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
                 checkedInputs.actionInputMap,
-                action.getOutputs());
+                action.getOutputs(),
+                env.restartPermitted());
       }
     }
 
@@ -888,7 +889,8 @@ public class ActionExecutionFunction implements SkyFunction {
             ImmutableMap.copyOf(state.topLevelFilesets),
             state.actionFileSystem,
             skyframeDepsResult,
-            env.getListener());
+            env.getListener(),
+            env.restartPermitted());
     ActionExecutionValue result;
     try {
       result =
