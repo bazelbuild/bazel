@@ -79,7 +79,7 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = android_ndk_repository, TYPE = OTHER, FAMILY = Android) -->
 
 <p>Configures Bazel to use an Android NDK to support building Android targets with native
-code. NDK versions 10 up to 16 are currently supported.
+code.
 
 <p>Note that building for Android also requires an <code>android_sdk_repository</code> rule in your
 <code>WORKSPACE</code> file.
@@ -103,13 +103,13 @@ the highest API level that it supports.
 <pre class="code">
 android_ndk_repository(
     name = "androidndk",
-    path = "./android-ndk-r12b",
+    path = "./android-ndk-r20",
     api_level = 24,
 )
 </pre>
 
 <p>The above example will use the Android NDK located inside your workspace in
-<code>./android-ndk-r12b</code>. It will use the API level 24 libraries when compiling your JNI
+<code>./android-ndk-r20</code>. It will use the API level 24 libraries when compiling your JNI
 code.
 
 <h4 id="android_ndk_repository_cpufeatures">cpufeatures</h4>
