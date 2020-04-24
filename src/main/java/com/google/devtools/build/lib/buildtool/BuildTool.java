@@ -45,6 +45,9 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -298,14 +301,14 @@ public class BuildTool {
       // an error, so check to see if we should report that error code instead.
       AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
       if (environmentPendingAbruptExitException == null) {
-        detailedExitCode = DetailedExitCode.justExitCode(ExitCode.INTERRUPTED);
-        env.getReporter().handle(Event.error("build interrupted"));
+        String message = "build interrupted";
+        detailedExitCode = createInterruptedDetailedExitCode(message, Code.BUILD);
+        env.getReporter().handle(Event.error(message));
         env.getEventBus().post(new BuildInterruptedEvent());
       } else {
         // Report the exception from the environment - the exception we're handling here is just an
         // interruption.
-        detailedExitCode =
-            DetailedExitCode.justExitCode(environmentPendingAbruptExitException.getExitCode());
+        detailedExitCode = environmentPendingAbruptExitException.getDetailedExitCode();
         reportExceptionError(environmentPendingAbruptExitException);
         result.setCatastrophe();
       }
@@ -413,7 +416,9 @@ public class BuildTool {
     env.getEventBus().post(result.getBuildToolLogCollection().freeze().toEvent());
     if (ie != null) {
       if (detailedExitCode.isSuccess()) {
-        result.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.INTERRUPTED));
+        result.setDetailedExitCode(
+            createInterruptedDetailedExitCode(
+                "Build interrupted during command completion", Code.BUILD_COMPLETION));
       } else if (!detailedExitCode.getExitCode().equals(ExitCode.INTERRUPTED)) {
         logger.atWarning().withCause(ie).log(
             "Suppressed interrupted exception during stop request because already failing with: %s",
@@ -437,6 +442,16 @@ public class BuildTool {
 
   private Reporter getReporter() {
     return env.getReporter();
+  }
+
+  private static DetailedExitCode createInterruptedDetailedExitCode(
+      String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        ExitCode.INTERRUPTED,
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))
+            .build());
   }
 
   /** Exceptions in parsing the supplied query options. */

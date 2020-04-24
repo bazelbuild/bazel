@@ -114,7 +114,8 @@ message Interrupted {
   enum Code {
     // Interrupted at an unspecified time.
     INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
-
+    BUILD = 4 [(metadata) = { exit_code: 8 }];
+    BUILD_COMPLETION = 5 [(metadata) = { exit_code: 8 }];
     reserved 1 to 3; // For internal use
 
     // TODO(mschaller): Add subcategories that specify what was happening at the
