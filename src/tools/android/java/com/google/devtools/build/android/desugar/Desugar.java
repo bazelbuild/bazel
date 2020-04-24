@@ -45,6 +45,7 @@ import com.google.devtools.build.android.desugar.io.FileContentProvider;
 import com.google.devtools.build.android.desugar.io.HeaderClassLoader;
 import com.google.devtools.build.android.desugar.io.IndexedInputs;
 import com.google.devtools.build.android.desugar.io.InputFileProvider;
+import com.google.devtools.build.android.desugar.io.JarDigest;
 import com.google.devtools.build.android.desugar.io.OutputFileProvider;
 import com.google.devtools.build.android.desugar.io.ResourceBasedClassFiles;
 import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
@@ -83,6 +84,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -442,6 +444,17 @@ public class Desugar {
   private void desugar() throws Exception {
     checkState(!this.used, "This Desugar instance has been used. Please create another one.");
     this.used = true;
+
+    List<Path> platformJars =
+        options.classpath.stream()
+            .filter(path -> path.toString().endsWith(".jar"))
+            .filter(path -> JarDigest.fromPath(path).isPlatformJar())
+            .collect(Collectors.toList());
+    if (!platformJars.isEmpty()) {
+      logger.atInfo().log("Platform Jars in class path added to boot class path: %s", platformJars);
+      options.bootclasspath =
+          ImmutableList.<Path>builder().addAll(options.bootclasspath).addAll(platformJars).build();
+    }
 
     try (Closer closer = Closer.create()) {
       IndexedInputs indexedBootclasspath =
