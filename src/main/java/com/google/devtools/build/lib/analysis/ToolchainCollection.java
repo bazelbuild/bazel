@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * A wrapper class for a map of exec_group names to their relevent ToolchainContext.
+ * A wrapper class for a map of exec_group names to their relevant ToolchainContext.
  *
  * @param <T> any class that extends ToolchainContext. This generic allows ToolchainCollection to be
  *     used, e.g., both before and after toolchain resolution.
@@ -71,6 +71,10 @@ public class ToolchainCollection<T extends ToolchainContext> {
 
   T getDefaultToolchainContext() {
     return toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  boolean hasToolchainContext(String execGroup) {
+    return toolchainContexts.containsKey(execGroup);
   }
 
   public T getToolchainContext(String execGroup) {

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
@@ -116,4 +117,29 @@ public interface StarlarkConfigApi extends StarlarkValue {
               + "key-value map of settings like {'cpu': 'ppc', 'copt': '-DFoo'}, this describes a "
               + "single entry in that map.")
   interface BuildSettingApi extends StarlarkValue {}
+
+  @SkylarkCallable(
+      name = "exec",
+      doc = "<i>experimental</i> Creates an execution transition.",
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+      parameters = {
+        @Param(
+            name = "exec_group",
+            type = String.class,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "The name of the exec group whose execution platform this transition will use. If"
+                    + " not provided, this exec transition will use the target's default execution"
+                    + " platform.")
+      })
+  ExecTransitionFactoryApi exec(Object execGroupUnchecked);
+
+  /** The api for exec transitions. */
+  @SkylarkModule(
+      name = "ExecTransitionFactory",
+      category = SkylarkModuleCategory.BUILTIN,
+      doc = "<i>experimental</i> an execution transition.")
+  interface ExecTransitionFactoryApi extends StarlarkValue {}
 }

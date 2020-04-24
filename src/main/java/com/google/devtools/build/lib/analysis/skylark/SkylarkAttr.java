@@ -257,6 +257,8 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         builder.cfg(HostTransition.createFactory());
       } else if (trans.equals("exec")) {
         builder.cfg(ExecutionTransitionFactory.create());
+      } else if (trans instanceof ExecutionTransitionFactory) {
+        builder.cfg((ExecutionTransitionFactory) trans);
       } else if (trans instanceof SplitTransition) {
         builder.cfg(TransitionFactories.of((SplitTransition) trans));
       } else if (trans instanceof TransitionFactory) {
