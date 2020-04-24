@@ -42,7 +42,7 @@ function start_worker() {
 function stop_worker() {
   if [ -s "${pid_file}" ]; then
     local pid=$(cat "${pid_file}")
-    kill -9 "${pid}" || true
+    kill -9 "${pid}"
   rm -rf "${pid_file}"
   fi
   if [ -d "${work_path}" ]; then
