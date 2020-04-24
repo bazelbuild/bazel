@@ -47,6 +47,14 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AspectDefinitionTest {
 
+  private static final class P1 implements TransitiveInfoProvider {}
+
+  private static final class P2 implements TransitiveInfoProvider {}
+
+  private static final class P3 implements TransitiveInfoProvider {}
+
+  private static final class P4 implements TransitiveInfoProvider {}
+
   /**
    * A dummy aspect factory. Is there to demonstrate how to define aspects and so that we can test
    * {@code attributeAspect}.
@@ -143,22 +151,21 @@ public class AspectDefinitionTest {
 
   @Test
   public void testRequireProvider_AddsToSetOfRequiredProvidersAndNames() throws Exception {
-    AspectDefinition requiresProviders = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .requireProviders(String.class, Integer.class)
-        .build();
+    AspectDefinition requiresProviders =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .requireProviders(P1.class, P2.class)
+            .build();
     AdvertisedProviderSet expectedOkSet =
         AdvertisedProviderSet.builder()
-            .addNative(String.class)
-            .addNative(Integer.class)
-            .addNative(Boolean.class)
+            .addNative(P1.class)
+            .addNative(P2.class)
+            .addNative(P3.class)
             .build();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet))
         .isTrue();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder()
-            .addNative(String.class)
-            .build();
+        AdvertisedProviderSet.builder().addNative(P1.class).build();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet))
         .isFalse();
 
@@ -170,28 +177,20 @@ public class AspectDefinitionTest {
 
  @Test
   public void testRequireProvider_AddsTwoSetsOfRequiredProvidersAndNames() throws Exception {
-    AspectDefinition requiresProviders = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .requireProviderSets(
-            ImmutableList.of(
-                ImmutableSet.<Class<?>>of(String.class, Integer.class),
-                ImmutableSet.<Class<?>>of(Boolean.class)))
-        .build();
+    AspectDefinition requiresProviders =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .requireProviderSets(
+                ImmutableList.of(ImmutableSet.of(P1.class, P2.class), ImmutableSet.of(P3.class)))
+            .build();
 
     AdvertisedProviderSet expectedOkSet1 =
-       AdvertisedProviderSet.builder()
-           .addNative(String.class)
-           .addNative(Integer.class)
-           .build();
+        AdvertisedProviderSet.builder().addNative(P1.class).addNative(P2.class).build();
 
     AdvertisedProviderSet expectedOkSet2 =
-       AdvertisedProviderSet.builder()
-           .addNative(Boolean.class)
-           .build();
+        AdvertisedProviderSet.builder().addNative(P3.class).build();
 
     AdvertisedProviderSet expectedFailSet =
-       AdvertisedProviderSet.builder()
-           .addNative(Float.class)
-           .build();
+        AdvertisedProviderSet.builder().addNative(P4.class).build();
 
    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
        .isTrue();
@@ -209,9 +208,7 @@ public class AspectDefinitionTest {
         .build();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder()
-            .addNative(Float.class)
-            .build();
+        AdvertisedProviderSet.builder().addNative(P4.class).build();
 
     assertThat(noAspects.getRequiredProvidersForAspects().isSatisfiedBy(AdvertisedProviderSet.ANY))
         .isFalse();

@@ -144,7 +144,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
                 ImmutableList.of(
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
-                    ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))
+                    ImmutableSet.of(ProtoLangToolchainProvider.class)))
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)

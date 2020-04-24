@@ -480,8 +480,8 @@ public class TestAspects {
       new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER_SETS)
           .requireProviderSets(
               ImmutableList.of(
-                  ImmutableSet.<Class<?>>of(RequiredProvider.class),
-                  ImmutableSet.<Class<?>>of(RequiredProvider2.class)))
+                  ImmutableSet.of(RequiredProvider.class),
+                  ImmutableSet.of(RequiredProvider2.class)))
           .build();
 
   /**
