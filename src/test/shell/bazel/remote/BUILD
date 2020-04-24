@@ -12,6 +12,7 @@ sh_library(
     srcs = ["remote_utils.sh"],
     data = [
         "//src/tools/remote:worker",
+        "//src/tools/remote:worker_deploy.jar",
     ],
 )
 
