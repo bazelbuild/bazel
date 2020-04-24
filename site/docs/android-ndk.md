@@ -116,7 +116,7 @@ ABI](#configuring-the-target-abi).
 ## Example setup
 
 This example is available in the [Bazel examples
-repository](https://github.com/bazelbuild/examples/tree/master/android-ndk).
+repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
 
 In the `BUILD.bazel` file, we define three targets with the `android_binary`,
 `android_library` and `cc_library` rules.
