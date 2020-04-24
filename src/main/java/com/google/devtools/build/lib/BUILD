@@ -35,10 +35,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis:srcs",
         "//src/main/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:srcs",
@@ -56,7 +53,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/concurrent:srcs",
         "//src/main/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/main/java/com/google/devtools/build/lib/events:srcs",
-        "//src/main/java/com/google/devtools/build/lib/exec/local:srcs",
+        "//src/main/java/com/google/devtools/build/lib/exec:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
@@ -73,26 +70,11 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/query2/query/output:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/android:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/swift:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/config:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/python:srcs",
+        "//src/main/java/com/google/devtools/build/lib/repository:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/packages:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/module:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:srcs",
@@ -161,24 +143,18 @@ java_library(
 # rule-specific) transitions.
 java_library(
     name = "config-transitions",
-    srcs = glob([
-        "analysis/config/transitions/*.java",
-    ]) + [
-        "analysis/config/BuildOptions.java",
-        "analysis/config/FragmentOptions.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:trimmed_configuration_cache",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auto_value",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/null_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/split_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
     ],
 )
 
@@ -194,252 +170,80 @@ java_library(
 
 java_library(
     name = "transitive-info-provider",
-    srcs = ["analysis/TransitiveInfoProvider.java"],
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = ["//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider"],
 )
 
 java_library(
     name = "config-matching-provider",
-    srcs = ["analysis/config/ConfigMatchingProvider.java"],
-    deps = [
-        ":transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party:guava",
-    ],
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = ["//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider"],
 )
 
 java_library(
     name = "provider-collection",
-    srcs = [
-        "analysis/ProviderCollection.java",
-    ],
-    deps = [
-        ":transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party:jsr305",
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
     ],
 )
 
 java_library(
     name = "build-configuration-option-details",
-    srcs = ["analysis/config/BuildConfigurationOptionDetails.java"],
+    deprecation = "This target has been moved. Depend on the actual target instead.",
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/rules/config:__pkg__",
     ],
-    deps = [
-        ":build-base",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration_option_details",
     ],
 )
 
 java_library(
     name = "build-base",
-    srcs = glob(
-        [
-            "analysis/*.java",
-            "analysis/actions/*.java",
-            "analysis/buildinfo/*.java",
-            "analysis/config/*.java",
-            "analysis/config/transitions/*.java",
-            "analysis/configuredtargets/*.java",
-            "analysis/constraints/*.java",
-            "analysis/extra/*.java",
-            "analysis/fileset/*.java",
-            "analysis/skylark/*.java",
-            "analysis/test/*.java",
-            "exec/*.java",
-            "repository/*.java",
-            "rules/*.java",
-            "rules/extra/*.java",
-            "rules/filegroup/*.java",
-            "rules/fileset/*.java",
-            "rules/repository/*.java",
-            "skyframe/*.java",
-            "skyframe/actiongraph/*.java",
-            "skyframe/actiongraph/v2/*.java",
-        ],
-        allow_empty = True,
-        exclude = [
-            "analysis/BuildInfo.java",
-            "analysis/BuildVersionInfo.java",
-            "analysis/ProviderCollection.java",
-            "analysis/TransitiveInfoProvider.java",
-            "analysis/config/BuildConfigurationOptionDetails.java",
-            "rules/repository/CoreWorkspaceRules.java",
-            "skyframe/SaneAnalysisException.java",
-        ],
-    ) + [
-        "runtime/BlazeServerStartupOptions.java",
-        "runtime/BuildEventStreamerUtils.java",
-    ],
+    deprecation = "This target has been split. Depend on the sub-targets instead.",
     exports = [
-        ":rule-definition-context",
-        ":sane_analysis_exception",
-        ":transitive-info-provider",
+        ":runtime/blaze_server_startup_options",
+        ":runtime/build_event_streamer_utils",
+        "//src/main/java/com/google/devtools/build/lib/analysis:legacy_exports",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
-    ],
-    deps = [
-        ":bug-report",
-        ":build-request-options",
-        ":keep-going-option",
-        ":provider-collection",
-        ":sane_analysis_exception",
-        ":transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/actionsketch:action_sketch",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations",
-        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/causes",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/graph",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
-        "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
-        "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp:cpp_interface",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:trimmed_configuration_cache",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/supplier",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/unix/jni",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:command",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:process",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
-        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:analysis_java_proto",
-        "//src/main/protobuf:analysis_v2_java_proto",
-        "//src/main/protobuf:extra_actions_base_java_proto",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//src/main/protobuf:spawn_java_proto",
-        "//src/main/protobuf:test_status_java_proto",
-        "//src/main/protobuf:xcode_java_proto",
-        "//third_party:auto_value",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/exec:legacy_exports",
+        "//src/main/java/com/google/devtools/build/lib/repository:legacy_exports",
+        "//src/main/java/com/google/devtools/build/lib/rules:legacy_exports",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:legacy_exports",
     ],
 )
 
 # Rules
 java_library(
     name = "nativedeps-rules",
-    srcs = glob(
-        ["rules/nativedeps/*.java"],
-    ),
-    deps = [
-        ":build-base",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/rules:nativedeps",
     ],
 )
 
 java_library(
     name = "core-rules",
-    srcs = glob(
-        ["rules/core/*.java"],
-    ),
-    deps = [
-        ":build-base",
-        "//third_party:guava",
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/rules:core_rules",
     ],
 )
 
-# TODO(bazel-team): Include in the srcs the implementations of the rules inside
-# CoreWorkspaceRules.java once they can be extracted from the "build-base" target. They can't be
-# extracted currently because of non-trivial inter-package dependencies.
 java_library(
     name = "core-workspace-rules",
-    srcs = [
-        "rules/repository/CoreWorkspaceRules.java",
-    ],
-    deps = [
-        ":build-base",
-        ":core-rules",
-        "//third_party:guava",
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/rules:core_workspace_rules",
     ],
 )
 
 java_library(
     name = "testing-support-rules",
-    srcs = glob(
-        ["rules/test/*.java"],
-    ),
-    deps = [
-        ":build-base",
-        ":core-rules",
-        ":transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_proto",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/protobuf:test_status_java_proto",
-        "//third_party:guava",
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/rules:test_rules",
     ],
 )
 
@@ -467,6 +271,18 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "runtime/blaze_server_startup_options",
+    srcs = ["runtime/BlazeServerStartupOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 
@@ -526,7 +342,7 @@ java_library(
     name = "bug-report",
     srcs = glob(["bugreport/*.java"]),
     deps = [
-        ":blaze-version-info",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
@@ -537,6 +353,15 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "runtime/build_event_streamer_utils",
+    srcs = ["runtime/BuildEventStreamerUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/protobuf:test_status_java_proto",
     ],
 )
 
@@ -646,25 +471,6 @@ java_library(
     ],
 )
 
-java_library(
-    name = "blaze-version-info",
-    srcs = [
-        "analysis/BlazeVersionInfo.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//third_party:flogger",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "rule-definition-context",
-    srcs = [
-        "analysis/RuleDefinitionContext.java",
-    ],
-)
-
 merge_licenses(
     name = "merge_licenses",
     srcs = [
@@ -741,19 +547,11 @@ filegroup(
 filegroup(
     name = "docs_embedded_in_sources",
     srcs = glob(["**/*.java"]) + [
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis:srcs",
+        "//src/main/java/com/google/devtools/build/lib/exec:srcs",
+        "//src/main/java/com/google/devtools/build/lib/repository:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/config:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/proto:srcs",
     ],
 )
 
@@ -823,13 +621,33 @@ genrule(
 
 java_library(
     name = "build-info",
-    srcs = [
-        "analysis/BuildInfo.java",
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:build_info",
+    ],
+)
+
+java_library(
+    name = "blaze-version-info",
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+    ],
+)
+
+java_library(
+    name = "rule-definition-context",
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_context",
     ],
 )
 
 # TODO(b/144899336): This belongs in skyframe/BUILD once it exists.
 java_library(
     name = "sane_analysis_exception",
-    srcs = ["skyframe/SaneAnalysisException.java"],
+    deprecation = "This target has been moved. Depend on the actual target instead.",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
+    ],
 )

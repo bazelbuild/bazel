@@ -4,8 +4,15 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
+)
+
+filegroup(
+    name = "docgen_srcs",
+    srcs = glob(["**"]),  # cpp/proto is explicitly not included.
 )
 
 INTERFACE_SOURCES = [
