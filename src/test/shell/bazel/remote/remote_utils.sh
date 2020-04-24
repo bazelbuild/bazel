@@ -28,11 +28,11 @@ function start_worker() {
       --cas_path="${cas_path}" \
       --listen_port=${worker_port} \
       --pid_file="${pid_file}" \
-      $@ >& $TEST_log &
+      "$@" >& $TEST_log &
   local wait_seconds=0
-  until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 30 ]; do
+  until [[ -s "${pid_file}" || "$wait_seconds" -eq 30 ]]; do
     sleep 1
-    ((wait_seconds++)) || true
+    wait_seconds=$((${wait_seconds} + 1))
   done
   if [ ! -s "${pid_file}" ]; then
     fail "Timed out waiting for remote worker to start."
@@ -42,7 +42,7 @@ function start_worker() {
 function stop_worker() {
   if [ -s "${pid_file}" ]; then
     local pid=$(cat "${pid_file}")
-    kill "${pid}" || true
+    kill -9 "${pid}" || true
   rm -rf "${pid_file}"
   fi
   if [ -d "${work_path}" ]; then
