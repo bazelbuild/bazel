@@ -375,7 +375,7 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "guava/guava-25.1-jre.jar",
+        "guava/guava-29.0-jre.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
     ],
@@ -383,7 +383,7 @@ filegroup(
 
 java_import(
     name = "guava",
-    jars = ["guava/guava-25.1-jre.jar"],
+    jars = ["guava/guava-29.0-jre.jar"],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
@@ -427,7 +427,7 @@ java_import(
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-25.1-jre.jar"],
+    srcs = ["guava/guava-29.0-jre.jar"],
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
@@ -521,7 +521,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-25.1-jre.jar"],
+    jars = ["guava/guava-testlib-29.0-jre.jar"],
 )
 
 java_import(
