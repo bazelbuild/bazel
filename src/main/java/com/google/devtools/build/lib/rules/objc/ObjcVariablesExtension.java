@@ -18,8 +18,10 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIB
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -189,9 +191,14 @@ class ObjcVariablesExtension implements VariablesExtension {
   private void addFullyLinkArchiveVariables(CcToolchainVariables.Builder builder) {
     builder.addStringVariable(
         FULLY_LINKED_ARCHIVE_PATH_VARIABLE_NAME, fullyLinkArchive.getExecPathString());
+
+    ImmutableSet<Artifact> ccLibs = ImmutableSet.copyOf(objcProvider.getCcLibraries());
+    Predicate<Artifact> isNotCcLib = library -> !ccLibs.contains(library);
+    Iterable<Artifact> objcLibraries = Iterables.filter(objcProvider.getObjcLibraries(), isNotCcLib);
+
     builder.addStringSequenceVariable(
         OBJC_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
-        Artifact.toExecPaths(objcProvider.getObjcLibraries()));
+        Artifact.toExecPaths(objcLibraries));
     builder.addStringSequenceVariable(
         CC_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
         Artifact.toExecPaths(objcProvider.getCcLibraries()));
