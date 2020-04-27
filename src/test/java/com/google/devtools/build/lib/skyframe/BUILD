@@ -225,7 +225,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_traversal_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_ast_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_name_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
