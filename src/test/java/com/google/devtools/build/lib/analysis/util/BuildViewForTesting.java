@@ -86,7 +86,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -501,11 +501,11 @@ public class BuildViewForTesting {
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
 
-    Map<String, UnloadedToolchainContextKey> unloadedToolchainContextKeys = new HashMap<>();
+    Map<String, ToolchainContextKey> unloadedToolchainContextKeys = new HashMap<>();
     for (Map.Entry<String, ExecGroup> execGroup : execGroups.entrySet()) {
       unloadedToolchainContextKeys.put(
           execGroup.getKey(),
-          UnloadedToolchainContextKey.key()
+          ToolchainContextKey.key()
               .configurationKey(BuildConfigurationValue.key(targetConfig))
               .requiredToolchainTypeLabels(execGroup.getValue().getRequiredToolchains())
               .build());
@@ -513,7 +513,7 @@ public class BuildViewForTesting {
     String targetUnloadedToolchainContextKey = "target-unloaded-toolchain-context";
     unloadedToolchainContextKeys.put(
         targetUnloadedToolchainContextKey,
-        UnloadedToolchainContextKey.key()
+        ToolchainContextKey.key()
             .configurationKey(BuildConfigurationValue.key(targetConfig))
             .requiredToolchainTypeLabels(requiredToolchains)
             .build());
@@ -524,7 +524,7 @@ public class BuildViewForTesting {
 
     ToolchainCollection.Builder<UnloadedToolchainContext> unloadedToolchainContexts =
         new ToolchainCollection.Builder<>();
-    for (Map.Entry<String, UnloadedToolchainContextKey> unloadedToolchainContextKey :
+    for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
         unloadedToolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =
           (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();

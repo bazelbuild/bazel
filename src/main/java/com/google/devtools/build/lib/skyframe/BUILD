@@ -207,6 +207,7 @@ java_library(
         ":test_expansion_function",
         ":tests_for_target_pattern_function",
         ":tests_for_target_pattern_value",
+        ":toolchain_context_key",
         ":toolchain_exception",
         ":top_down_action_cache",
         ":transitive_base_traversal_function",
@@ -217,7 +218,6 @@ java_library(
         ":transitive_traversal_value",
         ":tree_artifact_value",
         ":unloaded_toolchain_context",
-        ":unloaded_toolchain_context_key",
         ":workspace_ast_value",
         ":workspace_name_function",
         ":workspace_name_value",
@@ -2637,8 +2637,8 @@ java_library(
 )
 
 java_library(
-    name = "unloaded_toolchain_context_key",
-    srcs = ["UnloadedToolchainContextKey.java"],
+    name = "toolchain_context_key",
+    srcs = ["ToolchainContextKey.java"],
     deps = [
         ":build_configuration_value",
         ":sky_functions",
