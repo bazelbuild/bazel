@@ -14,9 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.syntax.EvalUtils.SKYLARK_COMPARATOR;
-
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
@@ -255,7 +254,7 @@ public final class OutputGroupInfo extends StructImpl
 
   @Override
   public Iterator<String> iterator() {
-    return SKYLARK_COMPARATOR.sortedCopy(outputGroups.keySet()).iterator();
+    return ImmutableList.sortedCopyOf(outputGroups.keySet()).iterator();
   }
 
   @Override

@@ -35,23 +35,25 @@ public final class EvalUtils {
   private EvalUtils() {}
 
   /**
-   * The exception that SKYLARK_COMPARATOR might throw. This is an unchecked exception
-   * because Comparator doesn't let us declare exceptions. It should normally be caught
-   * and wrapped in an EvalException.
+   * The exception that SKYLARK_COMPARATOR might throw. This is an unchecked exception because
+   * Comparator doesn't let us declare exceptions. It should normally be caught and wrapped in an
+   * EvalException.
    */
-  public static class ComparisonException extends RuntimeException {
-    public ComparisonException(String msg) {
+  static class ComparisonException extends RuntimeException {
+    ComparisonException(String msg) {
       super(msg);
     }
   }
 
   /**
-   * Compare two Starlark objects.
+   * Compare two Starlark values.
    *
    * <p>It may throw an unchecked exception ComparisonException that should be wrapped in an
    * EvalException.
    */
-  public static final Ordering<Object> SKYLARK_COMPARATOR =
+  // TODO(adonovan): consider what API to expose around comparison and ordering. Java's three-valued
+  // comparator cannot properly handle weakly or partially ordered values such as IEEE754 floats.
+  static final Ordering<Object> SKYLARK_COMPARATOR =
       new Ordering<Object>() {
         private int compareLists(Sequence<?> o1, Sequence<?> o2) {
           if (o1 instanceof RangeList || o2 instanceof RangeList) {
@@ -124,7 +126,9 @@ public final class EvalUtils {
    * @param o an Object
    * @return true if the object is known to be a hashable value.
    */
-  public static boolean isHashable(Object o) {
+  // TODO(adonovan): obviate isHashable query by "try hash, catch StarlarkUnhashable",
+  // an unchecked exception. It is inefficient and potentially inconsistent to ask before doing.
+  static boolean isHashable(Object o) {
     if (o instanceof StarlarkValue) {
       return ((StarlarkValue) o).isHashable();
     }
@@ -137,7 +141,13 @@ public final class EvalUtils {
    * @param o an Object
    * @return true if the object is known to be an immutable value.
    */
-  // NB: This is used as the basis for accepting objects in Depset-s.
+  // TODO(adonovan): eliminate the concept of querying for immutability. It is currently used for
+  // only one purpose, the precondition for adding an element to a Depset, but Depsets should check
+  // hashability, like Dicts. (Similarly, querying for hashability should go: just attempt to hash a
+  // value, and be prepared for it to fail.) In practice, a value may be immutable, either
+  // inherently (e.g. string) or because it has become frozen, but we don't need to query for it.
+  // Just attempt a mutation and be preared for it to fail.
+  // It is inefficient and potentially inconsistent to ask before doing.
   public static boolean isImmutable(Object o) {
     if (o instanceof StarlarkValue) {
       return ((StarlarkValue) o).isImmutable();
