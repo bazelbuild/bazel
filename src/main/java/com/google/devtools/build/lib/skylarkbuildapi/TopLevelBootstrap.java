@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.syntax.Starlark;
  */
 public class TopLevelBootstrap implements Bootstrap {
   private final SkylarkBuildApiGlobals skylarkBuildApiGlobals;
-  private final SkylarkAttrApi skylarkAttrApi;
-  private final SkylarkCommandLineApi skylarkCommandLineApi;
+  private final StarlarkAttrModuleApi starlarkAttrModuleApi;
+  private final StarlarkCommandLineApi starlarkCommandLineApi;
   private final SkylarkNativeModuleApi skylarkNativeModuleApi;
   private final SkylarkRuleFunctionsApi<?> skylarkRuleFunctionsApi;
   private final StructApi.StructProviderApi structProvider;
@@ -37,17 +37,17 @@ public class TopLevelBootstrap implements Bootstrap {
 
   public TopLevelBootstrap(
       SkylarkBuildApiGlobals skylarkBuildApiGlobals,
-      SkylarkAttrApi skylarkAttrApi,
-      SkylarkCommandLineApi skylarkCommandLineApi,
+      StarlarkAttrModuleApi starlarkAttrModuleApi,
+      StarlarkCommandLineApi starlarkCommandLineApi,
       SkylarkNativeModuleApi skylarkNativeModuleApi,
       SkylarkRuleFunctionsApi<?> skylarkRuleFunctionsApi,
       StructApi.StructProviderApi structProvider,
       OutputGroupInfoApiProvider outputGroupInfoProvider,
       ActionsInfoProviderApi actionsInfoProviderApi,
       DefaultInfoApiProvider<?, ?> defaultInfoProvider) {
-    this.skylarkAttrApi = skylarkAttrApi;
+    this.starlarkAttrModuleApi = starlarkAttrModuleApi;
     this.skylarkBuildApiGlobals = skylarkBuildApiGlobals;
-    this.skylarkCommandLineApi = skylarkCommandLineApi;
+    this.starlarkCommandLineApi = starlarkCommandLineApi;
     this.skylarkNativeModuleApi = skylarkNativeModuleApi;
     this.skylarkRuleFunctionsApi = skylarkRuleFunctionsApi;
     this.structProvider = structProvider;
@@ -60,8 +60,8 @@ public class TopLevelBootstrap implements Bootstrap {
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     Starlark.addMethods(builder, skylarkBuildApiGlobals);
     Starlark.addMethods(builder, skylarkRuleFunctionsApi);
-    Starlark.addModule(builder, skylarkAttrApi); // "attr"
-    Starlark.addModule(builder, skylarkCommandLineApi); // "cmd_helper"
+    Starlark.addModule(builder, starlarkAttrModuleApi); // "attr"
+    Starlark.addModule(builder, starlarkCommandLineApi); // "cmd_helper"
     Starlark.addModule(builder, skylarkNativeModuleApi); // "native"
     builder.put("struct", structProvider);
     builder.put("OutputGroupInfo", outputGroupInfoProvider);

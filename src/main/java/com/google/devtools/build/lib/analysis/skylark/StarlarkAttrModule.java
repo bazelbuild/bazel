@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -64,7 +64,7 @@ import javax.annotation.Nullable;
  * The functions are executed through reflection. As everywhere in Starlark, arguments are
  * type-checked with the signature and cannot be null.
  */
-public final class SkylarkAttr implements SkylarkAttrApi {
+public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   // Arguments
 
@@ -315,7 +315,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       }
     }
     if (isListOfProviders) {
-      return ImmutableList.of(getSkylarkProviderIdentifiers(obj));
+      return ImmutableList.of(getStarlarkProviderIdentifiers(obj));
     } else {
       return getProvidersList(obj, argumentName);
     }
@@ -333,7 +333,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
    * Converts Starlark identifiers of providers (either a string or a provider value) to their
    * internal representations.
    */
-  static ImmutableSet<StarlarkProviderIdentifier> getSkylarkProviderIdentifiers(Sequence<?> list)
+  static ImmutableSet<StarlarkProviderIdentifier> getStarlarkProviderIdentifiers(Sequence<?> list)
       throws EvalException {
     ImmutableList.Builder<StarlarkProviderIdentifier> result = ImmutableList.builder();
 
@@ -353,14 +353,14 @@ public final class SkylarkAttr implements SkylarkAttrApi {
   }
 
   private static ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getProvidersList(
-      Sequence<?> skylarkList, String argumentName) throws EvalException {
+      Sequence<?> starlarkList, String argumentName) throws EvalException {
     ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>> providersList =
         ImmutableList.builder();
     String errorMsg = "Illegal argument: element in '%s' is of unexpected type. "
         + "Either all elements should be providers, "
         + "or all elements should be lists of providers, but got %s.";
 
-    for (Object o : skylarkList) {
+    for (Object o : starlarkList) {
       if (!(o instanceof Sequence)) {
         throw new EvalException(
             null,
@@ -380,7 +380,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
                       + EvalUtils.getDataTypeNameFromClass(value.getClass())));
         }
       }
-      providersList.add(getSkylarkProviderIdentifiers((Sequence<?>) o));
+      providersList.add(getStarlarkProviderIdentifiers((Sequence<?>) o));
     }
     return providersList.build();
   }
@@ -777,7 +777,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
   /** A descriptor of an attribute defined in Starlark. */
   @AutoCodec
-  public static final class Descriptor implements SkylarkAttrApi.Descriptor {
+  public static final class Descriptor implements StarlarkAttrModuleApi.Descriptor {
     private final ImmutableAttributeFactory attributeFactory;
     private final String name;
 

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine.ScalarArg;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
@@ -231,7 +231,7 @@ public abstract class Args implements CommandLineArgsApi {
   /** Args module. */
   private static class MutableArgs extends Args implements StarlarkValue, Mutability.Freezable {
     private final Mutability mutability;
-    private final SkylarkCustomCommandLine.Builder commandLine;
+    private final StarlarkCustomCommandLine.Builder commandLine;
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
     private final Set<Artifact> directoryArtifacts = new HashSet<>();
     private ParameterFileType parameterFileType = ParameterFileType.SHELL_QUOTED;
@@ -396,20 +396,20 @@ public abstract class Args implements CommandLineArgsApi {
         String terminateWith,
         Location loc)
         throws EvalException {
-      SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
+      StarlarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof Depset) {
         Depset skylarkNestedSet = (Depset) value;
         NestedSet<?> nestedSet = skylarkNestedSet.getSet();
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
         }
-        vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(nestedSet);
+        vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(nestedSet);
       } else {
         Sequence<?> skylarkList = (Sequence) value;
         if (expandDirectories) {
           scanForDirectories(skylarkList);
         }
-        vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(skylarkList);
+        vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(skylarkList);
       }
       validateFormatString("format_each", formatEach);
       validateFormatString("format_joined", formatJoined);
@@ -520,7 +520,7 @@ public abstract class Args implements CommandLineArgsApi {
 
     private MutableArgs(@Nullable Mutability mutability, StarlarkSemantics starlarkSemantics) {
       this.mutability = mutability != null ? mutability : Mutability.IMMUTABLE;
-      this.commandLine = new SkylarkCustomCommandLine.Builder(starlarkSemantics);
+      this.commandLine = new StarlarkCustomCommandLine.Builder(starlarkSemantics);
     }
 
     @Override

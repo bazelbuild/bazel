@@ -27,14 +27,14 @@ import com.google.devtools.build.lib.syntax.EvalException;
  * before leaving native code. The {@link #close()} method will only throw {@link EvalException},
  * properly wrapping any {@link RuleErrorException} instances if needed.
  */
-public class SkylarkErrorReporter implements AutoCloseable, RuleErrorConsumer {
+public class StarlarkErrorReporter implements AutoCloseable, RuleErrorConsumer {
   private final RuleErrorConsumer ruleErrorConsumer;
 
-  public static SkylarkErrorReporter from(RuleErrorConsumer ruleErrorConsumer) {
-    return new SkylarkErrorReporter(ruleErrorConsumer);
+  public static StarlarkErrorReporter from(RuleErrorConsumer ruleErrorConsumer) {
+    return new StarlarkErrorReporter(ruleErrorConsumer);
   }
 
-  private SkylarkErrorReporter(RuleErrorConsumer ruleErrorConsumer) {
+  private StarlarkErrorReporter(RuleErrorConsumer ruleErrorConsumer) {
     this.ruleErrorConsumer = ruleErrorConsumer;
   }
 

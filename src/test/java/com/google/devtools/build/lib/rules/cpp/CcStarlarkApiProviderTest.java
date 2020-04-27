@@ -28,10 +28,10 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Starlark providers for cpp rules. */
 @RunWith(JUnit4.class)
-public class CcSkylarkApiProviderTest extends BuildViewTestCase {
-  private CcSkylarkApiProvider getApi(String label) throws Exception {
+public class CcStarlarkApiProviderTest extends BuildViewTestCase {
+  private CcStarlarkApiProvider getApi(String label) throws Exception {
     RuleConfiguredTarget rule = (RuleConfiguredTarget) getConfiguredTarget(label);
-    return (CcSkylarkApiProvider) rule.get(CcSkylarkApiProvider.NAME);
+    return (CcStarlarkApiProvider) rule.get(CcStarlarkApiProvider.NAME);
   }
 
   @Before

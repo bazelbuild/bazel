@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
     doc = "Deprecated. Module for creating memory efficient command lines.")
 @StarlarkDeprecated
-public interface SkylarkCommandLineApi extends StarlarkValue {
+public interface StarlarkCommandLineApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "join_paths",

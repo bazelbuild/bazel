@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.ProviderCollection;
  * An abstract class for adding a Starlark API for the native providers. Derived classes should
  * declare functions to be used from Starlark.
  */
-public abstract class SkylarkApiProvider {
+public abstract class StarlarkApiProvider {
   private ProviderCollection info;
 
   protected ProviderCollection getInfo() {

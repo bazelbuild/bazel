@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     name = "rule_attributes",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Information about attributes of a rule an aspect is applied to.")
-public interface SkylarkAttributesCollectionApi extends StarlarkValue {
+public interface StarlarkAttributesCollectionApi extends StarlarkValue {
 
   @SkylarkCallable(name = "attr", structField = true, doc = SkylarkRuleContextApi.ATTR_DOC)
   StructApi getAttr() throws EvalException;

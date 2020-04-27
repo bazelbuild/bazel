@@ -56,7 +56,7 @@ import javax.annotation.Nullable;
 
 /** Supports ctx.actions.args() from Starlark. */
 @AutoCodec
-public class SkylarkCustomCommandLine extends CommandLine {
+public class StarlarkCustomCommandLine extends CommandLine {
   private final StarlarkSemantics starlarkSemantics;
   private final ImmutableList<Object> arguments;
 
@@ -733,14 +733,14 @@ public class SkylarkCustomCommandLine extends CommandLine {
       return this;
     }
 
-    SkylarkCustomCommandLine build() {
-      return new SkylarkCustomCommandLine(starlarkSemantics, arguments.build());
+    StarlarkCustomCommandLine build() {
+      return new StarlarkCustomCommandLine(starlarkSemantics, arguments.build());
     }
   }
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
-  SkylarkCustomCommandLine(StarlarkSemantics starlarkSemantics, ImmutableList<Object> arguments) {
+  StarlarkCustomCommandLine(StarlarkSemantics starlarkSemantics, ImmutableList<Object> arguments) {
     this.arguments = arguments;
     this.starlarkSemantics = starlarkSemantics;
   }
