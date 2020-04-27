@@ -36,7 +36,7 @@ additional functions that can be useful when writing new rules and new
 macros.
 
 The rules above were reviewed and follow our
-[https://www.bazel.build/recommended-rules.html](requirements for recommended rules).
+[requirements for recommended rules](https://www.bazel.build/recommended-rules.html).
 Contact the respective rule set's maintainers regarding issues and feature
 requests.
 
