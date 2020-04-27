@@ -93,9 +93,9 @@ final class Eval {
     EvalUtils.addIterator(o);
     try {
       for (Object it : seq) {
-        assign(fr, node.getLHS(), it);
+        assign(fr, node.getVars(), it);
 
-        switch (execStatements(fr, node.getBlock(), /*indented=*/ true)) {
+        switch (execStatements(fr, node.getBody(), /*indented=*/ true)) {
           case PASS:
           case CONTINUE:
             // Stay in loop.
@@ -149,7 +149,7 @@ final class Eval {
             node.getIdentifier().getStartLocation(),
             sig,
             defaults,
-            node.getStatements(),
+            node.getBody(),
             fn(fr).getModule()));
   }
 
@@ -209,9 +209,9 @@ final class Eval {
 
   private static TokenKind execReturn(StarlarkThread.Frame fr, ReturnStatement node)
       throws EvalException, InterruptedException {
-    Expression ret = node.getReturnExpression();
-    if (ret != null) {
-      fr.result = eval(fr, ret);
+    Expression result = node.getResult();
+    if (result != null) {
+      fr.result = eval(fr, result);
     }
     return TokenKind.RETURN;
   }

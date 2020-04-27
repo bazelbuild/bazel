@@ -96,8 +96,8 @@ public class NodeVisitor {
 
   public void visit(ForStatement node) {
     visit(node.getCollection());
-    visit(node.getLHS());
-    visitBlock(node.getBlock());
+    visit(node.getVars());
+    visitBlock(node.getBody());
   }
 
   public void visit(LoadStatement node) {
@@ -134,12 +134,12 @@ public class NodeVisitor {
   public void visit(DefStatement node) {
     visit(node.getIdentifier());
     visitAll(node.getParameters());
-    visitBlock(node.getStatements());
+    visitBlock(node.getBody());
   }
 
   public void visit(ReturnStatement node) {
-    if (node.getReturnExpression() != null) {
-      visit(node.getReturnExpression());
+    if (node.getResult() != null) {
+      visit(node.getResult());
     }
   }
 

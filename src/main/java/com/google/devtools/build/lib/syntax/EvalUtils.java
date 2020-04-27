@@ -27,9 +27,9 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Utilities used by the evaluator. */
-// TODO(adonovan): rename this class to Starlark. Its API should contain all the fundamental values
-// and operators of the language: None, len, truth, str, iterate, equal, compare, getattr, index,
-// slice, parse, exec, eval, and so on.
+// TODO(adonovan): move all fundamental values and operators of the language to Starlark
+// class---equal, compare, getattr, index, slice, parse, exec, eval, and so on---and make this
+// private.
 public final class EvalUtils {
 
   private EvalUtils() {}

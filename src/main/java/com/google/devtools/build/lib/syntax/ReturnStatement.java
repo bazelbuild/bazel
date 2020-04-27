@@ -36,9 +36,8 @@ public final class ReturnStatement extends Statement {
     return new ReturnStatement(expr.locs, 0, expr);
   }
 
-  // TODO(adonovan): rename to getResult.
   @Nullable
-  public Expression getReturnExpression() {
+  public Expression getResult() {
     return result;
   }
 

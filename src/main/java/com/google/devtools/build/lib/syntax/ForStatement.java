@@ -21,27 +21,26 @@ import java.util.List;
 public final class ForStatement extends Statement {
 
   private final int forOffset;
-  private final Expression lhs;
+  private final Expression vars;
   private final Expression collection;
-  private final ImmutableList<Statement> block; // non-empty if well formed
+  private final ImmutableList<Statement> body; // non-empty if well formed
 
   /** Constructs a for loop statement. */
   ForStatement(
       FileLocations locs,
       int forOffset,
-      Expression lhs,
+      Expression vars,
       Expression collection,
-      List<Statement> block) {
+      List<Statement> body) {
     super(locs);
     this.forOffset = forOffset;
-    this.lhs = Preconditions.checkNotNull(lhs);
+    this.vars = Preconditions.checkNotNull(vars);
     this.collection = Preconditions.checkNotNull(collection);
-    this.block = ImmutableList.copyOf(block);
+    this.body = ImmutableList.copyOf(body);
   }
 
-  // TODO(adonovan): rename to getVars.
-  public Expression getLHS() {
-    return lhs;
+  public Expression getVars() {
+    return vars;
   }
 
   /**
@@ -51,8 +50,8 @@ public final class ForStatement extends Statement {
     return collection;
   }
 
-  public ImmutableList<Statement> getBlock() {
-    return block;
+  public ImmutableList<Statement> getBody() {
+    return body;
   }
 
   @Override
@@ -62,14 +61,14 @@ public final class ForStatement extends Statement {
 
   @Override
   public int getEndOffset() {
-    return block.isEmpty()
+    return body.isEmpty()
         ? collection.getEndOffset() // wrong, but tree is ill formed
-        : block.get(block.size() - 1).getEndOffset();
+        : body.get(body.size() - 1).getEndOffset();
   }
 
   @Override
   public String toString() {
-    return "for " + lhs + " in " + collection + ": ...\n";
+    return "for " + vars + " in " + collection + ": ...\n";
   }
 
   @Override

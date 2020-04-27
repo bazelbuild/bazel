@@ -159,8 +159,8 @@ public final class Resolver extends NodeVisitor {
         break;
       case FOR:
         ForStatement forStmt = (ForStatement) stmt;
-        collectDefinitions(forStmt.getLHS());
-        collectDefinitions(forStmt.getBlock());
+        collectDefinitions(forStmt.getVars());
+        collectDefinitions(forStmt.getBody());
         break;
       case DEF:
         DefStatement def = (DefStatement) stmt;
@@ -294,8 +294,8 @@ public final class Resolver extends NodeVisitor {
     }
     loopCount++;
     visit(node.getCollection());
-    assign(node.getLHS());
-    visitBlock(node.getBlock());
+    assign(node.getVars());
+    visitBlock(node.getBody());
     Preconditions.checkState(loopCount > 0);
     loopCount--;
   }
@@ -362,8 +362,8 @@ public final class Resolver extends NodeVisitor {
         declare(param.getIdentifier());
       }
     }
-    collectDefinitions(node.getStatements());
-    visitAll(node.getStatements());
+    collectDefinitions(node.getBody());
+    visitAll(node.getBody());
     closeBlock();
   }
 
