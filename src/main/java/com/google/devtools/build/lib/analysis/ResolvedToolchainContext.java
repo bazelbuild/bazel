@@ -90,6 +90,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
 
     return new AutoValue_ResolvedToolchainContext(
         // super:
+        unloadedToolchainContext.key(),
         unloadedToolchainContext.executionPlatform(),
         unloadedToolchainContext.targetPlatform(),
         unloadedToolchainContext.requiredToolchainTypes(),

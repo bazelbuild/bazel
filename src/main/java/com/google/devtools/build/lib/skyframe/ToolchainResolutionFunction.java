@@ -65,7 +65,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ToolchainContextKey key = (ToolchainContextKey) skyKey.argument();
 
     try {
-      UnloadedToolchainContextImpl.Builder builder = UnloadedToolchainContextImpl.builder();
+      UnloadedToolchainContextImpl.Builder builder =
+          UnloadedToolchainContextImpl.builder().setKey(key);
 
       // Determine the configuration being used.
       BuildConfigurationValue value =
