@@ -453,7 +453,7 @@ public final class PackageFactory {
         packageBuilderHelper,
         packageId,
         runfilesPrefix,
-        starlarkSemantics,
+        starlarkSemantics.incompatibleNoImplicitFileExport(),
         Package.Builder.EMPTY_REPOSITORY_MAPPING);
   }
 
@@ -720,7 +720,7 @@ public final class PackageFactory {
                 packageBuilderHelper,
                 packageId,
                 ruleClassProvider.getRunfilesPrefix(),
-                semantics,
+                semantics.incompatibleNoImplicitFileExport(),
                 repositoryMapping)
             .setFilename(buildFilePath)
             .setDefaultVisibility(defaultVisibility)
