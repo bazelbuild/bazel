@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -206,14 +205,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
 
     private FormatterDependencyResolver(ExtendedEventHandler eventHandler) {
       this.eventHandler = eventHandler;
-    }
-
-    @Override
-    protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-      eventHandler.handle(
-          Event.error(
-              TargetUtils.getLocationMaybe(node.getTarget()),
-              String.format("label '%s' does not refer to a package group", label)));
     }
 
     @Override

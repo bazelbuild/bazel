@@ -302,11 +302,6 @@ public class BuildViewForTesting {
       }
 
       @Override
-      protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-        throw new RuntimeException("bad package group on " + label + " during testing unexpected");
-      }
-
-      @Override
       protected Map<Label, Target> getTargets(
           OrderedSetMultimap<DependencyKind, Label> labelMap,
           TargetAndConfiguration fromNode,
