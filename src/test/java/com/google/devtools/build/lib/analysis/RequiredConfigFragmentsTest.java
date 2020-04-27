@@ -14,10 +14,23 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -131,5 +144,116 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     assertThat(requiredFragments)
         .containsExactlyElementsIn(genRuleFragments("--define:myvar"))
         .inOrder();
+  }
+
+  /**
+   * Aspect that requires fragments both in its definition and through an optionally set <code>
+   * --define custom_define</code>.
+   */
+  private static final class AspectWithConfigFragmentRequirements extends NativeAspectClass
+      implements ConfiguredAspectFactory {
+    @Override
+    public AspectDefinition getDefinition(AspectParameters params) {
+      return new AspectDefinition.Builder(this)
+          .requiresConfigurationFragments(JavaConfiguration.class)
+          .add(attr("custom_define", Type.STRING).allowedValues(new AllowedValueSet("", "myvar")))
+          .build();
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTargetAndData ctadBase,
+        RuleContext ruleContext,
+        AspectParameters params,
+        String toolsRepository)
+        throws ActionConflictException {
+      ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
+      String customDefine = ruleContext.attributes().get("custom_define", Type.STRING);
+      if (!customDefine.isEmpty()) {
+        builder.addRequiredConfigFragments(ImmutableSet.of("--define:" + customDefine));
+      }
+      return builder.build();
+    }
+  }
+
+  private static final AspectWithConfigFragmentRequirements
+      ASPECT_WITH_CONFIG_FRAGMENT_REQUIREMENTS = new AspectWithConfigFragmentRequirements();
+
+  /** Rule that attaches {@link AspectWithConfigFragmentRequirements} to its deps. */
+  public static final class RuleThatAttachesAspect
+      implements RuleDefinition, RuleConfiguredTargetFactory {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr("custom_define", Type.STRING).allowedValues(new AllowedValueSet("", "myvar")))
+          .add(
+              attr("deps", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .aspect(ASPECT_WITH_CONFIG_FRAGMENT_REQUIREMENTS))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("rule_that_attaches_aspect")
+          .ancestors(BaseRuleClasses.BaseRule.class)
+          .factoryClass(RuleThatAttachesAspect.class)
+          .build();
+    }
+
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
+      return new RuleConfiguredTargetBuilder(ruleContext)
+          .addProvider(RunfilesProvider.EMPTY)
+          .build();
+    }
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder =
+        new ConfiguredRuleClassProvider.Builder()
+            .addRuleDefinition(new RuleThatAttachesAspect())
+            .addNativeAspectClass(ASPECT_WITH_CONFIG_FRAGMENT_REQUIREMENTS);
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder.build();
+  }
+
+  @Test
+  public void aspectDefinitionRequiresFragments() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "rule_that_attaches_aspect(",
+        "    name = 'parent',",
+        "    deps = [':dep'])",
+        "rule_that_attaches_aspect(",
+        "    name = 'dep')");
+    useConfiguration("--include_config_fragments_provider=transitive");
+    ImmutableSet<String> requiredFragments =
+        getConfiguredTarget("//a:parent")
+            .getProvider(RequiredConfigFragmentsProvider.class)
+            .getRequiredConfigFragments();
+    assertThat(requiredFragments).contains("JavaConfiguration");
+    assertThat(requiredFragments).doesNotContain("--define:myvar");
+  }
+
+  @Test
+  public void aspectImplementationRequiresFragments() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "rule_that_attaches_aspect(",
+        "    name = 'parent',",
+        "    deps = [':dep'])",
+        "rule_that_attaches_aspect(",
+        "    name = 'dep',",
+        "    custom_define = 'myvar')");
+    useConfiguration("--include_config_fragments_provider=transitive");
+    ImmutableSet<String> requiredFragments =
+        getConfiguredTarget("//a:parent")
+            .getProvider(RequiredConfigFragmentsProvider.class)
+            .getRequiredConfigFragments();
+    assertThat(requiredFragments).contains("JavaConfiguration");
+    assertThat(requiredFragments).contains("--define:myvar");
   }
 }

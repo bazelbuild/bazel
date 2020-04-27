@@ -20,6 +20,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -261,10 +262,10 @@ public final class ConfiguredTargetFactory {
 
   /**
    * Returns a set of user-friendly strings identifying <i>almost</i> all of the pieces of config
-   * state that are required by this rule.
+   * state required by a rule or aspect.
    *
    * <p>The returned config state includes things that are known to be required at the time when the
-   * rule's dependencies have already been analyzed but before the rule itself has been analyzed.
+   * rule's/aspect's dependencies have already been analyzed but before it's been analyzed itself.
    * See {@link RuleConfiguredTargetBuilder#maybeAddRequiredConfigFragmentsProvider} for the
    * remaining pieces of config state.
    *
@@ -273,55 +274,56 @@ public final class ConfiguredTargetFactory {
    * options such as Starlark flags and Android feature flags.
    *
    * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
-   * result includes only the config state considered to be directly required by this rule. If it's
-   * {@link CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config state needed
-   * by transitive dependencies. If it's {@link CoreOptions.IncludeConfigFragmentEnum#OFF}, this
-   * method just returns an empty set.
+   * result includes only the config state considered to be directly required by this rule/aspect.
+   * If it's {@link CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config
+   * state needed by transitive dependencies. If it's {@link
+   * CoreOptions.IncludeConfigFragmentEnum#OFF}, this method just returns an empty set.
    *
    * <p>{@code select()}s and toolchain dependencies are considered when looking at what config
    * state is required.
    *
    * <p>TODO: This doesn't yet support fragments required by either native or Starlark transitions.
    *
-   * @param rule The rule this is for
-   * @param configuration the configuration for this rule
+   * @param buildSettingLabel this rule's label if this is a rule that's a build setting, else empty
+   * @param configuration the configuration for this rule/aspect
    * @param universallyRequiredFragments fragments that are always required even if not explicitly
-   *     specified for this rule
-   * @param configurationFragmentPolicy source of truth for the fragments required by this rule's
-   *     rule class
+   *     specified for this rule/aspect
+   * @param configurationFragmentPolicy source of truth for the fragments required by this
+   *     rule/aspect class definition
    * @param configConditions {@link com.google.devtools.build.lib.analysis.config.FragmentOptions}
-   *     required by {@code select}s on this rule. This is a different type than the others: options
-   *     and fragments are different concepts. There's some subtlety to their relationship (e.g. a
-   *     {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} can be associated
-   *     with multiple {@link Fragment}s). Rather than trying to merge all results into a pure set
-   *     of {@link Fragment}s we just allow the mix. In practice the conceptual dependencies remain
+   *     required by {@code select}s on this rule (empty if this is an aspect). This is a different
+   *     type than the others: options and fragments are different concepts. There's some subtlety
+   *     to their relationship (e.g. a {@link
+   *     com.google.devtools.build.lib.analysis.config.FragmentOptions} can be associated with
+   *     multiple {@link Fragment}s). Rather than trying to merge all results into a pure set of
+   *     {@link Fragment}s we just allow the mix. In practice the conceptual dependencies remain
    *     clear enough without trying to resolve these subtleties.
-   * @param prerequisites all prerequisties of this rule
+   * @param prerequisites all prerequisites of this rule/aspect
    * @return An alphabetically ordered set of required fragments, options, and labels of
    *     user-defined options.
    */
-  private static ImmutableSet<String> getRequiredConfigFragments(
-      Rule rule,
+  private static ImmutableSortedSet<String> getRequiredConfigFragments(
+      Optional<Label> buildSettingLabel,
       BuildConfiguration configuration,
       Collection<Class<? extends Fragment>> universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       Collection<ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
-    TreeSet<String> requiredFragments = new TreeSet<>();
-
     CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
     if (coreOptions.includeRequiredConfigFragmentsProvider
         == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
-      return ImmutableSet.of();
+      return ImmutableSortedSet.of();
     }
+
+    ImmutableSortedSet.Builder<String> requiredFragments = ImmutableSortedSet.naturalOrder();
 
     // Add directly required fragments:
 
-    // Fragments explicitly required by this rule via the native rule definition API:
+    // Fragments explicitly required by this rule via the native rule/aspect definition API:
     configurationFragmentPolicy
         .getRequiredConfigurationFragments()
         .forEach(fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
-    // Fragments explicitly required by this rule via the Starlark rule definition API:
+    // Fragments explicitly required by this rule via the Starlark rule/aspect definition API:
     configurationFragmentPolicy
         .getRequiredStarlarkFragments()
         .forEach(
@@ -330,20 +332,20 @@ public final class ConfiguredTargetFactory {
                   ClassName.getSimpleNameWithOuter(
                       configuration.getSkylarkFragmentByName(starlarkName)));
             });
-    // Fragments universally required by all rules:
+    // Fragments universally required by everything:
     universallyRequiredFragments.forEach(
         fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
-    // Fragments required by config_conditions this rule select()s on:
+    // Fragments required by config_conditions this rule select()s on (for aspects should be empty):
     configConditions.forEach(
         configCondition -> requiredFragments.addAll(configCondition.getRequiredFragmentOptions()));
     // We consider build settings (which are both rules and configuration) to require themselves:
-    if (rule.isBuildSetting()) {
-      requiredFragments.add(rule.getLabel().toString());
+    if (buildSettingLabel.isPresent()) {
+      requiredFragments.add(buildSettingLabel.get().toString());
     }
 
     // Optionally add transitively required fragments:
     requiredFragments.addAll(getRequiredConfigFragmentsFromDeps(configuration, prerequisites));
-    return ImmutableSet.copyOf(requiredFragments);
+    return requiredFragments.build();
   }
 
   /**
@@ -428,7 +430,7 @@ public final class ConfiguredTargetFactory {
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
                 getRequiredConfigFragments(
-                    rule,
+                    rule.isBuildSetting() ? Optional.of(rule.getLabel()) : Optional.empty(),
                     configuration,
                     ruleClassProvider.getUniversalFragments(),
                     configurationFragmentPolicy,
@@ -628,9 +630,13 @@ public final class ConfiguredTargetFactory {
             .setToolchainContext(toolchainContext)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
-                // Aspects have no direct fragment requirements: all requirements come from implicit
-                // label dependencies.
-                getRequiredConfigFragmentsFromDeps(aspectConfiguration, prerequisiteMap.values()))
+                getRequiredConfigFragments(
+                    /*buildSettingLabel=*/ Optional.empty(),
+                    aspectConfiguration,
+                    ruleClassProvider.getUniversalFragments(),
+                    aspect.getDefinition().getConfigurationFragmentPolicy(),
+                    /*configConditions=*/ ImmutableList.of(),
+                    prerequisiteMap.values()))
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors
