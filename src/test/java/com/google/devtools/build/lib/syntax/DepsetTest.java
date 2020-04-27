@@ -74,7 +74,7 @@ public final class DepsetTest extends EvaluationTestCase {
     // getSet argument must be a legal Starlark value class, or Object,
     // but not some superclass that doesn't implement StarlarkValue.
     Depset ints = Depset.legacyOf(Order.STABLE_ORDER, Tuple.of(1, 2, 3));
-    assertThat(ints.getSet(Integer.class).toString()).isEqualTo("{1, 2, 3}");
+    assertThat(ints.getSet(Integer.class).toString()).isEqualTo("[1, 2, 3]");
     IllegalArgumentException ex =
         assertThrows(IllegalArgumentException.class, () -> ints.getSet(Number.class));
     assertThat(ex.getMessage()).contains("Number is not a subclass of StarlarkValue");

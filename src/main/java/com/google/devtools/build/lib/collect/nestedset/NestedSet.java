@@ -13,14 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import static java.util.stream.Collectors.joining;
-
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -50,8 +47,6 @@ import javax.annotation.Nullable;
 @SuppressWarnings("unchecked")
 @AutoCodec
 public final class NestedSet<E> {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   /**
    * Order and size of set packed into one int.
    *
@@ -62,7 +57,7 @@ public final class NestedSet<E> {
   private int orderAndSize;
 
   private final Object children;
-  private byte[] memo;
+  @Nullable private byte[] memo;
 
   /**
    * The application depth limit of nested sets. Nested sets over this depth will throw {@link
@@ -174,7 +169,7 @@ public final class NestedSet<E> {
     }
   }
 
-  private NestedSet(Order order, Object children, byte[] memo) {
+  private NestedSet(Order order, Object children, @Nullable byte[] memo) {
     this.orderAndSize = order.ordinal();
     this.children = children;
     this.memo = memo;
@@ -287,6 +282,10 @@ public final class NestedSet<E> {
 
   /** Returns true if the set has exactly one element. */
   public boolean isSingleton() {
+    return isSingleton(children);
+  }
+
+  private static boolean isSingleton(Object children) {
     // Singleton sets are special cased in serialization, and make no calls to storage.  Therefore,
     // we know that any NestedSet with a ListenableFuture member is not a singleton.
     return !(children instanceof Object[] || children instanceof ListenableFuture);
@@ -436,33 +435,44 @@ public final class NestedSet<E> {
         : Objects.hash(getOrder(), Arrays.hashCode((Object[]) children));
   }
 
+  @VisibleForTesting static final int MAX_ELEMENTS_TO_STRING = 1_000_000;
+
   @Override
   public String toString() {
-    return isSingleton() ? "{" + children + "}" : childrenToString(children);
+    String specialCase = specialCaseChildrenToString(children);
+    return specialCase != null ? specialCase : nestedSetToString(this);
   }
 
-  // TODO:  this leaves LINK_ORDER backwards
+  /** Returned string iterates over {@code children} in {@link Order#STABLE_ORDER}. */
   public static String childrenToString(Object children) {
-    if (children instanceof Object[]) {
-      return Arrays.stream((Object[]) children)
-          .map(NestedSet::childrenToString)
-          .collect(joining(", ", "{", "}"));
-    } else if (children instanceof Future) {
-      Future<Object[]> future = (Future<Object[]>) children;
-      if (future.isDone()) {
-        try {
-          return Arrays.toString(Futures.getDone(future));
-        } catch (ExecutionException e) {
-          logger.atSevere().withCause(e).log("Error getting %s", future);
-          // Don't rethrow, since we may be in the process of trying to construct an error message.
-          return "Future " + future + " with error: " + e.getCause().getMessage();
-        }
-      } else {
-        return children.toString();
-      }
-    } else {
-      return children.toString();
+    String specialCase = specialCaseChildrenToString(children);
+    return specialCase != null
+        ? specialCase
+        : nestedSetToString(new NestedSet<>(Order.STABLE_ORDER, children, null));
+  }
+
+  @Nullable
+  private static String specialCaseChildrenToString(Object children) {
+    if (isSingleton(children)) {
+      return "[" + children + "]";
     }
+    if (children instanceof Future) {
+      if (!((Future<Object[]>) children).isDone()) {
+        return "Deserializing NestedSet with future: " + children;
+      }
+    }
+    return null;
+  }
+
+  private static String nestedSetToString(NestedSet<?> nestedSet) {
+    ImmutableList<?> expandedList = nestedSet.toList();
+    if (expandedList.size() <= MAX_ELEMENTS_TO_STRING) {
+      return expandedList.toString();
+    }
+    return expandedList.subList(0, MAX_ELEMENTS_TO_STRING)
+        + " (truncated, full size "
+        + expandedList.size()
+        + ")";
   }
 
   /**
