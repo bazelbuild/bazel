@@ -703,15 +703,6 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Hook for the error case when an invalid package group reference is found.
-   *
-   * @param node the package group node with the includes attribute
-   * @param label the invalid reference
-   */
-  protected abstract void invalidPackageGroupReferenceHook(TargetAndConfiguration node,
-      Label label);
-
-  /**
    * Returns the targets for the given labels.
    *
    * <p>Returns null if any targets are not ready to be returned at this moment because of missing

@@ -52,13 +52,6 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
     this.env = env;
   }
 
-  @Override
-  protected void invalidPackageGroupReferenceHook(TargetAndConfiguration value, Label label) {
-    env.getListener().handle(
-        Event.error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
-            "label '%s' does not refer to a package group", label)));
-  }
-
   private void missingEdgeHook(
       Target from, DependencyKind dependencyKind, Label to, NoSuchThingException e) {
     boolean raiseError = false;

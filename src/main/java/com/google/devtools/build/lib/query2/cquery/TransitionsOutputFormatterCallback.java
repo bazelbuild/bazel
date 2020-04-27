@@ -209,14 +209,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
 
     @Override
-    protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-      eventHandler.handle(
-          Event.error(
-              TargetUtils.getLocationMaybe(node.getTarget()),
-              String.format("label '%s' does not refer to a package group", label)));
-    }
-
-    @Override
     protected Map<Label, Target> getTargets(
         OrderedSetMultimap<DependencyKind, Label> labelMap,
         Target fromTarget,
