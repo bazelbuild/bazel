@@ -464,10 +464,11 @@ merge_licenses(
 java_library(
     name = "all-build-rules",
     exports = [
-        ":build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:legacy_exports",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/graph",
+        "//src/main/java/com/google/devtools/build/lib/rules:legacy_exports",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -478,6 +479,7 @@ java_library(
 
 java_library(
     name = "build",
+    deprecation = "This target has been deprecated. Please depend on the correct exported library instead.",
     exports = [
         ":all-build-rules",
         ":build-base",
