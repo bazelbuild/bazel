@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -253,6 +254,9 @@ public abstract class Dependency {
    */
   public abstract ImmutableList<String> getTransitionKeys();
 
+  /** Returns the ConfiguredTargetKey needed to fetch this dependency. */
+  public abstract ConfiguredTargetKey getConfiguredTargetKey();
+
   /**
    * Implementation of a dependency with no configuration, suitable for, e.g., source files or
    * visibility.
@@ -295,6 +299,11 @@ public abstract class Dependency {
     @Override
     public ImmutableList<String> getTransitionKeys() {
       return transitionKeys;
+    }
+
+    @Override
+    public ConfiguredTargetKey getConfiguredTargetKey() {
+      return ConfiguredTargetKey.of(getLabel(), null);
     }
 
     @Override
@@ -371,6 +380,11 @@ public abstract class Dependency {
     }
 
     @Override
+    public ConfiguredTargetKey getConfiguredTargetKey() {
+      return ConfiguredTargetKey.of(getLabel(), getConfiguration());
+    }
+
+    @Override
     public int hashCode() {
       return Objects.hash(label, configuration, aspectConfigurations, transitionKeys);
     }
@@ -440,6 +454,12 @@ public abstract class Dependency {
     public ImmutableList<String> getTransitionKeys() {
       throw new IllegalStateException(
           "This dependency has a transition, not an explicit configuration.");
+    }
+
+    @Override
+    public ConfiguredTargetKey getConfiguredTargetKey() {
+      throw new IllegalStateException(
+              "This dependency has a transition, not an explicit configuration.");
     }
 
     @Override

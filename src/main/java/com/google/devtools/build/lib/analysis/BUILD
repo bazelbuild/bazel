@@ -702,6 +702,7 @@ java_library(
         ":config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
