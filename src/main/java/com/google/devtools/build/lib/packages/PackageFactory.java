@@ -449,7 +449,12 @@ public final class PackageFactory {
   @VisibleForTesting
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId, String runfilesPrefix, StarlarkSemantics starlarkSemantics) {
-    return new Package.Builder(packageBuilderHelper, packageId, runfilesPrefix, starlarkSemantics);
+    return new Package.Builder(
+        packageBuilderHelper,
+        packageId,
+        runfilesPrefix,
+        starlarkSemantics,
+        Package.Builder.EMPTY_REPOSITORY_MAPPING);
   }
 
   @VisibleForTesting
@@ -712,7 +717,11 @@ public final class PackageFactory {
       throws InterruptedException {
     Package.Builder pkgBuilder =
         new Package.Builder(
-                packageBuilderHelper, packageId, ruleClassProvider.getRunfilesPrefix(), semantics)
+                packageBuilderHelper,
+                packageId,
+                ruleClassProvider.getRunfilesPrefix(),
+                semantics,
+                repositoryMapping)
             .setFilename(buildFilePath)
             .setDefaultVisibility(defaultVisibility)
             // "defaultVisibility" comes from the command line.
@@ -721,7 +730,6 @@ public final class PackageFactory {
             .setDefaultVisibilitySet(false)
             .setStarlarkFileDependencies(skylarkFileDependencies)
             .setWorkspaceName(workspaceName)
-            .setRepositoryMapping(repositoryMapping)
             .setThirdPartyLicenceExistencePolicy(
                 ruleClassProvider.getThirdPartyLicenseExistencePolicy());
     StoredEventHandler eventHandler = new StoredEventHandler();
