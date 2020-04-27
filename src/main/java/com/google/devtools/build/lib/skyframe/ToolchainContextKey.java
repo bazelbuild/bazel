@@ -28,7 +28,7 @@ public abstract class ToolchainContextKey implements SkyKey {
 
   /** Returns a new {@link Builder}. */
   public static Builder key() {
-    return new AutoValue_UnloadedToolchainContextKey.Builder()
+    return new AutoValue_ToolchainContextKey.Builder()
         .requiredToolchainTypeLabels(ImmutableSet.of())
         .execConstraintLabels(ImmutableSet.of())
         .shouldSanityCheckConfiguration(false);

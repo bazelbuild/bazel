@@ -17,9 +17,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 
 /** Represents the data needed for a specific target's use of toolchains and platforms. */
 public interface ToolchainContext {
+  /** Returns the key that identifies this context. */
+  ToolchainContextKey key();
 
   /** Returns the selected execution platform that these toolchains use. */
   PlatformInfo executionPlatform();
