@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Resolver;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -512,6 +513,11 @@ public class SkydocMain {
             globalFrame(ruleInfoList, providerInfoList, aspectInfoList),
             imports);
     Module module = thread.getGlobals();
+
+    Resolver.resolveFile(file, module);
+    if (!file.ok()) {
+      throw new StarlarkEvaluationException(file.errors().get(0).toString());
+    }
 
     try {
       EvalUtils.exec(file, module, thread);
