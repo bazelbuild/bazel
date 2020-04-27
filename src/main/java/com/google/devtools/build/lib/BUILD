@@ -149,29 +149,29 @@ java_library(
     ],
 )
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "transitive-info-provider",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = ["//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider"],
 )
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "config-matching-provider",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = ["//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider"],
 )
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "provider-collection",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
     ],
 )
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "build-configuration-option-details",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/rules/config:__pkg__",
     ],
@@ -180,9 +180,9 @@ java_library(
     ],
 )
 
+# Deprecated: This target has been split. Depend on the sub-targets instead.
 java_library(
     name = "build-base",
-    deprecation = "This target has been split. Depend on the sub-targets instead.",
     exports = [
         ":runtime/blaze_server_startup_options",
         ":runtime/build_event_streamer_utils",
@@ -196,33 +196,33 @@ java_library(
 )
 
 # Rules
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "nativedeps-rules",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/rules:nativedeps",
     ],
 )
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "core-rules",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/rules:core_rules",
     ],
 )
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "core-workspace-rules",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/rules:core_workspace_rules",
     ],
 )
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "testing-support-rules",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/rules:test_rules",
     ],
@@ -477,9 +477,9 @@ java_library(
     ],
 )
 
+# Deprecated: This target has been deprecated. Please depend on the correct exported library instead.
 java_library(
     name = "build",
-    deprecation = "This target has been deprecated. Please depend on the correct exported library instead.",
     exports = [
         ":all-build-rules",
         ":build-base",
@@ -602,34 +602,34 @@ genrule(
 # A library for just the BuildInfo class, so it can be used by the external
 # SingleJar implementation.
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "build-info",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info",
     ],
 )
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "blaze-version-info",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
     ],
 )
 
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "rule-definition-context",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_context",
     ],
 )
 
 # TODO(b/144899336): This belongs in skyframe/BUILD once it exists.
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "sane_analysis_exception",
-    deprecation = "This target has been moved. Depend on the actual target instead.",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
     ],
