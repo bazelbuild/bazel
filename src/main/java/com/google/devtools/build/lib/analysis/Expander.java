@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.stringtemplate.Expansion;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
@@ -35,6 +38,8 @@ public final class Expander {
   private final RuleContext ruleContext;
   private final TemplateContext templateContext;
   @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap;
+  /* Which variables were looked up over this instance's lifetime? */
+  private final TreeSet<String> lookedUpVariables;
 
   Expander(RuleContext ruleContext, TemplateContext templateContext) {
     this(ruleContext, templateContext, /* labelMap= */ null);
@@ -44,9 +49,20 @@ public final class Expander {
       RuleContext ruleContext,
       TemplateContext templateContext,
       @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
+    this(ruleContext, templateContext, labelMap, /*lookedUpVariables=*/ null);
+  }
+
+  Expander(
+      RuleContext ruleContext,
+      TemplateContext templateContext,
+      @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
+      @Nullable TreeSet<String> lookedUpVariables) {
     this.ruleContext = ruleContext;
     this.templateContext = templateContext;
     this.labelMap = labelMap;
+    // TODO(https://github.com/bazelbuild/bazel/issues/11221): Eliminate all methods that construct
+    // an Expander from an existing Expander. These make it hard to keep lookeduUpVariables correct.
+    this.lookedUpVariables = lookedUpVariables == null ? new TreeSet<>() : lookedUpVariables;
   }
 
   /**
@@ -57,7 +73,7 @@ public final class Expander {
     TemplateContext newTemplateContext =
         new LocationTemplateContext(
             templateContext, ruleContext, labelMap, execPaths, allowData, false);
-    return new Expander(ruleContext, newTemplateContext, labelMap);
+    return new Expander(ruleContext, newTemplateContext, labelMap, lookedUpVariables);
   }
 
   /**
@@ -85,7 +101,7 @@ public final class Expander {
     TemplateContext newTemplateContext =
         new LocationTemplateContext(
             templateContext, ruleContext, locations, true, false, windowsPath);
-    return new Expander(ruleContext, newTemplateContext);
+    return new Expander(ruleContext, newTemplateContext, labelMap, lookedUpVariables);
   }
 
   public Expander withExecLocations(ImmutableMap<Label, ImmutableCollection<Artifact>> locations) {
@@ -142,7 +158,9 @@ public final class Expander {
    */
   public String expand(@Nullable String attributeName, String expression) {
     try {
-      return TemplateExpander.expand(expression, templateContext);
+      Expansion expansion = TemplateExpander.expand(expression, templateContext);
+      lookedUpVariables.addAll(expansion.lookedUpVariables());
+      return expansion.expansion();
     } catch (ExpansionException e) {
       if (attributeName == null) {
         ruleContext.ruleError(e.getMessage());
@@ -215,5 +233,14 @@ public final class Expander {
       ruleContext.attributeError(attrName, e.getMessage());
       return expression;
     }
+  }
+
+  /**
+   * Which variables were looked up over this {@link Expander}'s lifetime?
+   *
+   * <p>The returned set is guaranteed alphabetically ordered.
+   */
+  public ImmutableSortedSet<String> lookedUpVariables() {
+    return ImmutableSortedSet.copyOf(lookedUpVariables);
   }
 }

@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -201,6 +202,7 @@ public final class RuleContext extends TargetContext
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ConstraintSemantics<RuleContext> constraintSemantics;
   private final ImmutableSet<String> requiredConfigFragments;
+  private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
   private ActionOwner actionOwner;
   private final SymbolGenerator<ActionLookupValue.ActionLookupKey> actionOwnerSymbolGenerator;
@@ -1200,15 +1202,21 @@ public final class RuleContext extends TargetContext
   }
 
   public Expander getExpander(TemplateContext templateContext) {
-    return new Expander(this, templateContext);
+    Expander expander = new Expander(this, templateContext);
+    makeVariableExpanders.add(expander);
+    return expander;
   }
 
   public Expander getExpander() {
-    return new Expander(this, getConfigurationMakeVariableContext());
+    Expander expander = new Expander(this, getConfigurationMakeVariableContext());
+    makeVariableExpanders.add(expander);
+    return expander;
   }
 
   public Expander getExpander(ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
-    return new Expander(this, getConfigurationMakeVariableContext(), labelMap);
+    Expander expander = new Expander(this, getConfigurationMakeVariableContext(), labelMap);
+    makeVariableExpanders.add(expander);
+    return expander;
   }
 
   /**
@@ -1250,8 +1258,26 @@ public final class RuleContext extends TargetContext
     return constraintSemantics;
   }
 
-  public ImmutableSet<String> getRequiredConfigFragments() {
-    return requiredConfigFragments;
+  /**
+   * Returns the configuration fragments this rule uses.
+   *
+   * <p>Returned results are alphabetically ordered.
+   */
+  public ImmutableSortedSet<String> getRequiredConfigFragments() {
+    ImmutableSortedSet.Builder<String> ans = ImmutableSortedSet.naturalOrder();
+    ans.addAll(requiredConfigFragments);
+    for (Expander makeVariableExpander : makeVariableExpanders) {
+      for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
+        // User-defined make values may be set either in "--define foo=bar" or in a vardef in the
+        // rule's package. Both are equivalent for these purposes, since in both cases setting
+        // "--define foo=bar" impacts the rule's output.
+        if (getRule().getPackage().getMakeEnvironment().containsKey(makeVariable)
+            || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable)) {
+          ans.add("--define:" + makeVariable);
+        }
+      }
+    }
+    return ans.build();
   }
 
   public Map<String, String> getTargetExecProperties() {
