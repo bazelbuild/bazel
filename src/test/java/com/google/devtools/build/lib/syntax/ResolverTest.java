@@ -342,4 +342,19 @@ public class ResolverTest {
         "  return bar()",
         "");
   }
+
+  @Test
+  public void testDuplicateParameter() throws Exception {
+    assertInvalid(
+        "duplicate parameter: a",
+        "def func(a, b, a):", //
+        "  a = 1");
+  }
+
+  @Test
+  public void testOptionalParameterBeforeMandatory() throws Exception {
+    assertInvalid(
+        "a mandatory positional parameter must not follow an optional parameter",
+        "def func(a, b = 'a', c): pass");
+  }
 }

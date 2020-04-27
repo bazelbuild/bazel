@@ -20,9 +20,6 @@ import javax.annotation.Nullable;
  *
  * <p>Parameters may be of four forms, as in {@code def f(a, b=c, *args, **kwargs)}. They are
  * represented by the subclasses Mandatory, Optional, Star, and StarStar.
- *
- * <p>See FunctionSignature for how a valid list of Parameters is organized as a signature, e.g. def
- * foo(mandatory, optional = e1, *args, mandatorynamedonly, optionalnamedonly = e2, **kw): ...
  */
 public abstract class Parameter extends Node {
 

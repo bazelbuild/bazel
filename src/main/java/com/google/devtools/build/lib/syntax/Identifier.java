@@ -29,8 +29,7 @@ public final class Identifier extends Expression {
   private final String name;
   private final int nameOffset;
 
-  // The scope of the variable. The value is set when the AST has been analysed by
-  // Resolver.
+  // set by Resolver
   @Nullable private Resolver.Scope scope;
 
   Identifier(FileLocations locs, String name, int nameOffset) {

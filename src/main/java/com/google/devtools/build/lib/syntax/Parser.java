@@ -23,10 +23,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Parser is a recursive-descent parser for Starlark. */
@@ -1180,108 +1178,10 @@ final class Parser {
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
     ImmutableList<Parameter> params = parseParameters();
-
-    // TODO(adonovan): inline and simplify createSignature.
-    FunctionSignature signature;
-    try {
-      signature = createSignature(params);
-    } catch (SignatureException e) {
-      reportError(e.parameter.getStartOffset(), e.getMessage());
-      // bogus empty signature
-      signature = FunctionSignature.NOARGS;
-    }
-
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = ImmutableList.copyOf(parseSuite());
-    return new DefStatement(locs, defOffset, ident, params, signature, block);
-  }
-
-  private static class SignatureException extends Exception {
-    final Parameter parameter;
-
-    /** SignatureException from a message and a Parameter */
-    SignatureException(String message, Parameter parameter) {
-      super(message);
-      this.parameter = parameter;
-    }
-  }
-
-  /** Convert a list of Parameter into a FunctionSignature. */
-  private static FunctionSignature createSignature(List<Parameter> parameters)
-      throws SignatureException {
-    int mandatoryPositionals = 0;
-    int optionalPositionals = 0;
-    int mandatoryNamedOnly = 0;
-    int optionalNamedOnly = 0;
-    boolean hasStarStar = false;
-    boolean hasStar = false;
-    @Nullable String star = null;
-    @Nullable String starStar = null;
-    ArrayList<String> params = new ArrayList<>();
-    // optional named-only parameters are kept aside to be spliced after the mandatory ones.
-    ArrayList<String> optionalNamedOnlyParams = new ArrayList<>();
-    boolean defaultRequired = false; // true after mandatory positionals and before star.
-    Set<String> paramNameSet = new HashSet<>(); // set of names, to avoid duplicates
-
-    for (Parameter param : parameters) {
-      if (hasStarStar) {
-        throw new SignatureException("illegal parameter after star-star parameter", param);
-      }
-      @Nullable String name = param.getName();
-      if (param.getName() != null) {
-        if (paramNameSet.contains(name)) {
-          // TODO(adonovan): this should be a validation error, not a parse error.
-          throw new SignatureException("duplicate parameter name in function definition", param);
-        }
-        paramNameSet.add(name);
-      }
-      if (param instanceof Parameter.StarStar) {
-        hasStarStar = true;
-        starStar = name;
-      } else if (param instanceof Parameter.Star) {
-        if (hasStar) {
-          throw new SignatureException("duplicate star parameter in function definition", param);
-        }
-        hasStar = true;
-        defaultRequired = false;
-        if (param.getName() != null) {
-          star = name;
-        }
-      } else if (hasStar && param instanceof Parameter.Optional) {
-        optionalNamedOnly++;
-        optionalNamedOnlyParams.add(name);
-      } else {
-        params.add(name);
-        if (param instanceof Parameter.Optional) {
-          optionalPositionals++;
-          defaultRequired = true;
-        } else if (hasStar) {
-          mandatoryNamedOnly++;
-        } else if (defaultRequired) {
-          throw new SignatureException(
-              "a mandatory positional parameter must not follow an optional parameter", param);
-        } else {
-          mandatoryPositionals++;
-        }
-      }
-    }
-    params.addAll(optionalNamedOnlyParams);
-
-    if (star != null) {
-      params.add(star);
-    }
-    if (starStar != null) {
-      params.add(starStar);
-    }
-    return FunctionSignature.create(
-        mandatoryPositionals,
-        optionalPositionals,
-        mandatoryNamedOnly,
-        optionalNamedOnly,
-        star != null,
-        starStar != null,
-        ImmutableList.copyOf(params));
+    return new DefStatement(locs, defOffset, ident, params, block);
   }
 
   // Parse a list of function parameters.
@@ -1321,6 +1221,8 @@ final class Parser {
   // suite is typically what follows a colon (e.g. after def or for).
   // suite = simple_stmt
   //       | NEWLINE INDENT stmt+ OUTDENT
+  //
+  // TODO(adonovan): return ImmutableList and simplify downstream.
   private List<Statement> parseSuite() {
     List<Statement> list = new ArrayList<>();
     if (token.kind == TokenKind.NEWLINE) {

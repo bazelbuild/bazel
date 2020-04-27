@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -24,7 +23,6 @@ import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** Utilities used by the evaluator. */
 // TODO(adonovan): move all fundamental values and operators of the language to Starlark
@@ -712,33 +710,30 @@ public final class EvalUtils {
 
   /**
    * Parses the input as a file, resolves it in the module environment using the specified options
-   * and executes it.
+   * and executes it. It returns None, unless the final statement is an expression, in which case it
+   * returns the expression's value.
    */
-  public static void exec(
+  public static Object exec(
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     StarlarkFile file = parseAndValidate(input, options, module);
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
-    exec(file, module, thread);
+    return exec(file, module, thread);
   }
 
-  /** Executes a parsed, resolved Starlark file in a given StarlarkThread. */
-  public static void exec(StarlarkFile file, Module module, StarlarkThread thread)
+  /** Executes a parsed, resolved Starlark file in the given StarlarkThread. */
+  public static Object exec(StarlarkFile file, Module module, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    StarlarkFunction toplevel =
-        new StarlarkFunction(
-            "<toplevel>",
-            file.getStartLocation(),
-            FunctionSignature.NOARGS,
-            /*defaultValues=*/ Tuple.empty(),
-            file.getStatements(),
-            module);
-    // Hack: assume unresolved identifiers are globals.
-    toplevel.isToplevel = true;
+    Preconditions.checkNotNull(
+        file.resolved,
+        "cannot evaluate unresolved syntax (use other exec method, or parseAndValidate)");
 
-    Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
+    Tuple<Object> defaultValues = Tuple.empty();
+    StarlarkFunction toplevel = new StarlarkFunction(file.resolved, defaultValues, module);
+
+    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
   }
 
   /**
@@ -749,65 +744,14 @@ public final class EvalUtils {
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     Expression expr = Expression.parse(input, options);
-    Resolver.resolveExpr(expr, module, options);
 
-    // Turn expression into a no-arg StarlarkFunction and call it.
-    StarlarkFunction fn =
-        new StarlarkFunction(
-            "<expr>",
-            expr.getStartLocation(),
-            FunctionSignature.NOARGS,
-            /*defaultValues=*/ Tuple.empty(),
-            ImmutableList.<Statement>of(ReturnStatement.make(expr)),
-            module);
+    Resolver.Function rfn = Resolver.resolveExpr(expr, module, options);
 
-    return Starlark.fastcall(thread, fn, NOARGS, NOARGS);
-  }
+    // Turn expression into a no-arg StarlarkFunction.
+    Tuple<Object> defaultValues = Tuple.empty();
+    StarlarkFunction exprFunc = new StarlarkFunction(rfn, defaultValues, module);
 
-  /**
-   * Parses the input as a file, resolves it in the module environment using options defined by
-   * {@code thread.getSemantics}, and executes it. If the final statement is an expression
-   * statement, it returns the value of that expression, otherwise it returns null.
-   *
-   * <p>The function's name is intentionally unattractive. Don't call it unless you're accepting
-   * strings from an interactive user interface such as a REPL or debugger; use {@link #exec} or
-   * {@link #eval} instead.
-   */
-  @Nullable
-  public static Object execAndEvalOptionalFinalExpression(
-      ParserInput input, FileOptions options, Module module, StarlarkThread thread)
-      throws SyntaxError.Exception, EvalException, InterruptedException {
-    StarlarkFile file = StarlarkFile.parse(input, options);
-    Resolver.resolveFile(file, module);
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
-    }
-
-    // If the final statement is an expression, synthesize a return statement.
-    ImmutableList<Statement> stmts = file.getStatements();
-    int n = stmts.size();
-    if (n > 0 && stmts.get(n - 1) instanceof ExpressionStatement) {
-      Expression expr = ((ExpressionStatement) stmts.get(n - 1)).getExpression();
-      stmts =
-          ImmutableList.<Statement>builder()
-              .addAll(stmts.subList(0, n - 1))
-              .add(ReturnStatement.make(expr))
-              .build();
-    }
-
-    // Turn the file into a no-arg function and call it.
-    StarlarkFunction toplevel =
-        new StarlarkFunction(
-            "<toplevel>",
-            file.getStartLocation(),
-            FunctionSignature.NOARGS,
-            /*defaultValues=*/ Tuple.empty(),
-            stmts,
-            module);
-    // Hack: assume unresolved identifiers are globals.
-    toplevel.isToplevel = true;
-
-    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
+    return Starlark.fastcall(thread, exprFunc, NOARGS, NOARGS);
   }
 
   private static final Object[] NOARGS = {};

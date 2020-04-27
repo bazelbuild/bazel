@@ -906,4 +906,21 @@ public final class EvaluationTest extends EvaluationTestCase {
   public void testStaticNameResolution() throws Exception {
     new Scenario().testIfErrorContains("name 'foo' is not defined", "[foo for x in []]");
   }
+
+  @Test
+  public void testExec() throws Exception {
+    StarlarkThread thread =
+        StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
+    Module module = thread.getGlobals();
+    EvalUtils.exec(
+        ParserInput.fromLines(
+            "# a file in the build language",
+            "",
+            "x = [1, 2, 'foo', 4] + [1, 2, \"%s%d\" % ('foo', 1)]"),
+        FileOptions.DEFAULT,
+        module,
+        thread);
+    assertThat(thread.getGlobals().lookup("x"))
+        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));
+  }
 }

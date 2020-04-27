@@ -32,7 +32,7 @@ public final class ReturnStatement extends Statement {
    * table. It is provided only for use by the evaluator, and will be removed when it switches to a
    * compiled representation.
    */
-  public static ReturnStatement make(Expression expr) {
+  static ReturnStatement make(Expression expr) {
     return new ReturnStatement(expr.locs, 0, expr);
   }
 
