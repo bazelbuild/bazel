@@ -974,7 +974,7 @@ public class FilesystemValueCheckerTest {
     byte[] data = contents.getBytes();
     DigestHashFunction hashFn = fs.getDigestFunction();
     HashCode hash = hashFn.getHashFunction().hashBytes(data);
-    return new RemoteFileArtifactValue(hash.asBytes(), data.length, -1);
+    return new RemoteFileArtifactValue(hash.asBytes(), data.length, -1, "action-id");
   }
 
   @Test
