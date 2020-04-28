@@ -279,14 +279,24 @@ final class StringModule implements StarlarkValue {
             type = Integer.class,
             noneable = true,
             defaultValue = "None",
-            doc = "The maximum number of replacements. A negative value is ignored.")
-      })
-  public String replace(String self, String oldString, String newString, Object count)
+            doc = "The maximum number of replacements. A negative value is ignored (if --incompatible_string_replace_count is true).")
+      },
+      useStarlarkThread = true)
+  public String replace(String self, String oldString, String newString, Object count, StarlarkThread thread)
       throws EvalException {
     int maxReplaces = Integer.MAX_VALUE;
-    if (count != Starlark.NONE && (Integer) count >= 0) {
-      maxReplaces = (Integer) count;
+
+    StarlarkSemantics semantics = thread.getSemantics();
+    if (semantics.incompatibleStringReplaceCount()) {
+      if (count != Starlark.NONE && (Integer) count >= 0) {
+        maxReplaces = (Integer) count;
+      }
+    } else {
+      if (count != Starlark.NONE) {
+        maxReplaces = Math.max(0, (Integer) count);
+      }
     }
+
     StringBuilder sb = new StringBuilder();
     int start = 0;
     for (int i = 0; i < maxReplaces; i++) {
