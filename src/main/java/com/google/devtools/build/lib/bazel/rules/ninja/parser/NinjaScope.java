@@ -19,7 +19,9 @@ import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Pair;
@@ -104,6 +106,45 @@ public class NinjaScope {
     Function<String, String> expander =
         ref -> cache.computeIfAbsent(ref, (key) -> nullToEmpty(findExpandedVariable(offset, key)));
     return value.getExpandedValue(expander);
+  }
+
+  /**
+   * Partially expands variable value at the given offset. If some of the variable references, used
+   * in the value, can not be found, they are left unexpanded.
+   */
+  public NinjaVariableValue getReducedValue(
+      long offset,
+      NinjaVariableValue value,
+      ImmutableSet<String> variablesToNotExpand,
+      Interner<String> interner) {
+    // Cache expanded variables values to save time replacing several references to the same
+    // variable.
+    // This cache is local to the offset, it depends on the offset of the variable we are expanding.
+    Map<String, String> cache = Maps.newHashMap();
+    // We are using the start offset of the value holding the reference to the variable.
+    // Do the same as Ninja implementation: if the variable is not found, use empty string.
+    Function<String, String> expander =
+        ref -> computeExpandedString(offset, ref, cache, variablesToNotExpand, interner);
+    return value.reduce(expander);
+  }
+
+  private String computeExpandedString(
+      long offset,
+      String key,
+      Map<String, String> cache,
+      ImmutableSet<String> variablesToNotExpand,
+      Interner<String> interner) {
+    String cachedValue = cache.get(key);
+    if (cachedValue != null) {
+      return cachedValue;
+    }
+    if (variablesToNotExpand.contains(key)) {
+      return null;
+    }
+    String expandedValue = findExpandedVariable(offset, key);
+    // It's very important an interner is used here, as there is considerable duplication of
+    // string literals in expanded rule-variable-parts over the course of a large build.
+    return expandedValue == null ? null : interner.intern(expandedValue);
   }
 
   public void addExpandedVariable(Long offset, String name, String value) {

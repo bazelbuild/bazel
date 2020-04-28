@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
@@ -355,11 +356,17 @@ public class NinjaParserStepTest {
 
   @Test
   public void testNinjaTargetsWithVariables() throws Exception {
+    NinjaScope scope = new NinjaScope();
+
+    // Initialize a rule called "testRule" which takes inputs "dir" and "empty".
+    NinjaParserStep parser =
+        createParser("rule testRule  \n" + " command = executable dir=$dir empty=$empty end");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    scope.setRules(ImmutableSortedMap.of("testRule", ImmutableList.of(Pair.of(0L, ninjaRule))));
+
     NinjaFileParseResult parseResult = new NinjaFileParseResult();
     parseResult.addVariable("output", 1, NinjaVariableValue.createPlainText("out123"));
     parseResult.addVariable("input", 2, NinjaVariableValue.createPlainText("in123"));
-
-    NinjaScope scope = new NinjaScope();
     parseResult.expandIntoScope(scope, Maps.newHashMap());
 
     // Variables, defined inside build statement, are used for input and output paths,
@@ -367,15 +374,15 @@ public class NinjaParserStepTest {
     // Test it.
     NinjaTarget target =
         createParser(
-                "build $output : command $input $dir/abcde\n"
+                "build $output : testRule $input $dir/abcde\n"
                     + "  dir = def$input\n  empty = '$dir'")
             .parseNinjaTarget(scope, 5);
-    assertThat(target.getRuleName()).isEqualTo("command");
+    assertThat(target.getRuleName()).isEqualTo("testRule");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("out123"));
     assertThat(target.getUsualInputs())
         .containsExactly(PathFragment.create("in123"), PathFragment.create("defin123/abcde"));
-    assertThat(target.getVariables())
-        .containsExactlyEntriesIn(ImmutableSortedMap.of("dir", "defin123", "empty", "''"));
+    assertThat(target.computeRuleVariables().get(NinjaRuleVariable.COMMAND))
+        .isEqualTo("executable dir=defin123 empty='' end");
   }
 
   @Test
