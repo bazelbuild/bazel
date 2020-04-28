@@ -16,37 +16,64 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-import org.junit.Test;
+import java.util.Arrays;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+import org.junit.Test;
 
 /**
  * Tests for SkylarkStringModule.
  */
-@RunWith(JUnit4.class)
+@RunWith(Parameterized.class)
 public class StringModuleTest extends EvaluationTestCase {
+
+  @Parameters(name = "{index}: flag={0}")
+  public static Iterable<? extends Object> data() {
+      return Arrays.asList(
+          "--incompatible_string_replace_count=false",
+          "--incompatible_string_replace_count=true");
+  }
+
+  @Parameter
+  public String flag;
 
   @Test
   public void testReplace() throws Exception {
       // Test that the behaviour is the same for the basic case both before
       // and after the incompatible change.
-      new Scenario("--incompatible_string_replace_count=false")
-        .testEval("\"banana\".replace(\"a\", \"o\")", "\"bonono\"")
-        .testEval("\"banana\".replace(\"a\", \"o\", 2)", "\"bonona\"")
-        .testEval("\"banana\".replace(\"a\", \"o\", 0)", "\"banana\"");
-
-      new Scenario("--incompatible_string_replace_count=true")
-        .testEval("\"banana\".replace(\"a\", \"o\")", "\"bonono\"")
-        .testEval("\"banana\".replace(\"a\", \"o\", 2)", "\"bonona\"")
-        .testEval("\"banana\".replace(\"a\", \"o\", 0)", "\"banana\"");
+      new Scenario(flag)
+        .testEval("'banana'.replace('a', 'o')", "'bonono'")
+        .testEval("'banana'.replace('a', 'o', 2)", "'bonona'")
+        .testEval("'banana'.replace('a', 'o', 0)", "'banana'")
+        .testEval("'banana'.replace('a', 'e')", "'benene'")
+        .testEval("'banana'.replace('a', '$()')", "'b$()n$()n$()'")
+        .testEval("'banana'.replace('a', '$')", "'b$n$n$'")
+        .testEval("'b$()n$()n$()'.replace('$()', '$($())')", "'b$($())n$($())n$($())'")
+        .testEval("'banana'.replace('a', 'e', 2)", "'benena'")
+        .testEval("'banana'.replace('a', 'e', 0)", "'banana'")
+        .testEval("'banana'.replace('', '-')", "'-b-a-n-a-n-a-'")
+        .testEval("'banana'.replace('', '-', 2)", "'-b-anana'")
+        .testEval("'banana'.replace('', '-', 0)", "'banana'")
+        .testEval("'banana'.replace('', '')", "'banana'")
+        .testEval("'banana'.replace('a', '')", "'bnn'")
+        .testEval("'banana'.replace('a', '', 2)", "'bnna'");
   }
 
   @Test
-  public void testReplaceIncompatibleChange() throws Exception {
+  public void testReplaceIncompatibleFlag() throws Exception {
+      // Test the scenario that changes with the incompatible flag
       new Scenario("--incompatible_string_replace_count=false")
-        .testEval("\"banana\".replace(\"a\", \"o\", -2)", "\"banana\"");
+        .testEval("'banana'.replace('a', 'o', -2)", "'banana'")
+        .testEval("'banana'.replace('a', 'e', -1)", "'banana'")
+        .testEval("'banana'.replace('a', 'e', -10)", "'banana'")
+        .testEval("'banana'.replace('', '-', -2)", "'banana'");
 
       new Scenario("--incompatible_string_replace_count=true")
-        .testEval("\"banana\".replace(\"a\", \"o\", -2)", "\"bonono\"");
+        .testEval("'banana'.replace('a', 'o', -2)", "'bonono'")
+        .testEval("'banana'.replace('a', 'e', -1)", "'benene'")
+        .testEval("'banana'.replace('a', 'e', -10)", "'benene'")
+        .testEval("'banana'.replace('', '-', -2)", "'-b-a-n-a-n-a-'");
   }
 }
