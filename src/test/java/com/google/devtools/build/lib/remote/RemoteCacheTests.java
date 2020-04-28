@@ -1172,6 +1172,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            "action-id",
             r,
             ImmutableList.of(a1),
             inMemoryOutputPathFragment,
@@ -1184,7 +1185,7 @@ public class RemoteCacheTests {
     assertThat(inMemoryOutput).isNull();
     // The in memory file metadata also should not have been injected.
     verify(injector, never())
-        .injectRemoteFile(eq(a1), eq(toBinaryDigest(d1)), eq(d1.getSizeBytes()), anyInt());
+        .injectRemoteFile(eq(a1), eq(toBinaryDigest(d1)), eq(d1.getSizeBytes()), anyInt(), any());
   }
 
   @Test
