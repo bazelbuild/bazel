@@ -151,9 +151,9 @@ function DISABLED_test_java_tools_has_jacocoagent() {
   expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.agent-0.7.5.201505241946-src.jar"
   expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.core-0.7.5.201505241946-src.jar"
   expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.report-0.7.5.201505241946-src.jar"
-  expect_path_in_java_tools "third_party/asm/asm-analysis-7.0-sources.jar"
-  expect_path_in_java_tools "third_party/asm/asm-commons-7.0-sources.jar"
-  expect_path_in_java_tools "third_party/asm/asm-7.0-sources.jar"
+  expect_path_in_java_tools "third_party/asm/asm-analysis-8.0-sources.jar"
+  expect_path_in_java_tools "third_party/asm/asm-commons-8.0-sources.jar"
+  expect_path_in_java_tools "third_party/asm/asm-8.0-sources.jar"
 }
 
 function test_java_tools_has_proguard() {
