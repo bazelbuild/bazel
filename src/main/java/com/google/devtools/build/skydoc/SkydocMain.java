@@ -607,6 +607,12 @@ public class SkydocMain {
 
     envBuilder.putAll(Starlark.UNIVERSE);
 
+    // Add stub declarations for Blaze-only things as a quick fix
+    // for a broken test; see b/155126966. TODO(adonovan): fix properly ASAP.
+    envBuilder.put("js_common", 0);
+    envBuilder.put("ProguardSpecProvider", 0);
+    envBuilder.put("DataBindingV2Info", 0);
+
     // Declare a fake implementation of select that just returns the first
     // value in the dict. (This program is forbidden from depending on the real
     // implementation of 'select' in lib.packages, and so the hacks multiply.)
