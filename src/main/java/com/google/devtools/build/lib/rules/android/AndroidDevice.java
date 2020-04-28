@@ -307,31 +307,35 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
       arguments.add(Substitution.of("%workspace%", ruleContext.getWorkspaceName()));
       arguments.add(
           Substitution.of(
-              "%unified_launcher%", unifiedLauncher.getExecutable().getRunfilesPathString()));
-      arguments.add(Substitution.of("%adb%", adb.getRunfilesPathString()));
-      arguments.add(Substitution.of("%adb_static%", adbStatic.getRunfilesPathString()));
-      arguments.add(Substitution.of("%emulator_x86%", emulatorX86.getRunfilesPathString()));
-      arguments.add(Substitution.of("%emulator_arm%", emulatorArm.getRunfilesPathString()));
-      arguments.add(Substitution.of("%mksdcard%", mksdcard.getRunfilesPathString()));
-      arguments.add(Substitution.of("%empty_snapshot_fs%", snapshotFs.getRunfilesPathString()));
+              "%unified_launcher%", unifiedLauncher.getExecutable().getRootRelativePathString()));
+      arguments.add(Substitution.of("%adb%", adb.getRootRelativePathString()));
+      arguments.add(Substitution.of("%adb_static%", adbStatic.getRootRelativePathString()));
+      arguments.add(Substitution.of("%emulator_x86%", emulatorX86.getRootRelativePathString()));
+      arguments.add(Substitution.of("%emulator_arm%", emulatorArm.getRootRelativePathString()));
+      arguments.add(Substitution.of("%mksdcard%", mksdcard.getRootRelativePathString()));
+      arguments.add(Substitution.of("%empty_snapshot_fs%", snapshotFs.getRootRelativePathString()));
       arguments.add(
           Substitution.of(
               "%system_images%",
               Streams.stream(systemImages)
-                  .map(Artifact::getRunfilesPathString)
+                  .map(Artifact::getRootRelativePathString)
                   .collect(joining(" "))));
       arguments.add(
           Substitution.of(
               "%bios_files%",
-              emulatorX86Bios.stream().map(Artifact::getRunfilesPathString).collect(joining(" "))));
+              emulatorX86Bios.stream()
+                  .map(Artifact::getRootRelativePathString)
+                  .collect(joining(" "))));
       arguments.add(
           Substitution.of(
-              "%source_properties_file%", sourcePropertiesFile.getRunfilesPathString()));
-      arguments.add(Substitution.of("%image_input_file%", images.getRunfilesPathString()));
-      arguments.add(Substitution.of("%emulator_metadata_path%", metadata.getRunfilesPathString()));
-      arguments.add(Substitution.of("%android_runtest%", androidRuntest.getRunfilesPathString()));
-      arguments.add(Substitution.of("%testing_shbase%", testingShbase.getRunfilesPathString()));
-      arguments.add(Substitution.of("%sdk_path%", sdkPath.getRunfilesPathString()));
+              "%source_properties_file%", sourcePropertiesFile.getRootRelativePathString()));
+      arguments.add(Substitution.of("%image_input_file%", images.getRootRelativePathString()));
+      arguments.add(
+          Substitution.of("%emulator_metadata_path%", metadata.getRootRelativePathString()));
+      arguments.add(
+          Substitution.of("%android_runtest%", androidRuntest.getRootRelativePathString()));
+      arguments.add(Substitution.of("%testing_shbase%", testingShbase.getRootRelativePathString()));
+      arguments.add(Substitution.of("%sdk_path%", sdkPath.getRootRelativePathString()));
 
       ruleContext.registerAction(
           new TemplateExpansionAction(

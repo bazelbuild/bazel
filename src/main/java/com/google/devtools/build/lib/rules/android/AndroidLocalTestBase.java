@@ -127,13 +127,13 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     Artifact propertiesFile = ruleContext.getGenfilesArtifact(name);
 
     String resourcesLocation =
-        resourceApk.getValidatedResources().getMergedResources().getRunfilesPathString();
+        resourceApk.getValidatedResources().getMergedResources().getRootRelativePathString();
     Template template =
         Template.forResource(AndroidLocalTestBase.class, "robolectric_properties_template.txt");
     List<Substitution> substitutions = new ArrayList<>();
     substitutions.add(
         Substitution.of(
-            "%android_merged_manifest%", resourceApk.getManifest().getRunfilesPathString()));
+            "%android_merged_manifest%", resourceApk.getManifest().getRootRelativePathString()));
     substitutions.add(
         Substitution.of("%android_merged_resources%", "jar:file:" + resourcesLocation + "!/res"));
     substitutions.add(
@@ -147,7 +147,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     if (generateBinaryResources) {
       substitutions.add(
           Substitution.of(
-              "%android_resource_apk%", resourceApk.getArtifact().getRunfilesPathString()));
+              "%android_resource_apk%", resourceApk.getArtifact().getRootRelativePathString()));
     }
 
     ruleContext.registerAction(

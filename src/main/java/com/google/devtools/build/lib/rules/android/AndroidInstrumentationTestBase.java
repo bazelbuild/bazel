@@ -155,7 +155,7 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
       builder.add(
           String.format(
               "[%s]=%b,%b",
-              deviceScriptFixture.getFixtureScript().getRunfilesPathString(),
+              deviceScriptFixture.getFixtureScript().getRootRelativePathString(),
               deviceScriptFixture.getDaemon(),
               deviceScriptFixture.getStrictExit()));
     }
@@ -175,7 +175,7 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
         Substitution.of(
             "%host_service_fixture%",
             hostServiceFixture != null
-                ? hostServiceFixture.getExecutable().getRunfilesPathString()
+                ? hostServiceFixture.getExecutable().getRootRelativePathString()
                 : ""),
         Substitution.of(
             "%host_service_fixture_services%",
@@ -186,18 +186,18 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
 
   private static Substitution executableSubstitution(
       String key, FilesToRunProvider filesToRunProvider) {
-    return Substitution.of(key, filesToRunProvider.getExecutable().getRunfilesPathString());
+    return Substitution.of(key, filesToRunProvider.getExecutable().getRootRelativePathString());
   }
 
   private static Substitution artifactSubstitution(String key, Artifact artifact) {
-    return Substitution.of(key, artifact.getRunfilesPathString());
+    return Substitution.of(key, artifact.getRootRelativePathString());
   }
 
   private static Substitution artifactListSubstitution(String key, List<Artifact> artifacts) {
     return Substitution.ofSpaceSeparatedList(
         key,
         artifacts.stream()
-            .map(Artifact::getRunfilesPathString)
+            .map(Artifact::getRootRelativePathString)
             .collect(ImmutableList.toImmutableList()));
   }
 
