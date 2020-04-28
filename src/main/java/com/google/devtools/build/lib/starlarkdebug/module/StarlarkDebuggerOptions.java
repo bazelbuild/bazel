@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkdebug.module;
+package com.google.devtools.build.lib.starlarkdebug.module;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -21,7 +21,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** Configuration options for Starlark debugging. */
-public final class SkylarkDebuggerOptions extends OptionsBase {
+public final class StarlarkDebuggerOptions extends OptionsBase {
   @Option(
       name = "experimental_skylark_debug",
       defaultValue = "false",

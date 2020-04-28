@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkdebug.server;
-
+package com.google.devtools.build.lib.starlarkdebug.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
 import com.google.devtools.build.lib.syntax.Debugger;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -29,7 +28,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Manages the network socket and debugging state for threads running Starlark code. */
-public final class SkylarkDebugServer implements Debugger {
+public final class StarlarkDebugServer implements Debugger {
 
   /**
    * Initializes debugging support, setting up any debugging-specific overrides, then opens the
@@ -39,7 +38,7 @@ public final class SkylarkDebugServer implements Debugger {
    * @param verboseLogging if true, debug-level events will be logged
    * @throws IOException if an I/O error occurs while opening the socket or waiting for a connection
    */
-  public static SkylarkDebugServer createAndWaitForConnection(
+  public static StarlarkDebugServer createAndWaitForConnection(
       EventHandler eventHandler, int port, boolean verboseLogging) throws IOException {
     ServerSocket serverSocket = new ServerSocket(port, /* backlog */ 1);
     return createAndWaitForConnection(eventHandler, serverSocket, verboseLogging);
@@ -53,12 +52,12 @@ public final class SkylarkDebugServer implements Debugger {
    * @throws IOException if an I/O error occurs while waiting for a connection
    */
   @VisibleForTesting
-  static SkylarkDebugServer createAndWaitForConnection(
+  static StarlarkDebugServer createAndWaitForConnection(
       EventHandler eventHandler, ServerSocket serverSocket, boolean verboseLogging)
       throws IOException {
     DebugServerTransport transport =
         DebugServerTransport.createAndWaitForClient(eventHandler, serverSocket, verboseLogging);
-    return new SkylarkDebugServer(eventHandler, transport, verboseLogging);
+    return new StarlarkDebugServer(eventHandler, transport, verboseLogging);
   }
 
   private final EventHandler eventHandler;
@@ -69,7 +68,7 @@ public final class SkylarkDebugServer implements Debugger {
 
   private final boolean verboseLogging;
 
-  private SkylarkDebugServer(
+  private StarlarkDebugServer(
       EventHandler eventHandler, DebugServerTransport transport, boolean verboseLogging) {
     this.eventHandler = eventHandler;
     this.threadHandler = new ThreadHandler();
@@ -88,11 +87,11 @@ public final class SkylarkDebugServer implements Debugger {
             () -> {
               try {
                 while (true) {
-                  SkylarkDebuggingProtos.DebugRequest request = transport.readClientRequest();
+                  StarlarkDebuggingProtos.DebugRequest request = transport.readClientRequest();
                   if (request == null) {
                     return;
                   }
-                  SkylarkDebuggingProtos.DebugEvent response = handleClientRequest(request);
+                  StarlarkDebuggingProtos.DebugEvent response = handleClientRequest(request);
                   if (response != null) {
                     transport.postEvent(response);
                   }
@@ -151,8 +150,8 @@ public final class SkylarkDebugServer implements Debugger {
 
   /** Handles a request from the client, and returns the response, where relevant. */
   @Nullable
-  private SkylarkDebuggingProtos.DebugEvent handleClientRequest(
-      SkylarkDebuggingProtos.DebugRequest request) {
+  private StarlarkDebuggingProtos.DebugEvent handleClientRequest(
+      StarlarkDebuggingProtos.DebugRequest request) {
     long sequenceNumber = request.getSequenceNumber();
     try {
       switch (request.getPayloadCase()) {
@@ -182,31 +181,31 @@ public final class SkylarkDebugServer implements Debugger {
   }
 
   /** Handles a {@code ListFramesRequest} and returns its response. */
-  private SkylarkDebuggingProtos.DebugEvent listFrames(
-      long sequenceNumber, SkylarkDebuggingProtos.ListFramesRequest request)
+  private StarlarkDebuggingProtos.DebugEvent listFrames(
+      long sequenceNumber, StarlarkDebuggingProtos.ListFramesRequest request)
       throws DebugRequestException {
-    List<SkylarkDebuggingProtos.Frame> frames = threadHandler.listFrames(request.getThreadId());
+    List<StarlarkDebuggingProtos.Frame> frames = threadHandler.listFrames(request.getThreadId());
     return DebugEventHelper.listFramesResponse(sequenceNumber, frames);
   }
 
   /** Handles a {@code SetBreakpointsRequest} and returns its response. */
-  private SkylarkDebuggingProtos.DebugEvent setBreakpoints(
-      long sequenceNumber, SkylarkDebuggingProtos.SetBreakpointsRequest request) {
+  private StarlarkDebuggingProtos.DebugEvent setBreakpoints(
+      long sequenceNumber, StarlarkDebuggingProtos.SetBreakpointsRequest request) {
     threadHandler.setBreakpoints(request.getBreakpointList());
     return DebugEventHelper.setBreakpointsResponse(sequenceNumber);
   }
 
   /** Handles a {@code EvaluateRequest} and returns its response. */
-  private SkylarkDebuggingProtos.DebugEvent evaluate(
-      long sequenceNumber, SkylarkDebuggingProtos.EvaluateRequest request)
+  private StarlarkDebuggingProtos.DebugEvent evaluate(
+      long sequenceNumber, StarlarkDebuggingProtos.EvaluateRequest request)
       throws DebugRequestException {
     return DebugEventHelper.evaluateResponse(
         sequenceNumber, threadHandler.evaluate(request.getThreadId(), request.getStatement()));
   }
 
   /** Handles a {@code GetChildrenRequest} and returns its response. */
-  private SkylarkDebuggingProtos.DebugEvent getChildren(
-      long sequenceNumber, SkylarkDebuggingProtos.GetChildrenRequest request)
+  private StarlarkDebuggingProtos.DebugEvent getChildren(
+      long sequenceNumber, StarlarkDebuggingProtos.GetChildrenRequest request)
       throws DebugRequestException {
     return DebugEventHelper.getChildrenResponse(
         sequenceNumber,
@@ -214,8 +213,8 @@ public final class SkylarkDebugServer implements Debugger {
   }
 
   /** Handles a {@code ContinueExecutionRequest} and returns its response. */
-  private SkylarkDebuggingProtos.DebugEvent continueExecution(
-      long sequenceNumber, SkylarkDebuggingProtos.ContinueExecutionRequest request)
+  private StarlarkDebuggingProtos.DebugEvent continueExecution(
+      long sequenceNumber, StarlarkDebuggingProtos.ContinueExecutionRequest request)
       throws DebugRequestException {
     long threadId = request.getThreadId();
     if (threadId == 0) {
@@ -226,8 +225,8 @@ public final class SkylarkDebugServer implements Debugger {
     return DebugEventHelper.continueExecutionResponse(sequenceNumber);
   }
 
-  private SkylarkDebuggingProtos.DebugEvent pauseThread(
-      long sequenceNumber, SkylarkDebuggingProtos.PauseThreadRequest request)
+  private StarlarkDebuggingProtos.DebugEvent pauseThread(
+      long sequenceNumber, StarlarkDebuggingProtos.PauseThreadRequest request)
       throws DebugRequestException {
     long threadId = request.getThreadId();
     if (threadId == 0) {

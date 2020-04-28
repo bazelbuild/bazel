@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkdebug.server;
+package com.google.devtools.build.lib.starlarkdebug.server;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Breakpoint;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Error;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseReason;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Error;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.PauseReason;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -99,7 +99,8 @@ final class ThreadHandler {
   private final Map<Long, SteppingThreadState> steppingThreads = new HashMap<>();
 
   /** All location-based breakpoints (the only type of breakpoint currently supported). */
-  private volatile ImmutableMap<SkylarkDebuggingProtos.Location, SkylarkDebuggingProtos.Breakpoint>
+  private volatile ImmutableMap<
+          StarlarkDebuggingProtos.Location, StarlarkDebuggingProtos.Breakpoint>
       breakpoints = ImmutableMap.of();
 
   /**
@@ -137,14 +138,14 @@ final class ThreadHandler {
   }
 
   void setBreakpoints(Collection<Breakpoint> breakpoints) {
-    Map<SkylarkDebuggingProtos.Location, SkylarkDebuggingProtos.Breakpoint> map = new HashMap<>();
-    for (SkylarkDebuggingProtos.Breakpoint breakpoint : breakpoints) {
+    Map<StarlarkDebuggingProtos.Location, StarlarkDebuggingProtos.Breakpoint> map = new HashMap<>();
+    for (StarlarkDebuggingProtos.Breakpoint breakpoint : breakpoints) {
       if (breakpoint.getConditionCase()
-          != SkylarkDebuggingProtos.Breakpoint.ConditionCase.LOCATION) {
+          != StarlarkDebuggingProtos.Breakpoint.ConditionCase.LOCATION) {
         continue;
       }
       // all breakpoints cover the entire line, so unset the column number
-      SkylarkDebuggingProtos.Location location =
+      StarlarkDebuggingProtos.Location location =
           breakpoint.getLocation().toBuilder().clearColumnNumber().build();
       map.put(location, breakpoint);
     }
@@ -161,7 +162,7 @@ final class ThreadHandler {
     synchronized (this) {
       for (PausedThreadState thread : ImmutableList.copyOf(pausedThreads.values())) {
         // continue-all doesn't support stepping.
-        resumePausedThread(thread, SkylarkDebuggingProtos.Stepping.NONE);
+        resumePausedThread(thread, StarlarkDebuggingProtos.Stepping.NONE);
       }
       steppingThreads.clear();
     }
@@ -172,7 +173,7 @@ final class ThreadHandler {
    * RUNNING. If the thread is not paused, but currently stepping, it clears the stepping behavior
    * so it will run unconditionally.
    */
-  void resumeThread(long threadId, SkylarkDebuggingProtos.Stepping stepping)
+  void resumeThread(long threadId, StarlarkDebuggingProtos.Stepping stepping)
       throws DebugRequestException {
     // once the user has requested any thread be resumed, don't continue pausing future threads
     debuggerState = DebuggerState.RUNNING;
@@ -193,7 +194,7 @@ final class ThreadHandler {
   /** Unpauses a currently-paused thread. */
   @GuardedBy("this")
   private void resumePausedThread(
-      PausedThreadState thread, SkylarkDebuggingProtos.Stepping stepping) {
+      PausedThreadState thread, StarlarkDebuggingProtos.Stepping stepping) {
     pausedThreads.remove(thread.id);
     StarlarkThread.ReadyToPause readyToPause =
         thread.thread.stepControl(DebugEventHelper.convertSteppingEnum(stepping));
@@ -227,7 +228,7 @@ final class ThreadHandler {
   }
 
   /** Handles a {@code ListFramesRequest} and returns its response. */
-  ImmutableList<SkylarkDebuggingProtos.Frame> listFrames(long threadId)
+  ImmutableList<StarlarkDebuggingProtos.Frame> listFrames(long threadId)
       throws DebugRequestException {
     synchronized (this) {
       PausedThreadState thread = pausedThreads.get(threadId);
@@ -260,7 +261,7 @@ final class ThreadHandler {
     return DebuggerSerialization.getChildren(objectMap, value);
   }
 
-  SkylarkDebuggingProtos.Value evaluate(long threadId, String statement)
+  StarlarkDebuggingProtos.Value evaluate(long threadId, String statement)
       throws DebugRequestException {
     StarlarkThread thread;
     ThreadObjectMap objectMap;
@@ -322,7 +323,7 @@ final class ThreadHandler {
     synchronized (this) {
       pausedThreads.put(threadId, pausedState);
     }
-    SkylarkDebuggingProtos.PausedThread threadProto =
+    StarlarkDebuggingProtos.PausedThread threadProto =
         getPausedThreadProto(pausedState, pauseReason, conditionalBreakpointError);
     transport.postEvent(DebugEventHelper.threadPausedEvent(threadProto));
     pausedState.semaphore.acquireUninterruptibly();
@@ -365,17 +366,17 @@ final class ThreadHandler {
   private boolean hasBreakpointMatchedAtLocation(StarlarkThread thread, Location location)
       throws ConditionalBreakpointException {
     // breakpoints is volatile, so taking a local copy
-    ImmutableMap<SkylarkDebuggingProtos.Location, SkylarkDebuggingProtos.Breakpoint> breakpoints =
+    ImmutableMap<StarlarkDebuggingProtos.Location, StarlarkDebuggingProtos.Breakpoint> breakpoints =
         this.breakpoints;
     if (breakpoints.isEmpty()) {
       return false;
     }
-    SkylarkDebuggingProtos.Location locationProto = DebugEventHelper.getLocationProto(location);
+    StarlarkDebuggingProtos.Location locationProto = DebugEventHelper.getLocationProto(location);
     if (locationProto == null) {
       return false;
     }
     locationProto = locationProto.toBuilder().clearColumnNumber().build();
-    SkylarkDebuggingProtos.Breakpoint breakpoint = breakpoints.get(locationProto);
+    StarlarkDebuggingProtos.Breakpoint breakpoint = breakpoints.get(locationProto);
     if (breakpoint == null) {
       return false;
     }
@@ -391,12 +392,12 @@ final class ThreadHandler {
   }
 
   /** Returns a {@code Thread} proto builder with information about the given thread. */
-  private static SkylarkDebuggingProtos.PausedThread getPausedThreadProto(
+  private static StarlarkDebuggingProtos.PausedThread getPausedThreadProto(
       PausedThreadState thread,
       PauseReason pauseReason,
       @Nullable Error conditionalBreakpointError) {
-    SkylarkDebuggingProtos.PausedThread.Builder builder =
-        SkylarkDebuggingProtos.PausedThread.newBuilder()
+    StarlarkDebuggingProtos.PausedThread.Builder builder =
+        StarlarkDebuggingProtos.PausedThread.newBuilder()
             .setId(thread.id)
             .setName(thread.name)
             .setPauseReason(pauseReason)

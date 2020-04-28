@@ -21,7 +21,7 @@ if [ -d derived/jars ]; then
 else
   PROTOBUF_JARS="/usr/share/java/protobuf.jar /usr/share/java/protobuf-java-util.jar"
 fi
-PROTO_FILES=$(find third_party/remoteapis third_party/googleapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/skylarkdebug/proto -name "*.proto")
+PROTO_FILES=$(find third_party/remoteapis third_party/googleapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto -name "*.proto")
 LIBRARY_JARS=$(find $PROTOBUF_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
 GRPC_JAVA_VERSION=1.20.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
@@ -236,7 +236,7 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
                 -Isrc/main/java/com/google/devtools/build/lib/skyframe/proto/ \
                 -Isrc/main/java/com/google/devtools/build/skyframe/ \
                 -Isrc/main/java/com/google/devtools/build/lib/bazel/debug/ \
-                -Isrc/main/java/com/google/devtools/build/lib/skylarkdebug/proto/ \
+                -Isrc/main/java/com/google/devtools/build/lib/starlarkdebug/proto/ \
                 -Ithird_party/remoteapis/ \
                 -Ithird_party/googleapis/ \
                 -Ithird_party/pprof/ \

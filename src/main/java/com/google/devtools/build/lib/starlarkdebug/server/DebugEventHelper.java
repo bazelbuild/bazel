@@ -12,26 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkdebug.server;
+package com.google.devtools.build.lib.starlarkdebug.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ContinueExecutionResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugEvent;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Error;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.EvaluateResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Frame;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.GetChildrenResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListFramesResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseThreadResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PausedThread;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Scope;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.SetBreakpointsResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadContinuedEvent;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadPausedEvent;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ContinueExecutionResponse;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.DebugEvent;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Error;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.EvaluateResponse;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Frame;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.GetChildrenResponse;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ListFramesResponse;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.PauseThreadResponse;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.PausedThread;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Scope;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.SetBreakpointsResponse;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.StartDebuggingResponse;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ThreadContinuedEvent;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ThreadPausedEvent;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -123,19 +123,19 @@ final class DebugEventHelper {
   }
 
   @Nullable
-  static SkylarkDebuggingProtos.Location getLocationProto(@Nullable Location location) {
+  static StarlarkDebuggingProtos.Location getLocationProto(@Nullable Location location) {
     if (location == null) {
       return null;
     }
-    return SkylarkDebuggingProtos.Location.newBuilder()
+    return StarlarkDebuggingProtos.Location.newBuilder()
         .setLineNumber(location.line())
         .setColumnNumber(location.column())
         .setPath(location.file())
         .build();
   }
 
-  static SkylarkDebuggingProtos.Frame getFrameProto(ThreadObjectMap objectMap, Debug.Frame frame) {
-    return SkylarkDebuggingProtos.Frame.newBuilder()
+  static StarlarkDebuggingProtos.Frame getFrameProto(ThreadObjectMap objectMap, Debug.Frame frame) {
+    return StarlarkDebuggingProtos.Frame.newBuilder()
         .setFunctionName(frame.getFunction().getName())
         .addAllScope(getScopes(objectMap, frame))
         .setLocation(getLocationProto(frame.getLocation()))
@@ -161,16 +161,16 @@ final class DebugEventHelper {
         getScope(objectMap, "local", localVars), getScope(objectMap, "global", globalVars));
   }
 
-  private static SkylarkDebuggingProtos.Scope getScope(
+  private static StarlarkDebuggingProtos.Scope getScope(
       ThreadObjectMap objectMap, String name, Map<String, Object> bindings) {
-    SkylarkDebuggingProtos.Scope.Builder builder =
-        SkylarkDebuggingProtos.Scope.newBuilder().setName(name);
+    StarlarkDebuggingProtos.Scope.Builder builder =
+        StarlarkDebuggingProtos.Scope.newBuilder().setName(name);
     bindings.forEach(
         (s, o) -> builder.addBinding(DebuggerSerialization.getValueProto(objectMap, s, o)));
     return builder.build();
   }
 
-  static StarlarkThread.Stepping convertSteppingEnum(SkylarkDebuggingProtos.Stepping stepping) {
+  static StarlarkThread.Stepping convertSteppingEnum(StarlarkDebuggingProtos.Stepping stepping) {
     switch (stepping) {
       case INTO:
         return StarlarkThread.Stepping.INTO;

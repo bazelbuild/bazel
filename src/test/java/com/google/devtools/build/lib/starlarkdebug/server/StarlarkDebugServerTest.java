@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkdebug.server;
+package com.google.devtools.build.lib.starlarkdebug.server;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -20,24 +20,24 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Breakpoint;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ContinueExecutionRequest;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugEvent;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugRequest;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.EvaluateRequest;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Frame;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListFramesRequest;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListFramesResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Location;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseReason;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PausedThread;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Scope;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.SetBreakpointsRequest;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingRequest;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Stepping;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ContinueExecutionRequest;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.DebugEvent;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.DebugRequest;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.EvaluateRequest;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Frame;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ListFramesRequest;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ListFramesResponse;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Location;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.PauseReason;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.PausedThread;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Scope;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.SetBreakpointsRequest;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.StartDebuggingRequest;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.StartDebuggingResponse;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Stepping;
+import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -66,9 +66,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Integration tests for {@link SkylarkDebugServer}. */
+/** Integration tests for {@link StarlarkDebugServer}. */
 @RunWith(JUnit4.class)
-public class SkylarkDebugServerTest {
+public class StarlarkDebugServerTest {
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
   private final EventCollectionApparatus events =
@@ -76,7 +76,7 @@ public class SkylarkDebugServerTest {
   private final ThreadObjectMap dummyObjectMap = new ThreadObjectMap();
 
   private MockDebugClient client;
-  private SkylarkDebugServer server;
+  private StarlarkDebugServer server;
 
   /**
    * Returns the {@link Value} proto message corresponding to the given object and label. Subsequent
@@ -108,10 +108,10 @@ public class SkylarkDebugServerTest {
   @Before
   public void setUpServerAndClient() throws Exception {
     ServerSocket serverSocket = getServerSocket();
-    Future<SkylarkDebugServer> future =
+    Future<StarlarkDebugServer> future =
         executor.submit(
             () ->
-                SkylarkDebugServer.createAndWaitForConnection(
+                StarlarkDebugServer.createAndWaitForConnection(
                     events.reporter(), serverSocket, false));
     client = new MockDebugClient();
     client.connect(serverSocket, Duration.ofSeconds(10));
@@ -167,7 +167,7 @@ public class SkylarkDebugServerTest {
     assertThat(event)
         .isEqualTo(
             DebugEventHelper.threadPausedEvent(
-                SkylarkDebuggingProtos.PausedThread.newBuilder()
+                StarlarkDebuggingProtos.PausedThread.newBuilder()
                     .setId(threadId)
                     .setName(threadName)
                     .setPauseReason(PauseReason.INITIALIZING)
@@ -231,8 +231,8 @@ public class SkylarkDebugServerTest {
     // wait for breakpoint to be hit
     DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
-    SkylarkDebuggingProtos.PausedThread expectedThreadState =
-        SkylarkDebuggingProtos.PausedThread.newBuilder()
+    StarlarkDebuggingProtos.PausedThread expectedThreadState =
+        StarlarkDebuggingProtos.PausedThread.newBuilder()
             .setName(threadName)
             .setId(threadId)
             .setPauseReason(PauseReason.HIT_BREAKPOINT)
@@ -270,7 +270,7 @@ public class SkylarkDebugServerTest {
     assertThat(event)
         .isEqualTo(
             DebugEventHelper.threadPausedEvent(
-                SkylarkDebuggingProtos.PausedThread.newBuilder()
+                StarlarkDebuggingProtos.PausedThread.newBuilder()
                     .setName(threadName)
                     .setId(threadId)
                     .setLocation(expectedBreakpoint.getLocation().toBuilder().setColumnNumber(1))
@@ -297,8 +297,8 @@ public class SkylarkDebugServerTest {
     // wait for breakpoint to be hit
     DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
-    SkylarkDebuggingProtos.PausedThread expectedThreadState =
-        SkylarkDebuggingProtos.PausedThread.newBuilder()
+    StarlarkDebuggingProtos.PausedThread expectedThreadState =
+        StarlarkDebuggingProtos.PausedThread.newBuilder()
             .setName(threadName)
             .setId(threadId)
             .setPauseReason(PauseReason.HIT_BREAKPOINT)
@@ -327,14 +327,14 @@ public class SkylarkDebugServerTest {
     // wait for breakpoint to be hit
     DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
-    SkylarkDebuggingProtos.PausedThread expectedThreadState =
-        SkylarkDebuggingProtos.PausedThread.newBuilder()
+    StarlarkDebuggingProtos.PausedThread expectedThreadState =
+        StarlarkDebuggingProtos.PausedThread.newBuilder()
             .setName(threadName)
             .setId(threadId)
             .setPauseReason(PauseReason.CONDITIONAL_BREAKPOINT_ERROR)
             .setLocation(location.toBuilder().setColumnNumber(1))
             .setConditionalBreakpointError(
-                SkylarkDebuggingProtos.Error.newBuilder().setMessage("name \'z\' is not defined"))
+                StarlarkDebuggingProtos.Error.newBuilder().setMessage("name \'z\' is not defined"))
             .build();
 
     assertThat(event).isEqualTo(DebugEventHelper.threadPausedEvent(expectedThreadState));
@@ -641,7 +641,7 @@ public class SkylarkDebugServerTest {
     // and verify the location and pause reason as well
     Location expectedLocation = breakpoint.toBuilder().setLineNumber(2).setColumnNumber(3).build();
 
-    SkylarkDebuggingProtos.PausedThread pausedThread = event.getThreadPaused().getThread();
+    StarlarkDebuggingProtos.PausedThread pausedThread = event.getThreadPaused().getThread();
     assertThat(pausedThread.getPauseReason()).isEqualTo(PauseReason.STEPPING);
     assertThat(pausedThread.getLocation()).isEqualTo(expectedLocation);
   }

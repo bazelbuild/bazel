@@ -14,10 +14,10 @@
 
 syntax = "proto3";
 
-package skylark_debugging;
+package starlark_debugging;
 
-option java_package = "com.google.devtools.build.lib.skylarkdebugging";
-option java_outer_classname = "SkylarkDebuggingProtos";
+option java_package = "com.google.devtools.build.lib.starlarkdebugging";
+option java_outer_classname = "StarlarkDebuggingProtos";
 
 // A request sent by the debug client to the debug server.
 message DebugRequest {
@@ -86,8 +86,7 @@ message ListFramesRequest {
 // A request to begin the debugging session. Starlark execution will block until
 // this request is made, to allow initial setup after the connection is
 // established (e.g. setting breakpoints).
-message StartDebuggingRequest {
-}
+message StartDebuggingRequest {}
 
 // A request to pause execution of a thread, or all threads.
 message PauseThreadRequest {
@@ -147,12 +146,10 @@ message Error {
 }
 
 // The response to a SetBreakpointsRequest.
-message SetBreakpointsResponse {
-}
+message SetBreakpointsResponse {}
 
 // The response to a ContinueExecutionRequest.
-message ContinueExecutionResponse {
-}
+message ContinueExecutionResponse {}
 
 // The response to an EvaluateRequest.
 message EvaluateResponse {
@@ -168,14 +165,12 @@ message ListFramesResponse {
 }
 
 // The response to a StartDebuggingRequest.
-message StartDebuggingResponse {
-}
+message StartDebuggingResponse {}
 
 // The response to a PauseThreadRequest. This is an acknowledgement that the
 // request was received. Actual pausing of individual threads happens
 // asynchronously, and will be communicated via ThreadPausedEvent(s).
-message PauseThreadResponse {
-}
+message PauseThreadResponse {}
 
 // The response to a GetChildrenRequest.
 message GetChildrenResponse {

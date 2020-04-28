@@ -16,22 +16,22 @@ java_library(
     name = "utils",
     srcs = ["MockDebugClient.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:skylark_debugging_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
 
 java_test(
-    name = "SkylarkDebugServerTest",
+    name = "StarlarkDebugServerTest",
     size = "medium",
-    srcs = ["SkylarkDebugServerTest.java"],
+    srcs = ["StarlarkDebugServerTest.java"],
     deps = [
         ":utils",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:skylark_debugging_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//third_party:guava",
         "//third_party:junit4",
@@ -44,8 +44,8 @@ java_test(
     srcs = ["DebugServerTransportTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:skylark_debugging_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//third_party:junit4",
         "//third_party:truth",
@@ -58,9 +58,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:skylark_debugging_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

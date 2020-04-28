@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkdebug.module;
+package com.google.devtools.build.lib.starlarkdebug.module;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
@@ -20,17 +20,18 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.skylarkdebug.server.SkylarkDebugServer;
+import com.google.devtools.build.lib.starlarkdebug.server.StarlarkDebugServer;
 import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
 /** Blaze module for setting up Starlark debugging. */
-public final class SkylarkDebuggerModule extends BlazeModule {
+public final class StarlarkDebuggerModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     // Conditionally enable debugging
-    SkylarkDebuggerOptions buildOptions = env.getOptions().getOptions(SkylarkDebuggerOptions.class);
+    StarlarkDebuggerOptions buildOptions =
+        env.getOptions().getOptions(StarlarkDebuggerOptions.class);
     boolean enabled = buildOptions != null && buildOptions.debugSkylark;
     if (enabled) {
       initializeDebugging(
@@ -48,7 +49,7 @@ public final class SkylarkDebuggerModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.of(SkylarkDebuggerOptions.class)
+        ? ImmutableList.of(StarlarkDebuggerOptions.class)
         : ImmutableList.of();
   }
 
@@ -64,8 +65,8 @@ public final class SkylarkDebuggerModule extends BlazeModule {
 
   private static void initializeDebugging(Reporter reporter, int debugPort, boolean verboseLogs) {
     try {
-      SkylarkDebugServer server =
-          SkylarkDebugServer.createAndWaitForConnection(reporter, debugPort, verboseLogs);
+      StarlarkDebugServer server =
+          StarlarkDebugServer.createAndWaitForConnection(reporter, debugPort, verboseLogs);
       Debug.setDebugger(server);
     } catch (IOException e) {
       reporter.handle(Event.error("Error while setting up the debug server: " + e.getMessage()));
