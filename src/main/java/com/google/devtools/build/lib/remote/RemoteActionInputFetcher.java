@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.Context;
 import java.io.IOException;
@@ -117,33 +116,26 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
         }
       }
 
-      IOException ioException = null;
-      InterruptedException interruptedException = null;
-      for (Map.Entry<Path, ListenableFuture<Void>> entry : downloadsToWaitFor.entrySet()) {
-        try {
-          Utils.getFromFuture(entry.getValue());
-        } catch (IOException e) {
-          if (e instanceof CacheNotFoundException) {
-            e =
+      try {
+        RemoteCache.waitForBulkTransfer(
+            downloadsToWaitFor.values(), /* cancelRemainingOnInterrupt=*/ true);
+      } catch (BulkTransferException e) {
+        if (e.onlyCausedByCacheNotFoundException()) {
+          BulkTransferException bulkAnnotatedException = new BulkTransferException();
+          for (Throwable t : e.getSuppressed()) {
+            IOException annotatedException =
                 new IOException(
                     String.format(
                         "Failed to fetch file with hash '%s' into '%s' because it does not exist remotely."
                             + " --experimental_remote_outputs=minimal does not work if"
                             + " your remote cache evicts files during builds.",
                         entry.getKey(),
-                        ((CacheNotFoundException) e).getMissingDigest().getHash()));
+                        ((CacheNotFoundException) t).getMissingDigest().getHash()));
+            bulkAnnotatedException.add(annotatedException);
           }
-          ioException = ioException == null ? e : ioException;
-        } catch (InterruptedException e) {
-          interruptedException = interruptedException == null ? e : interruptedException;
+          e = bulkAnnotatedException;
         }
-      }
-
-      if (interruptedException != null) {
-        throw interruptedException;
-      }
-      if (ioException != null) {
-        throw ioException;
+        throw e;
       }
     }
   }

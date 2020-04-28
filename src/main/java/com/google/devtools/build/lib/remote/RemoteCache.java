@@ -204,7 +204,7 @@ public class RemoteCache implements AutoCloseable {
     }
   }
 
-  protected static <T> void waitForBulkTransfer(
+  public static <T> void waitForBulkTransfer(
       Iterable<ListenableFuture<T>> transfers, boolean cancelRemainingOnInterrupt)
       throws BulkTransferException, InterruptedException {
     BulkTransferException bulkTransferException = null;
@@ -580,10 +580,10 @@ public class RemoteCache implements AutoCloseable {
       if (inMemoryOutput != null) {
         inMemoryOutputDownload = downloadBlob(inMemoryOutputDigest);
       }
-      for (ListenableFuture<FileMetadata> download : downloadOutErr(result, outErr)) {
-        getFromFuture(download);
-      }
+      waitForBulkTransfer(downloadOutErr(result, outErr), /* cancelRemainingOnInterrupt=*/ true);
       if (inMemoryOutputDownload != null) {
+        waitForBulkTransfer(
+            ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt=*/ true);
         byte[] data = getFromFuture(inMemoryOutputDownload);
         return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
       }
