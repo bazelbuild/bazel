@@ -150,10 +150,9 @@ public class RuleClass {
   public static final PathFragment EXPERIMENTAL_PREFIX = PathFragment.create("experimental");
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
   public static final String EXEC_PROPERTIES = "exec_properties";
-
-  /** The attribute that declares the set of license labels which apply to this target. */
-  // TODO(b/149505729): Determine the right semantics for someone trying to define their own
-  // attribute named applicable_licenses.
+  /*
+   * The attribute that declares the set of license labels which apply to this target.
+   */
   public static final String APPLICABLE_LICENSES_ATTR = "applicable_licenses";
 
   /**
@@ -1942,12 +1941,7 @@ public class RuleClass {
       boolean checkThirdPartyRulesHaveLicenses)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule = pkgBuilder.createRule(ruleLabel, this, location, callstack, attributeContainer);
-    populateRuleAttributeValues(
-        rule,
-        pkgBuilder.getRepositoryMapping(),
-        attributeValues,
-        pkgBuilder.getListInterner(),
-        eventHandler);
+    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
     checkForDuplicateLabels(rule, eventHandler);
@@ -1987,12 +1981,7 @@ public class RuleClass {
     Rule rule =
         pkgBuilder.createRule(
             ruleLabel, this, location, callstack, attributeContainer, implicitOutputsFunction);
-    populateRuleAttributeValues(
-        rule,
-        pkgBuilder.getRepositoryMapping(),
-        attributeValues,
-        pkgBuilder.getListInterner(),
-        NullEventHandler.INSTANCE);
+    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
     rule.populateOutputFilesUnchecked(NullEventHandler.INSTANCE, pkgBuilder);
     return rule;
   }
@@ -2006,15 +1995,18 @@ public class RuleClass {
    */
   private <T> void populateRuleAttributeValues(
       Rule rule,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      Package.Builder pkgBuilder,
       AttributeValues<T> attributeValues,
-      Interner<ImmutableList<?>> packageListInterner,
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
-            rule, repositoryMapping, attributeValues, packageListInterner, eventHandler);
-    populateDefaultRuleAttributeValues(rule, definedAttrIndices, eventHandler);
+            rule,
+            pkgBuilder.getRepositoryMapping(),
+            attributeValues,
+            pkgBuilder.getListInterner(),
+            eventHandler);
+    populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(rule);
   }
@@ -2092,7 +2084,7 @@ public class RuleClass {
    * <p>Errors are reported on {@code eventHandler}.
    */
   private void populateDefaultRuleAttributeValues(
-      Rule rule, BitSet definedAttrIndices, EventHandler eventHandler)
+      Rule rule, Package.Builder pkgBuilder, BitSet definedAttrIndices, EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
     // Set defaults; ensure that every mandatory attribute has a value. Use the default if none
     // is specified.
@@ -2125,7 +2117,7 @@ public class RuleClass {
       } else if (attr.isLateBound()) {
         rule.setAttributeValue(attr, attr.getLateBoundDefault(), /*explicit=*/ false);
       } else {
-        Object defaultValue = attr.getDefaultValue(/*rule=*/ null);
+        Object defaultValue = getAttributeNoncomputedDefaultValue(attr, pkgBuilder);
         rule.setAttributeValue(attr, defaultValue, /*explicit=*/ false);
         checkAllowedValues(rule, attr, eventHandler);
       }
@@ -2297,6 +2289,27 @@ public class RuleClass {
             eventHandler);
       }
     }
+  }
+
+  /**
+   * Returns the default value for the specified rule attribute.
+   *
+   * <p>For most rule attributes, the default value is either explicitly specified
+   * in the attribute, or implicitly based on the type of the attribute, except
+   * for some special cases (e.g. "licenses", "distribs") where it comes from
+   * some other source, such as state in the package.
+   *
+   * <p>Precondition: {@code !attr.hasComputedDefault()}.  (Computed defaults are
+   * evaluated in second pass.)
+   */
+  private static Object getAttributeNoncomputedDefaultValue(Attribute attr,
+      Package.Builder pkgBuilder) {
+    // TODO(b/149505729): Determine the right semantics for someone trying to define their own
+    // attribute named applicable_licenses.
+    if (attr.getName().equals("applicable_licenses")) {
+      return pkgBuilder.getDefaultApplicableLicenses();
+    }
+    return attr.getDefaultValue(null);
   }
 
   /**
