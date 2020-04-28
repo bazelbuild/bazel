@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link StarlarkMutable}. */
 @RunWith(JUnit4.class)
-public final class SkylarkMutableTest {
+public final class StarlarkMutableTest {
 
   @Test
   public void testListViewsCheckMutability() throws Exception {
