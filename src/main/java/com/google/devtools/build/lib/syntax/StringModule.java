@@ -274,16 +274,17 @@ final class StringModule implements StarlarkValue {
             type = String.class,
             doc = "The string to replace with."),
         @Param(
-            name = "count",
+            // TODO(#8147): rename param to "count" once it's positional-only.
+            name = "maxsplit",
             type = Integer.class,
             noneable = true,
             defaultValue = "None",
-            doc = "The maximum number of replacements.")
+            doc = "The maximum number of replacements. A negative value is ignored.")
       })
   public String replace(String self, String oldString, String newString, Object count)
       throws EvalException {
     int maxReplaces = Integer.MAX_VALUE;
-    if (count != Starlark.NONE && (Integer) count > -1) {
+    if (count != Starlark.NONE && (Integer) count >= 0) {
       maxReplaces = (Integer) count;
     }
     StringBuilder sb = new StringBuilder();
