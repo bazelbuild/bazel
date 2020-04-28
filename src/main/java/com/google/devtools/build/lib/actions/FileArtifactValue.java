@@ -82,8 +82,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   // TODO(ulfjack): Throw an exception if it's not a file.
   public abstract long getSize();
 
-  public abstract String getActionId();
-
   /**
    * Returns the last modified time; see the documentation of {@link #getDigest} for when this can
    * and should be called.
@@ -111,6 +109,15 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   public int getLocationIndex() {
     return 0;
+  }
+
+  /**
+   * Remote action source identifier for the file.
+   *
+   * <p>"" indicates that a remote action output was not the source of this artifact.
+   */
+  public String getActionId() {
+    return "";
   }
 
   /** Returns {@code true} if this is a special marker as opposed to a representing a real file. */
@@ -368,11 +375,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public String getActionId() {
-      return "";
-    }
-
-    @Override
     public boolean wasModifiedSinceDigest(Path path) throws IOException {
       return false;
     }
@@ -430,11 +432,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public long getSize() {
       return 0;
-    }
-
-    @Override
-    public String getActionId() {
-      return "";
     }
 
     @Override
@@ -500,11 +497,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public long getSize() {
       return size;
-    }
-
-    @Override
-    public String getActionId() {
-      return "";
     }
 
     @Override
@@ -667,11 +659,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public String getActionId() {
-      return "";
-    }
-
-    @Override
     public long getModifiedTime() {
       throw new IllegalStateException();
     }
@@ -747,11 +734,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public long getSize() {
       return data.length;
-    }
-
-    @Override
-    public String getActionId() {
-      return "";
     }
 
     @Override
@@ -837,11 +819,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public String getActionId() {
-      return "";
-    }
-
-    @Override
     public long getModifiedTime() {
       throw new UnsupportedOperationException();
     }
@@ -862,11 +839,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public byte[] getDigest() {
       return null;
-    }
-
-    @Override
-    public String getActionId() {
-      return "";
     }
 
     @Override
@@ -909,11 +881,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public byte[] getDigest() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String getActionId() {
       throw new UnsupportedOperationException();
     }
 

@@ -188,11 +188,6 @@ public final class ActionInputMapTest {
     }
 
     @Override
-    public String getActionId() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public long getModifiedTime() {
       throw new UnsupportedOperationException();
     }

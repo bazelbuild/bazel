@@ -603,11 +603,6 @@ public class ActionCacheChecker {
     }
 
     @Override
-    public String getActionId() {
-      return "";
-    }
-
-    @Override
     public long getModifiedTime() {
       return -1;
     }
