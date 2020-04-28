@@ -45,7 +45,7 @@ final class Eval {
   private static TokenKind execStatements(
       StarlarkThread.Frame fr, List<Statement> statements, boolean indented)
       throws EvalException, InterruptedException {
-    boolean isToplevelFunction = fn(fr).isToplevel;
+    boolean isToplevelFunction = fn(fr).isToplevel();
 
     // Hot code path, good chance of short lists which don't justify the iterator overhead.
     for (int i = 0; i < statements.size(); i++) {
@@ -93,9 +93,9 @@ final class Eval {
     EvalUtils.addIterator(o);
     try {
       for (Object it : seq) {
-        assign(fr, node.getLHS(), it);
+        assign(fr, node.getVars(), it);
 
-        switch (execStatements(fr, node.getBlock(), /*indented=*/ true)) {
+        switch (execStatements(fr, node.getBody(), /*indented=*/ true)) {
           case PASS:
           case CONTINUE:
             // Stay in loop.
@@ -121,19 +121,20 @@ final class Eval {
 
   private static void execDef(StarlarkThread.Frame fr, DefStatement node)
       throws EvalException, InterruptedException {
-    FunctionSignature sig = node.getSignature();
+    Resolver.Function rfn = node.resolved;
 
     // Evaluate default value expressions of optional parameters.
     // They may be discontinuous:
     // def f(a, b=1, *, c, d=2) has a defaults tuple of (1, 2).
     // TODO(adonovan): record the gaps (e.g. c) with a sentinel
-    // to simplify StarlarkFunction.matchSignature.
+    // to simplify StarlarkFunction.processArgs.
     Tuple<Object> defaults = Tuple.empty();
-    int ndefaults = sig.numOptionals();
+    int ndefaults = rfn.numOptionals();
     if (ndefaults > 0) {
       Object[] array = new Object[ndefaults];
-      for (int i = sig.numMandatoryPositionals(), j = 0; i < sig.numParameters(); i++) {
-        Expression expr = node.getParameters().get(i).getDefaultValue();
+      List<Parameter> params = node.getParameters();
+      for (int i = rfn.numMandatoryPositional, j = 0; i < params.size(); i++) {
+        Expression expr = params.get(i).getDefaultValue();
         if (expr != null) {
           array[j++] = eval(fr, expr);
         }
@@ -142,15 +143,7 @@ final class Eval {
     }
 
     assignIdentifier(
-        fr,
-        node.getIdentifier(),
-        new StarlarkFunction(
-            node.getIdentifier().getName(),
-            node.getIdentifier().getStartLocation(),
-            sig,
-            defaults,
-            node.getStatements(),
-            fn(fr).getModule()));
+        fr, node.getIdentifier(), new StarlarkFunction(rfn, defaults, fn(fr).getModule()));
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)
@@ -209,9 +202,9 @@ final class Eval {
 
   private static TokenKind execReturn(StarlarkThread.Frame fr, ReturnStatement node)
       throws EvalException, InterruptedException {
-    Expression ret = node.getReturnExpression();
-    if (ret != null) {
-      fr.result = eval(fr, ret);
+    Expression result = node.getResult();
+    if (result != null) {
+      fr.result = eval(fr, result);
     }
     return TokenKind.RETURN;
   }
@@ -306,7 +299,7 @@ final class Eval {
     // In effect, we do the missing resolution using fr.compcount.
     if (scope == null) {
       scope =
-          fn(fr).isToplevel && fr.compcount == 0
+          fn(fr).isToplevel() && fr.compcount == 0
               ? Resolver.Scope.Module //
               : Resolver.Scope.Local;
     }

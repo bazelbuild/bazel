@@ -67,8 +67,8 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
@@ -725,7 +725,7 @@ public class AndroidCommon {
       // Binary rule; allow extracting merged manifest from Starlark via
       // ctx.attr.android_binary.android.merged_manifest, but not much more.
       builder.addSkylarkTransitiveInfo(
-          AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider(/*resourceInfo=*/ null));
+          AndroidStarlarkApiProvider.NAME, new AndroidStarlarkApiProvider(/*resourceInfo=*/ null));
     } else {
       resourceApk.addToConfiguredTargetBuilder(
           builder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ true, isLibrary);
@@ -734,7 +734,7 @@ public class AndroidCommon {
     return builder
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(
-            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
         .addNativeDeclaredProvider(

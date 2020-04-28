@@ -308,13 +308,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               transitivePackagesForPackageRootResolution,
               transitiveRootCauses,
               defaultBuildOptions);
-      if (env.valuesMissing()) {
-        return null;
-      }
       if (!transitiveRootCauses.isEmpty()) {
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
                 "Analysis failed", configuration, transitiveRootCauses.build()));
+      }
+      if (env.valuesMissing()) {
+        return null;
       }
       Preconditions.checkNotNull(depValueMap);
 
@@ -611,7 +611,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
     }
-
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
     depValueNames =

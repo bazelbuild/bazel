@@ -23,10 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions.SkylarkRuleFunction;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkAttrModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -155,7 +154,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     String[] strings = lines.clone();
     strings[strings.length - 1] = String.format("%s = %s", name, strings[strings.length - 1]);
     evalAndExport(strings);
-    Descriptor lookup = (Descriptor) lookup(name);
+    StarlarkAttrModule.Descriptor lookup = (StarlarkAttrModule.Descriptor) lookup(name);
     return lookup != null ? lookup.build(name) : null;
   }
 
@@ -378,7 +377,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
             "   pass",
             "my_aspect = aspect(implementation = _impl)",
             "a = attr.label_list(aspects = [my_aspect])");
-    SkylarkAttr.Descriptor attr = (SkylarkAttr.Descriptor) lookup("a");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) lookup("a");
     SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
@@ -391,7 +390,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(implementation = _impl)",
         "a = attr.label(aspects = [my_aspect])");
-    SkylarkAttr.Descriptor attr = (SkylarkAttr.Descriptor) lookup("a");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) lookup("a");
     SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());

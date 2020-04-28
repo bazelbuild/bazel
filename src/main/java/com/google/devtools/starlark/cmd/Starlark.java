@@ -98,9 +98,8 @@ class Starlark {
     while ((line = prompt()) != null) {
       ParserInput input = ParserInput.create(line, "<stdin>");
       try {
-        Object result =
-            EvalUtils.execAndEvalOptionalFinalExpression(input, options, module, thread);
-        if (result != null) {
+        Object result = EvalUtils.exec(input, options, module, thread);
+        if (result != com.google.devtools.build.lib.syntax.Starlark.NONE) {
           System.out.println(com.google.devtools.build.lib.syntax.Starlark.repr(result));
         }
       } catch (SyntaxError.Exception ex) {

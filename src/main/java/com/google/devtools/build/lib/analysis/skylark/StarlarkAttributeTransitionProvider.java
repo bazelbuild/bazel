@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.skylark.FunctionTransitionUtil.applyAndValidate;
-import static com.google.devtools.build.lib.analysis.skylark.SkylarkAttributesCollection.ERROR_MESSAGE_FOR_NO_ATTR;
+import static com.google.devtools.build.lib.analysis.skylark.StarlarkAttributesCollection.ERROR_MESSAGE_FOR_NO_ATTR;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -48,7 +48,7 @@ import java.util.Map;
  * <p>For starlark defined rule class transitions, see {@link StarlarkRuleTransitionProvider}.
  *
  * <p>TODO(bazel-team): Consider allowing dependency-typed attributes to actually return providers
- * instead of just labels (see {@link SkylarkAttributesCollection#addAttribute}).
+ * instead of just labels (see {@link StarlarkAttributesCollection#addAttribute}).
  */
 public class StarlarkAttributeTransitionProvider
     implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {

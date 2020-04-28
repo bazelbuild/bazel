@@ -58,15 +58,9 @@ public class DependencyResolverTest extends AnalysisTestCase {
     dependencyResolver =
         new DependencyResolver() {
           @Override
-          protected void invalidPackageGroupReferenceHook(
-              TargetAndConfiguration node, Label label) {
-            throw new IllegalStateException();
-          }
-
-          @Override
           protected Map<Label, Target> getTargets(
               OrderedSetMultimap<DependencyKind, Label> labelMap,
-              Target fromTarget,
+              TargetAndConfiguration fromNode,
               NestedSetBuilder<Cause> rootCauses) {
             return labelMap.values().stream()
                 .distinct()

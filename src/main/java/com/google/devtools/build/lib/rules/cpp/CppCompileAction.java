@@ -1201,7 +1201,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
     }
     CcToolchainVariables.Builder variableBuilder = CcToolchainVariables.builder();
-    variableBuilder.addStringSequenceVariable("module_files", usedModulePaths.build());
+    variableBuilder.addStringSequenceVariable(
+        CompileBuildVariables.MODULE_FILES.getVariableName(), usedModulePaths.build());
     return variableBuilder.build();
   }
 

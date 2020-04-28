@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.syntax.Location;
  * com.google.devtools.build.lib.packages.RuleErrorConsumer}.
  *
  * <p>Do not create new implementations of this class - instead, use {@link RuleContext} in Native
- * rule definitions, and {@link com.google.devtools.build.lib.analysis.skylark.SkylarkErrorReporter}
- * in Starlark API definitions. For use in testing, implement {@link RuleErrorConsumer} instead.
+ * rule definitions, and {@link StarlarkErrorReporter} in Starlark API definitions. For use in
+ * testing, implement {@link RuleErrorConsumer} instead.
  */
 public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {
   private final String ruleClassNameForLogging;

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttributesCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAttributesCollectionApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -37,8 +37,8 @@ import java.util.List;
 import java.util.Map;
 
 /** Information about attributes of a rule an aspect is applied to. */
-class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
-  private final SkylarkRuleContext skylarkRuleContext;
+class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
+  private final SkylarkRuleContext starlarkRuleContext;
   private final StructImpl attrObject;
   private final StructImpl executableObject;
   private final StructImpl fileObject;
@@ -49,15 +49,15 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
   static final String ERROR_MESSAGE_FOR_NO_ATTR =
       "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.";
 
-  private SkylarkAttributesCollection(
-      SkylarkRuleContext skylarkRuleContext,
+  private StarlarkAttributesCollection(
+      SkylarkRuleContext starlarkRuleContext,
       String ruleClassName,
       Map<String, Object> attrs,
       Map<String, Object> executables,
       Map<String, Object> singleFiles,
       Map<String, Object> files,
       ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap) {
-    this.skylarkRuleContext = skylarkRuleContext;
+    this.starlarkRuleContext = starlarkRuleContext;
     this.ruleClassName = ruleClassName;
     attrObject = StructProvider.STRUCT.create(attrs, ERROR_MESSAGE_FOR_NO_ATTR);
     executableObject =
@@ -79,7 +79,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
   }
 
   private void checkMutable(String attrName) throws EvalException {
-    skylarkRuleContext.checkMutable("rule." + attrName);
+    starlarkRuleContext.checkMutable("rule." + attrName);
   }
 
   @Override
@@ -118,12 +118,12 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
 
   @Override
   public boolean isImmutable() {
-    return skylarkRuleContext.isImmutable();
+    return starlarkRuleContext.isImmutable();
   }
 
   @Override
   public void repr(Printer printer) {
-    printer.append("<rule collection for " + skylarkRuleContext.getRuleLabelCanonicalName() + ">");
+    printer.append("<rule collection for " + starlarkRuleContext.getRuleLabelCanonicalName() + ">");
   }
 
   public static Builder builder(SkylarkRuleContext ruleContext) {
@@ -254,8 +254,8 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
       }
     }
 
-    public SkylarkAttributesCollection build() {
-      return new SkylarkAttributesCollection(
+    public StarlarkAttributesCollection build() {
+      return new StarlarkAttributesCollection(
           context,
           context.getRuleContext().getRule().getRuleClass(),
           attrBuilder,

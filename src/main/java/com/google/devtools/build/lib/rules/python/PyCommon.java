@@ -975,10 +975,13 @@ public final class PyCommon {
         if (mainArtifact == null) {
           mainArtifact = outItem;
         } else {
-          ruleContext.attributeError("srcs",
-              buildMultipleMainMatchesErrorText(explicitMain, mainSourceName,
-                  mainArtifact.getRunfilesPath().toString(),
-                  outItem.getRunfilesPath().toString()));
+          ruleContext.attributeError(
+              "srcs",
+              buildMultipleMainMatchesErrorText(
+                  explicitMain,
+                  mainSourceName,
+                  mainArtifact.getShortPathString(),
+                  outItem.getShortPathString()));
         }
       }
     }
@@ -988,11 +991,11 @@ public final class PyCommon {
       return null;
     }
     if (!withWorkspaceName) {
-      return mainArtifact.getRunfilesPath().getPathString();
+      return mainArtifact.getShortPathString();
     }
     PathFragment workspaceName =
         PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
-    return workspaceName.getRelative(mainArtifact.getRunfilesPath()).getPathString();
+    return workspaceName.getRelative(mainArtifact.getShortPath()).getPathString();
   }
 
   public String determineMainExecutableSource() {

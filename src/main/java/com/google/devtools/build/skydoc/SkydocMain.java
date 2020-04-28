@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Resolver;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -78,10 +79,10 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDefaultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeOutputGroupInfo.FakeOutputGroupInfoProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkAttrApi;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkCommandLineApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkAttrModuleApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkCommandLineApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidApplicationResourceInfo.FakeAndroidApplicationResourceInfoProvider;
@@ -513,6 +514,11 @@ public class SkydocMain {
             imports);
     Module module = thread.getGlobals();
 
+    Resolver.resolveFile(file, module);
+    if (!file.ok()) {
+      throw new StarlarkEvaluationException(file.errors().get(0).toString());
+    }
+
     try {
       EvalUtils.exec(file, module, thread);
     } catch (EvalException | InterruptedException ex) {
@@ -540,8 +546,8 @@ public class SkydocMain {
     TopLevelBootstrap topLevelBootstrap =
         new TopLevelBootstrap(
             new FakeBuildApiGlobals(),
-            new FakeSkylarkAttrApi(),
-            new FakeSkylarkCommandLineApi(),
+            new FakeStarlarkAttrModuleApi(),
+            new FakeStarlarkCommandLineApi(),
             new FakeSkylarkNativeModuleApi(),
             new FakeSkylarkRuleFunctionsApi(ruleInfoList, providerInfoList, aspectInfoList),
             new FakeStructProviderApi(),
@@ -600,6 +606,12 @@ public class SkydocMain {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     envBuilder.putAll(Starlark.UNIVERSE);
+
+    // Add stub declarations for Blaze-only things as a quick fix
+    // for a broken test; see b/155126966. TODO(adonovan): fix properly ASAP.
+    envBuilder.put("js_common", 0);
+    envBuilder.put("ProguardSpecProvider", 0);
+    envBuilder.put("DataBindingV2Info", 0);
 
     // Declare a fake implementation of select that just returns the first
     // value in the dict. (This program is forbidden from depending on the real

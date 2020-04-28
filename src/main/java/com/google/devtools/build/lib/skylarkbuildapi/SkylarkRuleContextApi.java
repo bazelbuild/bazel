@@ -295,7 +295,7 @@ public interface SkylarkRuleContextApi<ConstraintValueT extends ConstraintValueI
       doc =
           "Returns rule attributes descriptor for the rule that aspect is applied to."
               + " Only available in aspect implementation functions.")
-  SkylarkAttributesCollectionApi rule() throws EvalException;
+  StarlarkAttributesCollectionApi rule() throws EvalException;
 
   @SkylarkCallable(
       name = "aspect_ids",

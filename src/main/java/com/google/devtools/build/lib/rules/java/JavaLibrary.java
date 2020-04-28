@@ -196,7 +196,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     builder
         .addSkylarkTransitiveInfo(
-            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(
             RunfilesProvider.simple(
                 JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))

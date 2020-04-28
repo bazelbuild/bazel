@@ -34,8 +34,8 @@ final class Lexer {
   // raw and value are defined only for STRING, INT, IDENTIFIER, and COMMENT.
   // TODO(adonovan): rename s/xyz/tokenXyz/
   TokenKind kind;
-  int left; // start offset TODO(adonovan): rename to start, end
-  int right; // end offset
+  int start; // start offset
+  int end; // end offset
   String raw; // source text of token
   Object value; // String or Integer value of token
 
@@ -131,10 +131,10 @@ final class Lexer {
     errors.add(new SyntaxError(locs.getLocation(pos), message));
   }
 
-  private void setToken(TokenKind kind, int left, int right) {
+  private void setToken(TokenKind kind, int start, int end) {
     this.kind = kind;
-    this.left = left;
-    this.right = right;
+    this.start = start;
+    this.end = end;
     this.value = null;
     this.raw = null;
   }
@@ -143,7 +143,7 @@ final class Lexer {
   // IDENTIFIER, or COMMENT token, and records the raw text of the token.
   private void setValue(Object value) {
     this.value = value;
-    this.raw = bufferSlice(left, right);
+    this.raw = bufferSlice(start, end);
   }
 
   /**

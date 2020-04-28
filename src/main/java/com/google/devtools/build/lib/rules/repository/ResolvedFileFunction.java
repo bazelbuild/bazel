@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Resolver;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -64,15 +65,19 @@ public class ResolvedFileFunction implements SkyFunction {
         throw new ResolvedFileFunctionException(
             new NoSuchThingException("Specified resolved file '" + key.getPath() + "' not found."));
       } else {
+        // read
         byte[] bytes =
             FileSystemUtils.readWithKnownFileSize(
                 key.getPath().asPath(), key.getPath().asPath().getFileSize());
+
+        // parse
         StarlarkFile file =
             StarlarkFile.parse(ParserInput.create(bytes, key.getPath().asPath().toString()));
         if (!file.ok()) {
           Event.replayEventsOn(env.getListener(), file.errors());
-          throw resolvedValueError("Failed to parse file resolved file " + key.getPath());
+          throw resolvedValueError("Failed to parse resolved file " + key.getPath());
         }
+
         Module resolvedModule;
         try (Mutability mutability = Mutability.create("resolved file", key.getPath())) {
           StarlarkThread thread =
@@ -81,6 +86,15 @@ public class ResolvedFileFunction implements SkyFunction {
                   .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
                   .build();
           resolvedModule = thread.getGlobals();
+
+          // resolve
+          Resolver.resolveFile(file, resolvedModule);
+          if (!file.ok()) {
+            Event.replayEventsOn(env.getListener(), file.errors());
+            throw resolvedValueError("Failed to validate resolved file " + key.getPath());
+          }
+
+          // execute
           try {
             EvalUtils.exec(file, resolvedModule, thread);
           } catch (EvalException ex) {

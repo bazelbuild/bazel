@@ -46,7 +46,7 @@ import org.junit.runners.JUnit4;
 // TODO(adonovan): reorganize.
 @SkylarkGlobalLibrary // required for @SkylarkCallable-annotated methods
 @RunWith(JUnit4.class)
-public final class SkylarkEvaluationTest extends EvaluationTestCase {
+public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Immutable
   static class Bad {
@@ -86,7 +86,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
 
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
     public BuiltinCallable structFieldCallable() {
-      return new BuiltinCallable(SkylarkEvaluationTest.this, "foobar");
+      return new BuiltinCallable(StarlarkEvaluationTest.this, "foobar");
     }
 
     @SkylarkCallable(
@@ -149,7 +149,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
 
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
     public Object structFieldCallable() {
-      return new BuiltinCallable(SkylarkEvaluationTest.this, "foobar");
+      return new BuiltinCallable(StarlarkEvaluationTest.this, "foobar");
     }
 
     @SkylarkCallable(name = "interrupted_struct_field", documented = false, structField = true)
@@ -1396,7 +1396,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
         .hasMessageThat()
         .contains(
             "cannot expose internal type to Starlark: class"
-                + " com.google.devtools.build.lib.syntax.SkylarkEvaluationTest$Bad");
+                + " com.google.devtools.build.lib.syntax.StarlarkEvaluationTest$Bad");
   }
 
   @Test
@@ -1929,12 +1929,12 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   // This class extends NativeInfo (which provides @SkylarkCallable-annotated fields)
   // with additional fields from a map. The only production code that currently
   // does that is ToolchainInfo and its subclasses.
-  @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
-  private static final class SkylarkClassObjectWithSkylarkCallables extends NativeInfo {
+  @SkylarkModule(name = "StarlarkStructWithStarlarkMethods", doc = "")
+  private static final class StarlarkStructWithStarlarkMethods extends NativeInfo {
 
-    static final NativeProvider<SkylarkClassObjectWithSkylarkCallables> CONSTRUCTOR =
-        new NativeProvider<SkylarkClassObjectWithSkylarkCallables>(
-            SkylarkClassObjectWithSkylarkCallables.class, "struct_with_skylark_callables") {};
+    static final NativeProvider<StarlarkStructWithStarlarkMethods> CONSTRUCTOR =
+        new NativeProvider<StarlarkStructWithStarlarkMethods>(
+            StarlarkStructWithStarlarkMethods.class, "struct_with_skylark_callables") {};
 
     // A function that returns "fromValues".
     Object returnFromValues =
@@ -1961,7 +1961,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
             "collision_method",
             returnFromValues);
 
-    SkylarkClassObjectWithSkylarkCallables() {
+    StarlarkStructWithStarlarkMethods() {
       super(CONSTRUCTOR, Location.BUILTIN);
     }
 
@@ -2003,7 +2003,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructFieldDefinedOnlyInValues() throws Exception {
     new Scenario()
-        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .update("val", new StarlarkStructWithStarlarkMethods())
         .setUp("v = val.values_only_field")
         .testLookup("v", "fromValues");
   }
@@ -2011,7 +2011,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructMethodDefinedOnlyInValues() throws Exception {
     new Scenario()
-        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .update("val", new StarlarkStructWithStarlarkMethods())
         .setUp("v = val.values_only_method()")
         .testLookup("v", "fromValues");
   }
@@ -2019,7 +2019,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructFieldDefinedOnlyInSkylarkCallable() throws Exception {
     new Scenario()
-        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .update("val", new StarlarkStructWithStarlarkMethods())
         .setUp("v = val.callable_only_field")
         .testLookup("v", "fromSkylarkCallable");
   }
@@ -2027,7 +2027,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructMethodDefinedOnlyInSkylarkCallable() throws Exception {
     new Scenario()
-        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .update("val", new StarlarkStructWithStarlarkMethods())
         .setUp("v = val.callable_only_method()")
         .testLookup("v", "fromSkylarkCallable");
   }
@@ -2038,7 +2038,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
     // This test exercises the resolution of ambiguity between @SkylarkCallable-annotated
     // fields and those reported by ClassObject.getValue.
     new Scenario()
-        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .update("val", new StarlarkStructWithStarlarkMethods())
         .setUp("v = val.collision_method()")
         .testLookup("v", "fromSkylarkCallable");
   }
@@ -2046,7 +2046,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructFieldNotDefined() throws Exception {
     new Scenario()
-        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .update("val", new StarlarkStructWithStarlarkMethods())
         .testIfExactError(
             // TODO(bazel-team): This should probably list callable_only_method as well.
             "'struct_with_skylark_callables' value has no field or method 'nonexistent_field'\n"
@@ -2058,7 +2058,7 @@ public final class SkylarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructMethodNotDefined() throws Exception {
     new Scenario()
-        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .update("val", new StarlarkStructWithStarlarkMethods())
         .testIfExactError(
             "'struct_with_skylark_callables' value has no field or method 'nonexistent_method'\n"
                 + "Available attributes: callable_only_field, collision_field, collision_method, "

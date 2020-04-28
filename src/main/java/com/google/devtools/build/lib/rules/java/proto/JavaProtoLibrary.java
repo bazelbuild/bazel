@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 
 /** Implementation of the java_proto_library rule. */
@@ -100,7 +100,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .setFilesToBuild(filesToBuild.build())
             .addSkylarkTransitiveInfo(
-                JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+                JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
             .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
             .addOutputGroup(
                 OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))

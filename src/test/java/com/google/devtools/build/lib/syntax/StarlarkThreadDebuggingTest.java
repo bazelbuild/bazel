@@ -214,9 +214,7 @@ public class StarlarkThreadDebuggingTest {
     Module module = thread.getGlobals();
     module.put("a", 1);
 
-    Object a =
-        EvalUtils.execAndEvalOptionalFinalExpression(
-            ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread);
+    Object a = EvalUtils.exec(ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread);
     assertThat(a).isEqualTo(1);
   }
 
@@ -229,9 +227,7 @@ public class StarlarkThreadDebuggingTest {
     SyntaxError.Exception e =
         assertThrows(
             SyntaxError.Exception.class,
-            () ->
-                EvalUtils.execAndEvalOptionalFinalExpression(
-                    ParserInput.fromLines("b"), FileOptions.DEFAULT, module, thread));
+            () -> EvalUtils.exec(ParserInput.fromLines("b"), FileOptions.DEFAULT, module, thread));
 
     assertThat(e).hasMessageThat().isEqualTo("name 'b' is not defined");
   }
@@ -243,13 +239,11 @@ public class StarlarkThreadDebuggingTest {
     module.put("a", "string");
 
     assertThat(
-            EvalUtils.execAndEvalOptionalFinalExpression(
+            EvalUtils.exec(
                 ParserInput.fromLines("a.startswith('str')"), FileOptions.DEFAULT, module, thread))
         .isEqualTo(true);
     EvalUtils.exec(ParserInput.fromLines("a = 1"), FileOptions.DEFAULT, module, thread);
-    assertThat(
-            EvalUtils.execAndEvalOptionalFinalExpression(
-                ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread))
+    assertThat(EvalUtils.exec(ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread))
         .isEqualTo(1);
   }
 }

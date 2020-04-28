@@ -45,7 +45,6 @@ java_library(
         "FileOptions.java",
         "FlowStatement.java",
         "ForStatement.java",
-        "FunctionSignature.java",
         "Identifier.java",
         "IfStatement.java",
         "IndexExpression.java",

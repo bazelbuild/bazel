@@ -46,8 +46,8 @@ public class LexerTest {
 
   private static class Token {
     TokenKind kind;
-    int left;
-    int right;
+    int start;
+    int end;
     Object value;
 
     @Override
@@ -64,8 +64,8 @@ public class LexerTest {
       lexer.nextToken();
       Token tok = new Token();
       tok.kind = lexer.kind;
-      tok.left = lexer.left;
-      tok.right = lexer.right;
+      tok.start = lexer.start;
+      tok.end = lexer.end;
       tok.value = lexer.value;
       result.add(tok);
     } while (lexer.kind != TokenKind.EOF);
@@ -93,7 +93,7 @@ public class LexerTest {
       if (buf.length() > 0) {
         buf.append(' ');
       }
-      int line = lexer.locs.getLocation(tok.left).line();
+      int line = lexer.locs.getLocation(tok.start).line();
       buf.append(line);
     }
     return buf.toString();
@@ -141,11 +141,7 @@ public class LexerTest {
       if (buf.length() > 0) {
         buf.append(' ');
       }
-      buf.append('[')
-         .append(tok.left)
-         .append(',')
-         .append(tok.right)
-         .append(')');
+      buf.append('[').append(tok.start).append(',').append(tok.end).append(')');
     }
     return buf.toString();
   }

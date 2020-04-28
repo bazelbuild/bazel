@@ -561,7 +561,12 @@ public class RemoteCache implements AutoCloseable {
     for (ActionInput output : outputs) {
       if (inMemoryOutputPath != null && output.getExecPath().equals(inMemoryOutputPath)) {
         Path p = execRoot.getRelative(output.getExecPath());
-        FileMetadata m = Preconditions.checkNotNull(metadata.file(p), "inMemoryOutputMetadata");
+        FileMetadata m = metadata.file(p);
+        if (m == null) {
+          // A declared output wasn't created. Ignore it here. SkyFrame will fail if not all
+          // outputs were created.
+          continue;
+        }
         inMemoryOutputDigest = m.digest();
         inMemoryOutput = output;
       }

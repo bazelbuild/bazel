@@ -707,7 +707,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       ruleBuilder.addOutputGroup("runtime_dynamic_libraries", copiedRuntimeDynamicLibraries);
     }
 
-    CcSkylarkApiProvider.maybeAdd(ruleContext, ruleBuilder);
+    CcStarlarkApiProvider.maybeAdd(ruleContext, ruleBuilder);
     ruleBuilder
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addProvider(

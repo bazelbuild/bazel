@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -31,14 +31,14 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * interface for Starlark users.
  */
 @AutoCodec
-public final class CcSkylarkApiProvider extends SkylarkApiProvider
+public final class CcStarlarkApiProvider extends StarlarkApiProvider
     implements CcSkylarkApiProviderApi<Artifact> {
   /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "cc";
 
   public static void maybeAdd(RuleContext ruleContext, RuleConfiguredTargetBuilder builder) {
     if (ruleContext.getFragment(CppConfiguration.class).enableLegacyCcProvider()) {
-      builder.addSkylarkTransitiveInfo(NAME, new CcSkylarkApiProvider());
+      builder.addSkylarkTransitiveInfo(NAME, new CcStarlarkApiProvider());
     }
   }
 

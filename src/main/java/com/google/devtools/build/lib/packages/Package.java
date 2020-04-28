@@ -777,7 +777,11 @@ public class Package {
       String runfilesPrefix,
       StarlarkSemantics starlarkSemantics) {
     return new Builder(
-            helper, LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix, starlarkSemantics)
+            helper,
+            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+            runfilesPrefix,
+            starlarkSemantics.incompatibleNoImplicitFileExport(),
+            Builder.EMPTY_REPOSITORY_MAPPING)
         .setFilename(workspacePath);
   }
 
@@ -786,6 +790,9 @@ public class Package {
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
   public static class Builder {
+
+    public static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
+        ImmutableMap.of();
 
     public interface Helper {
       /**
@@ -836,17 +843,20 @@ public class Package {
      */
     private final Package pkg;
 
-    private final StarlarkSemantics starlarkSemantics;
+    private final boolean noImplicitFileExport;
     private final CallStack.Builder callStackBuilder = new CallStack.Builder();
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
     public final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
-    // The map of repository reassignments for BUILD packages loaded within external repositories.
-    // It contains an entry from "@<main workspace name>" to "@" for packages within
-    // the main workspace.
-    private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
+    /**
+     * The map of repository reassignments for BUILD packages loaded within external repositories.
+     * It contains an entry from "@<main workspace name>" to "@" for packages within the main
+     * workspace.
+     */
+    private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+
     private RootedPath filename = null;
     private Label buildFileLabel = null;
     private InputFile buildFile = null;
@@ -863,6 +873,7 @@ public class Package {
     @Nullable private IOException ioException = null;
     private boolean containsErrors = false;
 
+    private ImmutableList<Label> defaultApplicableLicenses = ImmutableList.of();
     private License defaultLicense = License.NO_LICENSE;
     private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
@@ -922,9 +933,11 @@ public class Package {
         Helper helper,
         PackageIdentifier id,
         String runfilesPrefix,
-        StarlarkSemantics starlarkSemantics) {
+        boolean noImplicitFileExport,
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
       this.pkg = helper.createFreshPackage(id, runfilesPrefix);
-      this.starlarkSemantics = starlarkSemantics;
+      this.noImplicitFileExport = noImplicitFileExport;
+      this.repositoryMapping = repositoryMapping;
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
       }
@@ -978,21 +991,11 @@ public class Package {
       return this;
     }
 
-    /**
-     * Sets the repository mapping for a regular, BUILD file package (i.e. not the //external
-     * package)
-     */
-    Builder setRepositoryMapping(ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      this.repositoryMapping = Preconditions.checkNotNull(repositoryMapping);
-      return this;
-    }
-
     /** Get the repository mapping for this package */
     ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
       return this.repositoryMapping;
     }
 
-    /** Returns the interner to use to intern lists within the package currently being built. */
     Interner<ImmutableList<?>> getListInterner() {
       return listInterner;
     }
@@ -1189,6 +1192,10 @@ public class Package {
       pkg.setDefaultApplicableLicenses(ImmutableSet.copyOf(licenses));
     }
 
+    ImmutableList<Label> getDefaultApplicableLicenses() {
+      return defaultApplicableLicenses;
+    }
+
     /**
      * Sets the default license for this package.
      */
@@ -1196,11 +1203,6 @@ public class Package {
       this.defaultLicense = license;
     }
 
-    /**
-     * Returns the <b>current</b> default {@link License}. This should be used with caution - its
-     * value may change during package loading, so it might not reflect the package's final default
-     * value.
-     */
     License getDefaultLicense() {
       return defaultLicense;
     }
@@ -1213,6 +1215,10 @@ public class Package {
      */
     void setDefaultDistribs(Set<DistributionType> dists) {
       this.defaultDistributionSet = dists;
+    }
+
+    Set<DistributionType> getDefaultDistribs() {
+      return defaultDistributionSet;
     }
 
     /**
@@ -1613,12 +1619,10 @@ public class Package {
     private InputFile createInputFileMaybe(Label label, Location location) {
       if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
         if (!targets.containsKey(label.getName())) {
-          if (starlarkSemantics.incompatibleNoImplicitFileExport()) {
-            return new InputFile(
-                pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE);
-          } else {
-            return new InputFile(pkg, label, location);
-          }
+          return noImplicitFileExport
+              ? new InputFile(
+                  pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE)
+              : new InputFile(pkg, label, location);
         }
       }
       return null;

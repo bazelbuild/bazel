@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -30,9 +30,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * Fake implementation of {@link SkylarkAttrApi}.
+ * Fake implementation of {@link StarlarkAttrModuleApi}.
  */
-public class FakeSkylarkAttrApi implements SkylarkAttrApi {
+public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor intAttribute(

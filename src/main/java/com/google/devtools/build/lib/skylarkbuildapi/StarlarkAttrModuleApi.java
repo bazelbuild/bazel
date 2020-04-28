@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "<p>See the Rules page for more on "
             + "<a href='../rules.$DOC_EXT#attributes'>defining</a> and "
             + "<a href='../rules.$DOC_EXT#implementation-function'>using</a> attributes.")
-public interface SkylarkAttrApi extends StarlarkValue {
+public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   // dependency and output attributes
   String LABEL_PARAGRAPH =

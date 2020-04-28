@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkCommandLineApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkCommandLineApi;
 import com.google.devtools.build.lib.syntax.Depset;
 
 /**
- * Fake implementation of {@link SkylarkCommandLineApi}.
+ * Fake implementation of {@link StarlarkCommandLineApi}.
  */
-public class FakeSkylarkCommandLineApi implements SkylarkCommandLineApi {
+public class FakeStarlarkCommandLineApi implements StarlarkCommandLineApi {
 
   @Override
   public String joinPaths(String separator, Depset files) {

@@ -59,7 +59,8 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
         .add("-Dbazel.test_suite=" + ShellEscaper.escapeString(testClass))
         .add("-Drobolectric.offline=true")
         .add(
-            "-Drobolectric-deps.properties=" + androidAllJarsPropertiesFile.getRunfilesPathString())
+            "-Drobolectric-deps.properties="
+                + androidAllJarsPropertiesFile.getRootRelativePathString())
         .add("-Duse_framework_manifest_parser=true")
         .add("-Dorg.robolectric.packagesToNotAcquire=com.google.testing.junit.runner.util")
         .build();

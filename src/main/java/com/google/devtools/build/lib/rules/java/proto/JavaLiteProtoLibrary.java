@@ -39,8 +39,8 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
@@ -105,7 +105,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild.build())
         .addSkylarkTransitiveInfo(
-            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
         .addOutputGroup(OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addNativeDeclaredProvider(getJavaLiteRuntimeSpec(ruleContext))

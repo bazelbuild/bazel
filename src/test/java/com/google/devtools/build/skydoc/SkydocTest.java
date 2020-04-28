@@ -428,16 +428,17 @@ public final class SkydocTest extends SkylarkTestCase {
     scratch.file(
         "/test/test.bzl",
         "def check_function(foo, bar, baz):",
-        "\"\"\"Runs some checks on the given function parameter.",
-        " ",
-        "This rule runs checks on a given function parameter.",
-        " ",
-        "Args:",
-        "foo: A unique parameter for this rule.",
-        "bar: A unique parameter for this rule.",
-        "baz: A unique parameter for this rule.",
-        "\"\"\"",
-        "pass");
+        "  \"\"\"Runs some checks on the given function parameter.",
+        "  ",
+        "  This rule runs checks on a given function parameter.",
+        "  ",
+        "  Args:",
+        "    foo: A unique parameter for this rule.",
+        "    bar: A unique parameter for this rule.",
+        "    baz: A unique parameter for this rule.",
+        "  ",
+        "  \"\"\"",
+        "  pass");
 
     ImmutableMap.Builder<String, StarlarkFunction> funcInfoMap = ImmutableMap.builder();
 
@@ -565,7 +566,7 @@ public final class SkydocTest extends SkylarkTestCase {
         "/test/test.bzl",
         "\"\"\"Input file to test module docstring\"\"\"",
         "def check_function(foo):",
-        "\"\"\"Runs some checks on the given function parameter.",
+        "  \"\"\"Runs some checks on the given function parameter.",
         " ",
         "Args:",
         "foo: A unique parameter for this rule.",
@@ -596,11 +597,11 @@ public final class SkydocTest extends SkylarkTestCase {
     scratch.file(
         "/test/test.bzl",
         "def check_function(foo):",
-        "\"\"\"Runs some checks input file with no module docstring.",
+        "  \"\"\"Runs some checks input file with no module docstring.",
         " ",
-        "Args:",
-        "foo: A parameter.",
-        "\"\"\"",
+        "  Args:",
+        "  foo: A parameter.",
+        "  \"\"\"",
         "pass");
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
@@ -628,11 +629,11 @@ public final class SkydocTest extends SkylarkTestCase {
         "\"\"\"Input file to test",
         "multiple lines module docstring\"\"\"",
         "def check_function(foo):",
-        "\"\"\"Runs some checks on the given function parameter.",
-        " ",
-        "Args:",
-        "foo: A unique parameter for this rule.",
-        "\"\"\"",
+        "  \"\"\"Runs some checks on the given function parameter.",
+        "  ",
+        "  Args:",
+        "  foo: A unique parameter for this rule.",
+        "  \"\"\"",
         "pass");
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
@@ -656,20 +657,15 @@ public final class SkydocTest extends SkylarkTestCase {
   @Test
   public void testModuleDocAcrossFiles() throws Exception {
     scratch.file(
-        "/test/othertest.bzl",
+        "/test/othertest.bzl", //
         "\"\"\"Should be displayed.\"\"\"",
-        " ",
         "load(':test.bzl', 'check_function')",
-        " ",
-        "\"\"\"",
         "pass");
     scratch.file(
-        "/test/test.bzl",
+        "/test/test.bzl", //
         "\"\"\"Should not be displayed.\"\"\"",
         "def check_function():",
-        " ",
-        "\"\"\"",
-        "pass");
+        "  pass");
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     skydocMain.eval(

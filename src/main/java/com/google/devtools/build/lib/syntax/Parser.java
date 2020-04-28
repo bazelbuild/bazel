@@ -23,10 +23,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Parser is a recursive-descent parser for Starlark. */
@@ -250,7 +248,7 @@ final class Parser {
           token.kind == TokenKind.INDENT
               ? "indentation error"
               : "syntax error at '" + tokenString(token.kind, token.value) + "': " + message;
-      reportError(token.left, msg);
+      reportError(token.start, msg);
       recoveryMode = true;
     }
   }
@@ -282,7 +280,7 @@ final class Parser {
     while (!terminatingTokens.contains(token.kind)) {
       nextToken();
     }
-    int end = token.right;
+    int end = token.end;
     // read past the synchronization token
     nextToken();
     return end;
@@ -298,13 +296,13 @@ final class Parser {
     // EOF must be in the set to prevent an infinite loop
     Preconditions.checkState(terminatingTokens.contains(TokenKind.EOF));
     // read past the problematic token
-    int previous = token.right;
+    int previous = token.end;
     nextToken();
     int current = previous;
     while (!terminatingTokens.contains(token.kind)) {
       nextToken();
       previous = current;
-      current = token.right;
+      current = token.end;
     }
     return previous;
   }
@@ -350,11 +348,11 @@ final class Parser {
         error = "keyword '" + token.kind + "' not supported";
         break;
     }
-    reportError(token.left, error);
+    reportError(token.start, error);
   }
 
   private int nextToken() {
-    int prev = token.left;
+    int prev = token.start;
     if (token.kind != TokenKind.EOF) {
       lexer.nextToken();
     }
@@ -473,7 +471,7 @@ final class Parser {
       }
       if (hasStarStar) {
         // TODO(adonovan): move this to validation pass too.
-        reportError(token.left, "unexpected tokens after **kwargs argument");
+        reportError(token.start, "unexpected tokens after **kwargs argument");
         break;
       }
       Argument arg = parseArgument();
@@ -564,7 +562,7 @@ final class Parser {
       expect(TokenKind.COMMA);
       if (EXPR_LIST_TERMINATOR_SET.contains(token.kind)) {
         if (!trailingCommaAllowed) {
-          reportError(token.left, "Trailing comma is allowed only in parenthesized tuples.");
+          reportError(token.start, "Trailing comma is allowed only in parenthesized tuples.");
         }
         break;
       }
@@ -599,10 +597,10 @@ final class Parser {
   private StringLiteral parseStringLiteral() {
     Preconditions.checkState(token.kind == TokenKind.STRING);
     StringLiteral literal =
-        new StringLiteral(locs, token.left, intern((String) token.value), token.right);
+        new StringLiteral(locs, token.start, intern((String) token.value), token.end);
     nextToken();
     if (token.kind == TokenKind.STRING) {
-      reportError(token.left, "Implicit string concatenation is forbidden, use the + operator");
+      reportError(token.start, "Implicit string concatenation is forbidden, use the + operator");
     }
     return literal;
   }
@@ -620,7 +618,7 @@ final class Parser {
       case INT:
         {
           IntegerLiteral literal =
-              new IntegerLiteral(locs, token.raw, token.left, (Integer) token.value);
+              new IntegerLiteral(locs, token.raw, token.start, (Integer) token.value);
           nextToken();
           return literal;
         }
@@ -683,7 +681,7 @@ final class Parser {
 
       default:
         {
-          int start = token.left;
+          int start = token.start;
           syntaxError("expected expression");
           int end = syncTo(EXPR_TERMINATOR_SET);
           return makeErrorExpression(start, end);
@@ -888,7 +886,7 @@ final class Parser {
 
   private Identifier parseIdent() {
     if (token.kind != TokenKind.IDENTIFIER) {
-      int start = token.left;
+      int start = token.start;
       int end = expect(TokenKind.IDENTIFIER);
       return makeErrorExpression(start, end);
     }
@@ -927,7 +925,7 @@ final class Parser {
       // are not associative.
       if (lastOp != null && operatorPrecedence.get(prec).contains(TokenKind.EQUALS_EQUALS)) {
         reportError(
-            token.left,
+            token.start,
             String.format(
                 "Operator '%s' is not associative with operator '%s'. Use parens.", lastOp, op));
       }
@@ -956,7 +954,7 @@ final class Parser {
 
   // Parses a non-tuple expression ("test" in Python terminology).
   private Expression parseTest() {
-    int start = token.left;
+    int start = token.start;
     Expression expr = parseTest(0);
     if (token.kind == TokenKind.IF) {
       nextToken();
@@ -1014,15 +1012,15 @@ final class Parser {
     expect(TokenKind.LPAREN);
     if (token.kind != TokenKind.STRING) {
       // error: module is not a string literal.
-      StringLiteral module = new StringLiteral(locs, token.left, "", token.right);
+      StringLiteral module = new StringLiteral(locs, token.start, "", token.end);
       expect(TokenKind.STRING);
-      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.right);
+      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.end);
     }
 
     StringLiteral module = parseStringLiteral();
     if (token.kind == TokenKind.RPAREN) {
       syntaxError("expected at least one symbol to load");
-      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.right);
+      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.end);
     }
     expect(TokenKind.COMMA);
 
@@ -1056,7 +1054,7 @@ final class Parser {
     }
 
     String name = (String) token.value;
-    int nameOffset = token.left + (token.kind == TokenKind.STRING ? 1 : 0);
+    int nameOffset = token.start + (token.kind == TokenKind.STRING ? 1 : 0);
     Identifier local = new Identifier(locs, name, nameOffset);
 
     Identifier original;
@@ -1074,7 +1072,7 @@ final class Parser {
         syntaxError("expected string");
         return;
       }
-      original = new Identifier(locs, (String) token.value, token.left + 1);
+      original = new Identifier(locs, (String) token.value, token.start + 1);
     }
     nextToken();
     symbols.add(new LoadStatement.Binding(local, original));
@@ -1166,12 +1164,12 @@ final class Parser {
   // for_stmt = FOR IDENTIFIER IN expr ':' suite
   private ForStatement parseForStatement() {
     int forOffset = expect(TokenKind.FOR);
-    Expression lhs = parseForLoopVariables();
+    Expression vars = parseForLoopVariables();
     expect(TokenKind.IN);
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
-    List<Statement> block = parseSuite();
-    return new ForStatement(locs, forOffset, lhs, collection, block);
+    List<Statement> body = parseSuite();
+    return new ForStatement(locs, forOffset, vars, collection, body);
   }
 
   // def_stmt = DEF IDENTIFIER '(' arguments ')' ':' suite
@@ -1180,108 +1178,10 @@ final class Parser {
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
     ImmutableList<Parameter> params = parseParameters();
-
-    // TODO(adonovan): inline and simplify createSignature.
-    FunctionSignature signature;
-    try {
-      signature = createSignature(params);
-    } catch (SignatureException e) {
-      reportError(e.parameter.getStartOffset(), e.getMessage());
-      // bogus empty signature
-      signature = FunctionSignature.NOARGS;
-    }
-
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = ImmutableList.copyOf(parseSuite());
-    return new DefStatement(locs, defOffset, ident, params, signature, block);
-  }
-
-  private static class SignatureException extends Exception {
-    final Parameter parameter;
-
-    /** SignatureException from a message and a Parameter */
-    SignatureException(String message, Parameter parameter) {
-      super(message);
-      this.parameter = parameter;
-    }
-  }
-
-  /** Convert a list of Parameter into a FunctionSignature. */
-  private static FunctionSignature createSignature(List<Parameter> parameters)
-      throws SignatureException {
-    int mandatoryPositionals = 0;
-    int optionalPositionals = 0;
-    int mandatoryNamedOnly = 0;
-    int optionalNamedOnly = 0;
-    boolean hasStarStar = false;
-    boolean hasStar = false;
-    @Nullable String star = null;
-    @Nullable String starStar = null;
-    ArrayList<String> params = new ArrayList<>();
-    // optional named-only parameters are kept aside to be spliced after the mandatory ones.
-    ArrayList<String> optionalNamedOnlyParams = new ArrayList<>();
-    boolean defaultRequired = false; // true after mandatory positionals and before star.
-    Set<String> paramNameSet = new HashSet<>(); // set of names, to avoid duplicates
-
-    for (Parameter param : parameters) {
-      if (hasStarStar) {
-        throw new SignatureException("illegal parameter after star-star parameter", param);
-      }
-      @Nullable String name = param.getName();
-      if (param.getName() != null) {
-        if (paramNameSet.contains(name)) {
-          // TODO(adonovan): this should be a validation error, not a parse error.
-          throw new SignatureException("duplicate parameter name in function definition", param);
-        }
-        paramNameSet.add(name);
-      }
-      if (param instanceof Parameter.StarStar) {
-        hasStarStar = true;
-        starStar = name;
-      } else if (param instanceof Parameter.Star) {
-        if (hasStar) {
-          throw new SignatureException("duplicate star parameter in function definition", param);
-        }
-        hasStar = true;
-        defaultRequired = false;
-        if (param.getName() != null) {
-          star = name;
-        }
-      } else if (hasStar && param instanceof Parameter.Optional) {
-        optionalNamedOnly++;
-        optionalNamedOnlyParams.add(name);
-      } else {
-        params.add(name);
-        if (param instanceof Parameter.Optional) {
-          optionalPositionals++;
-          defaultRequired = true;
-        } else if (hasStar) {
-          mandatoryNamedOnly++;
-        } else if (defaultRequired) {
-          throw new SignatureException(
-              "a mandatory positional parameter must not follow an optional parameter", param);
-        } else {
-          mandatoryPositionals++;
-        }
-      }
-    }
-    params.addAll(optionalNamedOnlyParams);
-
-    if (star != null) {
-      params.add(star);
-    }
-    if (starStar != null) {
-      params.add(starStar);
-    }
-    return FunctionSignature.create(
-        mandatoryPositionals,
-        optionalPositionals,
-        mandatoryNamedOnly,
-        optionalNamedOnly,
-        star != null,
-        starStar != null,
-        ImmutableList.copyOf(params));
+    return new DefStatement(locs, defOffset, ident, params, block);
   }
 
   // Parse a list of function parameters.
@@ -1304,7 +1204,7 @@ final class Parser {
       }
       if (hasStarStar) {
         // TODO(adonovan): move this to validation pass too.
-        reportError(token.left, "unexpected tokens after kwarg");
+        reportError(token.start, "unexpected tokens after kwarg");
         break;
       }
 
@@ -1321,12 +1221,14 @@ final class Parser {
   // suite is typically what follows a colon (e.g. after def or for).
   // suite = simple_stmt
   //       | NEWLINE INDENT stmt+ OUTDENT
+  //
+  // TODO(adonovan): return ImmutableList and simplify downstream.
   private List<Statement> parseSuite() {
     List<Statement> list = new ArrayList<>();
     if (token.kind == TokenKind.NEWLINE) {
       expect(TokenKind.NEWLINE);
       if (token.kind != TokenKind.INDENT) {
-        reportError(token.left, "expected an indented block");
+        reportError(token.start, "expected an indented block");
         return list;
       }
       expect(TokenKind.INDENT);

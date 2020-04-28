@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  * stable interface for Starlark users.
  */
 @Immutable
-public class AndroidSkylarkApiProvider extends SkylarkApiProvider
+public class AndroidStarlarkApiProvider extends StarlarkApiProvider
     implements AndroidSkylarkApiProviderApi<Artifact> {
   /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "android";
@@ -43,7 +43,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
   private final IdlInfo idlInfo = new IdlInfo();
   private final AndroidResourcesInfo resourceInfo;
 
-  public AndroidSkylarkApiProvider(AndroidResourcesInfo resourceInfo) {
+  public AndroidStarlarkApiProvider(AndroidResourcesInfo resourceInfo) {
     this.resourceInfo = resourceInfo;
   }
 

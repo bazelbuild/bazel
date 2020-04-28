@@ -82,7 +82,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
   }
 
   private String getToolDependencyRunfilesPathString(String label) throws Exception {
-    return getToolDependency(label).getExecutable().getRunfilesPathString();
+    return getToolDependency(label).getExecutable().getRootRelativePathString();
   }
 
   @Test
