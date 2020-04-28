@@ -477,19 +477,6 @@ java_library(
     ],
 )
 
-# Deprecated: This target has been deprecated. Please depend on the correct exported library instead.
-java_library(
-    name = "build",
-    exports = [
-        ":all-build-rules",
-        ":build-base",
-        ":foundation",
-        ":query2",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-    ],
-)
-
 ########################################################################
 #
 # The Blaze query language, revision 2: query2.
