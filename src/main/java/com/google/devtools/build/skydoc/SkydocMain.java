@@ -608,10 +608,18 @@ public class SkydocMain {
     envBuilder.putAll(Starlark.UNIVERSE);
 
     // Add stub declarations for Blaze-only things as a quick fix
-    // for a broken test; see b/155126966. TODO(adonovan): fix properly ASAP.
-    envBuilder.put("js_common", 0);
-    envBuilder.put("ProguardSpecProvider", 0);
-    envBuilder.put("DataBindingV2Info", 0);
+    // for a broken test; see b/155126966 and b/155178103.
+    // TODO(adonovan): fix properly ASAP.
+    for (String name :
+        new String[] {
+          "DataBindingV2Info",
+          "PintoModuleLegacyDepsMgmtProvider",
+          "ProguardSpecProvider",
+          "js_common",
+          "pkg_common",
+        }) {
+      envBuilder.put(name, Starlark.NONE);
+    }
 
     // Declare a fake implementation of select that just returns the first
     // value in the dict. (This program is forbidden from depending on the real
