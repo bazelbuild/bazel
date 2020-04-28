@@ -126,10 +126,9 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
             IOException annotatedException =
                 new IOException(
                     String.format(
-                        "Failed to fetch file with hash '%s' into '%s' because it does not exist remotely."
+                        "Failed to fetch file with hash '%s' because it does not exist remotely."
                             + " --experimental_remote_outputs=minimal does not work if"
                             + " your remote cache evicts files during builds.",
-                        entry.getKey(),
                         ((CacheNotFoundException) t).getMissingDigest().getHash()));
             bulkAnnotatedException.add(annotatedException);
           }
