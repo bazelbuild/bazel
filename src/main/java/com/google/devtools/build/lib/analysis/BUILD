@@ -1622,6 +1622,10 @@ java_library(
 java_library(
     name = "config/invalid_configuration_exception",
     srcs = ["config/InvalidConfigurationException.java"],
+    deps = [
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(

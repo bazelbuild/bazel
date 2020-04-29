@@ -105,6 +105,8 @@ message FailureDetail {
     Spawn spawn = 123;
     GrpcServer grpc_server = 124;
     CanonicalizeFlags canonicalize_flags = 125;
+    BuildConfiguration build_configuration = 126;
+    InfoCommand info_command = 127;
   }
 
   reserved 102; // For internal use
@@ -124,6 +126,7 @@ message Interrupted {
     PACKAGE_LOADING_SYNC = 6 [(metadata) = { exit_code: 8 }];
     EXECUTOR_COMPLETION = 7 [(metadata) = { exit_code: 8 }];
     COMMAND_DISPATCH = 8 [(metadata) = { exit_code: 8 }];
+    INFO_ITEM = 9 [(metadata) = { exit_code: 8 }];
   }
 
   Code code = 1;
@@ -381,6 +384,37 @@ message CanonicalizeFlags {
   enum Code {
     CANONICALIZE_FLAGS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     FOR_COMMAND_INVALID = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+// Failure modes described by this category pertain to the Bazel invocation
+// configuration consumed by Bazel's analysis phase. This category is not
+// intended as a grab-bag for all Bazel flag value constraint violations, which
+// instead generally belong in the category for the subsystem whose flag values
+// participate in the constraint.
+message BuildConfiguration {
+  // TODO(mschaller): many more codes should be added to represent different
+  // configuration-related failure modes. See InvalidConfigurationException.
+  enum Code {
+    BUILD_CONFIGURATION_UNKNOWN = 0 [(metadata) = { exit_code: 2 }];
+    PLATFORM_MAPPING_EVALUATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message InfoCommand {
+  // The distinction between a failure to write a single info item and a failure
+  // to write them all seems sketchy. Why do they have different exit codes?
+  // This reflects current Bazel behavior, but deserves more thought.
+  enum Code {
+    INFO_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    TOO_MANY_KEYS = 1 [(metadata) = { exit_code: 2 }];
+    KEY_NOT_RECOGNIZED = 2 [(metadata) = { exit_code: 2 }];
+    INFO_BLOCK_WRITE_FAILURE = 3 [(metadata) = { exit_code: 7 }];
+    ALL_INFO_WRITE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;

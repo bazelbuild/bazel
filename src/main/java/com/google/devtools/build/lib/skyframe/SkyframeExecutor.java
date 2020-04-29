@@ -141,6 +141,7 @@ import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
@@ -2143,7 +2144,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     EvaluationResult<SkyValue> evaluationResult =
         evaluateSkyKeys(eventHandler, ImmutableSet.of(platformMappingKey));
     if (evaluationResult.hasError()) {
-      throw new InvalidConfigurationException(evaluationResult.getError().getException());
+      throw new InvalidConfigurationException(
+          Code.PLATFORM_MAPPING_EVALUATION_FAILURE, evaluationResult.getError().getException());
     }
     return (PlatformMappingValue) evaluationResult.get(platformMappingKey);
   }
