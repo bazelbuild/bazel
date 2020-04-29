@@ -55,7 +55,8 @@ java_library(
     srcs = ["FakeDirectories.java"],
     deps = [
         ":testutils",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )
