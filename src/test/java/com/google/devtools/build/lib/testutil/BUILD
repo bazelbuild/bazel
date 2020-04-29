@@ -78,8 +78,9 @@ java_library(
     testonly = 0,
     srcs = ["BazelPackageBuilderHelperForTesting.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoader",
@@ -172,7 +173,7 @@ java_library(
     srcs = [
         "SkyframeExecutorTestHelper.java",
     ],
-    deps = ["//src/main/java/com/google/devtools/build/lib:build-base"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster"],
 )
 
 java_library(
@@ -191,7 +192,8 @@ java_library(
     srcs = ["PackageFactoryBuilderFactoryForBazelUnitTests.java"],
     deps = [
         ":BazelPackageBuilderHelperForTesting",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:builder_factory_for_testing",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageFactoryBuilderWithSkyframeForTesting",
