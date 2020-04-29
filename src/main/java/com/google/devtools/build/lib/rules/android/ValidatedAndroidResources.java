@@ -64,10 +64,14 @@ public class ValidatedAndroidResources extends MergedAndroidResources
    */
   public static ValidatedAndroidResources validateFrom(
       AndroidDataContext dataContext, MergedAndroidResources merged) throws InterruptedException {
+
     Artifact rTxtOut = dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT);
     Artifact sourceJarOut =
         dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR);
-    Artifact apkOut = dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK);
+
+    Artifact apkOut = dataContext.getAndroidConfig().outputLibraryLinkedResources() ?
+        dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK) :
+        null;
 
     BusyBoxActionBuilder.create(dataContext, "LINK_STATIC_LIBRARY")
         .addAapt()
@@ -81,18 +85,18 @@ public class ValidatedAndroidResources extends MergedAndroidResources
             "--compiledDep", merged.getResourceDependencies().getTransitiveCompiledSymbols())
         .addOutput("--sourceJarOut", sourceJarOut)
         .addOutput("--rTxtOut", rTxtOut)
-        .addOutput("--staticLibraryOut", apkOut)
+        .maybeAddOutput("--staticLibraryOut", apkOut)
         .buildAndRegister("Linking static android resource library", "AndroidResourceLink");
 
     return of(
         merged,
         rTxtOut,
         sourceJarOut,
-        apkOut,
+        null,
         // TODO: remove below three when incompatibleProhibitAapt1 is on by default.
         rTxtOut,
         sourceJarOut,
-        apkOut,
+            apkOut,
         dataContext.getAndroidConfig().useRTxtFromMergedResources());
   }
 
@@ -100,7 +104,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
       MergedAndroidResources merged,
       Artifact rTxt,
       Artifact sourceJar,
-      Artifact apk,
+      @Nullable Artifact apk,
       @Nullable Artifact aapt2ValidationArtifact,
       @Nullable Artifact aapt2SourceJar,
       @Nullable Artifact staticLibrary,
@@ -120,7 +124,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
       MergedAndroidResources merged,
       Artifact rTxt,
       Artifact sourceJar,
-      Artifact apk,
+      @Nullable Artifact apk,
       @Nullable Artifact aapt2ValidationArtifact,
       @Nullable Artifact aapt2SourceJar,
       @Nullable Artifact staticLibrary,

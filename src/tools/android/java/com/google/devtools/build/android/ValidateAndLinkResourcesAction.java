@@ -195,19 +195,22 @@ public class ValidateAndLinkResourcesAction {
           /*androidManifest=*/ XmlNode.getDefaultInstance(), resources, deps);
 
       profiler.recordEndOf("validate").startTask("link");
-      ResourceLinker.create(aapt2Options.aapt2, executorService, scopedTmp.getPath())
-          .profileUsing(profiler)
-          // NB: these names are really confusing.
-          //   .dependencies is meant for linking in android.jar
-          //   .include is meant for regular dependencies
-          .dependencies(Optional.ofNullable(options.deprecatedLibraries).orElse(options.libraries))
-          .include(deps)
-          .buildVersion(aapt2Options.buildToolsVersion)
-          .outputAsProto(aapt2Options.resourceTableAsProto)
-          .linkStatically(resources)
-          .copyLibraryTo(options.staticLibraryOut)
+      StaticLibrary staticLibrary = ResourceLinker.create(aapt2Options.aapt2, executorService, scopedTmp.getPath())
+              .profileUsing(profiler)
+              // NB: these names are really confusing.
+              //   .dependencies is meant for linking in android.jar
+              //   .include is meant for regular dependencies
+              .dependencies(Optional.ofNullable(options.deprecatedLibraries).orElse(options.libraries))
+              .include(deps)
+              .buildVersion(aapt2Options.buildToolsVersion)
+              .outputAsProto(aapt2Options.resourceTableAsProto)
+              .linkStatically(resources);
+      staticLibrary
           .copySourceJarTo(options.sourceJarOut)
           .copyRTxtTo(options.rTxtOut);
+      if (options.staticLibraryOut != null) {
+        staticLibrary.copyLibraryTo(options.staticLibraryOut);
+      }
       profiler.recordEndOf("link");
     }
   }
