@@ -38,34 +38,31 @@ public final class StarlarkFunction implements StarlarkCallable {
     return rfn.isToplevel;
   }
 
+  // TODO(adonovan): many functions would be simpler if
+  // parameterNames excluded the *args and **kwargs parameters,
+  // (whose names are immaterial to the callee anyway). Do that.
+  // Also, reject getDefaultValue for varargs and kwargs.
+
   /**
    * Returns the default value of the ith parameter ({@code 0 <= i < getParameterNames().size()}),
-   * or null if the parameter is not optional. Residual parameters, if any, are always last, and
-   * have no default value.
+   * or null if the parameter is required. Residual parameters, if any, are always last, and have no
+   * default value.
    */
   @Nullable
   public Object getDefaultValue(int i) {
-    if (i >= 0) {
-      // def f(a, b=1, *args, c, d=2, **kwargs) has defaults tuple (b=1, d=2).
-      // TODO(adonovan): eliminate hole using a sentinel, to simplify this
-      // and other run-time logic.
-      int a = rfn.numMandatoryPositional;
-      int b = rfn.numOptionalPositional;
-      int c = rfn.numMandatoryNamedOnly; // the hole
-      int d = rfn.numOptionalNamedOnly;
-      if (i < a) {
-        return null;
-      } else if (i < a + b) {
-        return defaultValues.get(i - a);
-      } else if (i < a + b + c) {
-        return null;
-      } else if (i < a + b + c + d) {
-        return defaultValues.get(i - a - c);
-      } else if (i < rfn.parameterNames.size()) {
-        return null; // *args or **kwargs   TODO(adonovan): make this an error.
-      }
+    if (i < 0 || i >= rfn.params.size()) {
+      throw new IndexOutOfBoundsException();
     }
-    throw new IndexOutOfBoundsException();
+    int nparams = rfn.params.size() - (rfn.hasKwargs ? 1 : 0) - (rfn.hasVarargs ? 1 : 0);
+    int prefix = nparams - defaultValues.size();
+    if (i < prefix) {
+      return null; // implicit prefix of mandatory parameters
+    }
+    if (i < nparams) {
+      Object v = defaultValues.get(i - prefix);
+      return v == MANDATORY ? null : v;
+    }
+    return null; // *args or *kwargs
   }
 
   /**
@@ -81,7 +78,7 @@ public final class StarlarkFunction implements StarlarkCallable {
    * f(*args)}.
    */
   public boolean hasVarargs() {
-    return rfn.varargs != null;
+    return rfn.hasVarargs;
   }
 
   /**
@@ -89,7 +86,7 @@ public final class StarlarkFunction implements StarlarkCallable {
    * f(**kwargs)}.
    */
   public boolean hasKwargs() {
-    return rfn.kwargs != null;
+    return rfn.hasKwargs;
   }
 
   @Override
@@ -161,62 +158,81 @@ public final class StarlarkFunction implements StarlarkCallable {
   // array of effective parameter values corresponding to the parameters of the signature. Newly
   // allocated values (e.g. a **kwargs dict) use the Mutability mu.
   //
-  // If the function has optional parameters, their default values are supplied by getDefaultValues.
+  // If the function has optional parameters, their default values are supplied by getDefaultValue.
   private Object[] processArgs(Mutability mu, Object[] positional, Object[] named)
       throws EvalException {
+
+    // This is the general schema of a function:
+    //
+    //   def f(p1, p2=dp2, p3=dp3, *args, k1, k2=dk2, k3, **kwargs)
+    //
+    // The p parameters are non-kwonly, and may be specified positionally.
+    // The k parameters are kwonly, and must be specified by name.
+    // The defaults tuple is (dp2, dp3, MANDATORY, dk2, MANDATORY).
+    // The missing prefix (p1) is assumed to be all MANDATORY.
+    //
+    // Arguments are processed as follows:
+    // - positional arguments are bound to a prefix of [p1, p2, p3].
+    // - surplus positional arguments are bound to *args.
+    // - keyword arguments are bound to any of {p1, p2, p3, k1, k2, k3};
+    //   duplicate bindings are rejected.
+    // - surplus keyword arguments are bound to **kwargs.
+    // - defaults are bound to each parameter from p2 to k3 if no value was set.
+    //   default values come from the tuple above.
+    //   It is an error if the defaults tuple entry for an unset parameter is MANDATORY.
+
     ImmutableList<String> names = rfn.parameterNames;
 
     // TODO(adonovan): when we have flat frames, pass in the locals array here instead of
     // allocating.
     Object[] arguments = new Object[names.size()];
 
-    // Note that this variable will be adjusted down if there are extra positionals,
-    // after these extra positionals are dumped into starParam.
-    int numPositionalArgs = positional.length;
+    // nparams is the number of ordinary parameters.
+    int nparams = rfn.params.size() - (rfn.hasKwargs ? 1 : 0) - (rfn.hasVarargs ? 1 : 0);
 
-    int numPositionalParams = rfn.numPositional();
-    int numNamedParams = rfn.numPositional() + rfn.numNamedOnly();
+    // numPositionalParams is the number of non-kwonly parameters.
+    int numPositionalParams = nparams - rfn.numKeywordOnlyParams;
 
-    // positional arguments
-    if (rfn.varargs != null) {
-      Object varargs;
-      if (numPositionalArgs > rfn.numPositional()) {
-        varargs =
-            Tuple.wrap(Arrays.copyOfRange(positional, rfn.numPositional(), numPositionalArgs));
-        numPositionalArgs = numPositionalParams; // clip numPositionalArgs
-      } else {
-        varargs = Tuple.empty();
+    // Too many positional args?
+    int n = positional.length;
+    if (n > numPositionalParams) {
+      if (!rfn.hasVarargs) {
+        if (numPositionalParams > 0) {
+          throw Starlark.errorf(
+              "%s() accepts no more than %d positional argument%s but got %d",
+              getName(), numPositionalParams, plural(numPositionalParams), n);
+        } else {
+          throw Starlark.errorf(
+              "%s() does not accept positional arguments, but got %d", getName(), n);
+        }
       }
-      arguments[numNamedParams] = varargs;
-    } else if (numPositionalArgs > numPositionalParams) {
-      if (numPositionalParams > 0) {
-        throw Starlark.errorf(
-            "%s() accepts no more than %d positional argument%s but got %d",
-            getName(), numPositionalParams, plural(numPositionalParams), numPositionalArgs);
-      } else {
-        throw Starlark.errorf(
-            "%s() does not accept positional arguments, but got %d", getName(), numPositionalArgs);
-      }
+      n = numPositionalParams;
     }
-    for (int i = 0; i < numPositionalArgs; i++) {
+    // Inv: n is number of positional arguments that are not surplus.
+
+    // Bind positional arguments to non-kwonly parameters.
+    for (int i = 0; i < n; i++) {
       arguments[i] = positional[i];
     }
 
-    // **kwargs
-    Dict<String, Object> kwargs = null;
-    if (rfn.kwargs != null) {
-      kwargs = Dict.of(mu);
-      arguments[names.size() - 1] = kwargs;
+    // Bind surplus positional arguments to *args parameter.
+    if (rfn.hasVarargs) {
+      arguments[nparams] = Tuple.wrap(Arrays.copyOfRange(positional, n, positional.length));
     }
 
-    List<String> missing = null;
+    List<String> unexpected = null;
 
     // named arguments
+    Dict<String, Object> kwargs = null;
+    if (rfn.hasKwargs) {
+      kwargs = Dict.of(mu);
+      arguments[rfn.params.size() - 1] = kwargs;
+    }
     for (int i = 0; i < named.length; i += 2) {
       String keyword = (String) named[i]; // safe
       Object value = named[i + 1];
       int pos = names.indexOf(keyword); // the list should be short, so linear scan is OK.
-      if (0 <= pos && pos < numNamedParams) {
+      if (0 <= pos && pos < nparams) {
         // keyword is the name of a named parameter
         if (arguments[pos] != null) {
           throw Starlark.errorf("%s() got multiple values for parameter '%s'", getName(), keyword);
@@ -234,68 +250,72 @@ public final class StarlarkFunction implements StarlarkCallable {
 
       } else {
         // unexpected keyword argument
-        if (missing == null) {
-          missing = new ArrayList<>();
+        if (unexpected == null) {
+          unexpected = new ArrayList<>();
         }
-        missing.add(keyword);
+        unexpected.add(keyword);
       }
     }
-    if (missing != null) {
+    if (unexpected != null) {
       // Give a spelling hint if there is exactly one.
       // More than that suggests the wrong function was called.
       throw Starlark.errorf(
           "%s() got unexpected keyword argument%s: %s%s",
           getName(),
-          plural(missing.size()),
-          Joiner.on(", ").join(missing),
-          missing.size() == 1 ? SpellChecker.didYouMean(missing.get(0), names) : "");
+          plural(unexpected.size()),
+          Joiner.on(", ").join(unexpected),
+          unexpected.size() == 1
+              ? SpellChecker.didYouMean(unexpected.get(0), names.subList(0, nparams))
+              : "");
     }
 
-    // missing mandatory positionals?
-    // numPositionalArgs > rfn.numMandatoryPositional is OK
-    for (int i = numPositionalArgs; i < rfn.numMandatoryPositional; i++) {
-      if (arguments[i] == null) {
-        if (missing == null) {
-          missing = new ArrayList<>();
+    // Apply defaults and report errors for missing required arguments.
+    int m = nparams - defaultValues.size(); // first default
+    List<String> missingPositional = null;
+    List<String> missingKwonly = null;
+    for (int i = n; i < nparams; i++) {
+      // provided?
+      if (arguments[i] != null) {
+        continue;
+      }
+
+      // optional?
+      if (i >= m) {
+        Object dflt = defaultValues.get(i - m);
+        if (dflt != MANDATORY) {
+          arguments[i] = dflt;
+          continue;
         }
-        missing.add(names.get(i));
+      }
+
+      // missing
+      if (i < numPositionalParams) {
+        if (missingPositional == null) {
+          missingPositional = new ArrayList<>();
+        }
+        missingPositional.add(names.get(i));
+      } else {
+        if (missingKwonly == null) {
+          missingKwonly = new ArrayList<>();
+        }
+        missingKwonly.add(names.get(i));
       }
     }
-    if (missing != null) {
+    if (missingPositional != null) {
       throw Starlark.errorf(
           "%s() missing %d required positional argument%s: %s",
-          getName(), missing.size(), plural(missing.size()), Joiner.on(", ").join(missing));
+          getName(),
+          missingPositional.size(),
+          plural(missingPositional.size()),
+          Joiner.on(", ").join(missingPositional));
     }
-
-    // missing mandatory named-onlys?
-    int endMandatoryNamedOnlyParams = rfn.numPositional() + rfn.numMandatoryNamedOnly;
-    for (int i = numPositionalParams; i < endMandatoryNamedOnlyParams; i++) {
-      if (arguments[i] == null) {
-        if (missing == null) {
-          missing = new ArrayList<>();
-        }
-        missing.add(names.get(i));
-      }
-    }
-    if (missing != null) {
+    if (missingKwonly != null) {
       throw Starlark.errorf(
           "%s() missing %d required keyword-only argument%s: %s",
-          getName(), missing.size(), plural(missing.size()), Joiner.on(", ").join(missing));
-    }
-
-    // default values
-    for (int i = Math.max(numPositionalArgs, rfn.numMandatoryPositional);
-        i < numPositionalParams;
-        i++) {
-      if (arguments[i] == null) {
-        arguments[i] = defaultValues.get(i - rfn.numMandatoryPositional);
-      }
-    }
-    int numMandatoryParams = rfn.numMandatoryPositional + rfn.numMandatoryNamedOnly;
-    for (int i = numMandatoryParams + rfn.numOptionalPositional; i < numNamedParams; i++) {
-      if (arguments[i] == null) {
-        arguments[i] = defaultValues.get(i - numMandatoryParams);
-      }
+          getName(),
+          missingKwonly.size(),
+          plural(missingKwonly.size()),
+          Joiner.on(", ").join(missingKwonly));
     }
 
     return arguments;
@@ -311,6 +331,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     out.append(getName());
     out.append('(');
     String sep = "";
+    // TODO(adonovan): include *, ** tokens.
     for (String param : getParameterNames()) {
       out.append(sep).append(param);
       sep = ", ";
@@ -324,4 +345,11 @@ public final class StarlarkFunction implements StarlarkCallable {
     // Only correct because closures are not yet supported.
     return true;
   }
+
+  // The MANDATORY sentinel indicates a slot in the defaultValues
+  // tuple corresponding to a required parameter. It is not visible
+  // to Java or Starlark code.
+  static final Object MANDATORY = new Mandatory();
+
+  private static class Mandatory implements StarlarkValue {}
 }

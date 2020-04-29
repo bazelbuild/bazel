@@ -124,26 +124,31 @@ final class Eval {
     Resolver.Function rfn = node.resolved;
 
     // Evaluate default value expressions of optional parameters.
-    // They may be discontinuous:
-    // def f(a, b=1, *, c, d=2) has a defaults tuple of (1, 2).
-    // TODO(adonovan): record the gaps (e.g. c) with a sentinel
-    // to simplify StarlarkFunction.processArgs.
-    Tuple<Object> defaults = Tuple.empty();
-    int ndefaults = rfn.numOptionals();
-    if (ndefaults > 0) {
-      Object[] array = new Object[ndefaults];
-      List<Parameter> params = node.getParameters();
-      for (int i = rfn.numMandatoryPositional, j = 0; i < params.size(); i++) {
-        Expression expr = params.get(i).getDefaultValue();
-        if (expr != null) {
-          array[j++] = eval(fr, expr);
-        }
+    // We use MANDATORY to indicate a required parameter
+    // (not null, because defaults must be a legal tuple value, as
+    // it will be constructed by the code emitted by the compiler).
+    // As an optimization, we omit the prefix of MANDATORY parameters.
+    Object[] defaults = null;
+    int nparams = rfn.params.size() - (rfn.hasKwargs ? 1 : 0) - (rfn.hasVarargs ? 1 : 0);
+    for (int i = 0; i < nparams; i++) {
+      Expression expr = rfn.params.get(i).getDefaultValue();
+      if (expr == null && defaults == null) {
+        continue; // skip prefix of required parameters
       }
-      defaults = Tuple.wrap(array);
+      if (defaults == null) {
+        defaults = new Object[nparams - i];
+      }
+      defaults[i - (nparams - defaults.length)] =
+          expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
+    }
+    if (defaults == null) {
+      defaults = EMPTY;
     }
 
     assignIdentifier(
-        fr, node.getIdentifier(), new StarlarkFunction(rfn, defaults, fn(fr).getModule()));
+        fr,
+        node.getIdentifier(),
+        new StarlarkFunction(rfn, Tuple.wrap(defaults), fn(fr).getModule()));
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)

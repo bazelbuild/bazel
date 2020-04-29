@@ -352,9 +352,45 @@ public class ResolverTest {
   }
 
   @Test
-  public void testOptionalParameterBeforeMandatory() throws Exception {
+  public void testParameterOrdering() throws Exception {
+    // ordering
     assertInvalid(
-        "a mandatory positional parameter must not follow an optional parameter",
-        "def func(a, b = 'a', c): pass");
+        "required parameter a may not follow **kwargs", //
+        "def func(**kwargs, a): pass");
+    assertInvalid(
+        "required positional parameter b may not follow an optional parameter", //
+        "def func(a=1, b): pass");
+    assertInvalid(
+        "optional parameter may not follow **kwargs", //
+        "def func(**kwargs, a=1): pass");
+    assertInvalid(
+        "* parameter may not follow **kwargs", //
+        "def func(**kwargs, *args): pass");
+    assertInvalid(
+        "* parameter may not follow **kwargs", //
+        "def func(**kwargs, *): pass");
+    assertInvalid(
+        "bare * must be followed by keyword-only parameters", //
+        "def func(*): pass");
+
+    // duplicate parameters
+    assertInvalid("duplicate parameter: a", "def func(a, a): pass");
+    assertInvalid("duplicate parameter: a", "def func(a, a=1): pass");
+    assertInvalid("duplicate parameter: a", "def func(a, *a): pass");
+    assertInvalid("duplicate parameter: a", "def func(*a, a): pass");
+    assertInvalid("duplicate parameter: a", "def func(*a, a=1): pass");
+    assertInvalid("duplicate parameter: a", "def func(a, **a): pass");
+    assertInvalid("duplicate parameter: a", "def func(*a, **a): pass");
+
+    // multiple *
+    assertInvalid("multiple * parameters not allowed", "def func(a, *, b, *): pass");
+    assertInvalid("multiple * parameters not allowed", "def func(a, *args, b, *): pass");
+    assertInvalid("multiple * parameters not allowed", "def func(a, *, b, *args): pass");
+    assertInvalid("multiple * parameters not allowed", "def func(a, *args, b, *args): pass");
+
+    // multiple **kwargs
+    assertInvalid("multiple ** parameters not allowed", "def func(**kwargs, **kwargs): pass");
+
+    assertValid("def f(a, b, c=1, d=2, *args, e, f=3, g, **kwargs): pass");
   }
 }

@@ -1185,13 +1185,9 @@ final class Parser {
   }
 
   // Parse a list of function parameters.
-  //
-  // This parser does minimal validation: it ensures the proper python use of the comma (that can
-  // terminate before a star but not after) and the fact that **kwargs must appear last. It does
-  // not validate further ordering constraints. This validation happens in the validator pass.
+  // Validation of parameter ordering and uniqueness is the job of the Resolver.
   private ImmutableList<Parameter> parseParameters() {
     boolean hasParam = false;
-    boolean hasStarStar = false;
     ImmutableList.Builder<Parameter> list = ImmutableList.builder();
 
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
@@ -1202,17 +1198,8 @@ final class Parser {
           break;
         }
       }
-      if (hasStarStar) {
-        // TODO(adonovan): move this to validation pass too.
-        reportError(token.start, "unexpected tokens after kwarg");
-        break;
-      }
-
       Parameter param = parseFunctionParameter();
       hasParam = true;
-      if (param instanceof Parameter.StarStar) { // TODO(adonovan): not Star too? verify.
-        hasStarStar = true;
-      }
       list.add(param);
     }
     return list.build();

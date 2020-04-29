@@ -380,6 +380,14 @@ public final class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testCannotPassResidualsByName() throws Exception {
+    checkEvalError("f() got unexpected keyword argument: args", "def f(*args): pass", "f(args=[])");
+
+    exec("def f(**kwargs): return kwargs");
+    assertThat(Starlark.repr(eval("f(kwargs=1)"))).isEqualTo("{\"kwargs\": 1}");
+  }
+
+  @Test
   public void testKeywordOnlyAfterStarArg() throws Exception {
     checkEvalError(
         "func() missing 1 required keyword-only argument: c",
