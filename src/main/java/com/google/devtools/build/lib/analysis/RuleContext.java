@@ -44,13 +44,11 @@ import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -905,40 +903,19 @@ public final class RuleContext extends TargetContext
   public Map<Optional<String>, List<ConfiguredTargetAndData>>
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
     checkAttribute(attributeName, TransitionMode.SPLIT);
-    Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
-    Preconditions.checkState(attributeDefinition.getTransitionFactory().isSplit());
-    SplitTransition transition =
-        (SplitTransition)
-            attributeDefinition
-                .getTransitionFactory()
-                .create(
-                    AttributeTransitionData.builder()
-                        .attributes(ConfiguredAttributeMapper.of(rule, configConditions))
-                        .executionPlatform(getToolchainContext().executionPlatform().label())
-                        .build());
-    BuildOptions fromOptions = getConfiguration().getOptions();
-    Map<String, BuildOptions> splitOptions =
-        transition.split(fromOptions, getAnalysisEnvironment().getEventHandler());
-    List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
-
-    if (SplitTransition.equals(fromOptions, splitOptions.values())) {
-      // The split transition is not active.
-      return ImmutableMap.of(Optional.<String>absent(), deps);
-    }
-
     // Use an ImmutableListMultimap.Builder here to preserve ordering.
     ImmutableListMultimap.Builder<Optional<String>, ConfiguredTargetAndData> result =
         ImmutableListMultimap.builder();
+    List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
     for (ConfiguredTargetAndData t : deps) {
-      if (t.getTransitionKey() == null
-          || t.getTransitionKey().equals(ConfigurationTransition.PATCH_TRANSITION_KEY)) {
-        // The target doesn't have a specific transition key associated. This likely means it's a
-        // non-configurable target, e.g. files, package groups. Pan out to all available keys.
-        for (String key : splitOptions.keySet()) {
-          result.put(Optional.of(key), t);
-        }
-      } else {
-        result.put(Optional.of(t.getTransitionKey()), t);
+      ImmutableList<String> transitionKeys = t.getTransitionKeys();
+      if (transitionKeys.isEmpty()) {
+        // The split transition is not active, i.e. does not change build configurations.
+        // TODO(jungjw): Investigate if we need to do a sanity check here.
+        return ImmutableMap.of(Optional.absent(), deps);
+      }
+      for (String key : transitionKeys) {
+        result.put(Optional.of(key), t);
       }
     }
     return Multimaps.asMap(result.build());
