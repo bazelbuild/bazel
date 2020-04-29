@@ -294,7 +294,7 @@ final class Eval {
 
   private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value)
       throws EvalException {
-    Resolver.Scope scope = id.getScope();
+    Resolver.Binding bind = id.getBinding();
     // Legacy hack for incomplete identifier resolution.
     // In a <toplevel> function, assignments to unresolved identifiers
     // update the module, except for load statements and comprehensions,
@@ -302,19 +302,22 @@ final class Eval {
     // Load statements don't yet use assignIdentifier,
     // so we need consider only comprehensions.
     // In effect, we do the missing resolution using fr.compcount.
-    if (scope == null) {
+    Resolver.Scope scope;
+    if (bind == null) {
       scope =
           fn(fr).isToplevel() && fr.compcount == 0
-              ? Resolver.Scope.Module //
-              : Resolver.Scope.Local;
+              ? Resolver.Scope.GLOBAL //
+              : Resolver.Scope.LOCAL;
+    } else {
+      scope = bind.scope;
     }
 
     String name = id.getName();
     switch (scope) {
-      case Local:
+      case LOCAL:
         fr.locals.put(name, value);
         break;
-      case Module:
+      case GLOBAL:
         // Updates a module binding and sets its 'exported' flag.
         // (Only load bindings are not exported.
         // But exportedBindings does at run time what should be done in the resolver.)
@@ -608,7 +611,8 @@ final class Eval {
   private static Object evalIdentifier(StarlarkThread.Frame fr, Identifier id)
       throws EvalException, InterruptedException {
     String name = id.getName();
-    if (id.getScope() == null) {
+    Resolver.Binding bind = id.getBinding();
+    if (bind == null) {
       // Legacy behavior, to be removed.
       Object result = fr.locals.get(name);
       if (result != null) {
@@ -632,32 +636,26 @@ final class Eval {
     }
 
     Object result;
-    switch (id.getScope()) {
-      case Local:
+    switch (bind.scope) {
+      case LOCAL:
         result = fr.locals.get(name);
         break;
-      case Module:
+      case GLOBAL:
         result = fn(fr).getModule().lookup(name);
         break;
-      case Universe:
-        // TODO(laurentlb): look only at universe.
+      case PREDECLARED:
+        // TODO(laurentlb): look only at predeclared (not module globals).
         result = fn(fr).getModule().get(name);
         break;
       default:
-        throw new IllegalStateException(id.getScope().toString());
+        throw new IllegalStateException(bind.toString());
     }
     if (result == null) {
-      // Since Scope was set, we know that the variable is defined in the scope.
-      // However, the assignment was not yet executed.
-      String error = Resolver.getErrorForObsoleteThreadLocalVars(id.getName());
-      if (error == null) {
-        error =
-            id.getScope().getQualifier()
-                + " variable '"
-                + name
-                + "' is referenced before assignment.";
-      }
-      throw new EvalException(id.getStartLocation(), error);
+      // Since Scope was set, we know that the local/global variable is defined,
+      // but its assignment was not yet executed.
+      throw new EvalException(
+          id.getStartLocation(),
+          String.format("%s variable '%s' is referenced before assignment.", bind.scope, name));
     }
     return result;
   }
