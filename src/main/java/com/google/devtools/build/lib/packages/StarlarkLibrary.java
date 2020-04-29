@@ -25,12 +25,14 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
 import java.util.Set;
@@ -62,6 +64,109 @@ public final class StarlarkLibrary {
 
   @SkylarkGlobalLibrary
   private static class CommonLibrary {
+
+    @SkylarkCallable(
+        name = "depset",
+        doc =
+            "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a"
+                + " list of direct elements of the depset, and <code>transitive</code> parameter"
+                + " is a list of depsets whose elements become indirect elements of the created"
+                + " depset. The order in which elements are returned when the depset is converted"
+                + " to a list is specified by the <code>order</code> parameter. See the <a"
+                + " href=\"../depsets.md\">Depsets overview</a> for more information.\n" //
+                + "<p>All"
+                + " elements (direct and indirect) of a depset must be of the same type, as"
+                + " obtained by the expression <code>type(x)</code>.\n" //
+                + "<p>Because a hash-based set is used to eliminate duplicates during iteration,"
+                + " all elements of a depset should be hashable. However, this invariant is not"
+                + " currently checked consistently in all constructors. Use the"
+                + " --incompatible_always_check_depset_elements flag to enable consistent"
+                + " checking; this will be the default behavior in future releases;  see <a"
+                + " href='https://github.com/bazelbuild/bazel/issues/10313'>Issue 10313</a>.\n" //
+                + "<p>In addition, elements must currently be immutable, though this restriction"
+                + " will be relaxed in future.\n" //
+                + "<p> The order of the created depset should be <i>compatible</i> with the order"
+                + " of its <code>transitive</code> depsets. <code>\"default\"</code> order is"
+                + " compatible with any other order, all other orders are only compatible with"
+                + " themselves.\n" //
+                + "<p> Note on backward/forward compatibility. This function currently accepts a"
+                + " positional <code>items</code> parameter. It is deprecated and will be removed"
+                + " in the future, and after its removal <code>direct</code> will become a sole"
+                + " positional parameter of the <code>depset</code> function. Thus, both of the"
+                + " following calls are equivalent and future-proof:<br>\n" //
+                + "<pre class=language-python>depset(['a', 'b'], transitive = [...])\n" //
+                + "depset(direct = ['a', 'b'], transitive = [...])\n" //
+                + "</pre>",
+        parameters = {
+          @Param(
+              name = "x",
+              type = Object.class,
+              defaultValue = "None",
+              positional = true,
+              named = false,
+              noneable = true,
+              doc =
+                  "A positional parameter distinct from other parameters for legacy support. "
+                      + "\n" //
+                      + "<p>If <code>--incompatible_disable_depset_inputs</code> is false, this "
+                      + "parameter serves as the value of <code>items</code>.</p> "
+                      + "\n" //
+                      + "<p>If <code>--incompatible_disable_depset_inputs</code> is true, this "
+                      + "parameter serves as the value of <code>direct</code>.</p> "
+                      + "\n" //
+                      + "<p>See the documentation for these parameters for more details."),
+          // TODO(cparsons): Make 'order' keyword-only.
+          @Param(
+              name = "order",
+              type = String.class,
+              defaultValue = "\"default\"",
+              doc =
+                  "The traversal strategy for the new depset. See "
+                      + "<a href=\"depset.html\">here</a> for the possible values.",
+              named = true),
+          @Param(
+              name = "direct",
+              type = Object.class,
+              defaultValue = "None",
+              positional = false,
+              named = true,
+              noneable = true,
+              doc = "A list of <i>direct</i> elements of a depset. "),
+          @Param(
+              name = "transitive",
+              named = true,
+              positional = false,
+              type = Sequence.class,
+              generic1 = Depset.class,
+              noneable = true,
+              doc = "A list of depsets whose elements will become indirect elements of the depset.",
+              defaultValue = "None"),
+          @Param(
+              name = "items",
+              type = Object.class,
+              defaultValue = "[]",
+              positional = false,
+              doc =
+                  "Deprecated: Either an iterable whose items become the direct elements of "
+                      + "the new depset, in left-to-right order, or else a depset that becomes "
+                      + "a transitive element of the new depset. In the latter case, "
+                      + "<code>transitive</code> cannot be specified.",
+              disableWithFlag = StarlarkSemantics.FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS,
+              valueWhenDisabled = "[]",
+              named = true),
+        },
+        useStarlarkThread = true)
+    public Depset depset(
+        Object x,
+        String orderString,
+        Object direct,
+        Object transitive,
+        Object items,
+        StarlarkThread thread)
+        throws EvalException {
+      return Depset.depset(x, orderString, direct, transitive, items, thread.getSemantics());
+    }
+
     @SkylarkCallable(
         name = "select",
         doc =

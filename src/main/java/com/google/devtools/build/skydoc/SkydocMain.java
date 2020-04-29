@@ -621,6 +621,11 @@ public class SkydocMain {
       envBuilder.put(name, Starlark.NONE);
     }
 
+    // Add dummy declarations that would come from packages.StarlarkLibrary.COMMON
+    // were Skydoc allowed to depend on it. See hack for select below.
+    // The dict function accepts almost any arguments.
+    envBuilder.put("depset", Starlark.UNIVERSE.get("dict"));
+
     // Declare a fake implementation of select that just returns the first
     // value in the dict. (This program is forbidden from depending on the real
     // implementation of 'select' in lib.packages, and so the hacks multiply.)
