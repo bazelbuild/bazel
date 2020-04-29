@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.net.URL;
@@ -148,10 +149,14 @@ public class HttpStreamTest {
     when(connection.getHeaderField("Accept-Ranges")).thenReturn("bytes");
     thrown.expect(SocketTimeoutException.class);
 
+    Field field = RetryingInputStream.class.getDeclaredField("MAX_RESUMES");
+    field.setAccessible(true);
+    int maxResumes = (int) field.get(null);
+
     try {
       streamFactory.create(connection, AURL, GOOD_CHECKSUM, reconnector);
     } catch (Exception e) {
-      assertThat(nRetries).isGreaterThan(3);  // RetryingInputStream.MAX_RESUMES
+      assertThat(nRetries).isGreaterThan(maxResumes);
       throw e;
     }
   }

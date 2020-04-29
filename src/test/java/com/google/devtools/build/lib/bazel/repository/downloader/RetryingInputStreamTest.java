@@ -78,14 +78,6 @@ public class RetryingInputStreamTest {
   }
 
   @Test
-  public void readThrowsExceptionWhenDisabled_passesThrough() throws Exception {
-    stream.disabled = true;
-    when(delegate.read()).thenThrow(new IOException());
-    assertThrows(IOException.class, () -> stream.read());
-    verify(delegate).read();
-  }
-
-  @Test
   public void readInterrupted_alwaysPassesThrough() throws Exception {
     when(delegate.read()).thenThrow(new InterruptedIOException());
     assertThrows(InterruptedIOException.class, () -> stream.read());
