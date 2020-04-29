@@ -99,9 +99,6 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
       }
     }
 
-    // Add all ouput directories.
-    dirsToCreate.addAll(outputs.dirs());
-
     // And all ancestor directories of outputs. Note that we don't add the files themselves -- any
     // pre-existing files that have the same path as an output should get deleted.
     for (PathFragment path : Iterables.concat(outputs.files(), outputs.dirs())) {
@@ -109,6 +106,9 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
         dirsToCreate.add(path.subFragment(0, i));
       }
     }
+
+    // Add all ouput directories.
+    dirsToCreate.addAll(outputs.dirs());
   }
 
   /**
