@@ -714,7 +714,7 @@ public class BuildTypeTest {
 
   @Test
   public void testFilesetTypeDefinition() throws Exception {
-    assertThat(EvalUtils.getDataTypeName(makeFilesetEntry())).isEqualTo("FilesetEntry");
+    assertThat(Starlark.type(makeFilesetEntry())).isEqualTo("FilesetEntry");
     assertThat(EvalUtils.isImmutable(makeFilesetEntry())).isFalse();
   }
 

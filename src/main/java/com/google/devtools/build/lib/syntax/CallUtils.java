@@ -172,8 +172,7 @@ public final class CallUtils {
       throws EvalException, InterruptedException {
     MethodDescriptor desc = getCacheValue(x.getClass(), semantics).fields.get(fieldName);
     if (desc == null) {
-      throw Starlark.errorf(
-          "value of type %s has no .%s field", EvalUtils.getDataTypeName(x), fieldName);
+      throw Starlark.errorf("value of type %s has no .%s field", Starlark.type(x), fieldName);
     }
     return desc.callField(x, semantics, /*mu=*/ null);
   }

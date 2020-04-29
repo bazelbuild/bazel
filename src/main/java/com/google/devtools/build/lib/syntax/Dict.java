@@ -500,8 +500,8 @@ public final class Dict<K, V>
             Starlark.type(e.getKey()),
             Starlark.type(e.getValue()),
             what,
-            EvalUtils.getDataTypeNameFromClass(keyType),
-            EvalUtils.getDataTypeNameFromClass(valueType));
+            Starlark.classType(keyType),
+            Starlark.classType(valueType));
       }
     }
 
@@ -548,8 +548,7 @@ public final class Dict<K, V>
     try {
       seq = Starlark.toIterable(args);
     } catch (EvalException ex) {
-      throw Starlark.errorf(
-          "in %s, got %s, want iterable", funcname, EvalUtils.getDataTypeName(args));
+      throw Starlark.errorf("in %s, got %s, want iterable", funcname, Starlark.type(args));
     }
     Dict<K, V> result = Dict.of(mu);
     int pos = 0;
@@ -560,7 +559,7 @@ public final class Dict<K, V>
       } catch (EvalException ex) {
         throw Starlark.errorf(
             "in %s, dictionary update sequence element #%d is not iterable (%s)",
-            funcname, pos, EvalUtils.getDataTypeName(item));
+            funcname, pos, Starlark.type(item));
       }
       // TODO(adonovan): opt: avoid unnecessary allocations and copies.
       // Why is there no operator to compute len(x), following the spec, without iterating??

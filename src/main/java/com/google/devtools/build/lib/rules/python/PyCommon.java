@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -407,7 +407,7 @@ public final class PyCommon {
           String.format(
               "Error parsing the Python toolchain's ToolchainInfo: Expected a PyRuntimeInfo in "
                   + "field '%s', but got '%s'",
-              field, EvalUtils.getDataTypeName(fieldValue)));
+              field, Starlark.type(fieldValue)));
       return null;
     }
     PyRuntimeInfo pyRuntimeInfo = (PyRuntimeInfo) fieldValue;

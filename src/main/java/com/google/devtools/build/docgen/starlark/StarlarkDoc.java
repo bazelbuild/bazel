@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.Tuple;
 import java.lang.reflect.Method;
@@ -75,7 +75,7 @@ abstract class StarlarkDoc {
                              module.name());
       }
     }
-    return EvalUtils.getDataTypeNameFromClass(type);
+    return Starlark.classType(type);
   }
 
   // Omit self parameter from parameters in class methods.

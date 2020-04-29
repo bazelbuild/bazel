@@ -363,21 +363,14 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     for (Object o : starlarkList) {
       if (!(o instanceof Sequence)) {
         throw new EvalException(
-            null,
-            String.format(
-                errorMsg,
-                PROVIDERS_ARG,
-                "an element of type " + EvalUtils.getDataTypeName(o, true)));
+            null, String.format(errorMsg, PROVIDERS_ARG, "an element of type " + Starlark.type(o)));
       }
       for (Object value : (Sequence) o) {
         if (!isProvider(value)) {
           throw new EvalException(
               null,
               String.format(
-                  errorMsg,
-                  argumentName,
-                  "list with an element of type "
-                      + EvalUtils.getDataTypeNameFromClass(value.getClass())));
+                  errorMsg, argumentName, "list with an element of type " + Starlark.type(value)));
         }
       }
       providersList.add(getStarlarkProviderIdentifiers((Sequence<?>) o));

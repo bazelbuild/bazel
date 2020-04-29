@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -40,7 +39,7 @@ final class DebuggerSerialization {
     return Value.newBuilder()
         .setLabel(label)
         // TODO(bazel-team): omit type details for non-Starlark values
-        .setType(EvalUtils.getDataTypeName(value))
+        .setType(Starlark.type(value))
         .setDescription(getDescription(value))
         .setHasChildren(hasChildren)
         .setId(hasChildren ? objectMap.registerValue(value) : 0)

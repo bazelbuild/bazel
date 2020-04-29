@@ -68,10 +68,6 @@ public class AppleSkylarkCommon
           + " 'strict_include', 'providers', or 'direct_dep_providers'.";
 
   @VisibleForTesting
-  public static final String BAD_SET_TYPE_ERROR =
-      "Value for key %s must be a set of %s, instead found %s.";
-
-  @VisibleForTesting
   public static final String BAD_FRAMEWORK_PATH_ERROR =
       "Value for key framework_search_paths must end in .framework; instead found %s.";
 

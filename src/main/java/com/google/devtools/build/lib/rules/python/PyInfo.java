@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.python.PyInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Depset.TypeException;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -57,12 +56,14 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
    * <p>For depsets, this includes its content type and order.
    */
   private static String describeType(Object value) {
-    String typeName = EvalUtils.getDataTypeName(value, /*fullDetails=*/ true);
     if (value instanceof Depset) {
-      return ((Depset) value).getOrder().getSkylarkName() + "-ordered " + typeName;
-    } else {
-      return typeName;
+      Depset depset = (Depset) value;
+      return depset.getOrder().getSkylarkName()
+          + "-ordered depset of "
+          + depset.getElementType()
+          + "s";
     }
+    return Starlark.type(value);
   }
 
   private final Location location;

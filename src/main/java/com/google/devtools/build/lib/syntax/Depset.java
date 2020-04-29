@@ -156,8 +156,7 @@ public final class Depset implements StarlarkValue {
 
     // Even the looser regime forbids the top-level class to be list or dict.
     if (x instanceof StarlarkList || x instanceof Dict) {
-      throw Starlark.errorf(
-          "depsets cannot contain items of type '%s'", EvalUtils.getDataTypeName(x));
+      throw Starlark.errorf("depsets cannot contain items of type '%s'", Starlark.type(x));
     }
   }
 
@@ -220,7 +219,7 @@ public final class Depset implements StarlarkValue {
       throw new TypeException(
           String.format(
               "got a depset of '%s', expected a depset of '%s'",
-              elemType, EvalUtils.getDataTypeNameFromClass(type)));
+              elemType, Starlark.classType(type)));
     }
     @SuppressWarnings("unchecked")
     NestedSet<T> res = (NestedSet<T>) set;
@@ -266,8 +265,7 @@ public final class Depset implements StarlarkValue {
   public static <T> NestedSet<T> cast(Object x, Class<T> type, String what) throws EvalException {
     if (!(x instanceof Depset)) {
       throw Starlark.errorf(
-          "for %s, got %s, want a depset of %s",
-          what, EvalUtils.getDataTypeName(x, true), EvalUtils.getDataTypeNameFromClass(type));
+          "for %s, got %s, want a depset of %s", what, Starlark.type(x), Starlark.classType(type));
     }
     try {
       return ((Depset) x).getSet(type);
@@ -432,7 +430,7 @@ public final class Depset implements StarlarkValue {
 
     @Override
     public String toString() {
-      return cls == null ? "empty" : EvalUtils.getDataTypeNameFromClass(cls);
+      return cls == null ? "empty" : Starlark.classType(cls);
     }
 
     /**

@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -107,7 +106,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
               String.format(
                   "Aspect implementation should return a struct, a list, or a provider "
                       + "instance, but got %s",
-                  EvalUtils.getDataTypeName(aspectSkylarkObject)));
+                  Starlark.type(aspectSkylarkObject)));
           return null;
         }
         return createAspect(aspectSkylarkObject, ruleContext);

@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -145,8 +144,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
           && !(target instanceof Iterable)) {
         ruleContext.ruleError(
             String.format(
-                "Rule should return a struct or a list, but got %s",
-                EvalUtils.getDataTypeName(target)));
+                "Rule should return a struct or a list, but got %s", Starlark.type(target)));
         return null;
       } else if (!expectFailure.isEmpty()) {
         ruleContext.ruleError("Expected failure not found: " + expectFailure);

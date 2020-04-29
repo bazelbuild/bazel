@@ -1322,9 +1322,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
                 createObjcProviderSkylarkTarget(
                     "   created_provider = apple_common.new_objc_provider(library='bar')",
                     "   return created_provider"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(String.format(AppleSkylarkCommon.NOT_SET_ERROR, "library", "string"));
+    assertThat(e).hasMessageThat().contains("for library, got string, want a depset of File");
   }
 
   @Test
@@ -1338,9 +1336,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
                     "   return created_provider"));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            String.format(
-                AppleSkylarkCommon.BAD_SET_TYPE_ERROR, "library", "File", "depset of strings"));
+        .contains("for 'library', got a depset of 'string', expected a depset of 'File'");
   }
 
   @Test

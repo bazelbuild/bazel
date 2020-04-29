@@ -1129,7 +1129,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       } else {
         throw Starlark.errorf(
             "invalid value %s in 'label_dict': expected iterable, but got '%s'",
-            Starlark.repr(val), EvalUtils.getDataTypeName(val));
+            Starlark.repr(val), Starlark.type(val));
       }
       for (Object file : valIter) {
         if (!(file instanceof Artifact)) {

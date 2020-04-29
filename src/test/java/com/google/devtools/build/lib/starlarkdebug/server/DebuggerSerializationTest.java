@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -264,7 +263,7 @@ public final class DebuggerSerializationTest {
   }
 
   private static void assertTypeAndDescription(Object object, Value value) {
-    assertThat(value.getType()).isEqualTo(EvalUtils.getDataTypeName(object));
+    assertThat(value.getType()).isEqualTo(Starlark.type(object));
     assertThat(value.getDescription()).isEqualTo(Starlark.repr(object));
   }
 

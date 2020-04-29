@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon.BAD_SET_TYPE_ERROR;
 import static com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon.NOT_SET_ERROR;
 
 import com.google.common.collect.ImmutableMap;
@@ -24,7 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** A utility class for converting ObjcProvider values between java and Starlark representation. */
@@ -132,26 +131,12 @@ public class ObjcProviderSkylarkConverters {
     }
   }
 
-  /** Throws an error if the given object is not a nested set of the given type. */
-  private static <T> NestedSet<T> nestedSetWithType(
-      Object toCheck, Class<T> expectedSetType, String keyName) throws EvalException {
-    if (toCheck instanceof Depset) {
-      Depset sns = (Depset) toCheck;
-      try {
-        return sns.getSet(expectedSetType);
-      } catch (Depset.TypeException exception) {
-        throw new EvalException(
-            null,
-            String.format(
-                BAD_SET_TYPE_ERROR,
-                keyName,
-                EvalUtils.getDataTypeNameFromClass(expectedSetType),
-                EvalUtils.getDataTypeName(toCheck, /*fullDetails=*/ true)),
-            exception);
-      }
-    } else {
-      throw new EvalException(
-          null, String.format(NOT_SET_ERROR, keyName, EvalUtils.getDataTypeName(toCheck)));
+  /** Throws EvalException if x is not a depset of the given type. */
+  private static <T> NestedSet<T> nestedSetWithType(Object x, Class<T> elemType, String what)
+      throws EvalException {
+    if (x == null) {
+      throw Starlark.errorf(NOT_SET_ERROR, what, Starlark.type(x));
     }
+    return Depset.cast(x, elemType, what);
   }
 }

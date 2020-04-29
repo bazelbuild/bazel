@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1244,9 +1244,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     void addProvidersFromSkylark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
         throw new EvalException(
-            null,
-            String.format(
-                AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, EvalUtils.getDataTypeName(toAdd)));
+            null, String.format(AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
@@ -1254,8 +1252,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
             throw new EvalException(
                 null,
                 String.format(
-                    AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR,
-                    EvalUtils.getDataTypeName(toAddObject)));
+                    AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
           } else {
             ObjcProvider objcProvider = (ObjcProvider) toAddObject;
             this.addTransitiveAndPropagate(objcProvider);
@@ -1274,9 +1271,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     void addDirectDepProvidersFromSkylark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
         throw new EvalException(
-            null,
-            String.format(
-                AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, EvalUtils.getDataTypeName(toAdd)));
+            null, String.format(AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
@@ -1284,8 +1279,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
             throw new EvalException(
                 null,
                 String.format(
-                    AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR,
-                    EvalUtils.getDataTypeName(toAddObject)));
+                    AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
           } else {
             this.addAsDirectDeps((ObjcProvider) toAddObject);
           }

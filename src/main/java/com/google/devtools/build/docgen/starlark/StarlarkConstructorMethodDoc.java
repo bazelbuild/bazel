@@ -16,7 +16,7 @@ package com.google.devtools.build.docgen.starlark;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
-import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -85,7 +85,7 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
 
   @Override
   public String getReturnType() {
-    return EvalUtils.getDataTypeNameFromClass(method.getReturnType());
+    return Starlark.classType(method.getReturnType());
   }
 
   @Override

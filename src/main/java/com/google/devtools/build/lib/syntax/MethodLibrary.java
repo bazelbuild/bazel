@@ -207,8 +207,7 @@ class MethodLibrary {
         throw (EvalException) comp.e;
       }
     } else {
-      throw Starlark.errorf(
-          "%s object is not callable", Starlark.repr(EvalUtils.getDataTypeName(key)));
+      throw Starlark.errorf("%s object is not callable", Starlark.repr(Starlark.type(key)));
     }
 
     if (reverse) {
@@ -282,7 +281,7 @@ class MethodLibrary {
   public Integer len(Object x, StarlarkThread thread) throws EvalException {
     int len = Starlark.len(x);
     if (len < 0) {
-      throw Starlark.errorf("%s is not iterable", EvalUtils.getDataTypeName(x));
+      throw Starlark.errorf("%s is not iterable", Starlark.type(x));
     }
     return len;
   }
@@ -408,8 +407,7 @@ class MethodLibrary {
       if (base == Starlark.UNBOUND) {
         base = 10;
       } else if (!(base instanceof Integer)) {
-        throw Starlark.errorf(
-            "base must be an integer (got '%s')", EvalUtils.getDataTypeName(base));
+        throw Starlark.errorf("base must be an integer (got '%s')", Starlark.type(base));
       }
       return fromString((String) x, (Integer) base);
     } else {
@@ -608,7 +606,7 @@ class MethodLibrary {
       start = startOrStop;
       stop = (Integer) stopOrNone;
     } else {
-      throw Starlark.errorf("want int, got %s", EvalUtils.getDataTypeName(stopOrNone));
+      throw Starlark.errorf("want int, got %s", Starlark.type(stopOrNone));
     }
     if (step == 0) {
       throw Starlark.errorf("step cannot be 0");

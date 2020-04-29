@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -410,7 +409,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       throw new EvalException(
           null,
           "expected string or list of strings for command instead of "
-              + EvalUtils.getDataTypeName(commandUnchecked));
+              + Starlark.type(commandUnchecked));
     }
     if (argumentList.size() > 0) {
       // When we use a shell command, add an empty argument before other arguments.
@@ -451,7 +450,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         throw new EvalException(
             null,
             "expected list of strings or ctx.actions.args() for arguments instead of "
-                + EvalUtils.getDataTypeName(value));
+                + Starlark.type(value));
       }
     }
     if (!stringArgs.isEmpty()) {
@@ -506,7 +505,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         throw Starlark.errorf(
             "expected value of type 'File' for a member of parameter 'unused_inputs_list' but got"
                 + " %s instead",
-            EvalUtils.getDataTypeName(unusedInputsList));
+            Starlark.type(unusedInputsList));
       }
     }
 
@@ -531,7 +530,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               null,
               "expected value of type 'File or FilesToRunProvider' for "
                   + "a member of parameter 'tools' but got "
-                  + EvalUtils.getDataTypeName(toolUnchecked)
+                  + Starlark.type(toolUnchecked)
                   + " instead");
         }
       }

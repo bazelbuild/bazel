@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
@@ -384,7 +383,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         throw Starlark.errorf(
             "Illegal argument: element in 'provides' is of unexpected type. "
                 + "Should be list of providers, but got item of type %s.",
-            EvalUtils.getDataTypeName(o, true));
+            Starlark.type(o));
       }
     }
     for (StarlarkProviderIdentifier skylarkProvider :
@@ -555,7 +554,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             String.format(
                 "Illegal argument: element in 'provides' is of unexpected type. "
                     + "Should be list of providers, but got item of type %s. ",
-                EvalUtils.getDataTypeName(o, true)));
+                Starlark.type(o)));
       }
     }
     return new SkylarkDefinedAspect(

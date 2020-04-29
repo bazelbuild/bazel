@@ -214,7 +214,60 @@ public final class Starlark {
 
   /** Returns the name of the type of a value as if by the Starlark expression {@code type(x)}. */
   public static String type(Object x) {
-    return EvalUtils.getDataTypeName(x, false);
+    return classType(x.getClass());
+  }
+
+  /**
+   * Returns the name of the type of instances of class c.
+   *
+   * <p>This function accepts any class, not just those of legal Starlark values, and may be used
+   * for reporting error messages involving arbitrary Java classes, for example at the interface
+   * between Starlark and Java.
+   */
+  // TODO(adonovan): reconsider allowing any classes other than String, Integer, Boolean, and
+  // subclasses of StarlarkValue, with a special exception for Object.class meaning "any Starlark
+  // value" (not: any Java object). Ditto for Depset.ElementType.
+  public static String classType(Class<?> c) {
+    // Check for "direct hits" first to avoid needing to scan for annotations.
+    if (c.equals(String.class)) {
+      return "string";
+    } else if (c.equals(Integer.class)) {
+      return "int";
+    } else if (c.equals(Boolean.class)) {
+      return "bool";
+    }
+
+    SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(c);
+    if (module != null) {
+      String name = module.name();
+      return module.namespace() ? name + " (a language module)" : name;
+
+    } else if (StarlarkCallable.class.isAssignableFrom(c)) {
+      // All callable values have historically been lumped together as "function".
+      // TODO(adonovan): built-in types that don't use SkylarkModule should report
+      // their own type string, but this is a breaking change as users often
+      // use type(x)=="function" for Starlark and built-in functions.
+      return "function";
+
+    } else if (c.equals(Object.class)) {
+      // "Unknown" is another unfortunate choice.
+      // Object.class does mean "unknown" when talking about the type parameter
+      // of a collection (List<Object>), but it also means "any" when used
+      // as an argument to Sequence.cast, and more generally it means "value".
+      return "unknown";
+
+    } else if (List.class.isAssignableFrom(c)) {
+      // Any class of java.util.List that isn't a Sequence.
+      return "List";
+
+    } else if (Map.class.isAssignableFrom(c)) {
+      // Any class of java.util.Map that isn't a Dict.
+      return "Map";
+
+    } else {
+      String simpleName = c.getSimpleName();
+      return simpleName.isEmpty() ? c.getName() : simpleName;
+    }
   }
 
   /** Returns the string form of a value as if by the Starlark expression {@code str(x)}. */

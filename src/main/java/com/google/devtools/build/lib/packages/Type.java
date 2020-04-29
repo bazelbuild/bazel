@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
@@ -248,7 +249,7 @@ public abstract class Type<T> {
       }
       printer.append(", but got ");
       printer.repr(value);
-      printer.append(" (").append(EvalUtils.getDataTypeName(value)).append(")");
+      printer.append(" (").append(Starlark.type(value)).append(")");
       return printer.toString();
     }
 

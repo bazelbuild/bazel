@@ -98,8 +98,7 @@ final class StringModule implements StarlarkValue {
     } else if (end instanceof Integer) {
       stop = EvalUtils.toIndex((Integer) end, str.length());
     } else {
-      throw new EvalException(
-          null, "expected int for " + what + ", got " + EvalUtils.getDataTypeName(end));
+      throw new EvalException(null, "expected int for " + what + ", got " + Starlark.type(end));
     }
     if (start >= stop) {
       return "";
@@ -127,8 +126,7 @@ final class StringModule implements StarlarkValue {
     for (Object item : items) {
       if (!(item instanceof String)) {
         throw Starlark.errorf(
-            "expected string for sequence element %d, got '%s'",
-            i, EvalUtils.getDataTypeName(item));
+            "expected string for sequence element %d, got '%s'", i, Starlark.type(item));
       }
       i++;
     }

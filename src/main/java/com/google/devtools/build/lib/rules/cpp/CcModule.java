@@ -964,7 +964,7 @@ public abstract class CcModule
               + " of type '%s' instead of a '%s' provider. Use the methods provided in"
               + " https://source.bazel.build/bazel/+/master:tools/cpp/cc_toolchain_config_lib.bzl"
               + " for obtaining the right providers.",
-          parameterName, EvalUtils.getDataTypeName(o), expectedProvider);
+          parameterName, Starlark.type(o), expectedProvider);
     }
   }
 

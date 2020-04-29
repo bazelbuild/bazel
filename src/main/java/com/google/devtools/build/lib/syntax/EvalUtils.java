@@ -17,12 +17,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.IllegalFormatException;
-import java.util.List;
-import java.util.Map;
 
 /** Utilities used by the evaluator. */
 // TODO(adonovan): move all fundamental values and operators of the language to Starlark
@@ -167,73 +163,6 @@ public final class EvalUtils {
         || c.equals(String.class)
         || c.equals(Integer.class)
         || c.equals(Boolean.class);
-  }
-
-  /**
-   * Returns a pretty name for the datatype of object 'o' in the Build language.
-   */
-  public static String getDataTypeName(Object o) {
-    return getDataTypeName(o, false);
-  }
-
-  /**
-   * Returns a pretty name for the datatype of object {@code object} in Starlark or the BUILD
-   * language, with full details if the {@code full} boolean is true.
-   */
-  public static String getDataTypeName(Object object, boolean fullDetails) {
-    Preconditions.checkNotNull(object);
-    if (fullDetails) {
-      if (object instanceof Depset) {
-        Depset set = (Depset) object;
-        return "depset of " + set.getElementType() + "s";
-      }
-    }
-    return getDataTypeNameFromClass(object.getClass());
-  }
-
-  /**
-   * Returns a pretty name for the datatype equivalent of class 'c' in the Build language.
-   */
-  public static String getDataTypeNameFromClass(Class<?> c) {
-    return getDataTypeNameFromClass(c, true);
-  }
-
-  /**
-   * Returns a pretty name for the datatype equivalent of class 'c' in the Build language.
-   *
-   * @param highlightNameSpaces Determines whether the result should also contain a special comment
-   *     when the given class identifies a Starlark name space.
-   */
-  // TODO(adonovan): document that this function accepts (and must accept) any Java class,
-  // not just those corresponding to legal Starlark value classes, or even their supertypes.
-  private static String getDataTypeNameFromClass(Class<?> c, boolean highlightNameSpaces) {
-    // Check for "direct hits" first to avoid needing to scan for annotations.
-    if (c.equals(String.class)) {
-      return "string";
-    } else if (c.equals(Integer.class)) {
-      return "int";
-    } else if (c.equals(Boolean.class)) {
-      return "bool";
-    }
-
-    SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(c);
-    if (module != null) {
-      return module.namespace() && highlightNameSpaces
-          ? module.name() + " (a language module)"
-          : module.name();
-    } else if (List.class.isAssignableFrom(c)) { // This is a Java List that isn't a Sequence
-      return "List"; // This case shouldn't happen in normal code, but we keep it for debugging.
-    } else if (Map.class.isAssignableFrom(c)) { // This is a Java Map that isn't a Dict
-      return "Map"; // This case shouldn't happen in normal code, but we keep it for debugging.
-    } else if (StarlarkCallable.class.isAssignableFrom(c)) {
-      // TODO(adonovan): each StarlarkCallable should report its own type string.
-      return "function";
-    } else if (c.equals(Object.class)) {
-      return "unknown";
-    } else {
-      String simpleName = c.getSimpleName();
-      return simpleName.isEmpty() ? c.getName() : simpleName;
-    }
   }
 
   static void addIterator(Object x) {
