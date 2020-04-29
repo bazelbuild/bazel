@@ -92,11 +92,11 @@ public class ValidatedAndroidResources extends MergedAndroidResources
         merged,
         rTxtOut,
         sourceJarOut,
-        null,
+        apkOut,
         // TODO: remove below three when incompatibleProhibitAapt1 is on by default.
         rTxtOut,
         sourceJarOut,
-            apkOut,
+        apkOut,
         dataContext.getAndroidConfig().useRTxtFromMergedResources());
   }
 
