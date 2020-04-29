@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,20 +14,20 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.BitSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Basic tests for {@link PackageIdentifier}'s codec. */
+/** Tests for {@link BitSetCodec}. */
 @RunWith(JUnit4.class)
-public class PackageIdentifierCodecTest {
-
+public class BitSetCodecTest {
   @Test
-  public void testCodec() throws Exception {
-    new SerializationTester(PackageIdentifier.create("@foo", PathFragment.create("bar/baz")))
-        .runTests();
+  public void smoke() throws Exception {
+    BitSet bitSet = new BitSet(4);
+    bitSet.set(0, true);
+    bitSet.set(3, false);
+    new SerializationTester(bitSet).runTests();
   }
 }

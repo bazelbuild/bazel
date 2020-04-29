@@ -1512,7 +1512,6 @@ java_library(
     srcs = ["FileSymlinkCycleException.java"],
     deps = [
         ":file_symlink_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],

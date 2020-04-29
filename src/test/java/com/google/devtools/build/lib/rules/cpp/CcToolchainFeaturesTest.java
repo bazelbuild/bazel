@@ -42,8 +42,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValu
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -1228,9 +1228,8 @@ public class CcToolchainFeaturesTest extends BuildViewTestCase {
                 .getFeatureConfiguration(ImmutableSet.of("b"))
                 .getCommandLine(CppActionNames.CPP_COMPILE, createVariables("v", "1")))
         .containsExactly("-f", "1");
-    byte[] serialized = TestUtils.serializeObject(features);
-    CcToolchainFeatures deserialized =
-        (CcToolchainFeatures) TestUtils.deserializeObject(serialized);
+
+    CcToolchainFeatures deserialized = TestUtils.roundTrip(features);
     assertThat(getEnabledFeatures(deserialized, "b")).containsExactly("a", "b");
     assertThat(
             features
