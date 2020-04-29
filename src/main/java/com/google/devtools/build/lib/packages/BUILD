@@ -79,7 +79,7 @@ java_library(
     srcs = ["BuilderFactoryForTesting.java"],
     deps = [
         ":packages",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//third_party:guava",
     ],
 )
