@@ -462,10 +462,39 @@ public class NinjaParserStepTest {
     assertThat(exception).hasMessageThat().contains("could not resolve rule 'myUndefinedRule'");
   }
 
+  @Test
+  public void testTargetDefinedDescription() throws Exception {
+    NinjaScope scope = scopeWithStubRule("testRule");
+
+    NinjaTarget target =
+        createParser("build output : testRule input\n  description = bunny bunny\n")
+            .parseNinjaTarget(scope, LINE_NUM_AFTER_RULE_DEFS);
+
+    assertThat(target.computeRuleVariables().get(NinjaRuleVariable.DESCRIPTION))
+        .isEqualTo("bunny bunny");
+  }
+
+  @Test
+  public void testTargetMayNotOverrideCommand() throws Exception {
+    NinjaScope scope = new NinjaScope();
+
+    NinjaParserStep parser = createParser("rule testRule \n command = foo\n");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    scope.setRules(ImmutableSortedMap.of("testRule", ImmutableList.of(Pair.of(0L, ninjaRule))));
+
+    NinjaTarget target =
+        createParser("build output : testRule input\n  command = bar\n")
+            .parseNinjaTarget(scope, LINE_NUM_AFTER_RULE_DEFS);
+
+    // Verify the target's COMMAND rule variable is the one defined by the rule, not the one
+    // defined by the target.
+    assertThat(target.computeRuleVariables().get(NinjaRuleVariable.COMMAND)).isEqualTo("foo");
+  }
+
   private static NinjaScope scopeWithStubRule(String ruleName) throws Exception {
     NinjaScope scope = new NinjaScope();
 
-    NinjaParserStep parser = createParser("rule " + ruleName + " \n");
+    NinjaParserStep parser = createParser("rule " + ruleName + " \n command = foo\n");
     NinjaRule ninjaRule = parser.parseNinjaRule();
     scope.setRules(ImmutableSortedMap.of(ruleName, ImmutableList.of(Pair.of(0L, ninjaRule))));
     return scope;

@@ -213,8 +213,6 @@ public class NinjaActionsHelper {
     if (ruleDescription != null) {
       return ruleDescription;
     }
-    // TODO(cparsons): If the target has a "description" variable but the rule has none,
-    // then ruleVariables will have no DESCRIPTION value.
 
     String ruleName = target.getRuleName();
     StringBuilder messageBuilder = new StringBuilder();

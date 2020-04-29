@@ -135,22 +135,25 @@ public final class NinjaTarget {
       ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> builder =
           ImmutableSortedMap.naturalOrder();
 
+      // Description is taken from the "build" statement (instead of the referenced rule)
+      // if it's available.
+      boolean targetHasDescription = false;
+      String targetVariable = targetVariables.get("description");
+      if (targetVariable != null) {
+        builder.put(
+            NinjaRuleVariable.DESCRIPTION, NinjaVariableValue.createPlainText(targetVariable));
+        targetHasDescription = true;
+      }
+
       for (Map.Entry<NinjaRuleVariable, NinjaVariableValue> entry : ruleVariables.entrySet()) {
         NinjaRuleVariable type = entry.getKey();
-        String targetVariable = targetVariables.get(Ascii.toLowerCase(type.name()));
-        NinjaVariableValue reducedValue;
-        if (targetVariable != null) {
-          // Target variable overrides the rule variable.
-          // TODO(cparsons): This only handles overrides. If the rule does not define the rule
-          // variable, but the target does, then the target variable is silently dropped. For
-          // example, if the target defines "description" but the rule does not, then no
-          // "description" is used.
-          reducedValue = NinjaVariableValue.builder().addText(targetVariable).build();
-        } else {
-          reducedValue =
-              scopeWithVariables.getReducedValue(
-                  targetOffset, entry.getValue(), INPUTS_OUTPUTS_VARIABLES, interner);
+        if (type.equals(NinjaRuleVariable.DESCRIPTION) && targetHasDescription) {
+          // Don't use the rule description, as the target defined a specific description.
+          continue;
         }
+        NinjaVariableValue reducedValue =
+            scopeWithVariables.getReducedValue(
+                targetOffset, entry.getValue(), INPUTS_OUTPUTS_VARIABLES, interner);
         builder.put(type, reducedValue);
       }
       return builder.build();
@@ -282,6 +285,8 @@ public final class NinjaTarget {
       fullExpansionVariablesBuilder.put(Ascii.toLowerCase(type.name()), expandedValue);
     }
 
+    // TODO(cparsons): Ensure parsing exception is thrown early if the rule has no command defined.
+    // Otherwise, this throws NPE.
     String expandedCommand =
         ruleVariables
             .get(NinjaRuleVariable.COMMAND)
