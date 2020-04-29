@@ -131,6 +131,7 @@ public class WorkerExecRootTest {
             execRoot,
             new SandboxInputs(
                 ImmutableMap.of(),
+                ImmutableSet.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(
