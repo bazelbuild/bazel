@@ -175,14 +175,14 @@ final class ProtobufSupport {
     Set<PathFragment> dylibHandledProtoPaths = runfilesPaths(dylibHandledProtos);
     return Iterables.any(
         getAllProtos().toSet(),
-        artifact -> !dylibHandledProtoPaths.contains(artifact.getRootRelativePath()));
+        artifact -> !dylibHandledProtoPaths.contains(artifact.getRunfilesPath()));
   }
 
   private Iterable<Artifact> getOutputProtos() {
     Set<PathFragment> dylibHandledProtoPaths = runfilesPaths(dylibHandledProtos);
     return Iterables.filter(
         getAllProtos().toSet(),
-        artifact -> !dylibHandledProtoPaths.contains(artifact.getRootRelativePath()));
+        artifact -> !dylibHandledProtoPaths.contains(artifact.getRunfilesPath()));
   }
 
   private NestedSet<PathFragment> getProtobufHeaderSearchPaths() {
@@ -196,7 +196,7 @@ final class ProtobufSupport {
   private static Set<PathFragment> runfilesPaths(Iterable<Artifact> artifacts) {
     HashSet<PathFragment> pathsSet = new HashSet<>();
     for (Artifact artifact : artifacts) {
-      pathsSet.add(artifact.getRootRelativePath());
+      pathsSet.add(artifact.getRunfilesPath());
     }
     return pathsSet;
   }

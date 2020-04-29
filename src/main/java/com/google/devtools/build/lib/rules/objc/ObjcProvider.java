@@ -767,15 +767,15 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     for (CcLinkingContext ccLinkingContext : avoidCcProviders) {
       List<Artifact> libraries = ccLinkingContext.getStaticModeParamsForExecutableLibraries();
       for (Artifact library : libraries) {
-        avoidLibrariesSet.add(library.getRootRelativePath());
+        avoidLibrariesSet.add(library.getRunfilesPath());
       }
     }
     for (ObjcProvider avoidProvider : avoidObjcProviders) {
       for (Artifact ccLibrary : avoidProvider.getCcLibraries()) {
-        avoidLibrariesSet.add(ccLibrary.getRootRelativePath());
+        avoidLibrariesSet.add(ccLibrary.getRunfilesPath());
       }
       for (Artifact libraryToAvoid : avoidProvider.getPropagable(LIBRARY).toList()) {
-        avoidLibrariesSet.add(libraryToAvoid.getRootRelativePath());
+        avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
       }
     }
     ObjcProvider.NativeBuilder objcProviderBuilder = new ObjcProvider.NativeBuilder(semantics);
@@ -808,7 +808,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    */
   private static Predicate<Artifact> notContainedIn(
       final HashSet<PathFragment> runfilesPaths) {
-    return libraryToLink -> !runfilesPaths.contains(libraryToLink.getRootRelativePath());
+    return libraryToLink -> !runfilesPaths.contains(libraryToLink.getRunfilesPath());
   }
 
   /**
@@ -827,24 +827,23 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       LibraryToLink libraryToLink, HashSet<PathFragment> runfilesPaths) {
     ImmutableList.Builder<PathFragment> libraryRunfilesPaths = ImmutableList.builder();
     if (libraryToLink.getStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getStaticLibrary().getRootRelativePath());
+      libraryRunfilesPaths.add(libraryToLink.getStaticLibrary().getRunfilesPath());
     }
     if (libraryToLink.getPicStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getPicStaticLibrary().getRootRelativePath());
+      libraryRunfilesPaths.add(libraryToLink.getPicStaticLibrary().getRunfilesPath());
     }
     if (libraryToLink.getDynamicLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getDynamicLibrary().getRootRelativePath());
+      libraryRunfilesPaths.add(libraryToLink.getDynamicLibrary().getRunfilesPath());
     }
     if (libraryToLink.getResolvedSymlinkDynamicLibrary() != null) {
-      libraryRunfilesPaths.add(
-          libraryToLink.getResolvedSymlinkDynamicLibrary().getRootRelativePath());
+      libraryRunfilesPaths.add(libraryToLink.getResolvedSymlinkDynamicLibrary().getRunfilesPath());
     }
     if (libraryToLink.getInterfaceLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getInterfaceLibrary().getRootRelativePath());
+      libraryRunfilesPaths.add(libraryToLink.getInterfaceLibrary().getRunfilesPath());
     }
     if (libraryToLink.getResolvedSymlinkInterfaceLibrary() != null) {
       libraryRunfilesPaths.add(
-          libraryToLink.getResolvedSymlinkInterfaceLibrary().getRootRelativePath());
+          libraryToLink.getResolvedSymlinkInterfaceLibrary().getRunfilesPath());
     }
 
     return !Collections.disjoint(libraryRunfilesPaths.build(), runfilesPaths);
@@ -867,7 +866,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     HashSet<PathFragment> avoidPathsSet = new HashSet<>();
     for (ObjcProvider avoidProvider : avoidProviders) {
       for (Artifact artifact : avoidProvider.getPropagable(key).toList()) {
-        avoidPathsSet.add(artifact.getRootRelativePath());
+        avoidPathsSet.add(artifact.getRunfilesPath());
       }
     }
     addTransitiveAndFilter(objcProviderBuilder, key, notContainedIn(avoidPathsSet));

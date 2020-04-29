@@ -864,14 +864,10 @@ public abstract class Artifact
   public abstract PathFragment getRootRelativePath();
 
   /**
-   * Returns {@code short_path} on the Starlark API.
-   *
-   * <p>The platonic ideal for this value is that it's supposed to be the only path of the artifact
-   * in the runfiles tree and that it should be the same as the root-relative path. However, at the
-   * moment, it differs from the root-relative path. {@code
-   * --experimental_sibling_repository_layout} is the plan for making this happen eventually.
+   * For targets in external repositories, this returns the path the artifact live at in the
+   * runfiles tree. For local targets, it returns the rootRelativePath.
    */
-  public final PathFragment getShortPath() {
+  public final PathFragment getRunfilesPath() {
     PathFragment relativePath = getRootRelativePath();
     if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
@@ -882,8 +878,8 @@ public abstract class Artifact
   }
 
   @Override
-  public final String getShortPathString() {
-    return getShortPath().getPathString();
+  public final String getRunfilesPathString() {
+    return getRunfilesPath().getPathString();
   }
 
   /**

@@ -991,9 +991,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public String getShortPathString() {
+    public String getRunfilesPathString() {
       PathFragment relativePath = execPath.relativeTo(fileset.getExecPath());
-      return fileset.getShortPath().getRelative(relativePath).getPathString();
+      return fileset.getRunfilesPath().getRelative(relativePath).getPathString();
     }
 
     @Override
@@ -1009,9 +1009,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Override
     public void repr(Printer printer) {
       if (isSourceArtifact()) {
-        printer.append("<source file " + getShortPathString() + ">");
+        printer.append("<source file " + getRunfilesPathString() + ">");
       } else {
-        printer.append("<generated file " + getShortPathString() + ">");
+        printer.append("<generated file " + getRunfilesPathString() + ">");
       }
     }
   }

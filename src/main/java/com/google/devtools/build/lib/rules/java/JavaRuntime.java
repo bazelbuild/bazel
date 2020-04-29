@@ -81,7 +81,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         ruleContext.ruleError("'java_home' with an absolute path requires 'java' to be empty.");
       }
       javaBinaryExecPath = java.getExecPath();
-      javaBinaryRunfilesPath = java.getRootRelativePath();
+      javaBinaryRunfilesPath = java.getRunfilesPath();
       if (!isJavaBinary(javaBinaryExecPath)) {
         ruleContext.ruleError("the path to 'java' must end in 'bin/java'.");
       }

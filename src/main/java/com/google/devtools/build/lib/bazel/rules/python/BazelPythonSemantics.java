@@ -352,11 +352,9 @@ public class BazelPythonSemantics implements PythonSemantics {
     inputsBuilder.add(stubFile);
     argv.addPrefixedExecPath("__main__.py=", stubFile);
 
-    PathFragment initPy =
-        ZIP_RUNFILES_DIRECTORY_NAME.getRelative(workspaceName).getRelative("__init__.py");
     // Creating __init__.py files under each directory
     argv.add("__init__.py=");
-    argv.addDynamicString(initPy.getPathString() + "=");
+    argv.addDynamicString(getZipRunfilesPath("__init__.py", workspaceName) + "=");
     for (String path : runfilesSupport.getRunfiles().getEmptyFilenames().toList()) {
       argv.addDynamicString(getZipRunfilesPath(path, workspaceName) + "=");
     }
@@ -366,7 +364,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     for (Artifact artifact : runfilesSupport.getRunfilesArtifacts().toList()) {
       if (!artifact.equals(executable) && !artifact.equals(zipFile)) {
         argv.addDynamicString(
-            getZipRunfilesPath(artifact.getRootRelativePath(), workspaceName)
+            getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName)
                 + "="
                 + artifact.getExecPathString());
         inputsBuilder.add(artifact);
@@ -437,7 +435,7 @@ public class BazelPythonSemantics implements PythonSemantics {
         PathFragment workspaceName =
             PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
         pythonBinary =
-            workspaceName.getRelative(provider.getInterpreter().getShortPath()).getPathString();
+            workspaceName.getRelative(provider.getInterpreter().getRunfilesPath()).getPathString();
       }
     } else  {
       // make use of the Python interpreter in an absolute path
