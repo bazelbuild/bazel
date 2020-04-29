@@ -102,6 +102,7 @@ message FailureDetail {
     Filesystem filesystem = 119;
     ExecutionOptions execution_options = 121;
     Command command = 122;
+    Spawn spawn = 123;
   }
 
   reserved 102; // For internal use
@@ -125,6 +126,35 @@ message Interrupted {
   }
 
   Code code = 1;
+}
+
+message Spawn {
+  enum Code {
+    SPAWN_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    // See the SpawnResult.Status Java enum for definitions of the following
+    // Spawn failure codes.
+    NON_ZERO_EXIT = 1 [(metadata) = { exit_code: 1 }];
+    TIMEOUT = 2 [(metadata) = { exit_code: 1 }];
+    // Note: Spawn OUT_OF_MEMORY leads to a BUILD_FAILURE exit_code because the
+    // build tool itself did not run out of memory.
+    OUT_OF_MEMORY = 3 [(metadata) = { exit_code: 1 }];
+    EXECUTION_FAILED = 4 [(metadata) = { exit_code: 1 }];
+    EXECUTION_DENIED = 5 [(metadata) = { exit_code: 1 }];
+    REMOTE_CACHE_FAILED = 6 [(metadata) = { exit_code: 34 }];
+  }
+  Code code = 1;
+
+  // For Codes describing generic failure to spawn (eg. EXECUTION_FAILED and
+  // EXECUTION_DENIED) the `catastrophic` field may be set to true indicating a
+  // failure that immediately terminated the entire build tool.
+  bool catastrophic = 2;
+
+  // If Code is NON_ZERO_EXIT, the `spawn_exit_code` field may be set to the
+  // non-zero exit code returned by the spawned process to the OS.
+  //
+  // NOTE: This field must not be confused with the build tool's overall
+  // exit code.
+  int32 spawn_exit_code = 3;
 }
 
 message ExternalRepository {
