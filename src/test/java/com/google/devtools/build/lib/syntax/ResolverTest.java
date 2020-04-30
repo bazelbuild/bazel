@@ -269,6 +269,11 @@ public class ResolverTest {
   }
 
   @Test
+  public void testModulesReadOnlyInFuncDefBody() throws Exception {
+    assertValid("def func():", "  cmd_helper = depset()");
+  }
+
+  @Test
   public void testBuiltinGlobalFunctionsReadOnlyInFuncDefBody() throws Exception {
     assertValid("def func():", "  rule = 'abc'");
   }

@@ -468,10 +468,4 @@ public final class DepsetTest extends EvaluationTestCase {
     assertThrows(IllegalArgumentException.class, () -> ElementType.of(CharSequence.class));
     assertThrows(IllegalArgumentException.class, () -> ElementType.of(Object.class));
   }
-
-  @Test
-  public void testSetComparison() throws Exception {
-    new Scenario()
-        .testIfExactError("Cannot compare depset with depset", "depset([1, 2]) < depset([3, 4])");
-  }
 }

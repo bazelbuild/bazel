@@ -88,6 +88,9 @@ public final class EvalUtils {
           if (o1 instanceof ClassObject) {
             throw new ComparisonException("Cannot compare structs");
           }
+          if (o1 instanceof Depset) {
+            throw new ComparisonException("Cannot compare depsets");
+          }
           try {
             return ((Comparable<Object>) o1).compareTo(o2);
           } catch (ClassCastException e) {

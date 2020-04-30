@@ -221,6 +221,11 @@ public final class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testSetComparison() throws Exception {
+    new Scenario().testIfExactError("Cannot compare depsets", "depset([1, 2]) < depset([3, 4])");
+  }
+
+  @Test
   public void testSumFunction() throws Exception {
     StarlarkCallable sum =
         new StarlarkCallable() {

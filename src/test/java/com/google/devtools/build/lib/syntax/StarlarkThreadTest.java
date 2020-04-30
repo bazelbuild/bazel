@@ -108,6 +108,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
                 "all",
                 "any",
                 "bool",
+                "depset",
                 "dict",
                 "dir",
                 "enumerate",

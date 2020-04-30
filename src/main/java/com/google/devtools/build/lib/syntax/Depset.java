@@ -39,10 +39,10 @@ import javax.annotation.Nullable;
  * <p>For depsets constructed by Starlark code, the element type of a non-empty {@code Depset} is
  * determined by its first element. All elements must have the same type. An empty depset has type
  * {@code ElementType.EMPTY}, and may be combined with any other depset.
- *
- * <p>Every call to {@code depset} returns a distinct instance equal to no other.
  */
-// TODO(adonovan): move to lib.packages, as this is a Bazelism.
+// TODO(adonovan): move to lib.packages, as this is a Bazelism. Requires:
+// - moving the function to StarlarkLibrary.COMMON.
+// - relaxing StarlarkThread.checkStateEquals (or defining Depset.equals)
 @SkylarkModule(
     name = "depset",
     category = SkylarkModuleCategory.BUILTIN,
@@ -501,101 +501,5 @@ public final class Depset implements StarlarkValue {
     public boolean equals(Object that) {
       return that instanceof ElementType && this.cls == ((ElementType) that).cls;
     }
-  }
-
-  /**
-   * Implementation of the build language's depset function, aka
-   * StarlarkLibrary.CommonLibrary.depset.
-   */
-  public static Depset depset(
-      Object x,
-      String orderString,
-      Object direct,
-      Object transitive,
-      Object items,
-      StarlarkSemantics semantics)
-      throws EvalException {
-    Order order;
-    Depset result;
-    try {
-      order = Order.parse(orderString);
-    } catch (IllegalArgumentException ex) {
-      throw new EvalException(null, ex);
-    }
-
-    if (semantics.incompatibleDisableDepsetItems()) {
-      if (x != Starlark.NONE) {
-        if (direct != Starlark.NONE) {
-          throw new EvalException(
-              null, "parameter 'direct' cannot be specified both positionally and by keyword");
-        }
-        direct = x;
-      }
-      if (direct instanceof Depset) {
-        throw new EvalException(
-            null,
-            "parameter 'direct' must contain a list of elements, and may no longer accept a"
-                + " depset. The deprecated behavior may be temporarily re-enabled by setting"
-                + " --incompatible_disable_depset_inputs=false");
-      }
-      result =
-          fromDirectAndTransitive(
-              order,
-              Sequence.noneableCast(direct, Object.class, "direct"),
-              Sequence.noneableCast(transitive, Depset.class, "transitive"),
-              semantics.incompatibleAlwaysCheckDepsetElements());
-    } else {
-      if (x != Starlark.NONE) {
-        if (!isEmptySkylarkList(items)) {
-          throw new EvalException(
-              null, "parameter 'items' cannot be specified both positionally and by keyword");
-        }
-        items = x;
-      }
-      result = legacyDepsetConstructor(items, order, direct, transitive, semantics);
-    }
-
-    if (semantics.debugDepsetDepth()) {
-      // Flatten the underlying nested set. If the set exceeds the depth limit, then this will
-      // throw a NestedSetDepthException.
-      // This is an extremely inefficient check and should be only done in the
-      // "--debug_depset_depth" mode.
-      try {
-        result.toCollection(); // may throw exception
-      } catch (NestedSetDepthException ex) {
-        throw Starlark.errorf("depset exceeded maximum depth %d", ex.getDepthLimit());
-      }
-    }
-    return result;
-  }
-
-  private static Depset legacyDepsetConstructor(
-      Object items, Order order, Object direct, Object transitive, StarlarkSemantics semantics)
-      throws EvalException {
-
-    if (transitive == Starlark.NONE && direct == Starlark.NONE) {
-      // Legacy behavior.
-      return legacyOf(order, items);
-    }
-
-    if (direct != Starlark.NONE && !isEmptySkylarkList(items)) {
-      throw new EvalException(
-          null, "Do not pass both 'direct' and 'items' argument to depset constructor.");
-    }
-
-    // Non-legacy behavior: either 'transitive' or 'direct' were specified.
-    List<Object> directElements =
-        direct != Starlark.NONE
-            ? Sequence.cast(direct, Object.class, "direct")
-            : Sequence.cast(items, Object.class, "items");
-
-    List<Depset> transitiveList = Sequence.noneableCast(transitive, Depset.class, "transitive");
-
-    return fromDirectAndTransitive(
-        order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
-  }
-
-  private static boolean isEmptySkylarkList(Object o) {
-    return o instanceof Sequence && ((Sequence) o).isEmpty();
   }
 }
