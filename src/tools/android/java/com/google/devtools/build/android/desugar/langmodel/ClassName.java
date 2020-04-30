@@ -334,6 +334,17 @@ public abstract class ClassName implements TypeMappable<ClassName> {
         "android/view/textclassifier/TextLinks");
   }
 
+  public final boolean isInPackageEligibleForShadowedOverridableAPIs() {
+    // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
+    // rollouts are complete.
+    return hasAnyPackagePrefix("android/testing/");
+  }
+
+  public final boolean isInPackageEligibleForHoldingOverridingBridges() {
+    // Exclude platform types for overriding bridge generations.
+    return !hasAnyPackagePrefix("android/", "java/");
+  }
+
   public final boolean isInDesugarRuntimeLibrary() {
     return hasAnyPackagePrefix(
         "com/google/devtools/build/android/desugar/runtime/", TYPE_ADAPTER_PACKAGE_ROOT);

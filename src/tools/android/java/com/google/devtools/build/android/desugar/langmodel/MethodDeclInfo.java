@@ -16,13 +16,16 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
+import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
 import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
+import static org.objectweb.asm.Opcodes.ACC_PROTECTED;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -76,6 +79,10 @@ public abstract class MethodDeclInfo implements TypeMappable<MethodDeclInfo> {
     return methodKey().ownerName();
   }
 
+  public final String packageName() {
+    return owner().getPackageName();
+  }
+
   public final String name() {
     return methodKey().name();
   }
@@ -94,6 +101,38 @@ public abstract class MethodDeclInfo implements TypeMappable<MethodDeclInfo> {
 
   public final ImmutableList<Type> argumentTypes() {
     return ImmutableList.copyOf(methodKey().getArgumentTypes());
+  }
+
+  public final ImmutableList<ClassName> argumentTypeNames() {
+    return ImmutableList.copyOf(methodKey().getArgumentTypeNames());
+  }
+
+  public final ImmutableSet<ClassName> headerTypeNameSet() {
+    return methodKey().getHeaderTypeNameSet();
+  }
+
+  public final boolean isStaticMethod() {
+    return (memberAccess() & ACC_STATIC) != 0;
+  }
+
+  public final boolean isPrivateAccess() {
+    return (memberAccess() & ACC_PRIVATE) != 0;
+  }
+
+  public final boolean isPackageAccess() {
+    return (memberAccess() & (ACC_PROTECTED | ACC_PRIVATE | ACC_PUBLIC)) == 0;
+  }
+
+  public final boolean isProtectedAccess() {
+    return (memberAccess() & ACC_PROTECTED) != 0;
+  }
+
+  public final boolean isPublicAccess() {
+    return (memberAccess() & ACC_PUBLIC) != 0;
+  }
+
+  public final boolean isInterfaceMethod() {
+    return (ownerAccess() & ACC_INTERFACE) != 0;
   }
 
   public final String[] exceptionArray() {
@@ -182,7 +221,7 @@ public abstract class MethodDeclInfo implements TypeMappable<MethodDeclInfo> {
         methodKey().acceptTypeMapper(typeMapper),
         ownerAccess(),
         memberAccess(),
-        signature(),
-        exceptions());
+        typeMapper.mapSignature(signature(), /* typeSignature= */ false),
+        typeMapper.mapTypes(exceptionArray()));
   }
 }
