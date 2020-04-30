@@ -168,9 +168,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + "created as a symlink that points to the path of <code>target_file</code>.</p>"
               + "<p>If <code>target_path</code> is used instead, then <code>output</code> must be "
               + "declared as a symlink (such as by using "
-              + "<a href=\"#declare_symlink\"><code>declare_symlink()</code>). In this case, the "
-              + "symlink will point to whatever the content of <code>target_path</code> is. This "
-              + "can be used to create a dangling symlink.</p>",
+              + "<a href=\"#declare_symlink\"><code>declare_symlink()</code></a>). In this case, "
+              + "the symlink will point to whatever the content of <code>target_path</code> is. "
+              + "This can be used to create a dangling symlink.</p>",
       parameters = {
         @Param(
             name = "output",
