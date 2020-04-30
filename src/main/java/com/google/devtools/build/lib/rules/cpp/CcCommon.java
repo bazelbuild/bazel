@@ -878,6 +878,12 @@ public final class CcCommon {
       allRequestedFeaturesBuilder.add(CppRuleClasses.SUPPORTS_PIC);
     }
 
+    if (cppConfiguration.appleGenerateDsym()) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
+    } else {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
+    }
+
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
 
     // If STATIC_LINK_MSVCRT feature isn't specified by user, we add DYNAMIC_LINK_MSVCRT_* feature

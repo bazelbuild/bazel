@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
@@ -68,7 +69,8 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final Label appleSdk;
   private final boolean compileInfoMigration;
 
-  ObjcConfiguration(ObjcCommandLineOptions objcOptions, CoreOptions options) {
+  ObjcConfiguration(
+      CppOptions cppOptions, ObjcCommandLineOptions objcOptions, CoreOptions options) {
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
     this.watchosSimulatorDevice = objcOptions.watchosSimulatorDevice;
@@ -80,8 +82,8 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.generateDsym =
-        objcOptions.appleGenerateDsym
-            || (objcOptions.appleEnableAutoDsymDbg && this.compilationMode == CompilationMode.DBG);
+        cppOptions.appleGenerateDsym
+            || (cppOptions.appleEnableAutoDsymDbg && this.compilationMode == CompilationMode.DBG);
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;

@@ -945,6 +945,22 @@ public class CppOptions extends FragmentOptions {
               + "the Starlark rules instead https://github.com/bazelbuild/rules_cc")
   public boolean loadCcRulesFromBzl;
 
+  @Option(
+      name = "apple_generate_dsym",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Whether to generate debug symbol(.dSYM) file(s).")
+  public boolean appleGenerateDsym;
+
+  @Option(
+      name = "apple_enable_auto_dsym_dbg",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Whether to force enable generating debug symbol(.dSYM) file(s) for dbg builds.")
+  public boolean appleEnableAutoDsymDbg;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
@@ -1016,6 +1032,8 @@ public class CppOptions extends FragmentOptions {
     host.disableNoCopts = disableNoCopts;
     host.loadCcRulesFromBzl = loadCcRulesFromBzl;
     host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
+    host.appleGenerateDsym = appleGenerateDsym;
+    host.appleEnableAutoDsymDbg = appleEnableAutoDsymDbg;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;
