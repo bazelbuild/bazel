@@ -157,17 +157,6 @@ java_library(
 
 # Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
-    name = "build-configuration-option-details",
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib/rules/config:__pkg__",
-    ],
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration_option_details",
-    ],
-)
-
-# Deprecated: This target has been split. Depend on the sub-targets instead.
-java_library(
     name = "build-base",
     exports = [
         ":runtime/blaze_server_startup_options",
