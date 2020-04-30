@@ -24,6 +24,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
@@ -591,6 +592,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, configuration) pairs.
     OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
+    BuildConfiguration configuration = ctgValue.getConfiguration();
+    Label label = ctgValue.getLabel();
     try {
       depValueNames =
           resolver.dependentNodeMap(
@@ -604,9 +607,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Starlark attributes in the current rule.
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
+      env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
       throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(
-              e.print(), ctgValue.getLabel(), ctgValue.getConfiguration()));
+          new ConfiguredValueCreationException(e.print(), label, configuration));
     } catch (InconsistentAspectOrderException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
@@ -659,8 +662,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           Event.error(ctgValue.getTarget().getLocation(), e.getMessage()));
 
       throw new ConfiguredTargetFunctionException(
-          new ConfiguredValueCreationException(
-              e.getMessage(), ctgValue.getLabel(), ctgValue.getConfiguration()));
+          new ConfiguredValueCreationException(e.getMessage(), label, configuration));
     }
   }
 
