@@ -325,8 +325,8 @@ java_import(
 
 java_import(
     name = "checker_framework_annotations",
-    jars = ["checker_framework_annotations/checker-qual-3.0.0.jar"],
-    srcjar = "checker_framework_annotations/checker-qual-3.0.0-sources.jar",
+    jars = ["checker_framework_annotations/checker-qual-3.2.0.jar"],
+    srcjar = "checker_framework_annotations/checker-qual-3.2.0-sources.jar",
 )
 
 java_import(
@@ -341,36 +341,50 @@ distrib_java_import(
 )
 
 java_import(
+    name = "caffeine",
+    jars = ["caffeine/caffeine-2.8.0.jar"],
+)
+
+java_import(
     name = "hungarian_algorithm",
     jars = ["hungarian_algorithm/software-and-algorithms-1.0.jar"],
     srcjar = "hungarian_algorithm/software-and-algorithms-1.0-src.jar",
 )
 
 java_import(
+    name = "threeten",
+    jars = [
+        "error_prone/threeten-extra-1.5.0.jar",
+    ],
+)
+
+java_import(
     name = "error_prone_annotations",
     jars = [
-        "error_prone/error_prone_annotations-2.2.0.jar",
-        "error_prone/error_prone_type_annotations-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_annotations-2.4.0.jar",
+        "error_prone/error_prone_type_annotations-2.4.0.jar",
     ],
 )
 
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.3.2-SNAPSHOT.jar",
-        "error_prone/error_prone_check_api-2.3.2-SNAPSHOT.jar",
-        "error_prone/error_prone_core-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_annotation-2.4.0.jar",
+        "error_prone/error_prone_check_api-2.4.0.jar",
+        "error_prone/error_prone_core-2.4.0.jar",
     ],
     exports = [
         ":error_prone_annotations",
     ],
     deps = [
         ":auto_common",
+        ":caffeine",
         ":guava",
         ":hungarian_algorithm",
         ":jcip_annotations",
         ":jsr305",
         ":pcollections",
+        ":threeten",
         "//third_party/checker_framework_dataflow",
         "//third_party/jformatstring",
     ],
@@ -412,7 +426,8 @@ java_import(
 filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
-        "error_prone/error_prone_annotations-2.2.0.jar",
+        "error_prone/error_prone_annotations-2.4.0.jar",
+        "error_prone/threeten-extra-1.5.0.jar",
         ":guava-jars",
         ":jcip_annotations-jars",
         ":jsr305-jars",
