@@ -222,13 +222,12 @@ public final class AnalysisUtils {
               targetAndConfig.getTarget(),
               ruleClassProvider.getTrimmingTransitionFactory());
       if (targetAndConfig.getConfiguration() != null) {
+        // TODO(bazel-team): support top-level aspects
         asDeps.put(
             targetAndConfig.getConfiguration(),
-            Dependency.withTransitionAndAspects(
-                targetAndConfig.getLabel(),
-                transition,
-                // TODO(bazel-team): support top-level aspects
-                AspectCollection.EMPTY));
+                Dependency.builder(targetAndConfig.getLabel())
+                        .withTransition(transition)
+                        .build());
       }
     }
     return asDeps;

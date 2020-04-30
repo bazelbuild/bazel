@@ -553,15 +553,13 @@ public class BuildViewTest extends BuildViewTestBase {
             .values();
 
     Dependency innerDependency =
-        Dependency.withTransitionAndAspects(
-            Label.parseAbsolute("//package:inner", ImmutableMap.of()),
-            NoTransition.INSTANCE,
-            AspectCollection.EMPTY);
+            Dependency.builder(Label.parseAbsolute("//package:inner", ImmutableMap.of()))
+                    .withTransition(NoTransition.INSTANCE)
+                    .build();
     Dependency fileDependency =
-        Dependency.withTransitionAndAspects(
-            Label.parseAbsolute("//package:file", ImmutableMap.of()),
-            NullTransition.INSTANCE,
-            AspectCollection.EMPTY);
+            Dependency.builder(Label.parseAbsolute("//package:file", ImmutableMap.of()))
+                    .withTransition(NullTransition.INSTANCE)
+                    .build();
 
     assertThat(targets).containsExactly(innerDependency, fileDependency);
   }

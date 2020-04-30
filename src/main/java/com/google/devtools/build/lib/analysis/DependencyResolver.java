@@ -411,7 +411,10 @@ public abstract class DependencyResolver {
 
       outgoingEdges.put(
           entry.getKey(),
-          Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
+              Dependency.builder(dep.getLabel())
+                      .withTransition(transition)
+                      .addAspects(requiredAspects)
+                      .build());
     }
     return outgoingEdges;
   }

@@ -2318,9 +2318,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             configuration,
             ImmutableList.of(
                 configuration == null
-                    ? Dependency.withNullConfiguration(label)
-                    : Dependency.withTransitionAndAspects(
-                        label, transition, AspectCollection.EMPTY))),
+                    ? Dependency.builder(label)
+                        .withNullConfiguration()
+                        .build()
+                    : Dependency.builder(label)
+                        .withTransition(transition)
+                        .build())),
         null);
   }
 

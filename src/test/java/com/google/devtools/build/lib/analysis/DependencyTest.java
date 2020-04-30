@@ -41,7 +41,9 @@ public class DependencyTest extends AnalysisTestCase {
   @Test
   public void withNullConfiguration_BasicAccessors() throws Exception {
     Dependency nullDep =
-        Dependency.withNullConfiguration(Label.parseAbsolute("//a", ImmutableMap.of()));
+            Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
+                    .withNullConfiguration()
+                    .build();
 
     assertThat(nullDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(nullDep.hasExplicitConfiguration()).isTrue();
@@ -55,8 +57,9 @@ public class DependencyTest extends AnalysisTestCase {
   public void withConfiguration_BasicAccessors() throws Exception {
     update();
     Dependency targetDep =
-        Dependency.withConfiguration(
-            Label.parseAbsolute("//a", ImmutableMap.of()), getTargetConfiguration());
+            Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
+                    .withConfiguration(getTargetConfiguration())
+                    .build();
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.hasExplicitConfiguration()).isTrue();
@@ -74,8 +77,10 @@ public class DependencyTest extends AnalysisTestCase {
     AspectCollection twoAspects = AspectCollection.createForTests(
         ImmutableSet.of(simpleAspect, attributeAspect));
     Dependency targetDep =
-        Dependency.withConfigurationAndAspects(
-            Label.parseAbsolute("//a", ImmutableMap.of()), getTargetConfiguration(), twoAspects);
+            Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
+                    .withConfiguration(getTargetConfiguration())
+                    .addAspects(twoAspects)
+                    .build();
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.hasExplicitConfiguration()).isTrue();
@@ -98,19 +103,20 @@ public class DependencyTest extends AnalysisTestCase {
 
     assertThrows(
         NullPointerException.class,
-        () ->
-            Dependency.withConfigurationAndAspects(
-                Label.parseAbsolute("//a", ImmutableMap.of()), null, twoAspects));
+            () -> Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
+                        .withConfiguration(null)
+                        .addAspects(twoAspects)
+                        .build());
   }
 
   @Test
   public void withConfigurationAndAspects_AllowsEmptyAspectSet() throws Exception {
     update();
     Dependency dep =
-        Dependency.withConfigurationAndAspects(
-            Label.parseAbsolute("//a", ImmutableMap.of()),
-            getTargetConfiguration(),
-            AspectCollection.EMPTY);
+            Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
+                    .withConfiguration(getTargetConfiguration())
+                    .addAspects(AspectCollection.EMPTY)
+                    .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
     assertThat(dep.getAspects().getAllAspects()).isEmpty();
   }
@@ -125,11 +131,11 @@ public class DependencyTest extends AnalysisTestCase {
     ImmutableMap<AspectDescriptor, BuildConfiguration> twoAspectMap = ImmutableMap.of(
         simpleAspect, getTargetConfiguration(), attributeAspect, getHostConfiguration());
     Dependency targetDep =
-        Dependency.withConfiguredAspects(
-            Label.parseAbsolute("//a", ImmutableMap.of()),
-            getTargetConfiguration(),
-            aspects,
-            twoAspectMap);
+            Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
+                    .withConfiguration(getTargetConfiguration())
+                    .addAspects(aspects)
+                    .addAspectConfigurations(twoAspectMap)
+                    .build();
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.hasExplicitConfiguration()).isTrue();
@@ -148,11 +154,11 @@ public class DependencyTest extends AnalysisTestCase {
   public void withConfiguredAspects_AllowsEmptyAspectMap() throws Exception {
     update();
     Dependency dep =
-        Dependency.withConfiguredAspects(
-            Label.parseAbsolute("//a", ImmutableMap.of()),
-            getTargetConfiguration(),
-            AspectCollection.EMPTY,
-            ImmutableMap.<AspectDescriptor, BuildConfiguration>of());
+            Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
+                    .withConfiguration(getTargetConfiguration())
+                    .addAspects(AspectCollection.EMPTY)
+                    .addAspectConfigurations(ImmutableMap.<AspectDescriptor, BuildConfiguration>of())
+                    .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
     assertThat(dep.getAspects().getAllAspects()).isEmpty();
   }
@@ -164,8 +170,10 @@ public class DependencyTest extends AnalysisTestCase {
     AspectCollection twoAspects = AspectCollection.createForTests(
         ImmutableSet.of(simpleAspect, attributeAspect));
     Dependency hostDep =
-        Dependency.withTransitionAndAspects(
-            Label.parseAbsolute("//a", ImmutableMap.of()), HostTransition.INSTANCE, twoAspects);
+            Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
+                    .withTransition(HostTransition.INSTANCE)
+                    .addAspects(twoAspects)
+                    .build();
 
     assertThat(hostDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(hostDep.hasExplicitConfiguration()).isFalse();
@@ -185,10 +193,10 @@ public class DependencyTest extends AnalysisTestCase {
   public void withTransitionAndAspects_AllowsEmptyAspectSet() throws Exception {
     update();
     Dependency dep =
-        Dependency.withTransitionAndAspects(
-            Label.parseAbsolute("//a", ImmutableMap.of()),
-            HostTransition.INSTANCE,
-            AspectCollection.EMPTY);
+            Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
+                    .withTransition(HostTransition.INSTANCE)
+                    .addAspects(AspectCollection.EMPTY)
+                    .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
     assertThat(dep.getAspects().getAllAspects()).isEmpty();
   }
@@ -240,129 +248,341 @@ public class DependencyTest extends AnalysisTestCase {
     new EqualsTester()
         .addEqualityGroup(
             // base set: //a, host configuration, normal aspect set
-            Dependency.withConfigurationAndAspects(a, host, twoAspects),
-            Dependency.withConfigurationAndAspects(aExplicit, host, twoAspects),
-            Dependency.withConfigurationAndAspects(a, host, inverseAspects),
-            Dependency.withConfigurationAndAspects(aExplicit, host, inverseAspects),
-            Dependency.withConfiguredAspects(a, host, twoAspects, twoAspectsHostMap),
-            Dependency.withConfiguredAspects(aExplicit, host, twoAspects, twoAspectsHostMap))
+                Dependency.builder(a)
+                        .withConfiguration(host)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(host)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(host)
+                        .addAspects(inverseAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(host)
+                        .addAspects(inverseAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(host)
+                        .addAspects(twoAspects)
+                        .addAspectConfigurations(twoAspectsHostMap)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(host)
+                        .addAspects(twoAspects)
+                        .addAspectConfigurations(twoAspectsHostMap)
+                        .build())
         .addEqualityGroup(
             // base set but with label //b
-            Dependency.withConfigurationAndAspects(b, host, twoAspects),
-            Dependency.withConfigurationAndAspects(b, host, inverseAspects),
-            Dependency.withConfiguredAspects(b, host, twoAspects, twoAspectsHostMap))
+                Dependency.builder(b)
+                        .withConfiguration(host)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(host)
+                        .addAspects(inverseAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(host)
+                        .addAspects(twoAspects)
+                        .addAspectConfigurations(twoAspectsHostMap)
+                        .build())
         .addEqualityGroup(
             // base set but with target configuration
-            Dependency.withConfigurationAndAspects(a, target, twoAspects),
-            Dependency.withConfigurationAndAspects(aExplicit, target, twoAspects),
-            Dependency.withConfigurationAndAspects(a, target, inverseAspects),
-            Dependency.withConfigurationAndAspects(aExplicit, target, inverseAspects),
-            Dependency.withConfiguredAspects(a, target, twoAspects, twoAspectsTargetMap),
-            Dependency.withConfiguredAspects(aExplicit, target, twoAspects, twoAspectsTargetMap))
+                Dependency.builder(a)
+                        .withConfiguration(target)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(target)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(target)
+                        .addAspects(inverseAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(target)
+                        .addAspects(inverseAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(target)
+                        .addAspects(twoAspects)
+                        .addAspectConfigurations(twoAspectsTargetMap)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(target)
+                        .addAspects(twoAspects)
+                        .addAspectConfigurations(twoAspectsTargetMap)
+                        .build())
         .addEqualityGroup(
             // base set but with null configuration
-            Dependency.withNullConfiguration(a),
-            Dependency.withNullConfiguration(aExplicit))
+                Dependency.builder(a)
+                        .withNullConfiguration()
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withNullConfiguration()
+                        .build())
         .addEqualityGroup(
             // base set but with different aspects
-            Dependency.withConfigurationAndAspects(a, host, differentAspects),
-            Dependency.withConfigurationAndAspects(aExplicit, host, differentAspects),
-            Dependency.withConfiguredAspects(
-                a, host, differentAspects, differentAspectsHostMap),
-            Dependency.withConfiguredAspects(
-                aExplicit, host, differentAspects, differentAspectsHostMap))
+                Dependency.builder(a)
+                        .withConfiguration(host)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(host)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(host)
+                        .addAspects(differentAspects)
+                        .addAspectConfigurations(differentAspectsHostMap)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(host)
+                        .addAspects(differentAspects)
+                        .addAspectConfigurations(differentAspectsHostMap)
+                        .build())
         .addEqualityGroup(
             // base set but with label //b and target configuration
-            Dependency.withConfigurationAndAspects(b, target, twoAspects),
-            Dependency.withConfigurationAndAspects(b, target, inverseAspects),
-            Dependency.withConfiguredAspects(b, target,
-                twoAspects, twoAspectsTargetMap))
+                Dependency.builder(b)
+                        .withConfiguration(target)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(target)
+                        .addAspects(inverseAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(target)
+                        .addAspects(twoAspects)
+                        .addAspectConfigurations(twoAspectsTargetMap)
+                        .build())
         .addEqualityGroup(
             // base set but with label //b and null configuration
-            Dependency.withNullConfiguration(b))
+                Dependency.builder(b)
+                        .withNullConfiguration()
+                        .build())
         .addEqualityGroup(
             // base set but with label //b and different aspects
-            Dependency.withConfigurationAndAspects(b, host, differentAspects),
-            Dependency.withConfiguredAspects(
-                b, host, differentAspects, differentAspectsHostMap))
+                Dependency.builder(b)
+                        .withConfiguration(host)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(host)
+                        .addAspects(differentAspects)
+                        .addAspectConfigurations(differentAspectsHostMap)
+                        .build())
         .addEqualityGroup(
             // base set but with target configuration and different aspects
-            Dependency.withConfigurationAndAspects(a, target, differentAspects),
-            Dependency.withConfigurationAndAspects(aExplicit, target, differentAspects),
-            Dependency.withConfiguredAspects(
-                a, target, differentAspects, differentAspectsTargetMap),
-            Dependency.withConfiguredAspects(
-                aExplicit, target, differentAspects, differentAspectsTargetMap))
+                Dependency.builder(a)
+                        .withConfiguration(target)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(target)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(target)
+                        .addAspects(differentAspects)
+                        .addAspectConfigurations(differentAspectsTargetMap)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(target)
+                        .addAspects(differentAspects)
+                        .addAspectConfigurations(differentAspectsTargetMap)
+                        .build())
         .addEqualityGroup(
             // inverse of base set: //b, target configuration, different aspects
-            Dependency.withConfigurationAndAspects(b, target, differentAspects),
-            Dependency.withConfiguredAspects(
-                b, target, differentAspects, differentAspectsTargetMap))
+                Dependency.builder(b)
+                        .withConfiguration(target)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(target)
+                        .addAspects(differentAspects)
+                        .addAspectConfigurations(differentAspectsTargetMap)
+                        .build())
         .addEqualityGroup(
             // base set but with no aspects
-            Dependency.withConfiguration(a, host),
-            Dependency.withConfiguration(aExplicit, host),
-            Dependency.withConfigurationAndAspects(a, host, noAspects),
-            Dependency.withConfigurationAndAspects(aExplicit, host, noAspects),
-            Dependency.withConfiguredAspects(a, host, noAspects, noAspectsMap),
-            Dependency.withConfiguredAspects(aExplicit, host, noAspects, noAspectsMap))
+                Dependency.builder(a)
+                        .withConfiguration(host)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(host)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(host)
+                        .addAspects(noAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(host)
+                        .addAspects(noAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(host)
+                        .addAspects(noAspects)
+                        .addAspectConfigurations(noAspectsMap)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(host)
+                        .addAspects(noAspects)
+                        .addAspectConfigurations(noAspectsMap)
+                        .build())
         .addEqualityGroup(
             // base set but with label //b and no aspects
-            Dependency.withConfiguration(b, host),
-            Dependency.withConfigurationAndAspects(b, host, noAspects),
-            Dependency.withConfiguredAspects(b, host, noAspects, noAspectsMap))
+                Dependency.builder(b)
+                        .withConfiguration(host)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(host)
+                        .addAspects(noAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(host)
+                        .addAspects(noAspects)
+                        .addAspectConfigurations(noAspectsMap)
+                        .build())
         .addEqualityGroup(
             // base set but with target configuration and no aspects
-            Dependency.withConfiguration(a, target),
-            Dependency.withConfiguration(aExplicit, target),
-            Dependency.withConfigurationAndAspects(a, target, noAspects),
-            Dependency.withConfigurationAndAspects(aExplicit, target, noAspects),
-            Dependency.withConfiguredAspects(a, target, noAspects, noAspectsMap),
-            Dependency.withConfiguredAspects(aExplicit, target, noAspects, noAspectsMap))
+                Dependency.builder(a)
+                        .withConfiguration(target)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(target)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(target)
+                        .addAspects(noAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(target)
+                        .addAspects(noAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withConfiguration(target)
+                        .addAspects(noAspects)
+                        .addAspectConfigurations(noAspectsMap)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withConfiguration(target)
+                        .addAspects(noAspects)
+                        .addAspectConfigurations(noAspectsMap)
+                        .build())
         .addEqualityGroup(
             // inverse of base set: //b, target configuration, no aspects
-            Dependency.withConfiguration(b, target),
-            Dependency.withConfigurationAndAspects(b, target, noAspects),
-            Dependency.withConfiguredAspects(b, target, noAspects, noAspectsMap))
+                Dependency.builder(b)
+                        .withConfiguration(target)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(target)
+                        .addAspects(noAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withConfiguration(target)
+                        .addAspects(noAspects)
+                        .addAspectConfigurations(noAspectsMap)
+                        .build())
         .addEqualityGroup(
             // base set but with transition HOST
-            Dependency.withTransitionAndAspects(a, HostTransition.INSTANCE, twoAspects),
-            Dependency.withTransitionAndAspects(
-                aExplicit, HostTransition.INSTANCE, twoAspects),
-            Dependency.withTransitionAndAspects(a, HostTransition.INSTANCE, inverseAspects),
-            Dependency.withTransitionAndAspects(
-                aExplicit, HostTransition.INSTANCE, inverseAspects))
+                Dependency.builder(a)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(inverseAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(inverseAspects)
+                        .build())
         .addEqualityGroup(
             // base set but with transition HOST and different aspects
-            Dependency.withTransitionAndAspects(a, HostTransition.INSTANCE, differentAspects),
-            Dependency.withTransitionAndAspects(
-                aExplicit, HostTransition.INSTANCE, differentAspects))
+                Dependency.builder(a)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(differentAspects)
+                        .build())
         .addEqualityGroup(
             // base set but with transition HOST and label //b
-            Dependency.withTransitionAndAspects(b, HostTransition.INSTANCE, twoAspects),
-            Dependency.withTransitionAndAspects(b, HostTransition.INSTANCE, inverseAspects))
+                Dependency.builder(b)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(inverseAspects)
+                        .build())
         .addEqualityGroup(
             // inverse of base set: transition HOST, label //b, different aspects
-            Dependency.withTransitionAndAspects(b, HostTransition.INSTANCE, differentAspects),
-            Dependency.withTransitionAndAspects(b, HostTransition.INSTANCE, differentAspects))
+                Dependency.builder(b)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withTransition(HostTransition.INSTANCE)
+                        .addAspects(differentAspects)
+                        .build())
         .addEqualityGroup(
             // base set but with transition NONE
-            Dependency.withTransitionAndAspects(a, NoTransition.INSTANCE, twoAspects),
-            Dependency.withTransitionAndAspects(aExplicit, NoTransition.INSTANCE, twoAspects),
-            Dependency.withTransitionAndAspects(a, NoTransition.INSTANCE, inverseAspects),
-            Dependency.withTransitionAndAspects(aExplicit, NoTransition.INSTANCE, inverseAspects))
+                Dependency.builder(a)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(a)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(inverseAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(inverseAspects)
+                        .build())
         .addEqualityGroup(
             // base set but with transition NONE and different aspects
-            Dependency.withTransitionAndAspects(a, NoTransition.INSTANCE, differentAspects),
-            Dependency.withTransitionAndAspects(aExplicit, NoTransition.INSTANCE, differentAspects))
+                Dependency.builder(a)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(aExplicit)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(differentAspects)
+                        .build())
         .addEqualityGroup(
             // base set but with transition NONE and label //b
-            Dependency.withTransitionAndAspects(b, NoTransition.INSTANCE, twoAspects),
-            Dependency.withTransitionAndAspects(b, NoTransition.INSTANCE, inverseAspects))
+                Dependency.builder(b)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(twoAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(inverseAspects)
+                        .build())
         .addEqualityGroup(
             // inverse of base set: transition NONE, label //b, different aspects
-            Dependency.withTransitionAndAspects(b, NoTransition.INSTANCE, differentAspects),
-            Dependency.withTransitionAndAspects(b, NoTransition.INSTANCE, differentAspects))
+                Dependency.builder(b)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(differentAspects)
+                        .build(),
+                Dependency.builder(b)
+                        .withTransition(NoTransition.INSTANCE)
+                        .addAspects(differentAspects)
+                        .build())
         .testEquals();
   }
 }

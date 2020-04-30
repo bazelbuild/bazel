@@ -714,7 +714,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
     for (Label configurabilityLabel : configLabels) {
       Dependency configurabilityDependency =
-          Dependency.withConfiguration(configurabilityLabel, ctgValue.getConfiguration());
+              Dependency.builder(configurabilityLabel)
+                      .withConfiguration(ctgValue.getConfiguration())
+                      .build();
       depsBuilder.add(configurabilityDependency);
     }
 

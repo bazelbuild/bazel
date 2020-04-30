@@ -361,10 +361,14 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 getConfiguration(dep1).getCpu(), getConfiguration(dep2).getCpu()))
         .containsExactly("armeabi-v7a", "k8");
     // We don't care what order split deps are listed, but it must be deterministic.
-    assertThat(
+      assertThat(
             ConfigurationResolver.SPLIT_DEP_ORDERING.compare(
-                Dependency.withConfiguration(dep1.getLabel(), getConfiguration(dep1)),
-                Dependency.withConfiguration(dep2.getLabel(), getConfiguration(dep2))))
+                    Dependency.builder(dep1.getLabel())
+                            .withConfiguration(getConfiguration(dep1))
+                            .build(),
+                    Dependency.builder(dep2.getLabel())
+                            .withConfiguration(getConfiguration(dep2))
+                            .build()))
         .isLessThan(0);
   }
 
