@@ -11,15 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.syntax.Depset.ElementType;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkIterable;
+import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -438,7 +443,7 @@ public final class DepsetTest extends EvaluationTestCase {
             "    str(x)",
             "  return None")
         .testEval("create_depset(1000)", "None")
-        .testIfErrorContains("depset exceeded maximum depth 2000", "create_depset(3000)");
+        .testIfErrorContains("depset exceeded maximum depth", "create_depset(3000)");
   }
 
   @Test
@@ -473,5 +478,67 @@ public final class DepsetTest extends EvaluationTestCase {
   public void testSetComparison() throws Exception {
     new Scenario()
         .testIfExactError("Cannot compare depset with depset", "depset([1, 2]) < depset([3, 4])");
+  }
+
+  @Test
+  public void testDepsetItemsKeywordAndPositional() throws Exception {
+    new Scenario("--incompatible_disable_depset_items=false")
+        .testIfErrorContains(
+            "parameter 'items' cannot be specified both positionally and by keyword",
+            "depset([0, 1], 'default', items=[0,1])");
+  }
+
+  @Test
+  public void testDepsetDirectInvalidType() throws Exception {
+    new Scenario()
+        .testIfErrorContains("for direct, got string, want sequence", "depset(direct='hello')");
+  }
+
+  @Test
+  public void testDisableDepsetItems() throws Exception {
+    new Scenario("--incompatible_disable_depset_items")
+        .setUp("x = depset([0])", "y = depset(direct = [1])")
+        .testEval("depset([2, 3], transitive = [x, y]).to_list()", "[0, 1, 2, 3]")
+        .testIfErrorContains(
+            "parameter 'direct' cannot be specified both positionally and by keyword",
+            "depset([0, 1], 'default', direct=[0,1])")
+        .testIfErrorContains(
+            "in call to depset(), parameter 'items' is deprecated and will be removed soon. "
+                + "It may be temporarily re-enabled by setting "
+                + "--incompatible_disable_depset_inputs=false",
+            "depset(items=[0,1])");
+  }
+
+  @Test
+  public void testDepsetDepthLimit() throws Exception {
+    NestedSet.setApplicationDepthLimit(2000);
+    new Scenario()
+        .setUp(
+            "def create_depset(depth):",
+            "  x = depset([0])",
+            "  for i in range(1, depth):",
+            "    x = depset([i], transitive = [x])",
+            "  return x",
+            "too_deep_depset = create_depset(3000)",
+            "fine_depset = create_depset(900)")
+        .testEval("fine_depset.to_list()[0]", "0")
+        .testEval("str(fine_depset)[0:6]", "'depset'")
+        .testIfErrorContains("depset exceeded maximum depth", "print(too_deep_depset)")
+        .testIfErrorContains("depset exceeded maximum depth", "str(too_deep_depset)")
+        .testIfErrorContains("depset exceeded maximum depth", "too_deep_depset.to_list()");
+  }
+
+  @Test
+  public void testDepsetDebugDepth() throws Exception {
+    NestedSet.setApplicationDepthLimit(2000);
+    new Scenario("--debug_depset_depth=true")
+        .setUp(
+            "def create_depset(depth):",
+            "  x = depset([0])",
+            "  for i in range(1, depth):",
+            "    x = depset([i], transitive = [x])",
+            "  return x")
+        .testEval("str(create_depset(900))[0:6]", "'depset'")
+        .testIfErrorContains("depset exceeded maximum depth", "create_depset(3000)");
   }
 }

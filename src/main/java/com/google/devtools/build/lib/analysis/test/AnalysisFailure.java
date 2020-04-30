@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Printer;
 
 /**

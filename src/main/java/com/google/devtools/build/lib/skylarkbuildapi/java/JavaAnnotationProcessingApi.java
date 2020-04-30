@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 

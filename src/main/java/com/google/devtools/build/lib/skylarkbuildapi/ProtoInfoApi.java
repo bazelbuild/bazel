@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 
 /** Info object propagating information about protocol buffer sources. */
 @SkylarkModule(

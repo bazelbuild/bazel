@@ -18,7 +18,6 @@ import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
@@ -299,15 +298,17 @@ class MethodLibrary {
   public String str(Object x) throws EvalException {
     try {
       return Starlark.str(x);
-    } catch (NestedSetDepthException exception) {
-      // TODO(adonovan): move into NestedSetDepthException so it becomes throw e.toEvalException().
-      throw Starlark.errorf(
-          "depset exceeded maximum depth %d"
-              + ". This was only discovered when attempting to flatten the depset for str(), as "
-              + "the size of depsets is unknown until flattening. "
-              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-              + "solutions.",
-          exception.getDepthLimit());
+    } catch (RuntimeException ex) {
+      // TODO(adonovan): get rid of this somehow.
+      if (ex.getClass().getSimpleName().equals("NestedSetDepthException")) {
+        throw Starlark.errorf(
+            "depset exceeded maximum depth"
+                + ". This was only discovered when attempting to flatten the depset for str(), as "
+                + "the size of depsets is unknown until flattening. "
+                + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+                + "solutions.");
+      }
+      throw ex;
     }
   }
 
@@ -750,13 +751,16 @@ class MethodLibrary {
       p.append(separator);
       try {
         p.debugPrint(x);
-      } catch (NestedSetDepthException exception) {
-        throw Starlark.errorf(
-            "depset exceeded maximum depth %d. This was only discovered when attempting to flatten"
-                + " the depset for print(), as the size of depsets is unknown until flattening."
-                + " See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-                + "solutions.",
-            exception.getDepthLimit());
+      } catch (RuntimeException ex) {
+        // TODO(adonovan): get rid of this somehow.
+        if (ex.getClass().getSimpleName().equals("NestedSetDepthException")) {
+          throw Starlark.errorf(
+              "depset exceeded maximum depth. This was only discovered when attempting to"
+                  + " flatten the depset for print(), as the size of depsets is unknown until"
+                  + " flattening. See https://github.com/bazelbuild/bazel/issues/9180 for details"
+                  + " and possible solutions.");
+        }
+        throw ex;
       }
       separator = sep;
     }

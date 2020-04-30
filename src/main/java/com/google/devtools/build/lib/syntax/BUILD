@@ -92,7 +92,6 @@ java_library(
         "CpuProfiler.java",
         "Debug.java",
         "Debugger.java",
-        "Depset.java",
         "Dict.java",
         "Eval.java",
         "EvalException.java",
@@ -128,7 +127,6 @@ java_library(
     data = [":libcpu_profiler.so"],  # will be loaded dynamically
     deps = [
         ":frontend",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

@@ -18,10 +18,10 @@ import static com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon.NOT_SE
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.vfs.PathFragment;

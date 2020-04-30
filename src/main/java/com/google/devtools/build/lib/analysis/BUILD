@@ -742,7 +742,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
     ],
 )
 
@@ -2051,6 +2050,7 @@ java_library(
     srcs = ["test/AnalysisFailure.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
     ],
@@ -2064,7 +2064,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
     ],
 )
 

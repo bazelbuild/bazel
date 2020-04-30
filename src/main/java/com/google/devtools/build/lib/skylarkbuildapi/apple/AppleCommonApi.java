@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInf
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;

@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkCommandLineApi;
-import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * Fake implementation of {@link StarlarkCommandLineApi}.

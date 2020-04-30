@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions.
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkAttrModule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
@@ -50,7 +51,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;

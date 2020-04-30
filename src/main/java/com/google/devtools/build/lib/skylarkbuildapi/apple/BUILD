@@ -26,6 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         # TODO(b/80307387): Remove dependency on Depset.
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
         "//third_party:jsr305",
