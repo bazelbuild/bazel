@@ -76,6 +76,7 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android/desugar/nest:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/covariantreturn:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/typeannotation:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/typehierarchy:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/corelibadapter:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/strconcat:srcs",
