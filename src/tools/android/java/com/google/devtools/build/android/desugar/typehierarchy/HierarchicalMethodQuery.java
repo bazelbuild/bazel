@@ -37,6 +37,10 @@ public abstract class HierarchicalMethodQuery {
     return new AutoValue_HierarchicalMethodQuery(method, typeHierarchy);
   }
 
+  public final boolean isPresent() {
+    return typeHierarchy().getMethods(method().owner()).contains(method().headlessMethod());
+  }
+
   @Memoized
   @Nullable // only possible if typeHierarchy is not on type-resolution-complete mode.
   MethodDeclInfo methodMetaData() {

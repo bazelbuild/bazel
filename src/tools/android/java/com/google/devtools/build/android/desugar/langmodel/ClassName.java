@@ -319,6 +319,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
 
     return hasAnyPackagePrefix(
         "android/testing/",
+        "android/app/Activity",
         "android/accessibilityservice/AccessibilityService",
         "android/app/admin/FreezePeriod",
         "android/app/role/RoleManager",
@@ -337,7 +338,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
   public final boolean isInPackageEligibleForShadowedOverridableAPIs() {
     // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
     // rollouts are complete.
-    return hasAnyPackagePrefix("android/testing/");
+    return hasAnyPackagePrefix("android/testing/", "android/app/Activity");
   }
 
   public final boolean isInPackageEligibleForHoldingOverridingBridges() {

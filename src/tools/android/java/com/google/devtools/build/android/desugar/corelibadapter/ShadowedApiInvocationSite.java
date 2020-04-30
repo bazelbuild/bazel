@@ -25,16 +25,30 @@ import static com.google.devtools.build.android.desugar.langmodel.ClassName.IN_P
 import static com.google.devtools.build.android.desugar.langmodel.ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.android.desugar.corelibadapter.InvocationSiteTransformationRecord.InvocationSiteTransformationRecordBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.DesugarClassAttribute;
+import com.google.devtools.build.android.desugar.langmodel.DesugarClassInfo;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
+import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import com.google.devtools.build.android.desugar.langmodel.SwitchableTypeMapper;
+import com.google.devtools.build.android.desugar.langmodel.SyntheticMethod;
+import com.google.devtools.build.android.desugar.langmodel.SyntheticMethod.SyntheticReason;
+import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchy;
+import java.util.Set;
+import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.MethodRemapper;
+import org.objectweb.asm.tree.MethodNode;
 
 /**
  * Desugars the bytecode instructions that interacts with desugar-shadowed APIs, which is a method
@@ -42,30 +56,159 @@ import org.objectweb.asm.commons.MethodRemapper;
  */
 public final class ShadowedApiInvocationSite extends ClassVisitor {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /** An evolving record that collects the adapter method requests from invocation sites. */
   private final InvocationSiteTransformationRecordBuilder invocationSiteRecord;
 
+  private final TypeHierarchy typeHierarchy;
+  private final DesugarClassInfo.Builder desugarClassInfoBuilder;
+  private final Set<MethodKey> overridingBridgeMethods;
+
+  private int classAccess;
+  private ClassName className;
+
+  private static final SwitchableTypeMapper<InvocationSiteTransformationReason>
+      immutableLabelApplicator =
+          new SwitchableTypeMapper<>(IN_PROCESS_LABEL_STRIPPER.andThen(IMMUTABLE_LABEL_ATTACHER));
+
   public ShadowedApiInvocationSite(
-      ClassVisitor classVisitor, InvocationSiteTransformationRecordBuilder invocationSiteRecord) {
+      ClassVisitor classVisitor,
+      InvocationSiteTransformationRecordBuilder invocationSiteRecord,
+      TypeHierarchy typeHierarchy) {
     super(Opcodes.ASM7, classVisitor);
     this.invocationSiteRecord = invocationSiteRecord;
+    this.typeHierarchy = typeHierarchy;
+    this.desugarClassInfoBuilder = DesugarClassInfo.newBuilder();
+    this.overridingBridgeMethods = Sets.newHashSet();
+  }
+
+  @Override
+  public void visit(
+      int version,
+      int access,
+      String name,
+      String signature,
+      String superName,
+      String[] interfaces) {
+    this.classAccess = access;
+    this.className = ClassName.create(name);
+    super.visit(version, access, name, signature, superName, interfaces);
+  }
+
+  @Override
+  public void visitAttribute(Attribute attribute) {
+    if (attribute instanceof DesugarClassAttribute) {
+      visitDesugarClassAttribute(((DesugarClassAttribute) attribute).getDesugarClassInfo());
+    }
+    super.visitAttribute(attribute);
+  }
+
+  private void visitDesugarClassAttribute(DesugarClassInfo classAttribute) {
+    classAttribute.getSyntheticMethodList().stream()
+        .filter(method -> SyntheticReason.OVERRIDING_BRIDGE.equals(method.getReason()))
+        .map(SyntheticMethod::getMethod)
+        .map(MethodKey::from)
+        .forEach(overridingBridgeMethods::add);
   }
 
   @Override
   public MethodVisitor visitMethod(
       int access, String name, String descriptor, String signature, String[] exceptions) {
+    MethodDeclInfo verbatimMethod =
+        MethodDeclInfo.create(
+                MethodKey.create(className, name, descriptor),
+                classAccess,
+                access,
+                signature,
+                exceptions)
+            .acceptTypeMapper(IN_PROCESS_LABEL_STRIPPER);
+    if (overridingBridgeMethods.contains(verbatimMethod.methodKey())) {
+      MethodVisitor bridgeMethodVisitor =
+          verbatimMethod.acceptTypeMapper(IMMUTABLE_LABEL_ATTACHER).accept(cv);
+      return new MethodRemapper(
+          bridgeMethodVisitor, IN_PROCESS_LABEL_STRIPPER.andThen(IMMUTABLE_LABEL_ATTACHER));
+    }
+    if (ShadowedApiAdapterHelper.shouldEmitApiOverridingBridge(verbatimMethod, typeHierarchy)) {
+      logger.atInfo().log("----> %s", verbatimMethod);
+      desugarClassInfoBuilder.addSyntheticMethod(
+          SyntheticMethod.newBuilder()
+              .setMethod(verbatimMethod.methodKey().toMethodIdProto())
+              .setReason(SyntheticReason.OVERRIDING_BRIDGE));
+
+      MethodNode bridgeMethodNode = new MethodNode();
+      bridgeMethodNode.visitCode();
+      int slotOffset = 0;
+      bridgeMethodNode.visitVarInsn(Opcodes.ALOAD, slotOffset++);
+      for (Type argType : verbatimMethod.argumentTypes()) {
+        ClassName argTypeName = ClassName.create(argType);
+        bridgeMethodNode.visitVarInsn(argType.getOpcode(Opcodes.ILOAD), slotOffset);
+        if (argTypeName.isDesugarShadowedType()) {
+          MethodInvocationSite conversion =
+              ShadowedApiAdapterHelper.shadowedToMirroredTypeConversionSite(argTypeName);
+          conversion.accept(bridgeMethodNode);
+        }
+        slotOffset += argType.getSize();
+      }
+
+      // revisit
+      MethodInvocationSite shadowedInvocation =
+          MethodInvocationSite.builder()
+              .setInvocationKind(MemberUseKind.INVOKEVIRTUAL)
+              .setMethod(verbatimMethod.methodKey())
+              .setIsInterface(false)
+              .build();
+      MethodInvocationSite mirroredInvocationSite =
+          shadowedInvocation.acceptTypeMapper(SHADOWED_TO_MIRRORED_TYPE_MAPPER);
+      mirroredInvocationSite.accept(bridgeMethodNode);
+
+      // TODO(deltazulu): Refine forward / backward conversions.
+      invocationSiteRecord.addInlineConversion(shadowedInvocation);
+
+      ClassName adapterReturnTypeName = verbatimMethod.returnTypeName();
+      if (adapterReturnTypeName.isDesugarShadowedType()) {
+        MethodInvocationSite conversion =
+            ShadowedApiAdapterHelper.mirroredToShadowedTypeConversionSite(
+                adapterReturnTypeName.shadowedToMirrored());
+        conversion.accept(bridgeMethodNode);
+      }
+
+      bridgeMethodNode.visitInsn(verbatimMethod.returnType().getOpcode(Opcodes.IRETURN));
+
+      bridgeMethodNode.visitMaxs(slotOffset, slotOffset);
+      bridgeMethodNode.visitEnd();
+
+      MethodVisitor bridgeMethodVisitor =
+          verbatimMethod.acceptTypeMapper(IMMUTABLE_LABEL_ATTACHER).accept(cv);
+
+      MethodRemapper methodRemapper =
+          new MethodRemapper(
+              bridgeMethodVisitor, IN_PROCESS_LABEL_STRIPPER.andThen(IMMUTABLE_LABEL_ATTACHER));
+      bridgeMethodNode.accept(methodRemapper);
+    }
     MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
     return mv == null
         ? null
-        : ShadowedApiInvocationSiteMethodVisitor.create(api, mv, invocationSiteRecord);
+        : new ShadowedApiInvocationSiteMethodVisitor(api, mv, invocationSiteRecord, typeHierarchy);
+  }
+
+  @Override
+  public void visitEnd() {
+    DesugarClassInfo desugarClassInfo = desugarClassInfoBuilder.build();
+    if (desugarClassInfo.getSyntheticMethodCount() > 0) {
+      super.visitAttribute(new DesugarClassAttribute(desugarClassInfo));
+    }
+    super.visitEnd();
   }
 
   /** Desugars instructions for the enclosing class visitor. */
   private static class ShadowedApiInvocationSiteMethodVisitor extends MethodRemapper {
 
-    private final SwitchableTypeMapper<InvocationSiteTransformationReason> immutableLabelApplicator;
+    private static final String BEGIN_TAG = "BEGIN:";
+    private static final String END_TAG = "END:";
 
     private final InvocationSiteTransformationRecordBuilder invocationSiteRecord;
+    private final TypeHierarchy typeHierarchy;
 
     /**
      * The transformation-in-process invocation site while visiting. The value can be {@code null}
@@ -77,31 +220,30 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
         int api,
         MethodVisitor methodVisitor,
         InvocationSiteTransformationRecordBuilder invocationSiteRecord,
-        SwitchableTypeMapper<InvocationSiteTransformationReason> immutableLabelApplicator) {
+        TypeHierarchy typeHierarchy) {
       super(api, methodVisitor, immutableLabelApplicator);
       this.invocationSiteRecord = invocationSiteRecord;
-      this.immutableLabelApplicator = immutableLabelApplicator;
-    }
-
-    static ShadowedApiInvocationSiteMethodVisitor create(
-        int api,
-        MethodVisitor methodVisitor,
-        InvocationSiteTransformationRecordBuilder invocationSiteRecord) {
-      return new ShadowedApiInvocationSiteMethodVisitor(
-          api,
-          methodVisitor,
-          invocationSiteRecord,
-          new SwitchableTypeMapper<>(IN_PROCESS_LABEL_STRIPPER.andThen(IMMUTABLE_LABEL_ATTACHER)));
+      this.typeHierarchy = typeHierarchy;
     }
 
     @Override
     public void visitLdcInsn(Object value) {
-      if (value instanceof String
-          && ((String) value).startsWith(INLINE_PARAM_TYPE_CONVERSION.toString())) {
+      if (value instanceof String) {
         String paramTypeConversionTag = (String) value;
-        checkState(inProcessTransformation == null);
-        inProcessTransformation = InvocationSiteTransformationReason.decode(paramTypeConversionTag);
-        immutableLabelApplicator.turnOn(inProcessTransformation);
+        if (paramTypeConversionTag.startsWith(BEGIN_TAG + INLINE_PARAM_TYPE_CONVERSION)) {
+          checkState(inProcessTransformation == null);
+          inProcessTransformation =
+              InvocationSiteTransformationReason.decode(
+                  paramTypeConversionTag.substring(BEGIN_TAG.length()));
+          immutableLabelApplicator.turnOn(inProcessTransformation);
+        } else if (paramTypeConversionTag.startsWith(END_TAG + INLINE_PARAM_TYPE_CONVERSION)) {
+          checkState(inProcessTransformation != null);
+          InvocationSiteTransformationReason reasonToClose =
+              InvocationSiteTransformationReason.decode(
+                  paramTypeConversionTag.substring(END_TAG.length()));
+          immutableLabelApplicator.turnOff(reasonToClose);
+          inProcessTransformation = null;
+        }
       }
       super.visitLdcInsn(value);
     }
@@ -115,14 +257,10 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
 
       if (inProcessTransformation != null) {
         super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-        if (verbatimInvocationSite.method().equals(inProcessTransformation.method())) {
-          immutableLabelApplicator.turnOff(inProcessTransformation);
-          inProcessTransformation = null;
-        }
         return;
       }
 
-      if (shouldUseInlineTypeConversion(verbatimInvocationSite)) {
+      if (shouldUseInlineTypeConversion(verbatimInvocationSite, typeHierarchy)) {
         InvocationSiteTransformationReason transformationReason =
             InvocationSiteTransformationReason.create(
                 INLINE_PARAM_TYPE_CONVERSION, verbatimInvocationSite.method());
@@ -131,9 +269,19 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
             ImmutableList.of(ShadowedApiAdapterHelper::anyMirroredToBuiltinTypeConversion),
             SHADOWED_TO_MIRRORED_TYPE_MAPPER.map(verbatimInvocationSite.argumentTypeNames()),
             verbatimInvocationSite.argumentTypeNames(),
-            /* beginningMarker= */ transformationReason.encode());
-        invocationSiteRecord.addInlineConversion(verbatimInvocationSite);
+            /* beginningMarker= */ BEGIN_TAG + transformationReason.encode());
+
         verbatimInvocationSite.accept(this);
+
+        ClassName verbatimReturnTypeName = verbatimInvocationSite.returnTypeName();
+        if (verbatimReturnTypeName.isDesugarShadowedType()) {
+          MethodInvocationSite conversion =
+              ShadowedApiAdapterHelper.shadowedToMirroredTypeConversionSite(verbatimReturnTypeName);
+          conversion.accept(this);
+        }
+        visitLdcInsn(END_TAG + transformationReason.encode());
+        visitInsn(Opcodes.POP);
+        invocationSiteRecord.addInlineConversion(verbatimInvocationSite);
         return;
       }
 

@@ -26,7 +26,10 @@ import java.util.Map;
 @AutoValue
 public abstract class MapBasedClassFileProvider implements ClassFileBatchProvider {
 
-  /** An information tag for this class file provider. */
+  /**
+   * An informational tag for this class file provider. No production logic is expected to depend on
+   * the tag value.
+   */
   abstract String tag();
 
   abstract ImmutableMap<ClassName, FileContentProvider<InputStream>> fileContents();
