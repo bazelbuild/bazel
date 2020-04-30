@@ -11,8 +11,8 @@ java_library(
     srcs = glob(["**/*.java"]),
     resources = [":template_files"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -64,7 +64,7 @@ java_binary(
     ],
     deps = [
         ":docgen_javalib",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/common/options",
     ],
 )

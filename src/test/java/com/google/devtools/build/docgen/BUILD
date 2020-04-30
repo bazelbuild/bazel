@@ -49,7 +49,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/test/java/com/google/devtools/build/lib/skylark/util",
@@ -73,8 +72,8 @@ java_library(
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",
         "//src/main/java/com/google/devtools/build/lib/packages:type",
@@ -95,8 +94,10 @@ java_library(
     testonly = 1,
     srcs = glob(["testutil/*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",
     ],

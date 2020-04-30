@@ -19,10 +19,11 @@ java_test(
         "BazelPackageLoaderTest.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:AbstractPackageLoader",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoader",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageLoader",
