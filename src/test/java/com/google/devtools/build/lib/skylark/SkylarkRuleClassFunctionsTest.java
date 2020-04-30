@@ -1720,7 +1720,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void providerWithDuplicateFieldsError() throws Exception {
     ev.setFailFast(false);
-    evalAndExport("p = provider(fields = ['a', 'b'])", "p(a = 1, b = 2, b = 3)");
+    evalAndExport("p = provider(fields = ['a', 'b'])", "p(a = 1, b = 2, **dict(b = 3))");
     MoreAsserts.assertContainsEvent(
         ev.getEventCollector(),
         "got multiple values for parameter b in call to instantiate provider p");

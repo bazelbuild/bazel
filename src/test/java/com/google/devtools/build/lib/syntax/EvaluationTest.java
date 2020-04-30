@@ -881,10 +881,7 @@ public final class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysDuplicateKeyArgs() throws Exception {
-    // TODO(adonovan): when the duplication is literal, this should be caught by a static check.
-    new Scenario()
-        .testIfExactError(
-            "int() got multiple values for argument 'base'", "int('1', base=10, base=16)");
+    // f(a=1, a=2) is caught statically by the resolver.
     new Scenario()
         .testIfExactError(
             "int() got multiple values for argument 'base'", "int('1', base=10, **dict(base=16))");

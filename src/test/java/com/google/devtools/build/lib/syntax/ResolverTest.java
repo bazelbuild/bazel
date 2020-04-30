@@ -297,31 +297,6 @@ public class ResolverTest {
   }
 
   @Test
-  public void testPositionalAfterStarArg() throws Exception {
-    assertInvalid(
-        "positional argument is misplaced (positional arguments come first)", //
-        "def fct(*args, **kwargs): pass",
-        "fct(1, *[2], 3)");
-  }
-
-  @Test
-  public void testTwoStarArgs() throws Exception {
-    assertInvalid(
-        "*arg argument is misplaced", //
-        "def fct(*args, **kwargs):",
-        "  pass",
-        "fct(1, 2, 3, *[], *[])");
-  }
-
-  @Test
-  public void testKeywordArgAfterStarArg() throws Exception {
-    assertInvalid(
-        "keyword argument is misplaced (keyword arguments must be before any *arg or **kwarg)", //
-        "def fct(*args, **kwargs): pass",
-        "fct(1, *[2], a=3)");
-  }
-
-  @Test
   public void testTopLevelForFails() throws Exception {
     assertInvalid(
         "for loops are not allowed at the top level", //
@@ -387,5 +362,48 @@ public class ResolverTest {
     assertInvalid("multiple ** parameters not allowed", "def func(**kwargs, **kwargs): pass");
 
     assertValid("def f(a, b, c=1, d=2, *args, e, f=3, g, **kwargs): pass");
+  }
+
+  @Test
+  public void testArgumentOrdering() throws Exception {
+    // positionals go before keywords
+    assertInvalid(
+        "positional argument may not follow keyword", //
+        "dict(a=1, 0)");
+
+    // keywords must be unique
+    assertInvalid(
+        "duplicate keyword argument: a", //
+        "dict(a=1, a=2)");
+
+    // no arguments after **kwargs
+    assertInvalid(
+        "positional argument may not follow **kwargs", //
+        "dict(**0, 0)");
+    assertInvalid(
+        "keyword argument a may not follow **kwargs", //
+        "dict(**0, a=1)");
+    assertInvalid(
+        "*args may not follow **kwargs", //
+        "dict(**0, *0)");
+    assertInvalid(
+        "multiple **kwargs not allowed", //
+        "dict(**0, **0)");
+    assertInvalid(
+        "*args may not follow **kwargs", // also, a parse error
+        "dict(**0, *)");
+
+    // bad arguments after *args
+    assertInvalid(
+        "positional argument may not follow *args", //
+        "dict(*0, 1)");
+    assertInvalid(
+        "keyword argument a may not follow *args", //
+        "dict(*0, a=1)"); // Python (even v2) allows this
+    assertInvalid(
+        "multiple *args not allowed", //
+        "dict(*0, *0)");
+
+    assertValid("dict(0, a=0, *0, **0)");
   }
 }

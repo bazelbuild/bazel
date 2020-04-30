@@ -1221,20 +1221,6 @@ public final class ParserTest {
   }
 
   @Test
-  public void testKwargBeforePositionalArg() throws Exception {
-    setFailFast(false);
-    parseFile("f(**a, b)");
-    assertContainsError("unexpected tokens after **kwargs argument");
-  }
-
-  @Test
-  public void testDuplicateKwarg() throws Exception {
-    setFailFast(false);
-    parseFile("f(**a, **b)");
-    assertContainsError("unexpected tokens after **kwargs argument");
-  }
-
-  @Test
   public void testElseWithoutIf() throws Exception {
     setFailFast(false);
     parseFile(
@@ -1276,29 +1262,6 @@ public final class ParserTest {
     assertContainsError("keyword 'class' not supported");
   }
 
-  @Test
-  public void testArgumentAfterKwargs() throws Exception {
-    setFailFast(false);
-    parseFile(
-        "f(",
-        "    1,",
-        "    *[2],",
-        "    *[3],", // error on this line
-        ")\n");
-    assertContainsError(":4:5: *arg argument is misplaced");
-  }
-
-  @Test
-  public void testPositionalArgAfterKeywordArg() throws Exception {
-    setFailFast(false);
-    parseFile(
-        "f(",
-        "    2,",
-        "    a = 4,",
-        "    3,", // error on this line
-        ")\n");
-    assertContainsError(":4:5: positional argument is misplaced (positional arguments come first)");
-  }
 
   @Test
   public void testStringsAreDeduped() throws Exception {

@@ -457,85 +457,20 @@ final class Parser {
   //
   // arg_list = ( (arg ',')* arg ','? )?
   private ImmutableList<Argument> parseArguments() {
-    boolean hasArgs = false;
-    boolean hasStarStar = false;
+    boolean seenArg = false;
     ImmutableList.Builder<Argument> list = ImmutableList.builder();
-
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
-      if (hasArgs) {
+      if (seenArg) {
         expect(TokenKind.COMMA);
-        // The list may end with a comma.
+        // If nonempty, the list may end with a comma.
         if (token.kind == TokenKind.RPAREN) {
           break;
         }
       }
-      if (hasStarStar) {
-        // TODO(adonovan): move this to validation pass too.
-        reportError(token.start, "unexpected tokens after **kwargs argument");
-        break;
-      }
-      Argument arg = parseArgument();
-      hasArgs = true;
-      if (arg instanceof Argument.StarStar) { // TODO(adonovan): not Star too? verify.
-        hasStarStar = true;
-      }
-      list.add(arg);
+      list.add(parseArgument());
+      seenArg = true;
     }
-    ImmutableList<Argument> args = list.build();
-    validateArguments(args); // TODO(adonovan): move to validation pass.
-    return args;
-  }
-
-  // TODO(adonovan): move all this to validator, since we have to check it again there.
-  private void validateArguments(List<Argument> arguments) {
-    int i = 0;
-    int len = arguments.size();
-
-    while (i < len && arguments.get(i) instanceof Argument.Positional) {
-      i++;
-    }
-
-    while (i < len && arguments.get(i) instanceof Argument.Keyword) {
-      i++;
-    }
-
-    if (i < len && arguments.get(i) instanceof Argument.Star) {
-      i++;
-    }
-
-    if (i < len && arguments.get(i) instanceof Argument.StarStar) {
-      i++;
-    }
-
-    // If there's no argument left, everything is correct.
-    if (i == len) {
-      return;
-    }
-
-    Argument arg = arguments.get(i);
-    if (arg instanceof Argument.Positional) {
-      reportError(
-          arg.getStartOffset(),
-          "positional argument is misplaced (positional arguments come first)");
-      return;
-    }
-
-    if (arg instanceof Argument.Keyword) {
-      reportError(
-          arg.getStartOffset(),
-          "keyword argument is misplaced (keyword arguments must be before any *arg or **kwarg)");
-      return;
-    }
-
-    if (i < len && arg instanceof Argument.Star) {
-      reportError(arg.getStartOffset(), "*arg argument is misplaced");
-      return;
-    }
-
-    if (i < len && arg instanceof Argument.StarStar) {
-      reportError(arg.getStartOffset(), "**kwarg argument is misplaced (there can be only one)");
-      return;
-    }
+    return list.build();
   }
 
   // selector_suffix = '.' IDENTIFIER

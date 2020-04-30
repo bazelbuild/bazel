@@ -526,6 +526,17 @@ final class Eval {
 
     Object fn = eval(fr, call.getFunction());
 
+    // Starlark arguments are ordered: positionals < keywords < *args < **kwargs.
+    //
+    // This is stricter than Python2, which doesn't constrain keywords wrt *args,
+    // but this ensures that the effects of evaluation of Starlark arguments occur
+    // in source order.
+    //
+    // Starlark does not support Python3's multiple *args and **kwargs
+    // nor freer ordering, such as f(a, *list, *list, **dict, **dict, b=1).
+    // Supporting it would complicate a compiler, and produce effects out of order.
+    // Also, Python's argument ordering rules are complex and the errors sometimes cryptic.
+
     // StarStar and Star args are guaranteed to be last, if they occur.
     ImmutableList<Argument> arguments = call.getArguments();
     int n = arguments.size();
