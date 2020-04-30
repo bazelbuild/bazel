@@ -16,7 +16,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:testing-support-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
@@ -32,6 +31,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:standalone_test_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
+        "//src/main/java/com/google/devtools/build/lib/rules:test_rules",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
