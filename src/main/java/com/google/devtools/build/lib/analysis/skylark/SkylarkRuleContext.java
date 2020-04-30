@@ -916,7 +916,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
               useDefaultShellEnv,
               envUnchecked,
               executionRequirementsUnchecked,
-              inputManifestsUnchecked);
+              inputManifestsUnchecked,
+              /* execGroupUnchecked= */ Starlark.NONE);
 
     } else {
       actions()
@@ -932,6 +933,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
               envUnchecked,
               executionRequirementsUnchecked,
               inputManifestsUnchecked,
+              /* execGroupUnchecked= */ Starlark.NONE,
               thread);
     }
     return Starlark.NONE;

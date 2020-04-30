@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
@@ -353,8 +354,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Map<String, ExecGroup> execGroupDict =
           Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
       for (String group : execGroupDict.keySet()) {
-        if (!Identifier.isValid(group)) {
-          throw Starlark.errorf("exec group name '%s' is not a valid identifier.", group);
+        // TODO(b/151742236): document this in the param documentation.
+        if (!ExecGroupCollection.isValidGroupName(group)) {
+          throw Starlark.errorf("Exec group name '%s' is not a valid name.", group);
         }
       }
       builder.addExecGroups(execGroupDict);

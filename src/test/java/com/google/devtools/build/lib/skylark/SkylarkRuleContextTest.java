@@ -2893,6 +2893,6 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         ")");
 
     assertThrows(AssertionError.class, () -> getConfiguredTarget("//something:nectarine"));
-    assertContainsEvent("exec group name '" + badName + "' is not a valid identifier.");
+    assertContainsEvent("Exec group name '" + badName + "' is not a valid name.");
   }
 }

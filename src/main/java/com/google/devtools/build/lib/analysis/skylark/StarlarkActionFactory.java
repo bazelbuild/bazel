@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -327,7 +328,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object executionRequirementsUnchecked,
-      Object inputManifestsUnchecked)
+      Object inputManifestsUnchecked,
+      Object execGroupUnchecked)
       throws EvalException {
     context.checkMutable("actions.run");
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
@@ -361,6 +363,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         envUnchecked,
         executionRequirementsUnchecked,
         inputManifestsUnchecked,
+        execGroupUnchecked,
         builder);
   }
 
@@ -409,6 +412,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
+      Object execGroupUnchecked,
       StarlarkThread thread)
       throws EvalException {
     context.checkMutable("actions.run_shell");
@@ -475,6 +479,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         envUnchecked,
         executionRequirementsUnchecked,
         inputManifestsUnchecked,
+        execGroupUnchecked,
         builder);
   }
 
@@ -520,6 +525,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
+      Object execGroupUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
     Iterable<Artifact> inputArtifacts;
@@ -649,6 +655,16 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder.addRunfilesSupplier(supplier);
       }
     }
+
+    if (execGroupUnchecked != Starlark.NONE) {
+      String execGroup = (String) execGroupUnchecked;
+      if (!ExecGroupCollection.isValidGroupName(execGroup)
+          || !ruleContext.hasToolchainContext(execGroup)) {
+        throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
+      }
+      builder.setExecGroup(execGroup);
+    }
+
     // Always register the action
     registerAction(builder.build(ruleContext));
   }
