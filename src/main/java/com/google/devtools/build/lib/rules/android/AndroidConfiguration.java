@@ -886,7 +886,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
             defaultValue = "true",
             documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
             effectTags = {OptionEffectTag.UNKNOWN},
-            help = "If disabled, does not provide library.ap_ outputs for library targets")
+            help =
+                "If disabled, does not provide library.ap_ outputs for library targets. These files grow exponentially"
+                    + " in size as their contents are merged into depending libraries, but are in a format"
+                    + " consumable by devices only. Since android_binary generated the final resources.ap_ file these"
+                    + " intermediates are not needed so can result in large output download savings.")
     public boolean outputLibraryLinkedResources;
 
     @Option(
