@@ -173,14 +173,6 @@ java_library(
 # Rules
 # Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
-    name = "nativedeps-rules",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/rules:nativedeps",
-    ],
-)
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
     name = "core-rules",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/rules:core_rules",
@@ -206,7 +198,7 @@ java_library(
 java_library(
     name = "shared-base-rules",
     exports = [
-        ":nativedeps-rules",
+        "//src/main/java/com/google/devtools/build/lib/rules:nativedeps",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
