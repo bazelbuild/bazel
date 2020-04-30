@@ -237,8 +237,7 @@ public class Desugar {
                   options.rewriteCoreLibraryPrefixes,
                   options.emulateCoreLibraryInterfaces,
                   options.retargetCoreLibraryMembers,
-                  options.dontTouchCoreLibraryMembers,
-                  options.preserveCoreLibraryOverrides)
+                  options.dontTouchCoreLibraryMembers)
               : null;
 
       InvocationSiteTransformationRecordBuilder callSiteTransCollector =

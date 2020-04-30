@@ -326,6 +326,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
         "android/app/usage/UsageStatsManager",
         "android/hardware/display/AmbientBrightnessDayStats",
         "android/os/SystemClock",
+        "android/service/controls/ControlsProviderService",
         "android/service/voice/VoiceInteractionSession",
         "android/service/voice/VoiceInteractionSession",
         "android/telephony/SubscriptionPlan$Builder",
@@ -338,7 +339,10 @@ public abstract class ClassName implements TypeMappable<ClassName> {
   public final boolean isInPackageEligibleForShadowedOverridableAPIs() {
     // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
     // rollouts are complete.
-    return hasAnyPackagePrefix("android/testing/", "android/app/Activity");
+    return hasAnyPackagePrefix(
+        "android/testing/",
+        "android/app/Activity",
+        "android/service/controls/ControlsProviderService");
   }
 
   public final boolean isInPackageEligibleForHoldingOverridingBridges() {
