@@ -96,7 +96,7 @@ bind(
 http_archive(
     name = "com_google_protobuf",
     patch_args = ["-p1"],
-    patches = ["@io_bazel//third_party/protobuf:3.11.3.patch"],
+    patches = ["//third_party/protobuf:3.11.3.patch"],
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     sha256 = "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
@@ -227,8 +227,8 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
         ],
         "rules_nodejs-1.3.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/rules_nodejs-1.3.0.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/archive/rules_nodejs-1.3.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
+            "https://github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
         ],
         "android_tools_pkg-0.16.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.16.0.tar.gz",

@@ -6808,7 +6808,7 @@ def _impl(ctx):
                     "objc-executable",
                     "objc++-executable",
                 ],
-                flag_groups = [flag_group(flags = ["-g"])],
+                flag_groups = [flag_group(flags = ["-g", "-DDUMMY_GENERATE_DSYM_FILE"])],
             ),
             flag_set(
                 actions = ["objc-executable", "objc++-executable"],

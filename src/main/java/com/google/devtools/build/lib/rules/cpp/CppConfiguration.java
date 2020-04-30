@@ -167,6 +167,8 @@ public final class CppConfiguration extends Fragment
   private final boolean collectCodeCoverage;
   private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
+  private final boolean appleGenerateDsym;
+
   static CppConfiguration create(CpuTransformer cpuTransformer, BuildOptions options)
       throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
@@ -236,7 +238,9 @@ public final class CppConfiguration extends Fragment
                 && compilationMode == CompilationMode.FASTBUILD)),
         compilationMode,
         commonOptions.collectCodeCoverage,
-        commonOptions.isHost || commonOptions.isExec);
+        commonOptions.isHost || commonOptions.isExec,
+        (cppOptions.appleGenerateDsym
+            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG)));
   }
 
   private CppConfiguration(
@@ -255,7 +259,8 @@ public final class CppConfiguration extends Fragment
       boolean stripBinaries,
       CompilationMode compilationMode,
       boolean collectCodeCoverage,
-      boolean isToolConfiguration) {
+      boolean isToolConfiguration,
+      boolean appleGenerateDsym) {
     this.transformedCpuFromOptions = transformedCpuFromOptions;
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
@@ -272,6 +277,7 @@ public final class CppConfiguration extends Fragment
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = collectCodeCoverage;
     this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = isToolConfiguration;
+    this.appleGenerateDsym = appleGenerateDsym;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -716,5 +722,9 @@ public final class CppConfiguration extends Fragment
 
   public boolean validateTopLevelHeaderInclusions() {
     return cppOptions.validateTopLevelHeaderInclusions;
+  }
+
+  public boolean appleGenerateDsym() {
+    return appleGenerateDsym;
   }
 }

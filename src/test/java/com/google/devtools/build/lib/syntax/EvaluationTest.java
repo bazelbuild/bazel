@@ -221,11 +221,6 @@ public final class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testSetComparison() throws Exception {
-    new Scenario().testIfExactError("Cannot compare depsets", "depset([1, 2]) < depset([3, 4])");
-  }
-
-  @Test
   public void testSumFunction() throws Exception {
     StarlarkCallable sum =
         new StarlarkCallable() {
@@ -886,10 +881,7 @@ public final class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysDuplicateKeyArgs() throws Exception {
-    // TODO(adonovan): when the duplication is literal, this should be caught by a static check.
-    new Scenario()
-        .testIfExactError(
-            "int() got multiple values for argument 'base'", "int('1', base=10, base=16)");
+    // f(a=1, a=2) is caught statically by the resolver.
     new Scenario()
         .testIfExactError(
             "int() got multiple values for argument 'base'", "int('1', base=10, **dict(base=16))");
@@ -905,5 +897,22 @@ public final class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testStaticNameResolution() throws Exception {
     new Scenario().testIfErrorContains("name 'foo' is not defined", "[foo for x in []]");
+  }
+
+  @Test
+  public void testExec() throws Exception {
+    StarlarkThread thread =
+        StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
+    Module module = thread.getGlobals();
+    EvalUtils.exec(
+        ParserInput.fromLines(
+            "# a file in the build language",
+            "",
+            "x = [1, 2, 'foo', 4] + [1, 2, \"%s%d\" % ('foo', 1)]"),
+        FileOptions.DEFAULT,
+        module,
+        thread);
+    assertThat(thread.getGlobals().lookup("x"))
+        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));
   }
 }

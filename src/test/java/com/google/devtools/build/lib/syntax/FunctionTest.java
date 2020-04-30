@@ -27,15 +27,33 @@ import org.junit.runners.JUnit4;
 public final class FunctionTest extends EvaluationTestCase {
 
   @Test
-  public void testFunctionDef() throws Exception {
-    exec(
-        "def func(a,b,c):", //
-        "  a = 1",
-        "  b = a\n");
-    StarlarkFunction stmt = (StarlarkFunction) lookup("func");
-    assertThat(stmt).isNotNull();
-    assertThat(stmt.getName()).isEqualTo("func");
-    assertThat(stmt.getSignature().numMandatoryPositionals()).isEqualTo(3);
+  public void testDef() throws Exception {
+    exec("def f(a, b=1, *args, c, d=2, **kwargs): pass");
+    StarlarkFunction f = (StarlarkFunction) lookup("f");
+    assertThat(f).isNotNull();
+    assertThat(f.getName()).isEqualTo("f");
+    assertThat(f.getParameterNames())
+        .containsExactly("a", "b", "c", "d", "args", "kwargs")
+        .inOrder();
+    assertThat(f.hasVarargs()).isTrue();
+    assertThat(f.hasKwargs()).isTrue();
+    assertThat(getDefaults(f)).containsExactly(null, 1, null, 2, null, null).inOrder();
+
+    // same, sans varargs
+    exec("def g(a, b=1, *, c, d=2, **kwargs): pass");
+    StarlarkFunction g = (StarlarkFunction) lookup("g");
+    assertThat(g.getParameterNames()).containsExactly("a", "b", "c", "d", "kwargs").inOrder();
+    assertThat(g.hasVarargs()).isFalse();
+    assertThat(g.hasKwargs()).isTrue();
+    assertThat(getDefaults(g)).containsExactly(null, 1, null, 2, null).inOrder();
+  }
+
+  private static List<Object> getDefaults(StarlarkFunction fn) {
+    List<Object> defaults = new ArrayList<>();
+    for (int i = 0; i < fn.getParameterNames().size(); i++) {
+      defaults.add(fn.getDefaultValue(i));
+    }
+    return defaults;
   }
 
   @Test
@@ -305,8 +323,8 @@ public final class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testDefaultArgumentsInsufficientArgNum() throws Exception {
-    checkEvalError("insufficient arguments received by func(a, b = \"b\", c = \"c\") "
-        + "(got 0, expected at least 1)",
+    checkEvalError(
+        "func() missing 1 required positional argument: a",
         "def func(a, b = 'b', c = 'c'):",
         "  return a + b + c",
         "func()");
@@ -328,12 +346,12 @@ public final class FunctionTest extends EvaluationTestCase {
   @Test
   public void testKeywordOnly() throws Exception {
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *, b)",
+        "func() missing 1 required keyword-only argument: b", //
         "def func(a, *, b): pass",
         "func(5)");
 
     checkEvalError(
-        "too many (2) positional arguments in call to func(a, *, b)",
+        "func() accepts no more than 1 positional argument but got 2",
         "def func(a, *, b): pass",
         "func(5, 6)");
 
@@ -345,12 +363,12 @@ public final class FunctionTest extends EvaluationTestCase {
   @Test
   public void testStarArgsAndKeywordOnly() throws Exception {
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *args, b)",
+        "func() missing 1 required keyword-only argument: b",
         "def func(a, *args, b): pass",
         "func(5)");
 
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *args, b)",
+        "func() missing 1 required keyword-only argument: b",
         "def func(a, *args, b): pass",
         "func(5, 6)");
 
@@ -362,14 +380,22 @@ public final class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testCannotPassResidualsByName() throws Exception {
+    checkEvalError("f() got unexpected keyword argument: args", "def f(*args): pass", "f(args=[])");
+
+    exec("def f(**kwargs): return kwargs");
+    assertThat(Starlark.repr(eval("f(kwargs=1)"))).isEqualTo("{\"kwargs\": 1}");
+  }
+
+  @Test
   public void testKeywordOnlyAfterStarArg() throws Exception {
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *b, c)",
+        "func() missing 1 required keyword-only argument: c",
         "def func(a, *b, c): pass",
         "func(5)");
 
     checkEvalError(
-        "missing mandatory keyword arguments in call to func(a, *b, c)",
+        "func() missing 1 required keyword-only argument: c",
         "def func(a, *b, c): pass",
         "func(5, 6, 7)");
 
@@ -398,7 +424,7 @@ public final class FunctionTest extends EvaluationTestCase {
   @Test
   public void testKwargsCollision() throws Exception {
     checkEvalError(
-        "func(a, b) got multiple values for parameter 'b'",
+        "func() got multiple values for parameter 'b'",
         "def func(a, b): return a + b",
         "func('a', 'b', **{'b': 'foo'})");
   }
@@ -406,7 +432,7 @@ public final class FunctionTest extends EvaluationTestCase {
   @Test
   public void testKwargsCollisionWithNamed() throws Exception {
     checkEvalError(
-        "func(a, b) got multiple values for parameter 'b'",
+        "func() got multiple values for parameter 'b'",
         "def func(a, b): return a + b",
         "func('a', b = 'b', **{'b': 'foo'})");
   }
@@ -459,5 +485,85 @@ public final class FunctionTest extends EvaluationTestCase {
     assertThat(lookup("v1")).isEqualTo("abc|de");
     assertThat(lookup("v2")).isEqualTo("acb|");
     assertThat(lookup("v3")).isEqualTo("a12|");
+  }
+
+  @Test
+  public void testKwParam() throws Exception {
+    exec(
+        "def foo(a, b, c=3, d=4, g=7, h=8, *args, **kwargs):\n"
+            + "  return (a, b, c, d, g, h, args, kwargs)\n"
+            + "v1 = foo(1, 2)\n"
+            + "v2 = foo(1, h=9, i=0, *['x', 'y', 'z', 't'])\n"
+            + "v3 = foo(1, i=0, *[2, 3, 4, 5, 6, 7, 8])\n"
+            + "def bar(**kwargs):\n"
+            + "  return kwargs\n"
+            + "b1 = bar(name='foo', type='jpg', version=42).items()\n"
+            + "b2 = bar()\n");
+
+    assertThat(Starlark.repr(lookup("v1"))).isEqualTo("(1, 2, 3, 4, 7, 8, (), {})");
+    assertThat(Starlark.repr(lookup("v2")))
+        .isEqualTo("(1, \"x\", \"y\", \"z\", \"t\", 9, (), {\"i\": 0})");
+    assertThat(Starlark.repr(lookup("v3"))).isEqualTo("(1, 2, 3, 4, 5, 6, (7, 8), {\"i\": 0})");
+    assertThat(Starlark.repr(lookup("b1")))
+        .isEqualTo("[(\"name\", \"foo\"), (\"type\", \"jpg\"), (\"version\", 42)]");
+    assertThat(Starlark.repr(lookup("b2"))).isEqualTo("{}");
+  }
+
+  @Test
+  public void testTrailingCommas() throws Exception {
+    // Test that trailing commas are allowed in function definitions and calls
+    // even after last *args or **kwargs expressions, like python3
+    exec(
+        "def f(*args, **kwargs): pass\n"
+            + "v1 = f(1,)\n"
+            + "v2 = f(*(1,2),)\n"
+            + "v3 = f(a=1,)\n"
+            + "v4 = f(**{\"a\": 1},)\n");
+
+    assertThat(Starlark.repr(lookup("v1"))).isEqualTo("None");
+    assertThat(Starlark.repr(lookup("v2"))).isEqualTo("None");
+    assertThat(Starlark.repr(lookup("v3"))).isEqualTo("None");
+    assertThat(Starlark.repr(lookup("v4"))).isEqualTo("None");
+  }
+
+  @Test
+  public void testCalls() throws Exception {
+    exec("def f(a, b = None): return a, b");
+
+    assertThat(Starlark.repr(eval("f(1)"))).isEqualTo("(1, None)");
+    assertThat(Starlark.repr(eval("f(1, 2)"))).isEqualTo("(1, 2)");
+    assertThat(Starlark.repr(eval("f(a=1)"))).isEqualTo("(1, None)");
+    assertThat(Starlark.repr(eval("f(a=1, b=2)"))).isEqualTo("(1, 2)");
+    assertThat(Starlark.repr(eval("f(b=2, a=1)"))).isEqualTo("(1, 2)");
+
+    checkEvalError(
+        "f() missing 1 required positional argument: a", //
+        "f()");
+    checkEvalError(
+        "f() accepts no more than 2 positional arguments but got 3", //
+        "f(1, 2, 3)");
+    checkEvalError(
+        "f() got unexpected keyword arguments: c, d", //
+        "f(1, 2, c=3, d=4)");
+    checkEvalError(
+        "f() missing 1 required positional argument: a", //
+        "f(b=2)");
+    checkEvalError(
+        "f() missing 1 required positional argument: a", //
+        "f(b=2)");
+    checkEvalError(
+        "f() got multiple values for parameter 'a'", //
+        "f(2, a=1)");
+    checkEvalError(
+        "f() got unexpected keyword argument: c", //
+        "f(b=2, a=1, c=3)");
+
+    exec("def g(*, one, two, three): pass");
+    checkEvalError(
+        "g() got unexpected keyword argument: tree (did you mean 'three'?)", //
+        "g(tree=3)");
+    checkEvalError(
+        "g() does not accept positional arguments, but got 3", //
+        "g(1, 2 ,3)");
   }
 }

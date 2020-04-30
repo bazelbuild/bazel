@@ -31,8 +31,11 @@ public final class StarlarkFile extends Node {
   private final ImmutableList<Statement> statements;
   private final FileOptions options;
   private final ImmutableList<Comment> comments;
-  final List<SyntaxError> errors; // appended to by ValidationEnvironment
+  final List<SyntaxError> errors; // appended to by Resolver
   @Nullable private final String contentHashCode;
+
+  // set by resolver
+  @Nullable Resolver.Function resolved;
 
   @Override
   public int getStartOffset() {

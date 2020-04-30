@@ -21,7 +21,9 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.NinjaMysteryArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -41,7 +43,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Generic class for Ninja actions. Corresponds to the {@link NinjaTarget} in the Ninja file. */
@@ -51,6 +52,7 @@ public class NinjaAction extends SpawnAction {
   private final Root sourceRoot;
   @Nullable private final Artifact depFile;
   private final ImmutableMap<PathFragment, Artifact> allowedDerivedInputs;
+  private final ArtifactRoot derivedOutputRoot;
 
   public NinjaAction(
       ActionOwner owner,
@@ -61,9 +63,11 @@ public class NinjaAction extends SpawnAction {
       CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
+      CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       boolean executeUnconditionally,
-      @Nullable Artifact depFile) {
+      @Nullable Artifact depFile,
+      ArtifactRoot derivedOutputRoot) {
     super(
         /* owner= */ owner,
         /* tools= */ tools,
@@ -76,7 +80,7 @@ public class NinjaAction extends SpawnAction {
         /* isShellCommand= */ true,
         /* env= */ env,
         /* executionInfo= */ executionInfo,
-        /* progressMessage= */ createProgressMessage(outputs),
+        /* progressMessage= */ progressMessage,
         /* runfilesSupplier= */ runfilesSupplier,
         /* mnemonic= */ MNEMONIC,
         /* executeUnconditionally= */ executeUnconditionally,
@@ -92,12 +96,7 @@ public class NinjaAction extends SpawnAction {
       }
     }
     this.allowedDerivedInputs = allowedDerivedInputsBuilder.build();
-  }
-
-  private static CharSequence createProgressMessage(List<? extends Artifact> outputs) {
-    return String.format(
-        "running Ninja targets: '%s'",
-        outputs.stream().map(Artifact::getFilename).collect(Collectors.joining(", ")));
+    this.derivedOutputRoot = derivedOutputRoot;
   }
 
   @Override
@@ -149,12 +148,18 @@ public class NinjaAction extends SpawnAction {
           inputArtifact = allowedDerivedInputs.get(execRelativePath);
         }
         if (inputArtifact == null) {
-          // Not a predeclared generated input, so it must be a source file.
           RepositoryName repository =
               PackageIdentifier.discoverFromExecPath(
                       execRelativePath, false, siblingRepositoryLayout)
                   .getRepository();
-          inputArtifact = artifactResolver.resolveSourceArtifact(execRelativePath, repository);
+          if (execRelativePath.startsWith(derivedOutputRoot.getExecPath())) {
+            // This input is a generated file which was not declared in the original inputs for
+            // this action.
+            inputArtifact = new NinjaMysteryArtifact(derivedOutputRoot, execRelativePath);
+          } else {
+            // Source file input.
+            inputArtifact = artifactResolver.resolveSourceArtifact(execRelativePath, repository);
+          }
         }
 
         if (inputArtifact == null) {

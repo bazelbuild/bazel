@@ -432,7 +432,7 @@ public class AspectTest extends AnalysisTestCase {
           String toolsRepository)
           throws InterruptedException, ActionConflictException {
         Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
-        return new ConfiguredAspect.Builder(this, parameters, ruleContext)
+        return new ConfiguredAspect.Builder(ruleContext)
             .addProvider(
                 AspectInfo.class,
                 new AspectInfo(
@@ -505,7 +505,7 @@ public class AspectTest extends AnalysisTestCase {
           String toolsRepository)
           throws InterruptedException, ActionConflictException {
         ruleContext.registerAction(new NullAction(ruleContext.createOutputArtifact()));
-        return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
+        return new ConfiguredAspect.Builder(ruleContext).build();
       }
     }
   }
@@ -832,9 +832,9 @@ public class AspectTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update(new EventBus(), defaultFlags(),
         ImmutableList.of(aspectApplyingToFiles.getName()),
         "//a:x_deploy.jar");
-    AspectValue aspect = Iterables.getOnlyElement(analysisResult.getAspects());
+    ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     AspectApplyingToFiles.Provider provider =
-        aspect.getConfiguredAspect().getProvider(AspectApplyingToFiles.Provider.class);
+        aspect.getProvider(AspectApplyingToFiles.Provider.class);
     assertThat(provider.getLabel())
         .isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
   }
@@ -853,9 +853,8 @@ public class AspectTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update(new EventBus(), defaultFlags(),
         ImmutableList.of(aspectApplyingToFiles.getName()),
         "//a:x.java");
-    AspectValue aspect = Iterables.getOnlyElement(analysisResult.getAspects());
-    assertThat(aspect.getConfiguredAspect().getProvider(AspectApplyingToFiles.Provider.class))
-        .isNull();
+    ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    assertThat(aspect.getProvider(AspectApplyingToFiles.Provider.class)).isNull();
   }
 
   @Test
@@ -871,9 +870,9 @@ public class AspectTest extends AnalysisTestCase {
             defaultFlags(),
             ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
             "//a:x_deploy.jar");
-    AspectValue aspect = Iterables.getOnlyElement(analysisResult.getAspects());
+    ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     AspectApplyingToFiles.Provider provider =
-        aspect.getConfiguredAspect().getProvider(AspectApplyingToFiles.Provider.class);
+        aspect.getProvider(AspectApplyingToFiles.Provider.class);
     assertThat(provider.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
   }
 }

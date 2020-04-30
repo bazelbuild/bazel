@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.cache.CacheBuilder;
@@ -41,10 +42,15 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -153,9 +159,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
     BlazeCommand command = runtime.getCommandMap().get(commandName);
     if (command == null) {
-      outErr.printErrLn(String.format(
-          "Command '%s' not found. Try '%s help'.", commandName, runtime.getProductName()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      outErr.printErrLn(
+          String.format(
+              "Command '%s' not found. Try '%s help'.", commandName, runtime.getProductName()));
+      return createDetailedCommandResult(
+          String.format("Command '%s' not found.", commandName),
+          ExitCode.COMMAND_LINE_ERROR,
+          FailureDetails.Command.Code.COMMAND_NOT_FOUND);
     }
 
     // Take the exclusive server lock.  If we fail, we busy-wait until the lock becomes available.
@@ -182,9 +192,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             break;
 
           case ERROR_OUT:
-            outErr.printErrLn(String.format("Another command (" + currentClientDescription + ") is "
-                + "running. Exiting immediately."));
-            return BlazeCommandResult.exitCode(ExitCode.LOCK_HELD_NOBLOCK_FOR_LOCK);
+            String message =
+                String.format(
+                    "Another command (%s) is running. Exiting immediately.",
+                    currentClientDescription);
+            outErr.printErrLn(message);
+            return createDetailedCommandResult(
+                message,
+                ExitCode.LOCK_HELD_NOBLOCK_FOR_LOCK,
+                FailureDetails.Command.Code.ANOTHER_COMMAND_RUNNING);
 
           default:
             throw new IllegalStateException();
@@ -203,8 +219,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
     try {
       if (shutdownReason != null) {
-        outErr.printErrLn("Server shut down " + shutdownReason);
-        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+        String message = "Server shut down " + shutdownReason;
+        outErr.printErrLn(message);
+        return createDetailedCommandResult(
+            message,
+            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+            FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
       BlazeCommandResult result = execExclusively(
           originalCommandLine,
@@ -220,6 +240,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // TODO(lberki): This also handles the case where we catch an uncaught Throwable in
         // execExclusively() which is not an explicit shutdown.
         shutdownReason = "explicitly by client " + clientDescription;
+      }
+      if (!result.getDetailedExitCode().isSuccess()) {
+        logger.atInfo().log("Exit status was %s", result.getDetailedExitCode());
       }
       return result;
     } finally {
@@ -273,7 +296,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             // Provide the options parser so that we can cache OptionsData here.
             createOptionsParser(command),
             invocationPolicy);
-    ExitCode earlyExitCode = optionHandler.parseOptions(args, storedEventHandler);
+    DetailedExitCode earlyExitCode =
+        DetailedExitCode.justExitCode(optionHandler.parseOptions(args, storedEventHandler));
     OptionsParsingResult options = optionHandler.getOptionsResult();
 
     CommandLineEvent originalCommandLineEvent =
@@ -325,18 +349,30 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       try {
         out = new FileOutputStream(commonOptions.starlarkCpuProfile);
       } catch (IOException ex) {
-        storedEventHandler.handle(Event.error("Starlark CPU profiler: " + ex.getMessage()));
-        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+        String message = "Starlark CPU profiler: " + ex.getMessage();
+        storedEventHandler.handle(Event.error(message));
+        return createDetailedCommandResult(
+            message,
+            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+            FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
       }
       try {
         Starlark.startCpuProfile(out, Duration.ofMillis(10));
       } catch (IllegalStateException ex) { // e.g. SIGPROF in use
-        storedEventHandler.handle(Event.error(ex.getMessage()));
-        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+        String message = Strings.nullToEmpty(ex.getMessage());
+        storedEventHandler.handle(Event.error(message));
+        return createDetailedCommandResult(
+            message,
+            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+            FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
       }
     }
 
-    BlazeCommandResult result = BlazeCommandResult.exitCode(ExitCode.BLAZE_INTERNAL_ERROR);
+    BlazeCommandResult result =
+        createDetailedCommandResult(
+            "Unknown command failure",
+            ExitCode.BLAZE_INTERNAL_ERROR,
+            FailureDetails.Command.Code.COMMAND_FAILURE_UNKNOWN);
     boolean afterCommandCalled = false;
     Reporter reporter = env.getReporter();
     try (OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher()) {
@@ -347,6 +383,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         try (SilentCloseable closeable = Profiler.instance().profile(module + ".beforeCommand")) {
           module.beforeCommand(env);
         } catch (AbruptExitException e) {
+          logger.atInfo().withCause(e).log("Error in %s", module);
           // Don't let one module's complaints prevent the other modules from doing necessary
           // setup. We promised to call beforeCommand exactly once per-module before each command
           // and will be calling afterCommand soon in the future - a module's afterCommand might
@@ -354,7 +391,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           storedEventHandler.handle(Event.error(e.getMessage()));
           // It's not ideal but we can only return one exit code, so we just pick the code of the
           // last exception.
-          earlyExitCode = e.getExitCode();
+          earlyExitCode = e.getDetailedExitCode();
         }
       }
       reporter.removeHandler(storedEventHandler);
@@ -364,7 +401,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
       // Early exit. We need to guarantee that the ErrOut and Reporter setup below never error out,
       // so any invariants they need must be checked before this point.
-      if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
+      if (!earlyExitCode.isSuccess()) {
         replayEarlyExitEvents(
             outErr,
             optionHandler,
@@ -372,7 +409,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             env,
             new NoBuildEvent(
                 commandName, firstContactTime, false, true, env.getCommandId().toString()));
-        result = BlazeCommandResult.exitCode(earlyExitCode);
+        result = BlazeCommandResult.detailedExitCode(earlyExitCode);
         return result;
       }
 
@@ -476,8 +513,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // Notify the BlazeRuntime, so it can do some initial setup.
         env.beforeCommand(waitTimeInMs, invocationPolicy);
       } catch (AbruptExitException e) {
+        logger.atInfo().withCause(e).log("Error before command");
         reporter.handle(Event.error(e.getMessage()));
-        result = BlazeCommandResult.exitCode(e.getExitCode());
+        result = BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
         return result;
       }
 
@@ -506,13 +544,21 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           env.syncPackageLoading(options);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
-          reporter.handle(Event.error("command interrupted while setting up package cache"));
-          earlyExitCode = ExitCode.INTERRUPTED;
+          String message = "command interrupted while syncing package loading";
+          reporter.handle(Event.error(message));
+          earlyExitCode =
+              DetailedExitCode.of(
+                  ExitCode.INTERRUPTED,
+                  FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setInterrupted(Interrupted.newBuilder().setCode(Code.PACKAGE_LOADING_SYNC))
+                      .build());
         } catch (AbruptExitException e) {
+          logger.atInfo().withCause(e).log("Error package loading");
           reporter.handle(Event.error(e.getMessage()));
-          earlyExitCode = e.getExitCode();
+          earlyExitCode = e.getDetailedExitCode();
         }
-        if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
+        if (!earlyExitCode.isSuccess()) {
           replayEarlyExitEvents(
               outErr,
               optionHandler,
@@ -520,14 +566,16 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               env,
               new NoBuildEvent(
                   commandName, firstContactTime, false, true, env.getCommandId().toString()));
-          result = BlazeCommandResult.exitCode(earlyExitCode);
+          result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
       }
 
       // Parse starlark options.
-      earlyExitCode = optionHandler.parseStarlarkOptions(env, storedEventHandler);
-      if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
+      earlyExitCode =
+          DetailedExitCode.justExitCode(
+              optionHandler.parseStarlarkOptions(env, storedEventHandler));
+      if (!earlyExitCode.isSuccess()) {
         replayEarlyExitEvents(
             outErr,
             optionHandler,
@@ -535,7 +583,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             env,
             new NoBuildEvent(
                 commandName, firstContactTime, false, true, env.getCommandId().toString()));
-        result = BlazeCommandResult.exitCode(earlyExitCode);
+        result = BlazeCommandResult.detailedExitCode(earlyExitCode);
         return result;
       }
       options = optionHandler.getOptionsResult();
@@ -554,9 +602,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         try {
           Starlark.stopCpuProfile();
         } catch (IOException ex) {
-          reporter.handle(Event.error("Starlark CPU profiler: " + ex.getMessage()));
-          if (result.getExitCode().equals(ExitCode.SUCCESS)) { // don't clobber existing error
-            result = BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+          String message = "Starlark CPU profiler: " + ex.getMessage();
+          reporter.handle(Event.error(message));
+          if (result.getDetailedExitCode().isSuccess()) { // don't clobber existing error
+            result =
+                createDetailedCommandResult(
+                    message,
+                    ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+                    FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_WRITE_FAILURE);
           }
         }
       }
@@ -697,5 +750,16 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   public void shutdown() {
     closeSilently(logOutputStream);
     logOutputStream = null;
+  }
+
+  private static BlazeCommandResult createDetailedCommandResult(
+      String message, ExitCode exitCode, FailureDetails.Command.Code detailedCode) {
+    return BlazeCommandResult.detailedExitCode(
+        DetailedExitCode.of(
+            exitCode,
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setCommand(FailureDetails.Command.newBuilder().setCode(detailedCode))
+                .build()));
   }
 }

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
@@ -66,10 +66,6 @@ public class AppleSkylarkCommon
   public static final String BAD_KEY_ERROR =
       "Argument %s not a recognized key,"
           + " 'strict_include', 'providers', or 'direct_dep_providers'.";
-
-  @VisibleForTesting
-  public static final String BAD_SET_TYPE_ERROR =
-      "Value for key %s must be a set of %s, instead found %s.";
 
   @VisibleForTesting
   public static final String BAD_FRAMEWORK_PATH_ERROR =
@@ -222,9 +218,9 @@ public class AppleSkylarkCommon
       Object dynamicFrameworkFiles)
       throws EvalException {
     NestedSet<String> frameworkDirs =
-        Depset.getSetFromNoneableParam(dynamicFrameworkDirs, String.class, "framework_dirs");
+        Depset.noneableCast(dynamicFrameworkDirs, String.class, "framework_dirs");
     NestedSet<Artifact> frameworkFiles =
-        Depset.getSetFromNoneableParam(dynamicFrameworkFiles, Artifact.class, "framework_files");
+        Depset.noneableCast(dynamicFrameworkFiles, Artifact.class, "framework_files");
     Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
 
     return new AppleDynamicFrameworkInfo(

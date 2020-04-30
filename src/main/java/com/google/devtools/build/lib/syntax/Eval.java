@@ -45,7 +45,7 @@ final class Eval {
   private static TokenKind execStatements(
       StarlarkThread.Frame fr, List<Statement> statements, boolean indented)
       throws EvalException, InterruptedException {
-    boolean isToplevelFunction = fn(fr).isToplevel;
+    boolean isToplevelFunction = fn(fr).isToplevel();
 
     // Hot code path, good chance of short lists which don't justify the iterator overhead.
     for (int i = 0; i < statements.size(); i++) {
@@ -93,9 +93,9 @@ final class Eval {
     EvalUtils.addIterator(o);
     try {
       for (Object it : seq) {
-        assign(fr, node.getLHS(), it);
+        assign(fr, node.getVars(), it);
 
-        switch (execStatements(fr, node.getBlock(), /*indented=*/ true)) {
+        switch (execStatements(fr, node.getBody(), /*indented=*/ true)) {
           case PASS:
           case CONTINUE:
             // Stay in loop.
@@ -121,36 +121,34 @@ final class Eval {
 
   private static void execDef(StarlarkThread.Frame fr, DefStatement node)
       throws EvalException, InterruptedException {
-    FunctionSignature sig = node.getSignature();
+    Resolver.Function rfn = node.resolved;
 
     // Evaluate default value expressions of optional parameters.
-    // They may be discontinuous:
-    // def f(a, b=1, *, c, d=2) has a defaults tuple of (1, 2).
-    // TODO(adonovan): record the gaps (e.g. c) with a sentinel
-    // to simplify Starlark.matchSignature.
-    Tuple<Object> defaults = Tuple.empty();
-    int ndefaults = node.getSignature().numOptionals();
-    if (ndefaults > 0) {
-      Object[] array = new Object[ndefaults];
-      for (int i = sig.numMandatoryPositionals(), j = 0; i < sig.numParameters(); i++) {
-        Expression expr = node.getParameters().get(i).getDefaultValue();
-        if (expr != null) {
-          array[j++] = eval(fr, expr);
-        }
+    // We use MANDATORY to indicate a required parameter
+    // (not null, because defaults must be a legal tuple value, as
+    // it will be constructed by the code emitted by the compiler).
+    // As an optimization, we omit the prefix of MANDATORY parameters.
+    Object[] defaults = null;
+    int nparams = rfn.params.size() - (rfn.hasKwargs ? 1 : 0) - (rfn.hasVarargs ? 1 : 0);
+    for (int i = 0; i < nparams; i++) {
+      Expression expr = rfn.params.get(i).getDefaultValue();
+      if (expr == null && defaults == null) {
+        continue; // skip prefix of required parameters
       }
-      defaults = Tuple.wrap(array);
+      if (defaults == null) {
+        defaults = new Object[nparams - i];
+      }
+      defaults[i - (nparams - defaults.length)] =
+          expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
+    }
+    if (defaults == null) {
+      defaults = EMPTY;
     }
 
     assignIdentifier(
         fr,
         node.getIdentifier(),
-        new StarlarkFunction(
-            node.getIdentifier().getName(),
-            node.getIdentifier().getStartLocation(),
-            sig,
-            defaults,
-            node.getStatements(),
-            fn(fr).getModule()));
+        new StarlarkFunction(rfn, Tuple.wrap(defaults), fn(fr).getModule()));
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)
@@ -209,9 +207,9 @@ final class Eval {
 
   private static TokenKind execReturn(StarlarkThread.Frame fr, ReturnStatement node)
       throws EvalException, InterruptedException {
-    Expression ret = node.getReturnExpression();
-    if (ret != null) {
-      fr.result = eval(fr, ret);
+    Expression result = node.getResult();
+    if (result != null) {
+      fr.result = eval(fr, result);
     }
     return TokenKind.RETURN;
   }
@@ -289,14 +287,14 @@ final class Eval {
       assignSequence(fr, list.getElements(), value);
 
     } else {
-      // Not possible for validated ASTs.
+      // Not possible for resolved ASTs.
       throw Starlark.errorf("cannot assign to '%s'", lhs);
     }
   }
 
   private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value)
       throws EvalException {
-    ValidationEnvironment.Scope scope = id.getScope();
+    Resolver.Binding bind = id.getBinding();
     // Legacy hack for incomplete identifier resolution.
     // In a <toplevel> function, assignments to unresolved identifiers
     // update the module, except for load statements and comprehensions,
@@ -304,19 +302,22 @@ final class Eval {
     // Load statements don't yet use assignIdentifier,
     // so we need consider only comprehensions.
     // In effect, we do the missing resolution using fr.compcount.
-    if (scope == null) {
+    Resolver.Scope scope;
+    if (bind == null) {
       scope =
-          fn(fr).isToplevel && fr.compcount == 0
-              ? ValidationEnvironment.Scope.Module //
-              : ValidationEnvironment.Scope.Local;
+          fn(fr).isToplevel() && fr.compcount == 0
+              ? Resolver.Scope.GLOBAL //
+              : Resolver.Scope.LOCAL;
+    } else {
+      scope = bind.scope;
     }
 
     String name = id.getName();
     switch (scope) {
-      case Local:
+      case LOCAL:
         fr.locals.put(name, value);
         break;
-      case Module:
+      case GLOBAL:
         // Updates a module binding and sets its 'exported' flag.
         // (Only load bindings are not exported.
         // But exportedBindings does at run time what should be done in the resolver.)
@@ -393,7 +394,7 @@ final class Eval {
           stmt.getOperatorLocation(), "cannot perform augmented assignment on a list literal");
 
     } else {
-      // Not possible for validated ASTs.
+      // Not possible for resolved ASTs.
       throw new EvalException(
           stmt.getOperatorLocation(), "cannot perform augmented assignment on '" + lhs + "'");
     }
@@ -525,6 +526,17 @@ final class Eval {
 
     Object fn = eval(fr, call.getFunction());
 
+    // Starlark arguments are ordered: positionals < keywords < *args < **kwargs.
+    //
+    // This is stricter than Python2, which doesn't constrain keywords wrt *args,
+    // but this ensures that the effects of evaluation of Starlark arguments occur
+    // in source order.
+    //
+    // Starlark does not support Python3's multiple *args and **kwargs
+    // nor freer ordering, such as f(a, *list, *list, **dict, **dict, b=1).
+    // Supporting it would complicate a compiler, and produce effects out of order.
+    // Also, Python's argument ordering rules are complex and the errors sometimes cryptic.
+
     // StarStar and Star args are guaranteed to be last, if they occur.
     ImmutableList<Argument> arguments = call.getArguments();
     int n = arguments.size();
@@ -610,7 +622,8 @@ final class Eval {
   private static Object evalIdentifier(StarlarkThread.Frame fr, Identifier id)
       throws EvalException, InterruptedException {
     String name = id.getName();
-    if (id.getScope() == null) {
+    Resolver.Binding bind = id.getBinding();
+    if (bind == null) {
       // Legacy behavior, to be removed.
       Object result = fr.locals.get(name);
       if (result != null) {
@@ -621,7 +634,7 @@ final class Eval {
         return result;
       }
 
-      // Assuming validation was successfully applied before execution
+      // Assuming resolution was successfully applied before execution
       // (which is not yet true for copybara, but will be soon),
       // then the identifier must have been resolved but the
       // resolution was not annotated onto the syntax tree---because
@@ -634,32 +647,26 @@ final class Eval {
     }
 
     Object result;
-    switch (id.getScope()) {
-      case Local:
+    switch (bind.scope) {
+      case LOCAL:
         result = fr.locals.get(name);
         break;
-      case Module:
+      case GLOBAL:
         result = fn(fr).getModule().lookup(name);
         break;
-      case Universe:
-        // TODO(laurentlb): look only at universe.
+      case PREDECLARED:
+        // TODO(laurentlb): look only at predeclared (not module globals).
         result = fn(fr).getModule().get(name);
         break;
       default:
-        throw new IllegalStateException(id.getScope().toString());
+        throw new IllegalStateException(bind.toString());
     }
     if (result == null) {
-      // Since Scope was set, we know that the variable is defined in the scope.
-      // However, the assignment was not yet executed.
-      String error = ValidationEnvironment.getErrorForObsoleteThreadLocalVars(id.getName());
-      if (error == null) {
-        error =
-            id.getScope().getQualifier()
-                + " variable '"
-                + name
-                + "' is referenced before assignment.";
-      }
-      throw new EvalException(id.getStartLocation(), error);
+      // Since Scope was set, we know that the local/global variable is defined,
+      // but its assignment was not yet executed.
+      throw new EvalException(
+          id.getStartLocation(),
+          String.format("%s variable '%s' is referenced before assignment.", bind.scope, name));
     }
     return result;
   }

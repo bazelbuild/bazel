@@ -104,9 +104,7 @@ final class ParamDescriptor {
 
   /** Returns a description of allowed argument types suitable for an error message. */
   String getTypeErrorMessage() {
-    return allowedClasses.stream()
-        .map(EvalUtils::getDataTypeNameFromClass)
-        .collect(Collectors.joining(" or "));
+    return allowedClasses.stream().map(Starlark::classType).collect(Collectors.joining(" or "));
   }
 
   List<Class<?>> getAllowedClasses() {

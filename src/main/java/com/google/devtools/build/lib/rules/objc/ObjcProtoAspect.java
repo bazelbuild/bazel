@@ -56,8 +56,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
       AspectParameters parameters,
       String toolsRepository)
       throws InterruptedException, ActionConflictException {
-    ConfiguredAspect.Builder aspectBuilder = new ConfiguredAspect.Builder(
-        this, parameters, ruleContext);
+    ConfiguredAspect.Builder aspectBuilder = new ConfiguredAspect.Builder(ruleContext);
 
     ObjcProtoProvider.Builder aspectObjcProtoProvider = new ObjcProtoProvider.Builder();
 

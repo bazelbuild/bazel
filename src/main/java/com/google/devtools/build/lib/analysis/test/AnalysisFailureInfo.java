@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * Implementation of {@link AnalysisFailureInfoApi}.

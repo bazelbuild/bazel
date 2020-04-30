@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -54,8 +54,8 @@ import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
@@ -295,7 +294,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     ImmutableList<StarlarkThread.CallStackEntry> callstack = thread.getCallStack();
     builder.setCallStack(callstack.subList(0, callstack.size() - 1)); // pop 'rule' itself
 
-    ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes =
+    ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes =
         attrObjectToAttributesList(attrs);
 
     if (skylarkTestable) {
@@ -321,10 +320,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             new StarlarkCallbackHelper(
                 (StarlarkFunction) implicitOutputs, thread.getSemantics(), bazelContext);
         builder.setImplicitOutputsFunction(
-            new SkylarkImplicitOutputsFunctionWithCallback(callback, thread.getCallerLocation()));
+            new StarlarkImplicitOutputsFunctionWithCallback(callback, thread.getCallerLocation()));
       } else {
         builder.setImplicitOutputsFunction(
-            new SkylarkImplicitOutputsFunctionWithMap(
+            new StarlarkImplicitOutputsFunctionWithMap(
                 ImmutableMap.copyOf(
                     Dict.cast(
                         implicitOutputs,
@@ -351,7 +350,14 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
 
     if (execGroups != Starlark.NONE) {
-      builder.addExecGroups(Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group"));
+      Map<String, ExecGroup> execGroupDict =
+          Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
+      for (String group : execGroupDict.keySet()) {
+        if (!Identifier.isValid(group)) {
+          throw Starlark.errorf("exec group name '%s' is not a valid identifier.", group);
+        }
+      }
+      builder.addExecGroups(execGroupDict);
     }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
@@ -373,15 +379,15 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     for (Object o : providesArg) {
-      if (!SkylarkAttr.isProvider(o)) {
+      if (!StarlarkAttrModule.isProvider(o)) {
         throw Starlark.errorf(
             "Illegal argument: element in 'provides' is of unexpected type. "
                 + "Should be list of providers, but got item of type %s.",
-            EvalUtils.getDataTypeName(o, true));
+            Starlark.type(o));
       }
     }
     for (StarlarkProviderIdentifier skylarkProvider :
-        SkylarkAttr.getSkylarkProviderIdentifiers(providesArg)) {
+        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg)) {
       builder.advertiseStarlarkProvider(skylarkProvider);
     }
 
@@ -398,9 +404,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
   }
 
-  private static ImmutableList<Pair<String, Descriptor>> attrObjectToAttributesList(Object attrs)
-      throws EvalException {
-    ImmutableList.Builder<Pair<String, Descriptor>> attributes = ImmutableList.builder();
+  private static ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>>
+      attrObjectToAttributesList(Object attrs) throws EvalException {
+    ImmutableList.Builder<Pair<String, StarlarkAttrModule.Descriptor>> attributes =
+        ImmutableList.builder();
 
     if (attrs != Starlark.NONE) {
       for (Map.Entry<String, Descriptor> attr :
@@ -498,7 +505,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       }
     }
 
-    ImmutableList<Pair<String, SkylarkAttr.Descriptor>> descriptors =
+    ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> descriptors =
         attrObjectToAttributesList(attrs);
     ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
     ImmutableSet.Builder<String> requiredParams = ImmutableSet.builder();
@@ -541,21 +548,22 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     for (Object o : providesArg) {
-      if (!SkylarkAttr.isProvider(o)) {
+      if (!StarlarkAttrModule.isProvider(o)) {
         throw new EvalException(
             null,
             String.format(
                 "Illegal argument: element in 'provides' is of unexpected type. "
                     + "Should be list of providers, but got item of type %s. ",
-                EvalUtils.getDataTypeName(o, true)));
+                Starlark.type(o)));
       }
     }
     return new SkylarkDefinedAspect(
         implementation,
         attrAspects.build(),
         attributes.build(),
-        SkylarkAttr.buildProviderPredicate(requiredAspectProvidersArg, "required_aspect_providers"),
-        SkylarkAttr.getSkylarkProviderIdentifiers(providesArg),
+        StarlarkAttrModule.buildProviderPredicate(
+            requiredAspectProvidersArg, "required_aspect_providers"),
+        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg),
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
         HostTransition.INSTANCE,
@@ -575,14 +583,14 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
     private RuleClass ruleClass;
     private final RuleClassType type;
-    private ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes;
+    private ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes;
     private final Location definitionLocation;
     private Label skylarkLabel;
 
     public SkylarkRuleFunction(
         RuleClass.Builder builder,
         RuleClassType type,
-        ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes,
+        ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes,
         Location definitionLocation) {
       this.builder = builder;
       this.type = type;
@@ -674,9 +682,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       // check if we have an attribute transition.
       boolean hasStarlarkDefinedTransition = builder.hasStarlarkRuleTransition();
       boolean hasFunctionTransitionWhitelist = false;
-      for (Pair<String, SkylarkAttr.Descriptor> attribute : attributes) {
+      for (Pair<String, StarlarkAttrModule.Descriptor> attribute : attributes) {
         String name = attribute.getFirst();
-        SkylarkAttr.Descriptor descriptor = attribute.getSecond();
+        StarlarkAttrModule.Descriptor descriptor = attribute.getSecond();
 
         Attribute attr = descriptor.build(name);
 

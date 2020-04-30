@@ -214,7 +214,60 @@ public final class Starlark {
 
   /** Returns the name of the type of a value as if by the Starlark expression {@code type(x)}. */
   public static String type(Object x) {
-    return EvalUtils.getDataTypeName(x, false);
+    return classType(x.getClass());
+  }
+
+  /**
+   * Returns the name of the type of instances of class c.
+   *
+   * <p>This function accepts any class, not just those of legal Starlark values, and may be used
+   * for reporting error messages involving arbitrary Java classes, for example at the interface
+   * between Starlark and Java.
+   */
+  // TODO(adonovan): reconsider allowing any classes other than String, Integer, Boolean, and
+  // subclasses of StarlarkValue, with a special exception for Object.class meaning "any Starlark
+  // value" (not: any Java object). Ditto for Depset.ElementType.
+  public static String classType(Class<?> c) {
+    // Check for "direct hits" first to avoid needing to scan for annotations.
+    if (c.equals(String.class)) {
+      return "string";
+    } else if (c.equals(Integer.class)) {
+      return "int";
+    } else if (c.equals(Boolean.class)) {
+      return "bool";
+    }
+
+    SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(c);
+    if (module != null) {
+      String name = module.name();
+      return module.namespace() ? name + " (a language module)" : name;
+
+    } else if (StarlarkCallable.class.isAssignableFrom(c)) {
+      // All callable values have historically been lumped together as "function".
+      // TODO(adonovan): built-in types that don't use SkylarkModule should report
+      // their own type string, but this is a breaking change as users often
+      // use type(x)=="function" for Starlark and built-in functions.
+      return "function";
+
+    } else if (c.equals(Object.class)) {
+      // "Unknown" is another unfortunate choice.
+      // Object.class does mean "unknown" when talking about the type parameter
+      // of a collection (List<Object>), but it also means "any" when used
+      // as an argument to Sequence.cast, and more generally it means "value".
+      return "unknown";
+
+    } else if (List.class.isAssignableFrom(c)) {
+      // Any class of java.util.List that isn't a Sequence.
+      return "List";
+
+    } else if (Map.class.isAssignableFrom(c)) {
+      // Any class of java.util.Map that isn't a Dict.
+      return "Map";
+
+    } else {
+      String simpleName = c.getSimpleName();
+      return simpleName.isEmpty() ? c.getName() : simpleName;
+    }
   }
 
   /** Returns the string form of a value as if by the Starlark expression {@code str(x)}. */
@@ -353,6 +406,8 @@ public final class Starlark {
   /**
    * Calls the function-like value {@code fn} in the specified thread, passing it the given
    * positional and named arguments in the "fastcall" array representation.
+   *
+   * <p>The caller must not subsequently modify or even inspect the two arrays.
    */
   public static Object fastcall(
       StarlarkThread thread, Object fn, Object[] positional, Object[] named)
@@ -429,32 +484,6 @@ public final class Starlark {
       throw new IllegalArgumentException(cls.getName() + " is not annotated with @SkylarkModule");
     }
     env.put(annot.name(), v);
-  }
-
-  /**
-   * Checks the {@code positional} and {@code named} arguments supplied to an implementation of
-   * {@link StarlarkCallable#fastcall} to ensure they match the {@code signature}. It returns an
-   * array of effective parameter values corresponding to the parameters of the signature. Newly
-   * allocated values (e.g. a {@code **kwargs} dict) use the Mutability {@code mu}.
-   *
-   * <p>If the function has optional parameters, their default values must be supplied by {@code
-   * defaults}; see {@link BaseFunction#getDefaultValues} for details.
-   *
-   * <p>The caller is responsible for accessing the correct element and casting to an appropriate
-   * type.
-   *
-   * <p>On failure, it throws an EvalException incorporating {@code func.toString()}.
-   */
-  static Object[] matchSignature(
-      FunctionSignature signature,
-      StarlarkCallable func, // only used in error messages
-      @Nullable Tuple<Object> defaults,
-      @Nullable Mutability mu,
-      Object[] positional,
-      Object[] named)
-      throws EvalException {
-    // TODO(adonovan): move implementation here.
-    return BaseFunction.matchSignature(signature, func, defaults, mu, positional, named);
   }
 
   // TODO(adonovan):

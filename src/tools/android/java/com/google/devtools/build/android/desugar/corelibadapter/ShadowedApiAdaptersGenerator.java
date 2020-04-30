@@ -26,12 +26,13 @@ import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
+import com.google.devtools.build.android.desugar.io.MapBasedClassFileProvider;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
-import java.io.ByteArrayInputStream;
 import java.util.stream.Stream;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -95,14 +96,15 @@ public final class ShadowedApiAdaptersGenerator {
   }
 
   /** Returns desugar-shadowed API adapters with desugar-mirrored types. */
-  public ImmutableList<FileContentProvider<ByteArrayInputStream>> getApiAdapters() {
-    return typeAdapters.entrySet().stream()
-        .map(
-            e ->
-                new FileContentProvider<>(
-                    e.getKey().classFilePathName(),
-                    () -> new ByteArrayInputStream(e.getValue().toByteArray())))
-        .collect(toImmutableList());
+  public MapBasedClassFileProvider getApiAdapters() {
+    return MapBasedClassFileProvider.builder()
+        .setTag("ShadowedApiAdapters")
+        .setFileContents(
+            Maps.transformEntries(
+                typeAdapters,
+                (className, cw) ->
+                    FileContentProvider.fromBytes(className.classFilePathName(), cw.toByteArray())))
+        .build();
   }
 
   /**

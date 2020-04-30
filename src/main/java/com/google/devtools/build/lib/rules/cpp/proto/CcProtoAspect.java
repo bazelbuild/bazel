@@ -108,7 +108,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     ProtoInfo protoInfo = checkNotNull(ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER));
 
     try {
-      ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, parameters, ruleContext);
+      ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
       new Impl(ruleContext, protoInfo, cppSemantics, ccToolchainType).addProviders(result);
       return result.build();
     } catch (RuleErrorException e) {

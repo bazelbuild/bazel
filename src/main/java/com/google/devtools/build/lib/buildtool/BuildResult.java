@@ -17,15 +17,16 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -58,7 +59,7 @@ public final class BuildResult {
   private Collection<ConfiguredTarget> testTargets;
   private Collection<ConfiguredTarget> successfulTargets;
   private Collection<ConfiguredTarget> skippedTargets;
-  private Collection<AspectValue> successfulAspects;
+  private ImmutableSet<AspectKey> successfulAspects;
 
   private final BuildToolLogCollection buildToolLogCollection = new BuildToolLogCollection();
 
@@ -222,8 +223,8 @@ public final class BuildResult {
     this.successfulTargets = successfulTargets;
   }
 
-  /** @see #getSuccessfulAspects */
-  void setSuccessfulAspects(Collection<AspectValue> successfulAspects) {
+  /** See #getSuccessfulAspects */
+  void setSuccessfulAspects(ImmutableSet<AspectKey> successfulAspects) {
     this.successfulAspects = successfulAspects;
   }
 
@@ -247,7 +248,7 @@ public final class BuildResult {
    * null if the execution phase was not attempted, as may happen if there are errors in the loading
    * phase, for example.
    */
-  public Collection<AspectValue> getSuccessfulAspects() {
+  ImmutableSet<AspectKey> getSuccessfulAspects() {
     return successfulAspects;
   }
 

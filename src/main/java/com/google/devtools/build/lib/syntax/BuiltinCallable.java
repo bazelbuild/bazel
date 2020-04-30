@@ -336,10 +336,7 @@ public final class BuiltinCallable implements StarlarkCallable {
     if (!ok) {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
-          methodName,
-          param.getName(),
-          EvalUtils.getDataTypeName(value),
-          param.getTypeErrorMessage());
+          methodName, param.getName(), Starlark.type(value), param.getTypeErrorMessage());
     }
 
     // None is valid if and only if the parameter is marked noneable,

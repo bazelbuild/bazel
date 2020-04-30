@@ -171,7 +171,7 @@ public final class InstrumentedFilesCollector {
     // Transitive instrumentation data.
     for (TransitiveInfoCollection dep :
         getAllPrerequisites(ruleContext, spec.dependencyAttributes)) {
-      InstrumentedFilesInfo provider = dep.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
+      InstrumentedFilesInfo provider = dep.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
       if (provider != null) {
         instrumentedFilesBuilder.addTransitive(provider.getInstrumentedFiles());
         metadataFilesBuilder.addTransitive(provider.getInstrumentationMetadataFiles());
@@ -189,7 +189,7 @@ public final class InstrumentedFilesCollector {
       NestedSetBuilder<Artifact> localSourcesBuilder = NestedSetBuilder.stableOrder();
       for (TransitiveInfoCollection dep :
           getAllPrerequisites(ruleContext, spec.sourceAttributes)) {
-        if (!spec.splitLists && dep.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null) {
+        if (!spec.splitLists && dep.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR) != null) {
           continue;
         }
         for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild().toList()) {

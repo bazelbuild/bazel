@@ -29,7 +29,11 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Option;
@@ -485,18 +489,29 @@ public class BazelRulesModule extends BlazeModule {
     if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
       JavaOptions javaOptions = env.getOptions().getOptions(JavaOptions.class);
       if (javaOptions != null && !javaOptions.inmemoryJdepsFiles) {
-        throw new AbruptExitException(
+        throw createRemoteExecutionExitException(
             "--experimental_remote_download_outputs=minimal requires"
                 + " --experimental_inmemory_jdeps_files to be enabled",
-            ExitCode.COMMAND_LINE_ERROR);
+            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS);
       }
       CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
       if (cppOptions != null && !cppOptions.inmemoryDotdFiles) {
-        throw new AbruptExitException(
+        throw createRemoteExecutionExitException(
             "--experimental_remote_download_outputs=minimal requires"
                 + " --experimental_inmemory_dotd_files to be enabled",
-            ExitCode.COMMAND_LINE_ERROR);
+            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_DOTD);
       }
     }
+  }
+
+  private static AbruptExitException createRemoteExecutionExitException(
+      String message, Code remoteExecutionCode) {
+    return new AbruptExitException(
+        DetailedExitCode.of(
+            ExitCode.COMMAND_LINE_ERROR,
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setRemoteExecution(RemoteExecution.newBuilder().setCode(remoteExecutionCode))
+                .build()));
   }
 }

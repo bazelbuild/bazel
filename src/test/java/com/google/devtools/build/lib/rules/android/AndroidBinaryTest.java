@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -3398,6 +3399,29 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     FileWriteAction action = (FileWriteAction) getGeneratingAction(flagList);
     assertThat(action.getFileContents())
         .isEqualTo("//java/com/foo:flag1: on\n//java/com/foo:flag2: off");
+  }
+
+  @Test
+  public void featureFlagsSetByAndroidBinaryAreInRequiredFragments() throws Exception {
+    useConfiguration("--include_config_fragments_provider=direct");
+    scratch.file(
+        "java/com/foo/BUILD",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  srcs = [':FooFlags.java'],",
+        "  feature_flags = {",
+        "    'flag1': 'on',",
+        "  },",
+        ")");
+    ConfiguredTarget ct = getConfiguredTarget("//java/com/foo:foo");
+    assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getRequiredConfigFragments())
+        .contains("//java/com/foo:flag1");
   }
 
   @Test

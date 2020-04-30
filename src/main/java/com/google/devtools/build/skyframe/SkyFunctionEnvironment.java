@@ -153,6 +153,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           }
         }
       };
+
   private final ParallelEvaluatorContext evaluatorContext;
 
   SkyFunctionEnvironment(
@@ -868,6 +869,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         .add("bubbleErrorInfo", bubbleErrorInfo)
         .add("evaluatorContext", evaluatorContext)
         .toString();
+  }
+
+  @Override
+  public boolean restartPermitted() {
+    return evaluatorContext.restartPermitted();
   }
 
   /** Thrown during environment construction if previously requested deps are no longer done. */

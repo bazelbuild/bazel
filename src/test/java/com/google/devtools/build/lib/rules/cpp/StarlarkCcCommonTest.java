@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -54,7 +55,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -84,7 +84,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Before
   public void setStarlarkSemanticsOptions() throws Exception {
-    this.setStarlarkSemanticsOptions(SkylarkCcCommonTestHelper.CC_SKYLARK_WHITELIST_FLAG);
+    this.setStarlarkSemanticsOptions(StarlarkCcCommonTestHelper.CC_STARLARK_WHITELIST_FLAG);
     invalidatePackages();
 
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
@@ -1200,7 +1200,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     getConfiguredTarget("//a:r");
-    assertContainsEvent("expected a depset of 'File' but got '[]' for parameter 'headers'");
+    assertContainsEvent("for headers, got list, want a depset of File");
   }
 
   @Test
@@ -1217,8 +1217,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     assertThat(getConfiguredTarget("//test:x")).isNull();
-    assertContainsEvent(
-        "for parameter 'objects', got a depset of 'int', expected a depset of 'File'");
+    assertContainsEvent("for 'objects', got a depset of 'int', expected a depset of 'File'");
   }
 
   @Test

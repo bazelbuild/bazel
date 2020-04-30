@@ -638,7 +638,7 @@ public class PackageFunction implements SkyFunction {
 
     // Process the loaded imports.
     Map<String, Extension> importMap = Maps.newHashMapWithExpectedSize(loadMap.size());
-    ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
+    ImmutableList.Builder<StarlarkFileDependency> fileDependencies = ImmutableList.builder();
     for (Map.Entry<String, Label> importEntry : loadMap.entrySet()) {
       String importString = importEntry.getKey();
       Label importLabel = importEntry.getValue();
@@ -754,15 +754,15 @@ public class PackageFunction implements SkyFunction {
   }
 
   private static ImmutableList<Label> transitiveClosureOfLabels(
-      ImmutableList<SkylarkFileDependency> immediateDeps) {
+      ImmutableList<StarlarkFileDependency> immediateDeps) {
     Set<Label> transitiveClosure = Sets.newHashSet();
     transitiveClosureOfLabels(immediateDeps, transitiveClosure);
     return ImmutableList.copyOf(transitiveClosure);
   }
 
   private static void transitiveClosureOfLabels(
-      ImmutableList<SkylarkFileDependency> immediateDeps, Set<Label> transitiveClosure) {
-    for (SkylarkFileDependency dep : immediateDeps) {
+      ImmutableList<StarlarkFileDependency> immediateDeps, Set<Label> transitiveClosure) {
+    for (StarlarkFileDependency dep : immediateDeps) {
       if (transitiveClosure.add(dep.getLabel())) {
         transitiveClosureOfLabels(dep.getDependencies(), transitiveClosure);
       }
@@ -1116,11 +1116,9 @@ public class PackageFunction implements SkyFunction {
           return Preconditions.checkNotNull(
                   (GlobValue) valueOrException.get(), "%s should not be missing", globKey)
               .getMatches();
-        } catch (BuildFileNotFoundException e) {
+        } catch (BuildFileNotFoundException | IOException e) {
           // Legacy package loading is only able to handle an IOException, so a rethrow here is the
           // best we can do.
-          throw new SkyframeGlobbingIOException(e);
-        } catch (IOException e) {
           throw new SkyframeGlobbingIOException(e);
         }
       }

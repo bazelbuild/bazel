@@ -64,7 +64,7 @@ public abstract class ImplicitOutputsFunction {
    * Implicit output functions for Starlark supporting key value access of expanded implicit
    * outputs.
    */
-  public abstract static class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
+  public abstract static class StarlarkImplicitOutputsFunction extends ImplicitOutputsFunction {
 
     public abstract ImmutableMap<String, String> calculateOutputs(
         EventHandler eventHandler, AttributeMap map) throws EvalException, InterruptedException;
@@ -78,13 +78,13 @@ public abstract class ImplicitOutputsFunction {
 
   /** Implicit output functions executing Starlark code. */
   @AutoCodec
-  public static final class SkylarkImplicitOutputsFunctionWithCallback
-      extends SkylarkImplicitOutputsFunction {
+  public static final class StarlarkImplicitOutputsFunctionWithCallback
+      extends StarlarkImplicitOutputsFunction {
 
     private final StarlarkCallbackHelper callback;
     private final Location loc;
 
-    public SkylarkImplicitOutputsFunctionWithCallback(
+    public StarlarkImplicitOutputsFunctionWithCallback(
         StarlarkCallbackHelper callback, Location loc) {
       this.callback = callback;
       this.loc = loc;
@@ -141,12 +141,12 @@ public abstract class ImplicitOutputsFunction {
 
   /** Implicit output functions using a simple an output map. */
   @AutoCodec
-  public static final class SkylarkImplicitOutputsFunctionWithMap
-      extends SkylarkImplicitOutputsFunction {
+  public static final class StarlarkImplicitOutputsFunctionWithMap
+      extends StarlarkImplicitOutputsFunction {
 
     private final ImmutableMap<String, String> outputMap;
 
-    public SkylarkImplicitOutputsFunctionWithMap(ImmutableMap<String, String> outputMap) {
+    public StarlarkImplicitOutputsFunctionWithMap(ImmutableMap<String, String> outputMap) {
       this.outputMap = outputMap;
     }
 

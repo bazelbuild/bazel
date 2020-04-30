@@ -777,7 +777,11 @@ public class Package {
       String runfilesPrefix,
       StarlarkSemantics starlarkSemantics) {
     return new Builder(
-            helper, LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix, starlarkSemantics)
+            helper,
+            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+            runfilesPrefix,
+            starlarkSemantics.incompatibleNoImplicitFileExport(),
+            Builder.EMPTY_REPOSITORY_MAPPING)
         .setFilename(workspacePath);
   }
 
@@ -786,6 +790,9 @@ public class Package {
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
   public static class Builder {
+
+    public static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
+        ImmutableMap.of();
 
     public interface Helper {
       /**
@@ -836,17 +843,20 @@ public class Package {
      */
     private final Package pkg;
 
-    private final StarlarkSemantics starlarkSemantics;
+    private final boolean noImplicitFileExport;
     private final CallStack.Builder callStackBuilder = new CallStack.Builder();
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
     public final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
-    // The map of repository reassignments for BUILD packages loaded within external repositories.
-    // It contains an entry from "@<main workspace name>" to "@" for packages within
-    // the main workspace.
-    private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
+    /**
+     * The map of repository reassignments for BUILD packages loaded within external repositories.
+     * It contains an entry from "@<main workspace name>" to "@" for packages within the main
+     * workspace.
+     */
+    private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+
     private RootedPath filename = null;
     private Label buildFileLabel = null;
     private InputFile buildFile = null;
@@ -919,29 +929,18 @@ public class Package {
 
     private boolean alreadyBuilt = false;
 
-    private EventHandler builderEventHandler = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        addEvent(event);
-      }
-    };
-
-    // low-level constructor
-    Builder(Package pkg, StarlarkSemantics starlarkSemantics) {
-      this.starlarkSemantics = starlarkSemantics;
-      this.pkg = pkg;
-      if (pkg.getName().startsWith("javatests/")) {
-        setDefaultTestonly(true);
-      }
-    }
-
-    // high-level constructor
     Builder(
         Helper helper,
         PackageIdentifier id,
         String runfilesPrefix,
-        StarlarkSemantics starlarkSemantics) {
-      this(helper.createFreshPackage(id, runfilesPrefix), starlarkSemantics);
+        boolean noImplicitFileExport,
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      this.pkg = helper.createFreshPackage(id, runfilesPrefix);
+      this.noImplicitFileExport = noImplicitFileExport;
+      this.repositoryMapping = repositoryMapping;
+      if (pkg.getName().startsWith("javatests/")) {
+        setDefaultTestonly(true);
+      }
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -989,15 +988,6 @@ public class Package {
               repositoryNameRepositoryNameEntry.getValue());
         }
       }
-      return this;
-    }
-
-    /**
-     * Sets the repository mapping for a regular, BUILD file package (i.e. not the //external
-     * package)
-     */
-    Builder setRepositoryMapping(ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      this.repositoryMapping = Preconditions.checkNotNull(repositoryMapping);
       return this;
     }
 
@@ -1195,8 +1185,8 @@ public class Package {
      * are duplicated.
      */
     void setDefaultApplicableLicenses(List<Label> licenses, String attrName, Location location) {
-      if (!checkForDuplicateLabels(
-          licenses, "package " + pkg.getName(), attrName, location, builderEventHandler)) {
+      if (hasDuplicateLabels(
+          licenses, "package " + pkg.getName(), attrName, location, this::addEvent)) {
         setContainsErrors();
       }
       pkg.setDefaultApplicableLicenses(ImmutableSet.copyOf(licenses));
@@ -1213,11 +1203,6 @@ public class Package {
       this.defaultLicense = license;
     }
 
-    /**
-     * Returns the <b>current</b> default {@link License}. This should be used with caution - its
-     * value may change during package loading, so it might not reflect the package's final default
-     * value.
-     */
     License getDefaultLicense() {
       return defaultLicense;
     }
@@ -1232,14 +1217,18 @@ public class Package {
       this.defaultDistributionSet = dists;
     }
 
+    Set<DistributionType> getDefaultDistribs() {
+      return defaultDistributionSet;
+    }
+
     /**
      * Sets the default value to use for a rule's {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR}
      * attribute when not explicitly specified by the rule. Records a package error if
      * any labels are duplicated.
      */
     void setDefaultCompatibleWith(List<Label> environments, String attrName, Location location) {
-      if (!checkForDuplicateLabels(environments, "package " + pkg.getName(), attrName, location,
-          builderEventHandler)) {
+      if (hasDuplicateLabels(
+          environments, "package " + pkg.getName(), attrName, location, this::addEvent)) {
         setContainsErrors();
       }
       pkg.setDefaultCompatibleWith(ImmutableSet.copyOf(environments));
@@ -1251,8 +1240,8 @@ public class Package {
      * any labels are duplicated.
      */
     void setDefaultRestrictedTo(List<Label> environments, String attrName, Location location) {
-      if (!checkForDuplicateLabels(environments, "package " + pkg.getName(), attrName, location,
-          builderEventHandler)) {
+      if (hasDuplicateLabels(
+          environments, "package " + pkg.getName(), attrName, location, this::addEvent)) {
         setContainsErrors();
       }
 
@@ -1416,20 +1405,24 @@ public class Package {
     }
 
     /**
-     * Checks if any labels in the given list appear multiple times and reports an appropriate
-     * error message if so. Returns true if no duplicates were found, false otherwise.
+     * Returns true if any labels in the given list appear multiple times, reporting an appropriate
+     * error message if so.
      *
-     * <p> TODO(bazel-team): apply this to all build functions (maybe automatically?), possibly
+     * <p>TODO(bazel-team): apply this to all build functions (maybe automatically?), possibly
      * integrate with RuleClass.checkForDuplicateLabels.
      */
-    private static boolean checkForDuplicateLabels(Collection<Label> labels, String owner,
-        String attrName, Location location, EventHandler eventHandler) {
+    private static boolean hasDuplicateLabels(
+        Collection<Label> labels,
+        String owner,
+        String attrName,
+        Location location,
+        EventHandler eventHandler) {
       Set<Label> dupes = CollectionUtils.duplicatedElementsOf(labels);
       for (Label dupe : dupes) {
         eventHandler.handle(Event.error(location, String.format(
             "label '%s' is duplicated in the '%s' list of '%s'", dupe, attrName, owner)));
       }
-      return dupes.isEmpty();
+      return !dupes.isEmpty();
     }
 
     /**
@@ -1439,8 +1432,8 @@ public class Package {
         EventHandler eventHandler, Location location)
         throws NameConflictException, LabelSyntaxException {
 
-      if (!checkForDuplicateLabels(environments, name, "environments", location, eventHandler)
-          || !checkForDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
+      if (hasDuplicateLabels(environments, name, "environments", location, eventHandler)
+          || hasDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
         setContainsErrors();
         return;
       }
@@ -1626,12 +1619,10 @@ public class Package {
     private InputFile createInputFileMaybe(Label label, Location location) {
       if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
         if (!targets.containsKey(label.getName())) {
-          if (starlarkSemantics.incompatibleNoImplicitFileExport()) {
-            return new InputFile(
-                pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE);
-          } else {
-            return new InputFile(pkg, label, location);
-          }
+          return noImplicitFileExport
+              ? new InputFile(
+                  pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE)
+              : new InputFile(pkg, label, location);
         }
       }
       return null;

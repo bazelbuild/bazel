@@ -23,9 +23,10 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Resolver;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -39,7 +40,7 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
- * A Skyframe function that reads, parses and validates the .bzl file denoted by a Label.
+ * A Skyframe function that reads, parses, and resolves the .bzl file denoted by a Label.
  *
  * <p>Given a {@link Label} referencing a Starlark file, loads it as a syntax tree ({@link
  * StarlarkFile}). The Label must be absolute, and must not reference the special {@code external}
@@ -49,16 +50,19 @@ import javax.annotation.Nullable;
 public class ASTFileLookupFunction implements SkyFunction {
 
   private final RuleClassProvider ruleClassProvider;
+  private final DigestHashFunction digestHashFunction;
 
-  public ASTFileLookupFunction(RuleClassProvider ruleClassProvider) {
+  public ASTFileLookupFunction(
+      RuleClassProvider ruleClassProvider, DigestHashFunction digestHashFunction) {
     this.ruleClassProvider = ruleClassProvider;
+    this.digestHashFunction = digestHashFunction;
   }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
       InterruptedException {
     try {
-      return computeInline(skyKey, env, ruleClassProvider);
+      return computeInline(skyKey, env, ruleClassProvider, digestHashFunction);
     } catch (ErrorReadingSkylarkExtensionException e) {
       throw new ASTLookupFunctionException(e, e.getTransience());
     } catch (InconsistentFilesystemException e) {
@@ -67,7 +71,10 @@ public class ASTFileLookupFunction implements SkyFunction {
   }
 
   static ASTFileLookupValue computeInline(
-      SkyKey skyKey, Environment env, RuleClassProvider ruleClassProvider)
+      SkyKey skyKey,
+      Environment env,
+      RuleClassProvider ruleClassProvider,
+      DigestHashFunction digestHashFunction)
       throws ErrorReadingSkylarkExtensionException, InconsistentFilesystemException,
           InterruptedException {
     Label fileLabel = (Label) skyKey.argument();
@@ -115,7 +122,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
 
-    // Options for scanning, parsing, and validating a .bzl file (including the prelude).
+    // Options for scanning, parsing, and resolving a .bzl file (including the prelude).
     FileOptions options =
         FileOptions.builder()
             .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
@@ -129,18 +136,28 @@ public class ASTFileLookupFunction implements SkyFunction {
           fileValue.isSpecialFile()
               ? FileSystemUtils.readContent(path)
               : FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
+      byte[] digest =
+          getDigestFromFileValueOrFromKnownFileContents(fileValue, bytes, digestHashFunction);
       ParserInput input = ParserInput.create(bytes, path.toString());
-      file = StarlarkFile.parseWithDigest(input, path.getDigest(), options);
+      file = StarlarkFile.parseWithDigest(input, digest, options);
     } catch (IOException e) {
       throw new ErrorReadingSkylarkExtensionException(e, Transience.TRANSIENT);
     }
 
-    // validate (and soon, compile)
-    ValidationEnvironment.validateFile(
-        file, Module.createForBuiltins(ruleClassProvider.getEnvironment()));
+    // resolve (and soon, compile)
+    Resolver.resolveFile(file, Module.createForBuiltins(ruleClassProvider.getEnvironment()));
     Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
 
     return ASTFileLookupValue.withFile(file);
+  }
+
+  private static byte[] getDigestFromFileValueOrFromKnownFileContents(
+      FileValue fileValue, byte[] contents, DigestHashFunction digestHashFunction) {
+    byte[] digest = fileValue.getDigest();
+    if (digest != null) {
+      return digest;
+    }
+    return digestHashFunction.getHashFunction().hashBytes(contents).asBytes();
   }
 
   @Nullable

@@ -113,8 +113,8 @@ public class ArtifactRootTest {
     }
     ObjectCodecs objectCodecs = new ObjectCodecs(registryBuilder.build(), dependencies);
     ByteString serialized = objectCodecs.serialize(derivedRoot);
-    // 28 bytes as of 2020/03/31.
-    assertThat(serialized.size()).isLessThan(30);
+    // 30 bytes as of 2020/04/27.
+    assertThat(serialized.size()).isLessThan(31);
   }
 
   @Test

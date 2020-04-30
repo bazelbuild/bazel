@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -256,8 +257,9 @@ public final class AspectDefinition {
      * Asserts that this aspect can only be evaluated for rules that supply all of the providers
      * from at least one set of required providers.
      */
-    public Builder requireProviderSets(Iterable<ImmutableSet<Class<?>>> providerSets) {
-      for (ImmutableSet<Class<?>> providerSet : providerSets) {
+    public Builder requireProviderSets(
+        Iterable<ImmutableSet<Class<? extends TransitiveInfoProvider>>> providerSets) {
+      for (ImmutableSet<Class<? extends TransitiveInfoProvider>> providerSet : providerSets) {
         requiredProviders.addNativeSet(providerSet);
       }
       return this;
@@ -267,7 +269,7 @@ public final class AspectDefinition {
      * Asserts that this aspect can only be evaluated for rules that supply all of the specified
      * providers.
      */
-    public Builder requireProviders(Class<?>... providers) {
+    public Builder requireProviders(Class<? extends TransitiveInfoProvider>... providers) {
       requiredProviders.addNativeSet(ImmutableSet.copyOf(providers));
       return this;
     }
@@ -292,7 +294,7 @@ public final class AspectDefinition {
     }
 
     public Builder requireAspectsWithNativeProviders(
-        Class<?>... providers) {
+        Class<? extends TransitiveInfoProvider>... providers) {
       requiredAspectProviders.addNativeSet(ImmutableSet.copyOf(providers));
       return this;
     }

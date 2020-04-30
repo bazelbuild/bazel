@@ -35,6 +35,12 @@ public class NinjaParser implements DeclarationConsumer {
   private final NinjaFileParseResult parseResult;
   private final String ninjaFileName;
 
+  private static final String UNSUPPORTED_TOKEN_MESSAGE =
+      " is an unsupported type of Ninja lexeme for the parser at this state. "
+          + "These are unexpected lexemes at this state for the parser, and running into a "
+          + "token of this lexeme hints that the parser did not progress the lexer to a "
+          + "valid state during a previous parsing step.";
+
   public NinjaParser(
       NinjaPipeline pipeline, NinjaFileParseResult parseResult, String ninjaFileName) {
     this.pipeline = pipeline;
@@ -46,7 +52,7 @@ public class NinjaParser implements DeclarationConsumer {
   public void declaration(FileFragment fragment) throws GenericParsingException, IOException {
     long offset = fragment.getFragmentOffset();
 
-    NinjaLexer lexer = new NinjaLexer(fragment, pipeline.getPathFragmentInterner());
+    NinjaLexer lexer = new NinjaLexer(fragment);
     if (!lexer.hasNextToken()) {
       throw new IllegalStateException("Empty fragment passed as declaration.");
     }
@@ -61,7 +67,8 @@ public class NinjaParser implements DeclarationConsumer {
     }
     long declarationStart = offset + lexer.getLastStart();
     lexer.undo();
-    NinjaParserStep parser = new NinjaParserStep(lexer);
+    NinjaParserStep parser =
+        new NinjaParserStep(lexer, pipeline.getPathFragmentInterner(), pipeline.getNameInterner());
 
     switch (token) {
       case IDENTIFIER:
@@ -130,12 +137,7 @@ public class NinjaParser implements DeclarationConsumer {
       case PIPE2:
       case TEXT:
       case VARIABLE:
-        throw new UnsupportedOperationException(
-            "Unsupported type of Ninja lexeme for the parser at this state: "
-                + token.name()
-                + ". These are unexpected lexemes at this state for the parser, and running into a "
-                + "token of this lexeme hints that the parser did not progress the lexer to a "
-                + "valid state during a previous parsing step.");
+        throw new UnsupportedOperationException(token.name() + UNSUPPORTED_TOKEN_MESSAGE);
       case ERROR:
         throw new GenericParsingException(lexer.getError());
         // Omit default case on purpose. Explicitly specify *all* NinjaToken enum cases above or the

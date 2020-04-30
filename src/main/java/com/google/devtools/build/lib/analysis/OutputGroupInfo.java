@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.syntax.EvalUtils.SKYLARK_COMPARATOR;
-
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
@@ -255,7 +254,7 @@ public final class OutputGroupInfo extends StructImpl
 
   @Override
   public Iterator<String> iterator() {
-    return SKYLARK_COMPARATOR.sortedCopy(outputGroups.keySet()).iterator();
+    return ImmutableList.sortedCopyOf(outputGroups.keySet()).iterator();
   }
 
   @Override

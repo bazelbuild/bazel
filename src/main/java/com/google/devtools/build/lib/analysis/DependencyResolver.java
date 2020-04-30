@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
@@ -260,7 +261,7 @@ public abstract class DependencyResolver {
       throw new IllegalStateException(target.getLabel().toString());
     }
 
-    Map<Label, Target> targetMap = getTargets(outgoingLabels, target, rootCauses);
+    Map<Label, Target> targetMap = getTargets(outgoingLabels, node, rootCauses);
     if (targetMap == null) {
       // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
       return OrderedSetMultimap.create();
@@ -291,7 +292,8 @@ public abstract class DependencyResolver {
           @Nullable Rule fromRule,
           ConfiguredAttributeMapper attributeMap,
           @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-          Iterable<Aspect> aspects) {
+          Iterable<Aspect> aspects)
+          throws EvalException {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
 
@@ -335,13 +337,28 @@ public abstract class DependencyResolver {
           aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
 
       Label executionPlatformLabel = null;
-      // TODO(b/151742236): support transitions to other ({@link ExecGroup defined}) execution
-      // platforms
-      if (toolchainContexts != null
-          && toolchainContexts.getDefaultToolchainContext().executionPlatform() != null) {
-        executionPlatformLabel =
-            toolchainContexts.getDefaultToolchainContext().executionPlatform().label();
+      if (toolchainContexts != null) {
+        if (attribute.getTransitionFactory() instanceof ExecutionTransitionFactory) {
+          String execGroup =
+              ((ExecutionTransitionFactory) attribute.getTransitionFactory()).getExecGroup();
+          if (!toolchainContexts.hasToolchainContext(execGroup)) {
+            String error =
+                String.format(
+                    "Attr '%s' declares a transition for non-existent exec group '%s'",
+                    attribute.getName(), execGroup);
+            if (fromRule != null) {
+              throw new EvalException(fromRule.getLocation(), error);
+            } else {
+              throw new EvalException(error);
+            }
+          }
+          if (toolchainContexts.getToolchainContext(execGroup).executionPlatform() != null) {
+            executionPlatformLabel =
+                toolchainContexts.getToolchainContext(execGroup).executionPlatform().label();
+          }
+        }
       }
+
       AttributeTransitionData attributeTransitionData =
           AttributeTransitionData.builder()
               .attributes(attributeMap)
@@ -686,15 +703,6 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Hook for the error case when an invalid package group reference is found.
-   *
-   * @param node the package group node with the includes attribute
-   * @param label the invalid reference
-   */
-  protected abstract void invalidPackageGroupReferenceHook(TargetAndConfiguration node,
-      Label label);
-
-  /**
    * Returns the targets for the given labels.
    *
    * <p>Returns null if any targets are not ready to be returned at this moment because of missing
@@ -705,8 +713,7 @@ public abstract class DependencyResolver {
    */
   protected abstract Map<Label, Target> getTargets(
       OrderedSetMultimap<DependencyKind, Label> labelMap,
-      Target fromTarget,
+      TargetAndConfiguration fromNode,
       NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException;
-
 }

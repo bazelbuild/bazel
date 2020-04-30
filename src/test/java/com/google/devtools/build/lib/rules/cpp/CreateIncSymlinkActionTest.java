@@ -128,6 +128,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
         /*actionInputPrefetcher=*/ null,
         /*actionKeyContext=*/ null,
         /*metadataHandler=*/ null,
+        /*rewindingEnabled=*/ false,
         LostInputsCheck.NONE,
         /*fileOutErr=*/ null,
         new StoredEventHandler(),

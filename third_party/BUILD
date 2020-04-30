@@ -9,7 +9,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/aws-sdk-auth-lite:srcs",
-        "//third_party/aws-sig-v4-test-suite:srcs",
         "//third_party/css/bootstrap:srcs",
         "//third_party/css/font_awesome:srcs",
         "//third_party/ijar:srcs",
@@ -19,8 +18,6 @@ filegroup(
         "//third_party/jaxb:srcs",
         "//third_party/java/android_databinding:srcs",
         "//third_party/java/aosp_gradle_core:srcs",
-        "//third_party/java/apkbuilder:srcs",
-        "//third_party/java/dd_plist:srcs",
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",

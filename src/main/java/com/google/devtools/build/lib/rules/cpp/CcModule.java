@@ -27,10 +27,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -59,7 +60,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -85,7 +85,7 @@ import javax.annotation.Nullable;
 /** A module that contains Starlark utilities for C++ support. */
 public abstract class CcModule
     implements CcModuleApi<
-        SkylarkActionFactory,
+        StarlarkActionFactory,
         Artifact,
         CcToolchainProvider,
         FeatureConfigurationForStarlark,
@@ -262,13 +262,11 @@ public abstract class CcModule
         /* variablesExtensions= */ ImmutableList.of(),
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),
-        Depset.getSetFromNoneableParam(includeDirs, String.class, "framework_include_directories"),
-        Depset.getSetFromNoneableParam(quoteIncludeDirs, String.class, "quote_include_directories"),
-        Depset.getSetFromNoneableParam(
-            systemIncludeDirs, String.class, "system_include_directories"),
-        Depset.getSetFromNoneableParam(
-            frameworkIncludeDirs, String.class, "framework_include_directories"),
-        Depset.getSetFromNoneableParam(defines, String.class, "preprocessor_defines"),
+        Depset.noneableCast(includeDirs, String.class, "framework_include_directories"),
+        Depset.noneableCast(quoteIncludeDirs, String.class, "quote_include_directories"),
+        Depset.noneableCast(systemIncludeDirs, String.class, "system_include_directories"),
+        Depset.noneableCast(frameworkIncludeDirs, String.class, "framework_include_directories"),
+        Depset.noneableCast(defines, String.class, "preprocessor_defines"),
         ImmutableList.of());
   }
 
@@ -314,11 +312,10 @@ public abstract class CcModule
         /* ltoOutputRootPrefix= */ null,
         convertFromNoneable(defFile, /* defaultValue= */ null),
         /* fdoContext= */ null,
-        Depset.getSetFromNoneableParam(
+        Depset.noneableCast(
             runtimeLibrarySearchDirectories, String.class, "runtime_library_search_directories"),
         /* librariesToLink= */ null,
-        Depset.getSetFromNoneableParam(
-            librarySearchDirectories, String.class, "library_search_directories"),
+        Depset.noneableCast(librarySearchDirectories, String.class, "library_search_directories"),
         /* addIfsoRelatedVariables= */ false);
   }
 
@@ -405,8 +402,8 @@ public abstract class CcModule
       String interfaceLibraryPath,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    SkylarkActionFactory skylarkActionFactory =
-        nullIfNone(actionsObject, SkylarkActionFactory.class);
+    StarlarkActionFactory skylarkActionFactory =
+        nullIfNone(actionsObject, StarlarkActionFactory.class);
     FeatureConfigurationForStarlark featureConfiguration =
         nullIfNone(featureConfigurationObject, FeatureConfigurationForStarlark.class);
     CcToolchainProvider ccToolchainProvider =
@@ -644,7 +641,7 @@ public abstract class CcModule
     if (obj == Starlark.UNBOUND) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else {
-      return Depset.getSetFromNoneableParam(obj, Artifact.class, fieldName);
+      return Depset.noneableCast(obj, Artifact.class, fieldName);
     }
   }
 
@@ -653,7 +650,7 @@ public abstract class CcModule
     if (obj == Starlark.UNBOUND) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else {
-      return Depset.getSetFromNoneableParam(obj, String.class, fieldName);
+      return Depset.noneableCast(obj, String.class, fieldName);
     }
   }
 
@@ -667,19 +664,16 @@ public abstract class CcModule
       throws EvalException, InterruptedException {
     LinkOptions options =
         LinkOptions.of(
-            Depset.getSetFromNoneableParam(userLinkFlagsObject, String.class, "user_link_flags")
-                .toList(),
+            Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList(),
             BazelStarlarkContext.from(thread).getSymbolGenerator());
 
     return CcLinkingContext.LinkerInput.builder()
         .setOwner(owner)
         .addLibraries(
-            Depset.getSetFromNoneableParam(librariesToLinkObject, LibraryToLink.class, "libraries")
-                .toList())
+            Depset.noneableCast(librariesToLinkObject, LibraryToLink.class, "libraries").toList())
         .addUserLinkFlags(ImmutableList.of(options))
         .addNonCodeInputs(
-            Depset.getSetFromNoneableParam(nonCodeInputs, Artifact.class, "additional_inputs")
-                .toList())
+            Depset.noneableCast(nonCodeInputs, Artifact.class, "additional_inputs").toList())
         .build();
   }
 
@@ -734,8 +728,7 @@ public abstract class CcModule
     } else {
       CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
       ccLinkingContextBuilder.addTransitiveLinkerInputs(
-          Depset.getSetFromNoneableParam(
-              linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
+          Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
 
       @SuppressWarnings("unchecked")
       Sequence<LibraryToLink> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
@@ -761,15 +754,14 @@ public abstract class CcModule
   }
 
   /** Converts None, or a Sequence, or a Depset to a NestedSet. */
-  @SuppressWarnings("unchecked")
   private static <T> NestedSet<T> convertToNestedSet(Object o, Class<T> type, String fieldName)
       throws EvalException {
     if (o == Starlark.NONE) {
       return NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
     }
     return o instanceof Depset
-        ? ((Depset) o).getSetFromParam(type, fieldName)
-        : NestedSetBuilder.wrap(Order.COMPILE_ORDER, (Sequence<T>) o);
+        ? Depset.cast(o, type, fieldName)
+        : NestedSetBuilder.wrap(Order.COMPILE_ORDER, Sequence.cast(o, type, fieldName));
   }
 
   @Override
@@ -972,7 +964,7 @@ public abstract class CcModule
               + " of type '%s' instead of a '%s' provider. Use the methods provided in"
               + " https://source.bazel.build/bazel/+/master:tools/cpp/cc_toolchain_config_lib.bzl"
               + " for obtaining the right providers.",
-          parameterName, EvalUtils.getDataTypeName(o), expectedProvider);
+          parameterName, Starlark.type(o), expectedProvider);
     }
   }
 
@@ -1474,7 +1466,7 @@ public abstract class CcModule
 
   @Override
   public Tuple<Object> createLinkingContextFromCompilationOutputs(
-      SkylarkActionFactory skylarkActionFactoryApi,
+      StarlarkActionFactory skylarkActionFactoryApi,
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       CcCompilationOutputs compilationOutputs,
@@ -1490,7 +1482,7 @@ public abstract class CcModule
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     validateLanguage(language);
-    SkylarkActionFactory actions = skylarkActionFactoryApi;
+    StarlarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
@@ -1595,7 +1587,7 @@ public abstract class CcModule
     }
   }
 
-  protected Label getCallerLabel(SkylarkActionFactory actions, String name) throws EvalException {
+  protected Label getCallerLabel(StarlarkActionFactory actions, String name) throws EvalException {
     try {
       return Label.create(
           actions.getActionConstructionContext().getActionOwner().getLabel().getPackageIdentifier(),
@@ -1606,7 +1598,7 @@ public abstract class CcModule
   }
 
   protected Tuple<Object> compile(
-      SkylarkActionFactory skylarkActionFactoryApi,
+      StarlarkActionFactory skylarkActionFactoryApi,
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       Sequence<?> sourcesUnchecked, // <Artifact> expected
@@ -1632,7 +1624,7 @@ public abstract class CcModule
     List<Artifact> publicHeaders = Sequence.cast(publicHeadersUnchecked, Artifact.class, "srcs");
     List<Artifact> privateHeaders = Sequence.cast(privateHeadersUnchecked, Artifact.class, "srcs");
 
-    SkylarkActionFactory actions = skylarkActionFactoryApi;
+    StarlarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
@@ -1721,7 +1713,7 @@ public abstract class CcModule
   }
 
   protected CcLinkingOutputs link(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       FeatureConfigurationForStarlark skylarkFeatureConfiguration,
       CcToolchainProvider skylarkCcToolchainProvider,
       CcCompilationOutputs compilationOutputs,

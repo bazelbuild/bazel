@@ -296,14 +296,16 @@ public final class SkyframeActionExecutor {
   FileSystem createActionFileSystem(
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
-      Iterable<Artifact> outputArtifacts) {
+      Iterable<Artifact> outputArtifacts,
+      boolean trackFailedRemoteReads) {
     return outputService.createActionFileSystem(
         executorEngine.getFileSystem(),
         executorEngine.getExecRoot().asFragment(),
         relativeOutputPath,
         sourceRootSupplier.get(),
         inputArtifactData,
-        outputArtifacts);
+        outputArtifacts,
+        trackFailedRemoteReads);
   }
 
   void updateActionFileSystemContext(
@@ -445,7 +447,8 @@ public final class SkyframeActionExecutor {
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
-      ExtendedEventHandler skyframeCachingEventHandler) {
+      ExtendedEventHandler skyframeCachingEventHandler,
+      boolean rewindingEnabled) {
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr;
@@ -467,6 +470,7 @@ public final class SkyframeActionExecutor {
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
+        rewindingEnabled,
         lostInputsCheck(actionFileSystem, action, outputService),
         fileOutErr,
         replayActionOutErr && progressEventBehavior.equals(ProgressEventBehavior.EMIT)
@@ -630,6 +634,7 @@ public final class SkyframeActionExecutor {
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,
+            env.restartPermitted(),
             lostInputsCheck(actionFileSystem, action, outputService),
             actionLogBufferPathGenerator.generate(
                 ArtifactPathResolver.createPathResolver(

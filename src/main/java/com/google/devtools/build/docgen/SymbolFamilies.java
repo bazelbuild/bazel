@@ -16,7 +16,7 @@ package com.google.devtools.build.docgen;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkModuleDoc;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
@@ -39,10 +39,10 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDefaultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeOutputGroupInfo.FakeOutputGroupInfoProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkAttrApi;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkCommandLineApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkAttrModuleApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkCommandLineApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidApplicationResourceInfo.FakeAndroidApplicationResourceInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBrokerInfo.FakeAndroidDeviceBrokerInfoProvider;
@@ -91,7 +91,7 @@ public class SymbolFamilies {
   private static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
 
   private final ImmutableList<RuleDocumentation> nativeRules;
-  private final ImmutableMap<String, SkylarkModuleDoc> types;
+  private final ImmutableMap<String, StarlarkModuleDoc> types;
 
   // Mappings between Starlark names and Starlark entities generated from the fakebuildapi.
   private final ImmutableMap<String, Object> globals;
@@ -133,7 +133,7 @@ public class SymbolFamilies {
   }
 
   // Returns a mapping between type names and module/type documentation.
-  public Map<String, SkylarkModuleDoc> getTypes() {
+  public Map<String, StarlarkModuleDoc> getTypes() {
     return types;
   }
 
@@ -141,8 +141,8 @@ public class SymbolFamilies {
    * Collects a mapping between type names and module/type documentation that are available both
    * in BZL and BUILD files.
    */
-  private Map<String, SkylarkModuleDoc> collectTypes() throws ClassPathException {
-    return SkylarkDocumentationCollector.collectModules(
+  private Map<String, StarlarkModuleDoc> collectTypes() throws ClassPathException {
+    return StarlarkDocumentationCollector.collectModules(
         Classpath.findClasses(MODULES_PACKAGE_PREFIX));
   }
 
@@ -168,8 +168,8 @@ public class SymbolFamilies {
     TopLevelBootstrap topLevelBootstrap =
         new TopLevelBootstrap(
             new FakeBuildApiGlobals(),
-            new FakeSkylarkAttrApi(),
-            new FakeSkylarkCommandLineApi(),
+            new FakeStarlarkAttrModuleApi(),
+            new FakeStarlarkCommandLineApi(),
             new FakeSkylarkNativeModuleApi(),
             new FakeSkylarkRuleFunctionsApi(
                 Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList()),

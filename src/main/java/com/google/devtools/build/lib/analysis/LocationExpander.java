@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -373,8 +374,10 @@ public final class LocationExpander {
     if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection src :
           ruleContext.getPrerequisitesIf("srcs", TransitionMode.TARGET, FileProvider.class)) {
-        mapGet(locationMap, AliasProvider.getDependencyLabel(src))
-            .addAll(src.getProvider(FileProvider.class).getFilesToBuild().toList());
+        for (Label label : AliasProvider.getDependencyLabels(src)) {
+          mapGet(locationMap, label)
+              .addAll(src.getProvider(FileProvider.class).getFilesToBuild().toList());
+        }
       }
     }
 
@@ -400,15 +403,18 @@ public final class LocationExpander {
     }
 
     for (TransitiveInfoCollection dep : depsDataAndTools) {
-      Label label = AliasProvider.getDependencyLabel(dep);
+      ImmutableList<Label> labels = AliasProvider.getDependencyLabels(dep);
       FilesToRunProvider filesToRun = dep.getProvider(FilesToRunProvider.class);
       Artifact executableArtifact = filesToRun.getExecutable();
 
       // If the label has an executable artifact add that to the multimaps.
-      if (executableArtifact != null) {
-        mapGet(locationMap, label).add(executableArtifact);
-      } else {
-        mapGet(locationMap, label).addAll(filesToRun.getFilesToRun().toList());
+      Collection<Artifact> values =
+          executableArtifact != null
+              ? ImmutableList.of(executableArtifact)
+              : filesToRun.getFilesToRun().toList();
+
+      for (Label label : labels) {
+        mapGet(locationMap, label).addAll(values);
       }
     }
     return locationMap;

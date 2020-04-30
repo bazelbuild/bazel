@@ -165,23 +165,24 @@ public class ProtoCompileActionBuilder {
     public String toString() {
       try {
         return TemplateExpander.expand(
-            template,
-            new TemplateContext() {
-              @Override
-              public String lookupVariable(String name)
-                  throws ExpansionException {
-                CharSequence value = variableValues.get(name);
-                if (value == null) {
-                  throw new ExpansionException(String.format("$(%s) not defined", name));
-                }
-                return value.toString();
-              }
+                template,
+                new TemplateContext() {
+                  @Override
+                  public String lookupVariable(String name) throws ExpansionException {
+                    CharSequence value = variableValues.get(name);
+                    if (value == null) {
+                      throw new ExpansionException(String.format("$(%s) not defined", name));
+                    }
+                    return value.toString();
+                  }
 
-              @Override
-              public String lookupFunction(String name, String param) throws ExpansionException {
-                throw new ExpansionException(String.format("$(%s) not defined", name));
-              }
-            });
+                  @Override
+                  public String lookupFunction(String name, String param)
+                      throws ExpansionException {
+                    throw new ExpansionException(String.format("$(%s) not defined", name));
+                  }
+                })
+            .expansion();
       } catch (ExpansionException e) {
         // Squeelch. We don't throw this exception in the lookupMakeVariable implementation above,
         // and we can't report it here anyway, because this code will typically execute in the

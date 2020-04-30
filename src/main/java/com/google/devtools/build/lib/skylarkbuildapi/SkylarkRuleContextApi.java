@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ExecGroupCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
@@ -27,7 +29,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
@@ -154,7 +155,7 @@ public interface SkylarkRuleContextApi<ConstraintValueT extends ConstraintValueI
       name = "actions",
       structField = true,
       doc = "Contains methods for declaring output files and the actions that produce them.")
-  SkylarkActionFactoryApi actions();
+  StarlarkActionFactoryApi actions();
 
   @SkylarkCallable(
       name = "created_actions",
@@ -294,7 +295,7 @@ public interface SkylarkRuleContextApi<ConstraintValueT extends ConstraintValueI
       doc =
           "Returns rule attributes descriptor for the rule that aspect is applied to."
               + " Only available in aspect implementation functions.")
-  SkylarkAttributesCollectionApi rule() throws EvalException;
+  StarlarkAttributesCollectionApi rule() throws EvalException;
 
   @SkylarkCallable(
       name = "aspect_ids",
@@ -313,7 +314,7 @@ public interface SkylarkRuleContextApi<ConstraintValueT extends ConstraintValueI
   @SkylarkCallable(
       name = "toolchains",
       structField = true,
-      doc = "Toolchains required for this rule.")
+      doc = "Toolchains for the default exec group of this rule.")
   ToolchainContextApi toolchains() throws EvalException;
 
   @SkylarkCallable(
@@ -328,6 +329,16 @@ public interface SkylarkRuleContextApi<ConstraintValueT extends ConstraintValueI
             doc = "The constraint value to check the target platform against.")
       })
   boolean targetPlatformHasConstraint(ConstraintValueT constraintValue);
+
+  @SkylarkCallable(
+      name = "exec_groups",
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
+      // TODO(b/151742236) update this doc when this becomes non-experimental.
+      doc =
+          "<i>experimental</i> A collection of the execution groups available for this rule,"
+              + " indexed by their name. Access with <code>ctx.exec_groups[name_of_group]</code>.")
+  ExecGroupCollectionApi execGroups() throws EvalException;
 
   @SkylarkCallable(
       name = "tokenize",

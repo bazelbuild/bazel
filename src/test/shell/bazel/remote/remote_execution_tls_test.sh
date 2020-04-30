@@ -15,12 +15,34 @@
 # limitations under the License.
 #
 # Tests remote caching with TLS.
-#
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../../integration_test_setup.sh" \
+set -euo pipefail
+
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
+  || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
 cert_path="${BAZEL_RUNFILES}/src/test/testdata/test_tls_certificate"
 client_mtls_flags=
@@ -31,37 +53,14 @@ if [[ $1 == "--mtls" ]]; then
 fi
 
 function set_up() {
-  work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
-  cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
-  pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
-  attempts=1
   mtls_flag=
   if [[ $enable_mtls == 1 ]]; then
     mtls_flag=--tls_ca_certificate="${cert_path}/ca.crt"
   fi
-  while [ $attempts -le 3 ]; do
-    (( attempts++ ))
-    worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
-    "${BAZEL_RUNFILES}/src/tools/remote/worker" \
-        --work_path="${work_path}" \
-        --listen_port=${worker_port} \
-        --cas_path=${cas_path} \
+  start_worker \
         --tls_certificate="${cert_path}/server.crt" \
         --tls_private_key="${cert_path}/server.pem" \
-        $mtls_flag \
-        --pid_file="${pid_file}" >& $TEST_log &
-    local wait_seconds=0
-    until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 15 ]; do
-      sleep 1
-      ((wait_seconds++)) || true
-    done
-    if [ -s "${pid_file}" ]; then
-      break
-    fi
-  done
-  if [ ! -s "${pid_file}" ]; then
-    fail "Timed out waiting for remote worker to start."
-  fi
+        $mtls_flag
 }
 
 function _prepareBasicRule(){
@@ -77,13 +76,7 @@ EOF
 }
 function tear_down() {
   bazel clean >& $TEST_log
-  if [ -s "${pid_file}" ]; then
-    local pid=$(cat "${pid_file}")
-    kill "${pid}" || true
-  fi
-  rm -rf "${pid_file}"
-  rm -rf "${work_path}"
-  rm -rf "${cas_path}"
+  stop_worker
 }
 
 function test_remote_grpcs_cache() {

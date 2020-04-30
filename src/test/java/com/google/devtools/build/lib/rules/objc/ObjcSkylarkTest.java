@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -1322,9 +1322,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
                 createObjcProviderSkylarkTarget(
                     "   created_provider = apple_common.new_objc_provider(library='bar')",
                     "   return created_provider"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(String.format(AppleSkylarkCommon.NOT_SET_ERROR, "library", "string"));
+    assertThat(e).hasMessageThat().contains("for library, got string, want a depset of File");
   }
 
   @Test
@@ -1338,9 +1336,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
                     "   return created_provider"));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            String.format(
-                AppleSkylarkCommon.BAD_SET_TYPE_ERROR, "library", "File", "depset of strings"));
+        .contains("for 'library', got a depset of 'string', expected a depset of 'File'");
   }
 
   @Test

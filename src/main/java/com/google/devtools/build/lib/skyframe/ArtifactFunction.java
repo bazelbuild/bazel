@@ -82,7 +82,9 @@ class ArtifactFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
     Artifact artifact = (Artifact) skyKey;
-    if (artifact.isSourceArtifact()) {
+    if (!artifact.hasKnownGeneratingAction()) {
+      // If the artifact has no known generating action, it is either a source artifact, or a
+      // NinjaMysteryArtifact, which undergoes the same handling here.
       try {
         return createSourceValue(artifact, env);
       } catch (IOException e) {

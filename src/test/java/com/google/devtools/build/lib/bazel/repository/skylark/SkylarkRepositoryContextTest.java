@@ -108,8 +108,7 @@ public final class SkylarkRepositoryContextTest {
     try (Mutability mu = Mutability.create("impl")) {
       StarlarkThread thread = StarlarkThread.builder(mu).useDefaultSemantics().build();
       Module module = thread.getGlobals();
-      return EvalUtils.execAndEvalOptionalFinalExpression(
-          ParserInput.fromLines(lines), FileOptions.DEFAULT, module, thread);
+      return EvalUtils.exec(ParserInput.fromLines(lines), FileOptions.DEFAULT, module, thread);
     } catch (Exception ex) { // SyntaxError | EvalException | InterruptedException
       throw new AssertionError("exec failed", ex);
     }

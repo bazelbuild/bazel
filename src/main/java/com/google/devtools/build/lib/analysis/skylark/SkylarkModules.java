@@ -33,8 +33,8 @@ public final class SkylarkModules {
   private static TopLevelBootstrap topLevelBootstrap =
       new TopLevelBootstrap(
           new BazelBuildApiGlobals(),
-          new SkylarkAttr(),
-          new SkylarkCommandLine(),
+          new StarlarkAttrModule(),
+          new StarlarkCommandLine(),
           new SkylarkNativeModule(),
           new SkylarkRuleClassFunctions(),
           StructProvider.STRUCT,

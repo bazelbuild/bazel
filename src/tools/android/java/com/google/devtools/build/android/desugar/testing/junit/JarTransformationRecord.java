@@ -21,7 +21,6 @@ import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.android.desugar.Desugar.DesugarOptions;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -36,21 +35,23 @@ abstract class JarTransformationRecord {
   /**
    * The full runtime path of a pre-transformationRecord jar.
    *
-   * @see DesugarOptions#inputJars for details.
+   * @see com.google.devtools.build.android.desugar.config.DesugarOptions#inputJars for details.
    */
   abstract ImmutableList<Path> inputJars();
 
   /**
    * The full runtime path of a post-transformationRecord jar (deguared jar).
    *
-   * @see DesugarOptions#inputJars for details.
+   * @see com.google.devtools.build.android.desugar.config.DesugarOptions#inputJars for details.
    */
   abstract ImmutableList<Path> outputJars();
 
-  /** @see DesugarOptions#classpath for details. */
+  /** @see com.google.devtools.build.android.desugar.config.DesugarOptions#classpath for details. */
   abstract ImmutableList<Path> classPathEntries();
 
-  /** @see DesugarOptions#bootclasspath for details. */
+  /**
+   * @see com.google.devtools.build.android.desugar.config.DesugarOptions#bootclasspath for details.
+   */
   abstract ImmutableList<Path> bootClassPathEntries();
 
   /** The remaining command options used for desugaring. */

@@ -489,8 +489,6 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             positional = false,
             defaultValue = "False",
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION,
-            valueWhenDisabled = "False",
             doc =
                 "If true, the aspect will, when applied to an output file, instead apply to the "
                     + "output file's generating rule. "

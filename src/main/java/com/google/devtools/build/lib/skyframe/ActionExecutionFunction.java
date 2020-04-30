@@ -230,10 +230,6 @@ public class ActionExecutionFunction implements SkyFunction {
 
     Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps =
         getInputDeps(env, allInputs, state);
-    // If there's a missing value.
-    if (inputDeps == null) {
-      return null;
-    }
 
     try {
       if (previousExecution == null && !state.hasArtifactData()) {
@@ -284,7 +280,8 @@ public class ActionExecutionFunction implements SkyFunction {
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
                 checkedInputs.actionInputMap,
-                action.getOutputs());
+                action.getOutputs(),
+                env.restartPermitted());
       }
     }
 
@@ -335,9 +332,7 @@ public class ActionExecutionFunction implements SkyFunction {
    * unconditionally to maintain our invariant of asking for the same deps each build.
    */
   private static Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getInputDeps(
-      Environment env,
-      NestedSet<Artifact> allInputs,
-      ContinuationState state)
+      Environment env, NestedSet<Artifact> allInputs, ContinuationState state)
       throws InterruptedException {
     if (evalInputsAsNestedSet(allInputs)) {
       // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order
@@ -363,14 +358,21 @@ public class ActionExecutionFunction implements SkyFunction {
                   IOException.class,
                   ActionExecutionException.class);
 
-      if (env.valuesMissing()) {
-        return null;
-      }
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
           artifactSkyKeyToValueOrException =
               ArtifactNestedSetFunction.getInstance().getArtifactSkyKeyToValueOrException();
+
+      // Only commit to the map when a value or exception of a direct Artifact's SkyKey is present.
       for (SkyKey key : directKeys) {
-        artifactSkyKeyToValueOrException.put(key, inputsValuesOrExceptions.get(key));
+        ValueOrException2<IOException, ActionExecutionException> voe =
+            inputsValuesOrExceptions.get(key);
+        try {
+          if (voe.get() != null) {
+            artifactSkyKeyToValueOrException.put(key, voe);
+          }
+        } catch (IOException | ActionExecutionException e) {
+          artifactSkyKeyToValueOrException.put(key, voe);
+        }
       }
 
       return artifactSkyKeyToValueOrException;
@@ -887,7 +889,8 @@ public class ActionExecutionFunction implements SkyFunction {
             ImmutableMap.copyOf(state.topLevelFilesets),
             state.actionFileSystem,
             skyframeDepsResult,
-            env.getListener());
+            env.getListener(),
+            env.restartPermitted());
     ActionExecutionValue result;
     try {
       result =

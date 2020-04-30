@@ -27,19 +27,16 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.AspectClass;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -60,42 +57,22 @@ import javax.annotation.Nullable;
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
 @Immutable
-@AutoCodec
 public final class ConfiguredAspect implements ProviderCollection {
-  private final AspectDescriptor descriptor;
   private final ImmutableList<ActionAnalysisMetadata> actions;
   private final TransitiveInfoProviderMap providers;
 
-  @AutoCodec.VisibleForSerialization
-  ConfiguredAspect(
-      AspectDescriptor descriptor,
-      ImmutableList<ActionAnalysisMetadata> actions,
-      TransitiveInfoProviderMap providers) {
-    this.descriptor = descriptor;
+  private ConfiguredAspect(
+      ImmutableList<ActionAnalysisMetadata> actions, TransitiveInfoProviderMap providers) {
     this.actions = actions;
     this.providers = providers;
 
     // Initialize every SkylarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object obj = providers.getProviderInstanceAt(i);
-      if (obj instanceof SkylarkApiProvider) {
-        ((SkylarkApiProvider) obj).init(providers);
+      if (obj instanceof StarlarkApiProvider) {
+        ((StarlarkApiProvider) obj).init(providers);
       }
     }
-  }
-
-  /**
-   * Returns the aspect name.
-   */
-  public String getName() {
-    return descriptor.getAspectClass().getName();
-  }
-
-  /**
-   *  The aspect descriptor originating this ConfiguredAspect.
-   */
-  public AspectDescriptor getDescriptor() {
-    return descriptor;
   }
 
   public ImmutableList<ActionAnalysisMetadata> getActions() {
@@ -128,19 +105,17 @@ public final class ConfiguredAspect implements ProviderCollection {
   }
 
   public static ConfiguredAspect forAlias(ConfiguredAspect real) {
-    return new ConfiguredAspect(real.descriptor, real.getActions(), real.getProviders());
+    return new ConfiguredAspect(real.getActions(), real.getProviders());
   }
 
-  public static ConfiguredAspect forNonapplicableTarget(AspectDescriptor descriptor) {
+  public static ConfiguredAspect forNonapplicableTarget() {
     return new ConfiguredAspect(
-        descriptor,
         ImmutableList.of(),
         new TransitiveInfoProviderMapBuilder().add().build());
   }
 
-  public static Builder builder(
-      AspectClass aspectClass, AspectParameters parameters, RuleContext ruleContext) {
-    return new Builder(aspectClass, parameters, ruleContext);
+  public static Builder builder(RuleContext ruleContext) {
+    return new Builder(ruleContext);
   }
 
   /**
@@ -151,17 +126,10 @@ public final class ConfiguredAspect implements ProviderCollection {
         new TransitiveInfoProviderMapBuilder();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final RuleContext ruleContext;
-    private final AspectDescriptor descriptor;
+    private final LinkedHashSet<String> aspectImplSpecificRequiredConfigFragments =
+        new LinkedHashSet<>();
 
-    public Builder(
-        AspectClass aspectClass,
-        AspectParameters parameters,
-        RuleContext context) {
-      this(new AspectDescriptor(aspectClass, parameters), context);
-    }
-
-    public Builder(AspectDescriptor descriptor, RuleContext ruleContext) {
-      this.descriptor = descriptor;
+    public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
     }
 
@@ -221,12 +189,6 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
-    public Builder addSkylarkTransitiveInfo(String name, Object value, Location loc)
-        throws EvalException {
-      providers.put(name, value);
-      return this;
-    }
-
     public Builder addSkylarkDeclaredProvider(Info declaredProvider) throws EvalException {
       Provider constructor = declaredProvider.getProvider();
       if (!constructor.isExported()) {
@@ -245,6 +207,15 @@ public final class ConfiguredAspect implements ProviderCollection {
       Provider constructor = declaredProvider.getProvider();
       Preconditions.checkState(constructor.isExported());
       addDeclaredProvider(declaredProvider);
+      return this;
+    }
+
+    /**
+     * Supplements {@link #maybeAddRequiredConfigFragmentsProvider} with aspect
+     * implementation-specific requirements.
+     */
+    public Builder addRequiredConfigFragments(Collection<String> fragments) {
+      aspectImplSpecificRequiredConfigFragments.addAll(fragments);
       return this;
     }
 
@@ -275,22 +246,35 @@ public final class ConfiguredAspect implements ProviderCollection {
               ruleContext.getOwner(),
               /*outputFiles=*/ null);
 
+      maybeAddRequiredConfigFragmentsProvider();
+
+      return new ConfiguredAspect(generatingActions.getActions(), providers.build());
+    }
+
+    /**
+     * Adds {@link RequiredConfigFragmentsProvider} if {@link
+     * CoreOptions#includeRequiredConfigFragmentsProvider} isn't {@link
+     * CoreOptions.IncludeConfigFragmentsEnum#OFF}.
+     *
+     * <p>See {@link ConfiguredTargetFactory#getRequiredConfigFragments} for a description of the
+     * meaning of this provider's content. That method populates the results of {@link
+     * RuleContext#getRequiredConfigFragments} and {@link
+     * #aspectImplSpecificRequiredConfigFragments}.
+     */
+    private void maybeAddRequiredConfigFragmentsProvider() {
       if (ruleContext
               .getConfiguration()
               .getOptions()
               .get(CoreOptions.class)
               .includeRequiredConfigFragmentsProvider
           != IncludeConfigFragmentsEnum.OFF) {
-        // This guarantees aspects pass through the requirements of their dependencies. But native
-        // aspects can also declare direct requirements.
-        // TODO(gregce): support native aspect direct requirements.
-        addProvider(new RequiredConfigFragmentsProvider(ruleContext.getRequiredConfigFragments()));
+        addProvider(
+            new RequiredConfigFragmentsProvider(
+                ImmutableSet.<String>builder()
+                    .addAll(ruleContext.getRequiredConfigFragments())
+                    .addAll(aspectImplSpecificRequiredConfigFragments)
+                    .build()));
       }
-
-      return new ConfiguredAspect(
-          descriptor,
-          generatingActions.getActions(),
-          providers.build());
     }
   }
 }

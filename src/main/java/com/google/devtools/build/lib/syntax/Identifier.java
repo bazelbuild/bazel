@@ -18,20 +18,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nullable;
 
-// TODO(bazel-team): For performance, avoid doing HashMap lookups at runtime, and compile local
-// variable access into array reference with a constant index. Variable lookups are currently a
-// speed bottleneck, as previously measured in an experiment.
-/**
- * Syntax node for an identifier.
- */
+/** Syntax node for an identifier. */
 public final class Identifier extends Expression {
 
   private final String name;
   private final int nameOffset;
 
-  // The scope of the variable. The value is set when the AST has been analysed by
-  // ValidationEnvironment.
-  @Nullable private ValidationEnvironment.Scope scope;
+  // set by Resolver
+  @Nullable private Resolver.Binding binding;
 
   Identifier(FileLocations locs, String name, int nameOffset) {
     super(locs);
@@ -61,13 +55,13 @@ public final class Identifier extends Expression {
     return name.startsWith("_");
   }
 
-  ValidationEnvironment.Scope getScope() {
-    return scope;
+  Resolver.Binding getBinding() {
+    return binding;
   }
 
-  void setScope(ValidationEnvironment.Scope scope) {
-    Preconditions.checkState(this.scope == null);
-    this.scope = scope;
+  void setBinding(Resolver.Binding bind) {
+    Preconditions.checkState(this.binding == null);
+    this.binding = bind;
   }
 
   @Override

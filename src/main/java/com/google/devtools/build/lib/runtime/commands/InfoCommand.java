@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +27,12 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
@@ -86,24 +92,19 @@ public class InfoCommand implements BlazeCommand {
   }
 
   /**
-   * Unchecked variant of ExitCausingException. Below, we need to throw from the Supplier interface,
-   * which does not allow checked exceptions.
+   * Unchecked variant of {@link AbruptExitException}. Below, we need to throw from the Supplier
+   * interface, which does not allow checked exceptions.
    */
-  public static class ExitCausingRuntimeException extends RuntimeException {
+  private static class AbruptExitRuntimeException extends RuntimeException {
 
-    private final ExitCode exitCode;
+    private final DetailedExitCode detailedExitCode;
 
-    public ExitCausingRuntimeException(String message, ExitCode exitCode) {
-      super(message);
-      this.exitCode = exitCode;
+    private AbruptExitRuntimeException(DetailedExitCode exitCode) {
+      this.detailedExitCode = exitCode;
     }
 
-    public ExitCausingRuntimeException(ExitCode exitCode) {
-      this.exitCode = exitCode;
-    }
-
-    public ExitCode getExitCode() {
-      return exitCode;
+    private DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 
@@ -133,13 +134,26 @@ public class InfoCommand implements BlazeCommand {
                         /*keepGoing=*/ true);
               } catch (InvalidConfigurationException e) {
                 env.getReporter().handle(Event.error(e.getMessage()));
-                throw new ExitCausingRuntimeException(ExitCode.COMMAND_LINE_ERROR);
+                throw new AbruptExitRuntimeException(
+                    DetailedExitCode.of(
+                        ExitCode.COMMAND_LINE_ERROR,
+                        FailureDetail.newBuilder()
+                            .setMessage(Strings.nullToEmpty(e.getMessage()))
+                            .setBuildConfiguration(
+                                FailureDetails.BuildConfiguration.newBuilder()
+                                    .setCode(
+                                        e.getDetailedCode() == null
+                                            ? Code.BUILD_CONFIGURATION_UNKNOWN
+                                            : e.getDetailedCode()))
+                            .build()));
               } catch (AbruptExitException e) {
-                throw new ExitCausingRuntimeException(
-                    "unknown error: " + e.getMessage(), e.getExitCode());
+                throw new AbruptExitRuntimeException(e.getDetailedExitCode());
               } catch (InterruptedException e) {
                 env.getReporter().handle(Event.error("interrupted"));
-                throw new ExitCausingRuntimeException(ExitCode.INTERRUPTED);
+                throw new AbruptExitRuntimeException(
+                    createInterruptedExit(
+                        "command interrupted while syncing package loading",
+                        Interrupted.Code.PACKAGE_LOADING_SYNC));
               }
             });
 
@@ -156,8 +170,10 @@ public class InfoCommand implements BlazeCommand {
 
       List<String> residue = optionsParsingResult.getResidue();
       if (residue.size() > 1) {
-        env.getReporter().handle(Event.error("at most one key may be specified"));
-        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+        String message = "at most one key may be specified";
+        env.getReporter().handle(Event.error(message));
+        return createFailureResult(
+            message, ExitCode.COMMAND_LINE_ERROR, FailureDetails.InfoCommand.Code.TOO_MANY_KEYS);
       }
 
       String key = residue.size() == 1 ? residue.get(0) : null;
@@ -167,15 +183,23 @@ public class InfoCommand implements BlazeCommand {
         if (items.containsKey(key)) {
           value = items.get(key).get(configurationSupplier, env);
         } else {
-          env.getReporter().handle(Event.error("unknown key: '" + key + "'"));
-          return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+          String message = "unknown key: '" + key + "'";
+          env.getReporter().handle(Event.error(message));
+          return createFailureResult(
+              message,
+              ExitCode.COMMAND_LINE_ERROR,
+              FailureDetails.InfoCommand.Code.KEY_NOT_RECOGNIZED);
         }
         try {
           outErr.getOutputStream().write(value);
           outErr.getOutputStream().flush();
         } catch (IOException e) {
-          env.getReporter().handle(Event.error("Cannot write info block: " + e.getMessage()));
-          return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
+          String message = "Cannot write info block: " + e.getMessage();
+          env.getReporter().handle(Event.error(message));
+          return createFailureResult(
+              message,
+              ExitCode.ANALYSIS_FAILURE,
+              FailureDetails.InfoCommand.Code.INFO_BLOCK_WRITE_FAILURE);
         }
       } else { // print them all
         configurationSupplier.get();  // We'll need this later anyway
@@ -189,15 +213,40 @@ public class InfoCommand implements BlazeCommand {
         }
       }
     } catch (AbruptExitException e) {
-      return BlazeCommandResult.exitCode(e.getExitCode());
-    } catch (ExitCausingRuntimeException e) {
-      return BlazeCommandResult.exitCode(e.getExitCode());
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+    } catch (AbruptExitRuntimeException e) {
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     } catch (IOException e) {
-      return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+      return createFailureResult(
+          "Cannot write info block: " + e.getMessage(),
+          ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+          FailureDetails.InfoCommand.Code.ALL_INFO_WRITE_FAILURE);
     } catch (InterruptedException e) {
-      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+      return BlazeCommandResult.detailedExitCode(
+          createInterruptedExit("info interrupted", Interrupted.Code.INFO_ITEM));
     }
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+  }
+
+  private static DetailedExitCode createInterruptedExit(
+      String message, Interrupted.Code detailedCode) {
+    return DetailedExitCode.of(
+        ExitCode.INTERRUPTED,
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))
+            .build());
+  }
+
+  private static BlazeCommandResult createFailureResult(
+      String message, ExitCode exitCode, FailureDetails.InfoCommand.Code detailedCode) {
+    return BlazeCommandResult.detailedExitCode(
+        DetailedExitCode.of(
+            exitCode,
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setInfoCommand(FailureDetails.InfoCommand.newBuilder().setCode(detailedCode))
+                .build()));
   }
 
   private static Map<String, InfoItem> getHardwiredInfoItemMap(

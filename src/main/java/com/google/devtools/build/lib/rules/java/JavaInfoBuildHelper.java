@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -147,7 +147,7 @@ final class JavaInfoBuildHelper {
    */
   @Nullable
   Artifact packSourceFiles(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       Artifact outputJar,
       Artifact outputSourceJar,
       List<Artifact> sourceFiles,
@@ -346,7 +346,7 @@ final class JavaInfoBuildHelper {
   }
 
   public Artifact buildIjar(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       Artifact inputJar,
       @Nullable Label targetLabel,
       JavaToolchainProvider javaToolchain)
@@ -373,7 +373,7 @@ final class JavaInfoBuildHelper {
   }
 
   public Artifact stampJar(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       Artifact inputJar,
       Label targetLabel,
       JavaToolchainProvider javaToolchain)

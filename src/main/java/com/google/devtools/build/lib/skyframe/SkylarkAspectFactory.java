@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
+import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.events.Event;
@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -45,10 +44,9 @@ import java.util.Map;
 
 /** A factory for aspects that are defined in Starlark. */
 public class SkylarkAspectFactory implements ConfiguredAspectFactory {
-
   private final SkylarkDefinedAspect skylarkAspect;
 
-  public SkylarkAspectFactory(SkylarkDefinedAspect skylarkAspect) {
+  SkylarkAspectFactory(SkylarkDefinedAspect skylarkAspect) {
     this.skylarkAspect = skylarkAspect;
   }
 
@@ -108,10 +106,10 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
               String.format(
                   "Aspect implementation should return a struct, a list, or a provider "
                       + "instance, but got %s",
-                  EvalUtils.getDataTypeName(aspectSkylarkObject)));
+                  Starlark.type(aspectSkylarkObject)));
           return null;
         }
-        return createAspect(aspectSkylarkObject, aspectDescriptor, ruleContext);
+        return createAspect(aspectSkylarkObject, ruleContext);
       } catch (EvalException e) {
         addAspectToStackTrace(ctadBase.getTarget(), e);
         ruleContext.ruleError("\n" + e.print());
@@ -124,11 +122,10 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     }
   }
 
-  private ConfiguredAspect createAspect(
-      Object aspectSkylarkObject, AspectDescriptor aspectDescriptor, RuleContext ruleContext)
+  private static ConfiguredAspect createAspect(Object aspectSkylarkObject, RuleContext ruleContext)
       throws EvalException, ActionConflictException {
 
-    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(aspectDescriptor, ruleContext);
+    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
 
     if (aspectSkylarkObject instanceof Iterable) {
       addDeclaredProviders(builder, (Iterable) aspectSkylarkObject);
@@ -161,11 +158,11 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     }
 
     ConfiguredAspect configuredAspect = builder.build();
-    SkylarkProviderValidationUtil.validateArtifacts(ruleContext);
+    StarlarkProviderValidationUtil.validateArtifacts(ruleContext);
     return configuredAspect;
   }
 
-  private void addDeclaredProviders(
+  private static void addDeclaredProviders(
       ConfiguredAspect.Builder builder, Iterable<?> aspectSkylarkObject) throws EvalException {
     int i = 0;
     for (Object o : aspectSkylarkObject) {

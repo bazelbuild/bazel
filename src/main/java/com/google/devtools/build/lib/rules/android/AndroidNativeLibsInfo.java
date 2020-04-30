@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidNativeLibsInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -61,7 +61,7 @@ public final class AndroidNativeLibsInfo extends NativeInfo
 
     @Override
     public AndroidNativeLibsInfo createInfo(Depset nativeLibs) throws EvalException {
-      return new AndroidNativeLibsInfo(nativeLibs.getSetFromParam(Artifact.class, "native_libs"));
+      return new AndroidNativeLibsInfo(Depset.cast(nativeLibs, Artifact.class, "native_libs"));
     }
   }
 }

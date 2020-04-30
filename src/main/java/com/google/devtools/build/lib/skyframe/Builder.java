@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.TestExecException;
-import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.OptionsProvider;
-import java.util.Collection;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -86,7 +85,7 @@ public interface Builder {
       Set<ConfiguredTarget> exclusiveTests,
       Set<ConfiguredTarget> targetsToBuild,
       Set<ConfiguredTarget> targetsToSkip,
-      Collection<AspectValue> aspects,
+      ImmutableSet<AspectKey> aspects,
       Executor executor,
       Set<ConfiguredTargetKey> builtTargets,
       Set<AspectKey> builtAspects,

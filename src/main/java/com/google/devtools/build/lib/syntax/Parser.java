@@ -248,7 +248,7 @@ final class Parser {
           token.kind == TokenKind.INDENT
               ? "indentation error"
               : "syntax error at '" + tokenString(token.kind, token.value) + "': " + message;
-      reportError(token.left, msg);
+      reportError(token.start, msg);
       recoveryMode = true;
     }
   }
@@ -280,7 +280,7 @@ final class Parser {
     while (!terminatingTokens.contains(token.kind)) {
       nextToken();
     }
-    int end = token.right;
+    int end = token.end;
     // read past the synchronization token
     nextToken();
     return end;
@@ -296,13 +296,13 @@ final class Parser {
     // EOF must be in the set to prevent an infinite loop
     Preconditions.checkState(terminatingTokens.contains(TokenKind.EOF));
     // read past the problematic token
-    int previous = token.right;
+    int previous = token.end;
     nextToken();
     int current = previous;
     while (!terminatingTokens.contains(token.kind)) {
       nextToken();
       previous = current;
-      current = token.right;
+      current = token.end;
     }
     return previous;
   }
@@ -348,11 +348,11 @@ final class Parser {
         error = "keyword '" + token.kind + "' not supported";
         break;
     }
-    reportError(token.left, error);
+    reportError(token.start, error);
   }
 
   private int nextToken() {
-    int prev = token.left;
+    int prev = token.start;
     if (token.kind != TokenKind.EOF) {
       lexer.nextToken();
     }
@@ -457,85 +457,20 @@ final class Parser {
   //
   // arg_list = ( (arg ',')* arg ','? )?
   private ImmutableList<Argument> parseArguments() {
-    boolean hasArgs = false;
-    boolean hasStarStar = false;
+    boolean seenArg = false;
     ImmutableList.Builder<Argument> list = ImmutableList.builder();
-
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
-      if (hasArgs) {
+      if (seenArg) {
         expect(TokenKind.COMMA);
-        // The list may end with a comma.
+        // If nonempty, the list may end with a comma.
         if (token.kind == TokenKind.RPAREN) {
           break;
         }
       }
-      if (hasStarStar) {
-        // TODO(adonovan): move this to validation pass too.
-        reportError(token.left, "unexpected tokens after **kwargs argument");
-        break;
-      }
-      Argument arg = parseArgument();
-      hasArgs = true;
-      if (arg instanceof Argument.StarStar) { // TODO(adonovan): not Star too? verify.
-        hasStarStar = true;
-      }
-      list.add(arg);
+      list.add(parseArgument());
+      seenArg = true;
     }
-    ImmutableList<Argument> args = list.build();
-    validateArguments(args); // TODO(adonovan): move to validation pass.
-    return args;
-  }
-
-  // TODO(adonovan): move all this to validator, since we have to check it again there.
-  private void validateArguments(List<Argument> arguments) {
-    int i = 0;
-    int len = arguments.size();
-
-    while (i < len && arguments.get(i) instanceof Argument.Positional) {
-      i++;
-    }
-
-    while (i < len && arguments.get(i) instanceof Argument.Keyword) {
-      i++;
-    }
-
-    if (i < len && arguments.get(i) instanceof Argument.Star) {
-      i++;
-    }
-
-    if (i < len && arguments.get(i) instanceof Argument.StarStar) {
-      i++;
-    }
-
-    // If there's no argument left, everything is correct.
-    if (i == len) {
-      return;
-    }
-
-    Argument arg = arguments.get(i);
-    if (arg instanceof Argument.Positional) {
-      reportError(
-          arg.getStartOffset(),
-          "positional argument is misplaced (positional arguments come first)");
-      return;
-    }
-
-    if (arg instanceof Argument.Keyword) {
-      reportError(
-          arg.getStartOffset(),
-          "keyword argument is misplaced (keyword arguments must be before any *arg or **kwarg)");
-      return;
-    }
-
-    if (i < len && arg instanceof Argument.Star) {
-      reportError(arg.getStartOffset(), "*arg argument is misplaced");
-      return;
-    }
-
-    if (i < len && arg instanceof Argument.StarStar) {
-      reportError(arg.getStartOffset(), "**kwarg argument is misplaced (there can be only one)");
-      return;
-    }
+    return list.build();
   }
 
   // selector_suffix = '.' IDENTIFIER
@@ -562,7 +497,7 @@ final class Parser {
       expect(TokenKind.COMMA);
       if (EXPR_LIST_TERMINATOR_SET.contains(token.kind)) {
         if (!trailingCommaAllowed) {
-          reportError(token.left, "Trailing comma is allowed only in parenthesized tuples.");
+          reportError(token.start, "Trailing comma is allowed only in parenthesized tuples.");
         }
         break;
       }
@@ -597,10 +532,10 @@ final class Parser {
   private StringLiteral parseStringLiteral() {
     Preconditions.checkState(token.kind == TokenKind.STRING);
     StringLiteral literal =
-        new StringLiteral(locs, token.left, intern((String) token.value), token.right);
+        new StringLiteral(locs, token.start, intern((String) token.value), token.end);
     nextToken();
     if (token.kind == TokenKind.STRING) {
-      reportError(token.left, "Implicit string concatenation is forbidden, use the + operator");
+      reportError(token.start, "Implicit string concatenation is forbidden, use the + operator");
     }
     return literal;
   }
@@ -618,7 +553,7 @@ final class Parser {
       case INT:
         {
           IntegerLiteral literal =
-              new IntegerLiteral(locs, token.raw, token.left, (Integer) token.value);
+              new IntegerLiteral(locs, token.raw, token.start, (Integer) token.value);
           nextToken();
           return literal;
         }
@@ -681,7 +616,7 @@ final class Parser {
 
       default:
         {
-          int start = token.left;
+          int start = token.start;
           syntaxError("expected expression");
           int end = syncTo(EXPR_TERMINATOR_SET);
           return makeErrorExpression(start, end);
@@ -886,7 +821,7 @@ final class Parser {
 
   private Identifier parseIdent() {
     if (token.kind != TokenKind.IDENTIFIER) {
-      int start = token.left;
+      int start = token.start;
       int end = expect(TokenKind.IDENTIFIER);
       return makeErrorExpression(start, end);
     }
@@ -925,7 +860,7 @@ final class Parser {
       // are not associative.
       if (lastOp != null && operatorPrecedence.get(prec).contains(TokenKind.EQUALS_EQUALS)) {
         reportError(
-            token.left,
+            token.start,
             String.format(
                 "Operator '%s' is not associative with operator '%s'. Use parens.", lastOp, op));
       }
@@ -954,7 +889,7 @@ final class Parser {
 
   // Parses a non-tuple expression ("test" in Python terminology).
   private Expression parseTest() {
-    int start = token.left;
+    int start = token.start;
     Expression expr = parseTest(0);
     if (token.kind == TokenKind.IF) {
       nextToken();
@@ -1012,15 +947,15 @@ final class Parser {
     expect(TokenKind.LPAREN);
     if (token.kind != TokenKind.STRING) {
       // error: module is not a string literal.
-      StringLiteral module = new StringLiteral(locs, token.left, "", token.right);
+      StringLiteral module = new StringLiteral(locs, token.start, "", token.end);
       expect(TokenKind.STRING);
-      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.right);
+      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.end);
     }
 
     StringLiteral module = parseStringLiteral();
     if (token.kind == TokenKind.RPAREN) {
       syntaxError("expected at least one symbol to load");
-      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.right);
+      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.end);
     }
     expect(TokenKind.COMMA);
 
@@ -1054,7 +989,7 @@ final class Parser {
     }
 
     String name = (String) token.value;
-    int nameOffset = token.left + (token.kind == TokenKind.STRING ? 1 : 0);
+    int nameOffset = token.start + (token.kind == TokenKind.STRING ? 1 : 0);
     Identifier local = new Identifier(locs, name, nameOffset);
 
     Identifier original;
@@ -1072,7 +1007,7 @@ final class Parser {
         syntaxError("expected string");
         return;
       }
-      original = new Identifier(locs, (String) token.value, token.left + 1);
+      original = new Identifier(locs, (String) token.value, token.start + 1);
     }
     nextToken();
     symbols.add(new LoadStatement.Binding(local, original));
@@ -1164,12 +1099,12 @@ final class Parser {
   // for_stmt = FOR IDENTIFIER IN expr ':' suite
   private ForStatement parseForStatement() {
     int forOffset = expect(TokenKind.FOR);
-    Expression lhs = parseForLoopVariables();
+    Expression vars = parseForLoopVariables();
     expect(TokenKind.IN);
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
-    List<Statement> block = parseSuite();
-    return new ForStatement(locs, forOffset, lhs, collection, block);
+    List<Statement> body = parseSuite();
+    return new ForStatement(locs, forOffset, vars, collection, body);
   }
 
   // def_stmt = DEF IDENTIFIER '(' arguments ')' ':' suite
@@ -1178,30 +1113,16 @@ final class Parser {
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
     ImmutableList<Parameter> params = parseParameters();
-
-    FunctionSignature signature;
-    try {
-      signature = FunctionSignature.fromParameters(params);
-    } catch (FunctionSignature.SignatureException e) {
-      reportError(e.getParameter().getStartOffset(), e.getMessage());
-      // bogus empty signature
-      signature = FunctionSignature.of();
-    }
-
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = ImmutableList.copyOf(parseSuite());
-    return new DefStatement(locs, defOffset, ident, params, signature, block);
+    return new DefStatement(locs, defOffset, ident, params, block);
   }
 
   // Parse a list of function parameters.
-  //
-  // This parser does minimal validation: it ensures the proper python use of the comma (that can
-  // terminate before a star but not after) and the fact that **kwargs must appear last. It does
-  // not validate further ordering constraints. This validation happens in the validator pass.
+  // Validation of parameter ordering and uniqueness is the job of the Resolver.
   private ImmutableList<Parameter> parseParameters() {
     boolean hasParam = false;
-    boolean hasStarStar = false;
     ImmutableList.Builder<Parameter> list = ImmutableList.builder();
 
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
@@ -1212,17 +1133,8 @@ final class Parser {
           break;
         }
       }
-      if (hasStarStar) {
-        // TODO(adonovan): move this to validation pass too.
-        reportError(token.left, "unexpected tokens after kwarg");
-        break;
-      }
-
       Parameter param = parseFunctionParameter();
       hasParam = true;
-      if (param instanceof Parameter.StarStar) { // TODO(adonovan): not Star too? verify.
-        hasStarStar = true;
-      }
       list.add(param);
     }
     return list.build();
@@ -1231,12 +1143,14 @@ final class Parser {
   // suite is typically what follows a colon (e.g. after def or for).
   // suite = simple_stmt
   //       | NEWLINE INDENT stmt+ OUTDENT
+  //
+  // TODO(adonovan): return ImmutableList and simplify downstream.
   private List<Statement> parseSuite() {
     List<Statement> list = new ArrayList<>();
     if (token.kind == TokenKind.NEWLINE) {
       expect(TokenKind.NEWLINE);
       if (token.kind != TokenKind.INDENT) {
-        reportError(token.left, "expected an indented block");
+        reportError(token.start, "expected an indented block");
         return list;
       }
       expect(TokenKind.INDENT);

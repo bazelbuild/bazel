@@ -14,18 +14,33 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.Immutable;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Ninja target (build statement) representation. */
 public final class NinjaTarget {
+
+  /**
+   * A list of variables that pertain to input and output artifact paths of a Ninja target. For
+   * memory savings, these variables should be expanded late, and the expansion results not retained
+   * in memory. (Otherwise, these paths are persisted twice!)
+   */
+  private static final ImmutableSet<String> INPUTS_OUTPUTS_VARIABLES =
+      ImmutableSet.of("in", "in_newline", "out");
+
   /** Builder for {@link NinjaTarget}. */
   public static class Builder {
     private String ruleName;
@@ -35,13 +50,15 @@ public final class NinjaTarget {
     private final long offset;
 
     private final ImmutableSortedMap.Builder<String, String> variablesBuilder;
+    private final Interner<String> nameInterner;
 
-    private Builder(NinjaScope scope, long offset) {
+    private Builder(NinjaScope scope, long offset, Interner<String> nameInterner) {
       this.scope = scope;
       this.offset = offset;
       inputsBuilder = ImmutableSortedKeyListMultimap.builder();
       outputsBuilder = ImmutableSortedKeyListMultimap.builder();
       variablesBuilder = ImmutableSortedMap.naturalOrder();
+      this.nameInterner = nameInterner;
     }
 
     public Builder setRuleName(String ruleName) {
@@ -64,15 +81,82 @@ public final class NinjaTarget {
       return this;
     }
 
-    public NinjaTarget build() {
+    public NinjaTarget build() throws GenericParsingException {
       Preconditions.checkNotNull(ruleName);
+      String internedName = nameInterner.intern(ruleName);
+      ImmutableSortedMap<String, String> variables = variablesBuilder.build();
+
+      ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> ruleVariables;
+      if (internedName.equals("phony")) {
+        ruleVariables = ImmutableSortedMap.of();
+      } else {
+        NinjaRule ninjaRule = scope.findRule(offset, ruleName);
+        if (ninjaRule == null) {
+          throw new GenericParsingException(
+              String.format("could not resolve rule '%s'", internedName));
+        } else {
+          ruleVariables =
+              reduceRuleVariables(scope, offset, ninjaRule.getVariables(), variables, nameInterner);
+        }
+      }
       return new NinjaTarget(
-          ruleName,
+          nameInterner.intern(ruleName),
           inputsBuilder.build(),
           outputsBuilder.build(),
-          variablesBuilder.build(),
-          scope,
-          offset);
+          offset,
+          ruleVariables);
+    }
+
+    /**
+     * We expand the rule's variables with the following assumptions: Rule variables can refer to
+     * target's variables (and file variables). Interdependence between rule variables can happen
+     * only for 'command' variable, for now we ignore other possible dependencies between rule
+     * variables (seems the only other variable which can meaningfully depend on sibling variables
+     * is description, and currently we are ignoring it).
+     *
+     * <p>Also, for resolving rule's variables we are using scope+offset of target, according to
+     * specification (https://ninja-build.org/manual.html#_variable_expansion).
+     *
+     * <p>See {@link NinjaRuleVariable} for the list.
+     */
+    private static ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> reduceRuleVariables(
+        NinjaScope targetScope,
+        long targetOffset,
+        Map<NinjaRuleVariable, NinjaVariableValue> ruleVariables,
+        ImmutableSortedMap<String, String> targetVariables,
+        Interner<String> interner) {
+      ImmutableSortedMap.Builder<String, List<Pair<Long, String>>> variablesBuilder =
+          ImmutableSortedMap.naturalOrder();
+      targetVariables.forEach(
+          (key, value) -> variablesBuilder.put(key, ImmutableList.of(Pair.of(0L, value))));
+      NinjaScope scopeWithVariables =
+          targetScope.createScopeFromExpandedValues(variablesBuilder.build());
+
+      ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> builder =
+          ImmutableSortedMap.naturalOrder();
+
+      // Description is taken from the "build" statement (instead of the referenced rule)
+      // if it's available.
+      boolean targetHasDescription = false;
+      String targetVariable = targetVariables.get("description");
+      if (targetVariable != null) {
+        builder.put(
+            NinjaRuleVariable.DESCRIPTION, NinjaVariableValue.createPlainText(targetVariable));
+        targetHasDescription = true;
+      }
+
+      for (Map.Entry<NinjaRuleVariable, NinjaVariableValue> entry : ruleVariables.entrySet()) {
+        NinjaRuleVariable type = entry.getKey();
+        if (type.equals(NinjaRuleVariable.DESCRIPTION) && targetHasDescription) {
+          // Don't use the rule description, as the target defined a specific description.
+          continue;
+        }
+        NinjaVariableValue reducedValue =
+            scopeWithVariables.getReducedValue(
+                targetOffset, entry.getValue(), INPUTS_OUTPUTS_VARIABLES, interner);
+        builder.put(type, reducedValue);
+      }
+      return builder.build();
     }
   }
 
@@ -101,35 +185,29 @@ public final class NinjaTarget {
   private final String ruleName;
   private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
   private final ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs;
-  private final ImmutableSortedMap<String, String> variables;
-  private final NinjaScope scope;
   private final long offset;
+
+  /**
+   * A "reduced" set of ninja rule variables. All variables are expanded except for those in {@link
+   * #INPUTS_OUTPUTS_VARIABLES}, as this saves memory.
+   */
+  private final ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> ruleVariables;
 
   public NinjaTarget(
       String ruleName,
       ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs,
       ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs,
-      ImmutableSortedMap<String, String> variables,
-      NinjaScope scope,
-      long offset) {
+      long offset,
+      ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> ruleVariables) {
     this.ruleName = ruleName;
     this.inputs = inputs;
     this.outputs = outputs;
-    this.variables = variables;
-    this.scope = scope;
     this.offset = offset;
+    this.ruleVariables = ruleVariables;
   }
 
   public String getRuleName() {
     return ruleName;
-  }
-
-  public ImmutableSortedMap<String, String> getVariables() {
-    return variables;
-  }
-
-  public boolean hasInputs() {
-    return !inputs.isEmpty();
   }
 
   public List<PathFragment> getOutputs() {
@@ -160,16 +238,12 @@ public final class NinjaTarget {
     return inputs.get(InputKind.ORDER_ONLY);
   }
 
-  public NinjaScope getScope() {
-    return scope;
-  }
-
   public long getOffset() {
     return offset;
   }
 
-  public static Builder builder(NinjaScope scope, long offset) {
-    return new Builder(scope, offset);
+  public static Builder builder(NinjaScope scope, long offset, Interner<String> nameInterner) {
+    return new Builder(scope, offset, nameInterner);
   }
 
   public String prettyPrint() {
@@ -184,22 +258,57 @@ public final class NinjaTarget {
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    NinjaTarget that = (NinjaTarget) o;
-    // Note: NinjaScope is compared with default Object#equals; it is enough
-    // because we do not do any copies of NinjaScope.
-    return offset == that.offset && scope.equals(that.scope);
+  public int hashCode() {
+    return Long.hashCode(offset);
   }
 
-  @Override
-  public int hashCode() {
-    return Objects.hash(scope, offset);
+  /**
+   * Returns a map from rule variable to fully-expanded value, for all rule variables defined in
+   * this target.
+   */
+  public ImmutableSortedMap<NinjaRuleVariable, String> computeRuleVariables() {
+    ImmutableSortedMap<String, String> lateExpansionVariables = computeInputOutputVariables();
+    ImmutableSortedMap.Builder<String, String> fullExpansionVariablesBuilder =
+        ImmutableSortedMap.<String, String>naturalOrder().putAll(lateExpansionVariables);
+
+    ImmutableSortedMap.Builder<NinjaRuleVariable, String> builder =
+        ImmutableSortedMap.naturalOrder();
+    for (Map.Entry<NinjaRuleVariable, NinjaVariableValue> entry : ruleVariables.entrySet()) {
+      NinjaRuleVariable type = entry.getKey();
+      // Skip command for now. It may need to expand other rule variables.
+      if (NinjaRuleVariable.COMMAND.equals(type)) {
+        continue;
+      }
+
+      String expandedValue = entry.getValue().expandValue(lateExpansionVariables);
+      builder.put(type, expandedValue);
+      fullExpansionVariablesBuilder.put(Ascii.toLowerCase(type.name()), expandedValue);
+    }
+
+    // TODO(cparsons): Ensure parsing exception is thrown early if the rule has no command defined.
+    // Otherwise, this throws NPE.
+    String expandedCommand =
+        ruleVariables
+            .get(NinjaRuleVariable.COMMAND)
+            .expandValue(fullExpansionVariablesBuilder.build());
+    builder.put(NinjaRuleVariable.COMMAND, expandedCommand);
+    return builder.build();
+  }
+
+  private ImmutableSortedMap<String, String> computeInputOutputVariables() {
+    ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
+    String inNewline =
+        inputs.get(InputKind.USUAL).stream()
+            .map(PathFragment::getPathString)
+            .collect(Collectors.joining("\n"));
+    String out =
+        outputs.get(OutputKind.USUAL).stream()
+            .map(PathFragment::getPathString)
+            .collect(Collectors.joining(" "));
+    builder.put("in", inNewline.replace('\n', ' '));
+    builder.put("in_newline", inNewline);
+    builder.put("out", out);
+    return builder.build();
   }
 
   private static String prettyPrintPaths(String startDelimiter, Collection<PathFragment> paths) {

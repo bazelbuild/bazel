@@ -24,6 +24,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -36,10 +37,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SymlinkEntryApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
@@ -118,7 +117,7 @@ public final class Runfiles implements RunfilesApi {
   @VisibleForSerialization
   static final class SymlinkEntry implements SymlinkEntryApi {
 
-    static final SkylarkType TYPE = SkylarkType.of(SymlinkEntry.class);
+    static final Depset.ElementType TYPE = Depset.ElementType.of(SymlinkEntry.class);
 
     private final PathFragment path;
     private final Artifact artifact;
@@ -364,7 +363,7 @@ public final class Runfiles implements RunfilesApi {
 
   @Override
   public Depset /*<String>*/ getEmptyFilenamesForStarlark() {
-    return Depset.of(SkylarkType.STRING, getEmptyFilenames());
+    return Depset.of(Depset.ElementType.STRING, getEmptyFilenames());
   }
 
   public NestedSet<String> getEmptyFilenames() {

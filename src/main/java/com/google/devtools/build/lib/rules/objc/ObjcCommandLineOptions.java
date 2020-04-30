@@ -160,23 +160,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean enableBinaryStripping;
 
   @Option(
-    name = "apple_generate_dsym",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
-    help = "Whether to generate debug symbol(.dSYM) file(s)."
-  )
-  public boolean appleGenerateDsym;
-
-  @Option(
-      name = "apple_enable_auto_dsym_dbg",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
-      help = "Whether to force enable generating debug symbol(.dSYM) file(s) for dbg builds.")
-  public boolean appleEnableAutoDsymDbg;
-
-  @Option(
     name = "ios_signing_cert_name",
     defaultValue = "null",
     documentationCategory = OptionDocumentationCategory.SIGNING,

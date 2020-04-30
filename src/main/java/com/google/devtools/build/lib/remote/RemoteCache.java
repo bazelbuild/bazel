@@ -204,7 +204,7 @@ public class RemoteCache implements AutoCloseable {
     }
   }
 
-  protected static <T> void waitForBulkTransfer(
+  public static <T> void waitForBulkTransfer(
       Iterable<ListenableFuture<T>> transfers, boolean cancelRemainingOnInterrupt)
       throws BulkTransferException, InterruptedException {
     BulkTransferException bulkTransferException = null;
@@ -560,7 +560,12 @@ public class RemoteCache implements AutoCloseable {
     for (ActionInput output : outputs) {
       if (inMemoryOutputPath != null && output.getExecPath().equals(inMemoryOutputPath)) {
         Path p = execRoot.getRelative(output.getExecPath());
-        FileMetadata m = Preconditions.checkNotNull(metadata.file(p), "inMemoryOutputMetadata");
+        FileMetadata m = metadata.file(p);
+        if (m == null) {
+          // A declared output wasn't created. Ignore it here. SkyFrame will fail if not all
+          // outputs were created.
+          continue;
+        }
         inMemoryOutputDigest = m.digest();
         inMemoryOutput = output;
       }
@@ -574,10 +579,10 @@ public class RemoteCache implements AutoCloseable {
       if (inMemoryOutput != null) {
         inMemoryOutputDownload = downloadBlob(inMemoryOutputDigest);
       }
-      for (ListenableFuture<FileMetadata> download : downloadOutErr(result, outErr)) {
-        getFromFuture(download);
-      }
+      waitForBulkTransfer(downloadOutErr(result, outErr), /* cancelRemainingOnInterrupt=*/ true);
       if (inMemoryOutputDownload != null) {
+        waitForBulkTransfer(
+            ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt=*/ true);
         byte[] data = getFromFuture(inMemoryOutputDownload);
         return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
       }

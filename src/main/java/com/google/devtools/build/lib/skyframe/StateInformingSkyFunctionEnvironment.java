@@ -267,12 +267,17 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
     delegate.injectVersionForNonHermeticFunction(version);
   }
 
-  interface Informee {
-    void inform() throws InterruptedException;
-  }
-
   @Override
   public void dependOnFuture(ListenableFuture<?> future) {
     delegate.dependOnFuture(future);
+  }
+
+  @Override
+  public boolean restartPermitted() {
+    return delegate.restartPermitted();
+  }
+
+  interface Informee {
+    void inform() throws InterruptedException;
   }
 }

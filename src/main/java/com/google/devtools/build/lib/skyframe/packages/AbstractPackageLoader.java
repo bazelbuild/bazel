@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -130,6 +131,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private final AtomicReference<PathPackageLocator> pkgLocatorRef;
   protected final ExternalFilesHelper externalFilesHelper;
   protected final BlazeDirectories directories;
+  private final DigestHashFunction digestHashFunction;
   private final int legacyGlobbingThreads;
   private final int skyframeThreads;
 
@@ -259,6 +261,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     this.legacyGlobbingThreads = builder.legacyGlobbingThreads;
     this.skyframeThreads = builder.skyframeThreads;
     this.directories = builder.directories;
+    this.digestHashFunction = builder.workspaceDir.getFileSystem().getDigestFunction();
 
     this.externalFilesHelper = builder.externalFilesHelper;
 
@@ -435,11 +438,16 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new BlacklistedPackagePrefixesFunction(
                 /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
-        .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
+        .put(
+            SkyFunctions.AST_FILE_LOOKUP,
+            new ASTFileLookupFunction(ruleClassProvider, digestHashFunction))
         .put(
             SkyFunctions.STARLARK_IMPORTS_LOOKUP,
             StarlarkImportLookupFunction.create(
-                ruleClassProvider, pkgFactory, CacheBuilder.newBuilder().build()))
+                ruleClassProvider,
+                pkgFactory,
+                digestHashFunction,
+                CacheBuilder.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
         .put(

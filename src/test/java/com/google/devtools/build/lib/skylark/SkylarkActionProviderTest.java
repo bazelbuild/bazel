@@ -60,7 +60,7 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
 
     ConfiguredAspect configuredAspect =
-        Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
         new StarlarkProvider.Key(
@@ -122,7 +122,7 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
 
     ConfiguredAspect configuredAspect =
-        Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect();
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
         new StarlarkProvider.Key(

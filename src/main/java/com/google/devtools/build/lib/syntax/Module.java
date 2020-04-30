@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
 // - separate the universal predeclared environment and make it implicit.
 // - eliminate initialize(). The only constructor we need is:
 //   (String name, Mutability mu, Map<String, Object> predeclared, Object label).
-public final class Module implements ValidationEnvironment.Module {
+public final class Module implements Resolver.Module {
 
   /**
    * Final, except that it may be initialized after instantiation. Null mutability indicates that

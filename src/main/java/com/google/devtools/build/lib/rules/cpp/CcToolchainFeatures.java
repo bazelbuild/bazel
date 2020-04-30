@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -72,7 +71,7 @@ import javax.annotation.Nullable;
  * them from build variables).
  */
 @Immutable
-public class CcToolchainFeatures implements Serializable {
+public class CcToolchainFeatures {
 
   /**
    * Thrown when a flag value cannot be expanded under a set of build variables.
@@ -105,7 +104,7 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  public static class Flag implements Serializable, Expandable {
+  public static class Flag implements Expandable {
     private final ImmutableList<StringChunk> chunks;
 
     public Flag(ImmutableList<StringChunk> chunks) {
@@ -163,7 +162,7 @@ public class CcToolchainFeatures implements Serializable {
     @Immutable
     @AutoCodec
     @VisibleForSerialization
-    static class SingleChunkFlag implements Serializable, Expandable {
+    static class SingleChunkFlag implements Expandable {
       private final StringChunk chunk;
 
       @VisibleForSerialization
@@ -205,8 +204,7 @@ public class CcToolchainFeatures implements Serializable {
 
   /** A single environment key/value pair to be expanded under a set of variables. */
   @Immutable
-  @AutoCodec
-  public static class EnvEntry implements Serializable {
+  public static class EnvEntry {
     private final String key;
     private final ImmutableList<StringChunk> valueChunks;
 
@@ -216,8 +214,7 @@ public class CcToolchainFeatures implements Serializable {
       this.valueChunks = parser.getChunks();
     }
 
-    @AutoCodec.Instantiator
-    public EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
+    EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
       this.key = key;
       this.valueChunks = valueChunks;
     }
@@ -293,9 +290,7 @@ public class CcToolchainFeatures implements Serializable {
    * and the flag_group will be expanded repeatedly for every value in the sequence.
    */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  public static class FlagGroup implements Serializable, Expandable {
+  static class FlagGroup implements Expandable {
     private final ImmutableList<Expandable> expandables;
     private String iterateOverVariable;
     private final ImmutableSet<String> expandIfAllAvailable;
@@ -339,9 +334,7 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    public FlagGroup(
+    FlagGroup(
         ImmutableList<Expandable> expandables,
         String iterateOverVariable,
         ImmutableSet<String> expandIfAllAvailable,
@@ -521,9 +514,7 @@ public class CcToolchainFeatures implements Serializable {
 
   /** Groups a set of flags to apply for certain actions. */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  public static class FlagSet implements Serializable {
+  public static class FlagSet {
     private final ImmutableSet<String> actions;
     private final ImmutableSet<String> expandIfAllAvailable;
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
@@ -549,8 +540,7 @@ public class CcToolchainFeatures implements Serializable {
       this.flagGroups = builder.build();
     }
 
-    @AutoCodec.Instantiator
-    public FlagSet(
+    FlagSet(
         ImmutableSet<String> actions,
         ImmutableSet<String> expandIfAllAvailable,
         ImmutableSet<WithFeatureSet> withFeatureSets,
@@ -624,9 +614,7 @@ public class CcToolchainFeatures implements Serializable {
    * is enabled, and every 'not_feature' is not enabled.
    */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  public static class WithFeatureSet implements Serializable {
+  public static class WithFeatureSet {
     private final ImmutableSet<String> features;
     private final ImmutableSet<String> notFeatures;
 
@@ -635,8 +623,7 @@ public class CcToolchainFeatures implements Serializable {
       this.notFeatures = ImmutableSet.copyOf(withFeatureSet.getNotFeatureList());
     }
 
-    @AutoCodec.Instantiator
-    public WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {
+    WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {
       this.features = features;
       this.notFeatures = notFeatures;
     }
@@ -670,9 +657,7 @@ public class CcToolchainFeatures implements Serializable {
 
   /** Groups a set of environment variables to apply for certain actions. */
   @Immutable
-  @AutoCodec
-  @VisibleForSerialization
-  public static class EnvSet implements Serializable {
+  public static class EnvSet {
     private final ImmutableSet<String> actions;
     private final ImmutableList<EnvEntry> envEntries;
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
@@ -692,8 +677,7 @@ public class CcToolchainFeatures implements Serializable {
       this.withFeatureSets = withFeatureSetsBuilder.build();
     }
 
-    @AutoCodec.Instantiator
-    public EnvSet(
+    EnvSet(
         ImmutableSet<String> actions,
         ImmutableList<EnvEntry> envEntries,
         ImmutableSet<WithFeatureSet> withFeatureSets) {
@@ -773,7 +757,7 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  public static class Feature implements Serializable, CrosstoolSelectable {
+  public static class Feature implements CrosstoolSelectable {
     private static final Interner<Feature> FEATURE_INTERNER = BlazeInterners.newWeakInterner();
 
     private final String name;
@@ -992,8 +976,8 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   @AutoCodec
-  public static class ActionConfig implements Serializable, CrosstoolSelectable {
-    public static final String FLAG_SET_WITH_ACTION_ERROR =
+  public static class ActionConfig implements CrosstoolSelectable {
+    static final String FLAG_SET_WITH_ACTION_ERROR =
         "action_config %s specifies actions.  An action_config's flag sets automatically apply "
             + "to the configured action.  Thus, you must not specify action lists in an "
             + "action_config's flag set.";
@@ -1222,6 +1206,7 @@ public class CcToolchainFeatures implements Serializable {
   /** Captures the set of enabled features and action configs for a rule. */
   @Immutable
   @AutoCodec
+  @SuppressWarnings("InconsistentHashCode") // enabledFeatureNames, see definition of equals().
   public static class FeatureConfiguration {
     private static final Interner<FeatureConfiguration> FEATURE_CONFIGURATION_INTERNER =
         BlazeInterners.newWeakInterner();
@@ -1413,7 +1398,7 @@ public class CcToolchainFeatures implements Serializable {
           enabledFeatures);
     }
 
-    public ImmutableSet<String> getEnabledFeatureNames() {
+    ImmutableSet<String> getEnabledFeatureNames() {
       return enabledFeatureNames;
     }
   }

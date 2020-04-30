@@ -281,22 +281,22 @@ public abstract class Printer {
 
         // -- non-Starlark values --
 
-      } else if (o instanceof Map<?, ?>) {
+      } else if (o instanceof Map) {
         Map<?, ?> dict = (Map<?, ?>) o;
         this.printList(dict.entrySet(), "{", ", ", "}", null);
 
-      } else if (o instanceof List<?>) {
+      } else if (o instanceof List) {
         List<?> seq = (List<?>) o;
         this.printList(seq, false);
 
-      } else if (o instanceof Map.Entry<?, ?>) {
+      } else if (o instanceof Map.Entry) {
         Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
         this.repr(entry.getKey());
         this.append(": ");
         this.repr(entry.getValue());
 
-      } else if (o instanceof Class<?>) {
-        this.append(EvalUtils.getDataTypeNameFromClass((Class<?>) o));
+      } else if (o instanceof Class) {
+        this.append(Starlark.classType((Class<?>) o));
 
       } else if (o instanceof Node || o instanceof Location) {
         // AST node objects and locations are printed in tracebacks and error messages,

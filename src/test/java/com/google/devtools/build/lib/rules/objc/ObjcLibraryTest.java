@@ -1957,4 +1957,22 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "objc_library"),
         "objc_library(name='a', srcs=['a.cc'])");
   }
+
+  @Test
+  public void testGenerateDsymFlagPropagatesToObjcLibraryFeature() throws Exception {
+    useConfiguration("--apple_generate_dsym");
+    createLibraryTargetWriter("//objc/lib").setList("srcs", "a.m").write();
+    CommandAction compileAction = compileAction("//objc/lib", "a.o");
+    assertThat(compileAction.getArguments()).contains("-DDUMMY_GENERATE_DSYM_FILE");
+  }
+
+  @Test
+  public void testGenerateDsymFlagPropagatesToCcLibraryFeature() throws Exception {
+    useConfiguration("--apple_generate_dsym");
+    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc/lib")
+        .setList("srcs", "a.cc")
+        .write();
+    CommandAction compileAction = compileAction("//cc/lib", "a.o");
+    assertThat(compileAction.getArguments()).contains("-DDUMMY_GENERATE_DSYM_FILE");
+  }
 }

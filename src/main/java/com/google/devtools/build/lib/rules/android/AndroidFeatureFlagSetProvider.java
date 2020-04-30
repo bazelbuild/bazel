@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -123,6 +124,17 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
       throw exception;
     }
     return Optional.of(ImmutableMap.copyOf(expectedValues));
+  }
+
+  /** Returns the feature flags this rule sets as user-friendly strings. */
+  public static ImmutableSet<String> getFlagNames(RuleContext ruleContext) {
+    return ruleContext
+        .attributes()
+        .get(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT)
+        .keySet()
+        .stream()
+        .map(label -> label.toString())
+        .collect(ImmutableSet.toImmutableSet());
   }
 
   /**

@@ -24,6 +24,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
@@ -308,13 +309,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               transitivePackagesForPackageRootResolution,
               transitiveRootCauses,
               defaultBuildOptions);
-      if (env.valuesMissing()) {
-        return null;
-      }
       if (!transitiveRootCauses.isEmpty()) {
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
                 "Analysis failed", configuration, transitiveRootCauses.build()));
+      }
+      if (env.valuesMissing()) {
+        return null;
       }
       Preconditions.checkNotNull(depValueMap);
 
@@ -591,6 +592,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, configuration) pairs.
     OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
+    BuildConfiguration configuration = ctgValue.getConfiguration();
+    Label label = ctgValue.getLabel();
     try {
       depValueNames =
           resolver.dependentNodeMap(
@@ -604,14 +607,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Starlark attributes in the current rule.
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
+      env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
       throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(
-              e.print(), ctgValue.getLabel(), ctgValue.getConfiguration()));
+          new ConfiguredValueCreationException(e.print(), label, configuration));
     } catch (InconsistentAspectOrderException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
     }
-
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
     depValueNames =
@@ -621,7 +623,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             depValueNames,
             hostConfiguration,
             ruleClassProvider,
-            defaultBuildOptions);
+            defaultBuildOptions,
+            configConditions);
 
     // Return early in case packages were not loaded yet. In theory, we could start configuring
     // dependent targets in loaded packages. However, that creates an artificial sync boundary
@@ -659,8 +662,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           Event.error(ctgValue.getTarget().getLocation(), e.getMessage()));
 
       throw new ConfiguredTargetFunctionException(
-          new ConfiguredValueCreationException(
-              e.getMessage(), ctgValue.getLabel(), ctgValue.getConfiguration()));
+          new ConfiguredValueCreationException(e.getMessage(), label, configuration));
     }
   }
 
@@ -873,7 +875,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                       depValue.getConfiguredTarget(),
                       pkgValue.getPackage().getTarget(depLabel.getName()),
                       depConfiguration,
-                      dep.getTransitionKey()));
+                      dep.getTransitionKeys()));
             } catch (NoSuchTargetException e) {
               throw new IllegalStateException("Target already verified for " + dep, e);
             }

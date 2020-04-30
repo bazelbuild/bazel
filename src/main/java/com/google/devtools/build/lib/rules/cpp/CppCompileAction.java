@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.skylark.Args;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -605,7 +607,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       try {
         modules = actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive);
       } catch (TimeoutException e) {
-        throw handleTimedOutNestedSetExpansion(entry.getKey(), iterator, e);
+        if (actionExecutionContext.isRewindingEnabled()) {
+          throw lostInputsExceptionForTimedOutNestedSetExpansion(entry.getKey(), iterator, e);
+        }
+        BugReport.sendBugReport(e);
+        throw new ActionExecutionException(
+            "Timed out expanding modules", this, /*catastrophe=*/ false);
       }
 
       for (Artifact module : modules) {
@@ -648,7 +655,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * we use the .pcm file's exec path since rewinding only uses the digest to detect multiple
    * rewinds of the same input.
    */
-  private LostInputsActionExecutionException handleTimedOutNestedSetExpansion(
+  private LostInputsActionExecutionException lostInputsExceptionForTimedOutNestedSetExpansion(
       Artifact timedOut,
       Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> remainingModules,
       TimeoutException e) {
@@ -739,13 +746,28 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return result.build();
   }
 
+  private static boolean startsWithIgnoreCase(String s, String prefix) {
+    return s.length() >= prefix.length()
+        && Ascii.equalsIgnoreCase(s.substring(0, prefix.length()), prefix);
+  }
+
   @Override
   public List<PathFragment> getIncludeDirs() {
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
     result.addAll(ccCompilationContext.getIncludeDirs());
     for (String opt : compileCommandLine.getCopts()) {
-      if (opt.startsWith("-I") && opt.length() > 2) {
+      if (startsWithIgnoreCase(opt, "-I") || startsWithIgnoreCase(opt, "/I")) {
         // We insist on the combined form "-Idir".
+        String includeDir = opt.substring(2);
+        if (includeDir.isEmpty()) {
+          continue;
+        }
+        if (startsWithIgnoreCase(includeDir, "msvc")
+            || startsWithIgnoreCase(includeDir, "quote")
+            || startsWithIgnoreCase(includeDir, "system")) {
+          // This is actually a "-iquote", "-isystem", or "-imsvc"; it's handled elsewhere.
+          continue;
+        }
         result.add(PathFragment.create(opt.substring(2)));
       }
     }
@@ -763,8 +785,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   private List<PathFragment> getSystemIncludeDirs(List<String> compilerOptions) {
-    // TODO(bazel-team): parsing the command line flags here couples us to gcc-style compiler
-    // command lines; use a different way to specify system includes (for example through a
+    // TODO(bazel-team): parsing the command line flags here couples us to gcc- and clang-cl-style
+    // compiler command lines; use a different way to specify system includes (for example through a
     // system_includes attribute in cc_toolchain); note that that would disallow users from
     // specifying system include paths via the copts attribute.
     // Currently, this works together with the include_paths features because getCommandLine() will
@@ -772,15 +794,24 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
     for (int i = 0; i < compilerOptions.size(); i++) {
       String opt = compilerOptions.get(i);
+      String systemIncludeFlag = null;
       if (opt.startsWith("-isystem")) {
-        if (opt.length() > 8) {
-          result.add(PathFragment.create(opt.substring(8).trim()));
-        } else if (i + 1 < compilerOptions.size()) {
-          i++;
-          result.add(PathFragment.create(compilerOptions.get(i)));
-        } else {
-          System.err.println("WARNING: dangling -isystem flag in options for " + prettyPrint());
-        }
+        systemIncludeFlag = "-isystem";
+      } else if (startsWithIgnoreCase(opt, "-imsvc") || startsWithIgnoreCase(opt, "/imsvc")) {
+        systemIncludeFlag = opt.substring(0, 6);
+      }
+      if (systemIncludeFlag == null) {
+        continue;
+      }
+
+      if (opt.length() > systemIncludeFlag.length()) {
+        result.add(PathFragment.create(opt.substring(systemIncludeFlag.length()).trim()));
+      } else if (i + 1 < compilerOptions.size()) {
+        i++;
+        result.add(PathFragment.create(compilerOptions.get(i)));
+      } else {
+        System.err.println(
+            "WARNING: dangling " + systemIncludeFlag + " flag in options for " + prettyPrint());
       }
     }
     return result.build();
@@ -792,6 +823,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       String arg = argi.next();
       if (arg.equals("-include") && argi.hasNext()) {
         cmdlineIncludes.add(argi.next());
+      } else if (arg.startsWith("-FI") || arg.startsWith("/FI")) {
+        if (arg.length() > 3) {
+          cmdlineIncludes.add(arg.substring(3).trim());
+        } else if (argi.hasNext()) {
+          cmdlineIncludes.add(argi.next());
+        }
       }
     }
     return cmdlineIncludes.build();
@@ -1195,7 +1232,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
     }
     CcToolchainVariables.Builder variableBuilder = CcToolchainVariables.builder();
-    variableBuilder.addStringSequenceVariable("module_files", usedModulePaths.build());
+    variableBuilder.addStringSequenceVariable(
+        CompileBuildVariables.MODULE_FILES.getVariableName(), usedModulePaths.build());
     return variableBuilder.build();
   }
 

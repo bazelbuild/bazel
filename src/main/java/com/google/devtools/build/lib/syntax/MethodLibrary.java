@@ -18,15 +18,12 @@ import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -207,8 +204,7 @@ class MethodLibrary {
         throw (EvalException) comp.e;
       }
     } else {
-      throw Starlark.errorf(
-          "%s object is not callable", Starlark.repr(EvalUtils.getDataTypeName(key)));
+      throw Starlark.errorf("%s object is not callable", Starlark.repr(Starlark.type(key)));
     }
 
     if (reverse) {
@@ -282,7 +278,7 @@ class MethodLibrary {
   public Integer len(Object x, StarlarkThread thread) throws EvalException {
     int len = Starlark.len(x);
     if (len < 0) {
-      throw Starlark.errorf("%s is not iterable", EvalUtils.getDataTypeName(x));
+      throw Starlark.errorf("%s is not iterable", Starlark.type(x));
     }
     return len;
   }
@@ -302,15 +298,17 @@ class MethodLibrary {
   public String str(Object x) throws EvalException {
     try {
       return Starlark.str(x);
-    } catch (NestedSetDepthException exception) {
-      // TODO(adonovan): move into NestedSetDepthException so it becomes throw e.toEvalException().
-      throw Starlark.errorf(
-          "depset exceeded maximum depth %d"
-              + ". This was only discovered when attempting to flatten the depset for str(), as "
-              + "the size of depsets is unknown until flattening. "
-              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-              + "solutions.",
-          exception.getDepthLimit());
+    } catch (RuntimeException ex) {
+      // TODO(adonovan): get rid of this somehow.
+      if (ex.getClass().getSimpleName().equals("NestedSetDepthException")) {
+        throw Starlark.errorf(
+            "depset exceeded maximum depth"
+                + ". This was only discovered when attempting to flatten the depset for str(), as "
+                + "the size of depsets is unknown until flattening. "
+                + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+                + "solutions.");
+      }
+      throw ex;
     }
   }
 
@@ -408,8 +406,7 @@ class MethodLibrary {
       if (base == Starlark.UNBOUND) {
         base = 10;
       } else if (!(base instanceof Integer)) {
-        throw Starlark.errorf(
-            "base must be an integer (got '%s')", EvalUtils.getDataTypeName(base));
+        throw Starlark.errorf("base must be an integer (got '%s')", Starlark.type(base));
       }
       return fromString((String) x, (Integer) base);
     } else {
@@ -608,7 +605,7 @@ class MethodLibrary {
       start = startOrStop;
       stop = (Integer) stopOrNone;
     } else {
-      throw Starlark.errorf("want int, got %s", EvalUtils.getDataTypeName(stopOrNone));
+      throw Starlark.errorf("want int, got %s", Starlark.type(stopOrNone));
     }
     if (step == 0) {
       throw Starlark.errorf("step cannot be 0");
@@ -754,13 +751,16 @@ class MethodLibrary {
       p.append(separator);
       try {
         p.debugPrint(x);
-      } catch (NestedSetDepthException exception) {
-        throw Starlark.errorf(
-            "depset exceeded maximum depth %d. This was only discovered when attempting to flatten"
-                + " the depset for print(), as the size of depsets is unknown until flattening."
-                + " See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-                + "solutions.",
-            exception.getDepthLimit());
+      } catch (RuntimeException ex) {
+        // TODO(adonovan): get rid of this somehow.
+        if (ex.getClass().getSimpleName().equals("NestedSetDepthException")) {
+          throw Starlark.errorf(
+              "depset exceeded maximum depth. This was only discovered when attempting to"
+                  + " flatten the depset for print(), as the size of depsets is unknown until"
+                  + " flattening. See https://github.com/bazelbuild/bazel/issues/9180 for details"
+                  + " and possible solutions.");
+        }
+        throw ex;
       }
       separator = sep;
     }
@@ -799,190 +799,6 @@ class MethodLibrary {
   public String type(Object object) {
     // There is no 'type' type in Starlark, so we return a string with the type name.
     return Starlark.type(object);
-  }
-
-  @SkylarkCallable(
-      name = "depset",
-      doc =
-          "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a "
-              + "list of direct elements of the depset, and <code>transitive</code> parameter is "
-              + "a list of depsets whose elements become indirect elements of the created depset. "
-              + "The order in which elements are returned when the depset is converted to a list "
-              + "is specified by the <code>order</code> parameter. "
-              + "See the <a href=\"../depsets.md\">Depsets overview</a> for more information. "
-              + ""
-              + "<p>All elements (direct and indirect) of a depset must be of the same type, "
-              + "as obtained by the expression <code>type(x)</code>."
-              + ""
-              + "<p>Because a hash-based set is used to eliminate duplicates during iteration, "
-              + "all elements of a depset should be hashable. However, this invariant is not "
-              + "currently checked consistently in all constructors. Use the "
-              + "--incompatible_always_check_depset_elements flag to enable "
-              + "consistent checking; this will be the default behavior in future releases; "
-              + " see <a href='https://github.com/bazelbuild/bazel/issues/10313'>Issue 10313</a>."
-              + ""
-              + "<p>In addition, elements must currently be immutable, though this restriction "
-              + "will be relaxed in future."
-              + ""
-              + "<p> The order of the created depset should be <i>compatible</i> with the order of "
-              + "its <code>transitive</code> depsets. <code>\"default\"</code> order is compatible "
-              + "with any other order, all other orders are only compatible with themselves."
-              + "<p> Note on backward/forward compatibility. This function currently accepts a "
-              + "positional <code>items</code> parameter. It is deprecated and will be removed "
-              + "in the future, and after its removal <code>direct</code> will become a sole "
-              + "positional parameter of the <code>depset</code> function. Thus, both of the "
-              + "following calls are equivalent and future-proof:<br>"
-              + "<pre class=language-python>"
-              + "depset(['a', 'b'], transitive = [...])\n"
-              + "depset(direct = ['a', 'b'], transitive = [...])\n"
-              + "</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            type = Object.class,
-            defaultValue = "None",
-            positional = true,
-            named = false,
-            noneable = true,
-            doc =
-                "A positional parameter distinct from other parameters for legacy support. "
-                    + "<p>If <code>--incompatible_disable_depset_inputs</code> is false, this "
-                    + "parameter serves as the value of <code>items</code>.</p> "
-                    + "<p>If <code>--incompatible_disable_depset_inputs</code> is true, this "
-                    + "parameter serves as the value of <code>direct</code>.</p> "
-                    + "<p>See the documentation for these parameters for more details."),
-        // TODO(cparsons): Make 'order' keyword-only.
-        @Param(
-            name = "order",
-            type = String.class,
-            defaultValue = "\"default\"",
-            doc =
-                "The traversal strategy for the new depset. See "
-                    + "<a href=\"depset.html\">here</a> for the possible values.",
-            named = true),
-        @Param(
-            name = "direct",
-            type = Object.class,
-            defaultValue = "None",
-            positional = false,
-            named = true,
-            noneable = true,
-            doc = "A list of <i>direct</i> elements of a depset. "),
-        @Param(
-            name = "transitive",
-            named = true,
-            positional = false,
-            type = Sequence.class,
-            generic1 = Depset.class,
-            noneable = true,
-            doc = "A list of depsets whose elements will become indirect elements of the depset.",
-            defaultValue = "None"),
-        @Param(
-            name = "items",
-            type = Object.class,
-            defaultValue = "[]",
-            positional = false,
-            doc =
-                "Deprecated: Either an iterable whose items become the direct elements of "
-                    + "the new depset, in left-to-right order, or else a depset that becomes "
-                    + "a transitive element of the new depset. In the latter case, "
-                    + "<code>transitive</code> cannot be specified.",
-            disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS,
-            valueWhenDisabled = "[]",
-            named = true),
-      },
-      useStarlarkThread = true)
-  public Depset depset(
-      Object x,
-      String orderString,
-      Object direct,
-      Object transitive,
-      Object items,
-      StarlarkThread thread)
-      throws EvalException {
-    Order order;
-    Depset result;
-    try {
-      order = Order.parse(orderString);
-    } catch (IllegalArgumentException ex) {
-      throw new EvalException(null, ex);
-    }
-
-    StarlarkSemantics semantics = thread.getSemantics();
-    if (semantics.incompatibleDisableDepsetItems()) {
-      if (x != Starlark.NONE) {
-        if (direct != Starlark.NONE) {
-          throw new EvalException(
-              null, "parameter 'direct' cannot be specified both positionally and by keyword");
-        }
-        direct = x;
-      }
-      if (direct instanceof Depset) {
-        throw new EvalException(
-            null,
-            "parameter 'direct' must contain a list of elements, and may no longer accept a"
-                + " depset. The deprecated behavior may be temporarily re-enabled by setting"
-                + " --incompatible_disable_depset_inputs=false");
-      }
-      result =
-          Depset.fromDirectAndTransitive(
-              order,
-              Sequence.noneableCast(direct, Object.class, "direct"),
-              Sequence.noneableCast(transitive, Depset.class, "transitive"),
-              semantics.incompatibleAlwaysCheckDepsetElements());
-    } else {
-      if (x != Starlark.NONE) {
-        if (!isEmptySkylarkList(items)) {
-          throw new EvalException(
-              null, "parameter 'items' cannot be specified both positionally and by keyword");
-        }
-        items = x;
-      }
-      result = legacyDepsetConstructor(items, order, direct, transitive, semantics);
-    }
-
-    if (semantics.debugDepsetDepth()) {
-      // Flatten the underlying nested set. If the set exceeds the depth limit, then this will
-      // throw a NestedSetDepthException.
-      // This is an extremely inefficient check and should be only done in the
-      // "--debug_depset_depth" mode.
-      try {
-        result.getSet().toList();
-      } catch (NestedSetDepthException ex) {
-        throw Starlark.errorf("depset exceeded maximum depth %d", ex.getDepthLimit());
-      }
-    }
-    return result;
-  }
-
-  private static Depset legacyDepsetConstructor(
-      Object items, Order order, Object direct, Object transitive, StarlarkSemantics semantics)
-      throws EvalException {
-
-    if (transitive == Starlark.NONE && direct == Starlark.NONE) {
-      // Legacy behavior.
-      return Depset.legacyOf(order, items);
-    }
-
-    if (direct != Starlark.NONE && !isEmptySkylarkList(items)) {
-      throw new EvalException(
-          null, "Do not pass both 'direct' and 'items' argument to depset constructor.");
-    }
-
-    // Non-legacy behavior: either 'transitive' or 'direct' were specified.
-    List<Object> directElements =
-        direct != Starlark.NONE
-            ? Sequence.cast(direct, Object.class, "direct")
-            : Sequence.cast(items, Object.class, "items");
-
-    List<Depset> transitiveList = Sequence.noneableCast(transitive, Depset.class, "transitive");
-
-    return Depset.fromDirectAndTransitive(
-        order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
-  }
-
-  private static boolean isEmptySkylarkList(Object o) {
-    return o instanceof Sequence && ((Sequence) o).isEmpty();
   }
 
   @SkylarkCallable(

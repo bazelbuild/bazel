@@ -144,7 +144,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
                 ImmutableList.of(
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
-                    ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))
+                    ImmutableSet.of(ProtoLangToolchainProvider.class)))
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
@@ -186,7 +186,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       AspectParameters params,
       String toolsRepository)
       throws InterruptedException, ActionConflictException {
-    ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, params, ruleContext);
+    ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
     Function<Artifact, Artifact> desugaredJars =
         desugarJarsIfRequested(ctadBase.getConfiguredTarget(), ruleContext, result);
 

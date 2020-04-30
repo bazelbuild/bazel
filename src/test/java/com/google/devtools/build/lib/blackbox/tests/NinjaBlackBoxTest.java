@@ -393,7 +393,7 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
             "build group1: phony a b c",
             "build group2: phony d e",
             "build inputs_alias: phony group1 group2",
-            "build hello.txt: echo inputs_alias",
+            "build hello.txt: cat inputs_alias",
             "build alias: phony hello.txt");
 
     context()

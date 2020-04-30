@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.syntax.Location;
@@ -30,9 +31,11 @@ public class RequiredProvidersTest {
 
   private static final String NO_PROVIDERS_REQUIRED = "no providers required";
 
-  private static final class P1 {}
-  private static final class P2 {}
-  private static final class P3 {}
+  private static final class P1 implements TransitiveInfoProvider {}
+
+  private static final class P2 implements TransitiveInfoProvider {}
+
+  private static final class P3 implements TransitiveInfoProvider {}
 
   private static final Provider P_NATIVE =
       new NativeProvider<StructImpl>(StructImpl.class, "p_native") {};
@@ -120,8 +123,8 @@ public class RequiredProvidersTest {
             validateNative(
                 AdvertisedProviderSet.builder().addNative(P1.class).build(),
                 NO_PROVIDERS_REQUIRED,
-                ImmutableSet.<Class<?>>of(P1.class),
-                ImmutableSet.<Class<?>>of(P2.class)))
+                ImmutableSet.of(P1.class),
+                ImmutableSet.of(P2.class)))
         .isTrue();
   }
 
@@ -131,8 +134,8 @@ public class RequiredProvidersTest {
             validateNative(
                 AdvertisedProviderSet.builder().addNative(P3.class).build(),
                 "P1 or P2",
-                ImmutableSet.<Class<?>>of(P1.class),
-                ImmutableSet.<Class<?>>of(P2.class)))
+                ImmutableSet.of(P1.class),
+                ImmutableSet.of(P2.class)))
         .isFalse();
   }
 
@@ -191,10 +194,12 @@ public class RequiredProvidersTest {
 
   @SafeVarargs
   private static boolean validateNative(
-      AdvertisedProviderSet providerSet, String missing, ImmutableSet<Class<?>>... sets) {
+      AdvertisedProviderSet providerSet,
+      String missing,
+      ImmutableSet<Class<? extends TransitiveInfoProvider>>... sets) {
     RequiredProviders.Builder anyBuilder = RequiredProviders.acceptAnyBuilder();
     RequiredProviders.Builder noneBuilder = RequiredProviders.acceptNoneBuilder();
-    for (ImmutableSet<Class<?>> set : sets) {
+    for (ImmutableSet<Class<? extends TransitiveInfoProvider>> set : sets) {
       anyBuilder.addNativeSet(set);
       noneBuilder.addNativeSet(set);
     }

@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
@@ -527,12 +527,11 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaCompilationInfoProvider compilationInfo = info.getCompilationInfoProvider();
     assertThat(
             prettyArtifactNames(
-                compilationInfo.getCompilationClasspath().getSet(Artifact.class).toList()))
+                compilationInfo.getCompilationClasspath().toCollection(Artifact.class)))
         .containsExactly("java/test/libdep-hjar.jar");
 
     assertThat(
-            prettyArtifactNames(
-                compilationInfo.getRuntimeClasspath().getSet(Artifact.class).toList()))
+            prettyArtifactNames(compilationInfo.getRuntimeClasspath().toCollection(Artifact.class)))
         .containsExactly("java/test/libdep.jar", "java/test/libcustom.jar");
 
     assertThat(compilationInfo.getJavacOpts()).contains("-XDone");

@@ -186,7 +186,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
             .addOutputGroups(outputGroups)
             .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
-    CcSkylarkApiProvider.maybeAdd(ruleContext, result);
+    CcStarlarkApiProvider.maybeAdd(ruleContext, result);
     return result.build();
   }
 

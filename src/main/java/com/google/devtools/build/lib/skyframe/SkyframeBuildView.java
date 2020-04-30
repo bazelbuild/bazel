@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
@@ -56,7 +57,9 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -76,6 +79,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Root;
@@ -359,7 +363,7 @@ public final class SkyframeBuildView {
    * @see com.google.devtools.build.lib.analysis.AnalysisOptions#discardAnalysisCache
    */
   public void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     // TODO(bazel-team): Consider clearing packages too to save more memory.
     skyframeAnalysisWasDiscarded = true;
     skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
@@ -391,7 +395,7 @@ public final class SkyframeBuildView {
       enableAnalysis(false);
     }
 
-    Collection<AspectValue> aspects = Lists.newArrayListWithCapacity(aspectKeys.size());
+    Map<AspectKey, ConfiguredAspect> aspects = Maps.newHashMapWithExpectedSize(aspectKeys.size());
     Root singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
     NestedSetBuilder<Package> packages =
         singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
@@ -401,7 +405,7 @@ public final class SkyframeBuildView {
         // Skip aspects that couldn't be applied to targets.
         continue;
       }
-      aspects.add(value);
+      aspects.put(value.getKey(), value.getConfiguredAspect());
       if (packages != null) {
         packages.addTransitive(value.getTransitivePackagesForPackageRootResolution());
       }
@@ -453,7 +457,7 @@ public final class SkyframeBuildView {
           foundActionConflict,
           ImmutableList.copyOf(cts),
           result.getWalkableGraph(),
-          ImmutableList.copyOf(aspects),
+          ImmutableMap.copyOf(aspects),
           packageRoots);
     }
 
@@ -525,8 +529,11 @@ public final class SkyframeBuildView {
       aspects =
           aspectKeys.stream()
               .filter(errorFreePredicate)
-              .map(k -> Preconditions.checkNotNull((AspectValue) result.get(k), k))
-              .collect(toImmutableList());
+              .map(result::get)
+              .map(AspectValue.class::cast)
+              .collect(
+                  ImmutableMap.toImmutableMap(
+                      AspectValue::getKey, AspectValue::getConfiguredAspect));
     }
 
     return new SkyframeAnalysisResult(
@@ -535,7 +542,7 @@ public final class SkyframeBuildView {
         foundActionConflict,
         ImmutableList.copyOf(cts),
         result.getWalkableGraph(),
-        ImmutableList.copyOf(aspects),
+        ImmutableMap.copyOf(aspects),
         packageRoots);
   }
 
@@ -711,6 +718,15 @@ public final class SkyframeBuildView {
         ((ActionConflictException) cause).reportTo(eventHandler);
         // TODO(ulfjack): Report the action conflict.
         rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      } else if (cause instanceof NoSuchPackageException) {
+        // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
+        // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
+        BuildConfiguration configuration =
+            configurationLookupSupplier.get().get(label.getConfigurationKey());
+        ConfigurationId configId = configuration.getEventId().getConfiguration();
+        AnalysisFailedCause analysisFailedCause =
+            new AnalysisFailedCause(topLevelLabel, configId, cause.getMessage());
+        rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
       } else {
         // TODO(ulfjack): Report something!
         rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);

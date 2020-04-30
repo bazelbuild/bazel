@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkErrorReporter;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkErrorReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -92,8 +92,8 @@ public abstract class AndroidStarlarkData
       boolean neverlink,
       String customPackage)
       throws InterruptedException, EvalException {
-    try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer())) {
+    try (StarlarkErrorReporter errorReporter =
+        StarlarkErrorReporter.from(ctx.getRuleErrorConsumer())) {
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
               DataBinding.getDisabledDataBindingContext(ctx),
@@ -114,8 +114,8 @@ public abstract class AndroidStarlarkData
       AndroidDataContext ctx, Object manifest, Object customPackage, boolean exported)
       throws InterruptedException, EvalException {
     String pkg = fromNoneable(customPackage, String.class);
-    try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer())) {
+    try (StarlarkErrorReporter errorReporter =
+        StarlarkErrorReporter.from(ctx.getRuleErrorConsumer())) {
       return AndroidManifest.from(
               ctx,
               errorReporter,
@@ -136,7 +136,7 @@ public abstract class AndroidStarlarkData
       Sequence<?> deps, // <AndroidAssetsInfo>
       boolean neverlink)
       throws EvalException, InterruptedException {
-    SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
+    StarlarkErrorReporter errorReporter = StarlarkErrorReporter.from(ctx.getRuleErrorConsumer());
     try {
       return AndroidAssets.from(
               errorReporter,
@@ -161,7 +161,7 @@ public abstract class AndroidStarlarkData
       boolean neverlink,
       boolean enableDataBinding)
       throws EvalException, InterruptedException {
-    SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
+    StarlarkErrorReporter errorReporter = StarlarkErrorReporter.from(ctx.getRuleErrorConsumer());
     try {
       return AndroidResources.from(
               errorReporter,
@@ -303,7 +303,7 @@ public abstract class AndroidStarlarkData
       Sequence<?> resourceConfigurationFilters, // <String>
       Sequence<?> densities) // <String>)
       throws InterruptedException, EvalException {
-    SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
+    StarlarkErrorReporter errorReporter = StarlarkErrorReporter.from(ctx.getRuleErrorConsumer());
     List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
 
     try {
@@ -362,7 +362,7 @@ public abstract class AndroidStarlarkData
   }
 
   private static IllegalStateException handleRuleException(
-      SkylarkErrorReporter errorReporter, RuleErrorException exception) throws EvalException {
+      StarlarkErrorReporter errorReporter, RuleErrorException exception) throws EvalException {
     // The error reporter should have been notified of the rule error, and thus closing it will
     // throw an EvalException.
     errorReporter.close();
@@ -434,7 +434,7 @@ public abstract class AndroidStarlarkData
       boolean crunchPng,
       boolean dataBindingEnabled)
       throws InterruptedException, EvalException {
-    SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
+    StarlarkErrorReporter errorReporter = StarlarkErrorReporter.from(ctx.getRuleErrorConsumer());
     List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
     Map<String, String> manifestValueMap =
         Dict.cast(manifestValues, String.class, String.class, "manifest_values");

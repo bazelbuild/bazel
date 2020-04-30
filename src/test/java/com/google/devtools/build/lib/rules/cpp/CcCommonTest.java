@@ -1057,6 +1057,44 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testClangClParameters() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.TARGETS_WINDOWS,
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+    scratch.file(
+        "a/BUILD",
+        "cc_library(",
+        "    name='foo',",
+        "    srcs=['foo.cc'],",
+        "    copts=[",
+        "        '/imsvc', 'SYSTEM_INCLUDE_1',",
+        "        '-imsvcSYSTEM_INCLUDE_2',",
+        "        '/ISTANDARD_INCLUDE',",
+        "        '/FI', 'forced_include_1',",
+        "        '-FIforced_include_2',",
+        "    ],",
+        ")");
+    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+
+    PathFragment systemInclude1 = PathFragment.create("SYSTEM_INCLUDE_1");
+    PathFragment systemInclude2 = PathFragment.create("SYSTEM_INCLUDE_2");
+    PathFragment standardInclude = PathFragment.create("STANDARD_INCLUDE");
+
+    assertThat(cppCompileAction.getSystemIncludeDirs()).contains(systemInclude1);
+    assertThat(cppCompileAction.getSystemIncludeDirs()).contains(systemInclude2);
+    assertThat(cppCompileAction.getSystemIncludeDirs()).doesNotContain(standardInclude);
+
+    assertThat(cppCompileAction.getIncludeDirs()).doesNotContain(systemInclude1);
+    assertThat(cppCompileAction.getIncludeDirs()).doesNotContain(systemInclude2);
+    assertThat(cppCompileAction.getIncludeDirs()).contains(standardInclude);
+  }
+
+  @Test
   public void testCcLibraryLoadedThroughMacro() throws Exception {
     setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ true);
     assertThat(getConfiguredTarget("//a:a")).isNotNull();

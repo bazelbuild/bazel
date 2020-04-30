@@ -16,23 +16,22 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredObjectValue;
 import com.google.devtools.build.lib.syntax.Location;
 import javax.annotation.Nullable;
 
 /** An aspect in the context of the Skyframe graph. */
 public final class AspectValue extends BasicActionLookupValue implements ConfiguredObjectValue {
-
   // These variables are only non-final because they may be clear()ed to save memory. They are null
   // only after they are cleared except for transitivePackagesForPackageRootResolution.
-  @Nullable private Label label;
   @Nullable private Aspect aspect;
   @Nullable private Location location;
+  // Normally the key used to evaluate this value in AspectFunction#compute. But in the case of a
+  // top-level SkylarkAspectKey, the AspectValue will be this value but the key will be the
+  // associated aspect key from SkylarkAspectKey#toAspectkey.
   @Nullable private AspectKey key;
   @Nullable private ConfiguredAspect configuredAspect;
   // May be null either after clearing or because transitive packages are not tracked.
@@ -41,25 +40,19 @@ public final class AspectValue extends BasicActionLookupValue implements Configu
   public AspectValue(
       AspectKey key,
       Aspect aspect,
-      Label label,
       Location location,
       ConfiguredAspect configuredAspect,
       NestedSet<Package> transitivePackagesForPackageRootResolution) {
     super(configuredAspect.getActions());
-    this.label = Preconditions.checkNotNull(label, actions);
-    this.aspect = Preconditions.checkNotNull(aspect, label);
-    this.location = Preconditions.checkNotNull(location, label);
-    this.key = Preconditions.checkNotNull(key, label);
-    this.configuredAspect = Preconditions.checkNotNull(configuredAspect, label);
+    this.key = key;
+    this.aspect = Preconditions.checkNotNull(aspect, location);
+    this.location = Preconditions.checkNotNull(location, aspect);
+    this.configuredAspect = Preconditions.checkNotNull(configuredAspect, location);
     this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
   }
 
   public ConfiguredAspect getConfiguredAspect() {
     return Preconditions.checkNotNull(configuredAspect);
-  }
-
-  public Label getLabel() {
-    return Preconditions.checkNotNull(label);
   }
 
   public Location getLocation() {
@@ -76,13 +69,11 @@ public final class AspectValue extends BasicActionLookupValue implements Configu
 
   @Override
   public void clear(boolean clearEverything) {
-    Preconditions.checkNotNull(label, this);
     Preconditions.checkNotNull(aspect, this);
     Preconditions.checkNotNull(location, this);
     Preconditions.checkNotNull(key, this);
     Preconditions.checkNotNull(configuredAspect, this);
     if (clearEverything) {
-      label = null;
       aspect = null;
       location = null;
       key = null;
@@ -99,7 +90,6 @@ public final class AspectValue extends BasicActionLookupValue implements Configu
   @Override
   public String toString() {
     return getStringHelper()
-        .add("label", label)
         .add("key", key)
         .add("location", location)
         .add("aspect", aspect)

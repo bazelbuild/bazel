@@ -90,6 +90,10 @@ public interface SkyFunction {
    *
    * <p>All {@link ListenableFuture}s used in calls to {@link Environment#dependOnFuture} which were
    * not already complete will be cancelled.
+   *
+   * <p>This may only be returned by {@link #compute} if {@link Environment#restartPermitted} is
+   * true. If restarting is not permitted, {@link #compute} should throw an appropriate {@link
+   * SkyFunctionException}.
    */
   interface Restart extends SkyValue {
     ImmutableGraph<SkyKey> EMPTY_SKYKEY_GRAPH =
@@ -375,5 +379,11 @@ public interface SkyFunction {
      * thread pool without blocking the current Skyframe thread.
      */
     void dependOnFuture(ListenableFuture<?> future);
+
+    /**
+     * A {@link SkyFunction#compute} call may return {@link Restart} only if this returns {@code
+     * true}.
+     */
+    boolean restartPermitted();
   }
 }

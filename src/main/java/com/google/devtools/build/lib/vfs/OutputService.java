@@ -156,6 +156,7 @@ public interface OutputService {
    *     com.google.devtools.build.lib.pkgcache.PathPackageLocator})
    * @param inputArtifactData information about required inputs to the action
    * @param outputArtifacts required outputs of the action
+   * @param trackFailedRemoteReads whether to track failed remote reads to make LostInput exceptions
    * @return an action-scoped filesystem if {@link #supportsActionFileSystem} is not {@code NONE}
    */
   @Nullable
@@ -165,7 +166,8 @@ public interface OutputService {
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
-      Iterable<Artifact> outputArtifacts) {
+      Iterable<Artifact> outputArtifacts,
+      boolean trackFailedRemoteReads) {
     return null;
   }
 

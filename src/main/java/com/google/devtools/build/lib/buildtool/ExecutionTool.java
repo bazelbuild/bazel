@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
-import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -205,11 +204,6 @@ public class ExecutionTool {
           "--local_resources is deprecated. Please use "
               + "--local_ram_resources and/or --local_cpu_resources");
     }
-    if (options.removeRamUtilizationFactor && options.ramUtilizationPercentage != 0) {
-      throw new ExecutorInitException(
-          "--ram_utilization_factor is deprecated. "
-              + "Please use --local_ram_resources=HOST_RAM*<float>");
-    }
   }
 
   Executor getExecutor() throws ExecutorInitException {
@@ -320,7 +314,6 @@ public class ExecutionTool {
 
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
-    Collection<AspectValue> aspects = analysisResult.getAspects();
 
     if (request.isRunningInEmacs()) {
       // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
@@ -337,7 +330,8 @@ public class ExecutionTool {
         // Free memory by removing cache entries that aren't going to be needed.
         try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
           env.getSkyframeBuildView()
-              .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+              .clearAnalysisCache(
+                  analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
         }
       }
 
@@ -348,9 +342,7 @@ public class ExecutionTool {
               actionGraph,
               // If this supplier is ever consumed by more than one ActionContextProvider, it can be
               // pulled out of the loop and made a memoizing supplier.
-              () ->
-                  TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(
-                      analysisResult, aspects));
+              () -> TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(analysisResult));
         }
       }
       skyframeExecutor.drainChangedFiles();
@@ -371,7 +363,7 @@ public class ExecutionTool {
           analysisResult.getExclusiveTests(),
           analysisResult.getTargetsToBuild(),
           analysisResult.getTargetsToSkip(),
-          analysisResult.getAspects(),
+          analysisResult.getAspectsMap().keySet(),
           executor,
           builtTargets,
           builtAspects,
@@ -421,7 +413,8 @@ public class ExecutionTool {
       try (SilentCloseable c = Profiler.instance().profile("Show results")) {
         buildResult.setSuccessfulTargets(
             determineSuccessfulTargets(configuredTargets, builtTargets));
-        buildResult.setSuccessfulAspects(determineSuccessfulAspects(aspects, builtAspects));
+        buildResult.setSuccessfulAspects(
+            determineSuccessfulAspects(analysisResult.getAspectsMap().keySet(), builtAspects));
         buildResult.setSkippedTargets(analysisResult.getTargetsToSkip());
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
         buildResultPrinter.showBuildResult(
@@ -429,13 +422,14 @@ public class ExecutionTool {
             buildResult,
             configuredTargets,
             analysisResult.getTargetsToSkip(),
-            analysisResult.getAspects());
+            analysisResult.getAspectsMap());
       }
 
       try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
         if (request.getBuildOptions().showArtifacts) {
           BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-          buildResultPrinter.showArtifacts(request, configuredTargets, analysisResult.getAspects());
+          buildResultPrinter.showArtifacts(
+              request, configuredTargets, analysisResult.getAspectsMap().values());
         }
       }
 
@@ -692,17 +686,10 @@ public class ExecutionTool {
     return successfulTargets;
   }
 
-  private Collection<AspectValue> determineSuccessfulAspects(
-      Collection<AspectValue> aspects, Set<AspectKey> builtAspects) {
-    // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
-    // order as configuredTargets.
-    Collection<AspectValue> successfulAspects = new LinkedHashSet<>();
-    for (AspectValue aspect : aspects) {
-      if (builtAspects.contains(aspect.getKey())) {
-        successfulAspects.add(aspect);
-      }
-    }
-    return successfulAspects;
+  private static ImmutableSet<AspectKey> determineSuccessfulAspects(
+      ImmutableSet<AspectKey> aspects, Set<AspectKey> builtAspects) {
+    // Maintain the ordering.
+    return aspects.stream().filter(builtAspects::contains).collect(ImmutableSet.toImmutableSet());
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */

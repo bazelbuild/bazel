@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionR
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -1003,7 +1002,7 @@ public class SkylarkRepositoryContext
             String.format(
                 "Expected a string or sequence of strings for 'url' argument, "
                     + "but got '%s' item in the sequence",
-                EvalUtils.getDataTypeName(o)));
+                Starlark.type(o)));
       }
       result.add((String) o);
     }

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.TopLevelActionLookupKey;
@@ -33,10 +32,8 @@ public class AspectCompletionValue implements SkyValue {
 
   private AspectCompletionValue() {}
 
-  public static Iterable<SkyKey> keys(
-      Collection<AspectValue> targets, final TopLevelArtifactContext ctx) {
-    return Iterables.transform(
-        targets, aspectValue -> AspectCompletionKey.create(aspectValue.getKey(), ctx));
+  public static Iterable<SkyKey> keys(Collection<AspectKey> keys, TopLevelArtifactContext ctx) {
+    return Iterables.transform(keys, k -> AspectCompletionKey.create(k, ctx));
   }
 
   /** The key of an AspectCompletionValue. */

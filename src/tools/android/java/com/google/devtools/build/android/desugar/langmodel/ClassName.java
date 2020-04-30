@@ -319,6 +319,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
 
     return hasAnyPackagePrefix(
         "android/testing/",
+        "android/app/Activity",
         "android/accessibilityservice/AccessibilityService",
         "android/app/admin/FreezePeriod",
         "android/app/role/RoleManager",
@@ -332,6 +333,17 @@ public abstract class ClassName implements TypeMappable<ClassName> {
         "android/view/textclassifier/ConversationActions$Message",
         "android/view/textclassifier/TextClassification$Request",
         "android/view/textclassifier/TextLinks");
+  }
+
+  public final boolean isInPackageEligibleForShadowedOverridableAPIs() {
+    // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
+    // rollouts are complete.
+    return hasAnyPackagePrefix("android/testing/", "android/app/Activity");
+  }
+
+  public final boolean isInPackageEligibleForHoldingOverridingBridges() {
+    // Exclude platform types for overriding bridge generations.
+    return !hasAnyPackagePrefix("android/", "java/");
   }
 
   public final boolean isInDesugarRuntimeLibrary() {

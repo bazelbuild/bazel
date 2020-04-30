@@ -452,7 +452,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             ccToolchain,
             featureConfiguration,
             ruleContext);
-    CcSkylarkApiProvider.maybeAdd(ruleContext, targetBuilder);
+    CcStarlarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addProvider(ccNativeLibraryProvider)

@@ -1151,6 +1151,37 @@ public class RemoteCacheTests {
   }
 
   @Test
+  public void testDownloadMinimalWithMissingInMemoryOutput() throws Exception {
+    // Test that downloadMinimal returns null if a declared in-memory output is missing.
+
+    // arrange
+    InMemoryRemoteCache remoteCache = newRemoteCache();
+    Digest d1 = remoteCache.addContents("in-memory output");
+    ActionResult r = ActionResult.newBuilder().setExitCode(0).build();
+    Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
+    MetadataInjector injector = mock(MetadataInjector.class);
+    // a1 should be provided as an InMemoryOutput
+    PathFragment inMemoryOutputPathFragment = a1.getPath().relativeTo(execRoot);
+
+    // act
+    InMemoryOutput inMemoryOutput =
+        remoteCache.downloadMinimal(
+            r,
+            ImmutableList.of(a1),
+            inMemoryOutputPathFragment,
+            new FileOutErr(),
+            execRoot,
+            injector,
+            outputFilesLocker);
+
+    // assert
+    assertThat(inMemoryOutput).isNull();
+    // The in memory file metadata also should not have been injected.
+    verify(injector, never())
+        .injectRemoteFile(eq(a1), eq(toBinaryDigest(d1)), eq(d1.getSizeBytes()), anyInt());
+  }
+
+  @Test
   public void testDownloadEmptyBlobAndFile() throws Exception {
     // Test that downloading an empty BLOB/file does not try to perform a download.
 

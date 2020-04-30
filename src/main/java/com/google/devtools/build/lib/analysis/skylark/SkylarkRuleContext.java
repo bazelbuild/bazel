@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
@@ -55,12 +56,13 @@ import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
@@ -76,7 +78,6 @@ import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -128,7 +129,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
 
   private final boolean isForAspect;
 
-  private final SkylarkActionFactory actionFactory;
+  private final StarlarkActionFactory actionFactory;
 
   // The fields below intended to be final except that they can be cleared by calling `nullify()`
   // when the object becomes featureless.
@@ -139,8 +140,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   private final StarlarkSemantics starlarkSemantics;
 
   private Dict<String, String> makeVariables;
-  private SkylarkAttributesCollection attributesCollection;
-  private SkylarkAttributesCollection ruleAttributesCollection;
+  private StarlarkAttributesCollection attributesCollection;
+  private StarlarkAttributesCollection ruleAttributesCollection;
   private StructImpl splitAttributes;
 
   // TODO(bazel-team): we only need this because of the css_binary rule.
@@ -159,7 +160,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       @Nullable AspectDescriptor aspectDescriptor,
       StarlarkSemantics starlarkSemantics)
       throws EvalException, InterruptedException, RuleErrorException {
-    this.actionFactory = new SkylarkActionFactory(this, starlarkSemantics, ruleContext);
+    this.actionFactory = new StarlarkActionFactory(this, starlarkSemantics, ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
     this.fragments = new FragmentCollection(ruleContext, NoTransition.INSTANCE);
@@ -175,9 +176,9 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       ImplicitOutputsFunction implicitOutputsFunction =
           ruleContext.getRule().getImplicitOutputsFunction();
 
-      if (implicitOutputsFunction instanceof SkylarkImplicitOutputsFunction) {
-        SkylarkImplicitOutputsFunction func =
-            (SkylarkImplicitOutputsFunction) implicitOutputsFunction;
+      if (implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction) {
+        StarlarkImplicitOutputsFunction func =
+            (StarlarkImplicitOutputsFunction) implicitOutputsFunction;
         for (Map.Entry<String, String> entry :
             func.calculateOutputs(
                     ruleContext.getAnalysisEnvironment().getEventHandler(),
@@ -221,7 +222,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       this.artifactsLabelMap = artifactLabelMapBuilder.build();
       this.outputsObject = outputs;
 
-      SkylarkAttributesCollection.Builder builder = SkylarkAttributesCollection.builder(this);
+      StarlarkAttributesCollection.Builder builder = StarlarkAttributesCollection.builder(this);
       for (Attribute attribute : ruleContext.getRule().getAttributes()) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         builder.addAttribute(attribute, value);
@@ -237,14 +238,15 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
 
       ImmutableCollection<Attribute> attributes =
           ruleContext.getMainAspect().getDefinition().getAttributes().values();
-      SkylarkAttributesCollection.Builder aspectBuilder = SkylarkAttributesCollection.builder(this);
+      StarlarkAttributesCollection.Builder aspectBuilder =
+          StarlarkAttributesCollection.builder(this);
       for (Attribute attribute : attributes) {
         aspectBuilder.addAttribute(attribute, attribute.getDefaultValue(null));
       }
       this.attributesCollection = aspectBuilder.build();
 
       this.splitAttributes = null;
-      SkylarkAttributesCollection.Builder ruleBuilder = SkylarkAttributesCollection.builder(this);
+      StarlarkAttributesCollection.Builder ruleBuilder = StarlarkAttributesCollection.builder(this);
 
       for (Attribute attribute : ruleContext.getRule().getAttributes()) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
@@ -494,7 +496,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   }
 
   @Override
-  public SkylarkActionFactory actions() {
+  public StarlarkActionFactory actions() {
     return actionFactory;
   }
 
@@ -618,7 +620,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
           ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
     }
     TransitiveInfoCollection target = (TransitiveInfoCollection) targetUnchecked;
-    return (target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null)
+    return (target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR) != null)
         && InstrumentedFilesCollector.shouldIncludeLocalSources(config, target);
   }
 
@@ -656,7 +658,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   }
 
   @Override
-  public SkylarkAttributesCollection rule() throws EvalException {
+  public StarlarkAttributesCollection rule() throws EvalException {
     checkMutable("rule");
     if (!isForAspect) {
       throw new EvalException(
@@ -695,6 +697,11 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   @Override
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
     return ruleContext.targetPlatformHasConstraint(constraintValue);
+  }
+
+  @Override
+  public ExecGroupCollection execGroups() {
+    return new ExecGroupCollection(ruleContext.getToolchainContexts());
   }
 
   @Override
@@ -1002,7 +1009,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     }
     if (transitiveFiles != Starlark.NONE) {
       builder.addTransitiveArtifacts(
-          ((Depset) transitiveFiles).getSetFromParam(Artifact.class, "transitive_files"));
+          Depset.cast(transitiveFiles, Artifact.class, "transitive_files"));
     }
     if (!symlinks.isEmpty()) {
       // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
@@ -1122,7 +1129,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
       } else {
         throw Starlark.errorf(
             "invalid value %s in 'label_dict': expected iterable, but got '%s'",
-            Starlark.repr(val), EvalUtils.getDataTypeName(val));
+            Starlark.repr(val), Starlark.type(val));
       }
       for (Object file : valIter) {
         if (!(file instanceof Artifact)) {

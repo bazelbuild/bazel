@@ -52,14 +52,14 @@ public final class EvalUtilsTest extends EvaluationTestCase {
 
   @Test
   public void testDataTypeNames() throws Exception {
-    assertThat(EvalUtils.getDataTypeName("foo")).isEqualTo("string");
-    assertThat(EvalUtils.getDataTypeName(3)).isEqualTo("int");
-    assertThat(EvalUtils.getDataTypeName(Tuple.of(1, 2, 3))).isEqualTo("tuple");
-    assertThat(EvalUtils.getDataTypeName(makeList(null))).isEqualTo("list");
-    assertThat(EvalUtils.getDataTypeName(makeDict(null))).isEqualTo("dict");
-    assertThat(EvalUtils.getDataTypeName(Starlark.NONE)).isEqualTo("NoneType");
-    assertThat(EvalUtils.getDataTypeName(new MockClassA())).isEqualTo("MockClassA");
-    assertThat(EvalUtils.getDataTypeName(new MockClassB())).isEqualTo("MockClassA");
+    assertThat(Starlark.type("foo")).isEqualTo("string");
+    assertThat(Starlark.type(3)).isEqualTo("int");
+    assertThat(Starlark.type(Tuple.of(1, 2, 3))).isEqualTo("tuple");
+    assertThat(Starlark.type(makeList(null))).isEqualTo("list");
+    assertThat(Starlark.type(makeDict(null))).isEqualTo("dict");
+    assertThat(Starlark.type(Starlark.NONE)).isEqualTo("NoneType");
+    assertThat(Starlark.type(new MockClassA())).isEqualTo("MockClassA");
+    assertThat(Starlark.type(new MockClassB())).isEqualTo("MockClassA");
   }
 
   @Test
@@ -121,40 +121,6 @@ public final class EvalUtilsTest extends EvaluationTestCase {
     assertThrows(
         ComparisonException.class,
         () -> EvalUtils.SKYLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
-  }
-
-  @SkylarkModule(name = "ParentType", doc = "A parent class annotated with @SkylarkModule.")
-  private static class ParentClassWithSkylarkModule implements StarlarkValue {}
-
-  private static class ChildClass extends ParentClassWithSkylarkModule {}
-
-  private static class StarlarkValueSubclass implements StarlarkValue {
-    @Override
-    public void repr(Printer printer) {
-      printer.append("StarlarkValueSubclass");
-    }
-  }
-
-  private static class NonStarlarkValueSubclass {}
-
-  @Test
-  public void testGetSkylarkType() {
-    assertThat(EvalUtils.getSkylarkType(ParentClassWithSkylarkModule.class))
-        .isEqualTo(ParentClassWithSkylarkModule.class);
-    assertThat(EvalUtils.getSkylarkType(ChildClass.class))
-        .isEqualTo(ParentClassWithSkylarkModule.class);
-    assertThat(EvalUtils.getSkylarkType(StarlarkValueSubclass.class))
-        .isEqualTo(StarlarkValueSubclass.class);
-
-    IllegalArgumentException expected =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> EvalUtils.getSkylarkType(NonStarlarkValueSubclass.class));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "class com.google.devtools.build.lib.syntax.EvalUtilsTest$NonStarlarkValueSubclass "
-                + "is not allowed as a Starlark value");
   }
 
   @Test

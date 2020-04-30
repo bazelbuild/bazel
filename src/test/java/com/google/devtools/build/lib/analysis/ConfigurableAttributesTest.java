@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestBase.AnalysisFailureRecorder;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -725,15 +726,33 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "))");
 
     reporter.removeHandler(failFastHandler);
+    AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
+    eventBus.register(analysisFailureRecorder);
     useConfiguration("");
 
     assertThat(getConfiguredTarget("//java/hello:hello_default_no_match_error")).isNull();
     String commonPrefix = "Configurable attribute \"srcs\" doesn't match this configuration";
     assertContainsEvent(commonPrefix + " (would a default condition help?).\nConditions checked:");
+    // Verify a Root Cause is reported when a target cannot be configured due to no matching config.
+    assertThat(analysisFailureRecorder.causes).hasSize(1);
+    AnalysisRootCauseEvent rootCause = analysisFailureRecorder.causes.get(0);
+    assertThat(rootCause.getLabel())
+        .isEqualTo(
+            Label.parseAbsolute("//java/hello:hello_default_no_match_error", ImmutableMap.of()));
 
+    eventBus.unregister(analysisFailureRecorder);
+    analysisFailureRecorder = new AnalysisFailureRecorder();
+    eventBus.register(analysisFailureRecorder);
     eventCollector.clear();
+
     assertThat(getConfiguredTarget("//java/hello:hello_custom_no_match_error")).isNull();
     assertContainsEvent(commonPrefix + ": You always have to choose condition a!");
+    // Verify a Root Cause is reported when a target cannot be configured due to no matching config.
+    assertThat(analysisFailureRecorder.causes).hasSize(1);
+    rootCause = analysisFailureRecorder.causes.get(0);
+    assertThat(rootCause.getLabel())
+        .isEqualTo(
+            Label.parseAbsolute("//java/hello:hello_custom_no_match_error", ImmutableMap.of()));
   }
 
   @Test

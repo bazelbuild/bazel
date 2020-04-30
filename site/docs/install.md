@@ -18,7 +18,7 @@ See the instructions for installing Bazel on:
 *   [FreeBSD](https://www.freshports.org/devel/bazel)
 *   [Gentoo](https://packages.gentoo.org/packages/dev-util/bazel)
 *   [Linuxbrew](https://github.com/Linuxbrew/homebrew-core/blob/master/Formula/bazel.rb)
-*   [Nixpkgs](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/build-managers/bazel/default.nix)
+*   [Nixpkgs](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/build-managers/bazel)
 *   [openSUSE](install-suse.md)
 *   [Parabola](https://www.parabola.nu/packages/?q=bazel)
 *   [Scoop](https://github.com/scoopinstaller/scoop-main/blob/master/bucket/bazel.json)

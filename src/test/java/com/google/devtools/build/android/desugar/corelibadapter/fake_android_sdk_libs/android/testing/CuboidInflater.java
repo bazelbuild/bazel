@@ -46,6 +46,13 @@ public class CuboidInflater {
             heightMultiplier * cuboid.getHeight());
   }
 
+  public Cuboid onCombine(long tag, Cuboid other) {
+    return new Cuboid(
+        tag * (cuboid.getWidth() + other.getWidth()),
+        tag * (cuboid.getLength() + other.getLength()),
+        tag * (cuboid.getHeight() + other.getHeight()));
+  }
+
   public long getVolume() {
     return cuboid.getVolume();
   }

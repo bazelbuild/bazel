@@ -23,5 +23,8 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 @SkylarkModule(
     name = "ToolchainContext",
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "Stores toolchains available to a given rule.")
+    doc =
+        "Holds toolchains available for a particular exec group. Toolchain targets are accessed by"
+            + " indexing with the toolchain type, as in"
+            + " <code>context[\"//pkg:my_toolchain_type\"]</code>.")
 public interface ToolchainContextApi extends StarlarkValue, SkylarkIndexable {}

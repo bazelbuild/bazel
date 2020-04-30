@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
@@ -34,6 +35,8 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -42,6 +45,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -105,6 +110,8 @@ public final class ConfigurationResolver {
    * @param originalDeps the transition requests for each dep and each dependency kind
    * @param hostConfiguration the host configuration
    * @param ruleClassProvider provider for determining the right configuration fragments for deps
+   * @param defaultBuildOptions default build options to diff options against for optimization
+   * @param configConditions {@link ConfigMatchingProvider} map for the rule
    * @return a mapping from each dependency kind in the source target to the {@link
    *     BuildConfiguration}s and {@link Label}s for the deps under that dependency kind . Returns
    *     null if not all Skyframe dependencies are available.
@@ -116,7 +123,8 @@ public final class ConfigurationResolver {
       OrderedSetMultimap<DependencyKind, Dependency> originalDeps,
       BuildConfiguration hostConfiguration,
       RuleClassProvider ruleClassProvider,
-      BuildOptions defaultBuildOptions)
+      BuildOptions defaultBuildOptions,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions)
       throws DependencyEvaluationException, InterruptedException {
 
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
@@ -162,7 +170,8 @@ public final class ConfigurationResolver {
 
     for (Map.Entry<DependencyKind, Dependency> depsEntry : originalDeps.entries()) {
       Dependency dep = depsEntry.getValue();
-      DependencyEdge dependencyEdge = new DependencyEdge(depsEntry.getKey(), dep.getLabel());
+      DependencyKind depKind = depsEntry.getKey();
+      DependencyEdge dependencyEdge = new DependencyEdge(depKind, dep.getLabel());
       attributesAndLabels.add(dependencyEdge);
       // DependencyResolver should never emit a Dependency with an explicit configuration
       Preconditions.checkState(!dep.hasExplicitConfiguration());
@@ -173,8 +182,48 @@ public final class ConfigurationResolver {
       // total analysis phase time.
       ConfigurationTransition transition = dep.getTransition();
       if (transition == NullTransition.INSTANCE) {
-        putOnlyEntry(
-            resolvedDeps, dependencyEdge, Dependency.withNullConfiguration(dep.getLabel()));
+        Dependency finalDependency = Dependency.withNullConfiguration(dep.getLabel());
+        // If the base transition is a split transition, execute the transition and store returned
+        // transition keys along with the null configuration dependency, so that other code relying
+        // on stored transition keys doesn't have to implement special handling logic just for this
+        // kind of cases.
+        if (depKind.getAttribute() != null) {
+          TransitionFactory<AttributeTransitionData> transitionFactory =
+              depKind.getAttribute().getTransitionFactory();
+          if (transitionFactory.isSplit()) {
+            AttributeTransitionData transitionData =
+                AttributeTransitionData.builder()
+                    .attributes(
+                        ConfiguredAttributeMapper.of(
+                            ctgValue.getTarget().getAssociatedRule(), configConditions))
+                    .build();
+            ConfigurationTransition baseTransition = transitionFactory.create(transitionData);
+            Map<String, BuildOptions> toOptions;
+            try {
+              // TODO(jungjw): See if we can dedup getBuildSettingPackages implementations and put
+              //  this in applyTransition.
+              HashMap<PackageValue.Key, PackageValue> buildSettingPackages =
+                  StarlarkTransition.getBuildSettingPackages(env, baseTransition);
+              if (buildSettingPackages == null) {
+                return null;
+              }
+              toOptions =
+                  applyTransition(
+                      currentConfiguration.getOptions(),
+                      baseTransition,
+                      buildSettingPackages,
+                      env.getListener());
+            } catch (TransitionException e) {
+              throw new DependencyEvaluationException(e);
+            }
+            if (!SplitTransition.equals(currentConfiguration.getOptions(), toOptions.values())) {
+              finalDependency =
+                  Dependency.withNullConfigurationAndTransitionKeys(
+                      dep.getLabel(), ImmutableList.copyOf(toOptions.keySet()));
+            }
+          }
+        }
+        putOnlyEntry(resolvedDeps, dependencyEdge, finalDependency);
         continue;
       }
 
@@ -592,7 +641,7 @@ public final class ConfigurationResolver {
     }
     Set<String> depFragmentNames = new HashSet<>();
     for (Class<? extends Fragment> fragmentClass : expectedDepFragments) {
-     depFragmentNames.add(fragmentClass.getSimpleName());
+      depFragmentNames.add(fragmentClass.getSimpleName());
     }
     Set<String> missing = Sets.difference(depFragmentNames, ctgFragmentNames);
     if (!missing.isEmpty()) {

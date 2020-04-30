@@ -384,49 +384,4 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
                 .getRequiredFragmentOptions())
         .isEmpty();
   }
-
-  @Test
-  public void testProvideTransitiveRequiredFragmentsMode() throws Exception {
-    useConfiguration("--include_config_fragments_provider=transitive");
-    scratch.file(
-        "a/BUILD",
-        "config_setting(name = 'config', values = {'start_end_lib': '1'})",
-        "py_library(name = 'pylib', srcs = ['pylib.py'])",
-        "cc_library(name = 'a', srcs = ['A.cc'], data = [':pylib'])");
-
-    ImmutableSet<String> ccLibTransitiveFragments =
-        getConfiguredTarget("//a:a")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(ccLibTransitiveFragments).containsAtLeast("CppConfiguration", "PythonConfiguration");
-
-    ImmutableSet<String> configSettingTransitiveFragments =
-        getConfiguredTarget("//a:config")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(configSettingTransitiveFragments).contains("CppOptions");
-  }
-
-  @Test
-  public void testProvideDirectRequiredFragmentsMode() throws Exception {
-    useConfiguration("--include_config_fragments_provider=direct");
-    scratch.file(
-        "a/BUILD",
-        "config_setting(name = 'config', values = {'start_end_lib': '1'})",
-        "py_library(name = 'pylib', srcs = ['pylib.py'])",
-        "cc_library(name = 'a', srcs = ['A.cc'], data = [':pylib'])");
-
-    ImmutableSet<String> ccLibTransitiveFragments =
-        getConfiguredTarget("//a:a")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(ccLibTransitiveFragments).contains("CppConfiguration");
-    assertThat(ccLibTransitiveFragments).doesNotContain("PythonConfiguration");
-
-    ImmutableSet<String> configSettingTransitiveFragments =
-        getConfiguredTarget("//a:config")
-            .getProvider(RequiredConfigFragmentsProvider.class)
-            .getRequiredConfigFragments();
-    assertThat(configSettingTransitiveFragments).contains("CppOptions");
-  }
 }

@@ -165,5 +165,10 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
+  public boolean isRewindingEnabled() {
+    return false;
+  }
+
+  @Override
   public void checkForLostInputs() {}
 }

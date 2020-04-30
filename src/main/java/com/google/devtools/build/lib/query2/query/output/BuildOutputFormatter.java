@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.io.IOException;
@@ -183,9 +182,6 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           licenseTypes.add(Ascii.toLowerCase(licenseType.toString()));
         }
         value = licenseTypes;
-      } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
-        // Display it as a list (and not as a tuple). Attributes can never be tuples.
-        value = new ArrayList<>((List<?>) value);
       } else if (value instanceof TriState) {
         value = ((TriState) value).toInt();
       }

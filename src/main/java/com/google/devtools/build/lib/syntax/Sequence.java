@@ -87,7 +87,7 @@ public interface Sequence<E>
       if (!elemType.isAssignableFrom(elem.getClass())) {
         throw Starlark.errorf(
             "at index %d of %s, got element of type %s, want %s",
-            i, what, Starlark.type(elem), EvalUtils.getDataTypeNameFromClass(elemType));
+            i, what, Starlark.type(elem), Starlark.classType(elemType));
       }
     }
     @SuppressWarnings("unchecked") // safe

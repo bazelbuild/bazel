@@ -447,59 +447,56 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       }
       for (final SkyKey key : keysToGet) {
         executor.execute(
-            new Runnable() {
-              @Override
-              public void run() {
-                ThinNodeEntry entry = entries.get(key);
+            () -> {
+              ThinNodeEntry entry = entries.get(key);
 
-                if (entry == null) {
-                  if (supportInterruptions) {
-                    pendingVisitations.remove(Pair.of(key, invalidationType));
-                  }
-                  return;
-                }
-
-                if (entry.isChanged() || (!isChanged && entry.isDirty())) {
-                  // If this node is already marked changed, or we are only marking this node
-                  // dirty, and it already is, move along.
-                  if (supportInterruptions) {
-                    pendingVisitations.remove(Pair.of(key, invalidationType));
-                  }
-                  return;
-                }
-
-                // It is not safe to interrupt the logic from this point until the end of the
-                // method.
-                // Any exception thrown should be unrecoverable.
-                // This entry remains in the graph in this dirty state until it is re-evaluated.
-                MarkedDirtyResult markedDirtyResult;
-                try {
-                  markedDirtyResult =
-                      entry.markDirty(isChanged ? DirtyType.CHANGE : DirtyType.DIRTY);
-                } catch (InterruptedException e) {
-                  Thread.currentThread().interrupt();
-                  // This can only happen if the main thread has been interrupted, and so the
-                  // AbstractQueueVisitor is shutting down. We haven't yet removed the pending
-                  // visitation, so we can resume next time.
-                  return;
-                }
-                if (markedDirtyResult == null) {
-                  // Another thread has already dirtied this node. Don't do anything in this thread.
-                  if (supportInterruptions) {
-                    pendingVisitations.remove(Pair.of(key, invalidationType));
-                  }
-                  return;
-                }
-                // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should
-                // only be marked dirty (because only a dependency of theirs has changed).
-                visit(markedDirtyResult.getReverseDepsUnsafe(), InvalidationType.DIRTIED, key);
-
-                progressReceiver.invalidated(
-                    key, EvaluationProgressReceiver.InvalidationState.DIRTY);
-                // Remove the node from the set as the last operation.
+              if (entry == null) {
                 if (supportInterruptions) {
                   pendingVisitations.remove(Pair.of(key, invalidationType));
                 }
+                return;
+              }
+
+              if (entry.isChanged() || (!isChanged && entry.isDirty())) {
+                // If this node is already marked changed, or we are only marking this node
+                // dirty, and it already is, move along.
+                if (supportInterruptions) {
+                  pendingVisitations.remove(Pair.of(key, invalidationType));
+                }
+                return;
+              }
+
+              // It is not safe to interrupt the logic from this point until the end of the method.
+              // Any exception thrown should be unrecoverable.
+              // This entry remains in the graph in this dirty state until it is re-evaluated.
+              MarkedDirtyResult markedDirtyResult;
+              try {
+                markedDirtyResult = entry.markDirty(isChanged ? DirtyType.CHANGE : DirtyType.DIRTY);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                // This can only happen if the main thread has been interrupted, and so the
+                // AbstractQueueVisitor is shutting down. We haven't yet removed the pending
+                // visitation, so we can resume next time.
+                return;
+              } catch (IllegalStateException e) {
+                // Debugging for #10912.
+                throw new IllegalStateException("Crash caused by " + key, e);
+              }
+              if (markedDirtyResult == null) {
+                // Another thread has already dirtied this node. Don't do anything in this thread.
+                if (supportInterruptions) {
+                  pendingVisitations.remove(Pair.of(key, invalidationType));
+                }
+                return;
+              }
+              // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should
+              // only be marked dirty (because only a dependency of theirs has changed).
+              visit(markedDirtyResult.getReverseDepsUnsafe(), InvalidationType.DIRTIED, key);
+
+              progressReceiver.invalidated(key, EvaluationProgressReceiver.InvalidationState.DIRTY);
+              // Remove the node from the set as the last operation.
+              if (supportInterruptions) {
+                pendingVisitations.remove(Pair.of(key, invalidationType));
               }
             });
       }

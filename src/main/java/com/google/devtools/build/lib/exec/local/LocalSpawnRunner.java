@@ -43,6 +43,9 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
@@ -307,6 +310,7 @@ public class LocalSpawnRunner implements SpawnRunner {
             .setStatus(Status.EXECUTION_DENIED)
             .setExitCode(LOCAL_EXEC_ERROR)
             .setExecutorHostname(hostName)
+            .setFailureDetail(makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_DENIED))
             .build();
       }
 
@@ -405,6 +409,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               .setStatus(Status.EXECUTION_FAILED)
               .setExitCode(LOCAL_EXEC_ERROR)
               .setExecutorHostname(hostName)
+              .setFailureDetail(makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_FAILED))
               .build();
         }
         setState(State.SUCCESS);
@@ -424,6 +429,9 @@ public class LocalSpawnRunner implements SpawnRunner {
                 .setExitCode(exitCode)
                 .setExecutorHostname(hostName)
                 .setWallTime(wallTime);
+        if (status != Status.SUCCESS) {
+          spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status));
+        }
         if (statisticsPath != null) {
           ExecutionStatistics.getResourceUsage(statisticsPath)
               .ifPresent(
@@ -498,6 +506,42 @@ public class LocalSpawnRunner implements SpawnRunner {
         }
       }
     }
+  }
+
+  private static FailureDetail makeFailureDetail(int exitCode, Status status) {
+    FailureDetails.Spawn.Builder spawnFailure = FailureDetails.Spawn.newBuilder();
+    switch (status) {
+      case SUCCESS:
+        throw new AssertionError("makeFailureDetail() called with Status == SUCCESS");
+      case NON_ZERO_EXIT:
+        spawnFailure.setCode(Code.NON_ZERO_EXIT).setSpawnExitCode(exitCode);
+        break;
+      case TIMEOUT:
+        spawnFailure.setCode(Code.TIMEOUT);
+        break;
+      case OUT_OF_MEMORY:
+        spawnFailure.setCode(Code.OUT_OF_MEMORY);
+        break;
+      case EXECUTION_FAILED:
+        spawnFailure.setCode(Code.EXECUTION_FAILED);
+        break;
+      case EXECUTION_FAILED_CATASTROPHICALLY:
+        spawnFailure.setCode(Code.EXECUTION_FAILED).setCatastrophic(true);
+        break;
+      case EXECUTION_DENIED:
+        spawnFailure.setCode(Code.EXECUTION_DENIED);
+        break;
+      case EXECUTION_DENIED_CATASTROPHICALLY:
+        spawnFailure.setCode(Code.EXECUTION_DENIED).setCatastrophic(true);
+        break;
+      case REMOTE_CACHE_FAILED:
+        spawnFailure.setCode(Code.REMOTE_CACHE_FAILED);
+        break;
+    }
+    return FailureDetail.newBuilder()
+        .setMessage("local spawn failed")
+        .setSpawn(spawnFailure)
+        .build();
   }
 
   private enum State {

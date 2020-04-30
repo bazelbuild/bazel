@@ -46,4 +46,8 @@ public interface GraphInconsistencyReceiver {
     return StringUtil.listItemsWithLimit(new StringBuilder(), LOGGED_CHILDREN_LIMIT, children)
         .toString();
   }
+
+  default boolean restartPermitted() {
+    return false;
+  }
 }

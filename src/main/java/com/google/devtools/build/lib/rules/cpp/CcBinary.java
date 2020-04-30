@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -73,7 +74,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -707,7 +707,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       ruleBuilder.addOutputGroup("runtime_dynamic_libraries", copiedRuntimeDynamicLibraries);
     }
 
-    CcSkylarkApiProvider.maybeAdd(ruleContext, ruleBuilder);
+    CcStarlarkApiProvider.maybeAdd(ruleContext, ruleBuilder);
     ruleBuilder
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addProvider(
@@ -1280,13 +1280,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           return null;
         }
 
-        @SuppressWarnings("unchecked")
-        NestedSet<Tuple<Object>> dynamicDeps =
-            (NestedSet<Tuple<Object>>)
-                (NestedSet<?>)
-                    Depset.getSetFromNoneableParam(dynamicDepsField, Tuple.class, "dynamic_deps");
+        @SuppressWarnings("rawtypes")
+        NestedSet<Tuple> dynamicDeps =
+            Depset.noneableCast(dynamicDepsField, Tuple.class, "dynamic_deps");
 
-        for (Tuple<Object> exportsAndLinkerInput : dynamicDeps.toList()) {
+        for (Tuple<?> exportsAndLinkerInput : dynamicDeps.toList()) {
           List<String> exportsFromDynamicDep =
               Sequence.noneableCast(
                   exportsAndLinkerInput.get(0), String.class, "exports_from_dynamic_dep");

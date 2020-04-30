@@ -16,8 +16,13 @@
 
 # Script for building bazel from scratch without bazel
 
-PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto src/main/java/com/google/devtools/build/skyframe/*.proto src/main/java/com/google/devtools/build/lib/skyframe/proto/*.proto)
-LIBRARY_JARS=$(find derived/jars third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
+if [ -d derived/jars ]; then
+  PROTOBUF_JARS=derived/jars
+else
+  PROTOBUF_JARS="/usr/share/java/protobuf.jar /usr/share/java/protobuf-java-util.jar"
+fi
+PROTO_FILES=$(find third_party/remoteapis third_party/googleapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto -name "*.proto")
+LIBRARY_JARS=$(find $PROTOBUF_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
 GRPC_JAVA_VERSION=1.20.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
 GUAVA_VERSION=25.1
@@ -44,7 +49,7 @@ if [ "$ERROR_PRONE_INDEX" -lt "$GUAVA_INDEX" ]; then
   LIBRARY_JARS="${LIBRARY_JARS_ARRAY[*]}"
 fi
 
-DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java} tools/java/runfiles third_party/java/dd_plist/java ${OUTPUT_DIR}/src)
+DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 EXCLUDE_FILES="src/main/java/com/google/devtools/build/lib/server/GrpcServerImpl.java src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/*"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
@@ -230,6 +235,11 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
                 -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
                 -Isrc/main/java/com/google/devtools/build/lib/skyframe/proto/ \
                 -Isrc/main/java/com/google/devtools/build/skyframe/ \
+                -Isrc/main/java/com/google/devtools/build/lib/bazel/debug/ \
+                -Isrc/main/java/com/google/devtools/build/lib/starlarkdebug/proto/ \
+                -Ithird_party/remoteapis/ \
+                -Ithird_party/googleapis/ \
+                -Ithird_party/pprof/ \
                 --java_out=${OUTPUT_DIR}/src \
                 --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
                 --grpc_out=${OUTPUT_DIR}/src "$f"
