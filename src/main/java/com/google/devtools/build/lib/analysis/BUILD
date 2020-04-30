@@ -292,7 +292,6 @@ java_library(
         ":config/build_configuration",
         ":config/build_options",
         ":config/config_matching_provider",
-        ":config/core_option_converters",
         ":config/core_options",
         ":config/execution_transition_factory",
         ":config/fragment",
@@ -469,7 +468,6 @@ java_library(
     name = "analysis_phase_complete_event",
     srcs = ["AnalysisPhaseCompleteEvent.java"],
     deps = [
-        ":analysis_cluster",
         ":configured_target",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//third_party:guava",
@@ -1392,7 +1390,6 @@ java_library(
 java_library(
     name = "buildinfo/build_info_key",
     srcs = ["buildinfo/BuildInfoKey.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec"],
 )
 
 # TODO(b/144899336):  This should be analysis/config/BUILD
@@ -1553,7 +1550,6 @@ java_library(
         ":config/build_options",
         ":config/build_options_cache",
         ":config/core_options",
-        ":config/host_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",
         ":platform_options",
@@ -1976,7 +1972,7 @@ java_library(
     name = "skylark/starlark_api_provider",
     srcs = ["skylark/StarlarkApiProvider.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:provider-collection",
+        ":provider_collection",
         "//third_party:guava",
     ],
 )
@@ -2095,7 +2091,6 @@ java_library(
     name = "test/coverage_report_action_factory",
     srcs = ["test/CoverageReportActionFactory.java"],
     deps = [
-        ":analysis_cluster",
         ":blaze_directories",
         ":configured_target",
         "//src/main/java/com/google/devtools/build/lib/actions",

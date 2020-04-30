@@ -157,14 +157,6 @@ java_library(
 
 # Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
-    name = "provider-collection",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
-    ],
-)
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
     name = "build-configuration-option-details",
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/rules/config:__pkg__",
