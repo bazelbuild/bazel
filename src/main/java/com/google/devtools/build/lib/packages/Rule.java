@@ -351,6 +351,15 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return hasStringAttribute("generator_name") || hasStringAttribute("generator_function");
   }
 
+  /** Returns the macro that generated this rule, or an empty string. */
+  public String getGeneratorFunction() {
+    Object value = attributes.getAttr("generator_function");
+    if (value instanceof String) {
+      return (String) value;
+    }
+    return "";
+  }
+
   private boolean hasStringAttribute(String attrName) {
     Object value = attributes.getAttr(attrName);
     if (value != null && value instanceof String) {
