@@ -20,6 +20,8 @@ import static com.google.devtools.build.lib.bazel.repository.downloader.Download
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -35,6 +37,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -77,8 +80,12 @@ public class HttpStreamTest {
   private final ProgressInputStream.Factory progress = mock(ProgressInputStream.Factory.class);
   private final HttpStream.Factory streamFactory = new HttpStream.Factory(progress);
 
+  private int nRetries;
+
   @Before
   public void before() throws Exception {
+    nRetries = 0;
+
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(data));
     when(progress.create(any(InputStream.class), any(), any(URL.class)))
         .thenAnswer(
@@ -102,6 +109,57 @@ public class HttpStreamTest {
   public void smallDataWithValidChecksum_readsOk() throws Exception {
     try (HttpStream stream = streamFactory.create(connection, AURL, GOOD_CHECKSUM, reconnector)) {
       assertThat(toByteArray(stream)).isEqualTo(data);
+    }
+  }
+
+  @Test
+  public void smallDataWithValidChecksum_timesOutInCreateRetriesOk() throws Exception {
+    InputStream inputStream = mock(ByteArrayInputStream.class);
+    InputStream realInputStream = new ByteArrayInputStream(data);
+
+    doAnswer(
+            (Answer<Integer>)
+                invocation -> {
+                  Object[] args = invocation.getArguments();
+
+                  if (nRetries++ == 0) {
+                    throw new SocketTimeoutException();
+                  } else {
+                    return realInputStream.read((byte[]) args[0], (int) args[1], (int) args[2]);
+                  }
+                })
+        .when(inputStream)
+        .read(any(), anyInt(), anyInt());
+    when(reconnector.connect(any(), any())).thenReturn(connection);
+    when(connection.getInputStream()).thenReturn(inputStream);
+    when(connection.getHeaderField("Accept-Ranges")).thenReturn("bytes");
+    try (HttpStream stream = streamFactory.create(connection, AURL, GOOD_CHECKSUM, reconnector)) {
+      assertThat(toByteArray(stream)).isEqualTo(data);
+    }
+  }
+
+  @Test
+  public void smallDataWithValidChecksum_timesOutInCreateRepeatedly() throws Exception {
+    InputStream inputStream = mock(ByteArrayInputStream.class);
+
+    doAnswer(
+            (Answer<Integer>)
+                invocation -> {
+                  ++nRetries;
+                  throw new SocketTimeoutException();
+                })
+        .when(inputStream)
+        .read(any(), anyInt(), anyInt());
+    when(reconnector.connect(any(), any())).thenReturn(connection);
+    when(connection.getInputStream()).thenReturn(inputStream);
+    when(connection.getHeaderField("Accept-Ranges")).thenReturn("bytes");
+    thrown.expect(SocketTimeoutException.class);
+
+    try {
+      streamFactory.create(connection, AURL, GOOD_CHECKSUM, reconnector);
+    } catch (Exception e) {
+      assertThat(nRetries).isGreaterThan(3); // RetryingInputStream.MAX_RESUMES
+      throw e;
     }
   }
 
