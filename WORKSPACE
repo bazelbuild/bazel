@@ -165,7 +165,7 @@ distdir_tar(
         # bazelbuild/bazel-toolchains
         "2.1.0.tar.gz",
         # bazelbuild/rules_pkg
-        "rules_pkg-0.2.4.tar.gz",
+        "rules_pkg-0.2.5.tar.gz",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         # protocolbuffers/protobuf
@@ -195,7 +195,7 @@ distdir_tar(
         # bazelbuild/bazel-toolchains
         "2.1.0.tar.gz": "4d348abfaddbcee0c077fc51bb1177065c3663191588ab3d958f027cbfe1818b",
         # bazelbuild/rules_pkg
-        "rules_pkg-0.2.4.tar.gz": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
+        "rules_pkg-0.2.5.tar.gz": "352c090cc3d3f9a6b4e676cf42a6047c16824959b438895a76c2989c6d7c246a",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         # protocolbuffers/protobuf
@@ -259,9 +259,9 @@ distdir_tar(
             "https://github.com/bazelbuild/bazel-toolchains/releases/download/2.1.0/bazel-toolchains-2.1.0.tar.gz",
         ],
         # bazelbuild/rules_pkg
-        "rules_pkg-0.2.4.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
+        "rules_pkg-0.2.5.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.5/rules_pkg-0.2.5.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.5/rules_pkg-0.2.5.tar.gz",
         ],
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": [
@@ -882,13 +882,15 @@ http_archive(
     name = "rules_pkg",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
+    sha256 = "352c090cc3d3f9a6b4e676cf42a6047c16824959b438895a76c2989c6d7c246a",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
-        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.5/rules_pkg-0.2.5.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.5/rules_pkg-0.2.5.tar.gz",
     ],
+    # TODO(aiuto): Add a dummy workspace to rules_pkg packaging so we do not
+    # need this any more.
+    workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
 )
-
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 
 rules_pkg_dependencies()

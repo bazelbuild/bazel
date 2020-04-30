@@ -520,10 +520,10 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_pkg",
-    sha256 = "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
+    sha256 = "352c090cc3d3f9a6b4e676cf42a6047c16824959b438895a76c2989c6d7c246a",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
-        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.5.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.5.tar.gz",
     ],
 )
 EOF
