@@ -348,19 +348,26 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("attr(deprecation, ' ', c:*)")).isEmpty();
   }
 
-  private void writeBooleanBuildFiles() throws Exception {
+  @Test
+  public void testAttrOperatorOnBooleans() throws Exception {
     writeFile(
         "t/BUILD",
         "cc_library(name='t', srcs=['t.cc'], data=['r'], testonly=0)",
         "cc_library(name='t_test', srcs=['t.cc'], data=['r'], testonly=1)");
-  }
 
-  @Test
-  public void testAttrOperatorOnBooleans() throws Exception {
-    writeBooleanBuildFiles();
     // Assure that integers query correctly for BOOLEAN values.
     assertThat(evalToString("attr(testonly, 0, t:*)")).isEqualTo("//t:t");
     assertThat(evalToString("attr(testonly, 1, t:*)")).isEqualTo("//t:t_test");
+  }
+
+  @Test
+  public void testAttrOnPackageDefaultVisibility() throws Exception {
+    writeFile(
+        "t/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "cc_library(name='t', srcs=['t.cc'])");
+
+    assertThat(evalToString("attr(visibility, public, t:*)")).isEqualTo("//t:t");
   }
 
   @Test
