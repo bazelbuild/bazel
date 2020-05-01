@@ -327,7 +327,6 @@ public abstract class Args implements CommandLineArgsApi {
       addVectorArg(
           values,
           argName,
-          /* mapAll= */ null,
           mapEach != Starlark.NONE ? (StarlarkCallable) mapEach : null,
           formatEach != Starlark.NONE ? (String) formatEach : null,
           beforeEach != Starlark.NONE ? (String) beforeEach : null,
@@ -367,7 +366,6 @@ public abstract class Args implements CommandLineArgsApi {
       addVectorArg(
           values,
           argName,
-          /* mapAll= */ null,
           mapEach != Starlark.NONE ? (StarlarkCallable) mapEach : null,
           formatEach != Starlark.NONE ? (String) formatEach : null,
           /* beforeEach= */ null,
@@ -384,7 +382,6 @@ public abstract class Args implements CommandLineArgsApi {
     private void addVectorArg(
         Object value,
         String argName,
-        StarlarkCallable mapAll,
         StarlarkCallable mapEach,
         String formatEach,
         String beforeEach,
@@ -417,7 +414,6 @@ public abstract class Args implements CommandLineArgsApi {
           .setLocation(loc)
           .setArgName(argName)
           .setExpandDirectories(expandDirectories)
-          .setMapAll(mapAll)
           .setFormatEach(formatEach)
           .setBeforeEach(beforeEach)
           .setJoinWith(joinWith)
