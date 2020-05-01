@@ -153,7 +153,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
             dep.getTransition().apply(fromOptions, eventHandler).values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
-        if (attributeAndDep.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {
+        if (attributeAndDep.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {
           dependencyName = "[toolchain dependency]";
         } else {
           dependencyName = attributeAndDep.getKey().getAttribute().getName();

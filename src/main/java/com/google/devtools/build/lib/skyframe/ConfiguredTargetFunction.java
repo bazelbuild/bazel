@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
@@ -333,7 +332,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   target.getPackage().getRepositoryMapping(),
                   unloadedContext.getValue(),
                   targetDescription,
-                  depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY)));
+                  depValueMap.get(DependencyKind.TOOLCHAIN_DEPENDENCY)));
         }
         toolchainContexts = contextsBuilder.build();
       }
