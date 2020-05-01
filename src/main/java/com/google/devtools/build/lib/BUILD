@@ -151,20 +151,6 @@ java_library(
 
 # Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
-    name = "build-base",
-    exports = [
-        ":runtime/blaze_server_startup_options",
-        ":runtime/build_event_streamer_utils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:legacy_exports",
-        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
-        "//src/main/java/com/google/devtools/build/lib/exec:legacy_exports",
-        "//src/main/java/com/google/devtools/build/lib/repository:legacy_exports",
-        "//src/main/java/com/google/devtools/build/lib/rules:legacy_exports",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:legacy_exports",
-    ],
-)
-
-java_library(
     name = "shared-base-rules",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/rules:nativedeps",

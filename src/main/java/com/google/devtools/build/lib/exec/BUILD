@@ -10,46 +10,6 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-# TODO(b/144899336): Remove this when all dependers are updated.
-java_library(
-    name = "legacy_exports",
-    exports = [
-        ":abstract_spawn_strategy",
-        ":always_out_of_date_action",
-        ":bin_tools",
-        ":blaze_executor",
-        ":check_up_to_date_filter",
-        ":execution_options",
-        ":execution_policy",
-        ":executor_builder",
-        ":executor_lifecycle_listener",
-        ":file_write_strategy",
-        ":module_action_context_registry",
-        ":regex_filter_assignment_converter",
-        ":remote_local_fallback_registry",
-        ":runfiles_tree_updater",
-        ":single_build_file_cache",
-        ":spawn_action_context_maps",
-        ":spawn_cache",
-        ":spawn_exec_exception",
-        ":spawn_input_expander",
-        ":spawn_log_context",
-        ":spawn_runner",
-        ":spawn_strategy_registry",
-        ":spawn_strategy_resolver",
-        ":standalone_test_result",
-        ":standalone_test_strategy",
-        ":streamed_test_output",
-        ":symlink_tree_helper",
-        ":symlink_tree_strategy",
-        ":test_log_helper",
-        ":test_policy",
-        ":test_xml_output_parser",
-        ":test_xml_output_parser_exception",
-        ":tree_deleter",
-    ],
-)
-
 java_library(
     name = "abstract_spawn_strategy",
     srcs = ["AbstractSpawnStrategy.java"],
