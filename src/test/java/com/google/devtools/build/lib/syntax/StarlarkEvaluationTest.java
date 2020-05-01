@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +67,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   private static final NativeProvider<NativeInfoMock> CONSTRUCTOR =
       new NativeProvider<NativeInfoMock>(NativeInfoMock.class, "native_info_mock") {};
 
-  @SkylarkModule(name = "Mock", doc = "")
+  @StarlarkBuiltin(name = "Mock", doc = "")
   class NativeInfoMock extends NativeInfo {
 
     public NativeInfoMock() {
@@ -100,7 +100,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     }
   }
 
-  @SkylarkModule(name = "Mock", doc = "")
+  @StarlarkBuiltin(name = "Mock", doc = "")
   class Mock implements StarlarkValue {
     @SkylarkCallable(
         name = "MockFn",
@@ -439,7 +439,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     return p.append(")").toString();
   }
 
-  @SkylarkModule(name = "MockInterface", doc = "")
+  @StarlarkBuiltin(name = "MockInterface", doc = "")
   static interface MockInterface extends StarlarkValue {
     @SkylarkCallable(name = "is_empty_interface",
         parameters = { @Param(name = "str", type = String.class) },
@@ -447,7 +447,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     public Boolean isEmptyInterface(String str);
   }
 
-  @SkylarkModule(name = "MockSubClass", doc = "")
+  @StarlarkBuiltin(name = "MockSubClass", doc = "")
   final class MockSubClass extends Mock implements MockInterface {
     @Override
     public Boolean isEmpty(String str) {
@@ -459,7 +459,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     }
   }
 
-  @SkylarkModule(name = "MockClassObject", documented = false, doc = "")
+  @StarlarkBuiltin(name = "MockClassObject", documented = false, doc = "")
   static final class MockClassObject implements ClassObject, StarlarkValue {
     @Override
     public Object getValue(String name) {
@@ -482,7 +482,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     }
   }
 
-  @SkylarkModule(name = "ParamterizedMock", doc = "")
+  @StarlarkBuiltin(name = "ParamterizedMock", doc = "")
   static interface ParameterizedApi<ObjectT> extends StarlarkValue {
     @SkylarkCallable(
         name = "method",
@@ -1929,7 +1929,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   // This class extends NativeInfo (which provides @SkylarkCallable-annotated fields)
   // with additional fields from a map. The only production code that currently
   // does that is ToolchainInfo and its subclasses.
-  @SkylarkModule(name = "StarlarkStructWithStarlarkMethods", doc = "")
+  @StarlarkBuiltin(name = "StarlarkStructWithStarlarkMethods", doc = "")
   private static final class StarlarkStructWithStarlarkMethods extends NativeInfo {
 
     static final NativeProvider<StarlarkStructWithStarlarkMethods> CONSTRUCTOR =

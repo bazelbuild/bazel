@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AnalysisFailure",
     doc =
         "Encapsulates information about an analysis-phase error which would have occurred during "

@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Contains information about instrumented files sources and instrumentation metadata. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "InstrumentedFilesInfo",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc =
         "Contains information about instrumented file sources and instrumentation metadata "
             + "for purposes of code coverage. Rule targets which return an instance of this "

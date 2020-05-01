@@ -17,7 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,7 +67,7 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
   }
 
   private String getParameterString(Method method) {
-    SkylarkCallable annotation = SkylarkInterfaceUtils.getSkylarkCallable(method);
+    SkylarkCallable annotation = StarlarkInterfaceUtils.getSkylarkCallable(method);
     List<String> argList = new ArrayList<>();
 
     boolean named = false;
@@ -103,8 +103,10 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
   }
 
   protected String getSignature(String fullyQualifiedMethodName, Method method) {
-    String args = SkylarkInterfaceUtils.getSkylarkCallable(method).structField()
-        ? "" : "(" + getParameterString(method) + ")";
+    String args =
+        StarlarkInterfaceUtils.getSkylarkCallable(method).structField()
+            ? ""
+            : "(" + getParameterString(method) + ")";
 
     return String.format("%s %s%s",
         getTypeAnchor(method.getReturnType()), fullyQualifiedMethodName, args);

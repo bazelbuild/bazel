@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
@@ -27,9 +27,9 @@ import javax.annotation.Nullable;
  * Interface for an info object containing information about jars that are a result of annotation
  * processing for a Java rule.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "java_annotation_processing",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "Information about jars that are a result of annotation processing for a Java rule.")
 public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends StarlarkValue {
 

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigFeatureFlagProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -66,7 +66,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
    * A constructor callable from Starlark for OutputGroupInfo: {@code
    * config_common.FeatureFlagInfo(value="...")}
    */
-  @SkylarkModule(name = "FeatureFlagInfo", documented = false)
+  @StarlarkBuiltin(name = "FeatureFlagInfo", documented = false)
   @Immutable
   private static final class Constructor extends NativeProvider<ConfigFeatureFlagProvider>
       implements StarlarkValue {

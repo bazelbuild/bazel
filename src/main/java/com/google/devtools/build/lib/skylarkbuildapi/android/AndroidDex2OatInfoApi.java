@@ -20,14 +20,14 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.NoneType;
 
 /**
  * Supplies the pregenerate_oat_files_for_tests attribute of type boolean provided by android_device
  * rule.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidDex2OatInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -40,7 +40,7 @@ public interface AndroidDex2OatInfoApi<
   String NAME = "AndroidDex2OatInfo";
 
   /** Provider for {@link AndroidDex2OatInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider<
           FileT extends FileApi, FilesToRunProviderT extends FilesToRunProviderApi<FileT>>
       extends ProviderApi {

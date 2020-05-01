@@ -17,19 +17,19 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 
 /**
- * A provider containing the executable binary output that was built using an
- * apple_binary target with the 'executable' type.
+ * A provider containing the executable binary output that was built using an apple_binary target
+ * with the 'executable' type.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AppleExecutableBinary",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider containing the executable binary output that was built using an "
-        + "apple_binary target with the 'executable' type."
-)
+    category = StarlarkDocumentationCategory.PROVIDER,
+    doc =
+        "A provider containing the executable binary output that was built using an "
+            + "apple_binary target with the 'executable' type.")
 public interface AppleExecutableBinaryApi extends StructApi {
 
   @SkylarkCallable(

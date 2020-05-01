@@ -21,17 +21,17 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Info object encapsulating all information by java rules. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "JavaInfo",
     doc = "A provider encapsulating information about Java and Java-like targets.",
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
 
   @SkylarkCallable(
@@ -153,7 +153,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
   Depset /*<Label>*/ getTransitiveExports();
 
   /** Provider class for {@link JavaInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface JavaInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(

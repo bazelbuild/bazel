@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInf
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  * creates C++ wrapper code that gets compiled and linked into a library that is interfacing between
  * the Java and Python wrappers and the actual wrapped APIs.
  */
-@SkylarkModule(name = "WrapCcHelperDoNotUse", doc = "", documented = false)
+@StarlarkBuiltin(name = "WrapCcHelperDoNotUse", doc = "", documented = false)
 public interface WrapCcHelperApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         ConstraintValueT extends ConstraintValueInfoApi,

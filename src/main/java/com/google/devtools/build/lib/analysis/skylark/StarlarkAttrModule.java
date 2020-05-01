@@ -132,8 +132,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         // in the function definition, which must be the names of attributes used by the callback.
         builder.value(
             new SkylarkComputedDefaultTemplate(type, callback.getParameterNames(), callback));
-      } else if (defaultValue instanceof SkylarkLateBoundDefault) {
-        builder.value((SkylarkLateBoundDefault) defaultValue); // unchecked cast
+      } else if (defaultValue instanceof StarlarkLateBoundDefault) {
+        builder.value((StarlarkLateBoundDefault) defaultValue); // unchecked cast
       } else {
         builder.defaultValue(
             defaultValue,
@@ -249,7 +249,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
           trans instanceof SplitTransition
               || trans instanceof TransitionFactory
               || trans instanceof StarlarkDefinedConfigTransition;
-      if (isSplit && defaultValue instanceof SkylarkLateBoundDefault) {
+      if (isSplit && defaultValue instanceof StarlarkLateBoundDefault) {
         throw new EvalException(
             null, "late-bound attributes must not have a split configuration transition");
       }

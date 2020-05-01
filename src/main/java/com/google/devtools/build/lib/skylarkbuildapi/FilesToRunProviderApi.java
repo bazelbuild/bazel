@@ -15,13 +15,16 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
-@SkylarkModule(name = "FilesToRunProvider", doc = "", category = SkylarkModuleCategory.PROVIDER)
+@StarlarkBuiltin(
+    name = "FilesToRunProvider",
+    doc = "",
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface FilesToRunProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(

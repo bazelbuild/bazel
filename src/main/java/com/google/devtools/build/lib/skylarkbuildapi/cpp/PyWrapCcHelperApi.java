@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 
@@ -33,11 +33,11 @@ import com.google.devtools.build.lib.syntax.Sequence;
  * creates C++ wrapper code that gets compiled and linked into a library that is interfacing between
  * the Java and Python wrappers and the actual wrapped APIs.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "py_wrap_cc_helper_do_not_use",
     documented = false,
     doc = "",
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE)
+    category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE)
 public interface PyWrapCcHelperApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,

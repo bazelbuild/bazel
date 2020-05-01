@@ -17,15 +17,15 @@ package com.google.devtools.build.lib.skylarkbuildapi.repository;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.IOException;
 
 /** A structure representing a file to be used inside a repository. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "path",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "A structure representing a file to be used inside a repository.")
 public interface RepositoryPathApi<RepositoryPathApiT extends RepositoryPathApi<?>>
     extends StarlarkValue {

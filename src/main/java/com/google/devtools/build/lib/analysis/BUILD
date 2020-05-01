@@ -123,12 +123,12 @@ java_library(
         ":skylark/args",
         ":skylark/bazel_build_api_globals",
         ":skylark/function_transition_util",
-        ":skylark/skylark_late_bound_default",
         ":skylark/starlark_api_provider",
         ":skylark/starlark_command_line",
         ":skylark/starlark_config",
         ":skylark/starlark_custom_command_line",
         ":skylark/starlark_error_reporter",
+        ":skylark/starlark_late_bound_default",
         ":statically_linked_marker_provider",
         ":target_configured_event",
         ":template_variable_info",
@@ -341,9 +341,9 @@ java_library(
         ":skylark/args",
         ":skylark/bazel_build_api_globals",
         ":skylark/function_transition_util",
-        ":skylark/skylark_late_bound_default",
         ":skylark/starlark_api_provider",
         ":skylark/starlark_command_line",
+        ":skylark/starlark_late_bound_default",
         ":template_variable_info",
         ":test/analysis_failure",
         ":test/analysis_failure_info",
@@ -1941,7 +1941,7 @@ java_library(
     name = "skylark/bazel_build_api_globals",
     srcs = ["skylark/BazelBuildApiGlobals.java"],
     deps = [
-        ":skylark/skylark_late_bound_default",
+        ":skylark/starlark_late_bound_default",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
@@ -2017,8 +2017,8 @@ java_library(
 )
 
 java_library(
-    name = "skylark/skylark_late_bound_default",
-    srcs = ["skylark/SkylarkLateBoundDefault.java"],
+    name = "skylark/starlark_late_bound_default",
+    srcs = ["skylark/StarlarkLateBoundDefault.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

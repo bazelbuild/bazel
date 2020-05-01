@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skylark;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.devtools.build.lib.util.Classpath;
 import java.lang.reflect.Method;
 import org.junit.Test;
@@ -24,13 +24,13 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests that bazel usages of {@link SkylarkCallable} and {@link SkylarkModule} abide by the
+ * Tests that bazel usages of {@link SkylarkCallable} and {@link StarlarkBuiltin} abide by the
  * contracts specified in their documentation.
  *
- * <p>Tests in this class use the java reflection API.</p>
+ * <p>Tests in this class use the java reflection API.
  *
- * <p>This verification *would* be done via annotation processor, but annotation processors in
- * java don't have access to the full set of information that the java reflection API has.</p>
+ * <p>This verification *would* be done via annotation processor, but annotation processors in java
+ * don't have access to the full set of information that the java reflection API has.
  */
 @RunWith(JUnit4.class)
 public class SkylarkAnnotationContractTest {
@@ -45,38 +45,37 @@ public class SkylarkAnnotationContractTest {
    *
    * <p>If this test fails, it indicates the following error scenario:
    *
-   * <p>Suppose class A is a subclass of both B and C, where B and C are annotated
-   * with @SkylarkModule annotations (and are thus considered "skylark types"). If B is not a
-   * subclass of C (nor visa versa), then it's impossible to resolve whether A is of type B or if A
-   * is of type C. It's both! The way to resolve this is usually to have A be its own type
-   * (annotated with @SkylarkModule), and thus have the explicit type of A be semantically "B and
-   * C".
+   * <p>Suppose class A is a subclass of both B and C, where B and C are annotated with {@link
+   * StarlarkBuiltin} annotations (and are thus considered "skylark types"). If B is not a subclass
+   * of C (nor visa versa), then it's impossible to resolve whether A is of type B or if A is of
+   * type C. It's both! The way to resolve this is usually to have A be its own type (annotated with
+   * {@link StarlarkBuiltin}), and thus have the explicit type of A be semantically "B and C".
    */
   @Test
-  public void testResolvableSkylarkModules() throws Exception {
+  public void testResolvableStarlarkBuiltins() throws Exception {
     for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
-      SkylarkInterfaceUtils.getSkylarkModule(candidateClass);
+      StarlarkInterfaceUtils.getStarlarkBuiltin(candidateClass);
     }
   }
 
   /**
    * Verifies that no class or interface has a method annotated with {@link SkylarkCallable} unless
-   * that class or interface is annotated with either {@link SkylarkGlobalLibrary} or with
-   * {@link SkylarkModule}.
+   * that class or interface is annotated with either {@link SkylarkGlobalLibrary} or with {@link
+   * StarlarkBuiltin}.
    */
   @Test
   public void testSkylarkCallableScope() throws Exception {
     for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
-      if (SkylarkInterfaceUtils.getSkylarkModule(candidateClass) == null
-          && !SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(candidateClass)) {
+      if (StarlarkInterfaceUtils.getStarlarkBuiltin(candidateClass) == null
+          && !StarlarkInterfaceUtils.hasSkylarkGlobalLibrary(candidateClass)) {
         for (Method method : candidateClass.getMethods()) {
-          SkylarkCallable callable = SkylarkInterfaceUtils.getSkylarkCallable(method);
+          SkylarkCallable callable = StarlarkInterfaceUtils.getSkylarkCallable(method);
           if (callable != null && method.getDeclaringClass() == candidateClass) {
-            throw new AssertionError(String.format(
-                "Class %s has a SkylarkCallable method %s but is neither a @SkylarkModule nor a "
-                    + "@SkylarkGlobalLibrary",
-                candidateClass,
-                method.getName()));
+            throw new AssertionError(
+                String.format(
+                    "Class %s has a SkylarkCallable method %s but is neither a @StarlarkBuiltin"
+                        + " nor a @SkylarkGlobalLibrary",
+                    candidateClass, method.getName()));
           }
         }
       }

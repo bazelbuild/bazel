@@ -21,19 +21,19 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A provider that supplies resource information from its transitive closure. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidResourcesInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "Android resources provided by a rule",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface AndroidResourcesInfoApi<
         FileT extends FileApi,
         ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>,
@@ -119,7 +119,7 @@ public interface AndroidResourcesInfoApi<
   Depset /*<FileT>*/ getTransitiveRTxtForStarlark();
 
   /** Provider for {@link AndroidResourcesInfoApi}. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

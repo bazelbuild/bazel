@@ -72,8 +72,8 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -131,13 +131,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    *     only supported to be used in existing rules (PyBinary, JavaBinary, JavaTest).
    */
   @Deprecated()
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "CcLauncherInfo",
       documented = false,
       doc =
           "Provider that signals that rules that use launchers can use this target as "
               + "the launcher.",
-      category = SkylarkModuleCategory.TOP_LEVEL_TYPE)
+      category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE)
   public static class CcLauncherInfo extends NativeInfo {
     private static final String RESTRICTION_ERROR_MESSAGE =
         "This provider is restricted to native.java_binary, native.py_binary and native.java_test. "

@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthE
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -50,9 +50,9 @@ import javax.annotation.Nullable;
  * <p>Every call to {@code depset} returns a distinct instance equal to no other.
  */
 // TODO(adonovan): move to lib.packages, as this is a Bazelism.
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "depset",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "<p>A specialized data structure that supports efficient merge operations and has a"
             + " defined traversal order. Commonly used for accumulating data from transitive"
@@ -460,7 +460,7 @@ public final class Depset implements StarlarkValue {
       if (cls == String.class || cls == Integer.class || cls == Boolean.class) {
         return cls; // fast path for common case
       }
-      Class<?> superclass = SkylarkInterfaceUtils.getParentWithSkylarkModule(cls);
+      Class<?> superclass = StarlarkInterfaceUtils.getParentWithStarlarkBuiltin(cls);
       if (superclass != null) {
         return superclass;
       }

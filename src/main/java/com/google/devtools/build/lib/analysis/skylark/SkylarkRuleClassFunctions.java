@@ -341,7 +341,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     builder.requiresConfigurationFragmentsByStarlarkModuleName(
         Sequence.cast(fragments, String.class, "fragments"));
     ConfigAwareRuleClassBuilder.of(builder)
-        .requiresHostConfigurationFragmentsBySkylarkModuleName(
+        .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
             Sequence.cast(hostFragments, String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(

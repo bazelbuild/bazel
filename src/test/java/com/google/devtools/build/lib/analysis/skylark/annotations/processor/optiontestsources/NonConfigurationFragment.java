@@ -16,17 +16,15 @@ package com.google.devtools.build.lib.analysis.skylark.annotations.processor.opt
 
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 
-/**
- * A test case of SkylarkConfigurationFieldProcessorTest.
- */
-@SkylarkModule(
+/** A test case of SkylarkConfigurationFieldProcessorTest. */
+@StarlarkBuiltin(
     name = "module_name",
     doc = "A fake configuration fragment for a test.",
-    category = SkylarkModuleCategory.BUILTIN  // Not a configuration fragment!
-)
+    category = StarlarkDocumentationCategory.BUILTIN // Not a configuration fragment!
+    )
 public class NonConfigurationFragment {
 
   /**

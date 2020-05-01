@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.analysis.skylark.annotations.processor.opt
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 
 /** A test case of SkylarkConfigurationFieldProcessorTest. */
 public class GoldenConfigurationFieldThroughApi extends Fragment implements ApiInterface {
@@ -37,10 +37,8 @@ public class GoldenConfigurationFieldThroughApi extends Fragment implements ApiI
   }
 }
 
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "module_name",
     doc = "A fake configuration fragment for a test.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-interface ApiInterface {
-}
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
+interface ApiInterface {}

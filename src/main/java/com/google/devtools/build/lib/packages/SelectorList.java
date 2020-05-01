@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.HasBinary;
@@ -47,7 +47,7 @@ import java.util.Objects;
  *   )
  * </pre>
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "select",
     doc = "A selector between configuration-dependent entities.",
     documented = false)

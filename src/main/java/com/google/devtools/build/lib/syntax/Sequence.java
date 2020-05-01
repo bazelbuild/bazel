@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import java.util.List;
 import java.util.RandomAccess;
 
@@ -33,10 +33,10 @@ import java.util.RandomAccess;
  * but there appears to be little demand, and doing so carries some risk of obscuring unintended
  * mutations to Starlark values that would currently cause the program to crash.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "sequence",
     documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "common type of lists and tuples.")
 public interface Sequence<E>
     extends StarlarkValue, List<E>, RandomAccess, SkylarkIndexable, StarlarkIterable<E> {

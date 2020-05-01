@@ -17,13 +17,13 @@ package com.google.devtools.build.lib.skylarkbuildapi.config;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 
 /** An info object for config_feature_flag rules. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "FeatureFlagInfo",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "A provider used to access information about config_feature_flag rules.")
 public interface ConfigFeatureFlagProviderApi extends StructApi {
 

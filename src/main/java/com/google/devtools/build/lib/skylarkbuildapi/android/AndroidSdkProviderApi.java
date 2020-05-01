@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollecti
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * Configured targets implementing this provider can contribute Android Sdk information to the
  * compilation.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidSdkInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -121,7 +121,7 @@ public interface AndroidSdkProviderApi<
   FilesToRunProviderT getZipalign();
 
   /** The provider implementing this can construct the AndroidSdkInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

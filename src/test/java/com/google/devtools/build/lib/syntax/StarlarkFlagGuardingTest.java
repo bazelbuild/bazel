@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
@@ -30,7 +30,7 @@ import org.junit.runners.JUnit4;
 public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   /** Mock containing exposed methods for flag-guarding tests. */
-  @SkylarkModule(name = "Mock", doc = "")
+  @StarlarkBuiltin(name = "Mock", doc = "")
   public static class Mock implements StarlarkValue {
 
     @SkylarkCallable(

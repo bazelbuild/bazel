@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skylarkinterface;
 
 /** A category of a Java type exposed to Starlark */
-public enum SkylarkModuleCategory {
+public enum StarlarkDocumentationCategory {
   CONFIGURATION_FRAGMENT("Configuration Fragments",
       "Configuration fragments give rules access to "
       + "language-specific parts of <a href=\"configuration.html\">"
@@ -43,12 +43,12 @@ public enum SkylarkModuleCategory {
   private final String description;
 
 
-  SkylarkModuleCategory(String title, String description) {
+  StarlarkDocumentationCategory(String title, String description) {
     this.title = title;
     this.description = description;
   }
 
-  SkylarkModuleCategory() {
+  StarlarkDocumentationCategory() {
     this.title = null;
     this.description = null;
   }

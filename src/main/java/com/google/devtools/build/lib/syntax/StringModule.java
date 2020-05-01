@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -38,9 +38,9 @@ import java.util.regex.Pattern;
  * <p>Methods of this class annotated with {@link SkylarkCallable} must have a positional-only
  * 'String self' parameter as the first parameter of the method.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "string",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A language built-in type to support strings. "
             + "Examples of string literals:<br>"

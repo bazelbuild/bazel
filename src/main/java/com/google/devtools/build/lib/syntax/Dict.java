@@ -18,8 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -37,9 +37,9 @@ import javax.annotation.Nullable;
  * <p>Although this implements the {@link Map} interface, it is not mutable via that interface's
  * methods. Instead, use the mutators that take in a {@link Mutability} object.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "dict",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "dict is a built-in type representing an associative mapping or <i>dictionary</i>. A"
             + " dictionary supports indexing using <code>d[k]</code> and key membership testing"

@@ -21,8 +21,8 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -840,9 +840,9 @@ class MethodLibrary {
   }
 
   /** Starlark int type. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "int",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc =
           "A type to represent integers. It can represent any number between -2147483648 and "
               + "2147483647 (included). "
@@ -859,9 +859,9 @@ class MethodLibrary {
   static final class IntModule implements StarlarkValue {} // (documentation only)
 
   /** Starlark bool type. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "bool",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc =
           "A type to represent booleans. There are only two possible values: "
               + "<a href=\"globals.html#True\">True</a> and "

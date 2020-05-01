@@ -85,7 +85,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
     if (alreadyReported) {
       return true;
     } else if (Iterables.all(cycle, IS_STARLARK_MODULE_SKY_KEY)
-        // The last element before the cycle has to be a PackageFunction, SkylarkModule, or the
+        // The last element before the cycle has to be a PackageFunction, StarlarkBuiltin, or the
         // WORKSPACE
         && (IS_PACKAGE_SKY_KEY.apply(lastPathElement)
             || IS_STARLARK_MODULE_SKY_KEY.apply(lastPathElement)
