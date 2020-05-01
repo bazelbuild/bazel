@@ -266,36 +266,45 @@ final class StringModule implements StarlarkValue {
         @Param(name = "old", type = String.class, doc = "The string to be replaced."),
         @Param(name = "new", type = String.class, doc = "The string to replace with."),
         @Param(
-            // TODO(#8147): rename param to "count" once it's positional-only.
-            name = "maxsplit",
+            name = "count",
             type = Integer.class,
-            noneable = true,
-            defaultValue = "None",
+            noneable = true, // TODO(#11244): Set false once incompatible flag is deleted.
+            defaultValue = "unbound",
             doc =
-                "The maximum number of replacements. A negative value is ignored if"
-                    + " --incompatible_string_replace_count is true; otherwise a negative value"
-                    + " is treated as 0.")
+                "The maximum number of replacements. If omitted, there is no limit."
+                    + "<p>If <code>--incompatible_string_replace_count</code> is true, a negative "
+                    + "value is ignored (so there's no limit) and a <code>None</code> value is an "
+                    + "error. Otherwise, a negative value is treated as 0 and a <code>None</code> "
+                    + "value is ignored. (See also issue <a "
+                    + "href='https://github.com/bazelbuild/bazel/issues/11244'>#11244</a>.)")
       },
       useStarlarkThread = true)
   public String replace(
-      String self, String oldString, String newString, Object count, StarlarkThread thread)
+      String self, String oldString, String newString, Object countUnchecked, StarlarkThread thread)
       throws EvalException {
-    int maxReplaces = Integer.MAX_VALUE;
+    int count = Integer.MAX_VALUE;
 
     StarlarkSemantics semantics = thread.getSemantics();
     if (semantics.incompatibleStringReplaceCount()) {
-      if (count != Starlark.NONE && (Integer) count >= 0) {
-        maxReplaces = (Integer) count;
+      if (countUnchecked == Starlark.NONE) {
+        throw Starlark.errorf(
+            "Cannot pass a None count to string.replace(); omit the count argument instead. (You "
+                + "can temporarily opt out of this change by setting "
+                + "--incompatible_string_replace_count=false.)");
+      }
+      if (countUnchecked != Starlark.UNBOUND && (Integer) countUnchecked >= 0) {
+        count = (Integer) countUnchecked;
       }
     } else {
-      if (count != Starlark.NONE) {
-        maxReplaces = Math.max(0, (Integer) count);
+      if (countUnchecked != Starlark.UNBOUND && countUnchecked != Starlark.NONE) {
+        // Negative has same effect as 0 below.
+        count = (Integer) countUnchecked;
       }
     }
 
     StringBuilder sb = new StringBuilder();
     int start = 0;
-    for (int i = 0; i < maxReplaces; i++) {
+    for (int i = 0; i < count; i++) {
       if (oldString.isEmpty()) {
         sb.append(newString);
         if (start < self.length()) {

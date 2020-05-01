@@ -14,32 +14,18 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.runners.JUnit4;
 
-/** Tests for SkylarkStringModule. */
+/** Tests for StringModule. */
 // TODO(bazel-team): Migrate these test cases back to string_misc.sky, once either
 // 1) --incompatible_string_replace_count has been flipped (#11244) and deleted, or 2) the
 // standalone Starlark interpreter and tests gain the ability to run with semantics flags.
-@RunWith(Parameterized.class)
+@RunWith(JUnit4.class)
 public class StringModuleTest extends EvaluationTestCase {
 
-  @Parameters(name = "{index}: flag={0}")
-  public static Iterable<? extends Object> data() {
-    return Arrays.asList(
-        "--incompatible_string_replace_count=false", "--incompatible_string_replace_count=true");
-  }
-
-  @Parameter public String flag;
-
-  @Test
-  public void testReplace() throws Exception {
-    // Test that the behaviour is the same for the basic case both before
-    // and after the incompatible change.
+  private void runReplaceTest(String flag) throws Exception {
     new Scenario(flag)
         .testEval("'banana'.replace('a', 'o')", "'bonono'")
         .testEval("'banana'.replace('a', 'o', 2)", "'bonona'")
@@ -59,6 +45,12 @@ public class StringModuleTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testReplaceWithAndWithoutFlag() throws Exception {
+    runReplaceTest("--incompatible_string_replace_count=false");
+    runReplaceTest("--incompatible_string_replace_count=true");
+  }
+
+  @Test
   public void testReplaceIncompatibleFlag() throws Exception {
     // Test the scenario that changes with the incompatible flag
     new Scenario("--incompatible_string_replace_count=false")
@@ -72,5 +64,14 @@ public class StringModuleTest extends EvaluationTestCase {
         .testEval("'banana'.replace('a', 'e', -1)", "'benene'")
         .testEval("'banana'.replace('a', 'e', -10)", "'benene'")
         .testEval("'banana'.replace('', '-', -2)", "'-b-a-n-a-n-a-'");
+  }
+
+  @Test
+  public void testReplaceNoneCount() throws Exception {
+    // Passing None as the max number of replacements is disallowed with the incompatible flag.
+    new Scenario("--incompatible_string_replace_count=false")
+        .testEval("'banana'.replace('a', 'e', None)", "'benene'");
+    new Scenario("--incompatible_string_replace_count=true")
+        .testIfErrorContains("Cannot pass a None count", "'banana'.replace('a', 'e', None)");
   }
 }

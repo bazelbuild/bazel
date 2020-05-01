@@ -517,7 +517,9 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, a negative count in string.replace() will be ignored")
+      help =
+          "If set to true, the `count` parameter of string.replace() is changed to behave as in "
+              + "Python: a negative count is ignored, and a None count is an error")
   public boolean incompatibleStringReplaceCount;
 
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
