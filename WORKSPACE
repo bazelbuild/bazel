@@ -96,9 +96,9 @@ bind(
 http_archive(
     name = "com_google_protobuf",
     patch_args = ["-p1"],
-    patches = ["//third_party/protobuf:3.11.3.patch"],
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    patches = ["//third_party/protobuf:3.11.3.patch"],
     sha256 = "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
     strip_prefix = "protobuf-3.11.3",
     urls = [
@@ -163,7 +163,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         # bazelbuild/bazel-toolchains
-        "2.1.0.tar.gz",
+        "3.1.0.tar.gz",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz",
         # bazelbuild/rules_proto
@@ -193,7 +193,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip": "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
         # bazelbuild/bazel-toolchains
-        "2.1.0.tar.gz": "4d348abfaddbcee0c077fc51bb1177065c3663191588ab3d958f027cbfe1818b",
+        "3.1.0.tar.gz": "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
         # bazelbuild/rules_proto
@@ -254,9 +254,9 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         ],
         # bazelbuild/bazel-toolchains
-        "2.1.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/2.1.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/releases/download/2.1.0/bazel-toolchains-2.1.0.tar.gz",
+        "3.1.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/3.1.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
         ],
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz": [
@@ -365,11 +365,11 @@ http_archive(
     name = "bazel_toolchains",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "4d348abfaddbcee0c077fc51bb1177065c3663191588ab3d958f027cbfe1818b",
-    strip_prefix = "bazel-toolchains-2.1.0",
+    sha256 = "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
+    strip_prefix = "bazel-toolchains-3.1.0",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/2.1.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/releases/download/2.1.0/bazel-toolchains-2.1.0.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/3.1.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
     ],
 )
 
@@ -581,11 +581,11 @@ load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
 http_archive(
     name = "io_bazel_rules_sass",
     sha256 = "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
+    strip_prefix = "rules_sass-1.25.0",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
         "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
     ],
-    strip_prefix = "rules_sass-1.25.0",
 )
 
 http_archive(
@@ -628,7 +628,7 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361", # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    sha256 = "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
     url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.16.0.tar.gz",
 )
 
