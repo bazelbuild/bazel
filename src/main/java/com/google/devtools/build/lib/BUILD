@@ -151,12 +151,6 @@ java_library(
 
 # Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
-    name = "transitive-info-provider",
-    exports = ["//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider"],
-)
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
     name = "build-base",
     exports = [
         ":runtime/blaze_server_startup_options",
