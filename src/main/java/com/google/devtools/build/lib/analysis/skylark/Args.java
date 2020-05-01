@@ -170,9 +170,6 @@ public abstract class Args implements CommandLineArgsApi {
         Object argNameOrValue,
         Object value,
         Object format,
-        Object beforeEach,
-        Object joinWith,
-        Object mapFn,
         StarlarkThread thread)
         throws EvalException {
       throw Starlark.errorf("cannot modify frozen value");
@@ -262,9 +259,6 @@ public abstract class Args implements CommandLineArgsApi {
         Object argNameOrValue,
         Object value,
         Object format,
-        Object beforeEach,
-        Object joinWith,
-        Object mapFn,
         StarlarkThread thread)
         throws EvalException {
       Starlark.checkMutable(this);
@@ -281,23 +275,10 @@ public abstract class Args implements CommandLineArgsApi {
       }
       if (value instanceof Depset || value instanceof Sequence) {
         throw Starlark.errorf(
-            "Args#add doesn't accept vectorized arguments. Please use Args#add_all or"
-                + " Args#add_joined.");
+            "Args.add() doesn't accept vectorized arguments. Please use Args.add_all() or"
+                + " Args.add_joined() instead.");
       }
-      if (mapFn != Starlark.NONE) {
-        throw Starlark.errorf("Args#add doesn't accept map_fn. Please eagerly map the value.");
-      }
-      if (beforeEach != Starlark.NONE) {
-        throw Starlark.errorf("'before_each' is not supported for scalar arguments");
-      }
-      if (joinWith != Starlark.NONE) {
-        throw Starlark.errorf("'join_with' is not supported for scalar arguments");
-      }
-      addScalarArg(
-          value,
-          format != Starlark.NONE ? (String) format : null,
-          mapFn != Starlark.NONE ? (StarlarkCallable) mapFn : null,
-          thread.getCallerLocation());
+      addScalarArg(value, format != Starlark.NONE ? (String) format : null);
       return this;
     }
 
@@ -451,16 +432,13 @@ public abstract class Args implements CommandLineArgsApi {
       }
     }
 
-    private void addScalarArg(Object value, String format, StarlarkCallable mapFn, Location loc)
-        throws EvalException {
+    private void addScalarArg(Object value, String format) throws EvalException {
       validateNoDirectory(value);
       validateFormatString("format", format);
-      if (format == null && mapFn == null) {
+      if (format == null) {
         commandLine.add(value);
       } else {
-        ScalarArg.Builder scalarArg =
-            new ScalarArg.Builder(value).setLocation(loc).setFormat(format).setMapFn(mapFn);
-        commandLine.add(scalarArg);
+        commandLine.add(new ScalarArg.Builder(value).setFormat(format));
       }
     }
 
