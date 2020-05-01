@@ -113,6 +113,31 @@ class AarResourcesExtractorTest(unittest.TestCase):
     with open("out_dir/assets/b", "r") as layout_xml:
       self.assertEqual("some other asset", layout_xml.read())
 
+  def testDatabinding(self):
+    aar = zipfile.ZipFile(io.BytesIO(), "w")
+
+    br_filepath = (
+        "data-binding/com.android.databinding.library.baseAdapters--br.bin")
+    setter_store_filepath = (
+        "data-binding/" +
+        "com.android.databinding.library.baseAdapters--setter_store.json")
+
+    aar.writestr(br_filepath, "br data")
+    aar.writestr(setter_store_filepath, "setter store data")
+
+    os.makedirs("out_dir/br")
+    os.makedirs("out_dir/setter_store")
+
+    aar_resources_extractor.ExtractDatabinding(aar, "br.bin", "out_dir/br")
+    aar_resources_extractor.ExtractDatabinding(aar, "setter_store.json",
+                                               "out_dir/setter_store")
+
+    with open("out_dir/br/" + br_filepath, "r") as f:
+      self.assertEqual("br data", f.read())
+
+    with open("out_dir/setter_store/" + setter_store_filepath, "r") as f:
+      self.assertEqual("setter store data", f.read())
+
 
 if __name__ == "__main__":
   unittest.main()
