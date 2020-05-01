@@ -263,30 +263,39 @@ final class StringModule implements StarlarkValue {
               + "restricting the number of replacements to <code>maxsplit</code>.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "old", type = String.class, doc = "The string to be replaced."),
+        @Param(name = "new", type = String.class, doc = "The string to replace with."),
         @Param(
-            name = "old",
-            type = String.class,
-            doc = "The string to be replaced."),
-        @Param(
-            name = "new",
-            type = String.class,
-            doc = "The string to replace with."),
-        @Param(
+            // TODO(#8147): rename param to "count" once it's positional-only.
             name = "maxsplit",
             type = Integer.class,
             noneable = true,
             defaultValue = "None",
-            doc = "The maximum number of replacements.")
-      })
-  public String replace(String self, String oldString, String newString, Object maxSplitO)
+            doc =
+                "The maximum number of replacements. A negative value is ignored if"
+                    + " --incompatible_string_replace_count is true; otherwise a negative value"
+                    + " is treated as 0.")
+      },
+      useStarlarkThread = true)
+  public String replace(
+      String self, String oldString, String newString, Object count, StarlarkThread thread)
       throws EvalException {
-    int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
-      maxSplit = Math.max(0, (Integer) maxSplitO);
+    int maxReplaces = Integer.MAX_VALUE;
+
+    StarlarkSemantics semantics = thread.getSemantics();
+    if (semantics.incompatibleStringReplaceCount()) {
+      if (count != Starlark.NONE && (Integer) count >= 0) {
+        maxReplaces = (Integer) count;
+      }
+    } else {
+      if (count != Starlark.NONE) {
+        maxReplaces = Math.max(0, (Integer) count);
+      }
     }
+
     StringBuilder sb = new StringBuilder();
     int start = 0;
-    for (int i = 0; i < maxSplit; i++) {
+    for (int i = 0; i < maxReplaces; i++) {
       if (oldString.isEmpty()) {
         sb.append(newString);
         if (start < self.length()) {
