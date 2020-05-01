@@ -154,7 +154,7 @@ public final class ConfiguredTargetFactory {
       Label label,
       BuildConfiguration config) {
     for (ConfiguredTargetAndData prerequisite :
-        prerequisiteMap.get(DependencyResolver.VISIBILITY_DEPENDENCY)) {
+        prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY)) {
       if (prerequisite.getTarget().getLabel().equals(label)
           && Objects.equals(prerequisite.getConfiguration(), config)) {
         return prerequisite.getConfiguredTarget();
@@ -209,7 +209,7 @@ public final class ConfiguredTargetFactory {
               analysisEnvironment,
               target,
               config,
-              prerequisiteMap.get(DependencyResolver.OUTPUT_FILE_RULE_DEPENDENCY),
+              prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
               visibility);
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
@@ -232,7 +232,7 @@ public final class ConfiguredTargetFactory {
               analysisEnvironment,
               target,
               config,
-              prerequisiteMap.get(DependencyResolver.OUTPUT_FILE_RULE_DEPENDENCY),
+              prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
               visibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
@@ -248,7 +248,7 @@ public final class ConfiguredTargetFactory {
               analysisEnvironment,
               target,
               config,
-              prerequisiteMap.get(DependencyResolver.VISIBILITY_DEPENDENCY),
+              prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY),
               visibility);
       return new PackageGroupConfiguredTarget(targetContext, packageGroup);
     } else if (target instanceof EnvironmentGroup) {
@@ -576,7 +576,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> map, Target target) {
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
     for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : map.entries()) {
-      if (entry.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {
+      if (entry.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {
         continue;
       }
       Attribute attribute = entry.getKey().getAttribute();
