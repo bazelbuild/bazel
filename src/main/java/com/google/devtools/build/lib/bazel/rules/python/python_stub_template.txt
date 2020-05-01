@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+# This script must retain compatibility with a wide variety of Python versions
+# since it is run for every py_binary target. Currently we guarantee support
+# going back to Python 2.7, and try to support even Python 2.6 on a best-effort
+# basis. We might abandon 2.6 support once users have the ability to control the
+# above shebang string via the Python toolchain (#8685).
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -18,7 +24,6 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
-import collections
 
 # Return True if running on Windows
 def IsWindows():
@@ -264,7 +269,11 @@ https://github.com/bazelbuild/bazel/issues/7899 for more information.
 
 def Deduplicate(items):
   """Efficiently filter out duplicates, keeping the first element only."""
-  return list(collections.OrderedDict((it, None) for it in items).keys())
+  seen = set()
+  for it in items:
+      if it not in seen:
+          seen.add(it)
+          yield it
 
 def Main():
   args = sys.argv[1:]
@@ -281,8 +290,10 @@ def Main():
   python_path_entries += GetRepositoriesImports(module_space, %import_all%)
   # Remove duplicates to avoid overly long PYTHONPATH (#10977). Preserve order,
   # keep first occurrence only.
-  python_path_entries = Deduplicate(python_path_entries)
-  python_path_entries = [GetWindowsPathWithUNCPrefix(d) for d in python_path_entries]
+  python_path_entries = [
+    GetWindowsPathWithUNCPrefix(d)
+    for d in Deduplicate(python_path_entries)
+  ]
 
   old_python_path = os.environ.get('PYTHONPATH')
   python_path = os.pathsep.join(python_path_entries)
