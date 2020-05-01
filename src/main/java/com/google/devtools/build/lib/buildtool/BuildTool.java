@@ -45,12 +45,11 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
@@ -302,7 +301,7 @@ public class BuildTool {
       AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
       if (environmentPendingAbruptExitException == null) {
         String message = "build interrupted";
-        detailedExitCode = createInterruptedDetailedExitCode(message, Code.BUILD);
+        detailedExitCode = InterruptedFailureDetails.detailedExitCode(message, Code.BUILD);
         env.getReporter().handle(Event.error(message));
         env.getEventBus().post(new BuildInterruptedEvent());
       } else {
@@ -417,7 +416,7 @@ public class BuildTool {
     if (ie != null) {
       if (detailedExitCode.isSuccess()) {
         result.setDetailedExitCode(
-            createInterruptedDetailedExitCode(
+            InterruptedFailureDetails.detailedExitCode(
                 "Build interrupted during command completion", Code.BUILD_COMPLETION));
       } else if (!detailedExitCode.getExitCode().equals(ExitCode.INTERRUPTED)) {
         logger.atWarning().withCause(ie).log(
@@ -442,16 +441,6 @@ public class BuildTool {
 
   private Reporter getReporter() {
     return env.getReporter();
-  }
-
-  private static DetailedExitCode createInterruptedDetailedExitCode(
-      String message, Code detailedCode) {
-    return DetailedExitCode.of(
-        ExitCode.INTERRUPTED,
-        FailureDetail.newBuilder()
-            .setMessage(message)
-            .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))
-            .build());
   }
 
   /** Exceptions in parsing the supplied query options. */

@@ -272,3 +272,14 @@ java_library(
         "//third_party:guava",
     ],
 )
+
+java_library(
+    name = "interrupted_failure_details",
+    srcs = ["InterruptedFailureDetails.java"],
+    deps = [
+        ":abrupt_exit_exception",
+        ":detailed_exit_code",
+        ":exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
+    ],
+)

@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -52,6 +51,7 @@ import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
@@ -547,12 +547,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           String message = "command interrupted while syncing package loading";
           reporter.handle(Event.error(message));
           earlyExitCode =
-              DetailedExitCode.of(
-                  ExitCode.INTERRUPTED,
-                  FailureDetail.newBuilder()
-                      .setMessage(message)
-                      .setInterrupted(Interrupted.newBuilder().setCode(Code.PACKAGE_LOADING_SYNC))
-                      .build());
+              InterruptedFailureDetails.detailedExitCode(message, Code.PACKAGE_LOADING_SYNC);
         } catch (AbruptExitException e) {
           logger.atInfo().withCause(e).log("Error package loading");
           reporter.handle(Event.error(e.getMessage()));

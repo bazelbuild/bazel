@@ -123,11 +123,11 @@ message Interrupted {
     INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
     BUILD = 4 [(metadata) = { exit_code: 8 }];
     BUILD_COMPLETION = 5 [(metadata) = { exit_code: 8 }];
-    reserved 1 to 3; // For internal use
     PACKAGE_LOADING_SYNC = 6 [(metadata) = { exit_code: 8 }];
     EXECUTOR_COMPLETION = 7 [(metadata) = { exit_code: 8 }];
     COMMAND_DISPATCH = 8 [(metadata) = { exit_code: 8 }];
     INFO_ITEM = 9 [(metadata) = { exit_code: 8 }];
+    reserved 1 to 3; // For internal use
   }
 
   Code code = 1;
@@ -192,6 +192,7 @@ message BuildProgress {
         [(metadata) = { exit_code: 45 }];
     BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE = 17
         [(metadata) = { exit_code: 38 }];
+
     reserved 1, 2; // For internal use
   }
   Code code = 1;
