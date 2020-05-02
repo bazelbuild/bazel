@@ -326,6 +326,7 @@ java_plugin(
         ":dagger_compiler",
         ":dagger_producers",
         ":dagger_spi",
+        ":googlejavaformat",
         ":guava",
         ":jsr330_inject",
     ],
@@ -448,6 +449,14 @@ java_import(
         "flogger/flogger-0.5.1.jar",
         "flogger/flogger-system-backend-0.5.1.jar",
         "flogger/google-extensions-0.5.1.jar",
+    ],
+)
+
+java_import(
+    name = "googlejavaformat",
+    jars = [
+        "googlejavaformat/google-java-format-1.4.jar",
+        "googlejavaformat/javac-shaded-9-dev-r4023-3.jar",
     ],
 )
 
