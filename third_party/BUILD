@@ -280,6 +280,58 @@ java_import(
     ],
 )
 
+java_import(
+    name = "dagger_api",
+    jars = [
+        "Dagger/dagger-2.16.jar",
+    ],
+)
+
+java_import(
+    name = "dagger_compiler",
+    jars = [
+        "Dagger/dagger-compiler-2.16.jar",
+    ],
+)
+
+java_import(
+    name = "dagger_producers",
+    jars = [
+        "Dagger/dagger-producers-2.16.jar",
+    ],
+)
+
+java_import(
+    name = "dagger_spi",
+    jars = [
+        "Dagger/dagger-spi-2.16.jar",
+    ],
+)
+
+java_library(
+    name = "dagger",
+    exported_plugins = [":dagger_plugin"],
+    exports = [
+        ":dagger_api",
+        ":jsr330_inject",
+    ],
+)
+
+java_plugin(
+    name = "dagger_plugin",
+    processor_class = "dagger.internal.codegen.ComponentProcessor",
+    generates_api = True,
+    deps = [
+        ":dagger_api",
+        ":dagger_compiler",
+        ":dagger_producers",
+        ":dagger_spi",
+        ":guava",
+        ":jsr330_inject",
+        "//third_party/java/javapoet",
+    ],
+)
+
 # For bootstrapping JavaBuilder
 filegroup(
     name = "auto_value-jars",
