@@ -328,7 +328,6 @@ java_plugin(
         ":dagger_spi",
         ":guava",
         ":jsr330_inject",
-        "//third_party/java/javapoet",
     ],
 )
 
