@@ -37,6 +37,10 @@ public abstract class HierarchicalMethodKey {
         HeadlessMethodKey.create(methodKey.name(), methodKey.descriptor()));
   }
 
+  public final MethodKey toMethodKey() {
+    return MethodKey.create(owner().type(), headlessMethod().name(), headlessMethod().descriptor());
+  }
+
   /** Resolves the method in the given type hierarchy. */
   public HierarchicalMethodQuery inTypeHierarchy(TypeHierarchy typeHierarchy) {
     return typeHierarchy.query(this);

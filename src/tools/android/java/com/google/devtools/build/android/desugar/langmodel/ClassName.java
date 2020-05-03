@@ -32,7 +32,7 @@ import org.objectweb.asm.Type;
  * different names.
  */
 @AutoValue
-public abstract class ClassName implements TypeMappable<ClassName> {
+public abstract class ClassName implements TypeMappable<ClassName>, Comparable<ClassName> {
 
   public static final String IN_PROCESS_LABEL = "__desugar__/";
 
@@ -336,6 +336,10 @@ public abstract class ClassName implements TypeMappable<ClassName> {
         "android/view/textclassifier/TextLinks");
   }
 
+  public final boolean isAndroidDomainType() {
+    return hasAnyPackagePrefix("android/", "androidx/");
+  }
+
   public final boolean isInPackageEligibleForShadowedOverridableAPIs() {
     // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
     // rollouts are complete.
@@ -377,7 +381,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
         "Expected %s to have a package prefix of (%s) before stripping.",
         this,
         originalPrefix);
-    checkPackagePrefixFormat(targetPrefix);
+    // checkPackagePrefixFormat(targetPrefix);
     return ClassName.create(targetPrefix + binaryName().substring(originalPrefix.length()));
   }
 
@@ -388,5 +392,10 @@ public abstract class ClassName implements TypeMappable<ClassName> {
   @Override
   public ClassName acceptTypeMapper(TypeMapper typeMapper) {
     return typeMapper.map(this);
+  }
+
+  @Override
+  public int compareTo(ClassName other) {
+    return binaryName().compareTo(other.binaryName());
   }
 }

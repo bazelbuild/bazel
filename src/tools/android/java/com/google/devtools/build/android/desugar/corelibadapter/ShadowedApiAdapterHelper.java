@@ -19,6 +19,7 @@ package com.google.devtools.build.android.desugar.corelibadapter;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.android.desugar.io.BootClassPathDigest;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
@@ -50,32 +51,34 @@ public class ShadowedApiAdapterHelper {
    * @param typeHierarchy The type hierarchy context of for this query API.
    */
   static boolean shouldUseInlineTypeConversion(
-      MethodInvocationSite verbatimInvocationSite, TypeHierarchy typeHierarchy) {
-    if (verbatimInvocationSite.method().getHeaderTypeNameSet().stream()
-        .noneMatch(ClassName::isDesugarShadowedType)) {
+      MethodInvocationSite verbatimInvocationSite,
+      TypeHierarchy typeHierarchy,
+      BootClassPathDigest bootClassPathDigest) {
+    if (verbatimInvocationSite.invocationKind() != MemberUseKind.INVOKESPECIAL
+        || verbatimInvocationSite.method().getHeaderTypeNameSet().stream()
+            .noneMatch(ClassName::isDesugarShadowedType)) {
       return false;
     }
 
-    ClassName adjustedGrossOwner = verbatimInvocationSite.owner();
-
-    // Upon on a super call, trace to the adjusted owner with code.
-    if (verbatimInvocationSite.invocationKind() == MemberUseKind.INVOKESPECIAL
-        && !verbatimInvocationSite.isConstructorInvocation()) {
-      HierarchicalMethodQuery hierarchicalMethodQuery =
+    if (verbatimInvocationSite.isConstructorInvocation()) {
+      return bootClassPathDigest.containsType(verbatimInvocationSite.owner());
+    } else {
+      // Upon on a super call, trace to the adjusted owner with code.
+      ClassName adjustedGrossOwner = verbatimInvocationSite.owner();
+      HierarchicalMethodQuery verbatimMethod =
           HierarchicalMethodKey.from(verbatimInvocationSite.method())
               .inTypeHierarchy(typeHierarchy);
-      if (!hierarchicalMethodQuery.isPresent()) {
-        HierarchicalMethodKey baseMethod = hierarchicalMethodQuery.getFirstBaseClassMethod();
-        if (baseMethod != null) {
-          adjustedGrossOwner = baseMethod.owner().type();
-        } else {
+      if (!verbatimMethod.isPresent()) {
+        HierarchicalMethodKey resolvedMethod = verbatimMethod.getFirstBaseClassMethod();
+        if (resolvedMethod == null) {
           logger.atSevere().log("Missing base method lookup: %s", verbatimInvocationSite);
+        } else {
+          adjustedGrossOwner = resolvedMethod.owner().type();
         }
       }
+      return adjustedGrossOwner.isAndroidDomainType()
+          && bootClassPathDigest.containsType(adjustedGrossOwner);
     }
-
-    return verbatimInvocationSite.invocationKind() == MemberUseKind.INVOKESPECIAL
-        && adjustedGrossOwner.isInPackageEligibleForTypeAdapter();
   }
 
   /**
@@ -97,8 +100,10 @@ public class ShadowedApiAdapterHelper {
    * and should emit an overriding bridge method for the integrity of method dynamic dispatching.
    */
   static boolean shouldEmitApiOverridingBridge(
-      MethodDeclInfo methodDeclInfo, TypeHierarchy typeHierarchy) {
-    if (!methodDeclInfo.owner().isInPackageEligibleForHoldingOverridingBridges()
+      MethodDeclInfo methodDeclInfo,
+      TypeHierarchy typeHierarchy,
+      BootClassPathDigest bootClassPathDigest) {
+    if (bootClassPathDigest.containsType(methodDeclInfo.owner())
         || methodDeclInfo.methodKey().isConstructor()
         || methodDeclInfo.isStaticMethod()
         || methodDeclInfo.isPrivateAccess()
@@ -111,8 +116,17 @@ public class ShadowedApiAdapterHelper {
         HierarchicalMethodKey.from(methodDeclInfo.methodKey())
             .inTypeHierarchy(typeHierarchy)
             .getFirstBaseClassMethod();
-    return baseMethod != null
-        && baseMethod.owner().type().isInPackageEligibleForShadowedOverridableAPIs();
+
+    boolean queryResult =
+        baseMethod != null
+            && baseMethod.owner().type().isAndroidDomainType()
+            && bootClassPathDigest.containsType(baseMethod.owner().type());
+    if (queryResult) {
+      logger.atInfo().log(
+          "----> Shadowed Method Overriding Bridge eligible for %s due to base method %s",
+          methodDeclInfo.methodKey(), baseMethod.toMethodKey());
+    }
+    return queryResult;
   }
 
   /**
