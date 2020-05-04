@@ -107,6 +107,7 @@ message FailureDetail {
     CanonicalizeFlags canonicalize_flags = 125;
     BuildConfiguration build_configuration = 126;
     InfoCommand info_command = 127;
+    MemoryOptions memory_options = 129;
   }
 
   reserved 102; // For internal use
@@ -417,6 +418,16 @@ message InfoCommand {
     KEY_NOT_RECOGNIZED = 2 [(metadata) = { exit_code: 2 }];
     INFO_BLOCK_WRITE_FAILURE = 3 [(metadata) = { exit_code: 7 }];
     ALL_INFO_WRITE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message MemoryOptions {
+  enum Code {
+    MEMORY_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
+        [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
