@@ -95,7 +95,7 @@ We recommend installing:
     ```
     pacman -S zip unzip patch diffutils git
     ```
-    Optional: If you want to use Bazel from CMD or Powershell make sure to add `MSYS2_INSTALL_PATH/usr/bin` to your `PATH` Environmentvariable. 
+    Optional: If you want to use Bazel from CMD or Powershell and still be able to use Bash tools, make sure to add MSYS2_INSTALL_PATH/usr/bin to your PATH Environmentvariable.
 
 *   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)
 
