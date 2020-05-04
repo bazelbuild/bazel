@@ -904,6 +904,6 @@ register_local_rc_exe_toolchains()
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
-load("//scripts/packages/debian/debian_build:deps.bzl", "debian_java_deps")
+load("//tools/distribution/debian:deps.bzl", "debian_java_deps")
 debian_java_deps()
 

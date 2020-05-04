@@ -17,3 +17,9 @@ java_import(
     name = "tomcat_annotations_api",
     jars = ["tomcat9-annotations-api.jar"],
 )
+
+# libjava-allocation-instrumenter-java
+java_import(
+    name = "allocation_instrumenter",
+    jars = ["java-allocation-instrumenter.jar"],
+)
