@@ -11,7 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.android.r8.desugar.basic;
+package com.google.devtools.build.android.r8;
 
-/** Test class */
-public class A implements I {}
+/** Utilities related to the R8 code base */
+public class R8Utils {
+  public static final String INTERFACE_COMPANION_SUFFIX = "$-CC";
+  public static final String DESUGAR_INTERFACE_COMPANION_SUFFIX = "$$CC";
+
+  private R8Utils() {}
+}

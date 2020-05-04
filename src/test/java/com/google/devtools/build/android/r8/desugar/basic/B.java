@@ -14,4 +14,4 @@
 package com.google.devtools.build.android.r8.desugar.basic;
 
 /** Test class */
-public class A implements I {}
+public class B implements J {}
