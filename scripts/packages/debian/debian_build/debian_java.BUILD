@@ -1,5 +1,7 @@
+package(default_visibility = ["//visibility:public"])
+
 java_import(
     name = "netty",
-    jars = ["netty/netty-all-4.1.45.Final.jar"],
+    jars = ["netty-all.jar"],
 )
 
