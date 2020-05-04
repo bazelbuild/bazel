@@ -306,8 +306,16 @@ java_import(
 )
 
 java_import(
-    name = "gson",
+    name = "_gson",
     jars = ["gson/gson-2.2.4.jar"],
+)
+
+alias(
+    name = "gson",
+    actual = select({
+        "//src/conditions:debian_build": "@debian_java_deps//:gson",
+        "//conditions:default": ":_gson",
+    })
 )
 
 java_import(
