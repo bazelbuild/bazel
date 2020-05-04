@@ -489,8 +489,16 @@ genrule(
 )
 
 java_import(
-    name = "netty",
+    name = "_netty",
     jars = ["netty/netty-all-4.1.34.Final.jar"],
+)
+
+alias(
+    name = "netty",
+    actual = select({
+        "//src/conditions:debian_build": "@debian_java_deps//:netty",
+        "//conditions:default": ":_netty",
+    })
 )
 
 java_import(
