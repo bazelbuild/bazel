@@ -504,7 +504,8 @@ java_import(
 alias(
     name = "netty",
     actual = select({
-        "//src/conditions:debian_build": "@debian_java_deps//:netty",
+        # TODO: The debian netty-all.jar is empty, fix it then enable the following
+        # "//src/conditions:debian_build": "@debian_java_deps//:netty",
         "//conditions:default": ":_netty",
     })
 )
