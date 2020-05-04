@@ -63,7 +63,7 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
     // First compute all the inputs and directories that we need. This is based only on
     // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
-    Set<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
     populateInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
 
     // Then do a full traversal of the `workDir`. This will use what we computed above, delete
@@ -80,7 +80,7 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
 
   /** Populates the provided sets with the inputs and directories than need to be created. */
   private void populateInputsAndDirsToCreate(
-      Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate) {
+      Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate) {
     // Add all worker files and the ancestor directories.
     for (PathFragment path : workerFiles) {
       inputsToCreate.add(path);
@@ -99,9 +99,6 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
       }
     }
 
-    // Add all ouput directories.
-    dirsToCreate.addAll(outputs.dirs());
-
     // And all ancestor directories of outputs. Note that we don't add the files themselves -- any
     // pre-existing files that have the same path as an output should get deleted.
     for (PathFragment path : Iterables.concat(outputs.files(), outputs.dirs())) {
@@ -109,6 +106,9 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
         dirsToCreate.add(path.subFragment(0, i));
       }
     }
+
+    // Add all ouput directories, must be created after their parents above
+    dirsToCreate.addAll(outputs.dirs());
   }
 
   /**
