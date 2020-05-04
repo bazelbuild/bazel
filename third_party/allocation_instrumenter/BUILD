@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_import")
+load("//tools/distributions:distribution_rules.bzl", "java_import")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -10,15 +10,16 @@ filegroup(
 )
 
 java_import(
-    name = "_allocation_instrumenter",
+    name = "allocation_instrumenter",
     jars = ["java-allocation-instrumenter-3.0.1.jar"],
+    enable_distributions = ["debian"],
 )
 
-alias(
-    name = "allocation_instrumenter",
-    actual = select({
-        "//src/conditions:debian_build": "@debian_java_deps//:allocation_instrumenter",
-        "//conditions:default": ":_allocation_instrumenter",
-    }),
-)
+# alias(
+#     name = "allocation_instrumenter",
+#     actual = select({
+#         "//src/conditions:debian_build": "@debian_java_deps//:allocation_instrumenter",
+#         "//conditions:default": ":_allocation_instrumenter",
+#     }),
+# )
 
