@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -305,9 +306,10 @@ java_import(
     jars = ["compile_testing/compile-testing-0.18.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "gson",
     jars = ["gson/gson-2.2.4.jar"],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -488,9 +490,11 @@ genrule(
           "zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES + "; fi",
 )
 
-java_import(
+distrib_java_import(
     name = "netty",
     jars = ["netty/netty-all-4.1.34.Final.jar"],
+    # TODO: The debian netty-all.jar is empty, fix it then enable the following
+    # enable_distributions = ["debian"],
 )
 
 java_import(
@@ -498,9 +502,10 @@ java_import(
     jars = ["netty_tcnative/netty-tcnative-filtered.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "tomcat_annotations_api",
     jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+    enable_distributions = ["debian"],
 )
 
 # For bootstrapping JavaBuilder
