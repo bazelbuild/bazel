@@ -14,9 +14,9 @@
 
 load("@rules_java//java:defs.bzl", _java_import = "java_import")
 
-# A marco for java_import rule to support distributions build (eg. Debian)
-def distrib_java_import(name, enable_distributions = [], **kwargs):
 
+def distrib_java_import(name, enable_distributions = [], **kwargs):
+    """A marco for java_import rule to support distributions build (eg. Debian)"""
     checked_in_name = name + "_checked_in"
 
     _java_import(name = checked_in_name, **kwargs)
@@ -29,5 +29,3 @@ def distrib_java_import(name, enable_distributions = [], **kwargs):
         conditions["//src/conditions:debian_build"] = "@debian_java_deps//:" + name
 
     native.alias(name = name, actual = select(conditions))
-
-
