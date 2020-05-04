@@ -14,8 +14,13 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
+import com.google.devtools.build.lib.server.FailureDetails.Filesystem.Code;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -53,12 +58,29 @@ public class BazelFileSystemModule extends BlazeModule {
         try {
           jvmPropertyHash = new DigestFunctionConverter().convert(value);
         } catch (OptionsParsingException e) {
-          throw new AbruptExitException(ExitCode.COMMAND_LINE_ERROR, e);
+          throw new AbruptExitException(
+              DetailedExitCode.of(
+                  ExitCode.COMMAND_LINE_ERROR,
+                  FailureDetail.newBuilder()
+                      .setMessage(Strings.nullToEmpty(e.getMessage()))
+                      .setFilesystem(
+                          Filesystem.newBuilder()
+                              .setCode(Code.DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE))
+                      .build()),
+              e);
         }
         DigestHashFunction.setDefault(jvmPropertyHash);
       }
     } catch (DefaultAlreadySetException e) {
-      throw new AbruptExitException(ExitCode.BLAZE_INTERNAL_ERROR, e);
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              ExitCode.BLAZE_INTERNAL_ERROR,
+              FailureDetail.newBuilder()
+                  .setMessage(Strings.nullToEmpty(e.getMessage()))
+                  .setFilesystem(
+                      Filesystem.newBuilder().setCode(Code.DEFAULT_DIGEST_HASH_FUNCTION_CHANGED))
+                  .build()),
+          e);
     }
   }
 
