@@ -516,8 +516,16 @@ java_import(
 )
 
 java_import(
-    name = "tomcat_annotations_api",
+    name = "_tomcat_annotations_api",
     jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+)
+
+alias(
+    name = "tomcat_annotations_api",
+    actual = select({
+        "//src/conditions:debian_build": "@debian_java_deps//:tomcat_annotations_api",
+        "//conditions:default": ":_tomcat_annotations_api",
+    })
 )
 
 # For bootstrapping JavaBuilder
