@@ -1,5 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-load("//tools/distributions:distribution_rules.bzl", "java_import")
+load("//tools/distributions:distribution_rules.bzl", java_import = "distrb_java_import")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -312,14 +312,6 @@ java_import(
     enable_distributions = ["debian"],
 )
 
-# alias(
-#     name = "gson",
-#     actual = select({
-#         "//src/conditions:debian_build": "@debian_java_deps//:gson",
-#         "//conditions:default": ":_gson",
-#     })
-# )
-
 java_import(
     name = "hungarian_algorithm",
     jars = ["hungarian_algorithm/software-and-algorithms-1.0.jar"],
@@ -501,17 +493,9 @@ genrule(
 java_import(
     name = "netty",
     jars = ["netty/netty-all-4.1.34.Final.jar"],
-    enable_distributions = ["debian"],
+    # TODO: The debian netty-all.jar is empty, fix it then enable the following
+    # enable_distributions = ["debian"],
 )
-
-# alias(
-#     name = "netty",
-#     actual = select({
-#         # TODO: The debian netty-all.jar is empty, fix it then enable the following
-#         # "//src/conditions:debian_build": "@debian_java_deps//:netty",
-#         "//conditions:default": ":_netty",
-#     })
-# )
 
 java_import(
     name = "netty_tcnative",
@@ -523,14 +507,6 @@ java_import(
     jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
     enable_distributions = ["debian"],
 )
-
-# alias(
-#     name = "tomcat_annotations_api",
-#     actual = select({
-#         "//src/conditions:debian_build": "@debian_java_deps//:tomcat_annotations_api",
-#         "//conditions:default": ":_tomcat_annotations_api",
-#     })
-# )
 
 # For bootstrapping JavaBuilder
 filegroup(
