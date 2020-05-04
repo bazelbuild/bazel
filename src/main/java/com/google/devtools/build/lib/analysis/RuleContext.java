@@ -667,7 +667,7 @@ public final class RuleContext extends TargetContext
   public Artifact createOutputArtifactScript() {
     Target target = getTarget();
     // TODO(laszlocsomor): Use the execution platform, not the host platform.
-    boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
+    boolean isExecutedOnWindows = getHostConfiguration().getOS() == OS.WINDOWS;
 
     String fileExtension = isExecutedOnWindows ? ".cmd" : ".sh";
 

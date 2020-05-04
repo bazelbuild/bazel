@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
@@ -983,5 +984,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     }
 
     return result;
+  }
+
+  public OS getOs() {
+    return OS.getCurrent();
   }
 }

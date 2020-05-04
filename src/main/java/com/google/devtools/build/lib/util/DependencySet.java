@@ -55,6 +55,7 @@ public final class DependencySet {
    */
   private final Collection<Path> dependencies = new ArrayList<>();
 
+  private final OS os;
   private final Path root;
   private String outputFileName;
 
@@ -72,8 +73,16 @@ public final class DependencySet {
   /**
    * Constructs a new empty DependencySet instance.
    */
-  public DependencySet(Path root) {
+  public DependencySet(OS os, Path root) {
+    this.os = os;
     this.root = root;
+  }
+
+  /**
+   * Constructs a new empty DependencySet instance.
+   */
+  public DependencySet(Path root) {
+    this(OS.getCurrent(), root);
   }
 
   /**

@@ -117,6 +117,7 @@ public class OutputDirectories {
     }
   }
 
+  private final OS os;
   private final BlazeDirectories directories;
   private final String mnemonic;
   private final String outputDirName;
@@ -136,6 +137,7 @@ public class OutputDirectories {
       CoreOptions options,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments,
       RepositoryName mainRepositoryName) {
+    this.os = options.getOs();
     this.directories = directories;
     this.mnemonic = buildMnemonic(options, fragments);
     this.outputDirName =
@@ -219,8 +221,7 @@ public class OutputDirectories {
    * the native path separator, i.e., the path separator for the machine that they run on.
    */
   String getHostPathSeparator() {
-    // TODO(bazel-team): Maybe do this in the constructor instead? This isn't serialization-safe.
-    return OS.getCurrent() == OS.WINDOWS ? ";" : ":";
+    return os == OS.WINDOWS ? ";" : ":";
   }
 
   /** Returns the internal directory (used for middlemen) for this build configuration. */

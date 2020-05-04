@@ -36,7 +36,7 @@ public class AnalysisTestActionBuilder {
       AnalysisTestResultInfo infoObject) {
     FileWriteAction action;
     // TODO(laszlocsomor): Use the execution platform, not the host platform.
-    boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
+    boolean isExecutedOnWindows = ruleContext.getHostConfiguration().getOS() == OS.WINDOWS;
 
     if (isExecutedOnWindows) {
       StringBuilder sb = new StringBuilder().append("@echo off\n");
