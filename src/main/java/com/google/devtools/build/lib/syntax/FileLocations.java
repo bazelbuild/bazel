@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Arrays;
@@ -29,7 +29,7 @@ import java.util.Objects;
 @Immutable
 final class FileLocations {
 
-  private static final Interner<FileLocations> INTERNER = BlazeInterners.newWeakInterner();
+  private static final Interner<FileLocations> INTERNER = Interners.newWeakInterner();
 
   private final int[] linestart; // maps line number (line >= 1) to char offset
   private final String file;
