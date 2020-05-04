@@ -305,11 +305,19 @@ message Execution {
   Code code = 1;
 }
 
+// Failure details about Bazel's WORKSPACE features.
 message Workspaces {
   enum Code {
     WORKSPACES_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     WORKSPACES_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     WORKSPACES_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+
+    // See `managed_directories` in
+    // https://docs.bazel.build/versions/master/skylark/lib/globals.html#workspace.
+    ILLEGAL_WORKSPACE_FILE_SYMLINK_WITH_MANAGED_DIRECTORIES = 3
+        [(metadata) = { exit_code: 1 }];
+    WORKSPACE_FILE_READ_FAILURE_WITH_MANAGED_DIRECTORIES = 4
+        [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
