@@ -90,11 +90,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.keySet()).containsExactly(topLevel);
     assertThat(collector.events.get(topLevel))
         .containsExactly(
-            new AnalysisFailedCause(
+            new LoadingFailedCause(
                 causeLabel,
-                toId(
-                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
-                        .getConfiguration()),
                 "no such package 'bar': BUILD file not found in any of the following "
                     + "directories. Add a BUILD file to a directory to mark it as a package.\n"
                     + " - /workspace/bar"));
@@ -126,11 +123,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     Label topLevel = Label.parseAbsoluteUnchecked("//gp");
     assertThat(collector.events.get(topLevel))
         .containsExactly(
-            new AnalysisFailedCause(
+            new LoadingFailedCause(
                 Label.parseAbsolute("//cycles1", ImmutableMap.of()),
-                toId(
-                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
-                        .getConfiguration()),
                 "no such package 'cycles1': Symlink issue while evaluating globs: Symlink cycle: "
                     + "/workspace/cycles1/cycles1.sh"));
   }

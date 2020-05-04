@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -50,15 +49,6 @@ public class AnalysisFailureEvent implements BuildEvent {
       this.configuration = NullConfiguration.INSTANCE.getEventId();
     }
     this.rootCauses = rootCauses;
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("failedTarget", failedTarget)
-        .add("configuration", configuration)
-        .add("legacyFailureReason", getLegacyFailureReason())
-        .toString();
   }
 
   public ConfiguredTargetKey getFailedTarget() {
