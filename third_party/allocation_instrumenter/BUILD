@@ -1,4 +1,4 @@
-load("//tools/distributions:distribution_rules.bzl", java_import = "distrb_java_import")
+load("//tools/distributions:distribution_rules.bzl", java_import = "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
 

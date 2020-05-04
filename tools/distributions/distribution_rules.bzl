@@ -15,7 +15,7 @@
 load("@rules_java//java:defs.bzl", _java_import = "java_import")
 
 # A marco for java_import rule to support distributions build (eg. Debian)
-def distrb_java_import(name, enable_distributions = [], **kwargs):
+def distrib_java_import(name, enable_distributions = [], **kwargs):
 
     checked_in_name = name + "_checked_in"
 
