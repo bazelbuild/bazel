@@ -129,7 +129,8 @@ public class Desugar {
   /** An instance of Desugar is expected to be used ONLY ONCE */
   private boolean used;
 
-  private TypeHierarchy typeHierarchy;
+  @Nullable private TypeHierarchy typeHierarchy;
+  @Nullable private BootClassPathDigest bootClassPathDigest;
 
   private Desugar(DesugarOptions options, Path dumpDirectory) {
     this.options = options;
@@ -157,42 +158,44 @@ public class Desugar {
             .filter(path -> JarDigest.fromPath(path).isPlatformJar())
             .collect(Collectors.toList());
     if (!platformJars.isEmpty()) {
-      logger.atInfo().log("Platform Jars in class path added to boot class path: %s", platformJars);
+      if (options.verbose) {
+        logger.atInfo().log(
+            "Platform Jars in class path added to boot class path: %s", platformJars);
+      }
       options.bootclasspath =
           ImmutableList.<Path>builder().addAll(options.bootclasspath).addAll(platformJars).build();
     }
 
-    typeHierarchy =
-        TypeHierarchyScavenger.analyze(
-            ImmutableList.<Path>builder()
-                .addAll(options.inputJars)
-                .addAll(options.classpath)
-                .addAll(options.bootclasspath)
-                .build(),
-            /* requireTypeResolutionComplete= */ false);
+    if (options.autoDesugarShadowedApiUse) {
+      typeHierarchy =
+          TypeHierarchyScavenger.analyze(
+              ImmutableList.<Path>builder()
+                  .addAll(options.inputJars)
+                  .addAll(options.classpath)
+                  .addAll(options.bootclasspath)
+                  .build(),
+              /* requireTypeResolutionComplete= */ false);
+      bootClassPathDigest = BootClassPathDigest.create(ImmutableList.copyOf(options.bootclasspath));
 
-    BootClassPathDigest bootClassPathDigest =
-        BootClassPathDigest.create(ImmutableList.copyOf(options.bootclasspath));
-
-    ImmutableList<ClassName> shadowedTypes =
-        typeHierarchy.methodMetadata().values().stream()
-            .filter(method -> method.owner().isAndroidDomainType())
-            .flatMap(methodDeclInfo -> methodDeclInfo.headerTypeNameSet().stream())
-            .filter(ClassName::isDesugarShadowedType)
-            .distinct()
-            .sorted()
-            .collect(toImmutableList());
-
-    if (options.verbose) {
-      logger.atInfo().log(
-          "---> Total number of boot class entries(%d) from packages: %s, from jars %s on input"
-              + " %s.",
-          bootClassPathDigest.resourceEntrySize(),
-          bootClassPathDigest.listPackageLeadingPrefixes(),
-          bootClassPathDigest,
-          options.inputJars);
-      logger.atInfo().log(
-          "<shadowed size=%d>\n%s\n</shadowed>", shadowedTypes.size(), shadowedTypes);
+      if (options.verbose) {
+        ImmutableList<ClassName> shadowedTypes =
+            typeHierarchy.methodMetadata().values().stream()
+                .filter(method -> method.owner().isAndroidDomainType())
+                .flatMap(methodDeclInfo -> methodDeclInfo.headerTypeNameSet().stream())
+                .filter(ClassName::isDesugarShadowedType)
+                .distinct()
+                .sorted()
+                .collect(toImmutableList());
+        logger.atInfo().log(
+            "---> Total number of boot class entries(%d) from packages: %s, from jars %s on input"
+                + " %s.",
+            bootClassPathDigest.resourceEntrySize(),
+            bootClassPathDigest.listPackageLeadingPrefixes(),
+            bootClassPathDigest,
+            options.inputJars);
+        logger.atInfo().log(
+            "<shadowed size=%d>\n%s\n</shadowed>", shadowedTypes.size(), shadowedTypes);
+      }
     }
 
     try (Closer closer = Closer.create()) {
