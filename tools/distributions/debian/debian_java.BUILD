@@ -15,9 +15,35 @@
 package(default_visibility = ["//visibility:public"])
 
 # libnetty-java
+# TODO: The netty-all.jar is empty in Debian distribution, we have to list
+# all netty jars here. Replace them with netty-all.jar once it's fixed.
 java_import(
     name = "netty",
-    jars = ["netty-all.jar"],
+    jars = [
+        "netty-buffer.jar",
+        "netty-codec-dns.jar",
+        "netty-codec-haproxy.jar",
+        "netty-codec-http2.jar",
+        "netty-codec-http.jar",
+        "netty-codec.jar",
+        "netty-codec-memcache.jar",
+        "netty-codec-mqtt.jar",
+        "netty-codec-redis.jar",
+        "netty-codec-smtp.jar",
+        "netty-codec-socks.jar",
+        "netty-codec-stomp.jar",
+        "netty-common.jar",
+        "netty-handler.jar",
+        "netty-handler-proxy.jar",
+        "netty-resolver-dns.jar",
+        "netty-resolver-dns-native-macos.jar",
+        "netty-resolver.jar",
+        "netty-transport.jar",
+        "netty-transport-native-epoll.jar",
+        "netty-transport-native-kqueue.jar",
+        "netty-transport-native-unix-common.jar",
+        "netty-transport-sctp.jar",
+    ],
 )
 
 # libgoogle-gson-java
