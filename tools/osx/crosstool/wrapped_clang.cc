@@ -49,7 +49,7 @@
 #include <map>
 #include <memory>
 #include <sstream>
-#include <string>
+#include <string.h>
 #include <utility>
 #include <vector>
 
