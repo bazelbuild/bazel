@@ -409,13 +409,6 @@ filegroup(
 )
 
 java_import(
-    name = "instrumentation",
-    jars = [
-        "instrumentation/instrumentation-api-0.4.3.jar",
-    ],
-)
-
-java_import(
     name = "opencensus-api",
     jars = [
         "opencensus/opencensus-api-0.19.2.jar",
