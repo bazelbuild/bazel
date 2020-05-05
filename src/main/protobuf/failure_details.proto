@@ -108,6 +108,7 @@ message FailureDetail {
     BuildConfiguration build_configuration = 126;
     InfoCommand info_command = 127;
     MemoryOptions memory_options = 129;
+    Query query = 130;
   }
 
   reserved 102; // For internal use
@@ -128,6 +129,7 @@ message Interrupted {
     EXECUTOR_COMPLETION = 7 [(metadata) = { exit_code: 8 }];
     COMMAND_DISPATCH = 8 [(metadata) = { exit_code: 8 }];
     INFO_ITEM = 9 [(metadata) = { exit_code: 8 }];
+    AFTER_QUERY = 10 [(metadata) = { exit_code: 8 }];
     reserved 1 to 3; // For internal use
   }
 
@@ -193,7 +195,6 @@ message BuildProgress {
         [(metadata) = { exit_code: 45 }];
     BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE = 17
         [(metadata) = { exit_code: 38 }];
-
     reserved 1, 2; // For internal use
   }
   Code code = 1;
@@ -439,6 +440,24 @@ message MemoryOptions {
     MEMORY_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
         [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message Query {
+  enum Code {
+    QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    QUERY_FILE_WITH_COMMAND_LINE_EXPRESSION = 1 [(metadata) = { exit_code: 2 }];
+    QUERY_FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+    COMMAND_LINE_EXPRESSION_MISSING = 3 [(metadata) = { exit_code: 2 }];
+    OUTPUT_FORMAT_INVALID = 4 [(metadata) = { exit_code: 2 }];
+    GRAPHLESS_PREREQ_UNMET = 5 [(metadata) = { exit_code: 2 }];
+    QUERY_OUTPUT_WRITE_FAILURE = 6 [(metadata) = { exit_code: 36 }];
+    QUERY_STDOUT_FLUSH_FAILURE = 13 [(metadata) = { exit_code: 36 }];
+    ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
+
+    reserved 7 to 12; // For internal use
   }
 
   Code code = 1;

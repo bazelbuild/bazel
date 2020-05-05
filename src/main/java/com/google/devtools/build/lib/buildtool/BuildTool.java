@@ -106,7 +106,7 @@ public class BuildTool {
   public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException, QueryCommandLineException {
+          InvalidConfigurationException, TestExecException, ExitException {
     try (SilentCloseable c = Profiler.instance().profile("validateOptions")) {
       validateOptions(request);
     }
@@ -247,7 +247,7 @@ public class BuildTool {
    * then process the results in some interesting way. See {@link CqueryBuildTool} as an example.
    */
   protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
-      throws InterruptedException, ViewCreationFailedException, QueryCommandLineException {}
+      throws InterruptedException, ViewCreationFailedException, ExitException {}
 
   private void reportExceptionError(Exception e) {
     if (e.getMessage() != null) {
@@ -314,8 +314,8 @@ public class BuildTool {
     } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
       detailedExitCode = DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE);
       reportExceptionError(e);
-    } catch (QueryCommandLineException e) {
-      detailedExitCode = DetailedExitCode.justExitCode(ExitCode.COMMAND_LINE_ERROR);
+    } catch (ExitException e) {
+      detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
     } catch (TestExecException e) {
       // ExitCode.SUCCESS means that build was successful. Real return code of program
@@ -443,10 +443,21 @@ public class BuildTool {
     return env.getReporter();
   }
 
-  /** Exceptions in parsing the supplied query options. */
-  protected static class QueryCommandLineException extends Exception {
-    QueryCommandLineException(String message) {
-      super(message);
+  /** Describes a failure that isn't severe enough to halt the command in keep_going mode. */
+  // TODO(mschaller): consider promoting this to be a sibling of AbruptExitException.
+  static class ExitException extends Exception {
+
+    private final DetailedExitCode detailedExitCode;
+
+    ExitException(DetailedExitCode detailedExitCode) {
+      super(
+          Preconditions.checkNotNull(detailedExitCode.getFailureDetail(), "failure detail")
+              .getMessage());
+      this.detailedExitCode = detailedExitCode;
+    }
+
+    DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 }
