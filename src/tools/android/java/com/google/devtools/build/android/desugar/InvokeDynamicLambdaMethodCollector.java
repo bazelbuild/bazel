@@ -32,7 +32,7 @@ class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
   private boolean needOuterClassRewrite = false;
 
   public InvokeDynamicLambdaMethodCollector() {
-    super(Opcodes.ASM7);
+    super(Opcodes.ASM8);
   }
 
   /**
@@ -64,7 +64,7 @@ class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
   private class LambdaMethodCollector extends MethodVisitor {
 
     public LambdaMethodCollector(MethodVisitor dest) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
     }
 
     @Override
