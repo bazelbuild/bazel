@@ -61,7 +61,6 @@ java_import(
     jars = [":bootstrap-grpc-jars"],
     runtime_deps = [
         "//third_party:netty",
-        "//third_party:opencensus-api",
     ],
     deps = [
         "//third_party:guava",
