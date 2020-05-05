@@ -409,21 +409,17 @@ public class AndroidCommon {
     return ruleContext.getHostPrerequisiteArtifact("debug_key");
   }
 
-  private void compileResources(
-      JavaSemantics javaSemantics,
+  private void addResourceClassJarToClassPath(
       Artifact resourceJavaClassJar,
-      Artifact resourceJavaSrcJar,
       JavaCompilationArtifacts.Builder artifactsBuilder,
       JavaTargetAttributes.Builder attributes,
       NestedSetBuilder<Artifact> filesBuilder)
-      throws InterruptedException, RuleErrorException {
+      throws InterruptedException {
 
     // The resource class JAR should already have been generated.
     Preconditions.checkArgument(
         resourceJavaClassJar.equals(
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR)));
-
-    packResourceSourceJar(javaSemantics, resourceJavaSrcJar);
 
     // Add the compiled resource jar to the classpath of the main compilation.
     attributes.addDirectJars(NestedSetBuilder.create(Order.STABLE_ORDER, resourceJavaClassJar));
@@ -434,7 +430,6 @@ public class AndroidCommon {
     artifactsBuilder.addCompileTimeJarAsFullJar(resourceJavaClassJar);
 
     // Add the compiled resource jar as a declared output of the rule.
-    filesBuilder.add(resourceSourceJar);
     filesBuilder.add(resourceJavaClassJar);
   }
 
@@ -508,24 +503,29 @@ public class AndroidCommon {
     NestedSetBuilder<Artifact> jarsProducedForRuntime = NestedSetBuilder.<Artifact>stableOrder();
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.<Artifact>stableOrder();
 
-    Artifact resourceJavaSrcJar = resourceApk.getResourceJavaSrcJar();
-    if (resourceJavaSrcJar != null) {
-      filesBuilder.add(resourceJavaSrcJar);
+    if (resourceApk.addResourcesClassJarToCompilationClasspath()) {
+      // If resources are being linked then include R.java in source jar
+      if (getAndroidConfig(ruleContext).linkLibraryResources()) {
+        Artifact resourceJavaSrcJar = resourceApk.getResourceJavaSrcJar();
+        if (resourceJavaSrcJar != null) {
+          filesBuilder.add(resourceJavaSrcJar);
 
-      if (resourceApk.addResourcesClassJarToCompilationClasspath()) {
-        compileResources(
-            javaSemantics,
-            resourceApk.getResourceJavaClassJar(),
-            resourceJavaSrcJar,
-            artifactsBuilder,
-            attributesBuilder,
-            filesBuilder);
+          packResourceSourceJar(javaSemantics, resourceJavaSrcJar);
+
+          // Add the compiled resource jar as a declared output of the rule.
+          filesBuilder.add(resourceSourceJar);
+        }
       }
 
-      // Combined resource constants needs to come even before our own classes that may contain
-      // local resource constants.
-      artifactsBuilder.addRuntimeJar(resourceApk.getResourceJavaClassJar());
-      jarsProducedForRuntime.add(resourceApk.getResourceJavaClassJar());
+      if (resourceApk.getResourceJavaClassJar() != null) {
+        addResourceClassJarToClassPath(resourceApk.getResourceJavaClassJar(),
+            artifactsBuilder, attributesBuilder, filesBuilder);
+
+        // Combined resource constants needs to come even before our own classes that may contain
+        // local resource constants.
+        artifactsBuilder.addRuntimeJar(resourceApk.getResourceJavaClassJar());
+        jarsProducedForRuntime.add(resourceApk.getResourceJavaClassJar());
+      }
     }
 
     // Databinding metadata that the databinding annotation processor reads.

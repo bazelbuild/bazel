@@ -882,6 +882,14 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean useRTxtFromMergedResources;
 
     @Option(
+        name = "link_library_resources",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        help = "If disabled does not run aapt2 link for android_library targets")
+    public boolean linkLibraryResources;
+
+    @Option(
         name = "legacy_main_dex_list_generator",
         // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
         // migrating usage.
@@ -990,6 +998,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
+  private final boolean linkLibraryResources;
   private final Label legacyMainDexListGenerator;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
@@ -1044,6 +1053,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         options.alwaysFilterDuplicateClassesFromAndroidTest;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
+    this.linkLibraryResources = options.linkLibraryResources;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
 
     if (options.androidAaptVersion != AndroidAaptVersion.AAPT2) {
@@ -1295,6 +1305,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
+  }
+
+  boolean linkLibraryResources() {
+    return linkLibraryResources;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

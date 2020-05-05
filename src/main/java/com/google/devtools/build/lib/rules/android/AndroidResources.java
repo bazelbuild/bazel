@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
@@ -410,24 +411,27 @@ public class AndroidResources {
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       DataBindingContext dataBindingContext,
-      boolean neverlink)
+      boolean neverlink,
+      boolean linkResources)
       throws RuleErrorException, InterruptedException {
     return process(
         dataContext,
         manifest,
         ResourceDependencies.fromRuleDeps(ruleContext, neverlink),
-        dataBindingContext);
+        dataBindingContext,
+        linkResources);
   }
 
   ValidatedAndroidResources process(
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       ResourceDependencies resourceDeps,
-      DataBindingContext dataBindingContext)
+      DataBindingContext dataBindingContext,
+      boolean linkResources)
       throws InterruptedException {
-    return parse(dataContext, manifest, dataBindingContext)
-        .merge(dataContext, resourceDeps)
-        .validate(dataContext);
+    MergedAndroidResources merge = parse(dataContext, manifest, dataBindingContext)
+        .merge(dataContext, resourceDeps);
+    return linkResources ? merge.validate(dataContext) : merge.validateNoLink(dataContext);
   }
 
   @Override

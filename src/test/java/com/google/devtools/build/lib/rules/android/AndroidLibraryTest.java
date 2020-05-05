@@ -1391,6 +1391,53 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testResourceMergeAndProcessParallel_noLink() throws Exception {
+    useConfiguration("--experimental_use_rtxt_from_merged_resources", "--nolink_library_resources");
+    // Test that for android_library, we can divide the resource processing action into
+    // smaller actions.
+    scratch.file(
+        "java/android/app/foo/BUILD",
+        "android_library(",
+        "    name = 'r',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        ")");
+    scratch.file(
+        "java/android/app/foo/res/values/strings.xml",
+        "<resources>",
+        "<string name='hello'>Aloha!</string>",
+        "<string name='goodbye'>Aloha!</string>",
+        "</resources>");
+    ConfiguredTarget target = getConfiguredTarget("//java/android/app/foo:r");
+
+    NestedSet<Artifact> filesToBuild = getFilesToBuild(target);
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(filesToBuild);
+
+    ValidatedAndroidResources resources =
+        target.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources().getSingleton();
+
+    SpawnAction resourceParserAction =
+        (SpawnAction)
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(
+                    artifacts, "/" + resources.getCompiledSymbols().getFilename());
+    SpawnAction resourceClassJarAction =
+        (SpawnAction)
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(
+                    artifacts, "/" + resources.getJavaClassJar().getFilename());
+
+    // No source jar is produced for R.java
+    assertThat(resources.getJavaSourceJar()).isNull();
+
+    assertThat(resourceParserAction.getMnemonic()).isEqualTo("AndroidResourceCompiler");
+    assertThat(resourceClassJarAction.getMnemonic()).isEqualTo("AndroidCompiledResourceMerger");
+
+    // Validator also generates an R.txt.
+    assertThat(resourceClassJarAction.getOutputs()).contains(resources.getRTxt());
+  }
+
+  @Test
   public void testGeneratedManifestPackage() throws Exception {
     scratch.file(
         "java/android/BUILD",
