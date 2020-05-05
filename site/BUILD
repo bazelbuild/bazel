@@ -153,7 +153,7 @@ genrule(
 jekyll_build(
     name = "site",
     srcs = [
-        "@jekyll_tree_%s//file" % DOC_VERSION["version"].replace(".", "_")
+        "@jekyll_tree_%s//file" % DOC_VERSION["version"].split("-")[0].replace(".", "_")
         for DOC_VERSION in DOC_VERSIONS
     ] + [":jekyll-tree"],  # jekyll-tree *must* come last to use layouts and includes from master
     bucket = "docs.bazel.build",
@@ -163,7 +163,7 @@ jekyll_build(
 jekyll_build(
     name = "site_latest",
     srcs = [
-        "@jekyll_tree_%s//file" % DOC_VERSIONS[0]["version"].replace(".", "_"),
+        "@jekyll_tree_%s//file" % DOC_VERSIONS[0]["version"].split("-")[0].replace(".", "_"),
         ":jekyll-tree",  # jekyll-tree *must* come last to use layouts and includes from master
     ],
 )
