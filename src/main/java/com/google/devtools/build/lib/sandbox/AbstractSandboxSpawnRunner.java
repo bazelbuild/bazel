@@ -92,6 +92,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     return Spawns.mayBeSandboxed(spawn);
   }
 
+  @Override
+  public boolean handlesCaching() {
+    return false;
+  }
+
   protected abstract SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException;
 

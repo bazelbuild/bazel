@@ -645,7 +645,7 @@ public final class RemoteModule extends BlazeModule {
     if (actionContextProvider == null) {
       return;
     }
-    actionContextProvider.registerSpawnCacheIfApplicable(registryBuilder);
+    actionContextProvider.registerSpawnCache(registryBuilder);
   }
 
   @Override

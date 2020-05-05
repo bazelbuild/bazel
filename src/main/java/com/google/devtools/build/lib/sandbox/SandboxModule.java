@@ -467,6 +467,11 @@ public final class SandboxModule extends BlazeModule {
     }
 
     @Override
+    public boolean handlesCaching() {
+      return false;
+    }
+
+    @Override
     public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
       sandboxSpawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
       fallbackSpawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
