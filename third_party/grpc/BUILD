@@ -65,7 +65,6 @@ java_import(
     ],
     deps = [
         "//third_party:guava",
-        "//third_party:instrumentation",
     ],
 )
 
