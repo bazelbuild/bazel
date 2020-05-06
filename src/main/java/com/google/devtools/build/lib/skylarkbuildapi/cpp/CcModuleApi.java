@@ -989,7 +989,8 @@ public interface CcModuleApi<
       doc =
           "Should be used for creating library rules that can propagate information downstream in"
               + " order to be linked later by a top level rule that does transitive linking to"
-              + " create an executable or dynamic library.",
+              + " create an executable or dynamic library. Returns tuple of "
+              + "(<code>CcLinkingContext</code>, <code>CcLinkingOutputs</code>).",
       useStarlarkThread = true,
       parameters = {
         @Param(
