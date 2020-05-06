@@ -756,16 +756,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
     result.addAll(ccCompilationContext.getIncludeDirs());
     for (String opt : compileCommandLine.getCopts()) {
-      if (startsWithIgnoreCase(opt, "-I") || startsWithIgnoreCase(opt, "/I")) {
+      if (opt.startsWith("-I") || opt.startsWith("/I")) {
         // We insist on the combined form "-Idir".
         String includeDir = opt.substring(2);
         if (includeDir.isEmpty()) {
           continue;
         }
-        if (startsWithIgnoreCase(includeDir, "msvc")
-            || startsWithIgnoreCase(includeDir, "quote")
-            || startsWithIgnoreCase(includeDir, "system")) {
-          // This is actually a "-iquote", "-isystem", or "-imsvc"; it's handled elsewhere.
+        if (startsWithIgnoreCase(includeDir, "msvc")) {
+          // This is actually a "-imsvc", a system include dir.
           continue;
         }
         result.add(PathFragment.create(opt.substring(2)));
