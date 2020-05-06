@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.android.AndroidDataMerger.ContentComparingChecker;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.SerializedAndroidDataConverter;
 import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
@@ -133,30 +133,46 @@ public class AndroidAssetMergingAction extends AbstractBusyBoxAction {
 
     Preconditions.checkNotNull(options.primary);
 
-    MergedAndroidData mergedData =
-        AndroidResourceMerger.mergeDataAndWrite(
-            options.primary,
-            /* primaryManifest = */ null,
-            options.directData,
-            options.transitiveData,
-            /* resourcesOut = */ ignored,
-            mergedAssets,
-            /* cruncher = */ null,
-            VariantType.LIBRARY,
-            /* symbolsOut = */ null,
-            /* rclassWriter = */ null,
-            options.throwOnAssetConflict,
-            executorService);
+    final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
+    final AndroidParsedDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
+    options.primary.deserialize(
+        DependencyInfo.DependencyType.PRIMARY, deserializer, primaryBuilder.consumers());
+    ParsedAndroidData primaryData = primaryBuilder.build();
+
+    UnwrittenMergedAndroidData unwrittenMergedData = AndroidResourceMerger.mergeData(
+        executorService,
+        options.transitiveData,
+        options.directData,
+        primaryData,
+        /* primaryManifest = */ null,
+        /* allowPrimaryOverrideAll = */ false,
+        deserializer,
+        options.throwOnAssetConflict,
+        ContentComparingChecker.create());
 
     logCompletion("Merging");
 
-    Preconditions.checkState(
-        !Files.exists(ignored),
-        "The asset merging action should not produce non-asset merge results!");
+    if (options.assetsOutput != null) {
+      MergedAndroidData writtenMergedData =
+          AndroidResourceMerger.writeMergedData(
+              ignored,
+              mergedAssets,
+              /* cruncher = */ null,
+              /* symbolsOut = */ null,
+              /* rclassWriter = */ null,
+              executorService,
+              unwrittenMergedData);
 
-    ResourcesZip.from(ignored, mergedData.getAssetDir())
-        .writeTo(options.assetsOutput, /* compress= */ true);
-    logCompletion("Create assets zip");
+      logCompletion("Writing");
+
+      Preconditions.checkState(
+          !Files.exists(ignored),
+          "The asset merging action should not produce non-asset merge results!");
+
+      ResourcesZip.from(ignored, writtenMergedData.getAssetDir())
+          .writeTo(options.assetsOutput, /* compress= */ true);
+      logCompletion("Create assets zip");
+    }
   }
 
   @Override
