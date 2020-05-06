@@ -829,16 +829,23 @@ public final class EvaluationTest extends EvaluationTestCase {
     };
   }
 
+  @Test
+  public void testPercentOnObjWithStr() throws Exception {
+    new Scenario().update("obj", createObjWithStr()).testExpression("'%s' % obj", "<str marker>");
+  }
+
   private static class Dummy implements StarlarkValue {}
 
   @Test
-  public void testPercentOnDummyValue() throws Exception {
-    new Scenario().update("obj", createObjWithStr()).testExpression("'%s' % obj", "<str marker>");
+  public void testStringRepresentationsOfArbitraryObjects() throws Exception {
+    String dummy = "<unknown object com.google.devtools.build.lib.syntax.EvaluationTest$Dummy>";
     new Scenario()
-        .update("unknown", new Dummy())
-        .testExpression(
-            "'%s' % unknown",
-            "<unknown object com.google.devtools.build.lib.syntax.EvaluationTest$Dummy>");
+        .update("dummy", new Dummy())
+        .testExpression("str(dummy)", dummy)
+        .testExpression("repr(dummy)", dummy)
+        .testExpression("'{}'.format(dummy)", dummy)
+        .testExpression("'%s' % dummy", dummy)
+        .testExpression("'%r' % dummy", dummy);
   }
 
   @Test

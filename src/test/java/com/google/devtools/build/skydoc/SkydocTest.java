@@ -20,8 +20,8 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase; // a bad dependency!
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -45,11 +45,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Java tests for Skydoc.
- */
+/** Java tests for Skydoc. */
 @RunWith(JUnit4.class)
-public final class SkydocTest extends SkylarkTestCase {
+// TODO(adonovan): Skydoc's tests should not depend on the analysis phase of Blaze.
+public final class SkydocTest extends BuildViewTestCase {
 
   private SkydocMain skydocMain;
 
