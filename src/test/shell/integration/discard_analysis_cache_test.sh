@@ -64,10 +64,11 @@ function write_hello_world_files() {
   cat >hello/BUILD <<EOF
 java_binary(name = 'hello',
   srcs = ['Hello.java'],
-  main_class = 'Hello')
+  main_class = 'hello.Hello')
 EOF
 
   cat >hello/Hello.java <<EOF
+package hello;
 public class Hello {
   public static void main(String[] args) {
     System.out.println("hello!");
