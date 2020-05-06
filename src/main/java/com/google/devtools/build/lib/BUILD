@@ -450,7 +450,17 @@ merge_licenses(
         "//:LICENSE",
         "//third_party:srcs",
     ],
-    out = "runtime/commands/LICENSE",
+    out = "LICENSE.merged",
+)
+
+genrule(
+    name = "bazel_license",
+    srcs = select({
+        "//src/conditions:debian_build": ["//tools/distributions/debian:bazel_debian_license"],
+        "//conditions:default": [":merge_licenses"],
+    }),
+    outs = ["runtime/commands/LICENSE"],
+    cmd = "cp $< $@",
 )
 
 java_library(

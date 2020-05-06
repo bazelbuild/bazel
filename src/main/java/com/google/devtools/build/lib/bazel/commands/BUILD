@@ -16,7 +16,7 @@ java_library(
     resources = [
         "fetch.txt",
         "sync.txt",
-        "//src/main/java/com/google/devtools/build/lib:merge_licenses",  # license
+        "//src/main/java/com/google/devtools/build/lib:bazel_license",  # license
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",

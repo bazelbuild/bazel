@@ -1,3 +1,5 @@
+exports_files(["bazel_debian_license"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
