@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import build.bazel.remote.execution.v2.DigestFunction;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
 import com.google.common.base.Preconditions;
@@ -662,12 +663,14 @@ public final class RemoteModule extends BlazeModule {
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     if (!remoteOutputsMode.downloadAllOutputs()) {
-      Context ctx =
-          TracingMetadataUtils.contextWithMetadata(
-              env.getBuildRequestId(), env.getCommandId().toString(), "fetch-remote-inputs");
+      RequestMetadata requestMetadata =
+          RequestMetadata.newBuilder()
+              .setCorrelatedInvocationsId(env.getBuildRequestId())
+              .setToolInvocationId(env.getCommandId().toString())
+              .build();
       actionInputFetcher =
           new RemoteActionInputFetcher(
-              actionContextProvider.getRemoteCache(), env.getExecRoot(), ctx);
+              actionContextProvider.getRemoteCache(), env.getExecRoot(), requestMetadata);
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
     }

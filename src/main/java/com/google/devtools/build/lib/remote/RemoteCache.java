@@ -528,6 +528,7 @@ public class RemoteCache implements AutoCloseable {
    */
   @Nullable
   public InMemoryOutput downloadMinimal(
+      String actionId,
       ActionResult result,
       Collection<? extends ActionInput> outputs,
       @Nullable PathFragment inMemoryOutputPath,
@@ -570,7 +571,7 @@ public class RemoteCache implements AutoCloseable {
         inMemoryOutput = output;
       }
       if (output instanceof Artifact) {
-        injectRemoteArtifact((Artifact) output, metadata, execRoot, metadataInjector);
+        injectRemoteArtifact((Artifact) output, metadata, execRoot, metadataInjector, actionId);
       }
     }
 
@@ -594,7 +595,8 @@ public class RemoteCache implements AutoCloseable {
       Artifact output,
       ActionResultMetadata metadata,
       Path execRoot,
-      MetadataInjector metadataInjector)
+      MetadataInjector metadataInjector,
+      String actionId)
       throws IOException {
     if (output.isTreeArtifact()) {
       DirectoryMetadata directory =
@@ -617,7 +619,8 @@ public class RemoteCache implements AutoCloseable {
             new RemoteFileArtifactValue(
                 DigestUtil.toBinaryDigest(file.digest()),
                 file.digest().getSizeBytes(),
-                /* locationIndex= */ 1);
+                /* locationIndex= */ 1,
+                actionId);
         childMetadata.put(p, r);
       }
       metadataInjector.injectRemoteDirectory(
@@ -633,7 +636,8 @@ public class RemoteCache implements AutoCloseable {
           output,
           DigestUtil.toBinaryDigest(outputMetadata.digest()),
           outputMetadata.digest().getSizeBytes(),
-          /* locationIndex= */ 1);
+          /* locationIndex= */ 1,
+          actionId);
     }
   }
 

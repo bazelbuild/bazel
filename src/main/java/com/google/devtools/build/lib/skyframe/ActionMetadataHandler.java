@@ -542,7 +542,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
+  public void injectRemoteFile(
+      Artifact output, byte[] digest, long size, int locationIndex, String actionId) {
     Preconditions.checkArgument(
         isKnownOutput(output), output + " is not a declared output of this action");
     Preconditions.checkArgument(
@@ -551,7 +552,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
         output);
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution", output);
-    store.injectRemoteFile(output, digest, size, locationIndex);
+    store.injectRemoteFile(output, digest, size, locationIndex, actionId);
   }
 
   @Override
