@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
@@ -1295,8 +1296,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .setAbruptShutdownHandler(abruptShutdownHandler)
             .setEventBusExceptionHandler(subscriberExceptionHandler);
 
-    if (System.getenv("TEST_TMPDIR") != null
-        && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
+    if (TestType.isInTest() && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
       LoggingUtil.installRemoteLogger(getTestCrashLogger());
     }
 

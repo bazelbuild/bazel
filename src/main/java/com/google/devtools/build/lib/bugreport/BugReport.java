@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
 import java.util.Arrays;
@@ -54,10 +55,8 @@ public abstract class BugReport {
   @Nullable private static volatile Throwable unprocessedThrowableInTest = null;
   private static final Object LOCK = new Object();
 
-  private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
-
   private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
-      IN_TEST && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
+      TestType.isInTest() && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
 
   private BugReport() {}
 
@@ -77,7 +76,7 @@ public abstract class BugReport {
   public static void setRuntime(BlazeRuntimeInterface newRuntime) {
     Preconditions.checkNotNull(newRuntime);
     Preconditions.checkState(
-        runtime == null || IN_TEST, "runtime already set: %s, %s", runtime, newRuntime);
+        runtime == null || TestType.isInTest(), "runtime already set: %s, %s", runtime, newRuntime);
     runtime = newRuntime;
   }
 
@@ -90,7 +89,7 @@ public abstract class BugReport {
    * is about to block on thread completion that might hang because of a failed halt below.
    */
   public static void maybePropagateUnprocessedThrowableIfInTest() {
-    if (IN_TEST) {
+    if (TestType.isInTest()) {
       // Instead of the jvm having been halted, we might have a saved Throwable.
       synchronized (LOCK) {
         Throwable lastUnprocessedThrowableInTest = unprocessedThrowableInTest;
@@ -196,11 +195,11 @@ public abstract class BugReport {
     int numericExitCode = exitCodeToUse.getNumericExitCode();
     try {
       synchronized (LOCK) {
-        if (IN_TEST) {
+        if (TestType.isInTest()) {
           unprocessedThrowableInTest = throwable;
         }
         // Don't try to send a bug report during a crash in a test, it will throw itself.
-        if (!IN_TEST || !sendBugReport) {
+        if (!TestType.isInTest() || !sendBugReport) {
           logCrash(throwable, sendBugReport, args);
         }
         try {

@@ -200,6 +200,7 @@ java_library(
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:flogger",
@@ -249,6 +250,7 @@ java_library(
     srcs = glob(["bugreport/*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
@@ -400,6 +402,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:command",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
