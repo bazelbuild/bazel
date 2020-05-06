@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  * Configured targets implementing this provider can contribute Android-specific info to IDE to the
  * compilation.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidIdeInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -172,7 +172,7 @@ public interface AndroidIdeInfoProviderApi<
   ImmutableMap<String, Depset> getNativeLibsSkylark();
 
   /** The provider implementing this can construct the AndroidIdeInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

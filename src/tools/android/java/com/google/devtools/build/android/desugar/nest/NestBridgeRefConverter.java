@@ -38,7 +38,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
 
   NestBridgeRefConverter(
       @Nullable MethodVisitor methodVisitor, MethodKey methodKey, NestDigest nestDigest) {
-    super(Opcodes.ASM7, methodVisitor);
+    super(Opcodes.ASM8, methodVisitor);
     this.enclosingMethodKey = methodKey;
     this.nestDigest = nestDigest;
 

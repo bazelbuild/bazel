@@ -19,19 +19,19 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A target that can provide a proguard obfuscation mapping to Android binaries or tests. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ProguardMappingProvider",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "Information about the Proguard mapping provided by a rule.",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface ProguardMappingProviderApi<FileT extends FileApi> extends StructApi {
 
   /** The name of the provider for this info object. */
@@ -41,7 +41,7 @@ public interface ProguardMappingProviderApi<FileT extends FileApi> extends Struc
   FileT getProguardMapping();
 
   /** The provider implementing this can construct the ProguardMappingProvider provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

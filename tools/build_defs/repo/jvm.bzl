@@ -268,10 +268,14 @@ def jvm_maven_import_external(
 
         srcjar_urls = _convert_coordinates_to_urls(src_coordinates, server_urls)
 
+    tags = kwargs.pop("tags", [])
+    tags.append("maven_coordinates=" + artifact)
+
     jvm_import_external(
         artifact_urls = jar_urls,
         srcjar_urls = srcjar_urls,
         rule_name = rule_name,
         rule_load = rule_load,
+        tags = tags,
         **kwargs
     )

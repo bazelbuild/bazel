@@ -64,7 +64,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
 
   public IndyStringConcatDesugaring(
       ClassMemberUseCounter classMemberUseCounter, ClassVisitor classVisitor) {
-    super(Opcodes.ASM7, classVisitor);
+    super(Opcodes.ASM8, classVisitor);
     this.classMemberUseCounter = classMemberUseCounter;
   }
 

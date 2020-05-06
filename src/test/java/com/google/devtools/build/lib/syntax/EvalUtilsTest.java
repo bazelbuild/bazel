@@ -19,7 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import javax.annotation.Nullable;
@@ -43,7 +43,7 @@ public final class EvalUtilsTest extends EvaluationTestCase {
   }
 
   /** MockClassA */
-  @SkylarkModule(name = "MockClassA", doc = "MockClassA")
+  @StarlarkBuiltin(name = "MockClassA", doc = "MockClassA")
   public static class MockClassA implements StarlarkValue {}
 
   /** MockClassB */

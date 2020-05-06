@@ -23,15 +23,11 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.android.desugar.corelibadapter.ShadowedApiAdapterHelper;
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
-import com.google.devtools.build.android.desugar.langmodel.ClassName;
-import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.errorprone.annotations.Immutable;
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -66,9 +62,6 @@ class CoreLibrarySupport {
   /** Map from {@code owner#name} core library members to their new owners. */
   private final ImmutableMap<String, String> memberMoves;
 
-  /** Map from preserved method names to the base classes that define them. */
-  private final ImmutableMultimap<String, String> preserveOverrides;
-
   /** ASM {@link Remapper} based on {@link #renamedPrefixes}. */
   private final Remapper corePackageRemapper =
       new Remapper() {
@@ -84,17 +77,13 @@ class CoreLibrarySupport {
   /** Collect targets queried in {@link #getMoveTarget}. */
   private final Set<String> usedRuntimeHelpers = new LinkedHashSet<>();
 
-  /** Collect targets queried in {@link #getTypeConverterSite(ClassName)}. */
-  private final Set<ClassName> usedTypeConverters = new LinkedHashSet<>();
-
   public CoreLibrarySupport(
       CoreLibraryRewriter rewriter,
       ClassLoader targetLoader,
       List<String> renamedPrefixes,
       List<String> emulatedInterfaces,
       List<String> memberMoves,
-      List<String> excludeFromEmulation,
-      List<String> preserveOverrides) {
+      List<String> excludeFromEmulation) {
     this.rewriter = rewriter;
     this.targetLoader = targetLoader;
     checkArgument(
@@ -148,21 +137,6 @@ class CoreLibrarySupport {
           pair.get(0));
     }
     this.memberMoves = ImmutableMap.copyOf(mapBuilder);
-
-    splitter = Splitter.on("#").trimResults().omitEmptyStrings();
-    ImmutableMultimap.Builder<String, String> multimapBuilder = ImmutableMultimap.builder();
-    for (String override : preserveOverrides) {
-      List<String> pair = splitter.splitToList(override);
-      checkArgument(pair.size() == 2, "Doesn't split as expected: %s", override);
-      String className = pair.get(0);
-      String methodName = pair.get(1);
-      checkArgument(
-          !isRenamedCoreLibrary(className),
-          "Conversion subject is renamed, no need to preserve: %s",
-          className);
-      multimapBuilder.put(methodName, className); // build reverse map for convenient lookups
-    }
-    this.preserveOverrides = multimapBuilder.build();
   }
 
   public boolean isRenamedCoreLibrary(String internalName) {
@@ -201,59 +175,6 @@ class CoreLibrarySupport {
       usedRuntimeHelpers.add(result);
     }
     return result;
-  }
-
-  public MethodInvocationSite getTypeConverterSite(ClassName classname) {
-    MethodInvocationSite typeConverterSite =
-        ShadowedApiAdapterHelper.shadowedToMirroredTypeConversionSite(classname);
-    usedTypeConverters.add(typeConverterSite.owner());
-    return typeConverterSite;
-  }
-
-  /**
-   * Indicates whether the given method should be preserved with its original descriptor b/c it
-   * overrides an undesugared core library method.
-   */
-  public boolean preserveOriginalMethod(
-      int access, String internalName, String methodName, String descriptor) {
-    if (BitFlags.isStatic(access)) {
-      return false; // static methods don't override anything
-    }
-
-    if (!preserveOverrides.containsKey(methodName)) {
-      return false; // unknown name
-    }
-
-    Class<?> clazz = loadFromInternal(internalName);
-    if (clazz.isInterface()) {
-      return false; // only support preserving in classes
-    }
-
-    // See if clazz extends any of the configured base classes for this method
-    for (String baseclassName : preserveOverrides.get(methodName)) {
-      Class<?> baseclass = loadFromInternal(baseclassName);
-      checkState(
-          !baseclass.isInterface(), "Cannot preserve interface overrides: %s", baseclassName);
-      if (!baseclass.isAssignableFrom(clazz)) {
-        continue; // clazz must be a subclass of baseclass
-      }
-
-      for (Method m : clazz.getSuperclass().getMethods()) {
-        if (methodName.equals(m.getName())
-            && descriptor.equals(Type.getMethodDescriptor(m))
-            && baseclass.equals(m.getDeclaringClass())) {
-          // Return true if internalName directly overrides the configured method, that is,
-          // super.<emthodName> would call the method we want to preserve.  Otherwise return false,
-          // which will include methods with different name, methods with different descriptors,
-          // methods with the same name declared in superclasses besides baseclass, and overrides of
-          // method we want to preserve in superclasses besides baseclass.  Note in particular that
-          // we don't need to preserve an override if a baseclass already overrides, since the
-          // base class will preserve already.
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   /**
@@ -412,10 +333,6 @@ class CoreLibrarySupport {
   /** Returns targets queried in {@link #getMoveTarget}. */
   public Set<String> usedRuntimeHelpers() {
     return unmodifiableSet(usedRuntimeHelpers);
-  }
-
-  public ImmutableSet<ClassName> usedTypeConverters() {
-    return ImmutableSet.copyOf(usedTypeConverters);
   }
 
   public void makeDispatchHelpers(GeneratedClassStore store) {

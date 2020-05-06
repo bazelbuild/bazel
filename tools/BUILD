@@ -15,6 +15,7 @@ filegroup(
         "//tools/build_rules:srcs",
         "//tools/config:srcs",
         "//tools/coverage:srcs",
+        "//tools/distributions:srcs",
         "//tools/java:srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",

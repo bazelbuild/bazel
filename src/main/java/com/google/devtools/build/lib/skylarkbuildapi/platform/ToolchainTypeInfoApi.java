@@ -17,16 +17,16 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 
 /** Info object representing data about a specific toolchain type. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ToolchainTypeInfo",
     doc =
         "Provides access to data about a specific toolchain type. "
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface ToolchainTypeInfoApi extends StructApi {
 
   @SkylarkCallable(

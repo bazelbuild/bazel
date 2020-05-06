@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
@@ -86,6 +85,7 @@ import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -650,12 +650,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } catch (InterruptedException e) {
       afterCommandResult =
           BlazeCommandResult.detailedExitCode(
-              DetailedExitCode.of(
-                  ExitCode.INTERRUPTED,
-                  FailureDetail.newBuilder()
-                      .setMessage("executor completion interrupted")
-                      .setInterrupted(Interrupted.newBuilder().setCode(Code.EXECUTOR_COMPLETION))
-                      .build()));
+              InterruptedFailureDetails.detailedExitCode(
+                  "executor completion interrupted", Code.EXECUTOR_COMPLETION));
       Thread.currentThread().interrupt();
     }
 

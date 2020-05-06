@@ -17,14 +17,14 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Info object about outputs of a Java rule. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "java_output_jars",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "Information about outputs of a Java rule.")
 public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?>>
     extends StarlarkValue {

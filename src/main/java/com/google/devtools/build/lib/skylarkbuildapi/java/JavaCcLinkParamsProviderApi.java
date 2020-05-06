@@ -20,21 +20,21 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A target that provides C++ libraries to be linked into Java targets. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "JavaCcLinkParamsInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "Information about the c++ libraries to be linked into Java targets.",
     documented = true,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface JavaCcLinkParamsProviderApi<
         FileT extends FileApi, CcInfoApiT extends CcInfoApi<FileT>>
     extends StarlarkValue {
@@ -51,7 +51,7 @@ public interface JavaCcLinkParamsProviderApi<
   CcInfoApiT getCcInfo();
 
   /** The provider implementing this can construct the JavaCcLinkParamsInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

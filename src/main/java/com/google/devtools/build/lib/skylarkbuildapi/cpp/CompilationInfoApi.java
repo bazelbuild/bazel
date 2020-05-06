@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a helper class containing CC compilation providers. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "compilation_info",
     documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "Helper class containing CC compilation providers.")
 public interface CompilationInfoApi<FileT extends FileApi> extends StarlarkValue {
   @SkylarkCallable(name = "cc_compilation_outputs", structField = true, documented = false)

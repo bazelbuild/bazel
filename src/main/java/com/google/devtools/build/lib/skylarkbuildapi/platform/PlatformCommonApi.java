@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Module containing functions to interact with the platform APIs. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "platform_common",
     doc = "Functions for Starlark to interact with the platform APIs.")
 public interface PlatformCommonApi extends StarlarkValue {

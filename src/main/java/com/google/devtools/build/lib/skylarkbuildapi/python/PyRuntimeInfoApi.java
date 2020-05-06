@@ -20,15 +20,15 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /** Provider instance for {@code py_runtime}. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "PyRuntimeInfo",
     doc =
         "Contains information about a Python runtime, as returned by the <code>py_runtime</code>"
@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
             + "interpreter. In both cases, an \"interpreter\" is really any executable binary or "
             + "wrapper script that is capable of running a Python script passed on the command "
             + "line, following the same conventions as the standard CPython interpreter.",
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
@@ -87,7 +87,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   String getPythonVersionForStarlark();
 
   /** Provider type for {@link PyRuntimeInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface PyRuntimeInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(

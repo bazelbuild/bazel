@@ -18,9 +18,9 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
-import com.google.devtools.build.docgen.starlark.StarlarkModuleDoc;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -62,15 +62,15 @@ public class StarlarkDocumentationTest {
   private void checkSkylarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
       throws Exception {
     Map<String, String> docMap = new HashMap<>();
-    Map<String, StarlarkModuleDoc> modules =
+    Map<String, StarlarkBuiltinDoc> modules =
         StarlarkDocumentationCollector.collectModules(
             Classpath.findClasses(StarlarkDocumentationProcessor.MODULES_PACKAGE_PREFIX));
-    StarlarkModuleDoc topLevel =
+    StarlarkBuiltinDoc topLevel =
         modules.remove(StarlarkDocumentationCollector.getTopLevelModule().name());
     for (StarlarkMethodDoc method : topLevel.getMethods()) {
       docMap.put(method.getName(), method.getDocumentation());
     }
-    for (Map.Entry<String, StarlarkModuleDoc> entry : modules.entrySet()) {
+    for (Map.Entry<String, StarlarkBuiltinDoc> entry : modules.entrySet()) {
       docMap.put(entry.getKey(), entry.getValue().getDocumentation());
     }
 
@@ -105,7 +105,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** MockClassA */
-  @SkylarkModule(name = "MockClassA", doc = "MockClassA")
+  @StarlarkBuiltin(name = "MockClassA", doc = "MockClassA")
   private static class MockClassA implements StarlarkValue {
     @SkylarkCallable(name = "get", doc = "MockClassA#get")
     public Integer get() {
@@ -114,7 +114,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** MockClassD */
-  @SkylarkModule(name = "MockClassD", doc = "MockClassD")
+  @StarlarkBuiltin(name = "MockClassD", doc = "MockClassD")
   private static class MockClassD implements StarlarkValue {
     @SkylarkCallable(
       name = "test",
@@ -132,7 +132,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** MockClassE */
-  @SkylarkModule(name = "MockClassE", doc = "MockClassE")
+  @StarlarkBuiltin(name = "MockClassE", doc = "MockClassE")
   private static class MockClassE extends MockClassA {
     @Override
     public Integer get() {
@@ -141,7 +141,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** MockClassF */
-  @SkylarkModule(name = "MockClassF", doc = "MockClassF")
+  @StarlarkBuiltin(name = "MockClassF", doc = "MockClassF")
   private static class MockClassF implements StarlarkValue {
     @SkylarkCallable(
         name = "test",
@@ -159,7 +159,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** MockClassG */
-  @SkylarkModule(name = "MockClassG", doc = "MockClassG")
+  @StarlarkBuiltin(name = "MockClassG", doc = "MockClassG")
   private static class MockClassG implements StarlarkValue {
     @SkylarkCallable(
         name = "test",
@@ -177,7 +177,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** MockClassH */
-  @SkylarkModule(name = "MockClassH", doc = "MockClassH")
+  @StarlarkBuiltin(name = "MockClassH", doc = "MockClassH")
   private static class MockClassH implements StarlarkValue {
     @SkylarkCallable(
         name = "test",
@@ -220,7 +220,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** MockClassWithContainerReturnValues */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "MockClassWithContainerReturnValues",
       doc = "MockClassWithContainerReturnValues")
   private static class MockClassWithContainerReturnValues implements StarlarkValue {
@@ -252,7 +252,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** MockClassCommonNameOne */
-  @SkylarkModule(name = "MockClassCommonName", doc = "MockClassCommonName")
+  @StarlarkBuiltin(name = "MockClassCommonName", doc = "MockClassCommonName")
   private static class MockClassCommonNameOne implements StarlarkValue {
 
     @SkylarkCallable(name = "one", doc = "one")
@@ -262,8 +262,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** SubclassOfMockClassCommonNameOne */
-  @SkylarkModule(name = "MockClassCommonName",
-      doc = "MockClassCommonName")
+  @StarlarkBuiltin(name = "MockClassCommonName", doc = "MockClassCommonName")
   private static class SubclassOfMockClassCommonNameOne extends MockClassCommonNameOne {
 
     @SkylarkCallable(name = "two", doc = "two")
@@ -273,7 +272,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** PointsToCommonNameOneWithSubclass */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "PointsToCommonNameOneWithSubclass",
       doc = "PointsToCommonNameOneWithSubclass")
   private static class PointsToCommonNameOneWithSubclass implements StarlarkValue {
@@ -289,7 +288,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** MockClassCommonNameOneUndocumented */
-  @SkylarkModule(name = "MockClassCommonName", documented = false, doc = "")
+  @StarlarkBuiltin(name = "MockClassCommonName", documented = false, doc = "")
   private static class MockClassCommonNameUndocumented implements StarlarkValue {
 
     @SkylarkCallable(name = "two", doc = "two")
@@ -299,7 +298,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** PointsToCommonNameAndUndocumentedModule */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "PointsToCommonNameAndUndocumentedModule",
       doc = "PointsToCommonNameAndUndocumentedModule")
   private static class PointsToCommonNameAndUndocumentedModule implements StarlarkValue {
@@ -315,7 +314,7 @@ public class StarlarkDocumentationTest {
   }
 
   /** A module which has a selfCall method which constructs copies of MockClassA. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "MockClassWithSelfCallConstructor",
       doc = "MockClassWithSelfCallConstructor")
   private static class MockClassWithSelfCallConstructor implements StarlarkValue {
@@ -333,8 +332,8 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testSkylarkCallableParameters() throws Exception {
-    Map<String, StarlarkModuleDoc> objects = collect(MockClassD.class);
-    StarlarkModuleDoc moduleDoc = objects.get("MockClassD");
+    Map<String, StarlarkBuiltinDoc> objects = collect(MockClassD.class);
+    StarlarkBuiltinDoc moduleDoc = objects.get("MockClassD");
     assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassD");
     assertThat(moduleDoc.getMethods()).hasSize(1);
     StarlarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
@@ -347,8 +346,8 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testSkylarkCallableParametersAndArgs() throws Exception {
-    Map<String, StarlarkModuleDoc> objects = collect(MockClassF.class);
-    StarlarkModuleDoc moduleDoc = objects.get("MockClassF");
+    Map<String, StarlarkBuiltinDoc> objects = collect(MockClassF.class);
+    StarlarkBuiltinDoc moduleDoc = objects.get("MockClassF");
     assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassF");
     assertThat(moduleDoc.getMethods()).hasSize(1);
     StarlarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
@@ -362,8 +361,8 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testSkylarkCallableParametersAndKwargs() throws Exception {
-    Map<String, StarlarkModuleDoc> objects = collect(MockClassG.class);
-    StarlarkModuleDoc moduleDoc = objects.get("MockClassG");
+    Map<String, StarlarkBuiltinDoc> objects = collect(MockClassG.class);
+    StarlarkBuiltinDoc moduleDoc = objects.get("MockClassG");
     assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassG");
     assertThat(moduleDoc.getMethods()).hasSize(1);
     StarlarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
@@ -377,8 +376,8 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testSkylarkCallableParametersAndArgsAndKwargs() throws Exception {
-    Map<String, StarlarkModuleDoc> objects = collect(MockClassH.class);
-    StarlarkModuleDoc moduleDoc = objects.get("MockClassH");
+    Map<String, StarlarkBuiltinDoc> objects = collect(MockClassH.class);
+    StarlarkBuiltinDoc moduleDoc = objects.get("MockClassH");
     assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassH");
     assertThat(moduleDoc.getMethods()).hasSize(1);
     StarlarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
@@ -392,10 +391,10 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testSkylarkGlobalLibraryCallable() throws Exception {
-    Map<String, StarlarkModuleDoc> modules =
+    Map<String, StarlarkBuiltinDoc> modules =
         StarlarkDocumentationCollector.collectModules(
             Classpath.findClasses(StarlarkDocumentationProcessor.MODULES_PACKAGE_PREFIX));
-    StarlarkModuleDoc topLevel =
+    StarlarkBuiltinDoc topLevel =
         modules.remove(StarlarkDocumentationCollector.getTopLevelModule().name());
 
     boolean foundGlobalLibrary = false;
@@ -416,9 +415,9 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testSkylarkCallableOverriding() throws Exception {
-    Map<String, StarlarkModuleDoc> objects =
+    Map<String, StarlarkBuiltinDoc> objects =
         collect(ImmutableList.of(MockClassA.class, MockClassE.class));
-    StarlarkModuleDoc moduleDoc = objects.get("MockClassE");
+    StarlarkBuiltinDoc moduleDoc = objects.get("MockClassE");
     assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassE");
     assertThat(moduleDoc.getMethods()).hasSize(1);
     StarlarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
@@ -429,7 +428,7 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testSkylarkContainerReturnTypesWithoutAnnotations() throws Exception {
-    Map<String, StarlarkModuleDoc> objects = collect(MockClassWithContainerReturnValues.class);
+    Map<String, StarlarkBuiltinDoc> objects = collect(MockClassWithContainerReturnValues.class);
     assertThat(objects).containsKey("MockClassWithContainerReturnValues");
     Collection<StarlarkMethodDoc> methods =
         objects.get("MockClassWithContainerReturnValues").getMethods();
@@ -461,7 +460,7 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testDocumentedModuleTakesPrecedence() throws Exception {
-    Map<String, StarlarkModuleDoc> objects =
+    Map<String, StarlarkBuiltinDoc> objects =
         collect(
             ImmutableList.of(
                 PointsToCommonNameAndUndocumentedModule.class,
@@ -475,7 +474,7 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testDocumentModuleSubclass() {
-    Map<String, StarlarkModuleDoc> objects =
+    Map<String, StarlarkBuiltinDoc> objects =
         collect(
             ImmutableList.of(
                 PointsToCommonNameOneWithSubclass.class,
@@ -489,7 +488,7 @@ public class StarlarkDocumentationTest {
 
   @Test
   public void testDocumentSelfcallConstructor() {
-    Map<String, StarlarkModuleDoc> objects =
+    Map<String, StarlarkBuiltinDoc> objects =
         collect(ImmutableList.of(MockClassA.class, MockClassWithSelfCallConstructor.class));
     Collection<StarlarkMethodDoc> methods = objects.get("MockClassA").getMethods();
     StarlarkMethodDoc firstMethod = methods.iterator().next();
@@ -499,11 +498,11 @@ public class StarlarkDocumentationTest {
     assertThat(methodNames).containsExactly("MockClassA", "get");
   }
 
-  private Map<String, StarlarkModuleDoc> collect(Iterable<Class<?>> classObjects) {
+  private Map<String, StarlarkBuiltinDoc> collect(Iterable<Class<?>> classObjects) {
     return StarlarkDocumentationCollector.collectModules(classObjects);
   }
 
-  private Map<String, StarlarkModuleDoc> collect(Class<?> classObject) {
+  private Map<String, StarlarkBuiltinDoc> collect(Class<?> classObject) {
     return collect(ImmutableList.of(classObject));
   }
 }

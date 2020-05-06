@@ -18,24 +18,24 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Info object representing data about a specific toolchain. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ToolchainInfo",
     doc =
         "Provider which allows rule-specific toolchains to communicate data back to the actual"
             + " rule implementation. Read more about <a"
             + " href='../../toolchains.$DOC_EXT'>toolchains</a> for more information.",
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface ToolchainInfoApi extends StructApi {
 
   /** Provider for {@link ToolchainInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider extends ProviderApi {
 
     @SkylarkCallable(

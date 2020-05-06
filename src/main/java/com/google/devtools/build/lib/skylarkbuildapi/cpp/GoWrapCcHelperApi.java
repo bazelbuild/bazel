@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInf
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -38,11 +38,11 @@ import com.google.devtools.build.lib.syntax.Tuple;
  * TODO(b/113797843): Remove class once all the bits and pieces specific to Go can be implemented in
  * Starlark.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "go_wrap_cc_helper_do_not_use",
     documented = false,
     doc = "",
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE)
+    category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE)
 public interface GoWrapCcHelperApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,

@@ -45,6 +45,10 @@ flags.mark_flag_as_required("input_aar")
 flags.DEFINE_string("output_res_dir", None, "Output resources directory")
 flags.mark_flag_as_required("output_res_dir")
 flags.DEFINE_string("output_assets_dir", None, "Output assets directory")
+flags.DEFINE_string("output_databinding_br_dir", None,
+                    "Output directory for databinding br files")
+flags.DEFINE_string("output_databinding_setter_store_dir", None,
+                    "Output directory for databinding setter_store.json files")
 
 
 def ExtractResources(aar, output_res_dir):
@@ -77,6 +81,14 @@ def ExtractAssets(aar, output_assets_dir):
         six.ensure_str(output_assets_dir) +
         "/assets/empty_asset_generated_by_bazel~")
     WriteFileWithJunctions(empty_asset_filename, b"")
+
+
+def ExtractDatabinding(aar, file_suffix, output_databinding_dir):
+  """Extracts databinding metadata files from an `aar`."""
+  output_databinding_dir_abs = os.path.abspath(output_databinding_dir)
+  for name in aar.namelist():
+    if name.startswith("data-binding/") and name.endswith(file_suffix):
+      ExtractOneFile(aar, name, output_databinding_dir_abs)
 
 
 def WriteFileWithJunctions(filename, content):
@@ -132,6 +144,12 @@ def main(unused_argv):
     ExtractResources(aar, FLAGS.output_res_dir)
     if FLAGS.output_assets_dir is not None:
       ExtractAssets(aar, FLAGS.output_assets_dir)
+    if FLAGS.output_databinding_br_dir is not None:
+      ExtractDatabinding(aar, "br.bin", FLAGS.output_databinding_br_dir)
+    if FLAGS.output_databinding_setter_store_dir is not None:
+      ExtractDatabinding(aar, "setter_store.json",
+                         FLAGS.output_databinding_setter_store_dir)
+
 
 if __name__ == "__main__":
   FLAGS(sys.argv)

@@ -421,10 +421,10 @@ public final class AspectDefinition {
      * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method takes the
      * Starlark module names of fragments instead of their classes.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+    public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
         Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy
-          .requiresConfigurationFragmentsBySkylarkModuleName(configurationFragmentNames);
+      configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
+          configurationFragmentNames);
       return this;
     }
 
@@ -440,10 +440,10 @@ public final class AspectDefinition {
      * configurations other than their own. If you want to declare host config fragments, see {@link
      * com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+    public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
-          configurationFragmentNames);
+      configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
+          transition, configurationFragmentNames);
       return this;
     }
 

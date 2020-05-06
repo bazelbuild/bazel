@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -122,8 +123,9 @@ public abstract class ActionOwner {
    * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution
    * platform is {@code null}, then the host platform is assumed.
    */
+  @VisibleForTesting
   @Nullable
-  abstract PlatformInfo getExecutionPlatform();
+  public abstract PlatformInfo getExecutionPlatform();
 
   ActionOwner() {}
 }

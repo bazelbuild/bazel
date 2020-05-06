@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -46,7 +46,7 @@ public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
   public static final BuiltinProvider<BootClassPathInfo> PROVIDER = new Provider();
 
   /** Provider class for {@link BootClassPathInfo} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   public static class Provider extends BuiltinProvider<BootClassPathInfo> implements ProviderApi {
     private Provider() {
       super(SKYLARK_NAME, BootClassPathInfo.class);

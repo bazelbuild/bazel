@@ -19,11 +19,11 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Supplies a resource apk file (".ap_") and related info. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidApplicationResourceInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -88,7 +88,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
   FileT getMainDexProguardConfig();
 
   /** Provider for {@link AndroidApplicationResourceInfoApi}. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

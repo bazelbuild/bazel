@@ -257,6 +257,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRunShellCommandString();
 
+  public abstract boolean incompatibleStringReplaceCount();
+
   public abstract boolean incompatibleVisibilityPrivateAttributesAtDefinition();
 
   public abstract boolean internalSkylarkFlagTestCanary();
@@ -343,6 +345,7 @@ public abstract class StarlarkSemantics {
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleRunShellCommandString(false)
+          .incompatibleStringReplaceCount(false)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
@@ -421,6 +424,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
     public abstract Builder incompatibleRunShellCommandString(boolean value);
+
+    public abstract Builder incompatibleStringReplaceCount(boolean value);
 
     public abstract Builder incompatibleVisibilityPrivateAttributesAtDefinition(boolean value);
 

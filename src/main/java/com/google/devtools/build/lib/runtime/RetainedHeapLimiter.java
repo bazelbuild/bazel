@@ -20,7 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
@@ -70,9 +73,20 @@ class RetainedHeapLimiter implements NotificationListener {
   void updateThreshold(int occupiedHeapPercentageThreshold) throws AbruptExitException {
     if (occupiedHeapPercentageThreshold < 0 || occupiedHeapPercentageThreshold > 100) {
       throw new AbruptExitException(
-          "--experimental_oom_more_eagerly_threshold must be a percent between 0 and 100 but was "
-              + occupiedHeapPercentageThreshold,
-          ExitCode.COMMAND_LINE_ERROR);
+          DetailedExitCode.of(
+              ExitCode.COMMAND_LINE_ERROR,
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "--experimental_oom_more_eagerly_threshold must be a percent between "
+                          + "0 and 100 but was "
+                          + occupiedHeapPercentageThreshold)
+                  .setMemoryOptions(
+                      FailureDetails.MemoryOptions.newBuilder()
+                          .setCode(
+                              FailureDetails.MemoryOptions.Code
+                                  .EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE)
+                          .build())
+                  .build()));
     }
     boolean alreadyInstalled = this.occupiedHeapPercentageThreshold.isPresent();
     this.occupiedHeapPercentageThreshold =

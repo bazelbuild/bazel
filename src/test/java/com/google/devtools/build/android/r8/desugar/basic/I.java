@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.r8.desugar.basic;
 
-interface I {
+/** Test class */
+public interface I {
   default void foo() {
     System.out.println("I::foo");
   }

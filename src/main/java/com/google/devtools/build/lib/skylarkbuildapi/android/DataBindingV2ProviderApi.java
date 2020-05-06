@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * An interface for a provider that exposes the use of <a
  * href="https://developer.android.com/topic/libraries/data-binding/index.html">data binding</a>.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "DataBindingV2Info",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -44,7 +44,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
    * rules. This is for reporting a useful error message if multiple android_library rules with the
    * same Java package end up in the same android_binary.
    */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "LabelJavaPackagePair",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
@@ -119,7 +119,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
   ImmutableList<LabelJavaPackagePair> getLabelAndJavaPackages();
 
   /** The provider implementing this can construct the DataBindingV2Info provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Represents a collection of configuration fragments in Starlark. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "fragments",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "Possible fields are "
             + "<a href=\"android.html\">android</a>, <a href=\"apple.html\">apple</a>, "

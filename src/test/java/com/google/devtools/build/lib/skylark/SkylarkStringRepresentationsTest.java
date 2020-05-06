@@ -17,8 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -28,7 +27,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for string representations of Starlark objects. */
 @RunWith(JUnit4.class)
-public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
+public class SkylarkStringRepresentationsTest extends BuildViewTestCase {
 
   // Different ways to format objects, these suffixes are used in the `prepare_params` function
   private static final ImmutableList<String> SUFFIXES =
@@ -375,19 +374,5 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
       assertThat(target.get("aspect_target" + suffix))
           .isEqualTo("<merged target //test/skylark:bar>");
     }
-  }
-
-  private static class Dummy implements StarlarkValue {}
-
-  @Test
-  public void testStringRepresentationsOfArbitraryObjects() throws Exception {
-    update("dummy", new Dummy());
-
-    String dummy = "com.google.devtools.build.lib.skylark.SkylarkStringRepresentationsTest$Dummy";
-    assertThat(eval("str(dummy)")).isEqualTo("<unknown object " + dummy + ">");
-    assertThat(eval("repr(dummy)")).isEqualTo("<unknown object " + dummy + ">");
-    assertThat(eval("'{}'.format(dummy)")).isEqualTo("<unknown object " + dummy + ">");
-    assertThat(eval("'%s' % dummy")).isEqualTo("<unknown object " + dummy + ">");
-    assertThat(eval("'%r' % dummy")).isEqualTo("<unknown object " + dummy + ">");
   }
 }

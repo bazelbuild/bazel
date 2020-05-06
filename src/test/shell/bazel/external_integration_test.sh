@@ -623,6 +623,10 @@ EOF
   bazel fetch //zoo:ball-pit >& $TEST_log || fail "Fetch failed"
   [[ $(ls $external_dir | grep $needle) ]] || fail "$needle not added to $external_dir"
 
+  bazel query --output=build --nohost_deps --noimplicit_deps 'deps(//zoo:ball-pit)' >& $TEST_log \
+    || fail "bazel query failed"
+  expect_log "maven_coordinates=com.example.carnivore:carnivore:1.23"
+
   # Rerun fetch while nc isn't serving anything to make sure the fetched result
   # is cached.
   bazel fetch //zoo:ball-pit >& $TEST_log || fail "Incremental fetch failed"

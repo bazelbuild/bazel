@@ -17,17 +17,17 @@ package com.google.devtools.build.lib.skylarkbuildapi.core;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for the "struct" object in the build API. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "struct",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A generic object with fields."
             + "<p>Structs fields cannot be reassigned once the struct is created. Two structs are "
@@ -86,7 +86,7 @@ public interface StructApi extends StarlarkValue {
   String toJson() throws EvalException;
 
   /** Callable Provider for new struct objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface StructProviderApi extends ProviderApi {
 
     @SkylarkCallable(

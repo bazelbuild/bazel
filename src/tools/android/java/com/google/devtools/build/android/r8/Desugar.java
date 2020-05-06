@@ -16,9 +16,13 @@ package com.google.devtools.build.android.r8;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
-import com.android.tools.r8.OutputMode;
+import com.android.tools.r8.Diagnostic;
+import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.desugar.DependencyCollector;
+import com.google.devtools.build.android.r8.desugar.OutputConsumer;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -32,6 +36,9 @@ import java.util.List;
 
 /** Desugar compatible wrapper based on D8 desugaring engine */
 public class Desugar {
+
+  public static final String DESUGAR_DEPS_FILENAME = "META-INF/desugar_deps";
+
   /** Commandline options for {@link com.google.devtools.build.android.r8.Desugar}. */
   public static class DesugarOptions extends OptionsBase {
 
@@ -325,6 +332,12 @@ public class Desugar {
     public boolean persistentWorker;
   }
 
+  private final DesugarOptions options;
+
+  private Desugar(DesugarOptions options) {
+    this.options = options;
+  }
+
   private static DesugarOptions parseCommandLineOptions(String[] args) {
     OptionsParser parser =
         OptionsParser.builder()
@@ -338,13 +351,65 @@ public class Desugar {
     return options;
   }
 
-  private static void desugar(DesugarOptions options) throws CompilationFailedException {
+  /**
+   * Returns a dependency collector for use with a single input Jar. If {@link
+   * DesugarOptions#emitDependencyMetadata} is set, this method instantiates the collector
+   * reflectively to allow compiling and using the desugar tool without this mechanism.
+   */
+  private DependencyCollector createDependencyCollector() {
+    if (options.emitDependencyMetadata) {
+      try {
+        return (DependencyCollector)
+            Thread.currentThread()
+                .getContextClassLoader()
+                .loadClass(
+                    "com.google.devtools.build.android.desugar.dependencies.MetadataCollector")
+                .getConstructor(Boolean.TYPE)
+                .newInstance(options.tolerateMissingDependencies);
+      } catch (ReflectiveOperationException | SecurityException e) {
+        throw new IllegalStateException("Can't emit desugaring metadata as requested", e);
+      }
+    } else if (options.tolerateMissingDependencies) {
+      return DependencyCollector.NoWriteCollectors.NOOP;
+    } else {
+      return DependencyCollector.NoWriteCollectors.FAIL_ON_MISSING;
+    }
+  }
+
+  private class DesugarDiagnosticsHandler implements DiagnosticsHandler {
+
+    OutputConsumer outputConsumer;
+
+    private DesugarDiagnosticsHandler(OutputConsumer outputConsumer) {
+      this.outputConsumer = outputConsumer;
+    }
+
+    @Override
+    public void warning(Diagnostic warning) {
+      if (warning instanceof InterfaceDesugarMissingTypeDiagnostic) {
+        InterfaceDesugarMissingTypeDiagnostic missingTypeDiagnostic =
+            (InterfaceDesugarMissingTypeDiagnostic) warning;
+        outputConsumer.missingImplementedInterface(
+            DescriptorUtils.descriptorToBinaryName(
+                missingTypeDiagnostic.getContextType().getDescriptor()),
+            DescriptorUtils.descriptorToBinaryName(
+                missingTypeDiagnostic.getMissingType().getDescriptor()));
+      }
+      DiagnosticsHandler.super.warning(warning);
+    }
+  }
+
+  private void desugar() throws CompilationFailedException {
+
+    DependencyCollector dependencyCollector = createDependencyCollector();
+    OutputConsumer consumer = new OutputConsumer(options.outputJars.get(0), dependencyCollector);
     D8.run(
-        D8Command.builder()
+        D8Command.builder(new DesugarDiagnosticsHandler(consumer))
             .addLibraryFiles(options.bootclasspath)
+            .addClasspathFiles(options.classpath)
             .addProgramFiles(options.inputJars)
             .setMinApiLevel(options.minSdkVersion)
-            .setOutput(options.outputJars.get(0), OutputMode.ClassFile)
+            .setProgramConsumer(consumer)
             .build());
   }
 
@@ -357,9 +422,6 @@ public class Desugar {
     }
     if (options.alwaysRewriteLongCompare) {
       throw new AssertionError("--rewrite_calls_to_long_compare has no effect");
-    }
-    if (options.emitDependencyMetadata) {
-      throw new AssertionError("--emit_dependency_metadata_as_needed is not supported");
     }
     if (!options.tolerateMissingDependencies) {
       throw new AssertionError("--best_effort_tolerate_missing_deps must be enabled");
@@ -419,8 +481,6 @@ public class Desugar {
     DesugarOptions options = parseCommandLineOptions(args);
     validateOptions(options);
 
-    desugar(options);
+    new Desugar(options).desugar();
   }
-
-  private Desugar() {}
 }

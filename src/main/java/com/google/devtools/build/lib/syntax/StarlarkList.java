@@ -18,17 +18,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
 /** A StarlarkList is a mutable finite sequence of values. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "list",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "The built-in list type. Example list expressions:<br>"
             + "<pre class=language-python>x = [1, 2, 3]</pre>"

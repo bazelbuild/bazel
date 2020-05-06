@@ -18,17 +18,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 
-/**
- * A provider that holds debug outputs of an apple_binary target.
- */
-@SkylarkModule(
+/** A provider that holds debug outputs of an apple_binary target. */
+@StarlarkBuiltin(
     name = "AppleDebugOutputs",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider that holds debug outputs of an apple_binary target."
-)
+    category = StarlarkDocumentationCategory.PROVIDER,
+    doc = "A provider that holds debug outputs of an apple_binary target.")
 public interface AppleDebugOutputsApi<FileT extends FileApi> extends StructApi {
 
   @SkylarkCallable(

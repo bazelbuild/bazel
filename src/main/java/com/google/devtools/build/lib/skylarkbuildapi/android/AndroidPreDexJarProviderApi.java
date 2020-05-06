@@ -20,19 +20,19 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A provider of the final Jar to be dexed for targets that build APKs. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidPreDexJarInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "Information about the final Jar to be dexed for targets that build APKs.",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends StructApi {
   /** Name of this info object. */
   String NAME = "AndroidPreDexJarInfo";
@@ -42,7 +42,7 @@ public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends Stru
   FileT getPreDexJar();
 
   /** The provider implementing this can construct the AndroidPreDexJarInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

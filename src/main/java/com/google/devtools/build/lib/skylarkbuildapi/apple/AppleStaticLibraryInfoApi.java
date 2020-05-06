@@ -20,20 +20,20 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
  * Interface for an info type containing information regarding multi-architecture Apple static
  * libraries.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AppleStaticLibrary",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider containing information regarding multi-architecture Apple static libraries, "
-        + "as is propagated by the apple_static_library rule."
-)
+    category = StarlarkDocumentationCategory.PROVIDER,
+    doc =
+        "A provider containing information regarding multi-architecture Apple static libraries, "
+            + "as is propagated by the apple_static_library rule.")
 public interface AppleStaticLibraryInfoApi extends StructApi {
 
   /** Starlark name for this interface. */

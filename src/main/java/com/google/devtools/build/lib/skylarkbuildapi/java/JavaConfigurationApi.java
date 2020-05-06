@@ -17,15 +17,15 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A java compiler configuration. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "java",
     doc = "A java compiler configuration.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
 public interface JavaConfigurationApi extends StarlarkValue {
 
   @SkylarkCallable(

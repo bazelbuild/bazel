@@ -95,27 +95,6 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
     return diagnostic.getMessage(locale);
   }
 
-  /** Returns true if the diagnostic might be caused by the reduced classpath optimizaiton. */
-  public boolean maybeReducedClasspathError() {
-    String code = getCode();
-    if (code.contains("doesnt.exist")
-        || code.contains("cant.resolve")
-        || code.contains("cant.access")) {
-      return true;
-    }
-    // handle -Xdoclint:reference errors, which don't have a diagnostic code
-    // TODO(cushon): this is locale-dependent
-    if (getFormatted().contains("error: reference not found")) {
-      return true;
-    }
-    // Error Prone wraps completion failures
-    if (code.equals("compiler.err.error.prone.crash")
-        && getFormatted().contains("com.sun.tools.javac.code.Symbol$CompletionFailure")) {
-      return true;
-    }
-    return false;
-  }
-
   /** A {@link DiagnosticListener<JavaFileObject>} that saves {@link FormattedDiagnostic}s. */
   @Trusted
   static class Listener implements DiagnosticListener<JavaFileObject> {
@@ -137,7 +116,7 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
       String formatted = formatter.format((JCDiagnostic) diagnostic, locale);
       FormattedDiagnostic formattedDiagnostic = new FormattedDiagnostic(diagnostic, formatted);
       diagnostics.add(formattedDiagnostic);
-      if (failFast && formattedDiagnostic.maybeReducedClasspathError()) {
+      if (failFast) {
         throw new FailFastException();
       }
     }

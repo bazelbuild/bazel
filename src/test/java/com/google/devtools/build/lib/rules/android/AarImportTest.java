@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.stream.Collectors.toList;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
@@ -190,6 +192,29 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDatabindingInfoProvided() throws Exception {
+    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
+
+    DataBindingV2Provider provider = aarImportTarget.get(DataBindingV2Provider.PROVIDER);
+
+    Artifact setterStore = Iterables.getOnlyElement(provider.getSetterStores());
+    assertThat(setterStore.isTreeArtifact()).isTrue();
+    assertThat(setterStore.getExecPathString())
+        .endsWith("_aar/unzipped/data-binding-setter_store/last");
+
+    assertThat(
+            provider.getTransitiveBRFiles().toList().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(toList()))
+        .containsExactly(
+            "a/_aar/unzipped/data-binding-br/baz",
+            "a/_aar/unzipped/data-binding-br/foo",
+            "a/_aar/unzipped/data-binding-br/bar",
+            "a/_aar/unzipped/data-binding-br/intermediate",
+            "a/_aar/unzipped/data-binding-br/last");
+  }
+
+  @Test
   public void testSourceJarsProvided() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
@@ -249,6 +274,12 @@ public class AarImportTest extends BuildViewTestCase {
             .get(0);
     Artifact assetsTreeArtifact = assets.getAssets().get(0);
 
+    DataBindingV2Provider dataBindingV2Provider =
+        getConfiguredTarget("//a:foo").get(DataBindingV2Provider.PROVIDER);
+    Artifact databindingBrTreeArtifact =
+        dataBindingV2Provider.getTransitiveBRFiles().toList().get(0);
+    Artifact databindingSetterStoreTreeArtifact = dataBindingV2Provider.getSetterStores().get(0);
+
     assertThat(getGeneratingSpawnAction(resourceTreeArtifact).getArguments())
         .containsExactly(
             aarResourcesExtractor.getExecPathString(),
@@ -257,7 +288,11 @@ public class AarImportTest extends BuildViewTestCase {
             "--output_res_dir",
             resourceTreeArtifact.getExecPathString(),
             "--output_assets_dir",
-            assetsTreeArtifact.getExecPathString());
+            assetsTreeArtifact.getExecPathString(),
+            "--output_databinding_br_dir",
+            databindingBrTreeArtifact.getExecPathString(),
+            "--output_databinding_setter_store_dir",
+            databindingSetterStoreTreeArtifact.getExecPathString());
   }
 
   @Test

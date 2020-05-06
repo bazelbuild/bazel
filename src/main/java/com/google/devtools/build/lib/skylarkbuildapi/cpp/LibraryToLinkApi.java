@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  * A library the user can link to. This is different from a simple linker input in that it also has
  * a library identifier.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "LibraryToLink",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "A library the user can link against.")
 public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
   @SkylarkCallable(

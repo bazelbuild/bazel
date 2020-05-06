@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 public class BazelBuildApiGlobals implements SkylarkBuildApiGlobals {
 
   @Override
-  public SkylarkLateBoundDefault<?> configurationField(
+  public StarlarkLateBoundDefault<?> configurationField(
       String fragment, String name, StarlarkThread thread) throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
     Class<?> fragmentClass = bazelContext.getFragmentNameToClass().get(fragment);
@@ -35,9 +35,9 @@ public class BazelBuildApiGlobals implements SkylarkBuildApiGlobals {
       throw Starlark.errorf("invalid configuration fragment name '%s'", fragment);
     }
     try {
-      return SkylarkLateBoundDefault.forConfigurationField(
+      return StarlarkLateBoundDefault.forConfigurationField(
           fragmentClass, name, bazelContext.getToolsRepository());
-    } catch (SkylarkLateBoundDefault.InvalidConfigurationFieldException exception) {
+    } catch (StarlarkLateBoundDefault.InvalidConfigurationFieldException exception) {
       throw new EvalException(null, exception);
     }
   }

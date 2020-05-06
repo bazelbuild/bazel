@@ -450,13 +450,11 @@ public class AttributeFormatter {
    * An {@link AttributeValueBuilderAdapter} which writes to a {@link SelectorEntry.Builder}.
    *
    * <p>Note that there is no {@code encodeBooleanAndTriStateAsIntegerAndString} parameter needed
-   * here. This is because the clients that expect those alternate encodings of boolean and
-   * tristate attribute values do not support {@link SelectorList} values. When providing output to
-   * those clients, we compute the set of possible attribute values (expanding {@link SelectorList}
+   * here. This is because the clients that expect those alternate encodings of boolean and tristate
+   * attribute values do not support {@link SelectorList} values. When providing output to those
+   * clients, we compute the set of possible attribute values (expanding {@link SelectorList}
    * values, evaluating computed defaults, and flattening collections of collections; see {@link
-   * com.google.devtools.build.lib.packages.AggregatingAttributeMapper#getPossibleAttributeValues}
-   * and {@link
-   * com.google.devtools.build.lib.packages.AggregatingAttributeMapper#flattenAttributeValues}).
+   * com.google.devtools.build.lib.packages.AggregatingAttributeMapper#visitAttribute}).
    */
   private static class SelectorEntryBuilderAdapter implements AttributeValueBuilderAdapter {
     private final SelectorEntry.Builder selectorEntryBuilder;

@@ -20,27 +20,27 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A provider that gives general information about a target's direct and transitive files. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "DefaultInfo",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider that gives general information about a target's direct and transitive files. "
-        + "Every rule type has this provider, even if it is not returned explicitly by the "
-        + "rule's implementation function."
-        + "Each <code>DefaultInfo</code> instance has the following fields: "
-        + "<ul>"
-        + "<li><code>files</code>"
-        + "<li><code>files_to_run</code>"
-        + "<li><code>data_runfiles</code>"
-        + "<li><code>default_runfiles</code>"
-        + "</ul>"
-        + "See the <a href='../rules.$DOC_EXT'>rules</a> page for more information."
-)
+    category = StarlarkDocumentationCategory.PROVIDER,
+    doc =
+        "A provider that gives general information about a target's direct and transitive files. "
+            + "Every rule type has this provider, even if it is not returned explicitly by the "
+            + "rule's implementation function."
+            + "Each <code>DefaultInfo</code> instance has the following fields: "
+            + "<ul>"
+            + "<li><code>files</code>"
+            + "<li><code>files_to_run</code>"
+            + "<li><code>data_runfiles</code>"
+            + "<li><code>default_runfiles</code>"
+            + "</ul>"
+            + "See the <a href='../rules.$DOC_EXT'>rules</a> page for more information.")
 public interface DefaultInfoApi extends StructApi {
 
   @SkylarkCallable(
@@ -83,7 +83,7 @@ public interface DefaultInfoApi extends StructApi {
   RunfilesApi getDefaultRunfiles();
 
   /** Provider for {@link DefaultInfoApi}. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface DefaultInfoApiProvider<RunfilesT extends RunfilesApi, FileT extends FileApi>
       extends ProviderApi {
 

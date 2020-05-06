@@ -16,18 +16,15 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import javax.annotation.Nullable;
 
-/**
- * A provider containing information about a version of Xcode and its properties.
- */
-@SkylarkModule(
+/** A provider containing information about a version of Xcode and its properties. */
+@StarlarkBuiltin(
     name = "XcodeProperties",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider containing information about a version of Xcode and its properties."
-)
+    category = StarlarkDocumentationCategory.PROVIDER,
+    doc = "A provider containing information about a version of Xcode and its properties.")
 public interface XcodePropertiesApi extends StructApi {
 
   @SkylarkCallable(

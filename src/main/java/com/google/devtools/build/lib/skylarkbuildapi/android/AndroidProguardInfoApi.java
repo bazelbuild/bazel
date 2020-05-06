@@ -20,12 +20,12 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 
 /** A target that can provide local proguard specifications. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidProguardInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -43,7 +43,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
   ImmutableList<FileT> getLocalProguardSpecs();
 
   /** The provider implementing this can construct the AndroidProguardInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

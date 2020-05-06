@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 
@@ -28,9 +28,9 @@ import com.google.devtools.build.lib.syntax.EvalException;
  * An interface for an info type containing the set of Apple versions computed from command line
  * options and the {@code xcode_config} rule.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "XcodeVersionConfig",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "The set of Apple versions computed from command line options and the xcode_config rule.")
 public interface XcodeConfigInfoApi<
         ApplePlatformApiT extends ApplePlatformApi,
@@ -90,9 +90,9 @@ public interface XcodeConfigInfoApi<
   public Dict<String, String> getExecutionRequirementsDict();
 
   /** An interface for the provider of {@link XcodeConfigInfoApi}. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
-      category = SkylarkModuleCategory.PROVIDER,
+      category = StarlarkDocumentationCategory.PROVIDER,
       documented = false,
       doc = "")
   interface XcodeConfigProviderApi extends ProviderApi {

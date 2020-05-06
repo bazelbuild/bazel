@@ -21,15 +21,15 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 
 /** Wrapper for every C++ compilation and linking provider. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "CcInfo",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc =
         "A provider for compilation and linking of C++. This "
             + "is also a marking provider telling C++ rules that they can depend on the rule "
@@ -51,7 +51,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
   CcLinkingContextApi<?> getCcLinkingContext();
 
   /** The provider implementing this can construct CcInfo objects. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc = "",
       // This object is documented via the CcInfo documentation and the docuemntation of its

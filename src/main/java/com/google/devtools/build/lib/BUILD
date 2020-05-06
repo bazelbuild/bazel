@@ -151,51 +151,6 @@ java_library(
 
 # Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
-    name = "transitive-info-provider",
-    exports = ["//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider"],
-)
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
-    name = "build-base",
-    exports = [
-        ":runtime/blaze_server_startup_options",
-        ":runtime/build_event_streamer_utils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:legacy_exports",
-        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
-        "//src/main/java/com/google/devtools/build/lib/exec:legacy_exports",
-        "//src/main/java/com/google/devtools/build/lib/repository:legacy_exports",
-        "//src/main/java/com/google/devtools/build/lib/rules:legacy_exports",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:legacy_exports",
-    ],
-)
-
-# Rules
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
-    name = "core-rules",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/rules:core_rules",
-    ],
-)
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
-    name = "core-workspace-rules",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/rules:core_workspace_rules",
-    ],
-)
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
-    name = "testing-support-rules",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/rules:test_rules",
-    ],
-)
-
-java_library(
     name = "shared-base-rules",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/rules:nativedeps",
@@ -270,6 +225,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
@@ -453,6 +409,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:process",
         "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
@@ -614,45 +571,4 @@ genrule(
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],
-)
-
-########################################################################
-#
-# Miscellaneous targets
-#
-
-# A library for just the BuildInfo class, so it can be used by the external
-# SingleJar implementation.
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
-    name = "build-info",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:build_info",
-    ],
-)
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
-    name = "blaze-version-info",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
-    ],
-)
-
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
-    name = "rule-definition-context",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_context",
-    ],
-)
-
-# TODO(b/144899336): This belongs in skyframe/BUILD once it exists.
-# Deprecated: This target has been moved. Depend on the actual target instead.
-java_library(
-    name = "sane_analysis_exception",
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
-    ],
 )

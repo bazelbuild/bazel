@@ -17,15 +17,15 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /** A configuration fragment for Objective C. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "objc",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment for Objective-C.")
 public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
     extends StarlarkValue {

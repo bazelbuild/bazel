@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
 import org.junit.Before;
 
 /** Utility methods for setting up platform and toolchain related tests. */
-public abstract class ToolchainTestCase extends SkylarkTestCase {
+public abstract class ToolchainTestCase extends BuildViewTestCase {
 
   public PlatformInfo linuxPlatform;
   public PlatformInfo macPlatform;

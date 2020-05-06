@@ -53,8 +53,8 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -751,7 +751,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     ImmutableMap.Builder<String, Class<?>> mapBuilder = ImmutableMap.builder();
     for (ConfigurationFragmentFactory fragmentFactory : configurationFragmentFactories) {
       Class<? extends Fragment> fragmentClass = fragmentFactory.creates();
-      SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
+      StarlarkBuiltin fragmentModule = StarlarkInterfaceUtils.getStarlarkBuiltin(fragmentClass);
       if (fragmentModule != null) {
         mapBuilder.put(fragmentModule.name(), fragmentClass);
       }
