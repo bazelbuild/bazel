@@ -129,7 +129,7 @@ public class ExecutionTool {
   private final ImmutableSet<ExecutorLifecycleListener> executorLifecycleListeners;
   private final SpawnActionContextMaps spawnActionContextMaps;
 
-  ExecutionTool(CommandEnvironment env, BuildRequest request) throws ExecutorInitException {
+  ExecutionTool(CommandEnvironment env, BuildRequest request) throws AbruptExitException {
     this.env = env;
     this.runtime = env.getRuntime();
     this.request = request;

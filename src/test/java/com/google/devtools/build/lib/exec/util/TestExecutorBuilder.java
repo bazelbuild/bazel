@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -136,7 +136,7 @@ public class TestExecutorBuilder {
     return this;
   }
 
-  public BlazeExecutor build() throws ExecutorInitException {
+  public BlazeExecutor build() throws AbruptExitException {
     SpawnStrategyRegistry strategyRegistry = strategyRegistryBuilder.build();
     addContext(SpawnStrategyRegistry.class, strategyRegistry);
     SpawnActionContextMaps spawnActionContextMaps = spawnMapsBuilder.build();

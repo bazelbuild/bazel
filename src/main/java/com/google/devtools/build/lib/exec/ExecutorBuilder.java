@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,7 +37,7 @@ public class ExecutorBuilder {
   private final Set<ExecutorLifecycleListener> executorLifecycleListeners = new LinkedHashSet<>();
   private ActionInputPrefetcher prefetcher;
 
-  public SpawnActionContextMaps getSpawnActionContextMaps() throws ExecutorInitException {
+  public SpawnActionContextMaps getSpawnActionContextMaps() throws AbruptExitException {
     return spawnActionContextMapsBuilder.build();
   }
 

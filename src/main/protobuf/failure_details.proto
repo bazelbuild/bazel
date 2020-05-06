@@ -352,8 +352,17 @@ message Filesystem {
 }
 
 message ExecutionOptions {
+  // All numerical exit code associations correspond to pre-existing Bazel
+  // behavior. These associations are suspicious:
+  // - REQUESTED_STRATEGY_INCOMPATIBLE_WITH_SANDBOXING (instead: 2?)
+  // TODO(b/138456686): Revise these after the (intentionally non-breaking)
+  //  initial rollout of FailureDetail-based encoding.
   enum Code {
     EXECUTION_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INVALID_STRATEGY = 3 [(metadata) = { exit_code: 2 }];
+    REQUESTED_STRATEGY_INCOMPATIBLE_WITH_SANDBOXING = 4
+        [(metadata) = { exit_code: 36 }];
+
     reserved 1, 2; // For internal use
   }
 
