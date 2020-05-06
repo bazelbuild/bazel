@@ -28,3 +28,18 @@ def distrib_java_import(name, visibility = None, enable_distributions = [], **kw
         conditions["//src/conditions:debian_build"] = "@debian_java_deps//:" + name
 
     native.alias(name = name, actual = select(conditions), visibility = visibility)
+
+def distrib_cc_library(name, visibility = None, enable_distributions = [], **kwargs):
+    """A macro for cc_library rule to support distributions build (eg. Debian)"""
+    checked_in_name = name + "_checked_in"
+
+    native.cc_library(name = checked_in_name, visibility = visibility, **kwargs)
+
+    conditions = {
+        "//conditions:default": ":" + checked_in_name,
+    }
+
+    if "debian" in enable_distributions:
+        conditions["//src/conditions:debian_build"] = "@debian_cc_deps//:" + name
+
+    native.alias(name = name, actual = select(conditions), visibility = visibility)
