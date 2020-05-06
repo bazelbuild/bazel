@@ -238,37 +238,6 @@ EOF
   true  # reset the last exit code so the test won't be considered failed
 }
 
-function test_experimental_nested_set_as_skykey_missing_file() {
-  export DONT_SANITY_CHECK_SERIALIZATION=1
-  cat > foo/BUILD <<EOF
-genrule(
-    name = "foo",
-    outs = ["file.o"],
-    cmd = ("touch $@"),
-    tools = [":bar"],
-)
-
-cc_binary(
-    name = "bar",
-    srcs = [
-        "bar.cc",
-        "missing.a",
-    ],
-)
-EOF
-  touch foo/bar.cc
-
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo &&
-    fail "Expected failure."
-
-  exit_code=$?
-  if [[ $exit_code -ne 1 ]]; then
-    fail "Expected exit code = 1"
-  fi
-
-  true  # reset the last exit code so the test won't be considered failed
-}
-
 
 
 run_suite "Integration tests of ${PRODUCT_NAME} with NestedSet as SkyKey."
