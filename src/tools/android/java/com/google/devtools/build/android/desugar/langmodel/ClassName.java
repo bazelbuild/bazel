@@ -38,7 +38,7 @@ public abstract class ClassName implements TypeMappable<ClassName>, Comparable<C
 
   private static final String IMMUTABLE_LABEL_LABEL = "__final__/";
 
-  private static final String TYPE_ADAPTER_PACKAGE_ROOT =
+  public static final String TYPE_ADAPTER_PACKAGE_ROOT =
       "com/google/devtools/build/android/desugar/typeadapter/";
 
   public static final TypeMapper IN_PROCESS_LABEL_STRIPPER =
@@ -49,7 +49,7 @@ public abstract class ClassName implements TypeMappable<ClassName>, Comparable<C
 
   private static final String TYPE_ADAPTER_SUFFIX = "Adapter";
 
-  private static final String TYPE_CONVERTER_SUFFIX = "Converter";
+  public static final String TYPE_CONVERTER_SUFFIX = "Converter";
 
   /**
    * The primitive type as specified at
@@ -228,7 +228,7 @@ public abstract class ClassName implements TypeMappable<ClassName>, Comparable<C
         "Expected a label-free type: Actual(%s)",
         this);
     checkState(
-        isInPackageEligibleForTypeAdapter(),
+        isAndroidDomainType(),
         "Expected an Android SDK type to have an adapter: Actual (%s)",
         this);
     String binaryName =
@@ -313,45 +313,8 @@ public abstract class ClassName implements TypeMappable<ClassName>, Comparable<C
     return !isInDesugarRuntimeLibrary();
   }
 
-  public final boolean isInPackageEligibleForTypeAdapter() {
-    // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
-    // rollouts are complete.
-
-    return hasAnyPackagePrefix(
-        "android/testing/",
-        "android/app/Activity",
-        "android/accessibilityservice/AccessibilityService",
-        "android/app/admin/FreezePeriod",
-        "android/app/role/RoleManager",
-        "android/app/usage/UsageStatsManager",
-        "android/hardware/display/AmbientBrightnessDayStats",
-        "android/os/SystemClock",
-        "android/service/controls/ControlsProviderService",
-        "android/service/voice/VoiceInteractionSession",
-        "android/service/voice/VoiceInteractionSession",
-        "android/telephony/SubscriptionPlan$Builder",
-        "android/telephony/TelephonyManager",
-        "android/view/textclassifier/ConversationActions$Message",
-        "android/view/textclassifier/TextClassification$Request",
-        "android/view/textclassifier/TextLinks");
-  }
-
   public final boolean isAndroidDomainType() {
     return hasAnyPackagePrefix("android/", "androidx/");
-  }
-
-  public final boolean isInPackageEligibleForShadowedOverridableAPIs() {
-    // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
-    // rollouts are complete.
-    return hasAnyPackagePrefix(
-        "android/testing/",
-        "android/app/Activity",
-        "android/service/controls/ControlsProviderService");
-  }
-
-  public final boolean isInPackageEligibleForHoldingOverridingBridges() {
-    // Exclude platform types for overriding bridge generations.
-    return !hasAnyPackagePrefix("android/", "java/");
   }
 
   public final boolean isInDesugarRuntimeLibrary() {

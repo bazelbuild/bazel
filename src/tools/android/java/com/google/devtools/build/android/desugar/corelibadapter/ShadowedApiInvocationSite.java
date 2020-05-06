@@ -296,7 +296,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
         return;
       }
 
-      if (shouldUseApiTypeAdapter(verbatimInvocationSite)) {
+      if (shouldUseApiTypeAdapter(verbatimInvocationSite, bootClassPathDigest)) {
         checkState(!immutableLabelApplicator.isSwitchOn());
         MethodInvocationSite adapterSite =
             ShadowedApiAdapterHelper.getAdapterInvocationSite(verbatimInvocationSite);
