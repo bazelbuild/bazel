@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcStarlarkApiProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 @AutoCodec
 public final class CcStarlarkApiProvider extends StarlarkApiProvider
-    implements CcSkylarkApiProviderApi<Artifact> {
+    implements CcStarlarkApiProviderApi<Artifact> {
   /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "cc";
 

@@ -24,13 +24,13 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Object with information about C++ rules. Every C++-related target should provide this. */
 @StarlarkBuiltin(
-    name = "CcSkylarkApiProvider",
+    name = "CcStarlarkApiProvider",
     category = StarlarkDocumentationCategory.PROVIDER,
     doc =
         "Provides access to information about C++ rules.  Every C++-related target provides this"
             + " struct, accessible as a <code>cc</code> field on <a"
             + " href=\"Target.html\">target</a>.")
-public interface CcSkylarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
+public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
       name = "transitive_headers",
