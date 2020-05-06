@@ -14,16 +14,16 @@
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Stores {@link com.google.devtools.build.lib.packages.ExecGroup}s available to a given rule. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ExecGroupCollection",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     // TODO(b/151742236) update this doc when this becomes non-experimental.
     doc = "<i>experimental</i> Stores exec groups available to a given rule.")
 public interface ExecGroupCollectionApi extends StarlarkValue, SkylarkIndexable {
@@ -35,9 +35,9 @@ public interface ExecGroupCollectionApi extends StarlarkValue, SkylarkIndexable 
    * to pass in a rule ctx to the same places that take an exec group ctx to have them operate on
    * the default exec group.
    */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "ExecGroupContext",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       // TODO(b/151742236) update this doc when this becomes non-experimental.
       doc = "<i>experimental</i> Stores information about an exec group.")
   interface ExecGroupContextApi extends StarlarkValue {

@@ -80,10 +80,10 @@ public class ConfigAwareAspectBuilder {
    * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
    * Starlark module names of fragments instead of their classes.
    */
-  public ConfigAwareAspectBuilder requiresHostConfigurationFragmentsBySkylarkModuleName(
+  public ConfigAwareAspectBuilder requiresHostConfigurationFragmentsByStarlarkBuiltinName(
       Collection<String> configurationFragmentNames) {
-    aspectBuilder.requiresConfigurationFragmentsBySkylarkModuleName(HostTransition.INSTANCE,
-        configurationFragmentNames);
+    aspectBuilder.requiresConfigurationFragmentsByStarlarkBuiltinName(
+        HostTransition.INSTANCE, configurationFragmentNames);
     return this;
   }
 }

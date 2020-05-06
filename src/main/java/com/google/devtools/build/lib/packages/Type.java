@@ -41,19 +41,43 @@ import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
- *  <p>Root of Type symbol hierarchy for values in the build language.</p>
+ * Root of Type symbol hierarchy for values in the build language.
  *
- *  <p>Type symbols are primarily used for their <code>convert</code> method,
- *  which is a kind of cast operator enabling conversion from untyped (Object)
- *  references to values in the build language, to typed references.</p>
+ * <p>Type symbols are primarily used for their <code>convert</code> method, which is a kind of cast
+ * operator enabling conversion from untyped (Object) references to values in the build language, to
+ * typed references.
  *
- *  <p>For example, this code type-converts a value <code>x</code> returned by
- *  the evaluator, to a list of strings:</p>
+ * <p>For example, this code type-converts a value <code>x</code> returned by the evaluator, to a
+ * list of strings:
  *
- *  <pre>
+ * <pre>
  *  Object x = expr.eval(env);
  *  List&lt;String&gt; s = Type.STRING_LIST.convert(x);
  *  </pre>
+ *
+ * <p><b>BEFORE YOU ADD A NEW TYPE:</b>
+ *
+ * <p>We frequently get requests to create a new kind of attribute type whenever a use case doesn't
+ * seem to fit into one of the existing types. This is almost always a bad idea. The most complex
+ * type we currently have is probably STRING_LIST_DICT or maybe LABEL_KEYED_STRING_DICT. But no
+ * matter what you support, someone will always want to add another layer of structure. It's even
+ * been suggested to allow JSON or arbitrary Starlark values in attributes.
+ *
+ * <p>Adding a new type has implications for many different systems. The whole of the loading phase
+ * needs to know about the type -- how to serialize it, how to format it for `bazel query`, how to
+ * traverse label dependencies embedded within it. Then you need to think about how to represent
+ * attribute values of that type in Starlark within a rule implementation function, and come up with
+ * a good name for that type in the Starlark `attr` module. All of the tooling for formatting,
+ * linting, and analyzing BUILD files may need to be updated.
+ *
+ * <p>It's usually possible to accomplish the end goal without making the target attribute grammar
+ * more expressive. If it's not, that may be a sign that attributes are not the right mechanism to
+ * use, and perhaps instead you should use opaque string identifiers, or labels to sub-targets with
+ * more structure (think toolchains, platforms, config_setting).
+ *
+ * <p>Any new attribute type should be general-purpose and meet a high bar of usefulness (unlikely
+ * since we seem to be doing fine so far without it), and not overly complicate BUILD files or rule
+ * implementation functions.
  */
 public abstract class Type<T> {
 

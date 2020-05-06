@@ -263,18 +263,6 @@ public class DesugarOptions extends OptionsBase {
   public List<String> dontTouchCoreLibraryMembers;
 
   @Option(
-      name = "preserve_core_library_override",
-      defaultValue = "null",
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Core library methods given as \"class/Name#method\" whose overrides should be"
-              + " preserved.  Typically this is useful when the given class itself isn't"
-              + " desugared.")
-  public List<String> preserveCoreLibraryOverrides;
-
-  @Option(
       name = "auto_desugar_shadowed_api_use",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

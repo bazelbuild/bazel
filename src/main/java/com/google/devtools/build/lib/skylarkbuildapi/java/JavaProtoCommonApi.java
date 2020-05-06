@@ -20,12 +20,12 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollecti
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Helper class for Java proto compilation. */
-@SkylarkModule(name = "java_proto_common", doc = "Helper class for Java proto compilation.")
+@StarlarkBuiltin(name = "java_proto_common", doc = "Helper class for Java proto compilation.")
 public interface JavaProtoCommonApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,

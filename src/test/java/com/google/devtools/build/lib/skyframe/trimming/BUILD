@@ -18,7 +18,6 @@ java_library(
     srcs = ["TrimmableTestConfigurationFragments.java"],
     visibility = ["//src/test:__subpackages__"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:core-rules",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -41,6 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",
         "//src/main/java/com/google/devtools/build/lib/packages:type",
+        "//src/main/java/com/google/devtools/build/lib/rules:core_rules",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/bind_rule",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_base_rule",
         "//src/main/java/com/google/devtools/build/lib/rules:toolchain_type",

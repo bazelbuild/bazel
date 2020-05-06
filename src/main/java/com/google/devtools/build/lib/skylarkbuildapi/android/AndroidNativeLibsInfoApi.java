@@ -20,14 +20,14 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
  * APK.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidNativeLibsInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -46,7 +46,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
   Depset /*<FileT>*/ getNativeLibsForStarlark();
 
   /** Provider for {@link AndroidNativeLibsInfoApi}. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

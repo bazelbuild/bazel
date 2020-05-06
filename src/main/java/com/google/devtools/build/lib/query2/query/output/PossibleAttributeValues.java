@@ -44,8 +44,8 @@ public class PossibleAttributeValues implements Iterable<Object> {
   /**
    * Returns the possible values of the specified attribute in the specified rule. For simple
    * attributes, this is a single value. For configurable and computed attributes, this may be a
-   * list of values. See {@link AggregatingAttributeMapper#getPossibleAttributeValues} for how the
-   * values are determined.
+   * list of values. See {@link AggregatingAttributeMapper#visitAttribute} for how the values are
+   * determined.
    *
    * <p>This applies an important optimization for label lists: instead of returning all possible
    * values, it only returns possible <i>labels</i>. For example, given:
@@ -87,9 +87,11 @@ public class PossibleAttributeValues implements Iterable<Object> {
         != null) {
       return new PossibleAttributeValues(Lists.newArrayList(list), source);
     } else {
-      // The call to getPossibleAttributeValues below is especially slow with selector lists.
-      return new PossibleAttributeValues(attributeMap.getPossibleAttributeValues(rule, attr),
-          source);
+      // The call to visitAttributes below is especially slow with selector lists.
+      @SuppressWarnings("unchecked") // Casting Iterable<T> -> Iterable<Object>
+      Iterable<Object> possibleValues =
+          (Iterable<Object>) attributeMap.visitAttribute(attr.getName(), attr.getType());
+      return new PossibleAttributeValues(possibleValues, source);
     }
   }
 }

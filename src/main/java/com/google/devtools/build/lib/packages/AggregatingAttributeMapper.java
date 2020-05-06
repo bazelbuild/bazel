@@ -18,7 +18,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.packages.Attribute.ComputationLimiter;
@@ -187,40 +186,6 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Returns a list of the possible values of the specified attribute in the specified rule.
-   *
-   * <p>If the attribute's value is a simple value, then this returns a singleton list of that
-   * value.
-   *
-   * <p>If the attribute's value is an expression containing one or many {@code select(...)}
-   * expressions, then this returns a list of all values that expression may evaluate to.
-   *
-   * <p>If the attribute does not have an explicit value for this rule, and the rule provides a
-   * computed default, the computed default function is evaluated given the rule's other attribute
-   * values as inputs and the output is returned in a singleton list.
-   *
-   * <p>If the attribute does not have an explicit value for this rule, and the rule provides a
-   * computed default, and the computed default function depends on other attributes whose values
-   * contain {@code select(...)} expressions, then the computed default function is evaluated for
-   * every possible combination of input values, and the list of outputs is returned.
-   *
-   * <p><b>EFFICIENCY WARNING:</b> Do not use this method unless you really need every single value
-   * the attribute might take. See {@link #visitAttribute}'s documentation for details.
-   */
-  public Iterable<Object> getPossibleAttributeValues(Rule rule, Attribute attr) {
-    // Values may be null, so use normal collections rather than immutable collections.
-    // This special case for the visibility attribute is needed because its value is replaced
-    // with an empty list during package loading if it is public or private in order not to visit
-    // the package called 'visibility'.
-    if (attr.getName().equals("visibility")) {
-      List<Object> result = new ArrayList<>(1);
-      result.add(rule.getVisibility().getDeclaredLabels());
-      return result;
-    }
-    return Lists.<Object>newArrayList(visitAttribute(attr.getName(), attr.getType()));
-  }
-
-  /**
    * If the attribute is a selector list of list type, then this method returns a list with number
    * of elements equal to the number of select statements in the selector list. Each element of this
    * list is equal to concatenating every possible attribute value in a single select statement.
@@ -250,11 +215,12 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   /**
    * Returns a list of all possible values an attribute can take for this rule.
    *
-   * <p><b>EFFICIENCY WARNING:</b> Do not use this method unless you really need every single value
-   * the attribute might take.
+   * <p>If the attribute's value is a simple value, then this returns a singleton list of that
+   * value.
    *
-   * <p>This is dangerous because it's easy to write attributes with an exponential number of
-   * possible values:
+   * <p>If the attribute's value is an expression containing one or many {@code select(...)}
+   * expressions, then this returns a list of all values that expression may evaluate to. This is
+   * dangerous because it's easy to write attributes with an exponential number of possible values:
    *
    * <pre>
    *   foo = select({a: 1, b: 2} + select({c: 3, d: 4}) + select({e: 5, f: 6})
@@ -262,8 +228,20 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *
    * <p>Possible values: <code>[135, 136, 145, 146, 235, 236, 245, 246]</code> (i.e. 2^3).
    *
-   * <p>This is true not just for attributes with multiple selects, but also
-   * {@link Attribute.ComputedDefault}s depending on such attributes.
+   * <p>This is true not just for attributes with multiple selects, but also {@link
+   * Attribute.ComputedDefault}s depending on such attributes.
+   *
+   * <p>If the attribute does not have an explicit value for this rule, and the rule provides a
+   * computed default, the computed default function is evaluated given the rule's other attribute
+   * values as inputs and the output is returned in a singleton list.
+   *
+   * <p>If the attribute does not have an explicit value for this rule, and the rule provides a
+   * computed default, and the computed default function depends on other attributes whose values
+   * contain {@code select(...)} expressions, then the computed default function is evaluated for
+   * every possible combination of input values, and the list of outputs is returned.
+   *
+   * <p><b>EFFICIENCY WARNING:</b> Do not use this method unless you really need every single value
+   * the attribute might take.
    *
    * <p>More often than not, calling code doesn't really need every value, but really just wants to
    * know, e.g., which labels might appear in a dependency list. For such cases, merging methods
@@ -289,9 +267,16 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       return computedDefault.getPossibleValues(type, rule);
     }
 
+    if ("visibility".equals(attributeName) && type.equals(BuildType.NODEP_LABEL_LIST)) {
+      // This special case for the visibility attribute is needed because its value is replaced
+      // with an empty list during package loading if it is public or private in order not to visit
+      // the package called 'visibility'.
+      return ImmutableList.of(type.cast(rule.getVisibility().getDeclaredLabels()));
+    }
+
     // For any other attribute, just return its direct value.
     T value = get(attributeName, type);
-    return value == null ? ImmutableList.<T>of() : ImmutableList.of(value);
+    return value == null ? ImmutableList.of() : ImmutableList.of(value);
   }
 
   /**

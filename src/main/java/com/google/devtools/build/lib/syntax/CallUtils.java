@@ -20,7 +20,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -101,7 +101,7 @@ public final class CallUtils {
                     }
 
                     // annotated?
-                    SkylarkCallable callable = SkylarkInterfaceUtils.getSkylarkCallable(method);
+                    SkylarkCallable callable = StarlarkInterfaceUtils.getSkylarkCallable(method);
                     if (callable == null) {
                       continue;
                     }

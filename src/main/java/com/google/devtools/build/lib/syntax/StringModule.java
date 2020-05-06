@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -38,9 +38,9 @@ import java.util.regex.Pattern;
  * <p>Methods of this class annotated with {@link SkylarkCallable} must have a positional-only
  * 'String self' parameter as the first parameter of the method.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "string",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A language built-in type to support strings. "
             + "Examples of string literals:<br>"
@@ -263,30 +263,48 @@ final class StringModule implements StarlarkValue {
               + "restricting the number of replacements to <code>maxsplit</code>.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "old", type = String.class, doc = "The string to be replaced."),
+        @Param(name = "new", type = String.class, doc = "The string to replace with."),
         @Param(
-            name = "old",
-            type = String.class,
-            doc = "The string to be replaced."),
-        @Param(
-            name = "new",
-            type = String.class,
-            doc = "The string to replace with."),
-        @Param(
-            name = "maxsplit",
+            name = "count",
             type = Integer.class,
-            noneable = true,
-            defaultValue = "None",
-            doc = "The maximum number of replacements.")
-      })
-  public String replace(String self, String oldString, String newString, Object maxSplitO)
+            noneable = true, // TODO(#11244): Set false once incompatible flag is deleted.
+            defaultValue = "unbound",
+            doc =
+                "The maximum number of replacements. If omitted, there is no limit."
+                    + "<p>If <code>--incompatible_string_replace_count</code> is true, a negative "
+                    + "value is ignored (so there's no limit) and a <code>None</code> value is an "
+                    + "error. Otherwise, a negative value is treated as 0 and a <code>None</code> "
+                    + "value is ignored. (See also issue <a "
+                    + "href='https://github.com/bazelbuild/bazel/issues/11244'>#11244</a>.)")
+      },
+      useStarlarkThread = true)
+  public String replace(
+      String self, String oldString, String newString, Object countUnchecked, StarlarkThread thread)
       throws EvalException {
-    int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
-      maxSplit = Math.max(0, (Integer) maxSplitO);
+    int count = Integer.MAX_VALUE;
+
+    StarlarkSemantics semantics = thread.getSemantics();
+    if (semantics.incompatibleStringReplaceCount()) {
+      if (countUnchecked == Starlark.NONE) {
+        throw Starlark.errorf(
+            "Cannot pass a None count to string.replace(); omit the count argument instead. (You "
+                + "can temporarily opt out of this change by setting "
+                + "--incompatible_string_replace_count=false.)");
+      }
+      if (countUnchecked != Starlark.UNBOUND && (Integer) countUnchecked >= 0) {
+        count = (Integer) countUnchecked;
+      }
+    } else {
+      if (countUnchecked != Starlark.UNBOUND && countUnchecked != Starlark.NONE) {
+        // Negative has same effect as 0 below.
+        count = (Integer) countUnchecked;
+      }
     }
+
     StringBuilder sb = new StringBuilder();
     int start = 0;
-    for (int i = 0; i < maxSplit; i++) {
+    for (int i = 0; i < count; i++) {
       if (oldString.isEmpty()) {
         sb.append(newString);
         if (start < self.length()) {

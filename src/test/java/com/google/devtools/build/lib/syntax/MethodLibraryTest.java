@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -166,7 +166,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("getattr('a string', 'not there', None)", Starlark.NONE);
   }
 
-  @SkylarkModule(name = "AStruct", documented = false, doc = "")
+  @StarlarkBuiltin(name = "AStruct", documented = false, doc = "")
   static final class AStruct implements ClassObject, StarlarkValue {
     @Override
     public Object getValue(String name) {

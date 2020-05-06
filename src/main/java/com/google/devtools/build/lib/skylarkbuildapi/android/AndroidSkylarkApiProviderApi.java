@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
@@ -28,10 +28,10 @@ import javax.annotation.Nullable;
  * A class that exposes the Android providers to Starlark. It is intended to provide a simple and
  * stable interface for Starlark users.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidSkylarkApiProvider",
     title = "android",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
@@ -145,9 +145,9 @@ public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> extends Sta
   FileT getAar();
 
   /** Helper class to provide information about IDLs related to this rule. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "AndroidSkylarkIdlInfo",
-      category = SkylarkModuleCategory.NONE,
+      category = StarlarkDocumentationCategory.NONE,
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed."

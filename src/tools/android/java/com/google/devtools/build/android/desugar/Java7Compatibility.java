@@ -49,7 +49,7 @@ public class Java7Compatibility extends ClassVisitor {
 
   public Java7Compatibility(
       ClassVisitor cv, ClassReaderFactory factory, ClassReaderFactory bootclasspathReader) {
-    super(Opcodes.ASM7, cv);
+    super(Opcodes.ASM8, cv);
     this.factory = factory;
     this.bootclasspathReader = bootclasspathReader;
   }
@@ -124,7 +124,7 @@ public class Java7Compatibility extends ClassVisitor {
     boolean updated = false;
 
     public UpdateBytecodeVersionIfNecessary(MethodVisitor methodVisitor) {
-      super(Opcodes.ASM7, methodVisitor);
+      super(Opcodes.ASM8, methodVisitor);
     }
 
     @Override
@@ -156,7 +156,7 @@ public class Java7Compatibility extends ClassVisitor {
 
   private class InlineJacocoInit extends MethodVisitor {
     public InlineJacocoInit(MethodVisitor dest) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
     }
 
     @Override
@@ -185,7 +185,7 @@ public class Java7Compatibility extends ClassVisitor {
     private int copied = 0;
 
     public InlineOneMethod(String methodName, MethodVisitor dest) {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
       this.methodName = methodName;
       this.dest = dest;
     }
@@ -219,7 +219,7 @@ public class Java7Compatibility extends ClassVisitor {
     public InlineMethodBody(MethodVisitor dest) {
       // We'll set the destination visitor in visitCode() to reduce the risk of copying anything
       // we didn't mean to copy
-      super(Opcodes.ASM7, (MethodVisitor) null);
+      super(Opcodes.ASM8, (MethodVisitor) null);
       this.dest = dest;
     }
 

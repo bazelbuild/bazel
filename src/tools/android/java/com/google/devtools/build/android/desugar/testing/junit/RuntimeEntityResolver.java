@@ -475,7 +475,7 @@ final class RuntimeEntityResolver {
       if (jarEntry != null) {
         try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
-          ClassNode classNode = new ClassNode(Opcodes.ASM7);
+          ClassNode classNode = new ClassNode(Opcodes.ASM8);
           cr.accept(classNode, 0);
           return classNode;
         }
@@ -528,7 +528,7 @@ final class RuntimeEntityResolver {
       for (JarEntry jarEntry : classFileJarEntries) {
         try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
-          ClassNode classNode = new ClassNode(Opcodes.ASM7);
+          ClassNode classNode = new ClassNode(Opcodes.ASM8);
           cr.accept(classNode, SKIP_CODE | SKIP_DEBUG | SKIP_FRAMES);
           majorVersions.put(classNode.name, classNode.version);
         }

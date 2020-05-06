@@ -210,7 +210,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     @Override
     protected Map<Label, Target> getTargets(
         OrderedSetMultimap<DependencyKind, Label> labelMap,
-        TargetAndConfiguration fromNode,
+        Target fromTarget,
         NestedSetBuilder<Cause> rootCauses) {
       return labelMap.values().stream()
           .distinct()

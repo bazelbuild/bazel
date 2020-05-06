@@ -18,19 +18,19 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A provider of information about this target's manifest. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidManifestInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "Information about the Android manifest provided by a rule.",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface AndroidManifestInfoApi<FileT extends FileApi> extends StructApi {
 
   /** The name of the provider for this info object. */
@@ -58,7 +58,7 @@ public interface AndroidManifestInfoApi<FileT extends FileApi> extends StructApi
   boolean exportsManifest();
 
   /** Provider for {@link AndroidManifestInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(

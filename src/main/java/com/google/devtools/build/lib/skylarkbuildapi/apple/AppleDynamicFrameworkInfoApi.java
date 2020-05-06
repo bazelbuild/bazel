@@ -18,16 +18,16 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import javax.annotation.Nullable;
 
 /**
  * An interface representing an info type containing information about an Apple dynamic framework.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AppleDynamicFramework",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "A provider containing information about an Apple dynamic framework.")
 public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends StructApi {
 

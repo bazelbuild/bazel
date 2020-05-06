@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  * <p>This exposes methods to describe what kind of build setting (if any) a starlark rule is using
  * the {@code build_setting} attr of the {@code rule(...)} function.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "config",
     namespace = true,
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "Note: This API is experimental and may change at any time."
             + ""
@@ -109,9 +109,9 @@ public interface StarlarkConfigApi extends StarlarkValue {
   BuildSettingApi stringListSetting(Boolean flag);
 
   /** The API for build setting descriptors. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "BuildSetting",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc =
           "The descriptor for a single piece of configuration information. If configuration is a "
               + "key-value map of settings like {'cpu': 'ppc', 'copt': '-DFoo'}, this describes a "
@@ -137,9 +137,9 @@ public interface StarlarkConfigApi extends StarlarkValue {
   ExecTransitionFactoryApi exec(Object execGroupUnchecked);
 
   /** The api for exec transitions. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "ExecTransitionFactory",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc = "<i>experimental</i> an execution transition.")
   interface ExecTransitionFactoryApi extends StarlarkValue {}
 }

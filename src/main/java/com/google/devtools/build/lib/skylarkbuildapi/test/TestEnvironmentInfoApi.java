@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import java.util.Map;
 
 /** Provider containing any additional environment variables for use in the test action. */
-@SkylarkModule(name = "TestEnvironmentInfo", doc = "", documented = false)
+@StarlarkBuiltin(name = "TestEnvironmentInfo", doc = "", documented = false)
 public interface TestEnvironmentInfoApi extends StructApi {
 
   @SkylarkCallable(

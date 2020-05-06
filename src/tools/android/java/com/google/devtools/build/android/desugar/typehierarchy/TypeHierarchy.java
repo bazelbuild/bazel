@@ -42,9 +42,10 @@ public abstract class TypeHierarchy {
 
   abstract ImmutableSetMultimap<HierarchicalTypeKey, HierarchicalTypeKey> directInterfacesByType();
 
-  abstract ImmutableSetMultimap<HierarchicalTypeKey, HeadlessMethodKey> headlessMethodKeysByType();
+  public abstract ImmutableSetMultimap<HierarchicalTypeKey, HeadlessMethodKey>
+      headlessMethodKeysByType();
 
-  abstract ImmutableMap<HierarchicalMethodKey, MethodDeclInfo> methodMetadata();
+  public abstract ImmutableMap<HierarchicalMethodKey, MethodDeclInfo> methodMetadata();
 
   abstract boolean requireTypeResolutionComplete();
 

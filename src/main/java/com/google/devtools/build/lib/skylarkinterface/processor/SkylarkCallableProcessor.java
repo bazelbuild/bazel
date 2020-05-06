@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashSet;
 import java.util.List;
@@ -53,7 +53,7 @@ import javax.tools.Diagnostic;
 @SupportedAnnotationTypes({
   "com.google.devtools.build.lib.skylarkinterface.SkylarkCallable",
   "com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary",
-  "com.google.devtools.build.lib.skylarkinterface.SkylarkModule"
+  "com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin"
 })
 public final class SkylarkCallableProcessor extends AbstractProcessor {
 
@@ -95,18 +95,18 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     TypeMirror mapType = getType("java.util.Map");
     TypeMirror skylarkValueType = getType("com.google.devtools.build.lib.syntax.StarlarkValue");
 
-    // Ensure SkylarkModule-annotated classes implement StarlarkValue.
-    for (Element cls : roundEnv.getElementsAnnotatedWith(SkylarkModule.class)) {
+    // Ensure StarlarkBuiltin-annotated classes implement StarlarkValue.
+    for (Element cls : roundEnv.getElementsAnnotatedWith(StarlarkBuiltin.class)) {
       if (!types.isAssignable(cls.asType(), skylarkValueType)) {
         errorf(
             cls,
-            "class %s has SkylarkModule annotation but does not implement StarlarkValue",
+            "class %s has StarlarkBuiltin annotation but does not implement StarlarkValue",
             cls.getSimpleName());
       }
     }
 
     // TODO(adonovan): reject a SkylarkCallable-annotated method whose class doesn't have (or
-    // inherit) a SkylarkModule documentation annotation.
+    // inherit) a StarlarkBuiltin documentation annotation.
 
     // Only SkylarkGlobalLibrary-annotated classes, and those that implement StarlarkValue,
     // are allowed SkylarkCallable-annotated methods.

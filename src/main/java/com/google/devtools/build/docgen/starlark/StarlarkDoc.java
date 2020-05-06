@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -68,8 +68,8 @@ abstract class StarlarkDoc {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";
     } else if (type.equals(NestedSet.class)) {
       return "<a class=\"anchor\" href=\"depset.html\">depset</a>";
-    } else if (SkylarkInterfaceUtils.getSkylarkModule(type) != null) {
-      SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(type);
+    } else if (StarlarkInterfaceUtils.getStarlarkBuiltin(type) != null) {
+      StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(type);
       if (module.documented()) {
         return String.format("<a class=\"anchor\" href=\"%1$s.html\">%1$s</a>",
                              module.name());
@@ -82,7 +82,7 @@ abstract class StarlarkDoc {
   protected static Param[] withoutSelfParam(SkylarkCallable annotation, Method method) {
     Param[] params = annotation.parameters();
     if (params.length > 0) {
-      SkylarkModule module = method.getDeclaringClass().getAnnotation(SkylarkModule.class);
+      StarlarkBuiltin module = method.getDeclaringClass().getAnnotation(StarlarkBuiltin.class);
       if (module != null && module.name().equals("string")) {
         // Skip the self parameter, which is the first mandatory
         // positional parameter in each method of the "string" module.

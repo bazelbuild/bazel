@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
@@ -24,9 +24,9 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  * contains the standard output stream content, the standard error stream content and the execution
  * return code.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "exec_result",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A structure storing result of repository_ctx.execute() method. It contains the standard"
             + " output stream content, the standard error stream content and the execution return"

@@ -472,6 +472,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return Spawns.mayBeExecutedRemotely(spawn);
   }
 
+  @Override
+  public boolean handlesCaching() {
+    return true;
+  }
+
   private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
     if (!executionOptions.shouldMaterializeParamFiles()) {
       return;

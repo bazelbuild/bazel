@@ -21,15 +21,15 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Provides information about generated proto extensions. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "GeneratedExtensionRegistryProvider",
     doc = "Information about generated proto extensions.",
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> extends StructApi {
 
   /** The name of the provider for this info object. */
@@ -51,7 +51,7 @@ public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> ex
   Depset /*<FileT>*/ getInputsForStarlark();
 
   /** The provider implementing this can construct the GeneratedExtensionRegistryProvider. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(

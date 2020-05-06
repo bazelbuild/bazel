@@ -53,7 +53,7 @@ final class CrossMateMainCollector extends ClassVisitor {
 
   public CrossMateMainCollector(
       ClassMemberRecordBuilder memberRecord, ClassAttributeRecordBuilder classAttributeRecord) {
-    super(Opcodes.ASM7);
+    super(Opcodes.ASM8);
     this.memberRecord = memberRecord;
     this.classAttributeRecord = classAttributeRecord;
   }
@@ -160,7 +160,7 @@ final class CrossMateMainCollector extends ClassVisitor {
         MethodVisitor methodVisitor,
         MethodKey enclosingMethodKey,
         ClassMemberRecordBuilder memberRecord) {
-      super(Opcodes.ASM7, methodVisitor);
+      super(Opcodes.ASM8, methodVisitor);
       this.enclosingMethodKey = enclosingMethodKey;
       this.memberRecord = memberRecord;
     }

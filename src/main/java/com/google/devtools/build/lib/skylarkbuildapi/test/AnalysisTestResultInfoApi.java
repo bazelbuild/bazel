@@ -18,13 +18,13 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AnalysisTestResultInfo",
     doc =
         "Encapsulates the result of analyis-phase testing. Build targets which return an instance"
@@ -50,7 +50,7 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
   String getMessage();
 
   /** Provider class for {@link AnalysisTestResultInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface AnalysisTestResultInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(

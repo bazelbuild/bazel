@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Starlark users
  * for creating attribute definitions.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "attr",
     namespace = true,
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
+    category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE,
     doc =
         "This is a top-level module for defining the attribute schemas of a rule or aspect. Each "
             + "function returns an object representing the schema of a single attribute. These "
@@ -924,9 +924,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       throws EvalException;
 
   /** An attribute descriptor. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Attribute",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc =
           "Representation of a definition of an attribute. Use the <a href=\"attr.html\">attr</a> "
               + "module to create an Attribute. They are only for use with a "

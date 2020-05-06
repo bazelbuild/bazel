@@ -42,7 +42,7 @@ public class TypeHierarchyScavenger {
           ClassReader cr = new ClassReader(inputStream);
           TypeHierarchyClassVisitor cv =
               new TypeHierarchyClassVisitor(
-                  Opcodes.ASM7, contentProvider.getBinaryPathName(), typeHierarchyBuilder, null);
+                  Opcodes.ASM8, contentProvider.getBinaryPathName(), typeHierarchyBuilder, null);
           cr.accept(cv, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
         } catch (IOException e) {
           throw new IOError(e);

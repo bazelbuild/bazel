@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.LateBoundDefaultApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -49,7 +49,7 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 @AutoCodec
-public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDefault<FragmentT>
+public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDefault<FragmentT>
     implements LateBoundDefaultApi {
 
   private final Method method;
@@ -81,7 +81,7 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
     return defaultLabel;
   }
 
-  private SkylarkLateBoundDefault(SkylarkConfigurationField annotation,
+  private StarlarkLateBoundDefault(SkylarkConfigurationField annotation,
       Class<FragmentT> fragmentClass, String fragmentName, Method method, String toolsRepository) {
     this(
         getDefaultLabel(annotation, toolsRepository),
@@ -93,7 +93,7 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
-  SkylarkLateBoundDefault(
+  StarlarkLateBoundDefault(
       Label defaultVal,
       Class<FragmentT> fragmentClass,
       Method method,
@@ -175,24 +175,25 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
   }
 
   /**
-   * A cache for efficient {@link SkylarkLateBoundDefault} loading by configuration fragment. Each
+   * A cache for efficient {@link StarlarkLateBoundDefault} loading by configuration fragment. Each
    * configuration fragment class key is mapped to a {@link Map} where keys are configuration field
-   * Starlark names, and values are the {@link SkylarkLateBoundDefault}s. Methods must be annotated
+   * Starlark names, and values are the {@link StarlarkLateBoundDefault}s. Methods must be annotated
    * with {@link SkylarkConfigurationField} to be considered.
    */
-  private static final LoadingCache<CacheKey, Map<String, SkylarkLateBoundDefault<?>>> fieldCache =
+  private static final LoadingCache<CacheKey, Map<String, StarlarkLateBoundDefault<?>>> fieldCache =
       CacheBuilder.newBuilder()
           .initialCapacity(10)
           .maximumSize(100)
           .build(
-              new CacheLoader<CacheKey, Map<String, SkylarkLateBoundDefault<?>>>() {
+              new CacheLoader<CacheKey, Map<String, StarlarkLateBoundDefault<?>>>() {
                 @Override
-                public Map<String, SkylarkLateBoundDefault<?>> load(CacheKey key) throws Exception {
-                  ImmutableMap.Builder<String, SkylarkLateBoundDefault<?>> lateBoundDefaultMap =
+                public Map<String, StarlarkLateBoundDefault<?>> load(CacheKey key)
+                    throws Exception {
+                  ImmutableMap.Builder<String, StarlarkLateBoundDefault<?>> lateBoundDefaultMap =
                       new ImmutableMap.Builder<>();
                   Class<?> fragmentClass = key.fragmentClass;
-                  SkylarkModule fragmentModule =
-                      SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
+                  StarlarkBuiltin fragmentModule =
+                      StarlarkInterfaceUtils.getStarlarkBuiltin(fragmentClass);
 
                   if (fragmentModule != null) {
                     for (Method method : fragmentClass.getMethods()) {
@@ -209,7 +210,7 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
                             method.getAnnotation(SkylarkConfigurationField.class);
                         lateBoundDefaultMap.put(
                             configField.name(),
-                            new SkylarkLateBoundDefault<>(
+                            new StarlarkLateBoundDefault<>(
                                 configField,
                                 fragmentClass,
                                 fragmentModule.name(),
@@ -235,14 +236,14 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
    *     given fragment class and field name
    */
   @SuppressWarnings("unchecked")
-  public static <FragmentT> SkylarkLateBoundDefault<FragmentT> forConfigurationField(
+  public static <FragmentT> StarlarkLateBoundDefault<FragmentT> forConfigurationField(
       Class<FragmentT> fragmentClass, String fragmentFieldName, String toolsRepository)
       throws InvalidConfigurationFieldException {
     try {
       CacheKey cacheKey = new CacheKey(fragmentClass, toolsRepository);
-      SkylarkLateBoundDefault<?> resolver = fieldCache.get(cacheKey).get(fragmentFieldName);
+      StarlarkLateBoundDefault<?> resolver = fieldCache.get(cacheKey).get(fragmentFieldName);
       if (resolver == null) {
-        SkylarkModule moduleAnnotation = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
+        StarlarkBuiltin moduleAnnotation = StarlarkInterfaceUtils.getStarlarkBuiltin(fragmentClass);
         if (moduleAnnotation == null) {
           throw new AssertionError("fragment class must have a valid Starlark name");
         }
@@ -250,7 +251,7 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
             String.format("invalid configuration field name '%s' on fragment '%s'",
                 fragmentFieldName, moduleAnnotation.name()));
       }
-      return (SkylarkLateBoundDefault<FragmentT>) resolver; // unchecked cast
+      return (StarlarkLateBoundDefault<FragmentT>) resolver; // unchecked cast
     } catch (ExecutionException e) {
       throw new IllegalStateException("method invocation failed: " + e);
     }

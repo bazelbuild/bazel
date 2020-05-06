@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.android.desugar.corelibadapter.InvocationSiteTransformationRecord.InvocationSiteTransformationRecordBuilder;
+import com.google.devtools.build.android.desugar.io.BootClassPathDigest;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.DesugarClassAttribute;
 import com.google.devtools.build.android.desugar.langmodel.DesugarClassInfo;
@@ -61,6 +62,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
   /** An evolving record that collects the adapter method requests from invocation sites. */
   private final InvocationSiteTransformationRecordBuilder invocationSiteRecord;
 
+  private final BootClassPathDigest bootClassPathDigest;
   private final TypeHierarchy typeHierarchy;
   private final DesugarClassInfo.Builder desugarClassInfoBuilder;
   private final Set<MethodKey> overridingBridgeMethods;
@@ -75,9 +77,11 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
   public ShadowedApiInvocationSite(
       ClassVisitor classVisitor,
       InvocationSiteTransformationRecordBuilder invocationSiteRecord,
+      BootClassPathDigest bootClassPathDigest,
       TypeHierarchy typeHierarchy) {
-    super(Opcodes.ASM7, classVisitor);
+    super(Opcodes.ASM8, classVisitor);
     this.invocationSiteRecord = invocationSiteRecord;
+    this.bootClassPathDigest = bootClassPathDigest;
     this.typeHierarchy = typeHierarchy;
     this.desugarClassInfoBuilder = DesugarClassInfo.newBuilder();
     this.overridingBridgeMethods = Sets.newHashSet();
@@ -129,8 +133,8 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
       return new MethodRemapper(
           bridgeMethodVisitor, IN_PROCESS_LABEL_STRIPPER.andThen(IMMUTABLE_LABEL_ATTACHER));
     }
-    if (ShadowedApiAdapterHelper.shouldEmitApiOverridingBridge(verbatimMethod, typeHierarchy)) {
-      logger.atInfo().log("----> %s", verbatimMethod);
+    if (ShadowedApiAdapterHelper.shouldEmitApiOverridingBridge(
+        verbatimMethod, typeHierarchy, bootClassPathDigest)) {
       desugarClassInfoBuilder.addSyntheticMethod(
           SyntheticMethod.newBuilder()
               .setMethod(verbatimMethod.methodKey().toMethodIdProto())
@@ -189,7 +193,8 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
     MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
     return mv == null
         ? null
-        : new ShadowedApiInvocationSiteMethodVisitor(api, mv, invocationSiteRecord, typeHierarchy);
+        : new ShadowedApiInvocationSiteMethodVisitor(
+            api, mv, invocationSiteRecord, typeHierarchy, bootClassPathDigest);
   }
 
   @Override
@@ -209,6 +214,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
 
     private final InvocationSiteTransformationRecordBuilder invocationSiteRecord;
     private final TypeHierarchy typeHierarchy;
+    private final BootClassPathDigest bootClassPathDigest;
 
     /**
      * The transformation-in-process invocation site while visiting. The value can be {@code null}
@@ -220,10 +226,12 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
         int api,
         MethodVisitor methodVisitor,
         InvocationSiteTransformationRecordBuilder invocationSiteRecord,
-        TypeHierarchy typeHierarchy) {
+        TypeHierarchy typeHierarchy,
+        BootClassPathDigest bootClassPathDigest) {
       super(api, methodVisitor, immutableLabelApplicator);
       this.invocationSiteRecord = invocationSiteRecord;
       this.typeHierarchy = typeHierarchy;
+      this.bootClassPathDigest = bootClassPathDigest;
     }
 
     @Override
@@ -260,7 +268,10 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
         return;
       }
 
-      if (shouldUseInlineTypeConversion(verbatimInvocationSite, typeHierarchy)) {
+      if (shouldUseInlineTypeConversion(
+          verbatimInvocationSite, typeHierarchy, bootClassPathDigest)) {
+        logger.atInfo().log(
+            "----> Inline Type Conversion performed for %s", verbatimInvocationSite);
         InvocationSiteTransformationReason transformationReason =
             InvocationSiteTransformationReason.create(
                 INLINE_PARAM_TYPE_CONVERSION, verbatimInvocationSite.method());

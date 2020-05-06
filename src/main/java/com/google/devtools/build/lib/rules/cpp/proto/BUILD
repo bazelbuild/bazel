@@ -56,8 +56,8 @@ java_library(
     name = "ProtoCcHeaderProvider",
     srcs = ["ProtoCcHeaderProvider.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
     ],

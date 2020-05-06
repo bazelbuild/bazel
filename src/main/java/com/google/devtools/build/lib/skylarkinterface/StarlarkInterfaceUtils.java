@@ -19,7 +19,7 @@ import java.lang.reflect.Method;
 import javax.annotation.Nullable;
 
 /** Helpers for accessing Starlark interface annotations. */
-public class SkylarkInterfaceUtils {
+public class StarlarkInterfaceUtils {
 
   /**
    * Returns the more specific class of two classes. Class x is more specific than class y if x is
@@ -45,11 +45,11 @@ public class SkylarkInterfaceUtils {
       // If this exception occurs, it indicates the following error scenario:
       //
       // Suppose class A is a subclass of both B and C, where B and C are annotated with
-      // @SkylarkModule annotations (and are thus considered "skylark types"). If B is not a
+      // @StarlarkBuiltin annotations (and are thus considered "skylark types"). If B is not a
       // subclass of C (nor vice versa), then it's impossible to resolve whether A is of type
       // B or if A is of type C. It's both! The way to resolve this is usually to have A be its own
-      // type (annotated with @SkylarkModule), and thus have the explicit type of A be semantically
-      // "B and C".
+      // type (annotated with @StarlarkBuiltin), and thus have the explicit type of A be
+      // semantically "B and C".
       throw new IllegalArgumentException(
           String.format("Expected one of %s and %s to be a subclass of the other", x, y));
     }
@@ -86,24 +86,24 @@ public class SkylarkInterfaceUtils {
   }
 
   /**
-   * Returns the {@link SkylarkModule} annotation for the given class, if it exists, and
+   * Returns the {@link StarlarkBuiltin} annotation for the given class, if it exists, and
    * null otherwise. The first annotation found will be returned, starting with {@code classObj}
    * and following its base classes and interfaces recursively.
    */
   @Nullable
-  public static SkylarkModule getSkylarkModule(Class<?> classObj) {
-    Class<?> cls = findAnnotatedAncestor(classObj, SkylarkModule.class);
-    return cls == null ? null : cls.getAnnotation(SkylarkModule.class);
+  public static StarlarkBuiltin getStarlarkBuiltin(Class<?> classObj) {
+    Class<?> cls = findAnnotatedAncestor(classObj, StarlarkBuiltin.class);
+    return cls == null ? null : cls.getAnnotation(StarlarkBuiltin.class);
   }
 
   /**
    * Searches {@code classObj}'s class hierarchy and returns the first superclass or interface that
-   * is annotated with {@link SkylarkModule} (including possibly {@code classObj} itself), or null
+   * is annotated with {@link StarlarkBuiltin} (including possibly {@code classObj} itself), or null
    * if none is found.
    */
   @Nullable
-  public static Class<?> getParentWithSkylarkModule(Class<?> classObj) {
-    return findAnnotatedAncestor(classObj, SkylarkModule.class);
+  public static Class<?> getParentWithStarlarkBuiltin(Class<?> classObj) {
+    return findAnnotatedAncestor(classObj, StarlarkBuiltin.class);
   }
 
   /**

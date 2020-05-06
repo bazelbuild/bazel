@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
@@ -237,7 +237,7 @@ public final class Starlark {
       return "bool";
     }
 
-    SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(c);
+    StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(c);
     if (module != null) {
       String name = module.name();
       return module.namespace() ? name + " (a language module)" : name;
@@ -452,15 +452,15 @@ public final class Starlark {
   /**
    * Adds to the environment {@code env} all {@code StarlarkCallable}-annotated fields and methods
    * of value {@code v}, filtered by the given semantics. The class of {@code v} must have or
-   * inherit a {@code SkylarkModule} or {@code SkylarkGlobalLibrary} annotation.
+   * inherit a {@link StarlarkBuiltin} or {@code SkylarkGlobalLibrary} annotation.
    */
   public static void addMethods(
       ImmutableMap.Builder<String, Object> env, Object v, StarlarkSemantics semantics) {
     Class<?> cls = v.getClass();
-    if (!SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(cls)
-        && SkylarkInterfaceUtils.getSkylarkModule(cls) == null) {
+    if (!StarlarkInterfaceUtils.hasSkylarkGlobalLibrary(cls)
+        && StarlarkInterfaceUtils.getStarlarkBuiltin(cls) == null) {
       throw new IllegalArgumentException(
-          cls.getName() + " is annotated with neither @SkylarkGlobalLibrary nor @SkylarkModule");
+          cls.getName() + " is annotated with neither @SkylarkGlobalLibrary nor @StarlarkBuiltin");
     }
     for (String name : CallUtils.getMethodNames(semantics, v.getClass())) {
       // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing
@@ -475,13 +475,13 @@ public final class Starlark {
 
   /**
    * Adds to the environment {@code env} the value {@code v}, under its annotated name. The class of
-   * {@code v} must have or inherit a {@code SkylarkModule} annotation.
+   * {@code v} must have or inherit a {@link StarlarkBuiltin} annotation.
    */
   public static void addModule(ImmutableMap.Builder<String, Object> env, Object v) {
     Class<?> cls = v.getClass();
-    SkylarkModule annot = SkylarkInterfaceUtils.getSkylarkModule(cls);
+    StarlarkBuiltin annot = StarlarkInterfaceUtils.getStarlarkBuiltin(cls);
     if (annot == null) {
-      throw new IllegalArgumentException(cls.getName() + " is not annotated with @SkylarkModule");
+      throw new IllegalArgumentException(cls.getName() + " is not annotated with @StarlarkBuiltin");
     }
     env.put(annot.name(), v);
   }

@@ -20,22 +20,22 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
  * Configured targets implementing this provider can contribute Android IDL information to the
  * compilation.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidIdlInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "Information about Android IDLs",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi {
 
   /** Name of this info object. */
@@ -74,7 +74,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
   Depset /*<FileT>*/ getTransitiveIdlPreprocessedForStarlark();
 
   /** The provider implementing this can construct the AndroidIdlInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

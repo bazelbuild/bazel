@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 
 /** The type of the Starlark None value. */
-@SkylarkModule(name = "NoneType", documented = false, doc = "The type of the Starlark None value.")
+@StarlarkBuiltin(
+    name = "NoneType",
+    documented = false,
+    doc = "The type of the Starlark None value.")
 @Immutable
 public final class NoneType implements StarlarkValue {
 

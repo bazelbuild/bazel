@@ -177,7 +177,7 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   @Nullable
-  ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
+  public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
     return outputSymlinks;
   }
 

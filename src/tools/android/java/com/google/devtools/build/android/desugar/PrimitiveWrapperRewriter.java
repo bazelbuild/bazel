@@ -147,7 +147,7 @@ public class PrimitiveWrapperRewriter extends ClassVisitor {
   private final AtomicInteger numOfPrimitiveHashCodeInvoked;
 
   public PrimitiveWrapperRewriter(ClassVisitor cv, AtomicInteger numOfPrimitiveHashCodeInvoked) {
-    super(Opcodes.ASM7, cv);
+    super(Opcodes.ASM8, cv);
     this.numOfPrimitiveHashCodeInvoked = numOfPrimitiveHashCodeInvoked;
   }
 
@@ -161,7 +161,7 @@ public class PrimitiveWrapperRewriter extends ClassVisitor {
   private class PrimitiveWrapperMethodVisitor extends MethodVisitor {
 
     PrimitiveWrapperMethodVisitor(MethodVisitor visitor) {
-      super(Opcodes.ASM7, visitor);
+      super(Opcodes.ASM8, visitor);
     }
 
     @Override

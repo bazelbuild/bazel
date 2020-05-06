@@ -183,8 +183,8 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
       advertisedSkylarkProviders.add(provider);
     }
     builder.advertiseProvider(advertisedSkylarkProviders.build());
-    builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
-    builder.requiresConfigurationFragmentsBySkylarkModuleName(hostTransition, hostFragments);
+    builder.requiresConfigurationFragmentsByStarlarkBuiltinName(fragments);
+    builder.requiresConfigurationFragmentsByStarlarkBuiltinName(hostTransition, hostFragments);
     builder.addRequiredToolchains(requiredToolchains);
     builder.applyToGeneratingRules(applyToGeneratingRules);
     return builder.build();

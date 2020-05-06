@@ -14,9 +14,25 @@
 package com.google.devtools.build.android.r8.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.android.r8.R8Utils.DESUGAR_INTERFACE_COMPANION_SUFFIX;
+import static com.google.devtools.build.android.r8.R8Utils.INTERFACE_COMPANION_SUFFIX;
 import static org.objectweb.asm.Opcodes.V1_7;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.desugar.proto.DesugarDeps;
+import com.google.devtools.build.android.desugar.proto.DesugarDeps.Dependency;
+import com.google.devtools.build.android.desugar.proto.DesugarDeps.DesugarDepsInfo;
+import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceDetails;
+import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceWithCompanion;
+import com.google.devtools.build.android.r8.DescriptorUtils;
+import com.google.devtools.build.android.r8.Desugar;
 import com.google.devtools.build.android.r8.FileUtils;
+import com.google.devtools.build.android.r8.desugar.basic.A;
+import com.google.devtools.build.android.r8.desugar.basic.B;
+import com.google.devtools.build.android.r8.desugar.basic.C;
+import com.google.devtools.build.android.r8.desugar.basic.I;
+import com.google.devtools.build.android.r8.desugar.basic.J;
+import com.google.devtools.build.android.r8.desugar.basic.K;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,6 +40,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.function.Consumer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,6 +54,13 @@ import org.objectweb.asm.ClassVisitor;
 public class DesugarBasicTest {
   private Path basic;
   private Path desugared;
+  private Path desugaredClasspath;
+  private Path desugaredWithDependencyMetadata;
+  private Path desugaredWithDependencyMetadataWithDesugar;
+  private Path desugaredClasspathWithDependencyMetadata;
+  private Path desugaredClasspathWithDependencyMetadataWithDesugar;
+  private Path desugaredWithDependencyMetadataMissingInterface;
+  private Path desugaredWithDependencyMetadataMissingInterfaceWithDesugar;
 
   @Before
   public void setup() {
@@ -43,6 +68,43 @@ public class DesugarBasicTest {
     basic = Paths.get(System.getProperty("DesugarBasicTest.testdata_basic"));
     // Jar file with the compiled Java code in the sub-package basic after desugaring.
     desugared = Paths.get(System.getProperty("DesugarBasicTest.testdata_basic_desugared"));
+    // Jar file with the compiled Java code in the sub-package basic after desugaring with all
+    // interfaces on classpath.
+    desugaredClasspath =
+        Paths.get(System.getProperty("DesugarBasicTest.testdata_basic_desugared_classpath"));
+    // Jar file with the compiled Java code in the sub-package basic after desugaring with
+    // collected dependency metadata included.
+    desugaredWithDependencyMetadata =
+        Paths.get(
+            System.getProperty(
+                "DesugarBasicTest.testdata_basic_desugared_with_dependency_metadata"));
+    // Same as above compiled with desugar.
+    desugaredWithDependencyMetadataWithDesugar =
+        Paths.get(
+            System.getProperty(
+                "DesugarBasicTest.testdata_basic_desugared_with_dependency_metadata_with_desugar"));
+    // Jar file with the compiled Java code in the sub-package basic after desugaring with all
+    // interfaces on classpath with collected dependency metadata included.
+    desugaredClasspathWithDependencyMetadata =
+        Paths.get(
+            System.getProperty(
+                "DesugarBasicTest.testdata_basic_desugared_classpath_with_dependency_metadata"));
+    // Same as above compiled with desugar.
+    desugaredClasspathWithDependencyMetadataWithDesugar =
+        Paths.get(
+            System.getProperty(
+                "DesugarBasicTest.testdata_basic_desugared_classpath_with_dependency_metadata_with_desugar"));
+    // Jar file with the compiled Java code in the sub-package basic after desugaring with missing
+    // interface.
+    desugaredWithDependencyMetadataMissingInterface =
+        Paths.get(
+            System.getProperty(
+                "DesugarBasicTest.testdata_basic_desugared_with_dependency_metadata_missing_interface"));
+    // Same as above compiled with desugar.
+    desugaredWithDependencyMetadataMissingInterfaceWithDesugar =
+        Paths.get(
+            System.getProperty(
+                "DesugarBasicTest.testdata_basic_desugared_with_dependency_metadata_missing_interface_with_desugar"));
   }
 
   @Test
@@ -58,14 +120,194 @@ public class DesugarBasicTest {
 
   @Test
   public void checkAfterDesugar() throws Exception {
+    for (Path jar : ImmutableList.of(desugared, desugaredWithDependencyMetadata)) {
+      DesugarInfoCollector desugarInfoCollector = new DesugarInfoCollector();
+      forAllClasses(jar, desugarInfoCollector);
+      // TODO(b/153971249): The class file version of desugared class files should be Java 7.
+      // assertThat(lambdaUse.getMajorCfVersion()).isEqualTo(V1_7);
+      assertThat(desugarInfoCollector.getNumberOfInvokeDynamic()).isEqualTo(0);
+      assertThat(desugarInfoCollector.getNumberOfDefaultMethods()).isEqualTo(0);
+      assertThat(desugarInfoCollector.getNumberOfDesugaredLambdas()).isEqualTo(1);
+      assertThat(desugarInfoCollector.getNumberOfCompanionClasses()).isEqualTo(3);
+    }
+  }
+
+  @Test
+  public void checkAfterDesugarClasspath() throws Exception {
     DesugarInfoCollector desugarInfoCollector = new DesugarInfoCollector();
-    forAllClasses(desugared, desugarInfoCollector);
+    forAllClasses(desugaredClasspath, desugarInfoCollector);
     // TODO(b/153971249): The class file version of desugared class files should be Java 7.
     // assertThat(lambdaUse.getMajorCfVersion()).isEqualTo(V1_7);
     assertThat(desugarInfoCollector.getNumberOfInvokeDynamic()).isEqualTo(0);
     assertThat(desugarInfoCollector.getNumberOfDefaultMethods()).isEqualTo(0);
     assertThat(desugarInfoCollector.getNumberOfDesugaredLambdas()).isEqualTo(1);
-    assertThat(desugarInfoCollector.getNumberOfCompanionClasses()).isEqualTo(1);
+    assertThat(desugarInfoCollector.getNumberOfCompanionClasses()).isEqualTo(0);
+  }
+
+  @SuppressWarnings("ProtoParseWithRegistry")
+  private static DesugarDepsInfo extractDesugarDeps(Path jar) throws Exception {
+    try (ZipFile zip = new ZipFile(jar.toFile())) {
+      ZipEntry desugarDepsEntry = zip.getEntry(Desugar.DESUGAR_DEPS_FILENAME);
+      assertThat(desugarDepsEntry).isNotNull();
+      return DesugarDepsInfo.parseFrom(zip.getInputStream(desugarDepsEntry));
+    }
+  }
+
+  private static DesugarDepsInfo mapD8Info(DesugarDepsInfo info) {
+    // Rebuild the D8 dependency information with the same naming scheme for companion classes
+    // as desugar use.
+    DesugarDepsInfo.Builder builder = info.newBuilderForType();
+    info.getAssumePresentList()
+        .forEach(
+            assumePresent ->
+                builder.addAssumePresent(
+                    assumePresent
+                        .newBuilderForType()
+                        .setOrigin(assumePresent.getOrigin())
+                        .setTarget(
+                            assumePresent
+                                .getTarget()
+                                .newBuilderForType()
+                                .setBinaryName(
+                                    assumePresent
+                                        .getTarget()
+                                        .getBinaryName()
+                                        .replace(
+                                            INTERFACE_COMPANION_SUFFIX,
+                                            DESUGAR_INTERFACE_COMPANION_SUFFIX)))));
+    info.getInterfaceWithCompanionList().forEach(builder::addInterfaceWithCompanion);
+    info.getInterfaceWithSupertypesList().forEach(builder::addInterfaceWithSupertypes);
+    info.getMissingInterfaceList().forEach(builder::addMissingInterface);
+    return builder.build();
+  }
+
+  private static DesugarDeps.Type classToType(Class<?> clazz) {
+    return DesugarDeps.Type.newBuilder()
+        .setBinaryName(DescriptorUtils.classToBinaryName(clazz))
+        .build();
+  }
+
+  private static DesugarDeps.Type classToCompanionType(Class<?> clazz) {
+    return DesugarDeps.Type.newBuilder()
+        .setBinaryName(DescriptorUtils.classToBinaryName(clazz) + INTERFACE_COMPANION_SUFFIX)
+        .build();
+  }
+
+  @Test
+  public void checkDependencyMetadata() throws Exception {
+    DesugarDepsInfo info = extractDesugarDeps(desugaredWithDependencyMetadata);
+
+    // Check expected metadata content.
+    assertThat(info.getAssumePresentList())
+        .containsExactly(
+            Dependency.newBuilder()
+                .setOrigin(classToType(A.class))
+                .setTarget(classToCompanionType(I.class))
+                .build(),
+            Dependency.newBuilder()
+                .setOrigin(classToType(B.class))
+                .setTarget(classToCompanionType(J.class))
+                .build(),
+            Dependency.newBuilder()
+                .setOrigin(classToType(C.class))
+                .setTarget(classToCompanionType(K.class))
+                .build());
+    assertThat(info.getInterfaceWithCompanionList())
+        .containsExactly(
+            InterfaceWithCompanion.newBuilder()
+                .setOrigin(classToType(I.class))
+                .setNumDefaultMethods(1)
+                .build(),
+            InterfaceWithCompanion.newBuilder()
+                .setOrigin(classToType(J.class))
+                .setNumDefaultMethods(1)
+                .build(),
+            InterfaceWithCompanion.newBuilder()
+                .setOrigin(classToType(K.class))
+                .setNumDefaultMethods(1)
+                .build());
+    assertThat(info.getInterfaceWithSupertypesList())
+        .containsExactly(
+            InterfaceDetails.newBuilder()
+                .setOrigin(classToType(J.class))
+                .addExtendedInterface(classToType(I.class))
+                .build());
+    assertThat(info.getMissingInterfaceCount()).isEqualTo(0);
+
+    // Compare metadata with desugar metadata.
+    assertThat(mapD8Info(info))
+        .isEqualTo(extractDesugarDeps(desugaredWithDependencyMetadataWithDesugar));
+  }
+
+  @Test
+  public void checkDependencyMetadataClasspath() throws Exception {
+    DesugarDepsInfo info = extractDesugarDeps(desugaredClasspathWithDependencyMetadata);
+
+    // Check expected metadata content.
+    assertThat(info.getAssumePresentList())
+        .containsExactly(
+            Dependency.newBuilder()
+                .setOrigin(classToType(A.class))
+                .setTarget(classToCompanionType(I.class))
+                .build(),
+            Dependency.newBuilder()
+                .setOrigin(classToType(B.class))
+                .setTarget(classToCompanionType(J.class))
+                .build(),
+            Dependency.newBuilder()
+                .setOrigin(classToType(C.class))
+                .setTarget(classToCompanionType(K.class))
+                .build());
+    assertThat(info.getInterfaceWithCompanionCount()).isEqualTo(0);
+    assertThat(info.getInterfaceWithSupertypesCount()).isEqualTo(0);
+    assertThat(info.getMissingInterfaceCount()).isEqualTo(0);
+
+    // Compare metadata with desugar metadata.
+    assertThat(mapD8Info(info))
+        .isEqualTo(extractDesugarDeps(desugaredClasspathWithDependencyMetadataWithDesugar));
+  }
+
+  @Test
+  public void checkDependencyMetadataMissingInterface() throws Exception {
+    DesugarDepsInfo info = extractDesugarDeps(desugaredWithDependencyMetadataMissingInterface);
+
+    // Check expected metadata content.
+    assertThat(info.getAssumePresentList())
+        .containsExactly(
+            Dependency.newBuilder()
+                .setOrigin(classToType(A.class))
+                .setTarget(classToCompanionType(I.class))
+                .build(),
+            Dependency.newBuilder()
+                .setOrigin(classToType(B.class))
+                .setTarget(classToCompanionType(J.class))
+                .build());
+    assertThat(info.getInterfaceWithCompanionList())
+        .containsExactly(
+            InterfaceWithCompanion.newBuilder()
+                .setOrigin(classToType(I.class))
+                .setNumDefaultMethods(1)
+                .build(),
+            InterfaceWithCompanion.newBuilder()
+                .setOrigin(classToType(J.class))
+                .setNumDefaultMethods(1)
+                .build());
+    assertThat(info.getInterfaceWithSupertypesList())
+        .containsExactly(
+            InterfaceDetails.newBuilder()
+                .setOrigin(classToType(J.class))
+                .addExtendedInterface(classToType(I.class))
+                .build());
+    assertThat(info.getMissingInterfaceList())
+        .containsExactly(
+            Dependency.newBuilder()
+                .setOrigin(classToType(C.class))
+                .setTarget(classToType(K.class))
+                .build());
+
+    // Compare metadata with desugar metadata.
+    assertThat(mapD8Info(info))
+        .isEqualTo(extractDesugarDeps(desugaredWithDependencyMetadataMissingInterfaceWithDesugar));
   }
 
   private static void forAllClasses(Path jar, ClassVisitor classVisitor) throws Exception {

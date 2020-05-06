@@ -21,7 +21,7 @@ import java.lang.annotation.Target;
 /**
  * This annotation is used on classes and interfaces that represent Starlark data types.
  *
- * <p>Conceptually, every {@code @SkylarkModule} annotation corresponds to a user-distinguishable
+ * <p>Conceptually, every {@link StarlarkBuiltin} annotation corresponds to a user-distinguishable
  * Starlark type. The annotation holds metadata associated with that type, in particular its name
  * and documentation. The annotation also implicitly demarcates the Starlark API of the type. It
  * does not matter whether the annotation is used on a class or an interface.
@@ -34,8 +34,8 @@ import java.lang.annotation.Target;
  * multiple types. (In mathematical terms, the most-derived annotation for class or interface C is
  * the minimum element in the partial order of all annotations defined on C and its ancestors, where
  * the order relationship is X < Y if X annotates a subtype of what Y annotates.) The lookup logic
- * for retrieving a class's {@code @SkylarkModule} is implemented by {@link
- * SkylarkInterfaceUtils#getSkylarkModule}.
+ * for retrieving a class's {@link StarlarkBuiltin} is implemented by {@link
+ * StarlarkInterfaceUtils#getStarlarkBuiltin}.
  *
  * <p>Inheriting an annotation is useful when the class is an implementation detail, such as a
  * concrete implementation of an abstract interface. Overriding an annotation is useful when the
@@ -45,15 +45,15 @@ import java.lang.annotation.Target;
  * them to define different methods, while annotating {@link Sequence} allows them to be identified
  * as a single type for the purpose of type checking, documentation, and error messages.
  *
- * <p>All {@code @SkylarkModule}-annotated types must implement {@link StarlarkValue}. Nearly all
- * non-abstract implementations of {@link StarlarkValue} have or inherit a {@code @SkylarkModule}
+ * <p>All {@link StarlarkBuiltin}-annotated types must implement {@link StarlarkValue}. Nearly all
+ * non-abstract implementations of {@link StarlarkValue} have or inherit a {@link StarlarkBuiltin}
  * annotation. (It is possible, though quite unusual, to declare an implementation of {@code
  * StarlarkValue} without using the annotation mechanism defined in this package. {@code
  * StarlarkFunction} is one example.)
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface SkylarkModule {
+public @interface StarlarkBuiltin {
 
   /** A type name that may be used in stringification and error messages. */
   String name();
@@ -73,5 +73,5 @@ public @interface SkylarkModule {
    */
   boolean namespace() default false;
 
-  SkylarkModuleCategory category() default SkylarkModuleCategory.TOP_LEVEL_TYPE;
+  StarlarkDocumentationCategory category() default StarlarkDocumentationCategory.TOP_LEVEL_TYPE;
 }

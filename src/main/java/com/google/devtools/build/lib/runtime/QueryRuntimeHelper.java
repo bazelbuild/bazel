@@ -14,7 +14,11 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import java.io.OutputStream;
 
 /**
@@ -35,21 +39,15 @@ public interface QueryRuntimeHelper extends AutoCloseable {
    *
    * <p>In particular, this method shouldn't be called if query evaluation fails.
    */
-  void afterQueryOutputIsWritten() throws IOException, InterruptedException;
+  void afterQueryOutputIsWritten() throws QueryRuntimeHelperException, InterruptedException;
 
   /** Must be called at some point near the end of the life of the query command. */
   @Override
-  void close() throws IOException;
+  void close() throws QueryRuntimeHelperException;
 
   /** Factory for {@link QueryRuntimeHelper} instances. */
   interface Factory {
-    QueryRuntimeHelper create(CommandEnvironment env) throws IOException, CommandLineException;
-
-    class CommandLineException extends Exception {
-      public CommandLineException(String message) {
-        super(message);
-      }
-    }
+    QueryRuntimeHelper create(CommandEnvironment env) throws QueryRuntimeHelperException;
   }
 
   /**
@@ -91,7 +89,31 @@ public interface QueryRuntimeHelper extends AutoCloseable {
       public void afterQueryOutputIsWritten() {}
 
       @Override
-      public void close() throws IOException {}
+      public void close() {}
+    }
+  }
+
+  /** Describes what went wrong in {@link QueryRuntimeHelper}. */
+  class QueryRuntimeHelperException extends Exception {
+
+    private final Code detailedCode;
+
+    public QueryRuntimeHelperException(String message, FailureDetails.Query.Code detailedCode) {
+      super(Preconditions.checkNotNull(message));
+      this.detailedCode = detailedCode;
+    }
+
+    public QueryRuntimeHelperException(
+        String message, FailureDetails.Query.Code detailedCode, Throwable cause) {
+      super(Preconditions.checkNotNull(message), cause);
+      this.detailedCode = detailedCode;
+    }
+
+    public FailureDetail getFailureDetail() {
+      return FailureDetail.newBuilder()
+          .setMessage(getMessage())
+          .setQuery(Query.newBuilder().setCode(detailedCode))
+          .build();
     }
   }
 }

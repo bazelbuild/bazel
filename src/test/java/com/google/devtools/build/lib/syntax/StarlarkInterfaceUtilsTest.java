@@ -18,8 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import java.lang.reflect.Method;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,10 +27,10 @@ import org.junit.runners.JUnit4;
 
 /** Test Starlark interface annotations and utilities. */
 @RunWith(JUnit4.class)
-public class SkylarkInterfaceUtilsTest {
+public class StarlarkInterfaceUtilsTest {
 
   /** MockClassA */
-  @SkylarkModule(name = "MockClassA", doc = "MockClassA")
+  @StarlarkBuiltin(name = "MockClassA", doc = "MockClassA")
   public static class MockClassA implements StarlarkValue {
     @SkylarkCallable(name = "foo", doc = "MockClassA#foo")
     public void foo() {}
@@ -40,7 +40,7 @@ public class SkylarkInterfaceUtilsTest {
   }
 
   /** MockInterfaceB1 */
-  @SkylarkModule(name = "MockInterfaceB1", doc = "MockInterfaceB1")
+  @StarlarkBuiltin(name = "MockInterfaceB1", doc = "MockInterfaceB1")
   public static interface MockInterfaceB1 extends StarlarkValue {
     @SkylarkCallable(name = "foo", doc = "MockInterfaceB1#foo")
     void foo();
@@ -51,7 +51,7 @@ public class SkylarkInterfaceUtilsTest {
   }
 
   /** MockInterfaceB2 */
-  @SkylarkModule(name = "MockInterfaceB2", doc = "MockInterfaceB2")
+  @StarlarkBuiltin(name = "MockInterfaceB2", doc = "MockInterfaceB2")
   public static interface MockInterfaceB2 extends StarlarkValue {
     @SkylarkCallable(name = "baz", doc = "MockInterfaceB2#baz")
     void baz();
@@ -60,7 +60,7 @@ public class SkylarkInterfaceUtilsTest {
   }
 
   /** MockClassC */
-  @SkylarkModule(name = "MockClassC", doc = "MockClassC")
+  @StarlarkBuiltin(name = "MockClassC", doc = "MockClassC")
   public static class MockClassC extends MockClassA implements MockInterfaceB1, MockInterfaceB2 {
     @Override
     @SkylarkCallable(name = "foo", doc = "MockClassC#foo")
@@ -97,14 +97,14 @@ public class SkylarkInterfaceUtilsTest {
   }
 
   /** ClassAModule test class */
-  @SkylarkModule(name = "ClassAModule", doc = "ClassAModule")
+  @StarlarkBuiltin(name = "ClassAModule", doc = "ClassAModule")
   public static class ClassAModule implements StarlarkValue {}
 
   /** ExtendsClassA test class */
   public static class ExtendsClassA extends ClassAModule {}
 
   /** InterfaceBModule test interface */
-  @SkylarkModule(name = "InterfaceBModule", doc = "InterfaceBModule")
+  @StarlarkBuiltin(name = "InterfaceBModule", doc = "InterfaceBModule")
   public static interface InterfaceBModule extends StarlarkValue {}
 
   /** ExtendsInterfaceB test interface */
@@ -121,7 +121,7 @@ public class SkylarkInterfaceUtilsTest {
   public static class AmbiguousClass extends ExtendsClassA implements ExtendsInterfaceB {}
 
   /** SubclassOfBoth test interface */
-  @SkylarkModule(name = "SubclassOfBoth", doc = "SubclassOfBoth")
+  @StarlarkBuiltin(name = "SubclassOfBoth", doc = "SubclassOfBoth")
   public static class SubclassOfBoth extends ExtendsClassA implements ExtendsInterfaceB {}
 
   /**
@@ -139,14 +139,14 @@ public class SkylarkInterfaceUtilsTest {
   public static class MockClassZ {
   }
 
-  // The tests for getSkylarkModule() double as tests for getParentWithSkylarkModule(),
+  // The tests for getStarlarkBuiltin() double as tests for getParentWithStarlarkBuiltin(),
   // since they share an implementation.
 
   @Test
-  public void testGetSkylarkModuleBasic() throws Exception {
+  public void testGetStarlarkBuiltinBasic() throws Exception {
     // Normal case.
-    SkylarkModule ann = SkylarkInterfaceUtils.getSkylarkModule(MockClassA.class);
-    Class<?> cls = SkylarkInterfaceUtils.getParentWithSkylarkModule(MockClassA.class);
+    StarlarkBuiltin ann = StarlarkInterfaceUtils.getStarlarkBuiltin(MockClassA.class);
+    Class<?> cls = StarlarkInterfaceUtils.getParentWithStarlarkBuiltin(MockClassA.class);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassA");
     assertThat(cls).isNotNull();
@@ -154,10 +154,10 @@ public class SkylarkInterfaceUtilsTest {
   }
 
   @Test
-  public void testGetSkylarkModuleSubclass() throws Exception {
+  public void testGetStarlarkBuiltinSubclass() throws Exception {
     // Subclass's annotation is used.
-    SkylarkModule ann = SkylarkInterfaceUtils.getSkylarkModule(MockClassC.class);
-    Class<?> cls = SkylarkInterfaceUtils.getParentWithSkylarkModule(MockClassC.class);
+    StarlarkBuiltin ann = StarlarkInterfaceUtils.getStarlarkBuiltin(MockClassC.class);
+    Class<?> cls = StarlarkInterfaceUtils.getParentWithStarlarkBuiltin(MockClassC.class);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassC");
     assertThat(cls).isNotNull();
@@ -165,10 +165,10 @@ public class SkylarkInterfaceUtilsTest {
   }
 
   @Test
-  public void testGetSkylarkModuleSubclassNoSubannotation() throws Exception {
+  public void testGetStarlarkBuiltinSubclassNoSubannotation() throws Exception {
     // Falls back on superclass's annotation.
-    SkylarkModule ann = SkylarkInterfaceUtils.getSkylarkModule(MockClassD.class);
-    Class<?> cls = SkylarkInterfaceUtils.getParentWithSkylarkModule(MockClassD.class);
+    StarlarkBuiltin ann = StarlarkInterfaceUtils.getStarlarkBuiltin(MockClassD.class);
+    Class<?> cls = StarlarkInterfaceUtils.getParentWithStarlarkBuiltin(MockClassD.class);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassC");
     assertThat(cls).isNotNull();
@@ -176,44 +176,44 @@ public class SkylarkInterfaceUtilsTest {
   }
 
   @Test
-  public void testGetSkylarkModuleNotFound() throws Exception {
+  public void testGetStarlarkBuiltinNotFound() throws Exception {
     // Doesn't exist.
-    SkylarkModule ann = SkylarkInterfaceUtils.getSkylarkModule(MockClassZ.class);
-    Class<?> cls = SkylarkInterfaceUtils.getParentWithSkylarkModule(MockClassZ.class);
+    StarlarkBuiltin ann = StarlarkInterfaceUtils.getStarlarkBuiltin(MockClassZ.class);
+    Class<?> cls = StarlarkInterfaceUtils.getParentWithStarlarkBuiltin(MockClassZ.class);
     assertThat(ann).isNull();
     assertThat(cls).isNull();
   }
 
   @Test
-  public void testGetSkylarkModuleAmbiguous() throws Exception {
+  public void testGetStarlarkBuiltinAmbiguous() throws Exception {
     assertThrows(IllegalArgumentException.class,
-        () -> SkylarkInterfaceUtils.getSkylarkModule(ImplementsTwoUnrelatedInterfaceModules.class));
+        () -> StarlarkInterfaceUtils.getStarlarkBuiltin(ImplementsTwoUnrelatedInterfaceModules.class));
   }
 
   @Test
-  public void testGetSkylarkModuleTransitivelyAmbiguous() throws Exception {
+  public void testGetStarlarkBuiltinTransitivelyAmbiguous() throws Exception {
     assertThrows(IllegalArgumentException.class,
-        () -> SkylarkInterfaceUtils.getSkylarkModule(AmbiguousClass.class));
+        () -> StarlarkInterfaceUtils.getStarlarkBuiltin(AmbiguousClass.class));
   }
 
   @Test
-  public void testGetSkylarkModuleUnambiguousComplex() throws Exception {
-    assertThat(SkylarkInterfaceUtils.getSkylarkModule(SubclassOfBoth.class))
-        .isEqualTo(SubclassOfBoth.class.getAnnotation(SkylarkModule.class));
+  public void testGetStarlarkBuiltinUnambiguousComplex() throws Exception {
+    assertThat(StarlarkInterfaceUtils.getStarlarkBuiltin(SubclassOfBoth.class))
+        .isEqualTo(SubclassOfBoth.class.getAnnotation(StarlarkBuiltin.class));
 
-    assertThat(SkylarkInterfaceUtils.getSkylarkModule(UnambiguousClass.class))
-        .isEqualTo(SubclassOfBoth.class.getAnnotation(SkylarkModule.class));
+    assertThat(StarlarkInterfaceUtils.getStarlarkBuiltin(UnambiguousClass.class))
+        .isEqualTo(SubclassOfBoth.class.getAnnotation(StarlarkBuiltin.class));
   }
 
   @Test
   public void testGetSkylarkCallableBasic() throws Exception {
     // Normal case. Ensure two-arg form is consistent with one-arg form.
     Method method = MockClassA.class.getMethod("foo");
-    SkylarkCallable ann = SkylarkInterfaceUtils.getSkylarkCallable(method);
+    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassA#foo");
 
-    SkylarkCallable ann2 = SkylarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
+    SkylarkCallable ann2 = StarlarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
     assertThat(ann2).isEqualTo(ann);
   }
 
@@ -221,7 +221,7 @@ public class SkylarkInterfaceUtilsTest {
   public void testGetSkylarkCallableSubclass() throws Exception {
     // Subclass's annotation is used.
     Method method = MockClassC.class.getMethod("foo");
-    SkylarkCallable ann = SkylarkInterfaceUtils.getSkylarkCallable(method);
+    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassC#foo");
   }
@@ -230,7 +230,7 @@ public class SkylarkInterfaceUtilsTest {
   public void testGetSkylarkCallableSubclassNoSubannotation() throws Exception {
     // Falls back on superclass's annotation. Superclass takes precedence over interface.
     Method method = MockClassC.class.getMethod("bar");
-    SkylarkCallable ann = SkylarkInterfaceUtils.getSkylarkCallable(method);
+    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassA#bar");
   }
@@ -239,7 +239,7 @@ public class SkylarkInterfaceUtilsTest {
   public void testGetSkylarkCallableTwoargForm() throws Exception {
     // Ensure that when passing superclass in directly, we bypass subclass's annotation.
     Method method = MockClassC.class.getMethod("foo");
-    SkylarkCallable ann = SkylarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
+    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassA#foo");
   }
@@ -248,17 +248,17 @@ public class SkylarkInterfaceUtilsTest {
   public void testGetSkylarkCallableNotFound() throws Exception {
     // Null result when no annotation present...
     Method method = MockClassA.class.getMethod("baz");
-    SkylarkCallable ann = SkylarkInterfaceUtils.getSkylarkCallable(method);
+    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
     assertThat(ann).isNull();
 
     // ... including when it's only present in a subclass that was bypassed...
     method = MockClassC.class.getMethod("baz");
-    ann = SkylarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
+    ann = StarlarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
     assertThat(ann).isNull();
 
     // ... or when the method itself is only in the subclass that was bypassed.
     method = MockClassC.class.getMethod("qux");
-    ann = SkylarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
+    ann = StarlarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
     assertThat(ann).isNull();
   }
 
@@ -266,13 +266,13 @@ public class SkylarkInterfaceUtilsTest {
   public void testGetSkylarkCallableInterface() throws Exception {
     // Search through parent interfaces. First interface takes priority.
     Method method = MockClassC.class.getMethod("baz");
-    SkylarkCallable ann = SkylarkInterfaceUtils.getSkylarkCallable(method);
+    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockInterfaceB1#baz");
 
     // Make sure both are still traversed.
     method = MockClassC.class.getMethod("qux");
-    ann = SkylarkInterfaceUtils.getSkylarkCallable(method);
+    ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockInterfaceB2#qux");
   }

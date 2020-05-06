@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import java.util.AbstractList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -34,9 +34,9 @@ import java.util.NoSuchElementException;
  * the case in Python 3, but for now to preserve backwards compatibility with Python 2, {@code list}
  * is returned.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "range",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A language built-in type to support ranges. Example of range literal:<br>"
             + "<pre class=language-python>x = range(1, 10, 3)</pre>"

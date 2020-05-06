@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Represents a configuration transition across a dependency edge. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "transition",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "<p>Represents a configuration transition across a dependency edge. For example, if"
             + " <code>//package:foo</code> depends on <code>//package:bar</code> with a"

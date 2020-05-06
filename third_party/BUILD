@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -151,35 +152,35 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["asm/asm-7.0.jar"],
-    srcjar = "asm/asm-7.0-sources.jar",
+    jars = ["asm/asm-8.0.jar"],
+    srcjar = "asm/asm-8.0-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-7.0.jar"],
-    srcjar = "asm/asm-analysis-7.0-sources.jar",
+    jars = ["asm/asm-analysis-8.0.jar"],
+    srcjar = "asm/asm-analysis-8.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-7.0.jar"],
-    srcjar = "asm/asm-commons-7.0-sources.jar",
+    jars = ["asm/asm-commons-8.0.jar"],
+    srcjar = "asm/asm-commons-8.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-7.0.jar"],
-    srcjar = "asm/asm-tree-7.0-sources.jar",
+    jars = ["asm/asm-tree-8.0.jar"],
+    srcjar = "asm/asm-tree-8.0-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-7.0.jar"],
-    srcjar = "asm/asm-util-7.0-sources.jar",
+    jars = ["asm/asm-util-8.0.jar"],
+    srcjar = "asm/asm-util-8.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -305,9 +306,10 @@ java_import(
     jars = ["compile_testing/compile-testing-0.18.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "gson",
     jars = ["gson/gson-2.2.4.jar"],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -407,13 +409,6 @@ filegroup(
 )
 
 java_import(
-    name = "instrumentation",
-    jars = [
-        "instrumentation/instrumentation-api-0.4.3.jar",
-    ],
-)
-
-java_import(
     name = "opencensus-api",
     jars = [
         "opencensus/opencensus-api-0.19.2.jar",
@@ -488,9 +483,11 @@ genrule(
           "zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES + "; fi",
 )
 
-java_import(
+distrib_java_import(
     name = "netty",
     jars = ["netty/netty-all-4.1.34.Final.jar"],
+    # TODO: The debian netty-all.jar is empty, fix it then enable the following
+    # enable_distributions = ["debian"],
 )
 
 java_import(
@@ -498,9 +495,10 @@ java_import(
     jars = ["netty_tcnative/netty-tcnative-filtered.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "tomcat_annotations_api",
     jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+    enable_distributions = ["debian"],
 )
 
 # For bootstrapping JavaBuilder

@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A node in the build dependency graph, identified by a Label. */
-@SkylarkModule(name = "target", doc = "", documented = false)
+@StarlarkBuiltin(name = "target", doc = "", documented = false)
 public interface TargetApi extends StarlarkValue {
 
   /**

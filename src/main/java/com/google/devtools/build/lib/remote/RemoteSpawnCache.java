@@ -314,7 +314,7 @@ final class RemoteSpawnCache implements SpawnCache {
   }
 
   private static boolean useRemoteCache(RemoteOptions options) {
-    return !isNullOrEmpty(options.remoteCache);
+    return !isNullOrEmpty(options.remoteCache) || !isNullOrEmpty(options.remoteExecutor);
   }
 
   private static boolean useDiskCache(RemoteOptions options) {

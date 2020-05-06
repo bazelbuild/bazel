@@ -2034,7 +2034,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testArgsScalarAddThrowsWithVectorArg() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "Args#add doesn't accept vectorized",
+        "Args.add() doesn't accept vectorized arguments",
         "args = ruleContext.actions.args()",
         "args.add([1, 2])",
         "ruleContext.actions.run(",
@@ -2330,22 +2330,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     checkEvalErrorContains(
         "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"",
         "args = ruleContext.actions.args()\n" + "args.set_param_file_format('illegal')");
-  }
-
-  @Test
-  public void testScalarJoinWithErrorMessage() throws Exception {
-    setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
-        "'join_with' is not supported for scalar arguments",
-        "args = ruleContext.actions.args()\n" + "args.add(1, join_with=':')");
-  }
-
-  @Test
-  public void testScalarBeforeEachErrorMessage() throws Exception {
-    setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
-        "'before_each' is not supported for scalar arguments",
-        "args = ruleContext.actions.args()\n" + "args.add(1, before_each='illegal')");
   }
 
   @Test

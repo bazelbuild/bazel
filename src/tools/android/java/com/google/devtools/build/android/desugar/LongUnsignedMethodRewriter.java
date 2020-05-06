@@ -27,7 +27,7 @@ public class LongUnsignedMethodRewriter extends ClassVisitor {
 
   public LongUnsignedMethodRewriter(
       ClassVisitor cv, CoreLibraryRewriter rewriter, AtomicInteger numOfUnsignedLongsInvoked) {
-    super(Opcodes.ASM7, cv);
+    super(Opcodes.ASM8, cv);
     this.rewriter = rewriter;
     this.numOfUnsignedLongsInvoked = numOfUnsignedLongsInvoked;
   }
@@ -42,7 +42,7 @@ public class LongUnsignedMethodRewriter extends ClassVisitor {
   private class LongUnsignedMethodVisitor extends MethodVisitor {
 
     public LongUnsignedMethodVisitor(MethodVisitor visitor) {
-      super(Opcodes.ASM7, visitor);
+      super(Opcodes.ASM8, visitor);
     }
 
     @Override

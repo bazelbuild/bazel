@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
-import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.Factory.CommandLineException;
+import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelperException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
@@ -113,12 +113,15 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
         }
       }
       return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
-    } catch (CommandLineExpansionException | CommandLineException e) {
+    } catch (CommandLineExpansionException e) {
       env.getReporter().handle(Event.error("Error while parsing command: " + e.getMessage()));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
+    } catch (QueryRuntimeHelperException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
   }
 

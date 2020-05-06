@@ -20,17 +20,17 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Provider instance for the Python rules. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "PyInfo",
     doc = "Encapsulates information provided by the Python rules.",
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
@@ -77,7 +77,7 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
   boolean getHasPy3OnlySources();
 
   /** Provider type for {@link PyInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface PyInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(

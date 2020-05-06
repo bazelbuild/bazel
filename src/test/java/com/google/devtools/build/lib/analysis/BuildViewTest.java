@@ -40,8 +40,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
 import com.google.devtools.build.lib.analysis.util.ExpectedTrimmedConfigurationErrors;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
-import com.google.devtools.build.lib.causes.AnalysisFailedCause;
-import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -65,7 +63,6 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -219,7 +216,7 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testReportsVisibilityAnalysisRootCauses() throws Exception {
+  public void testReportsAnalysisRootCauses() throws Exception {
     scratch.file("private/BUILD",
         "genrule(",
         "    name='private',",
@@ -252,88 +249,6 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(recorder.causes).hasSize(1);
     AnalysisRootCauseEvent cause = recorder.causes.get(0);
     assertThat(cause.getLabel().toString()).isEqualTo("//foo:bar");
-  }
-
-  @Test
-  public void testReportsNonExistentPackageAnalysisRootCausesNoKeepGoing() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
-    // Regression test for b/153480748, content taken from:
-    // //devtools/builddoctor/projects/invalid/java/library_invalid_dep/BUILD#2
-    scratch.file(
-        "java/BUILD",
-        "java_library(",
-        "    name='library_invalid_dep',",
-        "    srcs=['NoOp.java'],",
-        "    deps=['//non/existent/package:target'])",
-        "java_library(",
-        "    name='other',",
-        "    srcs=['NoOp.java'],",
-        "    deps=[])");
-    scratch.file("java/NoOp.java", "class NoOp { private NoOp() {} }");
-
-    reporter.removeHandler(failFastHandler);
-    AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
-    eventBus.register(recorder);
-    ViewCreationFailedException e =
-        assertThrows(
-            ViewCreationFailedException.class,
-            () -> update(eventBus, defaultFlags(), "//java:library_invalid_dep"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Analysis of target '//java:library_invalid_dep' failed; build aborted");
-
-    assertThat(recorder.events).hasSize(1);
-    AnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getLegacyFailureReason().toString())
-        .isEqualTo("//non/existent/package:target");
-    assertThat(event.getFailedTarget().getLabel().toString())
-        .isEqualTo("//java:library_invalid_dep");
-
-    assertThat(recorder.causes).hasSize(1);
-    AnalysisRootCauseEvent cause = recorder.causes.get(0);
-    assertThat(cause.getLabel().toString()).isEqualTo("//non/existent/package:target");
-  }
-
-  @Test
-  public void testReportsNonExistentPackageAnalysisRootCausesKeepGoing() throws Exception {
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      // TODO(b/129599328): fix or justify disabling
-      return;
-    }
-    // Regression test for b/153480748, content taken from:
-    // //devtools/builddoctor/projects/invalid/java/library_invalid_dep/BUILD#2
-    scratch.file(
-        "java/BUILD",
-        "java_library(",
-        "    name='library_invalid_dep',",
-        "    srcs=['NoOp.java'],",
-        "    deps=['//non/existent/package:target'])",
-        "java_library(",
-        "    name='other',",
-        "    srcs=['NoOp.java'],",
-        "    deps=[])");
-    scratch.file("java/NoOp.java", "class NoOp { private NoOp() {} }");
-
-    reporter.removeHandler(failFastHandler);
-    AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
-    eventBus.register(recorder);
-    AnalysisResult result =
-        update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//java:library_invalid_dep");
-    assertThat(result.hasError()).isTrue();
-
-    assertThat(recorder.events).hasSize(1);
-    AnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getLegacyFailureReason().toString())
-        .isEqualTo("//non/existent/package:target");
-    assertThat(event.getFailedTarget().getLabel().toString())
-        .isEqualTo("//java:library_invalid_dep");
-
-    assertThat(recorder.causes).hasSize(1);
-    AnalysisRootCauseEvent cause = recorder.causes.get(0);
-    assertThat(cause.getLabel().toString()).isEqualTo("//non/existent/package:target");
   }
 
   @Test
@@ -393,29 +308,22 @@ public class BuildViewTest extends BuildViewTestBase {
         "        cmd='')");
 
     reporter.removeHandler(failFastHandler);
-    LoadingFailureRecorder loadingRecorder = new LoadingFailureRecorder();
-    AnalysisFailureRecorder analysisRecorder = new AnalysisFailureRecorder();
-    eventBus.register(loadingRecorder);
-    eventBus.register(analysisRecorder);
+    LoadingFailureRecorder recorder = new LoadingFailureRecorder();
+    eventBus.register(recorder);
+    // Note: no need to run analysis for a loading failure.
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//pkg:foo");
     assertThat(result.hasError()).isTrue();
-
-    assertThat(analysisRecorder.events).hasSize(1);
-    AnalysisFailureEvent analysisFailureEvent = analysisRecorder.events.get(0);
-    assertThat(analysisFailureEvent.getFailedTarget().getLabel().toString()).isEqualTo("//pkg:foo");
-    ImmutableList<Cause> analysisFailureCauses = analysisFailureEvent.getRootCauses().toList();
-    Cause missingPackageCause =
-        analysisFailureCauses.get(0) instanceof AnalysisFailedCause
-            ? analysisFailureCauses.get(0)
-            : analysisFailureCauses.get(1);
-    assertThat(missingPackageCause.getLabel())
-        .isEqualTo(Label.parseAbsolute("//nopackage:missing", ImmutableMap.of()));
+    assertThat(recorder.events)
+        .contains(
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//pkg:foo", ImmutableMap.of()),
+                Label.parseAbsolute("//nopackage:missing", ImmutableMap.of())));
     assertContainsEvent("missing value for mandatory attribute 'outs'");
     assertContainsEvent("no such package 'nopackage'");
     // Skyframe correctly reports the other root cause as the genrule itself (since it is
     // missing attributes).
-    assertThat(loadingRecorder.events).hasSize(1);
-    assertThat(loadingRecorder.events)
+    assertThat(recorder.events).hasSize(2);
+    assertThat(recorder.events)
         .contains(
             new LoadingFailureEvent(
                 Label.parseAbsolute("//pkg:foo", ImmutableMap.of()),
@@ -955,18 +863,18 @@ public class BuildViewTest extends BuildViewTestBase {
     cycles2BuildFilePath.getParentDirectory().getRelative("cycles2.sh").createSymbolicLink(
         PathFragment.create("cycles2.sh"));
     reporter.removeHandler(failFastHandler);
-    AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
+    LoadingFailureRecorder recorder = new LoadingFailureRecorder();
     eventBus.register(recorder);
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
-    AnalysisFailureEvent event = recorder.events.get(0);
-    assertThat(event.getFailedTarget().getLabel().toString()).isEqualTo("//gp:gp");
-    List<Label> rootCauseLabels =
-        event.getRootCauses().toList().stream().map(Cause::getLabel).collect(Collectors.toList());
-    assertThat(rootCauseLabels)
+    assertThat(recorder.events)
         .containsExactly(
-            Label.parseAbsolute("//cycles1", ImmutableMap.of()),
-            Label.parseAbsolute("//cycles2", ImmutableMap.of()));
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//gp", ImmutableMap.of()),
+                Label.parseAbsolute("//cycles1", ImmutableMap.of())),
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//gp", ImmutableMap.of()),
+                Label.parseAbsolute("//cycles2", ImmutableMap.of())));
   }
 
   /**
@@ -1145,7 +1053,8 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a", "//b");
     assertThat(result.hasError()).isTrue();
-    assertThat(result.getError()).contains("command succeeded, but not all targets were analyzed");
+    assertThat(result.getError())
+        .contains("command succeeded, but there were loading phase errors");
   }
 
   @Test

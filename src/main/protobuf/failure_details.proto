@@ -107,6 +107,8 @@ message FailureDetail {
     CanonicalizeFlags canonicalize_flags = 125;
     BuildConfiguration build_configuration = 126;
     InfoCommand info_command = 127;
+    MemoryOptions memory_options = 129;
+    Query query = 130;
   }
 
   reserved 102; // For internal use
@@ -115,6 +117,7 @@ message FailureDetail {
   reserved 111 to 113; // For internal use
   reserved 120; // For internal use
   reserved 128; // For internal use
+  reserved 131; // For internal use
 }
 
 message Interrupted {
@@ -123,11 +126,13 @@ message Interrupted {
     INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
     BUILD = 4 [(metadata) = { exit_code: 8 }];
     BUILD_COMPLETION = 5 [(metadata) = { exit_code: 8 }];
-    reserved 1 to 3; // For internal use
     PACKAGE_LOADING_SYNC = 6 [(metadata) = { exit_code: 8 }];
     EXECUTOR_COMPLETION = 7 [(metadata) = { exit_code: 8 }];
     COMMAND_DISPATCH = 8 [(metadata) = { exit_code: 8 }];
     INFO_ITEM = 9 [(metadata) = { exit_code: 8 }];
+    AFTER_QUERY = 10 [(metadata) = { exit_code: 8 }];
+    reserved 1 to 3; // For internal use
+    reserved 11 to 16; // For internal use
   }
 
   Code code = 1;
@@ -303,11 +308,19 @@ message Execution {
   Code code = 1;
 }
 
+// Failure details about Bazel's WORKSPACE features.
 message Workspaces {
   enum Code {
     WORKSPACES_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     WORKSPACES_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     WORKSPACES_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+
+    // See `managed_directories` in
+    // https://docs.bazel.build/versions/master/skylark/lib/globals.html#workspace.
+    ILLEGAL_WORKSPACE_FILE_SYMLINK_WITH_MANAGED_DIRECTORIES = 3
+        [(metadata) = { exit_code: 1 }];
+    WORKSPACE_FILE_READ_FAILURE_WITH_MANAGED_DIRECTORIES = 4
+        [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -330,6 +343,8 @@ message Filesystem {
     EMBEDDED_BINARIES_ENUMERATION_FAILURE = 3 [(metadata) = { exit_code: 36 }];
     SERVER_PID_TXT_FILE_READ_FAILURE = 4 [(metadata) = { exit_code: 1 }];
     SERVER_FILE_WRITE_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+    DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE = 6
+        [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -376,6 +391,7 @@ message GrpcServer {
     SERVER_BIND_FAILURE = 2 [(metadata) = { exit_code: 1 }];
     BAD_COOKIE = 3 [(metadata) = { exit_code: 36 }];
     NO_CLIENT_DESCRIPTION = 4 [(metadata) = { exit_code: 36 }];
+    reserved 5; // For internal use
   }
 
   Code code = 1;
@@ -416,6 +432,34 @@ message InfoCommand {
     KEY_NOT_RECOGNIZED = 2 [(metadata) = { exit_code: 2 }];
     INFO_BLOCK_WRITE_FAILURE = 3 [(metadata) = { exit_code: 7 }];
     ALL_INFO_WRITE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message MemoryOptions {
+  enum Code {
+    MEMORY_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
+        [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message Query {
+  enum Code {
+    QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    QUERY_FILE_WITH_COMMAND_LINE_EXPRESSION = 1 [(metadata) = { exit_code: 2 }];
+    QUERY_FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+    COMMAND_LINE_EXPRESSION_MISSING = 3 [(metadata) = { exit_code: 2 }];
+    OUTPUT_FORMAT_INVALID = 4 [(metadata) = { exit_code: 2 }];
+    GRAPHLESS_PREREQ_UNMET = 5 [(metadata) = { exit_code: 2 }];
+    QUERY_OUTPUT_WRITE_FAILURE = 6 [(metadata) = { exit_code: 36 }];
+    QUERY_STDOUT_FLUSH_FAILURE = 13 [(metadata) = { exit_code: 36 }];
+    ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
+
+    reserved 7 to 12; // For internal use
   }
 
   Code code = 1;

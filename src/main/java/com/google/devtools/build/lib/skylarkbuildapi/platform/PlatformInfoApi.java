@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -30,12 +30,12 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
 /** Info object representing data about a specific platform. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "PlatformInfo",
     doc =
         "Provides access to data about a specific platform. "
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface PlatformInfoApi<
         ConstraintSettingInfoT extends ConstraintSettingInfoApi,
         ConstraintValueInfoT extends ConstraintValueInfoApi>
@@ -76,7 +76,7 @@ public interface PlatformInfoApi<
   Map<String, String> execProperties();
 
   /** Provider for {@link PlatformInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider<
           ConstraintSettingInfoT extends ConstraintSettingInfoApi,
           ConstraintValueInfoT extends ConstraintValueInfoApi,

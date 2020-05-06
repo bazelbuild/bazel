@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** The interface for Starlark-defined aspects in the Build API. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "Aspect",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
             + "documentation of the aspect function</a> or the "

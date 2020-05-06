@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Android configuration for properly handling native dependencies */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "android_split_transition",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "

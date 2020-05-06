@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -151,7 +152,7 @@ public class InfoCommand implements BlazeCommand {
               } catch (InterruptedException e) {
                 env.getReporter().handle(Event.error("interrupted"));
                 throw new AbruptExitRuntimeException(
-                    createInterruptedExit(
+                    InterruptedFailureDetails.detailedExitCode(
                         "command interrupted while syncing package loading",
                         Interrupted.Code.PACKAGE_LOADING_SYNC));
               }
@@ -223,19 +224,10 @@ public class InfoCommand implements BlazeCommand {
           FailureDetails.InfoCommand.Code.ALL_INFO_WRITE_FAILURE);
     } catch (InterruptedException e) {
       return BlazeCommandResult.detailedExitCode(
-          createInterruptedExit("info interrupted", Interrupted.Code.INFO_ITEM));
+          InterruptedFailureDetails.detailedExitCode(
+              "info interrupted", Interrupted.Code.INFO_ITEM));
     }
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
-  }
-
-  private static DetailedExitCode createInterruptedExit(
-      String message, Interrupted.Code detailedCode) {
-    return DetailedExitCode.of(
-        ExitCode.INTERRUPTED,
-        FailureDetail.newBuilder()
-            .setMessage(message)
-            .setInterrupted(Interrupted.newBuilder().setCode(detailedCode))
-            .build());
   }
 
   private static BlazeCommandResult createFailureResult(
