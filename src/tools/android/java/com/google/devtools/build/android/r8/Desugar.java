@@ -13,15 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.android.r8;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+import com.android.tools.r8.ArchiveClassFileProvider;
+import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.desugar.DependencyCollector;
+import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -30,7 +36,9 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import java.io.IOException;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -399,18 +407,34 @@ public class Desugar {
     }
   }
 
-  private void desugar() throws CompilationFailedException {
-
+  private void desugar(ClassFileResourceProvider classpath, Path input, Path output)
+      throws CompilationFailedException {
+    checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = createDependencyCollector();
-    OutputConsumer consumer = new OutputConsumer(options.outputJars.get(0), dependencyCollector);
+    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector);
     D8.run(
         D8Command.builder(new DesugarDiagnosticsHandler(consumer))
             .addLibraryFiles(options.bootclasspath)
-            .addClasspathFiles(options.classpath)
-            .addProgramFiles(options.inputJars)
+            .addClasspathResourceProvider(classpath)
+            .addProgramFiles(input)
             .setMinApiLevel(options.minSdkVersion)
             .setProgramConsumer(consumer)
             .build());
+  }
+
+  private void desugar() throws CompilationFailedException, IOException {
+    // Prepare classpath.
+    ImmutableList.Builder<ClassFileResourceProvider> classpathProvidersBuilder =
+        ImmutableList.builder();
+    for (Path path : options.classpath) {
+      classpathProvidersBuilder.add(new ArchiveClassFileProvider(path));
+    }
+    OrderedClassFileResourceProvider classpathProvider =
+        new OrderedClassFileResourceProvider(classpathProvidersBuilder.build());
+    // Desugar the input jars into the specified output jars.
+    for (int i = 0; i < options.inputJars.size(); i++) {
+      desugar(classpathProvider, options.inputJars.get(i), options.outputJars.get(i));
+    }
   }
 
   private static void validateOptions(DesugarOptions options) {
@@ -475,6 +499,14 @@ public class Desugar {
     if (options.persistentWorker) {
       throw new AssertionError("--persistent_worker is not supported");
     }
+
+    checkArgument(!options.inputJars.isEmpty(), "--input is required");
+    checkArgument(
+        options.inputJars.size() == options.outputJars.size(),
+        "D8 Desugar requires the same number of inputs and outputs to pair them."
+            + " #input=%s,#output=%s",
+        options.inputJars.size(),
+        options.outputJars.size());
   }
 
   public static void main(String[] args) throws Exception {
