@@ -314,13 +314,13 @@ public abstract class BlazeModule {
    * @param registryBuilder builder with which to register action contexts
    * @param env environment for the current command
    * @param buildRequest the current build request
-   * @throws ExecutorInitException if there are fatal issues creating or registering action contexts
+   * @throws AbruptExitException if there are fatal issues creating or registering action contexts
    */
   public void registerActionContexts(
       ModuleActionContextRegistry.Builder registryBuilder,
       CommandEnvironment env,
       BuildRequest buildRequest)
-      throws ExecutorInitException {}
+      throws AbruptExitException {}
 
   /**
    * Registers any spawn strategies this module provides with the execution phase.

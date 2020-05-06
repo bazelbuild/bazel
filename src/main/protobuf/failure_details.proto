@@ -119,6 +119,7 @@ message FailureDetail {
   reserved 120; // For internal use
   reserved 128; // For internal use
   reserved 131; // For internal use
+  reserved 133; // For internal use
 }
 
 message Interrupted {
