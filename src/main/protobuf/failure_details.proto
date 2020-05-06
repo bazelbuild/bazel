@@ -109,6 +109,7 @@ message FailureDetail {
     InfoCommand info_command = 127;
     MemoryOptions memory_options = 129;
     Query query = 130;
+    LocalExecution local_execution = 132;
   }
 
   reserved 102; // For internal use
@@ -460,6 +461,15 @@ message Query {
     ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
 
     reserved 7 to 12; // For internal use
+  }
+
+  Code code = 1;
+}
+
+message LocalExecution {
+  enum Code {
+    LOCAL_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    LOCKFREE_OUTPUT_PREREQ_UNMET = 1 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
