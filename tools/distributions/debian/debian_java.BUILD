@@ -63,3 +63,9 @@ java_import(
     name = "allocation_instrumenter",
     jars = ["java-allocation-instrumenter.jar"],
 )
+
+# javax.annotation-api
+java_import(
+    name = "javax_annotations",
+    jars = ["geronimo-annotation-1.3-spec.jar"],
+)

@@ -424,11 +424,12 @@ filegroup(
 
 # javax.annotation.Generated is not included in the default root modules in 9,
 # see: http://openjdk.java.net/jeps/320.
-java_import(
+distrib_java_import(
     name = "javax_annotations",
     jars = ["javax_annotations/javax.annotation-api-1.3.2.jar"],
     neverlink = 1,  # @Generated is source-retention
     srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
+    enable_distributions = ["debian"],
 )
 
 java_import(
