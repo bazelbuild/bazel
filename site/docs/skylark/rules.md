@@ -516,11 +516,6 @@ provider).
 * The field `output_groups` takes a struct value and corresponds to an
   [`OutputGroupInfo`](lib/OutputGroupInfo.html).
 
-* The field `instrumented_files` is for
-  [code coverage instrumentation](#code-coverage-instrumentation). It does not
-  yet have a modern provider equivalent. If you need it, you cannot yet migrate
-  away from legacy providers.
-
 In [`provides`](lib/globals.html#rule.provides) declarations of rules, and in
 [`providers`](lib/attr.html#label_list.providers) declarations of dependency
 attributes, legacy providers are passed in as strings and modern providers are
