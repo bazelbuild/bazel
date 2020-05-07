@@ -17,7 +17,6 @@ package(default_visibility = ["//visibility:public"])
 # zlib1g-dev
 cc_library(
     name = "zlib",
-    srcs = ["x86_64-linux-gnu/libz.a"],
+    linkopts = ["-lz"],
     visibility = ["//visibility:public"],
-    linkstatic = 1,
 )
