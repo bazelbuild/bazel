@@ -7,7 +7,7 @@
 //third_party/ijar:platform_utils
 //third_party/def_parser:def_parser
 //third_party/def_parser:def_parser_lib
-//third_party/zlib:zlib
+//third_party/zlib:zlib_checked_in
 //src/tools/launcher:launcher
 //src/tools/launcher:python_launcher
 //src/tools/launcher:java_launcher
