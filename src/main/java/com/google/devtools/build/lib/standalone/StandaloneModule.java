@@ -117,7 +117,7 @@ public class StandaloneModule extends BlazeModule {
     registryBuilder.registerStrategy(
         new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner), "standalone", "local");
 
-    // This makes the "sandboxed" strategy the default Spawn strategy, unless it is overridden by a
+    // This makes the "standalone" strategy the default Spawn strategy, unless it is overridden by a
     // later BlazeModule.
     registryBuilder.setDefaultStrategies(ImmutableList.of("standalone"));
   }
