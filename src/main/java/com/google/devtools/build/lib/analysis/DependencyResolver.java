@@ -261,7 +261,7 @@ public abstract class DependencyResolver {
       throw new IllegalStateException(target.getLabel().toString());
     }
 
-    Map<Label, Target> targetMap = getTargets(outgoingLabels, target, rootCauses);
+    Map<Label, Target> targetMap = getTargets(outgoingLabels, node, rootCauses);
     if (targetMap == null) {
       // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
       return OrderedSetMultimap.create();
@@ -713,8 +713,7 @@ public abstract class DependencyResolver {
    */
   protected abstract Map<Label, Target> getTargets(
       OrderedSetMultimap<DependencyKind, Label> labelMap,
-      Target fromTarget,
+      TargetAndConfiguration fromNode,
       NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException;
-
 }

@@ -60,7 +60,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
           @Override
           protected Map<Label, Target> getTargets(
               OrderedSetMultimap<DependencyKind, Label> labelMap,
-              Target fromTarget,
+              TargetAndConfiguration fromNode,
               NestedSetBuilder<Cause> rootCauses) {
             return labelMap.values().stream()
                 .distinct()

@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
+import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -84,10 +88,9 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   @Override
   protected Map<Label, Target> getTargets(
       OrderedSetMultimap<DependencyKind, Label> labelMap,
-      Target fromTarget,
+      TargetAndConfiguration fromNode,
       NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException {
-
     Map<PackageIdentifier, SkyKey> packageKeys = new HashMap<>(labelMap.size());
     for (Label label : labelMap.values()) {
       packageKeys.computeIfAbsent(label.getPackageIdentifier(), id -> PackageValue.key(id));
@@ -95,6 +98,8 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
 
     Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
         env.getValuesOrThrow(packageKeys.values(), NoSuchPackageException.class);
+
+    Target fromTarget = fromNode.getTarget();
 
     // As per the comment in SkyFunctionEnvironment.getValueOrUntypedExceptions(), we are supposed
     // to prefer reporting errors to reporting null, we first check for errors in our dependencies.
@@ -144,7 +149,13 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
                           e.getMessage())));
           continue;
         }
-        rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
+        @Nullable BuildConfiguration configuration = fromNode.getConfiguration();
+        @Nullable ConfigurationId configId = null;
+        if (configuration != null) {
+          configId =  configuration.getEventId().getConfiguration();
+        }
+        env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
+        rootCauses.add(new AnalysisFailedCause(label, configId, e.getMessage()));
         missingEdgeHook(fromTarget, entry.getKey(), label, e);
         continue;
       }
