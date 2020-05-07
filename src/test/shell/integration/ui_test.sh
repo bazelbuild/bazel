@@ -576,4 +576,28 @@ function test_fancy_symbol_encoding() {
     expect_log $'\xF0\x9F\x8D\x83'
 }
 
+function test_ui_events_filters() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
+
+  bazel build pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=-error pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_not_log "^ERROR: .*bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=info pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build  --ui_event_filters= pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_not_log "^INFO: Elapsed time"
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"
