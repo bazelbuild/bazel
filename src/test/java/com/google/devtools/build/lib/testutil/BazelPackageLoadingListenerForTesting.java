@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
@@ -30,22 +30,17 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.Root;
 
 /**
- * A Package.Builder.Helper for use in tests that a sanity check with {@link BazelPackageLoader} for
- * each loaded package, for the sake of getting pretty nice test coverage.
+ * A {@link PackageLoadingListener} for use in tests that a sanity check with {@link
+ * BazelPackageLoader} for each loaded package, for the sake of getting pretty nice test coverage.
  */
-public class BazelPackageBuilderHelperForTesting implements Package.Builder.Helper {
+public class BazelPackageLoadingListenerForTesting implements PackageLoadingListener {
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final BlazeDirectories directories;
 
-  public BazelPackageBuilderHelperForTesting(
+  public BazelPackageLoadingListenerForTesting(
       ConfiguredRuleClassProvider ruleClassProvider, BlazeDirectories directories) {
     this.ruleClassProvider = ruleClassProvider;
     this.directories = directories;
-  }
-
-  @Override
-  public Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix) {
-    return Package.Builder.DefaultHelper.INSTANCE.createFreshPackage(packageId, runfilesPrefix);
   }
 
   @Override
@@ -53,14 +48,6 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
       Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
     sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
   }
-
-  private static final Function<Target, Label> TARGET_TO_LABEL =
-      new Function<Target, Label>() {
-        @Override
-        public Label apply(Target input) {
-          return input.getLabel();
-        }
-      };
 
   private void sanityCheckBazelPackageLoader(
       Package pkg,
@@ -84,10 +71,10 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
       throw new IllegalStateException(e);
     }
     ImmutableSet<Label> targetsInPkg =
-        ImmutableSet.copyOf(Iterables.transform(pkg.getTargets().values(), TARGET_TO_LABEL));
+        ImmutableSet.copyOf(Iterables.transform(pkg.getTargets().values(), Target::getLabel));
     ImmutableSet<Label> targetsInNewlyLoadedPkg =
         ImmutableSet.copyOf(
-            Iterables.transform(newlyLoadedPkg.getTargets().values(), TARGET_TO_LABEL));
+            Iterables.transform(newlyLoadedPkg.getTargets().values(), Target::getLabel));
     if (!targetsInPkg.equals(targetsInNewlyLoadedPkg)) {
       Sets.SetView<Label> unsatisfied = Sets.difference(targetsInPkg, targetsInNewlyLoadedPkg);
       Sets.SetView<Label> unexpected = Sets.difference(targetsInNewlyLoadedPkg, targetsInPkg);
@@ -97,10 +84,10 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
                   + "<targetsInNewlyLoadedPkg> = %s, <targetsInNewlyLoadedPkg> - <targetsInPkg> = "
                   + "%s) when loaded normally during execution of the current test than it did "
                   + "when loaded via BazelPackageLoader (done automatically by the "
-                  + "BazelPackageBuilderHelperForTesting hook). This either means: (i) Skyframe "
+                  + "BazelPackageLoadingListenerForTesting hook). This either means: (i) Skyframe "
                   + "package loading semantics have diverged from "
                   + "BazelPackageLoader semantics (ii) The test in question is doing something "
-                  + "that confuses BazelPackageBuilderHelperForTesting.",
+                  + "that confuses BazelPackageLoadingListenerForTesting.",
               pkgId, unsatisfied, unexpected));
     }
   }

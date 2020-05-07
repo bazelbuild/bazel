@@ -127,6 +127,7 @@ public final class PackageFactory {
 
   private final Package.Builder.Helper packageBuilderHelper;
   private final PackageValidator packageValidator;
+  private final PackageLoadingListener packageLoadingListener;
 
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
@@ -174,7 +175,8 @@ public final class PackageFactory {
       Iterable<EnvironmentExtension> environmentExtensions,
       String version,
       Package.Builder.Helper packageBuilderHelper,
-      PackageValidator packageValidator) {
+      PackageValidator packageValidator,
+      PackageLoadingListener packageLoadingListener) {
     this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
@@ -185,6 +187,7 @@ public final class PackageFactory {
     this.workspaceNativeModule = WorkspaceFactory.newNativeModule(ruleClassProvider, version);
     this.packageBuilderHelper = packageBuilderHelper;
     this.packageValidator = packageValidator;
+    this.packageLoadingListener = packageLoadingListener;
   }
 
  /**
@@ -684,7 +687,7 @@ public final class PackageFactory {
           "%s: BUILD file computation took %d steps", pkg.getPackageIdentifier(), steps);
     }
 
-    packageBuilderHelper.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
+    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
   }
 
   /**

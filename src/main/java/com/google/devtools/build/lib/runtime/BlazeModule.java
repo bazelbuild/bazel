@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
@@ -401,8 +402,7 @@ public abstract class BlazeModule {
    *
    * <p>Note that only one helper per Bazel/Blaze runtime is allowed.
    */
-  public Package.Builder.Helper getPackageBuilderHelper(
-      ConfiguredRuleClassProvider ruleClassProvider, FileSystem fs) {
+  public Package.Builder.Helper getPackageBuilderHelper() {
     return null;
   }
 
@@ -412,10 +412,26 @@ public abstract class BlazeModule {
    *
    * <p>Called once during server startup some time after {@link #serverInit}.
    *
-   * <p>Note that only one helper per Bazel/Blaze runtime is allowed.
+   * <p>Note that only one instance per Bazel/Blaze runtime is allowed.
    */
   @Nullable
   public PackageValidator getPackageValidator() {
+    return null;
+  }
+
+  /**
+   * Returns a {@link PackageLoadingListener} for observing successful package loading, or null if
+   * the module does not provide any validator.
+   *
+   * <p>Called once during server startup some time after {@link #serverInit}.
+   *
+   * <p>Note that only one instance per Bazel/Blaze runtime is allowed.
+   */
+  @Nullable
+  public PackageLoadingListener getPackageLoadingListener(
+      Package.Builder.Helper packageBuilderHelper,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      FileSystem fs) {
     return null;
   }
 

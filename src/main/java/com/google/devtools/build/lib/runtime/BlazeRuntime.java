@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -1516,8 +1517,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
-        Package.Builder.Helper candidateHelper =
-            module.getPackageBuilderHelper(ruleClassProvider, fileSystem);
+        Package.Builder.Helper candidateHelper = module.getPackageBuilderHelper();
         if (candidateHelper != null) {
           Preconditions.checkState(
               packageBuilderHelper == null,
@@ -1535,7 +1535,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
               packageBuilderHelper,
-              getPackageValidator(blazeModules));
+              getPackageValidator(blazeModules),
+              getPackageLoadingListener(
+                  blazeModules, packageBuilderHelper, ruleClassProvider, fileSystem));
 
       ProjectFile.Provider projectFileProvider = null;
       for (BlazeModule module : blazeModules) {
@@ -1659,5 +1661,23 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           packageValidators.size() <= 1, "more than one module defined a PackageValidator");
       return Iterables.getFirst(packageValidators, PackageValidator.NOOP_VALIDATOR);
     }
+  }
+
+  private static PackageLoadingListener getPackageLoadingListener(
+      List<BlazeModule> blazeModules,
+      Package.Builder.Helper packageBuilderHelper,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      FileSystem fs) {
+    List<PackageLoadingListener> packageLoadingListeners =
+        blazeModules.stream()
+            .map(
+                module ->
+                    module.getPackageLoadingListener(packageBuilderHelper, ruleClassProvider, fs))
+            .filter(validator -> validator != null)
+            .collect(toImmutableList());
+    Preconditions.checkState(
+        packageLoadingListeners.size() <= 1,
+        "more than one module defined a PackageLoadingListener");
+    return Iterables.getFirst(packageLoadingListeners, PackageLoadingListener.NOOP_LISTENER);
   }
 }

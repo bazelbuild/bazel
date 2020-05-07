@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
@@ -66,7 +67,8 @@ public class PackageFactoryApparatus {
             /*environmentExtensions=*/ ImmutableList.of(),
             "test",
             Package.Builder.DefaultHelper.INSTANCE,
-            packageValidator);
+            packageValidator,
+            PackageLoadingListener.NOOP_LISTENER);
   }
 
   /**
