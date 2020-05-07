@@ -392,12 +392,12 @@ public class LocalSpawnRunner implements SpawnRunner {
                 .profile(ProfilerTask.PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
           needCleanup = true;
           Subprocess subprocess = subprocessBuilder.start();
-          subprocess.getOutputStream().close();
           try {
+            subprocess.getOutputStream().close();
             subprocess.waitFor();
             terminationStatus =
                 new TerminationStatus(subprocess.exitValue(), subprocess.timedout());
-          } catch (InterruptedException e) {
+          } catch (InterruptedException | IOException e) {
             subprocess.destroyAndWait();
             throw e;
           }
