@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -93,9 +92,8 @@ public final class PackageFactory {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An extension to the global namespace of the BUILD language. */
-  // TODO(bazel-team): this is largely unrelated to syntax.StarlarkThread.Extension,
-  // and should probably be renamed PackageFactory.RuntimeExtension, since really,
-  // we're extending the Runtime with more classes.
+  // TODO(bazel-team): this should probably be renamed PackageFactory.RuntimeExtension
+  //  since really we're extending the Runtime with more classes.
   public interface EnvironmentExtension {
     /** Update the predeclared environment with the identifiers this extension contributes. */
     void update(ImmutableMap.Builder<String, Object> env);
@@ -414,7 +412,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       RootedPath buildFile,
       StarlarkFile file,
-      Map<String, Extension> imports,
+      Map<String, Module> loadedModules,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
       StarlarkSemantics starlarkSemantics,
@@ -431,7 +429,7 @@ public final class PackageFactory {
           globber,
           defaultVisibility,
           starlarkSemantics,
-          imports,
+          loadedModules,
           skylarkFileDependencies,
           repositoryMapping);
     } catch (InterruptedException e) {
@@ -531,7 +529,7 @@ public final class PackageFactory {
                 packageId,
                 buildFile,
                 file,
-                /*imports=*/ ImmutableMap.<String, Extension>of(),
+                /*loadedModules=*/ ImmutableMap.<String, Module>of(),
                 /*skylarkFileDependencies=*/ ImmutableList.<Label>of(),
                 /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
                 semantics,
@@ -714,7 +712,7 @@ public final class PackageFactory {
       Globber globber,
       RuleVisibility defaultVisibility,
       StarlarkSemantics semantics,
-      Map<String, Extension> imports,
+      Map<String, Module> loadedModules,
       ImmutableList<Label> skylarkFileDependencies,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws InterruptedException {
@@ -741,7 +739,7 @@ public final class PackageFactory {
         packageId,
         file,
         semantics,
-        imports,
+        loadedModules,
         new PackageContext(pkgBuilder, globber, eventHandler))) {
       pkgBuilder.setContainsErrors();
     }
@@ -757,7 +755,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       StarlarkFile file,
       StarlarkSemantics semantics,
-      Map<String, Extension> imports,
+      Map<String, Module> loadedModules,
       PackageContext pkgContext)
       throws InterruptedException {
 
@@ -787,7 +785,7 @@ public final class PackageFactory {
           StarlarkThread.builder(mutability)
               .setGlobals(Module.createForBuiltins(env.build()))
               .setSemantics(semantics)
-              .setImportedExtensions(imports)
+              .setLoadedModules(loadedModules)
               .build();
       thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
       Module module = thread.getGlobals();
@@ -839,7 +837,8 @@ public final class PackageFactory {
               /*fragmentNameToClass=*/ null,
               pkgBuilder.getRepositoryMapping(),
               new SymbolGenerator<>(packageId),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*transitiveDigest=*/ null)
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelSkylarkContext.

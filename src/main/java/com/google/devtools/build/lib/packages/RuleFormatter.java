@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import javax.annotation.Nullable;
@@ -43,8 +44,12 @@ public class RuleFormatter {
 
     if (isSkylark) {
       builder.setSkylarkEnvironmentHashCode(
-          Preconditions.checkNotNull(
-              rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode(), rule));
+          // hexify
+          BaseEncoding.base16()
+              .lowerCase()
+              .encode(
+                  Preconditions.checkNotNull(
+                      rule.getRuleClassObject().getRuleDefinitionEnvironmentDigest(), rule)));
     }
     for (Attribute attr : rule.getAttributes()) {
       Object rawAttributeValue = rawAttributeMapper.getRawAttributeValue(rule, attr);

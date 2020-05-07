@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.hash.HashCode;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -32,7 +31,7 @@ public final class StarlarkFile extends Node {
   private final FileOptions options;
   private final ImmutableList<Comment> comments;
   final List<SyntaxError> errors; // appended to by Resolver
-  @Nullable private final String contentHashCode;
+  @Nullable private final byte[] contentHashCode;
 
   // set by resolver
   @Nullable Resolver.Function resolved;
@@ -53,7 +52,7 @@ public final class StarlarkFile extends Node {
       FileOptions options,
       ImmutableList<Comment> comments,
       List<SyntaxError> errors,
-      String contentHashCode) {
+      byte[] contentHashCode) {
     super(locs);
     this.statements = statements;
     this.options = options;
@@ -69,7 +68,7 @@ public final class StarlarkFile extends Node {
       ImmutableList<Statement> statements,
       FileOptions options,
       Parser.ParseResult result,
-      String contentHashCode) {
+      byte[] contentHashCode) {
     return new StarlarkFile(
         locs,
         statements,
@@ -137,16 +136,11 @@ public final class StarlarkFile extends Node {
     return create(result.locs, stmts.build(), options, result, /*contentHashCode=*/ null);
   }
 
-  // TODO(adonovan): make the digest publicly settable, and delete this.
+  // TODO(adonovan): move the digest into skyframe and delete this.
   public static StarlarkFile parseWithDigest(ParserInput input, byte[] digest, FileOptions options)
       throws IOException {
     Parser.ParseResult result = Parser.parseFile(input, options);
-    return create(
-        result.locs,
-        ImmutableList.copyOf(result.statements),
-        options,
-        result,
-        HashCode.fromBytes(digest).toString());
+    return create(result.locs, ImmutableList.copyOf(result.statements), options, result, digest);
   }
 
   /**
@@ -184,9 +178,11 @@ public final class StarlarkFile extends Node {
   }
 
   /**
-   * Returns a hash code calculated from the string content of the source file of this AST.
+   * Returns the digest of the source file, if this StarlarkFile was constructed by parseWithDigest,
+   * null otherwise.
    */
-  @Nullable public String getContentHashCode() {
+  @Nullable
+  public byte[] getContentHashCode() {
     return contentHashCode;
   }
 }

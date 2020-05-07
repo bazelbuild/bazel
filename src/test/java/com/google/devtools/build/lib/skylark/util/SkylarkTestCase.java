@@ -76,7 +76,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                     /*fragmentNameToClass=*/ null,
                     /*repoMapping=*/ ImmutableMap.of(),
                     new SymbolGenerator<>(new Object()),
-                    /*analysisRuleLabel=*/ null)
+                    /*analysisRuleLabel=*/ null,
+                    /*transitiveDigest=*/ new byte[] {}) // dummy value for tests
                 .storeInThread(thread);
 
             return thread;

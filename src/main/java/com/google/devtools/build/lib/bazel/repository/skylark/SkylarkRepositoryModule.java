@@ -65,7 +65,8 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       String doc,
       StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("repository_rule");
+    BazelStarlarkContext context = BazelStarlarkContext.from(thread);
+    context.checkLoadingOrWorkspacePhase("repository_rule");
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
@@ -90,19 +91,16 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
         AttributeValueSource source = attrDescriptor.getValueSource();
         String attrName = source.convertToNativeName(attr.getKey());
         if (builder.contains(attrName)) {
-          throw new EvalException(
-              null,
-              String.format(
-                  "There is already a built-in attribute '%s' which cannot be overridden",
-                  attrName));
+          throw Starlark.errorf(
+              "There is already a built-in attribute '%s' which cannot be overridden", attrName);
         }
         builder.addAttribute(attrDescriptor.build(attrName));
       }
     }
     builder.setConfiguredTargetFunction(implementation);
-    builder.setRuleDefinitionEnvironmentLabelAndHashCode(
+    builder.setRuleDefinitionEnvironmentLabelAndDigest(
         (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
-        thread.getTransitiveContentHashCode());
+        context.getTransitiveDigest());
     builder.setWorkspaceOnly();
     return new RepositoryRuleFunction(builder, implementation);
   }

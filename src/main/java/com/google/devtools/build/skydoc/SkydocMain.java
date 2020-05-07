@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
@@ -444,7 +443,7 @@ public class SkydocMain {
 
     moduleDocMap.put(label, getModuleDoc(file));
 
-    Map<String, Extension> imports = new HashMap<>();
+    Map<String, Module> imports = new HashMap<>();
     for (Statement stmt : file.getStatements()) {
       if (stmt instanceof LoadStatement) {
         LoadStatement load = (LoadStatement) stmt;
@@ -459,7 +458,7 @@ public class SkydocMain {
                   providerInfoList,
                   aspectInfoList,
                   moduleDocMap);
-          imports.put(module, new Extension(importThread));
+          imports.put(module, importThread.getGlobals());
         } catch (NoSuchFileException noSuchFileException) {
           throw new StarlarkEvaluationException(
               String.format(
@@ -504,7 +503,7 @@ public class SkydocMain {
   private StarlarkThread evalSkylarkBody(
       StarlarkSemantics semantics,
       StarlarkFile file,
-      Map<String, Extension> imports,
+      Map<String, Module> imports,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList)
@@ -715,14 +714,12 @@ public class SkydocMain {
   }
 
   private static StarlarkThread createStarlarkThread(
-      StarlarkSemantics semantics,
-      Module globals,
-      Map<String, Extension> imports) {
+      StarlarkSemantics semantics, Module globals, Map<String, Module> imports) {
     // We use the default print handler, which writes to stderr.
     return StarlarkThread.builder(Mutability.create("Skydoc"))
         .setSemantics(semantics)
         .setGlobals(globals)
-        .setImportedExtensions(imports)
+        .setLoadedModules(imports)
         .build();
   }
 

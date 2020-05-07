@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
@@ -764,14 +763,20 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     return environment;
   }
 
+  // TODO(adonovan): all that needs to be in the RuleClassProvider interface is:
+  //
+  //   // Returns the BazelStarlarkContext to be associated with this loading-phase thread.
+  //   BazelStarlarkContext getThreadContext(repoMapping, fileLabel, transitiveDigest).
+  //
+  // (Alternatively the call could accept the Thread and set its BazelStarlarkContext.)
   @Override
   public StarlarkThread createRuleClassStarlarkThread(
       Label fileLabel,
       Mutability mutability,
       StarlarkSemantics starlarkSemantics,
       StarlarkThread.PrintHandler printHandler,
-      String astFileContentHashCode,
-      Map<String, Extension> importMap,
+      byte[] transitiveDigest,
+      Map<String, Module> loadedModules,
       ClassObject nativeModule,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
     Map<String, Object> env = new HashMap<>(environment);
@@ -781,8 +786,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
         StarlarkThread.builder(mutability)
             .setGlobals(Module.createForBuiltins(env).withLabel(fileLabel))
             .setSemantics(starlarkSemantics)
-            .setFileContentHashCode(astFileContentHashCode)
-            .setImportedExtensions(importMap)
+            .setLoadedModules(loadedModules)
             .build();
     thread.setPrintHandler(printHandler);
 
@@ -792,7 +796,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
             configurationFragmentMap,
             repoMapping,
             new SymbolGenerator<>(fileLabel),
-            /* analysisRuleLabel= */ null)
+            /*analysisRuleLabel=*/ null,
+            transitiveDigest)
         .storeInThread(thread);
 
     return thread;

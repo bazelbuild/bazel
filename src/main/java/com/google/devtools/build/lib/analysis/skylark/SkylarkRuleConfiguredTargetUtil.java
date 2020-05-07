@@ -110,7 +110,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
               /*fragmentNameToClass=*/ null,
               ruleContext.getTarget().getPackage().getRepositoryMapping(),
               ruleContext.getSymbolGenerator(),
-              ruleContext.getLabel())
+              ruleContext.getLabel(),
+              /*transitiveDigest=*/ null)
           .storeInThread(thread);
 
       RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();

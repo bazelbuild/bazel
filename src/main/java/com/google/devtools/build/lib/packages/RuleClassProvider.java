@@ -20,12 +20,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * The collection of the supported build rules. Provides an StarlarkThread for Starlark rule
@@ -61,8 +60,8 @@ public interface RuleClassProvider extends RuleDefinitionContext {
    * @param mutability the Mutability for the .bzl module globals
    * @param starlarkSemantics the semantics options that modify the interpreter
    * @param printHandler defines the behavior of Starlark print statements
-   * @param astFileContentHashCode the hash code identifying this environment.
-   * @param importMap map from import string to Extension
+   * @param transitiveDigest digest of the .bzl file and those it transitively loads
+   * @param loadedModules the .bzl modules loaded by each load statement
    * @param nativeModule the appropriate {@code native} module for this environment.
    * @param repoMapping map of RepositoryNames to be remapped
    * @return the StarlarkThread in which to initualize the .bzl module
@@ -72,8 +71,8 @@ public interface RuleClassProvider extends RuleDefinitionContext {
       Mutability mutability,
       StarlarkSemantics starlarkSemantics,
       StarlarkThread.PrintHandler printHandler,
-      @Nullable String astFileContentHashCode,
-      @Nullable Map<String, Extension> importMap,
+      byte[] transitiveDigest,
+      Map<String, Module> loadedModules,
       ClassObject nativeModule,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping);
 

@@ -154,7 +154,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               /*fragmentNameToClass=*/ null,
               rule.getPackage().getRepositoryMapping(),
               new SymbolGenerator<>(key),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*transitiveDigest=*/ null)
           .storeInThread(thread);
 
       SkylarkRepositoryContext skylarkRepositoryContext =

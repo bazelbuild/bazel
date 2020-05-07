@@ -50,6 +50,7 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
   private final SymbolGenerator<?> symbolGenerator;
   @Nullable private final Label analysisRuleLabel;
+  @Nullable private final byte[] transitiveDigest;
 
   /**
    * @param phase the phase to which this Starlark thread belongs
@@ -76,13 +77,15 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping,
       SymbolGenerator<?> symbolGenerator,
-      @Nullable Label analysisRuleLabel) {
+      @Nullable Label analysisRuleLabel,
+      @Nullable byte[] transitiveDigest) {
     this.phase = phase;
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
     this.repoMapping = repoMapping;
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
     this.analysisRuleLabel = analysisRuleLabel;
+    this.transitiveDigest = transitiveDigest;
   }
 
   /** Returns the phase to which this Starlark thread belongs. */
@@ -122,6 +125,16 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   @Nullable
   public Label getAnalysisRuleLabel() {
     return analysisRuleLabel;
+  }
+
+  /**
+   * Returns the digest of the .bzl file and those it transitively loads. Only defined for .bzl
+   * initialization threads. Returns a dummy value (empty array) for WORKSPACE initialization
+   * threads. Returns null for all other threads.
+   */
+  @Nullable
+  public byte[] getTransitiveDigest() {
+    return transitiveDigest;
   }
 
   /**

@@ -58,10 +58,10 @@ import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.Starl
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -636,8 +636,8 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    // Process the loaded imports.
-    Map<String, Extension> importMap = Maps.newHashMapWithExpectedSize(loadMap.size());
+    // Process the loaded modules.
+    Map<String, Module> loadedModules = Maps.newHashMapWithExpectedSize(loadMap.size());
     ImmutableList.Builder<StarlarkFileDependency> fileDependencies = ImmutableList.builder();
     for (Map.Entry<String, Label> importEntry : loadMap.entrySet()) {
       String importString = importEntry.getKey();
@@ -652,12 +652,12 @@ public class PackageFunction implements SkyFunction {
       } else {
         keyForLabel = StarlarkImportLookupValue.key(importLabel);
       }
-      StarlarkImportLookupValue importLookupValue =
-          (StarlarkImportLookupValue) starlarkImportMap.get(keyForLabel);
-      importMap.put(importString, importLookupValue.getEnvironmentExtension());
-      fileDependencies.add(importLookupValue.getDependency());
+      StarlarkImportLookupValue v = (StarlarkImportLookupValue) starlarkImportMap.get(keyForLabel);
+      loadedModules.put(importString, v.getModule());
+      fileDependencies.add(v.getDependency());
     }
-    return new StarlarkImportResult(importMap, transitiveClosureOfLabels(fileDependencies.build()));
+    return new StarlarkImportResult(
+        loadedModules, transitiveClosureOfLabels(fileDependencies.build()));
   }
 
   /**
@@ -1261,7 +1261,7 @@ public class PackageFunction implements SkyFunction {
               packageId,
               buildFilePath,
               file,
-              importResult.importMap,
+              importResult.loadedModules,
               importResult.fileDependencies,
               defaultVisibility,
               starlarkSemantics,
@@ -1329,12 +1329,12 @@ public class PackageFunction implements SkyFunction {
 
   /** A simple value class to store the result of the Starlark imports. */
   static final class StarlarkImportResult {
-    final Map<String, Extension> importMap;
+    final Map<String, Module> loadedModules;
     final ImmutableList<Label> fileDependencies;
 
     private StarlarkImportResult(
-        Map<String, Extension> importMap, ImmutableList<Label> fileDependencies) {
-      this.importMap = importMap;
+        Map<String, Module> loadedModules, ImmutableList<Label> fileDependencies) {
+      this.loadedModules = loadedModules;
       this.fileDependencies = fileDependencies;
     }
   }

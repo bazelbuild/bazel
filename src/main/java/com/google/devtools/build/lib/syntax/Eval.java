@@ -163,23 +163,23 @@ final class Eval {
   }
 
   private static void execLoad(StarlarkThread.Frame fr, LoadStatement node) throws EvalException {
+    // Load module.
+    String moduleName = node.getImport().getValue();
+    Module module = fr.thread.getModule(moduleName);
+    if (module == null) {
+      throw new EvalException(
+          node.getStartLocation(),
+          String.format(
+              "file '%s' was not correctly loaded. "
+                  + "Make sure the 'load' statement appears in the global scope in your file",
+              moduleName));
+    }
+    Map<String, Object> globals = module.getExportedBindings();
+
     for (LoadStatement.Binding binding : node.getBindings()) {
-
-      // Load module.
-      String moduleName = node.getImport().getValue();
-      StarlarkThread.Extension module = fr.thread.getExtension(moduleName);
-      if (module == null) {
-        throw new EvalException(
-            node.getStartLocation(),
-            String.format(
-                "file '%s' was not correctly loaded. "
-                    + "Make sure the 'load' statement appears in the global scope in your file",
-                moduleName));
-      }
-
       // Extract symbol.
       Identifier orig = binding.getOriginalName();
-      Object value = module.getBindings().get(orig.getName());
+      Object value = globals.get(orig.getName());
       if (value == null) {
         throw new EvalException(
             orig.getStartLocation(),
@@ -187,7 +187,7 @@ final class Eval {
                 "file '%s' does not contain symbol '%s'%s",
                 moduleName,
                 orig.getName(),
-                SpellChecker.didYouMean(orig.getName(), module.getBindings().keySet())));
+                SpellChecker.didYouMean(orig.getName(), globals.keySet())));
       }
 
       // Define module-local variable.

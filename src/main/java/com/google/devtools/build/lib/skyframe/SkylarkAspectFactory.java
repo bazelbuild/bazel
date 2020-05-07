@@ -79,10 +79,11 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.ANALYSIS,
               toolsRepository,
-              /* fragmentNameToClass=*/ null,
+              /*fragmentNameToClass=*/ null,
               ruleContext.getRule().getPackage().getRepositoryMapping(),
               ruleContext.getSymbolGenerator(),
-              ruleContext.getLabel())
+              ruleContext.getLabel(),
+              /*transitiveDigest=*/ null)
           .storeInThread(thread);
 
       try {
