@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -49,7 +48,7 @@ public class ConfigurationTransitionDependencyTest extends AnalysisTestCase {
         ConfigurationTransitionDependency.builder()
             .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
                     .setTransition(HostTransition.INSTANCE)
-                    .addAspects(twoAspects)
+                    .setAspects(twoAspects)
                     .build();
 
     assertThat(hostDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
@@ -65,7 +64,7 @@ public class ConfigurationTransitionDependencyTest extends AnalysisTestCase {
         ConfigurationTransitionDependency.builder()
             .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
                     .setTransition(HostTransition.INSTANCE)
-                    .addAspects(AspectCollection.EMPTY)
+                    .setAspects(AspectCollection.EMPTY)
                     .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
     assertThat(dep.getAspects().getAllAspects()).isEmpty();
@@ -120,116 +119,116 @@ public class ConfigurationTransitionDependencyTest extends AnalysisTestCase {
             ConfigurationTransitionDependency.builder()
                 .setLabel(a)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(twoAspects)
+                        .setAspects(twoAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(aExplicit)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(twoAspects)
+                        .setAspects(twoAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(a)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(inverseAspects)
+                        .setAspects(inverseAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(aExplicit)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(inverseAspects)
+                        .setAspects(inverseAspects)
                         .build())
         .addEqualityGroup(
             // base set but with transition HOST and different aspects
             ConfigurationTransitionDependency.builder()
                 .setLabel(a)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(differentAspects)
+                        .setAspects(differentAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(aExplicit)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(differentAspects)
+                        .setAspects(differentAspects)
                         .build())
         .addEqualityGroup(
             // base set but with transition HOST and label //b
             ConfigurationTransitionDependency.builder()
                 .setLabel(b)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(twoAspects)
+                        .setAspects(twoAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(b)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(inverseAspects)
+                        .setAspects(inverseAspects)
                         .build())
         .addEqualityGroup(
             // inverse of base set: transition HOST, label //b, different aspects
             ConfigurationTransitionDependency.builder()
                 .setLabel(b)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(differentAspects)
+                        .setAspects(differentAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(b)
                         .setTransition(HostTransition.INSTANCE)
-                        .addAspects(differentAspects)
+                        .setAspects(differentAspects)
                         .build())
         .addEqualityGroup(
             // base set but with transition NONE
             ConfigurationTransitionDependency.builder()
                 .setLabel(a)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(twoAspects)
+                        .setAspects(twoAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(aExplicit)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(twoAspects)
+                        .setAspects(twoAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(a)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(inverseAspects)
+                        .setAspects(inverseAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(aExplicit)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(inverseAspects)
+                        .setAspects(inverseAspects)
                         .build())
         .addEqualityGroup(
             // base set but with transition NONE and different aspects
             ConfigurationTransitionDependency.builder()
                 .setLabel(a)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(differentAspects)
+                        .setAspects(differentAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(aExplicit)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(differentAspects)
+                        .setAspects(differentAspects)
                         .build())
         .addEqualityGroup(
             // base set but with transition NONE and label //b
             ConfigurationTransitionDependency.builder()
                 .setLabel(b)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(twoAspects)
+                        .setAspects(twoAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(b)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(inverseAspects)
+                        .setAspects(inverseAspects)
                         .build())
         .addEqualityGroup(
             // inverse of base set: transition NONE, label //b, different aspects
             ConfigurationTransitionDependency.builder()
                 .setLabel(b)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(differentAspects)
+                        .setAspects(differentAspects)
                         .build(),
             ConfigurationTransitionDependency.builder()
                 .setLabel(b)
                         .setTransition(NoTransition.INSTANCE)
-                        .addAspects(differentAspects)
+                        .setAspects(differentAspects)
                         .build())
         .testEquals();
   }

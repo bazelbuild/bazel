@@ -362,7 +362,7 @@ public abstract class DependencyResolver {
           ConfigurationTransitionDependency.builder()
               .setLabel(dep.getLabel())
                       .setTransition(transition)
-                      .addAspects(requiredAspects)
+                      .setAspects(requiredAspects)
                       .build());
     }
     return outgoingEdges;
