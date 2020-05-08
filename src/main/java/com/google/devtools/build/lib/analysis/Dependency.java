@@ -69,11 +69,10 @@ public abstract class Dependency {
     }
 
     /**
-     * Add transition keys to this Dependency, used when edges with a split transition were resolved to null configuration targets.
+     * Explicitly set the configuration for this dependency to null.
      */
-    public Builder addTransitionKeys(Collection<String> transitionKeys) {
-      this.transitionKeys.addAll(transitionKeys);
-      return this;
+    public Builder withNullConfiguration() {
+      return setConfiguration(null);
     }
 
     /**
@@ -91,22 +90,6 @@ public abstract class Dependency {
     public Builder addAspectConfigurations(Map<AspectDescriptor, BuildConfiguration> aspectConfigurations) {
       this.aspectConfigurations.putAll(aspectConfigurations);
       return this;
-    }
-
-    /**
-     * Returns a sub-builder for a new {@link Dependency} with a null configuration, suitable for edges with no configuration.
-     */
-    public Builder withNullConfiguration() {
-      return setConfiguration(null);
-    }
-
-    /**
-     * Returns a sub-builder for a new {@link Dependency} with the given explicit configuration. Should only be used for a dependency with no configuration changes.
-     *
-     * <p>The configuration must not be {@code null}.
-     */
-    public Builder withConfiguration(BuildConfiguration configuration) {
-      return setConfiguration(configuration);
     }
 
     /** Returns the full Dependency instance. */

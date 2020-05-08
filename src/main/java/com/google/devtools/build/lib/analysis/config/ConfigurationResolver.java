@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
@@ -262,8 +260,7 @@ public final class ConfigurationResolver {
           putOnlyEntry(
               resolvedDeps,
               dependencyEdge,
-                  Dependency.builder(dep.getLabel())
-                          .withConfiguration(ctgValue.getConfiguration())
+                  Dependency.builder(dep.getLabel()).setConfiguration(ctgValue.getConfiguration())
                           .addAspects(dep.getAspects())
                           .build());
           continue;
@@ -285,8 +282,7 @@ public final class ConfigurationResolver {
           putOnlyEntry(
               resolvedDeps,
               dependencyEdge,
-                  Dependency.builder(dep.getLabel())
-                          .withConfiguration(hostConfiguration)
+                  Dependency.builder(dep.getLabel()).setConfiguration(hostConfiguration)
                           .addAspects(dep.getAspects())
                           .build());
           continue;
@@ -333,8 +329,7 @@ public final class ConfigurationResolver {
         putOnlyEntry(
             resolvedDeps,
             dependencyEdge,
-                Dependency.builder(dep.getLabel())
-                        .withConfiguration(ctgValue.getConfiguration())
+                Dependency.builder(dep.getLabel()).setConfiguration(ctgValue.getConfiguration())
                         .addAspects(dep.getAspects())
                         .build());
         continue;
@@ -423,8 +418,7 @@ public final class ConfigurationResolver {
           }
           DependencyEdge attr = new DependencyEdge(info.first.getKey(), originalDep.getLabel());
           Dependency resolvedDep =
-                  Dependency.builder(originalDep.getLabel())
-                          .withConfiguration(trimmedConfig)
+                  Dependency.builder(originalDep.getLabel()).setConfiguration(trimmedConfig)
                           .addAspects(originalDep.getAspects())
                           .addTransitionKey(info.second)
                           .build();
