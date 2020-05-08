@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
-import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
@@ -137,7 +136,6 @@ public abstract class BazelJavaBuilder {
     ImmutableList<BlazeJavaCompilerPlugin> plugins = ImmutableList.of(new ErrorPronePlugin());
     JavaLibraryBuildRequest build =
         new JavaLibraryBuildRequest(optionsParser, plugins, new DependencyModule.Builder());
-    build.setJavacOpts(JavacOptions.normalizeOptions(build.getJavacOpts()));
     return build;
   }
 }
