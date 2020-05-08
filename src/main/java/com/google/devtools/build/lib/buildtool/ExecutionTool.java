@@ -81,11 +81,15 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -693,7 +697,7 @@ public class ExecutionTool {
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
-  private ActionCache getActionCache() throws LocalEnvironmentException {
+  private ActionCache getActionCache() throws AbruptExitException {
     try {
       return env.getPersistentActionCache();
     } catch (IOException e) {
@@ -701,10 +705,21 @@ public class ExecutionTool {
       // caches.
       LoggingUtil.logToRemote(
           Level.WARNING, "Failed to initialize action cache: " + e.getMessage(), e);
-      throw new LocalEnvironmentException(
-          "couldn't create action cache: "
-              + e.getMessage()
-              + ". If error persists, use 'bazel clean'");
+      String message =
+          String.format(
+              "Couldn't create action cache: %s. If error persists, use 'bazel clean'.",
+              e.getMessage());
+      FailureDetails.ActionCache failureDetailsActionCache =
+          FailureDetails.ActionCache.newBuilder()
+              .setCode(FailureDetails.ActionCache.Code.INITIALIZATION_FAILURE)
+              .build();
+      throw detailedAbruptExitException(
+          ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+          FailureDetail.newBuilder()
+              .setMessage(message)
+              .setActionCache(failureDetailsActionCache)
+              .build(),
+          e);
     }
   }
 
@@ -786,6 +801,11 @@ public class ExecutionTool {
     }
 
     env.getEventBus().post(builder.build());
+  }
+
+  private static AbruptExitException detailedAbruptExitException(
+      ExitCode exitCode, FailureDetail failureDetail, Throwable e) {
+    return new AbruptExitException(DetailedExitCode.of(exitCode, failureDetail), e);
   }
 
   private Reporter getReporter() {

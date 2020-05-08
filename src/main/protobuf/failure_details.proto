@@ -110,6 +110,7 @@ message FailureDetail {
     MemoryOptions memory_options = 129;
     Query query = 130;
     LocalExecution local_execution = 132;
+    ActionCache action_cache = 134;
   }
 
   reserved 102; // For internal use
@@ -480,6 +481,15 @@ message LocalExecution {
   enum Code {
     LOCAL_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     LOCKFREE_OUTPUT_PREREQ_UNMET = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message ActionCache {
+  enum Code {
+    ACTION_CACHE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
