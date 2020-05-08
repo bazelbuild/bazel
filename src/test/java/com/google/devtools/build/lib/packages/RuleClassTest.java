@@ -269,7 +269,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .newPackageBuilder(
             PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
             "TESTING",
-            StarlarkSemantics.DEFAULT_SEMANTICS)
+            StarlarkSemantics.DEFAULT)
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
 

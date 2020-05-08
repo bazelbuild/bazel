@@ -40,7 +40,7 @@ import org.junit.runners.JUnit4;
 public class ObjcProviderTest {
 
   private static ObjcProvider.StarlarkBuilder objcProviderBuilder() {
-    return new ObjcProvider.StarlarkBuilder(StarlarkSemantics.DEFAULT_SEMANTICS);
+    return new ObjcProvider.StarlarkBuilder(StarlarkSemantics.DEFAULT);
   }
 
   private static ImmutableList<ObjcProvider.Key<?>> getAllKeys() throws Exception {

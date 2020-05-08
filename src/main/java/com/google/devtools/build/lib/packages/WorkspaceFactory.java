@@ -410,7 +410,7 @@ public class WorkspaceFactory {
     //  configured by flags.
     return WorkspaceFactory.newNativeModule(
         WorkspaceFactory.createWorkspaceFunctions(
-            false, ruleFactory, workspaceGlobals, StarlarkSemantics.DEFAULT_SEMANTICS),
+            false, ruleFactory, workspaceGlobals, StarlarkSemantics.DEFAULT),
         version);
   }
 

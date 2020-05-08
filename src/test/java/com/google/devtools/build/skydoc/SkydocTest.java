@@ -90,7 +90,7 @@ public final class SkydocTest extends BuildViewTestCase {
             StarlarkEvaluationException.class,
             () ->
                 skydocMain.eval(
-                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    StarlarkSemantics.DEFAULT,
                     Label.parseAbsoluteUnchecked("//test:test.bzl"),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
@@ -122,7 +122,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
         ImmutableMap.builder(),
@@ -200,7 +200,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
         ImmutableMap.builder(),
@@ -245,7 +245,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableMap.builder(),
@@ -295,7 +295,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableMap.builder(),
@@ -325,7 +325,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableMap.builder(),
@@ -363,7 +363,7 @@ public final class SkydocTest extends BuildViewTestCase {
             StarlarkEvaluationException.class,
             () ->
                 skydocMain.eval(
-                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    StarlarkSemantics.DEFAULT,
                     Label.parseAbsoluteUnchecked("//test:main.bzl"),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
@@ -397,7 +397,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<String, StarlarkFunction> functionInfoBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -442,7 +442,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<String, StarlarkFunction> funcInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -482,7 +482,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         providerInfoMap,
@@ -537,7 +537,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<String, AspectInfo> aspectInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -574,7 +574,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -605,7 +605,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -637,7 +637,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -668,7 +668,7 @@ public final class SkydocTest extends BuildViewTestCase {
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:othertest.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),

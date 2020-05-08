@@ -158,7 +158,7 @@ public final class CallUtils {
       Class<?> objClass) {
     ImmutableMap.Builder<Method, SkylarkCallable> result = ImmutableMap.builder();
     for (MethodDescriptor desc :
-        getCacheValue(objClass, StarlarkSemantics.DEFAULT_SEMANTICS).methods.values()) {
+        getCacheValue(objClass, StarlarkSemantics.DEFAULT).methods.values()) {
       result.put(desc.getMethod(), desc.getAnnotation());
     }
     return result.build();

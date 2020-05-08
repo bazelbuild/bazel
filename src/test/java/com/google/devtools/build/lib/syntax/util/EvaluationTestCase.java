@@ -49,7 +49,7 @@ public class EvaluationTestCase {
   private EventCollectionApparatus eventCollectionApparatus =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
 
-  private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+  private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
   private final Map<String, Object> extraPredeclared = new HashMap<>();
   private StarlarkThread thread;
 

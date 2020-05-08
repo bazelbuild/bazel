@@ -444,9 +444,9 @@ public final class Starlark {
     return new EvalException(null, String.format(format, args));
   }
 
-  /** Equivalent to {@code addMethods(env, v, DEFAULT_SEMANTICS)}. */
+  /** Equivalent to {@code addMethods(env, v, StarlarkSemantics.DEFAULT)}. */
   public static void addMethods(ImmutableMap.Builder<String, Object> env, Object v) {
-    addMethods(env, v, StarlarkSemantics.DEFAULT_SEMANTICS);
+    addMethods(env, v, StarlarkSemantics.DEFAULT);
   }
 
   /**
@@ -465,7 +465,7 @@ public final class Starlark {
     for (String name : CallUtils.getMethodNames(semantics, v.getClass())) {
       // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing
       // the descriptor that CallUtils.getMethod would return,
-      // because most calls to addMethods pass DEFAULT_SEMANTICS,
+      // because most calls to addMethods pass StarlarkSemantics.DEFAULT,
       // which is probably incorrect for the call.
       // The effect is that the default semantics determine which methods appear in
       // env, but the thread's semantics determine which method calls succeed.

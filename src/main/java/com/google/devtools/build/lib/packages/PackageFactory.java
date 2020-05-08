@@ -473,15 +473,10 @@ public final class PackageFactory {
                         .getRootRelativePath()
                         .getRelative(LabelConstants.WORKSPACE_FILE_NAME)),
                 "TESTING",
-                StarlarkSemantics.DEFAULT_SEMANTICS)
+                StarlarkSemantics.DEFAULT)
             .build();
     return createPackageForTesting(
-        packageId,
-        externalPkg,
-        buildFile,
-        locator,
-        eventHandler,
-        StarlarkSemantics.DEFAULT_SEMANTICS);
+        packageId, externalPkg, buildFile, locator, eventHandler, StarlarkSemantics.DEFAULT);
   }
 
   /**

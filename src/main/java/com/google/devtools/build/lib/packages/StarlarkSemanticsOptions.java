@@ -40,7 +40,7 @@ import java.util.List;
  * <ul>
  *   <li>Add a new abstract method (which is interpreted by {@code AutoValue} as a field) to {@link
  *       StarlarkSemantics} and {@link StarlarkSemantics.Builder}. Set its default value in {@link
- *       StarlarkSemantics#DEFAULT_SEMANTICS}.
+ *       StarlarkSemantics#DEFAULT}.
  *   <li>Add a new {@code @Option}-annotated field to this class. The field name and default value
  *       should be the same as in {@link StarlarkSemantics}, and the option name in the annotation
  *       should be that name written in snake_case. Add a line to set the new field in {@link

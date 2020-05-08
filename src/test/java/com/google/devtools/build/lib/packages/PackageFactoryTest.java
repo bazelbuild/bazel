@@ -497,10 +497,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
                 packages
                     .factory()
                     .afterDoneLoadingPackage(
-                        pkg,
-                        StarlarkSemantics.DEFAULT_SEMANTICS,
-                        /*loadTimeNanos=*/ 0,
-                        eventHandler));
+                        pkg, StarlarkSemantics.DEFAULT, /*loadTimeNanos=*/ 0, eventHandler));
     assertThat(expected).hasMessageThat().contains("no such package 'x': nope");
     assertThat(eventHandler.getEvents()).containsExactly(Event.warn("warning event"));
   }

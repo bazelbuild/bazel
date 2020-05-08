@@ -402,7 +402,7 @@ public final class StarlarkThread {
     }
 
     public Builder useDefaultSemantics() {
-      this.semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+      this.semantics = StarlarkSemantics.DEFAULT;
       return this;
     }
 

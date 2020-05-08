@@ -51,7 +51,7 @@ class WorkspaceFactoryTestHelper {
     this.exception = null;
     this.events = null;
     this.allowOverride = allowOverride;
-    this.starlarkSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+    this.starlarkSemantics = StarlarkSemantics.DEFAULT;
   }
 
   void parse(String... args) {
@@ -67,7 +67,7 @@ class WorkspaceFactoryTestHelper {
             Package.Builder.DefaultHelper.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFilePath),
             "",
-            StarlarkSemantics.DEFAULT_SEMANTICS);
+            StarlarkSemantics.DEFAULT);
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,

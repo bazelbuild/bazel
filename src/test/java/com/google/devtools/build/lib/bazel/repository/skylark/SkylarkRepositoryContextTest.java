@@ -173,7 +173,7 @@ public final class SkylarkRepositoryContextTest {
     setUpContextForRule(
         ImmutableMap.of("name", name),
         ImmutableSet.of(),
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null);
   }
 
@@ -182,7 +182,7 @@ public final class SkylarkRepositoryContextTest {
     setUpContextForRule(
         ImmutableMap.of("name", "test", "foo", "bar"),
         ImmutableSet.of(),
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null,
         Attribute.attr("foo", Type.STRING).build());
 
@@ -280,7 +280,7 @@ public final class SkylarkRepositoryContextTest {
     setUpContextForRule(
         ImmutableMap.of("name", "test"),
         ImmutableSet.of(PathFragment.create("under_workspace")),
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null);
     assertThat(context.delete(underWorkspace.toString(), thread)).isTrue();
   }

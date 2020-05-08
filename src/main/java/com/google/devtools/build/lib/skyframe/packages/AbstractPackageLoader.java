@@ -188,7 +188,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     }
 
     public Builder useDefaultSkylarkSemantics() {
-      this.starlarkSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+      this.starlarkSemantics = StarlarkSemantics.DEFAULT;
       return this;
     }
 

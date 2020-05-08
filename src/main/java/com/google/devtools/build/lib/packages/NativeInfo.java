@@ -35,7 +35,7 @@ public abstract class NativeInfo extends StructImpl {
 
   // TODO(adonovan): logically this should be a parameter of getValue
   // and getFieldNames or an instance field of this object.
-  private static final StarlarkSemantics SEMANTICS = StarlarkSemantics.DEFAULT_SEMANTICS;
+  private static final StarlarkSemantics SEMANTICS = StarlarkSemantics.DEFAULT;
 
   @Override
   public Object getValue(String name) throws EvalException {

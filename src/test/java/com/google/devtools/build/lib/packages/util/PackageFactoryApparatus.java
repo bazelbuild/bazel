@@ -174,7 +174,7 @@ public class PackageFactoryApparatus {
                     filename.getRoot(),
                     filename.getRootRelativePath().getParentDirectory().getRelative("WORKSPACE")),
                 "TESTING",
-                StarlarkSemantics.DEFAULT_SEMANTICS)
+                StarlarkSemantics.DEFAULT)
             .build();
     Package.Builder resultBuilder =
         factory.evaluateBuildFile(
@@ -184,7 +184,7 @@ public class PackageFactoryApparatus {
             filename,
             globber,
             ConstantRuleVisibility.PUBLIC,
-            StarlarkSemantics.DEFAULT_SEMANTICS,
+            StarlarkSemantics.DEFAULT,
             ImmutableMap.<String, Module>of(),
             ImmutableList.<Label>of(),
             /*repositoryMapping=*/ ImmutableMap.of());

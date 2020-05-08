@@ -116,7 +116,7 @@ public class ApiExporter {
         StarlarkBuiltin typeModule = StarlarkInterfaceUtils.getStarlarkBuiltin(obj.getClass());
         if (typeModule != null) {
           Method selfCallMethod =
-              CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass());
+              CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT, obj.getClass());
           if (selfCallMethod != null) {
             // selfCallMethod may be from a subclass of the annotated method.
             SkylarkCallable annotation = StarlarkInterfaceUtils.getSkylarkCallable(selfCallMethod);

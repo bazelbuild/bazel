@@ -98,14 +98,14 @@ public class SkylarkSemanticsConsistencyTest {
   @Test
   public void checkDefaultsMatch() {
     StarlarkSemanticsOptions defaultOptions = Options.getDefaults(StarlarkSemanticsOptions.class);
-    StarlarkSemantics defaultSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+    StarlarkSemantics defaultSemantics = StarlarkSemantics.DEFAULT;
     StarlarkSemantics semanticsFromOptions = defaultOptions.toSkylarkSemantics();
     assertThat(semanticsFromOptions).isEqualTo(defaultSemantics);
   }
 
   @Test
   public void canGetBuilderFromInstance() {
-    StarlarkSemantics original = StarlarkSemantics.DEFAULT_SEMANTICS;
+    StarlarkSemantics original = StarlarkSemantics.DEFAULT;
     assertThat(original.internalSkylarkFlagTestCanary()).isFalse();
     StarlarkSemantics modified = original.toBuilder().internalSkylarkFlagTestCanary(true).build();
     assertThat(modified.internalSkylarkFlagTestCanary()).isTrue();

@@ -129,8 +129,7 @@ final class DebuggerSerialization {
 
   private static ImmutableList<Value> getChildren(
       ThreadObjectMap objectMap, StarlarkValue skylarkValue) {
-    StarlarkSemantics semantics =
-        StarlarkSemantics.DEFAULT_SEMANTICS; // TODO(adonovan): obtain from thread.
+    StarlarkSemantics semantics = StarlarkSemantics.DEFAULT; // TODO(adonovan): obtain from thread.
     Set<String> fieldNames;
     try {
       fieldNames = CallUtils.getFieldNames(semantics, skylarkValue);

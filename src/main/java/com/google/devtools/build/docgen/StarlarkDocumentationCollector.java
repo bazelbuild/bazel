@@ -179,8 +179,7 @@ final class StarlarkDocumentationCollector {
 
   @Nullable
   private static Method getSelfCallConstructorMethod(Class<?> objectClass) {
-    Method selfCallMethod =
-        CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, objectClass);
+    Method selfCallMethod = CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT, objectClass);
     if (selfCallMethod != null && selfCallMethod.isAnnotationPresent(SkylarkConstructor.class)) {
       return selfCallMethod;
     }
