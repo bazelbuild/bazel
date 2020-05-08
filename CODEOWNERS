@@ -57,10 +57,6 @@ android/ @ahumesky @jin
 
 # Execution and I/O related code
 
-/src/main/java/com/google/devtools/build/lib/sandbox/ @philwo
-/src/main/java/com/google/devtools/build/lib/ssd/ @philwo
-/src/main/java/com/google/devtools/build/lib/standalone/ @philwo
-/src/main/java/com/google/devtools/build/lib/worker/ @philwo
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki
 
 # Skylark
