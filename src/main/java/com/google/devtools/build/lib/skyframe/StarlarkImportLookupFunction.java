@@ -679,8 +679,8 @@ public class StarlarkImportLookupFunction implements SkyFunction {
           StarlarkThread.builder(mu)
               .setGlobals(Module.createForBuiltins(predeclared).withLabel(moduleLabel))
               .setSemantics(starlarkSemantics)
-              .setLoadedModules(loadedModules)
               .build();
+      thread.setLoader(loadedModules::get);
       StoredEventHandler eventHandler = new StoredEventHandler();
       thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
       ruleClassProvider.setStarlarkThreadContext(

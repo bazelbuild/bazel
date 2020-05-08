@@ -780,8 +780,8 @@ public final class PackageFactory {
           StarlarkThread.builder(mutability)
               .setGlobals(Module.createForBuiltins(env.build()))
               .setSemantics(semantics)
-              .setLoadedModules(loadedModules)
               .build();
+      thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
       Module module = thread.getGlobals();
 

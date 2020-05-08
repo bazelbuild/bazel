@@ -716,11 +716,13 @@ public class SkydocMain {
   private static StarlarkThread createStarlarkThread(
       StarlarkSemantics semantics, Module globals, Map<String, Module> imports) {
     // We use the default print handler, which writes to stderr.
-    return StarlarkThread.builder(Mutability.create("Skydoc"))
-        .setSemantics(semantics)
-        .setGlobals(globals)
-        .setLoadedModules(imports)
-        .build();
+    StarlarkThread thread =
+        StarlarkThread.builder(Mutability.create("Skydoc"))
+            .setSemantics(semantics)
+            .setGlobals(globals)
+            .build();
+    thread.setLoader(imports::get);
+    return thread;
   }
 
   /** Exception thrown when Starlark evaluation fails (due to malformed Starlark). */

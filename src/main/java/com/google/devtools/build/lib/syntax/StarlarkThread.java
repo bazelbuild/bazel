@@ -190,8 +190,8 @@ public final class StarlarkThread {
   /** PrintHandler for Starlark print statements. */
   private PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
 
-  /** Loaded modules, keyed by load string. */
-  private final Map<String, Module> loadedModules;
+  /** Loader for Starlark load statements. Null if loading is disallowed. */
+  @Nullable private Loader loader = null;
 
   /** Stack of active function calls. */
   private final ArrayList<Frame> callstack = new ArrayList<>();
@@ -292,6 +292,7 @@ public final class StarlarkThread {
    * the built-in {@code print} function. Its default behavior is to write the message to standard
    * error, preceded by the location of the print statement, {@code thread.getCallerLocation()}.
    */
+  @FunctionalInterface
   public interface PrintHandler {
     void print(StarlarkThread thread, String msg);
   }
@@ -308,6 +309,26 @@ public final class StarlarkThread {
 
   private static void defaultPrintHandler(StarlarkThread thread, String msg) {
     System.err.println(thread.getCallerLocation() + ": " + msg);
+  }
+
+  /**
+   * A Loader determines the behavior of load statements executed by this thread. It returns the
+   * named module, or null if not found.
+   */
+  @FunctionalInterface
+  public interface Loader {
+    @Nullable
+    Module load(String module);
+  }
+
+  /** Returns the loader for Starlark load statements. */
+  Loader getLoader() {
+    return loader;
+  }
+
+  /** Sets the behavior of Starlark load statements executed by this thread. */
+  public void setLoader(Loader loader) {
+    this.loader = Preconditions.checkNotNull(loader);
   }
 
   /** Reports whether {@code fn} has been recursively reentered within this thread. */
@@ -351,19 +372,16 @@ public final class StarlarkThread {
   }
 
   /**
-   * Constructs a StarlarkThread. This is the main, most basic constructor.
+   * Constructs a StarlarkThread.
    *
    * @param module the module initialized by this StarlarkThread
    * @param semantics the StarlarkSemantics for this thread.
-   * @param loadedModules modules for each load statement in the file
    */
-  private StarlarkThread(
-      Module module, StarlarkSemantics semantics, Map<String, Module> loadedModules) {
+  private StarlarkThread(Module module, StarlarkSemantics semantics) {
     this.module = Preconditions.checkNotNull(module);
     this.mutability = module.mutability();
     Preconditions.checkArgument(!module.mutability().isFrozen());
     this.semantics = semantics;
-    this.loadedModules = loadedModules;
   }
 
   /**
@@ -372,27 +390,32 @@ public final class StarlarkThread {
    * <p>The caller must explicitly set the semantics by calling either {@link #setSemantics} or
    * {@link #useDefaultSemantics}.
    */
-  // TODO(adonovan): eliminate the builder:
-  // - replace loadedModules by a callback, since there's no need to enumerate them now.
-  // - decouple Module from thread.
+  // TODO(adonovan): Decouple Module from thread, and eliminate the builder.
+  // Expose a public constructor from (mutability, semantics).
   public static class Builder {
     private final Mutability mutability;
-    @Nullable private Module parent;
+    @Nullable private Module predeclared;
     @Nullable private StarlarkSemantics semantics;
-    private Map<String, Module> loadedModules = ImmutableMap.of();
 
     Builder(Mutability mutability) {
       this.mutability = mutability;
     }
 
     /**
-     * Inherits global bindings from the given parent Frame.
+     * Set the predeclared environment of the module created for this thread.
      *
-     * <p>TODO(laurentlb): this should be called setUniverse.
+     * <p>Any values in {@code predeclared.getBindings()} that are FlagGuardedValues will be
+     * filtered according to the thread's semantics.
      */
-    public Builder setGlobals(Module parent) {
-      Preconditions.checkState(this.parent == null);
-      this.parent = parent;
+    // TODO(adonovan): remove this. A thread should not have a Module.
+    // It's only here to piggyback off the semantics for filtering.
+    // (The name is also wrong: really it should be setPredeclared.)
+    // And it's always called with value from Module.createForBuiltins.
+    // Instead, just expose a constructor like Module.withPredeclared(semantics, predeclared).
+    // A Module builder is not a crazy idea.
+    public Builder setGlobals(Module predeclared) {
+      Preconditions.checkState(this.predeclared == null);
+      this.predeclared = predeclared;
       return this;
     }
 
@@ -403,12 +426,6 @@ public final class StarlarkThread {
 
     public Builder useDefaultSemantics() {
       this.semantics = StarlarkSemantics.DEFAULT;
-      return this;
-    }
-
-    /** Sets the modules to be provided to each load statement. */
-    public Builder setLoadedModules(Map<String, Module> loadedModules) {
-      this.loadedModules = loadedModules;
       return this;
     }
 
@@ -423,10 +440,10 @@ public final class StarlarkThread {
       // have been available during its creation. Thus, create a new universe scope for this
       // environment which is equivalent in every way except that restricted bindings are
       // filtered out.
-      parent = Module.filterOutRestrictedBindings(mutability, parent, semantics);
+      predeclared = Module.filterOutRestrictedBindings(mutability, predeclared, semantics);
 
-      Module module = new Module(mutability, parent);
-      return new StarlarkThread(module, semantics, loadedModules);
+      Module module = new Module(mutability, predeclared);
+      return new StarlarkThread(module, semantics);
     }
   }
 
@@ -447,6 +464,7 @@ public final class StarlarkThread {
   }
 
   /** A hook for notifications of assignments at top level. */
+  @FunctionalInterface
   public interface PostAssignHook {
     void assign(String name, Object value);
   }
@@ -581,9 +599,5 @@ public final class StarlarkThread {
   @Override
   public String toString() {
     return String.format("<StarlarkThread%s>", mutability());
-  }
-
-  Module getModule(String module) {
-    return loadedModules.get(module);
   }
 }

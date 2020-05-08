@@ -163,9 +163,16 @@ final class Eval {
   }
 
   private static void execLoad(StarlarkThread.Frame fr, LoadStatement node) throws EvalException {
+    // Has the application defined a behavior for load statements in this thread?
+    StarlarkThread.Loader loader = fr.thread.getLoader();
+    if (loader == null) {
+      throw new EvalException(
+          node.getStartLocation(), "load statements may not be executed in this thread");
+    }
+
     // Load module.
     String moduleName = node.getImport().getValue();
-    Module module = fr.thread.getModule(moduleName);
+    Module module = loader.load(moduleName);
     if (module == null) {
       throw new EvalException(
           node.getStartLocation(),
