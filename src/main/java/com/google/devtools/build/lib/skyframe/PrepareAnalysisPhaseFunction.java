@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -166,7 +167,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     // for now, to satisfy its API we resolve transitions and repackage each target as a Dependency
     // (with a NONE transition if necessary).
     // Keep this in sync with AnalysisUtils#getTargetsWithConfigs.
-    Multimap<BuildConfiguration, Dependency> asDeps =
+    Multimap<BuildConfiguration, ConfigurationTransitionDependency> asDeps =
         AnalysisUtils.targetsToDeps(nodes, ruleClassProvider);
     LinkedHashSet<TargetAndConfiguration> topLevelTargetsWithConfigs;
     try {
@@ -211,7 +212,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
   private LinkedHashSet<TargetAndConfiguration> resolveConfigurations(
       SkyFunction.Environment env,
       Iterable<TargetAndConfiguration> nodes,
-      Multimap<BuildConfiguration, Dependency> asDeps)
+      Multimap<BuildConfiguration, ConfigurationTransitionDependency> asDeps)
       throws InterruptedException, TransitionException, OptionsParsingException {
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
     for (TargetAndConfiguration node : nodes) {
@@ -223,13 +224,13 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
         new LinkedHashMap<>();
     for (BuildConfiguration fromConfig : asDeps.keySet()) {
-      Multimap<Dependency, BuildConfiguration> trimmedTargets =
+      Multimap<ConfigurationTransitionDependency, BuildConfiguration> trimmedTargets =
           getConfigurations(
               env, fromConfig.getOptions(), asDeps.get(fromConfig));
       if (trimmedTargets == null) {
         continue;
       }
-      for (Map.Entry<Dependency, BuildConfiguration> trimmedTarget : trimmedTargets.entries()) {
+      for (Map.Entry<ConfigurationTransitionDependency, BuildConfiguration> trimmedTarget : trimmedTargets.entries()) {
         Target target = labelsToTargets.get(trimmedTarget.getKey().getLabel());
         successfullyEvaluatedTargets.put(
             new TargetAndConfiguration(target, fromConfig),
@@ -264,12 +265,12 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
 
   // Keep in sync with {@link SkyframeExecutor#getConfigurations}.
   // Note: this implementation runs inside Skyframe, so it has access to SkyFunction.Environment.
-  private Multimap<Dependency, BuildConfiguration> getConfigurations(
-      SkyFunction.Environment env, BuildOptions fromOptions, Iterable<Dependency> keys)
+  private Multimap<ConfigurationTransitionDependency, BuildConfiguration> getConfigurations(
+      SkyFunction.Environment env, BuildOptions fromOptions, Iterable<ConfigurationTransitionDependency> keys)
       throws InterruptedException, TransitionException, OptionsParsingException {
-    Multimap<Dependency, BuildConfiguration> builder =
-        ArrayListMultimap.<Dependency, BuildConfiguration>create();
-    Set<Dependency> depsToEvaluate = new HashSet<>();
+    Multimap<ConfigurationTransitionDependency, BuildConfiguration> builder =
+        ArrayListMultimap.create();
+    Set<ConfigurationTransitionDependency> depsToEvaluate = new HashSet<>();
 
     ImmutableSortedSet<Class<? extends Fragment>> allFragments = null;
     if (useUntrimmedConfigs(fromOptions)) {
@@ -280,7 +281,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     final List<SkyKey> transitiveFragmentSkyKeys = new ArrayList<>();
     Map<Label, ImmutableSortedSet<Class<? extends Fragment>>> fragmentsMap = new HashMap<>();
     Set<Label> labelsWithErrors = new HashSet<>();
-    for (Dependency key : keys) {
+    for (ConfigurationTransitionDependency key : keys) {
       if (key.hasExplicitConfiguration()) {
         builder.put(key, key.getConfiguration());
       } else if (useUntrimmedConfigs(fromOptions)) {
@@ -295,7 +296,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    for (Dependency key : keys) {
+    for (ConfigurationTransitionDependency key : keys) {
       if (!depsToEvaluate.contains(key)) {
         // No fragments to compute here.
       } else {
@@ -324,7 +325,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     }
 
     final List<SkyKey> configSkyKeys = new ArrayList<>();
-    for (Dependency key : keys) {
+    for (ConfigurationTransitionDependency key : keys) {
       if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
         continue;
       }
@@ -358,7 +359,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    for (Dependency key : keys) {
+    for (ConfigurationTransitionDependency key : keys) {
       if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
         continue;
       }

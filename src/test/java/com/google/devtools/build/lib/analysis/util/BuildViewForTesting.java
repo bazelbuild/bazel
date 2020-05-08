@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
@@ -203,7 +204,7 @@ public class BuildViewForTesting {
         ConfigurationResolver.getConfigurationsFromExecutor(
                 node,
                 AnalysisUtils.targetsToDeps(
-                    new LinkedHashSet<TargetAndConfiguration>(node), ruleClassProvider),
+                    new LinkedHashSet<>(node), ruleClassProvider),
                 eventHandler,
                 skyframeExecutor)
             .getTargetsAndConfigs();
@@ -276,7 +277,7 @@ public class BuildViewForTesting {
   }
 
   @VisibleForTesting
-  public OrderedSetMultimap<DependencyKind, Dependency> getDirectPrerequisiteDependenciesForTesting(
+  public OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> getDirectPrerequisiteDependenciesForTesting(
       final ExtendedEventHandler eventHandler,
       final ConfiguredTarget ct,
       BuildConfigurationCollection configurations,
@@ -370,17 +371,17 @@ public class BuildViewForTesting {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException, StarlarkTransition.TransitionException {
-    OrderedSetMultimap<DependencyKind, Dependency> depNodeNames =
+    OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> depNodeNames =
         getDirectPrerequisiteDependenciesForTesting(
             eventHandler, target, configurations, toolchainContexts);
 
-    ImmutableMultimap<Dependency, ConfiguredTargetAndData> cts =
+    ImmutableMultimap<ConfigurationTransitionDependency, ConfiguredTargetAndData> cts =
         skyframeExecutor.getConfiguredTargetMapForTesting(
             eventHandler, target.getConfigurationKey(), ImmutableSet.copyOf(depNodeNames.values()));
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
         OrderedSetMultimap.create();
-    for (Map.Entry<DependencyKind, Dependency> entry : depNodeNames.entries()) {
+    for (Map.Entry<DependencyKind, ConfigurationTransitionDependency> entry : depNodeNames.entries()) {
       result.putAll(entry.getKey(), cts.get(entry.getValue()));
     }
     return result;

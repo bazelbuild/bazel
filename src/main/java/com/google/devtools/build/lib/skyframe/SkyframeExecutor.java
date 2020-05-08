@@ -1700,7 +1700,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
-      Iterable<Dependency> keys)
+      Iterable<ConfigurationTransitionDependency> keys)
       throws TransitionException, InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
@@ -1717,7 +1717,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
-      Iterable<Dependency> keys)
+      Iterable<ConfigurationTransitionDependency> keys)
       throws InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
@@ -1732,10 +1732,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * returned list.
    */
   @ThreadSafety.ThreadSafe
-  public ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
+  public ImmutableMultimap<ConfigurationTransitionDependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
-      Iterable<Dependency> keys)
+      Iterable<ConfigurationTransitionDependency> keys)
       throws InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(
         eventHandler, getConfiguration(eventHandler, originalConfig), keys);
@@ -1751,26 +1751,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * returned list except...
    */
   @ThreadSafety.ThreadSafe
-  private ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
+  private ImmutableMultimap<ConfigurationTransitionDependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
-      Iterable<Dependency> keys)
+      Iterable<ConfigurationTransitionDependency> keys)
       throws InvalidConfigurationException, InterruptedException {
     checkActive();
 
-    Multimap<Dependency, BuildConfiguration> configs;
+    Multimap<ConfigurationTransitionDependency, BuildConfiguration> configs;
     if (originalConfig != null) {
       configs =
           getConfigurations(eventHandler, originalConfig.getOptions(), keys).getConfigurationMap();
     } else {
-      configs = ArrayListMultimap.<Dependency, BuildConfiguration>create();
-      for (Dependency key : keys) {
+      configs = ArrayListMultimap.<ConfigurationTransitionDependency, BuildConfiguration>create();
+      for (ConfigurationTransitionDependency key : keys) {
         configs.put(key, null);
       }
     }
 
     final List<SkyKey> skyKeys = new ArrayList<>();
-    for (Dependency key : keys) {
+    for (ConfigurationTransitionDependency key : keys) {
       if (!configs.containsKey(key)) {
         // If we couldn't compute a configuration for this target, the target was in error (e.g.
         // it couldn't be loaded). Exclude it from the results.
@@ -1789,17 +1789,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     EvaluationResult<SkyValue> result = evaluateSkyKeys(eventHandler, skyKeys);
 
-    ImmutableMultimap.Builder<Dependency, ConfiguredTargetAndData> cts =
+    ImmutableMultimap.Builder<ConfigurationTransitionDependency, ConfiguredTargetAndData> cts =
         ImmutableMultimap.builder();
 
     // Logic copied from ConfiguredTargetFunction#computeDependencies.
     Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
-    List<Dependency> aliasKeysToRedo = new ArrayList<>();
+    List<ConfigurationTransitionDependency> aliasKeysToRedo = new ArrayList<>();
     EvaluationResult<SkyValue> aliasPackageValues = null;
-    Iterable<Dependency> keysToProcess = keys;
+    Iterable<ConfigurationTransitionDependency> keysToProcess = keys;
     for (int i = 0; i < 2; i++) {
       DependentNodeLoop:
-      for (Dependency key : keysToProcess) {
+      for (ConfigurationTransitionDependency key : keysToProcess) {
         if (!configs.containsKey(key)) {
           // If we couldn't compute a configuration for this target, the target was in error (e.g.
           // it couldn't be loaded). Exclude it from the results.
@@ -2311,18 +2311,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       BuildConfiguration configuration,
       ConfigurationTransition transition)
       throws TransitionException, InvalidConfigurationException, InterruptedException {
+    ConfigurationTransitionDependency.ConfigurationTransitionBuilder dependencyBuilder = ConfigurationTransitionDependency.builder()
+        .setLabel(label);
+    if (configuration == null) {
+      dependencyBuilder.setTransition(NullTransition.INSTANCE);
+    } else {
+      dependencyBuilder.setTransition(transition);
+    }
     return Iterables.getFirst(
         getConfiguredTargetsForTesting(
             eventHandler,
             configuration,
-            ImmutableList.of(
-                configuration == null
-                    ? Dependency.builder(label)
-                        .withNullConfiguration()
-                        .build()
-                    : Dependency.builder(label)
-                        .withTransition(transition)
-                        .build())),
+            ImmutableList.of(dependencyBuilder.build())),
         null);
   }
 

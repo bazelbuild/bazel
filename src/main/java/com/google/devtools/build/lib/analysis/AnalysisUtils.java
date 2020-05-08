@@ -203,17 +203,17 @@ public final class AnalysisUtils {
     // configurations
     // for deps including transitions. So to satisfy its API we resolve transitions and repackage
     // each target as a Dependency (with a NONE transition if necessary).
-    Multimap<BuildConfiguration, Dependency> asDeps = targetsToDeps(nodes, ruleClassProvider);
+    Multimap<BuildConfiguration, ConfigurationTransitionDependency> asDeps = targetsToDeps(nodes, ruleClassProvider);
 
     return ConfigurationResolver.getConfigurationsFromExecutor(
         nodes, asDeps, eventHandler, configurationsCollector);
   }
 
   @VisibleForTesting
-  public static Multimap<BuildConfiguration, Dependency> targetsToDeps(
+  public static Multimap<BuildConfiguration, ConfigurationTransitionDependency> targetsToDeps(
       Collection<TargetAndConfiguration> nodes, ConfiguredRuleClassProvider ruleClassProvider) {
-    Multimap<BuildConfiguration, Dependency> asDeps =
-        ArrayListMultimap.<BuildConfiguration, Dependency>create();
+    Multimap<BuildConfiguration, ConfigurationTransitionDependency> asDeps =
+        ArrayListMultimap.create();
     for (TargetAndConfiguration targetAndConfig : nodes) {
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
@@ -225,8 +225,9 @@ public final class AnalysisUtils {
         // TODO(bazel-team): support top-level aspects
         asDeps.put(
             targetAndConfig.getConfiguration(),
-                Dependency.builder(targetAndConfig.getLabel())
-                        .withTransition(transition)
+            ConfigurationTransitionDependency.builder()
+      .setLabel(targetAndConfig.getLabel())
+                        .setTransition(transition)
                         .build());
       }
     }
