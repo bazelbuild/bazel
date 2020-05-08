@@ -29,36 +29,12 @@ public final class ConfigurationTransitionDependency {
     return label;
   }
 
-  public boolean hasExplicitConfiguration() {
-    return false;
-  }
-
-  public BuildConfiguration getConfiguration() {
-    throw new IllegalStateException(
-        "This dependency has a transition, not an explicit configuration.");
-  }
-
   public ConfigurationTransition getTransition() {
     return transition;
   }
 
   public AspectCollection getAspects() {
     return aspects;
-  }
-
-  public BuildConfiguration getAspectConfiguration(AspectDescriptor aspect) {
-    throw new IllegalStateException(
-        "This dependency has a transition, not an explicit aspect configuration.");
-  }
-
-  public ImmutableList<String> getTransitionKeys() {
-    throw new IllegalStateException(
-        "This dependency has a transition, not an explicit configuration.");
-  }
-
-  public ConfiguredTargetKey getConfiguredTargetKey() {
-    throw new IllegalStateException(
-            "This dependency has a transition, not an explicit configuration.");
   }
 
   @Override

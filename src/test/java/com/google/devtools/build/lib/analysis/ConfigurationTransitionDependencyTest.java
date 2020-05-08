@@ -53,17 +53,9 @@ public class ConfigurationTransitionDependencyTest extends AnalysisTestCase {
                     .build();
 
     assertThat(hostDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
-    assertThat(hostDep.hasExplicitConfiguration()).isFalse();
     assertThat(hostDep.getAspects().getAllAspects())
         .containsExactlyElementsIn(twoAspects.getAllAspects());
     assertThat(hostDep.getTransition().isHostTransition()).isTrue();
-
-    assertThrows(IllegalStateException.class, () -> hostDep.getConfiguration());
-
-    assertThrows(IllegalStateException.class, () -> hostDep.getAspectConfiguration(simpleAspect));
-
-    assertThrows(
-        IllegalStateException.class, () -> hostDep.getAspectConfiguration(attributeAspect));
   }
 
   @Test

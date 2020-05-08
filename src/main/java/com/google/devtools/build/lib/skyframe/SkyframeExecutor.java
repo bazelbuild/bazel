@@ -2057,7 +2057,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // Now get the configurations.
     final List<SkyKey> configSkyKeys = new ArrayList<>();
     for (ConfigurationTransitionDependency key : keys) {
-      if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
+      if (labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
       ImmutableSortedSet<Class<? extends Fragment>> depFragments = fragmentsMap.get(key.getLabel());
@@ -2087,7 +2087,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     EvaluationResult<SkyValue> configsResult =
         evaluateSkyKeys(eventHandler, configSkyKeys, /*keepGoing=*/ true);
     for (ConfigurationTransitionDependency key : keys) {
-      if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
+      if (labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
       ImmutableSortedSet<Class<? extends Fragment>> depFragments = fragmentsMap.get(key.getLabel());

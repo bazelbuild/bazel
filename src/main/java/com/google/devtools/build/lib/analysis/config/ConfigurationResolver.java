@@ -175,8 +175,6 @@ public final class ConfigurationResolver {
       DependencyKind depKind = depsEntry.getKey();
       DependencyEdge dependencyEdge = new DependencyEdge(depKind, dep.getLabel());
       attributesAndLabels.add(dependencyEdge);
-      // DependencyResolver should never emit a Dependency with an explicit configuration
-      Preconditions.checkState(!dep.hasExplicitConfiguration());
 
       // The null configuration can be trivially computed (it's, well, null), so special-case that
       // transition here and skip the rest of the logic. A *lot* of targets have null deps, so

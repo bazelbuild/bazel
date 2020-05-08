@@ -282,9 +282,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     Map<Label, ImmutableSortedSet<Class<? extends Fragment>>> fragmentsMap = new HashMap<>();
     Set<Label> labelsWithErrors = new HashSet<>();
     for (ConfigurationTransitionDependency key : keys) {
-      if (key.hasExplicitConfiguration()) {
-        builder.put(key, key.getConfiguration());
-      } else if (useUntrimmedConfigs(fromOptions)) {
+      if (useUntrimmedConfigs(fromOptions)) {
         fragmentsMap.put(key.getLabel(), allFragments);
       } else {
         depsToEvaluate.add(key);
@@ -326,7 +324,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
 
     final List<SkyKey> configSkyKeys = new ArrayList<>();
     for (ConfigurationTransitionDependency key : keys) {
-      if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
+      if (labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
       if (key.getTransition() == NullTransition.INSTANCE) {
@@ -360,7 +358,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       return null;
     }
     for (ConfigurationTransitionDependency key : keys) {
-      if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
+      if (labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
       if (key.getTransition() == NullTransition.INSTANCE) {

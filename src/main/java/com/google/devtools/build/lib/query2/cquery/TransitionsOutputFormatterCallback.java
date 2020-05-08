@@ -138,9 +138,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         throw new InterruptedException(e.getMessage());
       }
       for (Map.Entry<DependencyKind, ConfigurationTransitionDependency> attributeAndDep : deps.entries()) {
-        // DependencyResolver should only ever return Dependency instances with transitions and not
-        // with explicit configurations
-        Preconditions.checkState(!attributeAndDep.getValue().hasExplicitConfiguration());
         if (attributeAndDep.getValue().getTransition() == NoTransition.INSTANCE
             || attributeAndDep.getValue().getTransition() == NullTransition.INSTANCE) {
           continue;
