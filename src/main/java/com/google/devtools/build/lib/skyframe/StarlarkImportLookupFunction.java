@@ -62,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -661,7 +662,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
   /** Executes the .bzl file defining the module to be imported. */
   private Module executeModule(
       StarlarkFile file,
-      Label extensionLabel,
+      Label moduleLabel,
       byte[] transitiveDigest,
       Map<String, Module> loadedModules,
       StarlarkSemantics starlarkSemantics,
@@ -669,30 +670,30 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       boolean inWorkspace,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws StarlarkImportFailedException, InterruptedException {
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    // Any change to an input file may affect program behavior,
-    // even if only by changing line numbers in error messages.
-    PathFragment extensionFile = extensionLabel.toPathFragment();
-    try (Mutability mutability = Mutability.create("importing", extensionFile)) {
+    // .bzl predeclared environment
+    Map<String, Object> predeclared = new HashMap<>(ruleClassProvider.getEnvironment());
+    predeclared.put("native", packageFactory.getNativeModule(inWorkspace));
+
+    try (Mutability mu = Mutability.create("importing", moduleLabel)) {
       StarlarkThread thread =
-          ruleClassProvider.createRuleClassStarlarkThread(
-              extensionLabel,
-              mutability,
-              starlarkSemantics,
-              Event.makeDebugPrintHandler(eventHandler),
-              transitiveDigest,
-              loadedModules,
-              packageFactory.getNativeModule(inWorkspace),
-              repositoryMapping);
+          StarlarkThread.builder(mu)
+              .setGlobals(Module.createForBuiltins(predeclared).withLabel(moduleLabel))
+              .setSemantics(starlarkSemantics)
+              .setLoadedModules(loadedModules)
+              .build();
+      StoredEventHandler eventHandler = new StoredEventHandler();
+      thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
+      ruleClassProvider.setStarlarkThreadContext(
+          thread, moduleLabel, transitiveDigest, repositoryMapping);
       Module module = thread.getGlobals();
-      execAndExport(file, extensionLabel, eventHandler, thread);
+      execAndExport(file, moduleLabel, eventHandler, thread);
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
       for (Postable post : eventHandler.getPosts()) {
         env.getListener().post(post);
       }
       if (eventHandler.hasErrors()) {
-        throw StarlarkImportFailedException.errors(extensionFile);
+        throw StarlarkImportFailedException.errors(moduleLabel.toPathFragment());
       }
       return module;
     }

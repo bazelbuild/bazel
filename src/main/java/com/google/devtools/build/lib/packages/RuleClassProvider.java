@@ -19,10 +19,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
@@ -48,32 +44,21 @@ public interface RuleClassProvider extends RuleDefinitionContext {
   Map<String, RuleClass> getRuleClassMap();
 
   /**
-   * Returns a new StarlarkThread for initialization of a .bzl file loaded on behalf of a BUILD or
-   * WORKSPACE file. Implementations need to be thread safe. Be sure to close() the mutability
-   * before you return the results of evaluation.
+   * Stores a BazelStarlarkContext in the specified StarlarkThread about to initialize a .bzl file.
    *
    * <p>A .bzl file loaded by (or indirectly by) a BUILD file may differ semantically from the same
    * file loaded on behalf of a WORKSPACE file, because of the repository mapping and native module;
    * these differences much be accounted for by caching.
    *
+   * @param thread StarlarkThread in which to store the context.
    * @param label the label of the .bzl file
-   * @param mutability the Mutability for the .bzl module globals
-   * @param starlarkSemantics the semantics options that modify the interpreter
-   * @param printHandler defines the behavior of Starlark print statements
    * @param transitiveDigest digest of the .bzl file and those it transitively loads
-   * @param loadedModules the .bzl modules loaded by each load statement
-   * @param nativeModule the appropriate {@code native} module for this environment.
    * @param repoMapping map of RepositoryNames to be remapped
-   * @return the StarlarkThread in which to initualize the .bzl module
    */
-  StarlarkThread createRuleClassStarlarkThread(
+  void setStarlarkThreadContext(
+      StarlarkThread thread,
       Label label,
-      Mutability mutability,
-      StarlarkSemantics starlarkSemantics,
-      StarlarkThread.PrintHandler printHandler,
       byte[] transitiveDigest,
-      Map<String, Module> loadedModules,
-      ClassObject nativeModule,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping);
 
   /**
@@ -81,7 +66,7 @@ public interface RuleClassProvider extends RuleDefinitionContext {
    * value may be inappropriate for a WORKSPACE file. Includes the universal bindings (e.g. True,
    * len), though that will soon change.
    */
-  // TODO(adonovan): update doc comment.
+  // TODO(adonovan): update doc comment. And does it really include native?
   ImmutableMap<String, Object> getEnvironment();
 
   /**

@@ -55,10 +55,6 @@ import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -763,33 +759,12 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     return environment;
   }
 
-  // TODO(adonovan): all that needs to be in the RuleClassProvider interface is:
-  //
-  //   // Returns the BazelStarlarkContext to be associated with this loading-phase thread.
-  //   BazelStarlarkContext getThreadContext(repoMapping, fileLabel, transitiveDigest).
-  //
-  // (Alternatively the call could accept the Thread and set its BazelStarlarkContext.)
   @Override
-  public StarlarkThread createRuleClassStarlarkThread(
+  public void setStarlarkThreadContext(
+      StarlarkThread thread,
       Label fileLabel,
-      Mutability mutability,
-      StarlarkSemantics starlarkSemantics,
-      StarlarkThread.PrintHandler printHandler,
       byte[] transitiveDigest,
-      Map<String, Module> loadedModules,
-      ClassObject nativeModule,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
-    Map<String, Object> env = new HashMap<>(environment);
-    env.put("native", nativeModule);
-
-    StarlarkThread thread =
-        StarlarkThread.builder(mutability)
-            .setGlobals(Module.createForBuiltins(env).withLabel(fileLabel))
-            .setSemantics(starlarkSemantics)
-            .setLoadedModules(loadedModules)
-            .build();
-    thread.setPrintHandler(printHandler);
-
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.LOADING,
             toolsRepository,
@@ -799,8 +774,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
             /*analysisRuleLabel=*/ null,
             transitiveDigest)
         .storeInThread(thread);
-
-    return thread;
   }
 
   @Override
