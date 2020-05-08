@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
@@ -155,6 +156,12 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
     }
   }
 
+  private static Path toTmpDownloadPath(Path actualPath) {
+    return actualPath.getParentDirectory().getRelative(
+      actualPath.getBaseName() + "."  + actualPath.hashCode()
+    );
+  }
+
   private ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata)
       throws IOException {
     synchronized (lock) {
@@ -170,22 +177,29 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
         Context prevCtx = ctx.attach();
         try {
           Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-          download = remoteCache.downloadFile(path, digest);
+          Path tmpPath = toTmpDownloadPath(path);
+          download = remoteCache.downloadFile(tmpPath, digest);
           downloadsInProgress.put(path, download);
           Futures.addCallback(
               download,
               new FutureCallback<Void>() {
                 @Override
                 public void onSuccess(Void v) {
+                  try {
+                    tmpPath.chmod(0755);
+                  } catch (IOException e) {
+                    logger.atWarning().withCause(e).log("Failed to chmod 755 on %s", path);
+                  }
+                  try {
+                    FileSystemUtils.moveFile(tmpPath, path);
+                  } catch (IOException e) {
+                    logger.atWarning().withCause(e).log(
+                      "Failed to move to final location %s. -> %s", tmpPath, path
+                    );
+                  }
                   synchronized (lock) {
                     downloadsInProgress.remove(path);
                     downloadedPaths.add(path);
-                  }
-
-                  try {
-                    path.chmod(0755);
-                  } catch (IOException e) {
-                    logger.atWarning().withCause(e).log("Failed to chmod 755 on %s", path);
                   }
                 }
 
