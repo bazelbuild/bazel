@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContaine
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
 import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -2007,10 +2008,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
   @Override
   public ConfigurationsResult getConfigurations(
-      ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys)
+      ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<ConfigurationTransitionDependency> keys)
       throws InvalidConfigurationException {
     ConfigurationsResult.Builder builder = ConfigurationsResult.newBuilder();
-    Set<Dependency> depsToEvaluate = new HashSet<>();
+    Set<ConfigurationTransitionDependency> depsToEvaluate = new HashSet<>();
 
     ImmutableSortedSet<Class<? extends Fragment>> allFragments = null;
     if (useUntrimmedConfigs(fromOptions)) {
@@ -2021,10 +2022,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     final List<SkyKey> transitiveFragmentSkyKeys = new ArrayList<>();
     Map<Label, ImmutableSortedSet<Class<? extends Fragment>>> fragmentsMap = new HashMap<>();
     Set<Label> labelsWithErrors = new HashSet<>();
-    for (Dependency key : keys) {
-      if (key.hasExplicitConfiguration()) {
-        builder.put(key, key.getConfiguration());
-      } else if (useUntrimmedConfigs(fromOptions)) {
+    for (ConfigurationTransitionDependency key : keys) {
+      if (useUntrimmedConfigs(fromOptions)) {
         fragmentsMap.put(key.getLabel(), allFragments);
       } else {
         depsToEvaluate.add(key);
@@ -2036,7 +2035,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     for (Map.Entry<SkyKey, ErrorInfo> entry : fragmentsResult.errorMap().entrySet()) {
       reportCycles(eventHandler, entry.getValue().getCycleInfo(), entry.getKey());
     }
-    for (Dependency key : keys) {
+    for (ConfigurationTransitionDependency key : keys) {
       if (!depsToEvaluate.contains(key)) {
         // No fragments to compute here.
       } else if (fragmentsResult.getError(TransitiveTargetKey.of(key.getLabel())) != null) {
@@ -2057,7 +2056,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     // Now get the configurations.
     final List<SkyKey> configSkyKeys = new ArrayList<>();
-    for (Dependency key : keys) {
+    for (ConfigurationTransitionDependency key : keys) {
       if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
         continue;
       }
@@ -2087,7 +2086,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
     EvaluationResult<SkyValue> configsResult =
         evaluateSkyKeys(eventHandler, configSkyKeys, /*keepGoing=*/ true);
-    for (Dependency key : keys) {
+    for (ConfigurationTransitionDependency key : keys) {
       if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
         continue;
       }

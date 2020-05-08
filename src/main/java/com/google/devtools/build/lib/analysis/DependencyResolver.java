@@ -117,7 +117,7 @@ public abstract class DependencyResolver {
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
-  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
@@ -126,7 +126,7 @@ public abstract class DependencyResolver {
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
-    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
+    OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> outgoingEdges =
         dependentNodeMap(
             node,
             hostConfig,
@@ -172,7 +172,7 @@ public abstract class DependencyResolver {
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
-  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
@@ -219,7 +219,7 @@ public abstract class DependencyResolver {
         partiallyResolveDependencies(
             outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
 
-    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
+    OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> outgoingEdges =
         fullyResolveDependencies(
             partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
 
@@ -331,13 +331,13 @@ public abstract class DependencyResolver {
    * being calculated as an argument or its attributes and it should <b>NOT</b> do anything with the
    * keys of {@code partiallyResolvedDeps} other than passing them on to the output map.
    */
-  private OrderedSetMultimap<DependencyKind, Dependency> fullyResolveDependencies(
+  private OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> fullyResolveDependencies(
       OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
       Map<Label, Target> targetMap,
       BuildConfiguration originalConfiguration,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws InconsistentAspectOrderException {
-    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges = OrderedSetMultimap.create();
+    OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> outgoingEdges = OrderedSetMultimap.create();
 
     for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry :
         partiallyResolvedDeps.entries()) {
@@ -359,8 +359,9 @@ public abstract class DependencyResolver {
 
       outgoingEdges.put(
           entry.getKey(),
-              Dependency.builder(dep.getLabel())
-                      .withTransition(transition)
+          ConfigurationTransitionDependency.builder()
+              .setLabel(dep.getLabel())
+                      .setTransition(transition)
                       .addAspects(requiredAspects)
                       .build());
     }

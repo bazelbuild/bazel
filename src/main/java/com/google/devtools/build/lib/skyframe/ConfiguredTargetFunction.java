@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
+import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -589,12 +590,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       BuildOptions defaultBuildOptions)
       throws DependencyEvaluationException, ConfiguredTargetFunctionException,
           AspectCreationException, InterruptedException {
-    // Create the map from attributes to set of (target, configuration) pairs.
-    OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
+    // Create the map from attributes to set of (target, transition) pairs.
+    OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> partiallyResolvedDependencies;
     BuildConfiguration configuration = ctgValue.getConfiguration();
     Label label = ctgValue.getLabel();
     try {
-      depValueNames =
+      partiallyResolvedDependencies =
           resolver.dependentNodeMap(
               ctgValue,
               hostConfiguration,
@@ -613,13 +614,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
     }
-    // Trim each dep's configuration so it only includes the fragments needed by its transitive
-    // closure.
-    depValueNames =
+
+    // Resolve each dependency to a full configuration, possibly trimming so it only includes the
+    // fragments needed by its transitive closure.
+    OrderedSetMultimap<DependencyKind, Dependency> depValueNames =
         ConfigurationResolver.resolveConfigurations(
             env,
             ctgValue,
-            depValueNames,
+            partiallyResolvedDependencies,
             hostConfiguration,
             ruleClassProvider,
             defaultBuildOptions,
