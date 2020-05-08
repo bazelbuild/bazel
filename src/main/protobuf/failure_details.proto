@@ -113,6 +113,7 @@ message FailureDetail {
     ActionCache action_cache = 134;
     FetchCommand fetch_command = 135;
     SyncCommand sync_command = 136;
+    Sandbox sandbox = 137;
   }
 
   reserved 102; // For internal use
@@ -518,6 +519,15 @@ message SyncCommand {
     WORKSPACE_EVALUATION_ERROR = 2 [(metadata) = { exit_code: 7 }];
     REPOSITORY_FETCH_ERRORS = 3 [(metadata) = { exit_code: 7 }];
     REPOSITORY_NAME_INVALID = 4 [(metadata) = { exit_code: 7 }];
+  }
+
+  Code code = 1;
+}
+
+message Sandbox {
+  enum Code {
+    SANDBOX_FAILURE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
