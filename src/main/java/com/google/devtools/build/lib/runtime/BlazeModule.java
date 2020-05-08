@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.SubscriberExceptionHandler;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -302,7 +301,7 @@ public abstract class BlazeModule {
    * @param builder the builder to add action context providers and consumers to
    */
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)
-      throws ExecutorInitException {}
+      throws AbruptExitException {}
 
   /**
    * Registers any action contexts this module provides with the execution phase. They will be
@@ -330,11 +329,11 @@ public abstract class BlazeModule {
    *
    * @param registryBuilder builder with which to register strategies
    * @param env environment for the current command
-   * @throws ExecutorInitException if there are fatal issues creating or registering strategies
+   * @throws AbruptExitException if there are fatal issues creating or registering strategies
    */
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
-      throws ExecutorInitException {}
+      throws AbruptExitException {}
 
   /**
    * Called after each command.
