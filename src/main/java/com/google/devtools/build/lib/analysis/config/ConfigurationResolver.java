@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
 import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.Dependency;
-import com.google.devtools.build.lib.analysis.Dependency.NullConfigurationBuilder;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -180,7 +179,7 @@ public final class ConfigurationResolver {
       // total analysis phase time.
       ConfigurationTransition transition = dep.getTransition();
       if (transition == NullTransition.INSTANCE) {
-        NullConfigurationBuilder finalDependencyBuilder = Dependency.builder(dep.getLabel())
+        Dependency.Builder finalDependencyBuilder = Dependency.builder(dep.getLabel())
                 .withNullConfiguration();
         // If the base transition is a split transition, execute the transition and store returned
         // transition keys along with the null configuration dependency, so that other code relying

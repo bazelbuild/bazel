@@ -27,6 +27,7 @@ import java.util.List;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -92,10 +93,21 @@ public abstract class Dependency {
       return this;
     }
 
+    public Builder addTransitionKey(String key) {
+      this.transitionKeys.add(key);
+      return this;
+    }
+
+    public Builder addTransitionKeys(Set<String> keys) {
+      this.transitionKeys.addAll(keys);
+      return this;
+    }
+
     /** Returns the full Dependency instance. */
     public Dependency build() {
       if (configuration == null) {
-        // TODO: verify aspects not set
+        Preconditions.checkState(aspects.equals(AspectCollection.EMPTY));
+        Preconditions.checkState(aspectConfigurations.isEmpty());
         return new NullConfigurationDependency(label, ImmutableList.copyOf(transitionKeys));
       }
 

@@ -83,7 +83,7 @@ public class DependencyTest extends AnalysisTestCase {
   }
 
   @Test
-  public void withConfigurationAndAspects_RejectsNullConfigWithNPE() throws Exception {
+  public void withConfigurationAndAspects_RejectsNullConfig() throws Exception {
     // Although the NullPointerTester should check this, this test invokes a different code path,
     // because it includes aspects (which the NPT test will not).
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
@@ -91,9 +91,9 @@ public class DependencyTest extends AnalysisTestCase {
     AspectCollection twoAspects = AspectCollection.createForTests(simpleAspect, attributeAspect);
 
     assertThrows(
-        NullPointerException.class,
+        IllegalStateException.class,
         () -> Dependency.builder(Label.parseAbsolute("//a", ImmutableMap.of()))
-            .setConfiguration(null)
+                    .setConfiguration(null)
                     .addAspects(twoAspects)
                     .build());
   }
