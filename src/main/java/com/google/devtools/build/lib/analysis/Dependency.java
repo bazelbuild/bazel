@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency.ConfigurationTransitionBuilder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -73,13 +74,6 @@ public abstract class Dependency {
      */
     public ExplicitConfigurationBuilder withConfiguration(BuildConfiguration configuration) {
       return new ExplicitConfigurationBuilder(label, configuration);
-    }
-
-    /**
-     * Returns a sub-builder for a new {@link Dependency} with the given transition.
-     */
-    public ConfigurationTransitionBuilder withTransition(ConfigurationTransition transition) {
-      return new ConfigurationTransitionBuilder(label, transition);
     }
   }
 
@@ -158,31 +152,6 @@ public abstract class Dependency {
           aspects,
           ImmutableMap.copyOf(aspectConfigurations),
           ImmutableList.copyOf(transitionKeys));
-    }
-  }
-
-  /** Builder to assist in creating dependency instances with a configuration transition. */
-  public static class ConfigurationTransitionBuilder {
-    private final Label label;
-    private final ConfigurationTransition transition;
-    private AspectCollection aspects = AspectCollection.EMPTY;
-
-    private ConfigurationTransitionBuilder(Label label, ConfigurationTransition transition) {
-      this.label = Preconditions.checkNotNull(label);
-      this.transition = Preconditions.checkNotNull(transition);
-    }
-
-    /**
-     * Add aspects to this Dependency.
-     */
-    public ConfigurationTransitionBuilder addAspects(AspectCollection aspects) {
-      this.aspects = aspects;
-      return this;
-    }
-
-    /** Returns the full Dependency instance. */
-    public Dependency build() {
-      return new ConfigurationTransitionDependency(label, transition, aspects);
     }
   }
 
@@ -406,83 +375,6 @@ public abstract class Dependency {
       return String.format(
           "%s{label=%s, configuration=%s, aspectConfigurations=%s}",
           getClass().getSimpleName(), label, configuration, aspectConfigurations);
-    }
-  }
-
-  /**
-   * Implementation of a dependency with a given configuration transition.
-   */
-  private static final class ConfigurationTransitionDependency extends Dependency {
-    private final ConfigurationTransition transition;
-    private final AspectCollection aspects;
-
-    public ConfigurationTransitionDependency(
-        Label label, ConfigurationTransition transition, AspectCollection aspects) {
-      super(label);
-      this.transition = Preconditions.checkNotNull(transition);
-      this.aspects = Preconditions.checkNotNull(aspects);
-    }
-
-    @Override
-    public boolean hasExplicitConfiguration() {
-      return false;
-    }
-
-    @Override
-    public BuildConfiguration getConfiguration() {
-      throw new IllegalStateException(
-          "This dependency has a transition, not an explicit configuration.");
-    }
-
-    @Override
-    public ConfigurationTransition getTransition() {
-      return transition;
-    }
-
-    @Override
-    public AspectCollection getAspects() {
-      return aspects;
-    }
-
-    @Override
-    public BuildConfiguration getAspectConfiguration(AspectDescriptor aspect) {
-      throw new IllegalStateException(
-          "This dependency has a transition, not an explicit aspect configuration.");
-    }
-
-    @Override
-    public ImmutableList<String> getTransitionKeys() {
-      throw new IllegalStateException(
-          "This dependency has a transition, not an explicit configuration.");
-    }
-
-    @Override
-    public ConfiguredTargetKey getConfiguredTargetKey() {
-      throw new IllegalStateException(
-              "This dependency has a transition, not an explicit configuration.");
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(label, transition, aspects);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof ConfigurationTransitionDependency)) {
-        return false;
-      }
-      ConfigurationTransitionDependency otherDep = (ConfigurationTransitionDependency) other;
-      return label.equals(otherDep.label)
-          && transition.equals(otherDep.transition)
-          && aspects.equals(otherDep.aspects);
-    }
-
-    @Override
-    public String toString() {
-      return String.format(
-          "%s{label=%s, transition=%s, aspects=%s}",
-          getClass().getSimpleName(), label, transition, aspects);
     }
   }
 }

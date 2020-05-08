@@ -694,6 +694,21 @@ java_library(
 )
 
 java_library(
+    name = "partially_resolved_dependency",
+    srcs = ["ConfigurationTransitionDependency.java"],
+    deps = [
+        ":aspect_collection",
+        ":config/build_configuration",
+        ":config/transitions/configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "dependency",
     srcs = ["Dependency.java"],
     deps = [
