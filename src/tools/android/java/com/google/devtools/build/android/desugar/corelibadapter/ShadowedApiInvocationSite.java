@@ -31,16 +31,14 @@ import com.google.devtools.build.android.desugar.corelibadapter.InvocationSiteTr
 import com.google.devtools.build.android.desugar.io.BootClassPathDigest;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
-import com.google.devtools.build.android.desugar.langmodel.DesugarClassAttribute;
-import com.google.devtools.build.android.desugar.langmodel.DesugarClassInfo;
+import com.google.devtools.build.android.desugar.langmodel.DesugarMethodAttribute;
+import com.google.devtools.build.android.desugar.langmodel.DesugarMethodInfo;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import com.google.devtools.build.android.desugar.langmodel.SwitchableTypeMapper;
-import com.google.devtools.build.android.desugar.langmodel.SyntheticMethod;
-import com.google.devtools.build.android.desugar.langmodel.SyntheticMethod.SyntheticReason;
 import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchy;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -66,7 +64,6 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
 
   private final BootClassPathDigest bootClassPathDigest;
   private final TypeHierarchy typeHierarchy;
-  private final DesugarClassInfo.Builder desugarClassInfoBuilder;
   private final ClassAttributeRecord classAttributeRecord;
 
   private int classAccess;
@@ -84,7 +81,6 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
     this.bootClassPathDigest = bootClassPathDigest;
     this.classAttributeRecord = classAttributeRecord;
     this.typeHierarchy = typeHierarchy;
-    this.desugarClassInfoBuilder = DesugarClassInfo.newBuilder();
   }
 
   @Override
@@ -123,13 +119,17 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
     }
     if (ShadowedApiAdapterHelper.shouldEmitApiOverridingBridge(
         verbatimMethod, typeHierarchy, bootClassPathDigest)) {
-      desugarClassInfoBuilder.addSyntheticMethod(
-          SyntheticMethod.newBuilder()
-              .setMethod(verbatimMethod.methodKey().toMethodIdProto())
-              .setReason(SyntheticReason.OVERRIDING_BRIDGE));
-
       MethodNode bridgeMethodNode = new MethodNode();
+
+      bridgeMethodNode.visitAttribute(
+          new DesugarMethodAttribute(
+              DesugarMethodInfo.newBuilder()
+                  .setDesugarToolIgnore(true)
+                  .setSyntheticReason(DesugarMethodInfo.SyntheticReason.OVERRIDING_BRIDGE)
+                  .build()));
+
       bridgeMethodNode.visitCode();
+
       int slotOffset = 0;
       bridgeMethodNode.visitVarInsn(Opcodes.ALOAD, slotOffset++);
       for (Type argType : verbatimMethod.argumentTypes()) {
@@ -176,6 +176,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
       MethodRemapper methodRemapper =
           new MethodRemapper(
               bridgeMethodVisitor, IN_PROCESS_LABEL_STRIPPER.andThen(IMMUTABLE_LABEL_ATTACHER));
+
       bridgeMethodNode.accept(methodRemapper);
     }
     MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
@@ -183,15 +184,6 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
         ? null
         : new ShadowedApiInvocationSiteMethodVisitor(
             api, mv, invocationSiteRecord, typeHierarchy, bootClassPathDigest);
-  }
-
-  @Override
-  public void visitEnd() {
-    DesugarClassInfo desugarClassInfo = desugarClassInfoBuilder.build();
-    if (desugarClassInfo.getSyntheticMethodCount() > 0) {
-      super.visitAttribute(new DesugarClassAttribute(desugarClassInfo));
-    }
-    super.visitEnd();
   }
 
   /** Desugars instructions for the enclosing class visitor. */

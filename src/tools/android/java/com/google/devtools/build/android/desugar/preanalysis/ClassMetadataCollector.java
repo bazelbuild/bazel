@@ -23,6 +23,7 @@ import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord.ClassMemberRecordBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.DesugarClassAttribute;
+import com.google.devtools.build.android.desugar.langmodel.DesugarMethodAttribute;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
@@ -122,6 +123,7 @@ public final class ClassMetadataCollector extends ClassVisitor {
     return new MethodMetadataCollector(
         super.visitMethod(access, name, descriptor, signature, exceptions),
         methodKey,
+        classAttributesBuilder,
         stagingMemberRecord);
   }
 
@@ -169,6 +171,8 @@ public final class ClassMetadataCollector extends ClassVisitor {
     /** The current enclosing the method. */
     private final MethodKey enclosingMethodKey;
 
+    private final ClassAttributesBuilder classAttributesBuilder;
+
     /**
      * A per-class class member record and will determined to merge or not into the main member
      * record at visitEnd of its associated class visitor.
@@ -180,10 +184,20 @@ public final class ClassMetadataCollector extends ClassVisitor {
     MethodMetadataCollector(
         MethodVisitor methodVisitor,
         MethodKey enclosingMethodKey,
+        ClassAttributesBuilder classAttributesBuilder,
         ClassMemberRecordBuilder nestAnalysisBasedMemberRecord) {
       super(Opcodes.ASM8, methodVisitor);
       this.enclosingMethodKey = enclosingMethodKey;
+      this.classAttributesBuilder = classAttributesBuilder;
       this.nestAnalysisBasedMemberRecord = nestAnalysisBasedMemberRecord;
+    }
+
+    @Override
+    public void visitAttribute(Attribute attribute) {
+      if (attribute instanceof DesugarMethodAttribute) {
+        classAttributesBuilder.addDesugarIgnoredMethods(enclosingMethodKey);
+      }
+      super.visitAttribute(attribute);
     }
 
     @Override
