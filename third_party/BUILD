@@ -507,8 +507,14 @@ filegroup(
     srcs = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
 )
 
+java_import(
+    name = "java-diff-utils",
+    jars = ["java-diff-utils/java-diff-utils-4.0.jar"],
+)
+
 # Testing
 
+# TODO: Remove this target after migrating to java-diff-utils
 java_import(
     name = "diffutils",
     jars = ["diffutils/diffutils-1.3.0.jar"],
