@@ -24,7 +24,7 @@ import org.junit.runners.JUnit4;
 public class SingleStatRecorderTest {
 
   @Test
-  public void meanAndstandardDeviation() {
+  public void meanAndStandardDeviation() {
     SingleStatRecorder recorder = new SingleStatRecorder(null, 2);
     recorder.addStat(43, null);
     recorder.addStat(49, null);
