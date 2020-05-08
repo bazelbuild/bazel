@@ -42,6 +42,7 @@ filegroup(
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
+        "//src/conditions:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/main/tools:linux-sandbox",
