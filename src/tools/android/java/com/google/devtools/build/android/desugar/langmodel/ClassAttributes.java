@@ -36,6 +36,8 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
 
   public abstract ImmutableSet<MethodKey> privateInstanceMethods();
 
+  public abstract ImmutableSet<MethodKey> desugarIgnoredMethods();
+
   // Include other class attributes as necessary.
 
   public static ClassAttributesBuilder builder() {
@@ -53,6 +55,9 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
     privateInstanceMethods().stream()
         .map(methodKey -> methodKey.acceptTypeMapper(typeMapper))
         .forEach(mappedBuilder::addPrivateInstanceMethod);
+    desugarIgnoredMethods().stream()
+        .map(methodKey -> methodKey.acceptTypeMapper(typeMapper))
+        .forEach(mappedBuilder::addDesugarIgnoredMethods);
     mappedBuilder.setClassBinaryName(classBinaryName().acceptTypeMapper(typeMapper));
     return mappedBuilder.build();
   }
@@ -69,6 +74,8 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
 
     abstract ImmutableSet.Builder<MethodKey> privateInstanceMethodsBuilder();
 
+    abstract ImmutableSet.Builder<MethodKey> desugarIgnoredMethodsBuilder();
+
     public ClassAttributesBuilder addNestMember(ClassName nestMember) {
       nestMembersBuilder().add(nestMember);
       return this;
@@ -76,6 +83,11 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
 
     public ClassAttributesBuilder addPrivateInstanceMethod(MethodKey methodKey) {
       privateInstanceMethodsBuilder().add(methodKey);
+      return this;
+    }
+
+    public ClassAttributesBuilder addDesugarIgnoredMethods(MethodKey methodKey) {
+      desugarIgnoredMethodsBuilder().add(methodKey);
       return this;
     }
 

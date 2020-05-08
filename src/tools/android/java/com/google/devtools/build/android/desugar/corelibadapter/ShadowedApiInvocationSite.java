@@ -25,10 +25,11 @@ import static com.google.devtools.build.android.desugar.langmodel.ClassName.IN_P
 import static com.google.devtools.build.android.desugar.langmodel.ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.android.desugar.corelibadapter.InvocationSiteTransformationRecord.InvocationSiteTransformationRecordBuilder;
 import com.google.devtools.build.android.desugar.io.BootClassPathDigest;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.DesugarClassAttribute;
 import com.google.devtools.build.android.desugar.langmodel.DesugarClassInfo;
@@ -41,8 +42,6 @@ import com.google.devtools.build.android.desugar.langmodel.SwitchableTypeMapper;
 import com.google.devtools.build.android.desugar.langmodel.SyntheticMethod;
 import com.google.devtools.build.android.desugar.langmodel.SyntheticMethod.SyntheticReason;
 import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchy;
-import java.util.Set;
-import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -58,6 +57,9 @@ import org.objectweb.asm.tree.MethodNode;
 public final class ShadowedApiInvocationSite extends ClassVisitor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final SwitchableTypeMapper<InvocationSiteTransformationReason>
+      immutableLabelApplicator =
+          new SwitchableTypeMapper<>(IN_PROCESS_LABEL_STRIPPER.andThen(IMMUTABLE_LABEL_ATTACHER));
 
   /** An evolving record that collects the adapter method requests from invocation sites. */
   private final InvocationSiteTransformationRecordBuilder invocationSiteRecord;
@@ -65,26 +67,24 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
   private final BootClassPathDigest bootClassPathDigest;
   private final TypeHierarchy typeHierarchy;
   private final DesugarClassInfo.Builder desugarClassInfoBuilder;
-  private final Set<MethodKey> overridingBridgeMethods;
+  private final ClassAttributeRecord classAttributeRecord;
 
   private int classAccess;
   private ClassName className;
-
-  private static final SwitchableTypeMapper<InvocationSiteTransformationReason>
-      immutableLabelApplicator =
-          new SwitchableTypeMapper<>(IN_PROCESS_LABEL_STRIPPER.andThen(IMMUTABLE_LABEL_ATTACHER));
+  private ImmutableSet<MethodKey> desugarIgnoredMethods;
 
   public ShadowedApiInvocationSite(
       ClassVisitor classVisitor,
       InvocationSiteTransformationRecordBuilder invocationSiteRecord,
       BootClassPathDigest bootClassPathDigest,
+      ClassAttributeRecord classAttributeRecord,
       TypeHierarchy typeHierarchy) {
     super(Opcodes.ASM8, classVisitor);
     this.invocationSiteRecord = invocationSiteRecord;
     this.bootClassPathDigest = bootClassPathDigest;
+    this.classAttributeRecord = classAttributeRecord;
     this.typeHierarchy = typeHierarchy;
     this.desugarClassInfoBuilder = DesugarClassInfo.newBuilder();
-    this.overridingBridgeMethods = Sets.newHashSet();
   }
 
   @Override
@@ -97,23 +97,11 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
       String[] interfaces) {
     this.classAccess = access;
     this.className = ClassName.create(name);
+    this.desugarIgnoredMethods =
+        classAttributeRecord.hasAttributeRecordFor(className)
+            ? classAttributeRecord.getDesugarIgnoredMethods(className)
+            : ImmutableSet.of();
     super.visit(version, access, name, signature, superName, interfaces);
-  }
-
-  @Override
-  public void visitAttribute(Attribute attribute) {
-    if (attribute instanceof DesugarClassAttribute) {
-      visitDesugarClassAttribute(((DesugarClassAttribute) attribute).getDesugarClassInfo());
-    }
-    super.visitAttribute(attribute);
-  }
-
-  private void visitDesugarClassAttribute(DesugarClassInfo classAttribute) {
-    classAttribute.getSyntheticMethodList().stream()
-        .filter(method -> SyntheticReason.OVERRIDING_BRIDGE.equals(method.getReason()))
-        .map(SyntheticMethod::getMethod)
-        .map(MethodKey::from)
-        .forEach(overridingBridgeMethods::add);
   }
 
   @Override
@@ -127,7 +115,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
                 signature,
                 exceptions)
             .acceptTypeMapper(IN_PROCESS_LABEL_STRIPPER);
-    if (overridingBridgeMethods.contains(verbatimMethod.methodKey())) {
+    if (desugarIgnoredMethods.contains(verbatimMethod.methodKey())) {
       MethodVisitor bridgeMethodVisitor =
           verbatimMethod.acceptTypeMapper(IMMUTABLE_LABEL_ATTACHER).accept(cv);
       return new MethodRemapper(
