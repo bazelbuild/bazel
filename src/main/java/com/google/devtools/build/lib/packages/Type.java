@@ -614,7 +614,7 @@ public abstract class Type<T> {
         iterable = (Iterable<?>) x;
       } else if (x instanceof Depset) {
         try {
-          iterable = ((Depset) x).toCollection();
+          iterable = ((Depset) x).toList();
         } catch (NestedSetDepthException exception) {
           throw new ConversionException(
               "depset exceeded maximum depth "

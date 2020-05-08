@@ -215,7 +215,7 @@ public final class Depset implements StarlarkValue {
    * given class. Only the top-level class is verified.
    *
    * <p>If you do not specifically need the {@code NestedSet} and you are going to flatten it
-   * anyway, prefer {@link #toCollection} to make your intent clear.
+   * anyway, prefer {@link #toList} to make your intent clear.
    *
    * @param type a {@link Class} representing the expected type of the elements
    * @return the {@code NestedSet}, with the appropriate generic type
@@ -241,8 +241,6 @@ public final class Depset implements StarlarkValue {
     return set;
   }
 
-  // TODO(adonovan): rename these toCollection methods toList.
-
   /**
    * Returns an ImmutableList containing the set elements, asserting that each element is an
    * instance of class {@code type}. Requires traversing the entire graph of the underlying
@@ -251,7 +249,7 @@ public final class Depset implements StarlarkValue {
    * @param type a {@link Class} representing the expected type of the elements
    * @throws TypeException if the type does not accurately describe all elements
    */
-  public <T> ImmutableList<T> toCollection(Class<T> type) throws TypeException {
+  public <T> ImmutableList<T> toList(Class<T> type) throws TypeException {
     return getSet(type).toList();
   }
 
@@ -259,7 +257,7 @@ public final class Depset implements StarlarkValue {
    * Returns an ImmutableList containing the set elements. Requires traversing the entire graph of
    * the underlying NestedSet.
    */
-  public ImmutableList<?> toCollection() {
+  public ImmutableList<?> toList() {
     return set.toList();
   }
 
@@ -343,9 +341,9 @@ public final class Depset implements StarlarkValue {
               + "from that of the parent depset. The list is a copy; modifying it has no effect "
               + "on the depset and vice versa.",
       useStarlarkThread = true)
-  public StarlarkList<Object> toList(StarlarkThread thread) throws EvalException {
+  public StarlarkList<Object> toListForStarlark(StarlarkThread thread) throws EvalException {
     try {
-      return StarlarkList.copyOf(thread.mutability(), this.toCollection());
+      return StarlarkList.copyOf(thread.mutability(), this.toList());
     } catch (NestedSetDepthException exception) {
       throw new EvalException(
           null,
@@ -568,7 +566,7 @@ public final class Depset implements StarlarkValue {
       // This is an extremely inefficient check and should be only done in the
       // "--debug_depset_depth" mode.
       try {
-        result.toCollection(); // may throw exception
+        result.toList(); // may throw exception
       } catch (NestedSetDepthException ex) {
         throw Starlark.errorf("depset exceeded maximum depth %d", ex.getDepthLimit());
       }

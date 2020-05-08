@@ -1841,7 +1841,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "deps", "['//testlib:lib']");
 
     ObjcProvider objcProvider = providerForTarget("//x:x");
-    assertThat(objcProvider.sdkFramework().toCollection()).contains("TestFramework");
+    assertThat(objcProvider.sdkFramework().toList()).contains("TestFramework");
   }
 
   protected RuleType getRuleType() {

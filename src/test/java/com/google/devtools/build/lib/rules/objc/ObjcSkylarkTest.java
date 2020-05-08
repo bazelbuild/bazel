@@ -1400,7 +1400,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
     Depset emptyValue = (Depset) getMyInfoFromTarget(skylarkTarget).getValue("empty_value");
-    assertThat(emptyValue.toCollection()).isEmpty();
+    assertThat(emptyValue.toList()).isEmpty();
   }
 
   @Test
@@ -1437,7 +1437,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
     Depset sdkFrameworks = (Depset) getMyInfoFromTarget(skylarkTarget).getValue("sdk_frameworks");
-    assertThat(sdkFrameworks.toCollection()).containsAtLeast("Accelerate", "GLKit");
+    assertThat(sdkFrameworks.toList()).containsAtLeast("Accelerate", "GLKit");
   }
 
   @Test

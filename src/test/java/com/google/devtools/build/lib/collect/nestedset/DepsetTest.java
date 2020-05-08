@@ -101,32 +101,31 @@ public final class DepsetTest extends EvaluationTestCase {
     assertThrows(Depset.TypeException.class, () -> get("s").getSet(Integer.class));
   }
 
-
   @Test
-  public void testToCollection() throws Exception {
+  public void testToList() throws Exception {
     exec("s = depset(['a', 'b'])");
-    assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
-    assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
-    assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    assertThrows(Depset.TypeException.class, () -> get("s").toCollection(Integer.class));
+    assertThat(get("s").toList(String.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toList(Object.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toList()).containsExactly("a", "b").inOrder();
+    assertThrows(Depset.TypeException.class, () -> get("s").toList(Integer.class));
   }
 
   @Test
-  public void testToCollectionDirect() throws Exception {
+  public void testToListDirect() throws Exception {
     exec("s = depset(direct = ['a', 'b'])");
-    assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
-    assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
-    assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    assertThrows(Depset.TypeException.class, () -> get("s").toCollection(Integer.class));
+    assertThat(get("s").toList(String.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toList(Object.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toList()).containsExactly("a", "b").inOrder();
+    assertThrows(Depset.TypeException.class, () -> get("s").toList(Integer.class));
   }
 
   @Test
-  public void testToCollectionItems() throws Exception {
+  public void testToListItems() throws Exception {
     exec("s = depset(items = ['a', 'b'])");
-    assertThat(get("s").toCollection(String.class)).containsExactly("a", "b").inOrder();
-    assertThat(get("s").toCollection(Object.class)).containsExactly("a", "b").inOrder();
-    assertThat(get("s").toCollection()).containsExactly("a", "b").inOrder();
-    assertThrows(Depset.TypeException.class, () -> get("s").toCollection(Integer.class));
+    assertThat(get("s").toList(String.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toList(Object.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").toList()).containsExactly("a", "b").inOrder();
+    assertThrows(Depset.TypeException.class, () -> get("s").toList(Integer.class));
   }
 
   @Test
@@ -297,9 +296,7 @@ public final class DepsetTest extends EvaluationTestCase {
 
   private void assertContainsInOrder(String statement, Object... expectedElements)
       throws Exception {
-    assertThat(((Depset) eval(statement)).toCollection())
-        .containsExactly(expectedElements)
-        .inOrder();
+    assertThat(((Depset) eval(statement)).toList()).containsExactly(expectedElements).inOrder();
   }
 
   @Test
@@ -322,7 +319,7 @@ public final class DepsetTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testToList() throws Exception {
+  public void testToListForStarlark() throws Exception {
     setSemantics();
     exec("s = depset([3, 4, 5], transitive = [depset([2, 4, 6])])", "x = s.to_list()");
     Object value = lookup("x");

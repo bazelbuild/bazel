@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.Collection;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
@@ -1310,11 +1309,11 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testNsetGoodCompositeItem() throws Exception {
+  public void testDepsetGoodCompositeItem() throws Exception {
     exec("def func():", "  return depset([struct(a='a')])", "s = func()");
-    Collection<?> result = ((Depset) lookup("s")).toCollection();
+    ImmutableList<?> result = ((Depset) lookup("s")).toList();
     assertThat(result).hasSize(1);
-    assertThat(result.iterator().next()).isInstanceOf(StructImpl.class);
+    assertThat(result.get(0)).isInstanceOf(StructImpl.class);
   }
 
   private static StructImpl makeStruct(String field, Object value) {
