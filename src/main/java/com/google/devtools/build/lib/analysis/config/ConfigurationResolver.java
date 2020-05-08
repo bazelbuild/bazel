@@ -29,6 +29,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
 import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.Dependency.NullConfigurationBuilder;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -182,9 +183,8 @@ public final class ConfigurationResolver {
       // total analysis phase time.
       ConfigurationTransition transition = dep.getTransition();
       if (transition == NullTransition.INSTANCE) {
-        Dependency finalDependency = Dependency.builder(dep.getLabel())
-                .withNullConfiguration()
-                .build();
+        NullConfigurationBuilder finalDependencyBuilder = Dependency.builder(dep.getLabel())
+                .withNullConfiguration();
         // If the base transition is a split transition, execute the transition and store returned
         // transition keys along with the null configuration dependency, so that other code relying
         // on stored transition keys doesn't have to implement special handling logic just for this
@@ -219,14 +219,12 @@ public final class ConfigurationResolver {
               throw new DependencyEvaluationException(e);
             }
             if (!SplitTransition.equals(currentConfiguration.getOptions(), toOptions.values())) {
-              finalDependency =
-                      Dependency.builder(dep.getLabel())
-                              .withNullConfiguration()
-                              .addTransitionKeys(toOptions.keySet())
-                              .build();
+              finalDependencyBuilder
+                              .addTransitionKeys(toOptions.keySet());
             }
           }
         }
+        Dependency finalDependency = finalDependencyBuilder.build();
         putOnlyEntry(resolvedDeps, dependencyEdge, finalDependency);
         continue;
       }
