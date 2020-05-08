@@ -46,11 +46,8 @@ public class DependencyTest extends AnalysisTestCase {
                     .build();
 
     assertThat(nullDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
-    assertThat(nullDep.hasExplicitConfiguration()).isTrue();
     assertThat(nullDep.getConfiguration()).isNull();
     assertThat(nullDep.getAspects().getAllAspects()).isEmpty();
-
-    assertThrows(IllegalStateException.class, () -> nullDep.getTransition());
   }
 
   @Test
@@ -62,11 +59,8 @@ public class DependencyTest extends AnalysisTestCase {
                     .build();
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
-    assertThat(targetDep.hasExplicitConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects().getAllAspects()).isEmpty();
-
-    assertThrows(IllegalStateException.class, () -> targetDep.getTransition());
   }
 
   @Test
@@ -83,14 +77,11 @@ public class DependencyTest extends AnalysisTestCase {
                     .build();
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
-    assertThat(targetDep.hasExplicitConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects()).isEqualTo(twoAspects);
     assertThat(targetDep.getAspectConfiguration(simpleAspect)).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspectConfiguration(attributeAspect))
         .isEqualTo(getTargetConfiguration());
-
-    assertThrows(IllegalStateException.class, () -> targetDep.getTransition());
   }
 
   @Test
@@ -138,15 +129,12 @@ public class DependencyTest extends AnalysisTestCase {
                     .build();
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
-    assertThat(targetDep.hasExplicitConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects().getAllAspects())
         .containsExactly(simpleAspect, attributeAspect);
     assertThat(targetDep.getAspectConfiguration(simpleAspect)).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspectConfiguration(attributeAspect))
         .isEqualTo(getHostConfiguration());
-
-    assertThrows(IllegalStateException.class, () -> targetDep.getTransition());
   }
 
 

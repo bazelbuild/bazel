@@ -54,16 +54,50 @@ public abstract class Dependency {
   /** Builder to assist in creating dependency instances. */
   public static class Builder {
     private final Label label;
+    private BuildConfiguration configuration;
+    private AspectCollection aspects = AspectCollection.EMPTY;
+    private Map<AspectDescriptor, BuildConfiguration> aspectConfigurations = new HashMap<>();
+    private final List<String> transitionKeys = new ArrayList<>();
 
     private Builder(Label label) {
       this.label = Preconditions.checkNotNull(label);
     }
 
+    public Builder setConfiguration(BuildConfiguration configuration) {
+      this.configuration = configuration;
+      return this;
+    }
+
+    /**
+     * Add transition keys to this Dependency, used when edges with a split transition were resolved to null configuration targets.
+     */
+    public Builder addTransitionKeys(Collection<String> transitionKeys) {
+      this.transitionKeys.addAll(transitionKeys);
+      return this;
+    }
+
+    /**
+     * Add aspects to this Dependency. Unless {@link #addAspectConfigurations} is also used, the same configuration is
+     * applied to all aspects.
+     */
+    public Builder addAspects(AspectCollection aspects) {
+      this.aspects = aspects;
+      return this;
+    }
+
+    /**
+     * Set explicit configurations for aspects on this Dependency (for example, after configuration trimming). Any aspects not specified will use the target's configuration.
+     */
+    public Builder addAspectConfigurations(Map<AspectDescriptor, BuildConfiguration> aspectConfigurations) {
+      this.aspectConfigurations.putAll(aspectConfigurations);
+      return this;
+    }
+
     /**
      * Returns a sub-builder for a new {@link Dependency} with a null configuration, suitable for edges with no configuration.
      */
-    public NullConfigurationBuilder withNullConfiguration() {
-      return new NullConfigurationBuilder(label);
+    public Builder withNullConfiguration() {
+      return setConfiguration(null);
     }
 
     /**
@@ -71,76 +105,17 @@ public abstract class Dependency {
      *
      * <p>The configuration must not be {@code null}.
      */
-    public ExplicitConfigurationBuilder withConfiguration(BuildConfiguration configuration) {
-      return new ExplicitConfigurationBuilder(label, configuration);
-    }
-  }
-
-  /** Builder to assist in creating dependency instances with no configuration. */
-  public static class NullConfigurationBuilder {
-    private final Label label;
-    private final List<String> transitionKeys = new ArrayList<>();
-
-    private NullConfigurationBuilder(Label label) {
-      this.label = Preconditions.checkNotNull(label);
-    }
-
-    /**
-     * Add transition keys to this Dependency, used when edges with a split transition were resolved to null configuration targets.
-     */
-    public NullConfigurationBuilder addTransitionKeys(Collection<String> transitionKeys) {
-      this.transitionKeys.addAll(transitionKeys);
-      return this;
+    public Builder withConfiguration(BuildConfiguration configuration) {
+      return setConfiguration(configuration);
     }
 
     /** Returns the full Dependency instance. */
     public Dependency build() {
-      return new NullConfigurationDependency(label, ImmutableList.copyOf(transitionKeys));
-    }
-  }
-
-  /** Builder to assist in creating dependency instances with an explicit configuration. */
-  public static class ExplicitConfigurationBuilder {
-    private final Label label;
-    private final BuildConfiguration configuration;
-    private AspectCollection aspects = AspectCollection.EMPTY;
-    private Map<AspectDescriptor, BuildConfiguration> aspectConfigurations = new HashMap<>();
-    private final List<String> transitionKeys = new ArrayList<>();
-
-    private ExplicitConfigurationBuilder(Label label, BuildConfiguration configuration) {
-      this.label = Preconditions.checkNotNull(label);
-      this.configuration = Preconditions.checkNotNull(configuration);
-    }
-
-    /**
-     * Add aspects to this Dependency. Unless {@link #addAspectConfigurations} is also used, the same configuration is
-     * applied to all aspects.
-     */
-    public ExplicitConfigurationBuilder addAspects(AspectCollection aspects) {
-      this.aspects = aspects;
-      return this;
-    }
-
-    /**
-     * Add transition keys to this Dependency, used for edges with a split transition.
-     */
-    public ExplicitConfigurationBuilder addTransitionKey(String transitionKey) {
-      if (transitionKey != null) {
-        this.transitionKeys.add(transitionKey);
+      if (configuration == null) {
+        // TODO: verify aspects not set
+        return new NullConfigurationDependency(label, ImmutableList.copyOf(transitionKeys));
       }
-      return this;
-    }
 
-    /**
-     * Set explicit configurations for aspects on this Dependency (for example, after configuration trimming). Any aspects not specified will use the target's configuration.
-     */
-    public ExplicitConfigurationBuilder addAspectConfigurations(Map<AspectDescriptor, BuildConfiguration> aspectConfigurations) {
-      this.aspectConfigurations.putAll(aspectConfigurations);
-      return this;
-    }
-
-    /** Returns the full Dependency instance. */
-    public Dependency build() {
       // Use the target configuration for all aspects with none of their own.
       for (AspectDescriptor aspect : aspects.getAllAspects()) {
         aspectConfigurations.putIfAbsent(aspect, configuration);
@@ -174,25 +149,10 @@ public abstract class Dependency {
   }
 
   /**
-   * Returns true if this dependency specifies an explicit configuration, false if it specifies
-   * a configuration transition.
-   */
-  public abstract boolean hasExplicitConfiguration();
-
-  /**
    * Returns the explicit configuration intended for this dependency.
-   *
-   * @throws IllegalStateException if {@link #hasExplicitConfiguration} returns false.
    */
   @Nullable
   public abstract BuildConfiguration getConfiguration();
-
-  /**
-   * Returns the configuration transition to apply to reach the target this dependency points to.
-   *
-   * @throws IllegalStateException if {@link #hasExplicitConfiguration} returns true.
-   */
-  public abstract ConfigurationTransition getTransition();
 
   /**
    * Returns the set of aspects which should be evaluated and combined with the configured target
@@ -203,9 +163,7 @@ public abstract class Dependency {
   public abstract AspectCollection getAspects();
 
   /**
-   * Returns the configuration an aspect should be evaluated with
-   **
-   * @throws IllegalStateException if {@link #hasExplicitConfiguration()} returns false.
+   * Returns the configuration an aspect should be evaluated with.
    */
   public abstract BuildConfiguration getAspectConfiguration(AspectDescriptor aspect);
 
@@ -217,8 +175,6 @@ public abstract class Dependency {
    * multiple entries if the dependency has a null configuration, yet the outgoing edge has a split
    * transition. In such cases all transition keys returned by the transition are tagged to the
    * dependency.
-   *
-   * @throws IllegalStateException if {@link #hasExplicitConfiguration()} returns false.
    */
   public abstract ImmutableList<String> getTransitionKeys();
 
@@ -237,21 +193,10 @@ public abstract class Dependency {
       this.transitionKeys = Preconditions.checkNotNull(transitionKeys);
     }
 
-    @Override
-    public boolean hasExplicitConfiguration() {
-      return true;
-    }
-
     @Nullable
     @Override
     public BuildConfiguration getConfiguration() {
       return null;
-    }
-
-    @Override
-    public ConfigurationTransition getTransition() {
-      throw new IllegalStateException(
-          "This dependency has an explicit configuration, not a transition.");
     }
 
     @Override
@@ -317,19 +262,8 @@ public abstract class Dependency {
     }
 
     @Override
-    public boolean hasExplicitConfiguration() {
-      return true;
-    }
-
-    @Override
     public BuildConfiguration getConfiguration() {
       return configuration;
-    }
-
-    @Override
-    public ConfigurationTransition getTransition() {
-      throw new IllegalStateException(
-          "This dependency has an explicit configuration, not a transition.");
     }
 
     @Override
