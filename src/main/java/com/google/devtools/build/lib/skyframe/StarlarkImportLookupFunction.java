@@ -398,8 +398,8 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       @Nullable InliningState inliningState)
       throws InconsistentFilesystemException, StarlarkImportFailedException, InterruptedException {
     if (!astLookupValue.lookupSuccessful()) {
-      // Starlark import files have to exist.
-      throw new StarlarkImportFailedException(astLookupValue.getErrorMsg());
+      // Starlark import files must exist.
+      throw new StarlarkImportFailedException(astLookupValue.getError());
     }
     StarlarkFile file = astLookupValue.getAST();
     if (!file.ok()) {
@@ -445,8 +445,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     // Compute a digest of the file itself plus the transitive hashes of the modules it directly
     // loads. Loop iteration order matches the source order of load statements.
     Fingerprint fp = new Fingerprint();
-    // TODO(adonovan): save file.getContentHashCode in ASTFileLookupValue, not the syntax tree.
-    fp.addBytes(file.getContentHashCode());
+    fp.addBytes(astLookupValue.getDigest());
     Map<String, Module> loadedModules = Maps.newHashMapWithExpectedSize(loadMap.size());
     ImmutableList.Builder<StarlarkFileDependency> fileDependencies =
         ImmutableList.builderWithExpectedSize(loadMap.size());

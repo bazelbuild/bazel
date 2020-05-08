@@ -95,7 +95,8 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
     if (!pkgLookupValue.packageExists()) {
-      return ASTFileLookupValue.forBadPackage(fileLabel, pkgLookupValue.getErrorMsg());
+      return ASTFileLookupValue.noFile(
+          "cannot load '%s': %s", fileLabel, pkgLookupValue.getErrorMsg());
     }
 
     // Determine whether the file designated by fileLabel exists.
@@ -112,10 +113,13 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
     if (!fileValue.exists()) {
-      return ASTFileLookupValue.forMissingFile(fileLabel);
+      return ASTFileLookupValue.noFile("cannot load '%s': no such file", fileLabel);
     }
     if (!fileValue.isFile()) {
-      return ASTFileLookupValue.forBadFile(fileLabel);
+      return fileValue.isDirectory()
+          ? ASTFileLookupValue.noFile("cannot load '%s': is a directory", fileLabel)
+          : ASTFileLookupValue.noFile(
+              "cannot load '%s': not a regular file (dangling link?)", fileLabel);
     }
     StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (semantics == null) {
@@ -130,16 +134,16 @@ public class ASTFileLookupFunction implements SkyFunction {
 
     // Both the package and the file exist; load and parse the file.
     Path path = rootedPath.asPath();
-    StarlarkFile file = null;
+    StarlarkFile file;
+    byte[] digest;
     try {
       byte[] bytes =
           fileValue.isSpecialFile()
               ? FileSystemUtils.readContent(path)
               : FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
-      byte[] digest =
-          getDigestFromFileValueOrFromKnownFileContents(fileValue, bytes, digestHashFunction);
+      digest = getDigestFromFileValueOrFromKnownFileContents(fileValue, bytes, digestHashFunction);
       ParserInput input = ParserInput.create(bytes, path.toString());
-      file = StarlarkFile.parseWithDigest(input, digest, options);
+      file = StarlarkFile.parse(input, options);
     } catch (IOException e) {
       throw new ErrorReadingSkylarkExtensionException(e, Transience.TRANSIENT);
     }
@@ -148,7 +152,7 @@ public class ASTFileLookupFunction implements SkyFunction {
     Resolver.resolveFile(file, Module.createForBuiltins(ruleClassProvider.getEnvironment()));
     Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
 
-    return ASTFileLookupValue.withFile(file);
+    return ASTFileLookupValue.withFile(file, digest);
   }
 
   private static byte[] getDigestFromFileValueOrFromKnownFileContents(

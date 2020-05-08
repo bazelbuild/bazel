@@ -1146,7 +1146,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("Unable to load file '//test:aspect.bzl': file doesn't exist");
+    assertContainsEvent("cannot load '//test:aspect.bzl': no such file");
   }
 
   @Test
