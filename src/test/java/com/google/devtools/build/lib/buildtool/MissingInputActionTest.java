@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -57,14 +58,14 @@ public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
     events.assertContainsError("missing input file '" + prefix + "dummy" + separator + "in3'");
   }
 
-  private void assertMissingInputOnBuild(String label, int num_missing) throws Exception {
+  private void assertMissingInputOnBuild(String label, int numMissing) {
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget(label));
-    if (num_missing > 0) {
-        String expected = num_missing + " input file(s) do not exist";
+    if (numMissing > 0) {
+      String expected = numMissing + " input file(s) do not exist";
         assertThat(e).hasMessageThat().contains(expected);
-        assertWithMessage("Culprit action should not be null: " + e)
-            .that(e.getAction())
-            .isNotNull();
+      ImmutableList<Cause> causes = e.getRootCauses().toList();
+      assertThat(causes).hasSize(1);
+      assertThat(causes.get(0).getLabel()).isNotNull();
     }
   }
 }

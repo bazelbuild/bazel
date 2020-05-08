@@ -14,23 +14,27 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
-import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,15 +45,9 @@ import org.junit.runners.JUnit4;
  */
 @TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
-public class CustomRealFilesystemBuildIntegrationTestCase
-    extends BuildIntegrationTestCase {
+public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTestCase {
 
   private CustomRealFilesystem customFileSystem = null;
-
-  @Override
-  protected boolean realFileSystem() {
-    return true;
-  }
 
   @Override
   protected FileSystem createFileSystem() {
@@ -66,18 +64,23 @@ public class CustomRealFilesystemBuildIntegrationTestCase
     Path fooShFile = fooBuildFile.getParentDirectory().getRelative("foo.sh");
     customFileSystem.alwaysError(fooShFile);
 
-    RecordingOutErr recOutErr = new RecordingOutErr();
-    OutErr origOutErr = this.outErr;
-    this.outErr = recOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
+    events.assertContainsError("missing input file '//foo:foo.sh': nope");
+  }
 
-    try {
-      buildTarget("//foo");
-      fail();
-    } catch (BuildFailedException e) {
-      assertThat(recOutErr.errAsLatin1()).contains("missing input file '//foo:foo.sh");
-    } finally {
-      this.outErr = origOutErr;
-    }
+  /** Tests that IOExceptions encountered while handling inputs are properly handled. */
+  @Test
+  public void testIOExceptionMidLevel() throws Exception {
+    Path fooBuildFile =
+        write(
+            "foo/BUILD",
+            "sh_binary(name = 'foo', srcs = ['foo.sh'])",
+            "genrule(name = 'top', srcs = [':foo'], outs = ['out'], cmd = 'touch $@')");
+    Path fooShFile = fooBuildFile.getParentDirectory().getRelative("foo.sh");
+    customFileSystem.alwaysError(fooShFile);
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
+    events.assertContainsError("//foo:top: missing input file '//foo:foo.sh': nope");
   }
 
   /**
@@ -85,24 +88,19 @@ public class CustomRealFilesystemBuildIntegrationTestCase
    */
   @Test
   public void testIOException_NonMandatoryInputs() throws Exception {
-    Path fooBuildFile = write("foo/BUILD", "cc_binary(name = 'foo', srcs = ['foo.cc'])");
+    Path fooBuildFile =
+        write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
     Path fooHFile = fooBuildFile.getParentDirectory().getRelative("foo.h");
     writeAbsolute(fooHFile, "//thisisacomment");
     customFileSystem.alwaysError(fooHFile);
 
-    RecordingOutErr recOutErr = new RecordingOutErr();
-    OutErr origOutErr = this.outErr;
-    this.outErr = recOutErr;
-    try {
-      buildTarget("//foo");
-      fail();
-    } catch (BuildFailedException e) {
-      assertThat(recOutErr.errAsLatin1()).contains("Target //foo:foo failed to build");
-    } finally {
-      System.out.println(recOutErr.errAsLatin1());
-      this.outErr = origOutErr;
-    }
+    BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
+    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
+    assertThat(rootCauses).hasSize(1);
+    assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:foo"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    events.assertContainsError("foo/BUILD:1:11: //foo:foo: missing input file 'foo/foo.h': nope");
   }
 
   /**
@@ -158,23 +156,87 @@ public class CustomRealFilesystemBuildIntegrationTestCase
     assertThat(customFileSystem.getNumCallsUntilError(barHOutputPath)).isEqualTo(0);
   }
 
-  private class CustomRealFilesystem extends UnixFileSystem {
+  @Test
+  public void treeArtifactIOExceptionTopLevel() throws Exception {
+    write(
+        "foo/tree.bzl",
+        "def _tree_impl(ctx):",
+        "    tree = ctx.actions.declare_directory('mytree.cc')",
+        "    ctx.actions.run_shell(outputs = [tree], command = 'mkdir -p %s && touch %s/one.cc' %"
+            + " (tree.path, tree.path))",
+        "    return [DefaultInfo(files = depset([tree]))]",
+        "",
+        "mytree = rule(implementation = _tree_impl)");
+    write(
+        "foo/BUILD",
+        "load('//foo:tree.bzl', 'mytree')",
+        "mytree(name = 'tree')",
+        "cc_library(name = 'lib', srcs = [':tree'])");
+    customFileSystem.errorOnDirectory("mytree");
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//foo:lib"));
+    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
+    assertThat(rootCauses).hasSize(1);
+    assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:lib"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    events.assertContainsError(
+        "foo/BUILD:3:11: Failed to create output directory for TreeArtifact"
+            + " blaze-out/k8-fastbuild/bin/foo/_pic_objs/lib/mytree: nope");
+  }
+
+  @Test
+  public void treeArtifactIOExceptionMidLevel() throws Exception {
+    write(
+        "foo/tree.bzl",
+        "def _tree_impl(ctx):",
+        "    tree = ctx.actions.declare_directory('mytree.cc')",
+        "    ctx.actions.run_shell(outputs = [tree], command = 'mkdir -p %s && touch %s/one.cc' %"
+            + " (tree.path, tree.path))",
+        "    return [DefaultInfo(files = depset([tree]))]",
+        "",
+        "mytree = rule(implementation = _tree_impl)");
+    write(
+        "foo/BUILD",
+        "load('//foo:tree.bzl', 'mytree')",
+        "mytree(name = 'tree')",
+        "cc_library(name = 'lib', srcs = [':tree'])",
+        "genrule(name = 'top', srcs = [':lib'], outs = ['out'], cmd = 'touch $@')");
+    customFileSystem.errorOnDirectory("mytree");
+    // Make sure we take default codepath in ActionExecutionFunction.
+    addOptions("--experimental_nested_set_as_skykey_threshold=1");
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
+    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
+    assertThat(rootCauses).hasSize(1);
+    assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:lib"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    events.assertContainsError(
+        "foo/BUILD:3:11: Failed to create output directory for TreeArtifact"
+            + " blaze-out/k8-fastbuild/bin/foo/_pic_objs/lib/mytree: nope");
+  }
+
+  private static class CustomRealFilesystem extends UnixFileSystem {
     private Map<Path, Integer> badPaths = new HashMap<>();
+    private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
     private CustomRealFilesystem() {
       super(DigestHashFunction.getDefaultUnchecked());
     }
 
-    public void alwaysError(Path path) {
+    void alwaysError(Path path) {
       alwaysErrorAfter(path, 0);
     }
 
-    public void alwaysErrorAfter(Path path, int numCalls) {
+    void alwaysErrorAfter(Path path, int numCalls) {
       badPaths.put(path, numCalls);
     }
 
-    public int getNumCallsUntilError(Path path) {
-      return badPaths.containsKey(path) ? badPaths.get(path) : 0;
+    void errorOnDirectory(String baseName) {
+      createDirectoryErrorNames.add(baseName);
+    }
+
+    int getNumCallsUntilError(Path path) {
+      return badPaths.getOrDefault(path, 0);
     }
 
     private synchronized void maybeThrowExn(Path path) throws IOException {
@@ -208,6 +270,14 @@ public class CustomRealFilesystemBuildIntegrationTestCase
     protected UnixFileStatus statInternal(Path path, boolean followSymlinks) throws IOException {
       maybeThrowExn(path);
       return super.statInternal(path, followSymlinks);
+    }
+
+    @Override
+    public void createDirectoryAndParents(Path path) throws IOException {
+      if (createDirectoryErrorNames.contains(path.getBaseName())) {
+        throw new IOException("nope");
+      }
+      super.createDirectoryAndParents(path);
     }
   }
 }

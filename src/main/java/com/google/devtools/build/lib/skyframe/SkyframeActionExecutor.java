@@ -25,6 +25,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -1473,7 +1474,7 @@ public final class SkyframeActionExecutor {
    *     display
    */
   @SuppressWarnings("SynchronizeOnNonFinalField")
-  private void printError(String message, Action action, FileOutErr actionOutput) {
+  private void printError(String message, ActionAnalysisMetadata action, FileOutErr actionOutput) {
     synchronized (reporter) {
       if (options.getOptions(KeepGoingOption.class).keepGoing) {
         message = "Couldn't " + describeAction(action) + ": " + message;
@@ -1485,7 +1486,7 @@ public final class SkyframeActionExecutor {
   }
 
   /** Describe an action, for use in error messages. */
-  private static String describeAction(Action action) {
+  private static String describeAction(ActionAnalysisMetadata action) {
     if (action.getOutputs().isEmpty()) {
       return "run " + action.prettyPrint();
     } else if (action.getActionType().isMiddleman()) {

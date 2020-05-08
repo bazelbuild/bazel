@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsTo
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -46,13 +47,13 @@ class AspectCompletor
 
   @Override
   public Event getRootCauseError(
-      AspectValue value, AspectCompletionKey key, Cause rootCause, Environment env) {
+      AspectValue value, AspectCompletionKey key, LabelCause rootCause, Environment env) {
     AspectKey aspectKey = key.actionLookupKey();
     return Event.error(
         value.getLocation(),
         String.format(
-            "%s, aspect %s: missing input file '%s'",
-            aspectKey.getLabel(), aspectKey.getAspectClass().getName(), rootCause));
+            "%s, aspect %s: %s",
+            aspectKey.getLabel(), aspectKey.getAspectClass().getName(), rootCause.getMessage()));
   }
 
   @Override

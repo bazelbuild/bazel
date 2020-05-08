@@ -743,6 +743,7 @@ java_library(
         ":runfiles_artifact_value",
         ":track_source_directories_flag",
         ":tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",

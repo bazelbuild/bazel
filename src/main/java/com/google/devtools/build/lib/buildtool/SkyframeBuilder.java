@@ -323,7 +323,6 @@ public class SkyframeBuilder implements Builder {
       throw new BuildFailedException(
           message,
           actionExecutionCause.isCatastrophe(),
-          actionExecutionCause.getAction(),
           actionExecutionCause.getRootCauses(),
           /*errorAlreadyShown=*/ !actionExecutionCause.showError(),
           actionExecutionCause.getDetailedExitCode());
