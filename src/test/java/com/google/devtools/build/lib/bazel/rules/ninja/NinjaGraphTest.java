@@ -156,7 +156,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
     PhonyTarget phonyTarget = provider.getPhonyTargetsMap().get(alias);
     assertThat(phonyTarget.isAlwaysDirty()).isFalse();
     assertThat(phonyTarget.getPhonyNames()).isEmpty();
-    assertThat(phonyTarget.getDirectUsualInputs())
+    assertThat(phonyTarget.getDirectExplicitInputs())
         .containsExactly(PathFragment.create("hello.txt"));
   }
 

@@ -146,10 +146,10 @@ public class NinjaActionsHelper {
         }
       } else {
         PhonyTarget phonyTarget = phonyTargets.get(fragment);
-        // Phony target can be null, if the path in neither usual or phony target,
+        // Phony target can be null, if the path in neither regular or phony target,
         // but the source file.
         if (phonyTarget != null) {
-          phonyTarget.visitUsualInputs(phonyTargets, enqueuer::accept);
+          phonyTarget.visitExplicitInputs(phonyTargets, enqueuer::accept);
         }
       }
     }
