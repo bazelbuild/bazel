@@ -23,8 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
-import com.google.devtools.build.buildjar.javac.JavacOptions;
-import com.google.devtools.build.buildjar.javac.JavacOptions.FilteredJavacopts;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationProcessingModule;
@@ -199,6 +197,10 @@ public final class JavaLibraryBuildRequest {
     return javacOpts;
   }
 
+  public void setJavacOpts(List<String> javacOpts) {
+    this.javacOpts = ImmutableList.copyOf(javacOpts);
+  }
+
   public Path getSourceGenDir() {
     return sourceGenDir;
   }
@@ -315,6 +317,7 @@ public final class JavaLibraryBuildRequest {
             .classOutput(getClassDir())
             .bootClassPath(getBootClassPath())
             .system(getSystem())
+            .javacOptions(makeJavacArguments())
             .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
             .processors(null)
             .builtinProcessors(builtinProcessorNames)
@@ -322,7 +325,6 @@ public final class JavaLibraryBuildRequest {
             .sourceOutput(getSourceGenDir())
             .processorPath(getProcessorPath())
             .plugins(getPlugins());
-    addJavacArguments(builder);
     // Performance optimization: when reduced classpaths are enabled, stop the compilation after
     // the first diagnostic that would result in fallback to the transitive classpath. The user
     // only sees diagnostics from the fallback compilation, so collecting additional diagnostics
@@ -340,18 +342,11 @@ public final class JavaLibraryBuildRequest {
   }
 
   /** Constructs a command line that can be used for a javac invocation. */
-  void addJavacArguments(BlazeJavacArguments.Builder builder) {
-    FilteredJavacopts filtered =
-        JavacOptions.filterJavacopts(JavacOptions.normalizeOptions(getJavacOpts()));
-    builder.blazeJavacOptions(filtered.bazelJavacopts());
-
-    ImmutableList<String> javacOpts = filtered.standardJavacopts();
-
+  ImmutableList<String> makeJavacArguments() {
     ImmutableList.Builder<String> javacArguments = ImmutableList.builder();
-
     // default to -implicit:none, but allow the user to override with -implicit:class.
     javacArguments.add("-implicit:none");
-    javacArguments.addAll(javacOpts);
+    javacArguments.addAll(getJavacOpts());
 
     if (!getProcessors().isEmpty() && !getSourceFiles().isEmpty()) {
       // ImmutableSet.copyOf maintains order
@@ -365,7 +360,7 @@ public final class JavaLibraryBuildRequest {
       javacArguments.add("-proc:none");
     }
 
-    for (String option : javacOpts) {
+    for (String option : getJavacOpts()) {
       if (option.startsWith("-J")) { // ignore the VM options.
         continue;
       }
@@ -378,6 +373,6 @@ public final class JavaLibraryBuildRequest {
       }
     }
 
-    builder.javacOptions(javacArguments.build());
+    return javacArguments.build();
   }
 }

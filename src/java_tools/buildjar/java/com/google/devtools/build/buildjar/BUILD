@@ -35,20 +35,16 @@ java_library(
     ],
 )
 
-JAVAC_OPTIONS_SRCS = [
-    "javac/JavacOptions.java",
-    "javac/WerrorCustomOption.java",
-]
-
 java_library(
     name = "javac",
     srcs = glob(
         ["javac/*.java"],
-        exclude = JAVAC_OPTIONS_SRCS,
+        exclude = [
+            "javac/JavacOptions.java",
+        ],
     ),
     deps = [
         ":invalid_command_line_exception",
-        ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//third_party:auto_value",
@@ -107,7 +103,9 @@ java_binary(
 
 java_library(
     name = "javac_options",
-    srcs = JAVAC_OPTIONS_SRCS,
+    srcs = [
+        "javac/JavacOptions.java",
+    ],
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
@@ -195,7 +193,6 @@ bootstrap_java_binary(
         "OptionsParser.java",
         "VanillaJavaBuilder.java",
         "javac/JavacOptions.java",
-        "javac/WerrorCustomOption.java",
     ],
     main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
     tags = ["manual"],

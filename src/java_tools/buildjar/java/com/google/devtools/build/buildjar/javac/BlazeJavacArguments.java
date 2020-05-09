@@ -37,9 +37,6 @@ public abstract class BlazeJavacArguments {
   /** Javac options, not including location settings. */
   public abstract ImmutableList<String> javacOptions();
 
-  /** Blaze-specific Javac options. */
-  public abstract ImmutableList<String> blazeJavacOptions();
-
   /** The compilation classpath. */
   public abstract ImmutableList<Path> classPath();
 
@@ -62,7 +59,7 @@ public abstract class BlazeJavacArguments {
 
   /**
    * Annotation processor classes. In production builds, processors are specified by string class
-   * name in {@link #javacOptions}; this is used for tests that instantate processors directly.
+   * name in {@link javacOptions}; this is used for tests that instantate processors directly.
    */
   @Nullable
   public abstract ImmutableList<Processor> processors();
@@ -86,7 +83,6 @@ public abstract class BlazeJavacArguments {
         .classPath(ImmutableList.of())
         .bootClassPath(ImmutableList.of())
         .javacOptions(ImmutableList.of())
-        .blazeJavacOptions(ImmutableList.of())
         .sourceFiles(ImmutableList.of())
         .sourcePath(ImmutableList.of())
         .processors(null)
@@ -111,8 +107,6 @@ public abstract class BlazeJavacArguments {
     Builder system(Path system);
 
     Builder javacOptions(ImmutableList<String> javacOptions);
-
-    Builder blazeJavacOptions(ImmutableList<String> javacOptions);
 
     Builder sourcePath(ImmutableList<Path> sourcePath);
 

@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
 # Description:
 #   Plugins for the Java library builders, which are used by Bazel to
@@ -12,7 +11,6 @@ java_library(
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:invalid_command_line_exception",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
-        "//third_party:guava",
         "//third_party/java/jdk/langtools:javac",
     ],
 )
@@ -67,6 +65,8 @@ filegroup(
 #
 ## Bootstrapping using Starlark rules
 #
+
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
 bootstrap_java_library(
     name = "bootstrap_plugins",
