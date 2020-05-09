@@ -524,7 +524,7 @@ public class Desugar {
             // Just copy the input if there are no rewritings
             outputFileProvider.write(inputFilename, reader.b);
           } else {
-            reader.accept(visitor, customAttributes, 0);
+            reader.accept(visitor, customAttributes, ClassReader.EXPAND_FRAMES);
             String filename = writer.getClassName() + ".class";
             checkState(
                 (options.coreLibrary && coreLibrarySupport != null)
@@ -615,7 +615,7 @@ public class Desugar {
                 callSiteTransCollector,
                 bootClassPathDigest,
                 classAttributeRecord);
-        reader.accept(visitor, customAttributes, 0);
+        reader.accept(visitor, customAttributes, ClassReader.EXPAND_FRAMES);
         checkState(
             (options.coreLibrary && coreLibrarySupport != null)
                 || rewriter
