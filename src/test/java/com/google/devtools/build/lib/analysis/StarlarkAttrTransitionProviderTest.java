@@ -518,6 +518,92 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertThat(getConfiguration(Iterables.getOnlyElement(dep)).getCpu()).isEqualTo("armeabi-v7a");
   }
 
+  private void writeReadAndPassthroughOptionsTestFiles() throws Exception {
+    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
+    writeAllowlistFile();
+
+    scratch.file(
+        "test/skylark/my_rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "settings_under_test = {",
+        "  '//command_line_option:cpu': 'armeabi-v7a',",
+        "  '//command_line_option:compilation_mode': 'dbg',",
+        "  '//command_line_option:crosstool_top': '//android/crosstool:everything',",
+        "  '//command_line_option:platform_suffix': 'my-platform-suffix',",
+        "}",
+        "def set_options_transition_func(settings, attr):",
+        "  return settings_under_test",
+        "def passthrough_transition_func(settings, attr):",
+        // All values in this test should be possible to copy within Starlark.
+        "  ret = dict(settings)",
+        // All values in this test should be possible to read within Starlark.
+        // This does not mean that it is possible to set a string value for all settings,
+        // e.g. //command_line_option:test_arg should be set to a list of strings.
+        "  for key, expected_value in settings_under_test.items():",
+        "    if str(ret[key]) != expected_value:",
+        "      fail('%s did not pass through, got %r expected %r' %",
+        "        (key, str(ret[key]), expected_value))",
+        "  ret['//command_line_option:test_arg'] = ['ok']",
+        "  return ret",
+        "my_set_options_transition = transition(",
+        "  implementation = set_options_transition_func,",
+        "  inputs = [],",
+        "  outputs = settings_under_test.keys())",
+        "my_passthrough_transition = transition(",
+        "  implementation = passthrough_transition_func,",
+        "  inputs = settings_under_test.keys(),",
+        "  outputs = ['//command_line_option:test_arg'] + settings_under_test.keys())",
+        "def impl(ctx): ",
+        "  return MyInfo(attr_dep = ctx.attr.dep)",
+        "my_set_options_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_set_options_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })",
+        "my_passthrough_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_passthrough_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:my_rule.bzl', 'my_passthrough_rule', 'my_set_options_rule')",
+        "my_set_options_rule(name = 'top', dep = ':test')",
+        "my_passthrough_rule(name = 'test', dep = ':main')",
+        "cc_binary(name = 'main', srcs = ['main.c'])");
+  }
+
+  @Test
+  public void testReadAndPassthroughOptions() throws Exception {
+    writeReadAndPassthroughOptionsTestFiles();
+    BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+
+    ConfiguredTarget topTarget = getConfiguredTarget("//test/skylark:top");
+
+    @SuppressWarnings("unchecked")
+    List<ConfiguredTarget> topDep =
+        (List<ConfiguredTarget>) getMyInfoFromTarget(topTarget).getValue("attr_dep");
+    assertThat(topDep).hasSize(1);
+    ConfiguredTarget testTarget = Iterables.getOnlyElement(topDep);
+    @SuppressWarnings("unchecked")
+    List<ConfiguredTarget> testDep =
+        (List<ConfiguredTarget>) getMyInfoFromTarget(testTarget).getValue("attr_dep");
+    assertThat(testDep).hasSize(1);
+    ConfiguredTarget mainTarget = Iterables.getOnlyElement(testDep);
+    List<String> testArguments = getConfiguration(mainTarget)
+        .getOptions()
+        .get(TestOptions.class)
+        .testArguments;
+    assertThat(testArguments).containsExactly("ok");
+  }
+
   @Test
   public void testUndeclaredOptionKey() throws Exception {
     setBuildLanguageOptions("--experimental_starlark_config_transitions=true");

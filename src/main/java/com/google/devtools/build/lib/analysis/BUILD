@@ -1551,7 +1551,10 @@ java_library(
 java_library(
     name = "config/compilation_mode",
     srcs = ["config/CompilationMode.java"],
-    deps = ["//src/main/java/com/google/devtools/common/options"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
+    ],
 )
 
 java_library(
