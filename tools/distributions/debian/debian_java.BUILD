@@ -63,3 +63,15 @@ java_import(
     name = "allocation_instrumenter",
     jars = ["java-allocation-instrumenter.jar"],
 )
+
+# libprotobuf-java
+java_import(
+    name = "protobuf_java",
+    jars = ["protobuf.jar"],
+)
+
+# libprotobuf-java
+java_import(
+    name = "protobuf_java_util",
+    jars = ["protobuf-util.jar"],
+)
