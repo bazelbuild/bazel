@@ -159,6 +159,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("macos_qos_class");
   RegisterUnaryStartupFlag("max_idle_secs");
   RegisterUnaryStartupFlag("output_base");
+  RegisterUnaryStartupFlag("output_base_suffix");
   RegisterUnaryStartupFlag("output_user_root");
   RegisterUnaryStartupFlag("server_jvm_out");
   RegisterUnaryStartupFlag("failure_detail_out");
@@ -262,8 +263,11 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   }
 
   if ((value = GetUnaryOption(arg, next_arg, "--output_base")) != NULL) {
-    output_base = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    output_base_option = blaze::AbsolutePathFromFlag(value);
     option_sources["output_base"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--output_base_suffix")) != NULL) {
+    output_base_suffix = value;
+    option_sources["output_base_suffix"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--install_base")) != NULL) {
     install_base = blaze::AbsolutePathFromFlag(value);

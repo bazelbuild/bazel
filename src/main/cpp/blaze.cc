@@ -1315,13 +1315,19 @@ static void UpdateConfiguration(const string &install_md5,
         blaze_util::JoinPath(install_user_root, install_md5);
   }
 
-  if (startup_options->output_base.IsEmpty()) {
+  if (startup_options->output_base_option.empty()) {
     if (server_mode) {
       BAZEL_DIE(blaze_exit_code::BAD_ARGV)
           << "exec-server requires --output_base";
     }
     startup_options->output_base = blaze_util::Path(
-        blaze::GetHashedBaseDir(startup_options->output_user_root, workspace));
+        blaze::GetHashedBaseDir(startup_options->output_user_root, workspace)
+        + startup_options->output_base_suffix);
+  } else {
+    startup_options->output_base = blaze_util::Path(
+        blaze::AbsolutePathFromFlag(
+            startup_options->output_base_option
+            + startup_options->output_base_suffix));
   }
 
   if (!blaze_util::PathExists(startup_options->output_base)) {

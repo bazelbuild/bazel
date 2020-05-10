@@ -82,21 +82,36 @@ void BazelStartupOptions::MaybeLogStartupOptionWarnings() const {
   }
   bool output_user_root_has_space =
       output_user_root.find_first_of(' ') != std::string::npos;
+  bool output_base_has_space =
+      output_base_option.find_first_of(' ') != std::string::npos;
+  bool output_base_suffix_has_space =
+      output_base_suffix.find_first_of(' ') != std::string::npos;
   if (output_user_root_has_space) {
     BAZEL_LOG(WARNING)
         << "Output user root \"" << output_user_root
         << "\" contains a space. This will probably break the build. "
            "You should set a different --output_user_root.";
-  } else if (output_base.Contains(' ')) {
+  } else if (output_base_has_space) {
     // output_base is computed from output_user_root by default.
     // If output_user_root was bad, don't check output_base: while output_base
     // may also be bad, we already warned about output_user_root so there's no
     // point in another warning.
     BAZEL_LOG(WARNING)
-        << "Output base \"" << output_base.AsPrintablePath()
+        << "Output base \"" << output_base_option
         << "\" contains a space. This will probably break the build. "
            "You should not set --output_base and let Bazel use the default, or "
            "set --output_base to a path without space.";
+  } else if (output_base_suffix_has_space) {
+    // If output_user_root or output_base was bad, don't check
+    // output_base_suffix: while output_base_suffix may also be bad, we
+    // already warned about output_user_root or output_base so there's no
+    // point in another warning.
+    BAZEL_LOG(WARNING)
+        << "Output base suffix \"" << output_base_suffix
+        << "\" contains a space. This will probably break the build. "
+           "You should not set --output_base_suffix and let Bazel use the "
+           "default empty suffix, or set --output_base_suffix to a string "
+           "without space.";
   }
 }
 

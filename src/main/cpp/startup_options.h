@@ -142,6 +142,11 @@ class StartupOptions {
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.
   blaze_util::Path output_base;
+  std::string output_base_option;
+
+  // Suffix to append to Blaze's output base, e.g. `-extra` or `/../no-hash`.
+  // See the BlazeDirectories Java class for details.
+  std::string output_base_suffix;
 
   // Installation base for a specific release installation.
   std::string install_base;
