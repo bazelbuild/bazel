@@ -135,7 +135,8 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
                       "Invalid output format '%s'. Valid values are: %s",
                       outputFormat,
                       NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks))));
-      return;
+      throw new QueryException("Invalid output format.");
+      // return;
     }
     QueryEvalResult result =
         postAnalysisQueryEnvironment.evaluateQuery(queryExpression, callback);

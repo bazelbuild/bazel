@@ -752,4 +752,35 @@ EOF
   assert_contains "//$pkg:my_test" output
 }
 
+function test_providers_output() {
+  cat > BUILD <<EOF
+load(":my_rule.bzl", "my_rule")
+my_rule(name = "foo")
+EOF
+
+  cat > my_rule.bzl <<EOF
+MyInfo = provider()
+
+def _my_rule_impl(ctx):
+   return [
+     DefaultInfo(),
+     MyInfo(),
+     OutputGroupInfo(foo_group = depset(), bar_group = depset()),
+   ]
+
+my_rule = rule(implementation = _my_rule_impl, attrs = {})
+EOF
+
+  bazel cquery "//:all" &>"$TEST_log" || fail "Expected success"
+  expect_log "//:foo"
+
+  bazel cquery --output=providers "//:foo" &>"$TEST_log" \
+    && fail "Expected failure without --experimental_providers_output"
+
+  bazel cquery \
+    --experimental_providers_output --output=providers \
+    "//:foo" &>"$TEST_log" ||  fail "Expected success"
+  expect_log "[MyInfo, OutputGroupInfo[bar_group, foo_group]]"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

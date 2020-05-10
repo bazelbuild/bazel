@@ -1,12 +1,23 @@
+// Copyright 2020 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import java.io.IOException;
 import java.io.OutputStream;
 
 public class ProvidersOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -25,28 +36,19 @@ public class ProvidersOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult)
-      throws IOException, InterruptedException {
+  public void processOutput(Iterable<ConfiguredTarget> partialResult) {
     for (ConfiguredTarget configuredTarget : partialResult) {
       if (!(configuredTarget instanceof RuleConfiguredTarget)) {
         continue;
       }
 
       RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-
-      // BuildConfiguration config =
-      //     skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
       StringBuilder output = new StringBuilder();
-      // Target actualTarget = accessor.getTargetFromConfiguredTarget(configuredTarget);
-
-      output =
-          output
-              .append(configuredTarget.getLabel())
-              .append(" ")
-              .append(ruleConfiguredTarget.getStarlarkProviderKeyStrings().build());
-
+      output
+          .append(configuredTarget.getLabel())
+          .append(" ")
+          .append(ruleConfiguredTarget.getStarlarkProviderKeyStrings().build());
       addResult(output.toString());
     }
-
   }
 }
