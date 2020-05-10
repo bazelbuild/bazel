@@ -82,4 +82,15 @@ public class CqueryOptions extends CommonQueryOptions {
           "if enabled, proto output will include information about configurations. When disabled,"
               + "cquery proto output format resembles query output format.")
   public boolean protoIncludeConfigurations;
+
+  @Option(
+      name = "experimental_providers_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.NO_OP},
+      help =
+          "If enabled, allow the use of --output=providers with cquery. This output format prints "
+              + "the providers and output groups associated with each configured target."
+  )
+  public boolean experimentalProvidersOutput;
 }

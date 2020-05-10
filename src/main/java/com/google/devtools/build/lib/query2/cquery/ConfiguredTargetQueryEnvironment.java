@@ -210,7 +210,10 @@ public class ConfiguredTargetQueryEnvironment
           PackageManager packageManager) {
     AspectResolver aspectResolver =
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
-    return ImmutableList.of(
+    ImmutableList.Builder<NamedThreadSafeOutputFormatterCallback<ConfiguredTarget>> callbacks =
+        ImmutableList.builder();
+    callbacks.addAll(
+        ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true),
         new LabelAndConfigurationOutputFormatterCallback(
@@ -248,7 +251,14 @@ public class ConfiguredTargetQueryEnvironment
             aspectResolver,
             OutputType.JSON),
         new BuildOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor)));
+
+    if (cqueryOptions.experimentalProvidersOutput){
+      callbacks.add(
+          new ProvidersOutputFormatterCallback(
+              eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
+    }
+    return callbacks.build();
   }
 
   public String getOutputFormat() {

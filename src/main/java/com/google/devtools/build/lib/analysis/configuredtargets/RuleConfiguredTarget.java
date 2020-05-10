@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -219,20 +221,41 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public void debugPrint(Printer printer) {
-    // Show the names of the provider keys that this target propagates.
-    // Provider key names might potentially be *private* information, and thus a comprehensive
-    // list of provider keys should not be exposed in any way other than for debug information.
     printer.append("<target " + getLabel() + ", keys:[");
-    ImmutableList.Builder<String> starlarkProviderKeyStrings = ImmutableList.builder();
-    for (int providerIndex = 0; providerIndex < providers.getProviderCount(); providerIndex++) {
-      Object providerKey = providers.getProviderKeyAt(providerIndex);
-      if (providerKey instanceof Provider.Key) {
-        starlarkProviderKeyStrings.add(providerKey.toString());
-      }
-    }
+    ImmutableList.Builder<String> starlarkProviderKeyStrings = getStarlarkProviderKeyStrings();
     printer.append(Joiner.on(", ").join(starlarkProviderKeyStrings.build()));
     printer.append("]>");
   }
+
+  // Returns the names of the provider keys that this target propagates.
+  // Provider key names might potentially be *private* information, and thus a comprehensive
+  // list of provider keys should not be exposed in any way other than for debug information.
+  public ImmutableList.Builder<String> getStarlarkProviderKeyStrings() {
+    ImmutableList.Builder<String> skylarkProviderKeyStrings = ImmutableList.builder();
+    for (int providerIndex = 0; providerIndex < providers.getProviderCount(); providerIndex++) {
+      Object providerKey = providers.getProviderKeyAt(providerIndex);
+      if (providerKey instanceof Provider.Key) {
+        if (providerKey.toString().equals("OutputGroupInfo")) {
+          ImmutableList<String> outputGroups =
+              ((OutputGroupInfo) providers.getProviderInstanceAt(providerIndex))
+                  .getFieldNames()
+                  .stream()
+                  .filter((name) -> !name.contains("_INTERNAL_"))
+                  .collect(ImmutableList.toImmutableList());
+          if (!outputGroups.isEmpty()) {
+            skylarkProviderKeyStrings.add("OutputGroupInfo" + outputGroups.toString() + "");
+          }
+        } else {
+          skylarkProviderKeyStrings.add(providerKey.toString());
+        }
+      }
+    }
+    return skylarkProviderKeyStrings;
+  }
+
+  // public ImmutableList<String> getOutputGroupNames() {
+  //   Object outputGroupInfo = providers.getProvider(OutputGroupInfo.class);
+  // }
 
   /** Returns a list of actions that this configured target generated. */
   public ImmutableList<ActionAnalysisMetadata> getActions() {
