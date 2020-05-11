@@ -266,6 +266,7 @@ message SymlinkForest {
     SYMLINK_FOREST_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     TOPLEVEL_OUTDIR_PACKAGE_PATH_CONFLICT = 1 [(metadata) = { exit_code: 2 }];
     TOPLEVEL_OUTDIR_USED_AS_SOURCE = 2 [(metadata) = { exit_code: 2 }];
+    CREATION_FAILED = 3 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -312,6 +313,14 @@ message Execution {
     EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     EXECUTION_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     EXECUTION_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+    EXECROOT_CREATION_FAILURE = 3 [(metadata) = { exit_code: 36 }];
+    ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE = 4
+        [(metadata) = { exit_code: 36 }];
+    ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 5
+        [(metadata) = { exit_code: 36 }];
+    PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 6
+        [(metadata) = { exit_code: 36 }];
+    LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE = 7 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -363,6 +372,7 @@ message ExecutionOptions {
   // All numerical exit code associations correspond to pre-existing Bazel
   // behavior. These associations are suspicious:
   // - REQUESTED_STRATEGY_INCOMPATIBLE_WITH_SANDBOXING (instead: 2?)
+  // - DEPRECATED_LOCAL_RESOURCES_USED (instead: 2?)
   // TODO(b/138456686): Revise these after the (intentionally non-breaking)
   //  initial rollout of FailureDetail-based encoding.
   enum Code {
@@ -370,6 +380,7 @@ message ExecutionOptions {
     INVALID_STRATEGY = 3 [(metadata) = { exit_code: 2 }];
     REQUESTED_STRATEGY_INCOMPATIBLE_WITH_SANDBOXING = 4
         [(metadata) = { exit_code: 36 }];
+    DEPRECATED_LOCAL_RESOURCES_USED = 5 [(metadata) = { exit_code: 36 }];
 
     reserved 1, 2; // For internal use
   }
