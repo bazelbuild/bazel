@@ -31,6 +31,13 @@ import java.util.Comparator;
  */
 public class OptionDefinition implements Comparable<OptionDefinition> {
 
+  /**
+   * A special value used to specify an absence of default value.
+   *
+   * @see Option#defaultValue
+   */
+  public static final String SPECIAL_NULL_DEFAULT_VALUE = "null";
+
   // TODO(b/65049598) make ConstructionException checked, which will make this checked as well.
   static class NotAnOptionException extends ConstructionException {
     NotAnOptionException(Field field) {
@@ -172,7 +179,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   }
 
   public boolean isSpecialNullDefault() {
-    return getUnparsedDefaultValue().equals("null") && !getType().isPrimitive();
+    return SPECIAL_NULL_DEFAULT_VALUE.equals(getUnparsedDefaultValue()) && !getType().isPrimitive();
   }
 
   /** Returns whether the arg is an expansion option. */
