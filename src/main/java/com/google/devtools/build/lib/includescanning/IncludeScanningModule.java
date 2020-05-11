@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -50,7 +49,12 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -275,7 +279,7 @@ public class IncludeScanningModule extends BlazeModule {
     public void executionPhaseStarting(
         ActionGraph actionGraph,
         Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToAccountingGroups)
-        throws ExecutorInitException, InterruptedException {
+        throws AbruptExitException, InterruptedException {
       try {
         includeScannerSupplier.init(
             new IncludeParser(
@@ -286,7 +290,16 @@ public class IncludeScanningModule extends BlazeModule {
                                 env.getReporter(), IncludeHintsFunction.INCLUDE_HINTS_KEY),
                     env.getSkyframeBuildView().getArtifactFactory())));
       } catch (ExecException e) {
-        throw new ExecutorInitException("could not initialize include hints", e);
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+                FailureDetail.newBuilder()
+                    .setMessage("could not initialize include hints: " + e.getMessage())
+                    .setIncludeScanning(
+                        IncludeScanning.newBuilder()
+                            .setCode(IncludeScanning.Code.INITIALIZE_INCLUDE_HINTS_ERROR))
+                    .build()),
+            e);
       }
     }
 

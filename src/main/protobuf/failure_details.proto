@@ -114,6 +114,7 @@ message FailureDetail {
     FetchCommand fetch_command = 135;
     SyncCommand sync_command = 136;
     Sandbox sandbox = 137;
+    IncludeScanning include_scanning = 139;
   }
 
   reserved 102; // For internal use
@@ -541,6 +542,15 @@ message Sandbox {
   enum Code {
     SANDBOX_FAILURE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message IncludeScanning {
+  enum Code {
+    INCLUDE_SCANNING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INITIALIZE_INCLUDE_HINTS_ERROR = 1 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
