@@ -179,7 +179,14 @@ public class AndroidAssets {
   /** Convenience method to do all of asset processing - parsing and merging. */
   public MergedAndroidAssets process(AndroidDataContext dataContext, AssetDependencies assetDeps)
       throws InterruptedException {
-    return parse(dataContext).merge(dataContext, assetDeps);
+    ParsedAndroidAssets parsedAssets = parse(dataContext);
+
+    boolean mergeAssets = dataContext.getAndroidConfig().outputLibraryMergedAssets()
+        || dataContext.throwOnResourceConflict();
+
+    return mergeAssets ?
+        parsedAssets.merge(dataContext, assetDeps) :
+        MergedAndroidAssets.of(parsedAssets, null, assetDeps);
   }
 
   @Override
