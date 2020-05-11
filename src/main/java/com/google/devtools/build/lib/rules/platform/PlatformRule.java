@@ -136,7 +136,7 @@ public class PlatformRule implements RuleDefinition {
 
 <p>This rule defines a new platform -- a named collection of constraint choices (such as cpu
 architecture or compiler version) describing an environment in which part of the build may run.
-See the <a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page for
+See the <a href="../platforms.html">Platforms</a> page for
 more details.
 
 <h4 id="platform_examples">Example</h4>

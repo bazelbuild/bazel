@@ -116,7 +116,10 @@ public interface WorkspaceGlobalsApi {
 
   @SkylarkCallable(
       name = "register_execution_platforms",
-      doc = "Registers a platform so that it is available to execute actions.",
+      doc =
+          "Register an already-defined platform so that Bazel can use it as an "
+              + "<a href=\"../../toolchains.html#toolchain-resolution\">execution platform</a> "
+              + "during <a href=\"../../toolchains.html\">toolchain resolution</a>.",
       allowReturnNones = true,
       extraPositionals =
           @Param(
@@ -131,8 +134,11 @@ public interface WorkspaceGlobalsApi {
   @SkylarkCallable(
       name = "register_toolchains",
       doc =
-          "Registers a toolchain created with the toolchain() rule so that it is available for "
-              + "toolchain resolution.",
+          "Register an already-defined toolchain so that Bazel can use it during "
+              + "<a href=\"../../toolchains.html\">toolchain resolution</a>. See examples of "
+              + "<a href=\"../../toolchains.html#defining-toolchains\">defining</a> and "
+              + "<a href=\"../../toolchains.html#registering-and-building-with-toolchains\">"
+              + "registering toolchains.",
       allowReturnNones = true,
       extraPositionals =
           @Param(
