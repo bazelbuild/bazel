@@ -3,6 +3,11 @@ load("@rules_proto//proto:defs.bzl", "proto_lang_toolchain", "proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
 # Protobuf targets needed for building //src:bazel_nojdk
 # @com_google_protobuf//:protobuf_headers
 # @com_google_protobuf//:protobuf_java
