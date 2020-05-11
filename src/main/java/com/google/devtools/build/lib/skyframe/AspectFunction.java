@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
@@ -454,7 +453,7 @@ public final class AspectFunction implements SkyFunction {
                 targetPkg.getRepositoryMapping(),
                 unloadedToolchainContext,
                 targetDescription,
-                depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
+                depValueMap.get(DependencyKind.TOOLCHAIN_DEPENDENCY));
       }
 
       return createAspect(
