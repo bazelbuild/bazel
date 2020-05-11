@@ -397,7 +397,7 @@ parameter of the transition function. This is true even if a build setting is
 not actually changed over the course of the transition - its original value must
 be explicitly passed through in the returned dictionary.
 
-#### Defining 1:2+ transitions
+### Defining 1:2+ transitions
 [Outgoing edge transition](#outgoing-edge-transitions) can map a single input
 configuration to two or more output configurations. These are defined in
 Starlark by returning a list of dictionaries in the transition implementation
@@ -430,7 +430,7 @@ If you need to do this, contact
 bazel-discuss@googlegroups.com
 and we can help you try to figure out a workaround.
 
-#### Incoming edge transitions
+### Incoming edge transitions
 Incoming edge transitions are activated by attaching a `transition` object
 (created by `transition()`) to `rule()`'s `cfg` parameter:
 
