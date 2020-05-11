@@ -38,6 +38,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/analysis:srcs",
         "//src/main/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bugreport:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:srcs",
