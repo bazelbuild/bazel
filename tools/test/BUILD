@@ -57,11 +57,17 @@ cc_binary(
 cc_library(
     name = "tw_lib",
     srcs = select({
-        "@bazel_tools//src/conditions:windows": ["windows/tw.cc"],
+        "@bazel_tools//src/conditions:windows": [
+            "windows/tw.cc",
+            "windows/wrunfiles_src.cc",
+        ],
         "//conditions:default": ["empty_test_wrapper.cc"],
     }),
     hdrs = select({
-        "@bazel_tools//src/conditions:windows": ["windows/tw.h"],
+        "@bazel_tools//src/conditions:windows": [
+            "windows/tw.h",
+            "windows/wrunfiles_src.h"
+        ],
         "//conditions:default": [],
     }),
     linkopts = select({
@@ -78,7 +84,6 @@ cc_library(
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
             "//third_party/ijar:zip",
-            "@bazel_tools//tools/cpp/runfiles",
         ],
         "//conditions:default": [],
     }),

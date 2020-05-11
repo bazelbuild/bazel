@@ -49,7 +49,7 @@
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
-#include "tools/cpp/runfiles/runfiles.h"
+#include "wrunfiles_src.h"
 
 namespace bazel {
 namespace tools {
@@ -1120,15 +1120,9 @@ inline void ComputeRunfilePath(const std::wstring& test_workspace,
 bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
                     const Path& abs_test_srcdir, Path* result) {
   if (!blaze_util::IsAbsolute(test_path)) {
-    std::string argv0_acp;
-    if (!WcsToAcp(argv0.Get(), &argv0_acp)) {
-      LogErrorWithArg(__LINE__, "Failed to convert path", argv0.Get());
-      return false;
-    }
-
-    std::string error;
-    std::unique_ptr<bazel::tools::cpp::runfiles::Runfiles> runfiles(
-        bazel::tools::cpp::runfiles::Runfiles::Create(argv0_acp, &error));
+    std::wstring error;
+    std::unique_ptr<bazel::tools::cpp::wrunfiles::Runfiles> runfiles(
+        bazel::tools::cpp::wrunfiles::Runfiles::Create(argv0.Get(), &error));
     if (runfiles == nullptr) {
       LogError(__LINE__, "Failed to load runfiles");
       return false;
@@ -1162,19 +1156,7 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
     if (mf_only_value != 1 && IsReadableFile(test_bin_in_runfiles)) {
       test_path = test_bin_in_runfiles.Get();
     } else {
-      std::string utf8_test_path;
-      uint32_t err;
-      if (!blaze_util::WcsToUtf8(test_path, &utf8_test_path, &err)) {
-        LogErrorWithArgAndValue(__LINE__, "Failed to convert string to UTF-8",
-                                test_path, err);
-        return false;
-      }
-
-      std::string rloc = runfiles->Rlocation(utf8_test_path);
-      if (!blaze_util::Utf8ToWcs(rloc, &test_path, &err)) {
-        LogErrorWithArgAndValue(__LINE__, "Failed to convert string",
-                                utf8_test_path, err);
-      }
+      test_path = runfiles->Rlocation(test_path);
     }
   }
 
