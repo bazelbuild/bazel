@@ -32,24 +32,32 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   @SkylarkCallable(
       name = "copts",
       structField = true,
-      doc = "Returns flags passed to Bazel by --copt option.")
+      doc =
+          "Returns flags passed to Bazel by <a href=\"../../user-manual.html#flag--copt\">"
+              + "<code>--copt</code></a> option.")
   ImmutableList<String> getCopts() throws EvalException;
 
   @SkylarkCallable(
       name = "cxxopts",
       structField = true,
-      doc = "Returns flags passed to Bazel by --cxxopt option.")
+      doc =
+          "Returns flags passed to Bazel by <a href=\"../../user-manual.html#flag--cxxopt\">"
+              + "<code>--cxxopt</code></a> option.")
   ImmutableList<String> getCxxopts() throws EvalException;
 
   @SkylarkCallable(
       name = "conlyopts",
       structField = true,
-      doc = "Returns flags passed to Bazel by --conlyopt option.")
+      doc =
+          "Returns flags passed to Bazel by <a href=\"../../user-manual.html#flag--conlyopt\">"
+              + "<code>--conlyopt</code></a> option.")
   ImmutableList<String> getConlyopts() throws EvalException;
 
   @SkylarkCallable(
       name = "linkopts",
       structField = true,
-      doc = "Returns flags passed to Bazel by --linkopt option.")
+      doc =
+          "Returns flags passed to Bazel by <a href=\"../../user-manual.html#flag--linkopt\">"
+              + "<code>--linkopt</code></a> option.")
   ImmutableList<String> getLinkopts() throws EvalException;
 }
