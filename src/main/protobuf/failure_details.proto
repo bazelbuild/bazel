@@ -383,6 +383,11 @@ message ExecutionOptions {
         [(metadata) = { exit_code: 36 }];
     DEPRECATED_LOCAL_RESOURCES_USED = 5 [(metadata) = { exit_code: 36 }];
     INVALID_CYCLIC_DYNAMIC_STRATEGY = 6 [(metadata) = { exit_code: 36 }];
+    RESTRICTION_UNMATCHED_TO_ACTION_CONTEXT = 7 [(metadata) = { exit_code: 2 }];
+    REMOTE_FALLBACK_STRATEGY_NOT_ABSTRACT_SPAWN = 8
+        [(metadata) = { exit_code: 2 }];
+    STRATEGY_NOT_FOUND = 9 [(metadata) = { exit_code: 2 }];
+    DYNAMIC_STRATEGY_NOT_SANDBOXED = 10 [(metadata) = { exit_code: 2 }];
 
     reserved 1, 2; // For internal use
   }

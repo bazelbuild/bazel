@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -200,7 +199,7 @@ public class ExecutorBuilder {
     }
 
     @Override
-    public ModuleActionContextRegistry build() throws ExecutorInitException {
+    public ModuleActionContextRegistry build() throws AbruptExitException {
       ModuleActionContextRegistry moduleActionContextRegistry = this.registryBuilder.build();
       return moduleActionContextRegistry;
     }
@@ -293,7 +292,7 @@ public class ExecutorBuilder {
     }
 
     @Override
-    public SpawnStrategyRegistry build() throws ExecutorInitException {
+    public SpawnStrategyRegistry build() throws AbruptExitException {
       return this.spawnStrategyRegistry.build();
     }
   }
