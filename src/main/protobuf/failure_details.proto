@@ -381,6 +381,7 @@ message ExecutionOptions {
     REQUESTED_STRATEGY_INCOMPATIBLE_WITH_SANDBOXING = 4
         [(metadata) = { exit_code: 36 }];
     DEPRECATED_LOCAL_RESOURCES_USED = 5 [(metadata) = { exit_code: 36 }];
+    INVALID_CYCLIC_DYNAMIC_STRATEGY = 6 [(metadata) = { exit_code: 36 }];
 
     reserved 1, 2; // For internal use
   }
