@@ -81,7 +81,9 @@ import javax.annotation.Nullable;
  */
 public class StarlarkImportLookupFunction implements SkyFunction {
 
+  // Creates the BazelStarlarkContext and populates the predeclared .bzl symbols.
   private final RuleClassProvider ruleClassProvider;
+  // Only used to retrieve the "native" object.
   private final PackageFactory packageFactory;
 
   private final ASTFileLookupValueManager astFileLookupValueManager;
@@ -144,11 +146,11 @@ public class StarlarkImportLookupFunction implements SkyFunction {
         ruleClassProvider,
         packageFactory,
         // When we are inlining StarlarkImportLookupValue nodes, then we want to have explicit
-        // ASTFileLookupValue nodes, since now (1) in the comment in
-        // #createWithInlineASTFileLookupValues doesn't hold. This way we read and parse each needed
-        // bzl file at most once total globally, rather than once per need (in the worst-case of a
-        // StarlarkImportLookupValue inlining cache miss). This is important in the situation where
-        // a bzl file is loaded by a lot of other bzl files or BUILD files.
+        // ASTFileLookupValue nodes, since now (1) in the comment above doesn't hold. This way we
+        // read and parse each needed bzl file at most once total globally, rather than once per
+        // need (in the worst-case of a StarlarkImportLookupValue inlining cache miss). This is
+        // important in the situation where a bzl file is loaded by a lot of other bzl files or
+        // BUILD files.
         RegularSkyframeASTFileLookupValueManager.INSTANCE,
         new SelfInliningManager(starlarkImportLookupValueCacheSize));
   }
@@ -239,6 +241,9 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     CachedStarlarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder =
         selfInliningManager.cachedStarlarkImportLookupValueAndDepsBuilderFactory
             .newCachedStarlarkImportLookupValueAndDepsBuilder();
+    // Use an instrumented Skyframe env to capture Skyframe deps in the
+    // CachedStarlarkImportLookupValueAndDeps. This is transitive but doesn't include deps
+    // underneath recursively loaded .bzls (the recursion uses the unwrapped original env).
     Preconditions.checkState(
         !(env instanceof RecordingSkyFunctionEnvironment),
         "Found nested RecordingSkyFunctionEnvironment but it should have been stripped: %s",
@@ -381,6 +386,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       throw e;
     }
     if (result != null) {
+      // Result is final (no Skyframe restart), so no further need for the AST value.
       astFileLookupValueManager.doneWithASTFileLookupValue(fileLabel);
     }
     return result;
@@ -591,7 +597,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
         Maps.newHashMapWithExpectedSize(importLookupKeys.size());
     Map<SkyKey, ValueOrException<StarlarkImportFailedException>> values =
         env.getValuesOrThrow(importLookupKeys, StarlarkImportFailedException.class);
-    // NOTE: Iterating over imports in the order listed in the file.
+    // Uses same order as load()s in the file. Order matters since we report the first error.
     for (SkyKey key : importLookupKeys) {
       try {
         starlarkImportMap.put(key, values.get(key).get());
@@ -829,6 +835,10 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       implements ASTFileLookupValueManager {
     private final RuleClassProvider ruleClassProvider;
     private final DigestHashFunction digestHashFunction;
+    // We keep a cache of ASTFileLookupValues that have been computed but whose corresponding
+    // StarlarkImportLookupValue has not yet completed. This avoids repeating the ASTFileLookupValue
+    // work in case of Skyframe restarts. (If we weren't inlining, Skyframe would cache this for
+    // us.)
     private final Cache<Label, ASTFileLookupValue> astFileLookupValueCache;
 
     private InliningAndCachingASTFileLookupValueManager(
