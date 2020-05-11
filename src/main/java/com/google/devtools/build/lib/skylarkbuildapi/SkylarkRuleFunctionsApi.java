@@ -256,8 +256,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             generic1 = String.class,
             defaultValue = "[]",
             doc =
-                "<i>(Experimental)</i><br/><br/>"
-                    + "If set, the set of toolchains this rule requires. Toolchains will be "
+                "If set, the set of toolchains this rule requires. Toolchains will be "
                     + "found by checking the current platform, and provided to the rule "
                     + "implementation via <code>ctx.toolchain</code>."),
         @Param(
@@ -471,9 +470,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             generic1 = String.class,
             defaultValue = "[]",
             doc =
-                "<i>(Experimental)</i><br/><br/>"
-                    + "If set, the set of toolchains this rule requires. Toolchains will be "
-                    + "found by checking the current platform, and provided to the rule "
+                "If set, the set of toolchains this aspect requires. Toolchains will be "
+                    + "found by checking the current platform, and provided to the aspect "
                     + "implementation via <code>ctx.toolchain</code>."),
         @Param(
             name = "doc",
