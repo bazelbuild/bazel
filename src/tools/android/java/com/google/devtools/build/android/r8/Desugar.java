@@ -407,19 +407,23 @@ public class Desugar {
     }
   }
 
-  private void desugar(ClassFileResourceProvider classpath, Path input, Path output)
+  private void desugar(
+      List<ClassFileResourceProvider> bootclasspathProviders,
+      ClassFileResourceProvider classpath,
+      Path input,
+      Path output)
       throws CompilationFailedException {
     checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = createDependencyCollector();
     OutputConsumer consumer = new OutputConsumer(output, dependencyCollector);
-    D8.run(
+    D8Command.Builder builder =
         D8Command.builder(new DesugarDiagnosticsHandler(consumer))
-            .addLibraryFiles(options.bootclasspath)
             .addClasspathResourceProvider(classpath)
             .addProgramFiles(input)
             .setMinApiLevel(options.minSdkVersion)
-            .setProgramConsumer(consumer)
-            .build());
+            .setProgramConsumer(consumer);
+    bootclasspathProviders.forEach(builder::addLibraryResourceProvider);
+    D8.run(builder.build());
   }
 
   private void desugar() throws CompilationFailedException, IOException {
@@ -429,11 +433,23 @@ public class Desugar {
     for (Path path : options.classpath) {
       classpathProvidersBuilder.add(new ArchiveClassFileProvider(path));
     }
+    ImmutableList.Builder<ClassFileResourceProvider> bootclasspathProvidersBuilder =
+        ImmutableList.builder();
+    for (Path path : options.bootclasspath) {
+      bootclasspathProvidersBuilder.add(new ArchiveClassFileProvider(path));
+    }
+    ImmutableList<ClassFileResourceProvider> bootclasspathProviders =
+        bootclasspathProvidersBuilder.build();
     OrderedClassFileResourceProvider classpathProvider =
-        new OrderedClassFileResourceProvider(classpathProvidersBuilder.build());
+        new OrderedClassFileResourceProvider(
+            bootclasspathProviders, classpathProvidersBuilder.build());
     // Desugar the input jars into the specified output jars.
     for (int i = 0; i < options.inputJars.size(); i++) {
-      desugar(classpathProvider, options.inputJars.get(i), options.outputJars.get(i));
+      desugar(
+          bootclasspathProviders,
+          classpathProvider,
+          options.inputJars.get(i),
+          options.outputJars.get(i));
     }
   }
 
