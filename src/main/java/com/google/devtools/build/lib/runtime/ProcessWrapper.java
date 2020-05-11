@@ -14,43 +14,49 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
-/**
- * Utility functions for the process wrapper embedded tool, which should work on most platforms and
- * gives at least some isolation between running actions.
- */
-public final class ProcessWrapperUtil {
-  private static final String PROCESS_WRAPPER = "process-wrapper" + OsUtils.executableExtension();
+/** Tracks process-wrapper configuration and allows building command lines that rely on it. */
+public final class ProcessWrapper {
 
-  /** Returns whether using the process wrapper is supported in the {@link CommandEnvironment}. */
-  public static boolean isSupported(CommandEnvironment cmdEnv) {
-    // We can only use this runner, if the process-wrapper exists in the embedded tools.
-    // This might not always be the case, e.g. while bootstrapping.
-    return getProcessWrapper(cmdEnv) != null;
-  }
+  /** Name of the process-wrapper binary, without any path components. */
+  private static final String BIN_BASENAME = "process-wrapper" + OsUtils.executableExtension();
 
-  /** Returns the {@link Path} of the process wrapper binary, or null if it doesn't exist. */
-  public static Path getProcessWrapper(CommandEnvironment cmdEnv) {
-    return cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(PROCESS_WRAPPER);
+  /** Path to the process-wrapper binary to use. */
+  private final Path binPath;
+
+  /** Creates a new process-wrapper instance from explicit values. */
+  @VisibleForTesting
+  public ProcessWrapper(Path binPath) {
+    this.binPath = binPath;
   }
 
   /**
-   * Return the {@link Path} of the process wrapper binary, given the path of the embedded binaries
-   * root.
+   * Constructs a new process-wrapper instance based on the context of an invocation.
+   *
+   * @param cmdEnv command environment for this invocation
+   * @return a process-wrapper handler, or null if this is not supported in the current system
    */
-  public static Path getProcessWrapper(Path embeddedBinariesRoot) {
-    return embeddedBinariesRoot.getRelative(PROCESS_WRAPPER);
+  @Nullable
+  public static ProcessWrapper fromCommandEnvironment(CommandEnvironment cmdEnv) {
+    Path path = cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(BIN_BASENAME);
+    if (OS.isPosixCompatible() && path != null && path.exists()) {
+      return new ProcessWrapper(path);
+    } else {
+      return null;
+    }
   }
 
-  /** Returns a new {@link CommandLineBuilder} for the process wrapper tool. */
-  public static CommandLineBuilder commandLineBuilder(
-      String processWrapperPath, List<String> commandArguments) {
-    return new CommandLineBuilder(processWrapperPath, commandArguments);
+  /** Returns a new {@link CommandLineBuilder} for the process-wrapper tool. */
+  public CommandLineBuilder commandLineBuilder(List<String> commandArguments) {
+    return new CommandLineBuilder(binPath.getPathString(), commandArguments);
   }
 
   /**

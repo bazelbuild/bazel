@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
@@ -70,7 +70,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     if (OS.getCurrent() != OS.DARWIN) {
       return false;
     }
-    if (!ProcessWrapperUtil.isSupported(cmdEnv)) {
+    if (ProcessWrapper.fromCommandEnvironment(cmdEnv) == null) {
       return false;
     }
     if (isSupported == null) {
@@ -102,7 +102,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final SandboxHelpers helpers;
   private final Path execRoot;
   private final boolean allowNetwork;
-  private final Path processWrapper;
+  private final ProcessWrapper processWrapper;
   private final Path sandboxBase;
   private final Duration timeoutKillDelay;
   @Nullable private final SandboxfsProcess sandboxfsProcess;
@@ -143,7 +143,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
-    this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
+    this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
     this.timeoutKillDelay = timeoutKillDelay;
@@ -246,9 +246,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
     Duration timeout = context.getTimeout();
 
-    ProcessWrapperUtil.CommandLineBuilder processWrapperCommandLineBuilder =
-        ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
-            .setTimeout(timeout);
+    ProcessWrapper.CommandLineBuilder processWrapperCommandLineBuilder =
+        processWrapper.commandLineBuilder(spawn.getArguments()).setTimeout(timeout);
 
     processWrapperCommandLineBuilder.setKillDelay(timeoutKillDelay);
 

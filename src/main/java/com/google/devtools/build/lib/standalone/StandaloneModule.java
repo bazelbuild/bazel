@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.LocalExecution;
 import com.google.devtools.build.lib.server.FailureDetails.LocalExecution.Code;
@@ -108,6 +109,7 @@ public class StandaloneModule extends BlazeModule {
             env.getLocalResourceManager(),
             LocalEnvProvider.forCurrentOs(env.getClientEnv()),
             env.getBlazeWorkspace().getBinTools(),
+            ProcessWrapper.fromCommandEnvironment(env),
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
             RunfilesTreeUpdater.INSTANCE);
 

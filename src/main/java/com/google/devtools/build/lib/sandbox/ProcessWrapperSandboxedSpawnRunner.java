@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.OS;
@@ -34,11 +34,11 @@ import javax.annotation.Nullable;
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
-    return OS.isPosixCompatible() && ProcessWrapperUtil.isSupported(cmdEnv);
+    return OS.isPosixCompatible() && ProcessWrapper.fromCommandEnvironment(cmdEnv) != null;
   }
 
   private final SandboxHelpers helpers;
-  private final Path processWrapper;
+  private final ProcessWrapper processWrapper;
   private final Path execRoot;
   private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
@@ -68,7 +68,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
       TreeDeleter treeDeleter) {
     super(cmdEnv);
     this.helpers = helpers;
-    this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
+    this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
@@ -100,9 +100,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     Duration timeout = context.getTimeout();
-    ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
-        ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
-            .setTimeout(timeout);
+    ProcessWrapper.CommandLineBuilder commandLineBuilder =
+        processWrapper.commandLineBuilder(spawn.getArguments()).setTimeout(timeout);
 
     commandLineBuilder.setKillDelay(timeoutKillDelay);
 

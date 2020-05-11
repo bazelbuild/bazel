@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkRepositoryContextApi;
@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -106,13 +105,13 @@ public class SkylarkRepositoryContext
   private final Rule rule;
   private final PathPackageLocator packageLocator;
   private final Path outputDirectory;
-  private final Path embeddedBinariesRoot;
   private final StructImpl attrObject;
   private final SkylarkOS osObject;
   private final ImmutableSet<PathFragment> blacklistedPatterns;
   private final Environment env;
   private final DownloadManager downloadManager;
   private final double timeoutScaling;
+  @Nullable private final ProcessWrapper processWrapper;
   private final Map<String, String> markerData;
   private final StarlarkSemantics starlarkSemantics;
   private final RepositoryRemoteExecutor remoteExecutor;
@@ -129,8 +128,8 @@ public class SkylarkRepositoryContext
       Environment environment,
       Map<String, String> env,
       DownloadManager downloadManager,
-      Path embeddedBinariesRoot,
       double timeoutScaling,
+      @Nullable ProcessWrapper processWrapper,
       Map<String, String> markerData,
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor remoteExecutor)
@@ -138,12 +137,12 @@ public class SkylarkRepositoryContext
     this.rule = rule;
     this.packageLocator = packageLocator;
     this.outputDirectory = outputDirectory;
-    this.embeddedBinariesRoot = embeddedBinariesRoot;
     this.blacklistedPatterns = blacklistedPatterns;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
     this.downloadManager = downloadManager;
     this.timeoutScaling = timeoutScaling;
+    this.processWrapper = processWrapper;
     this.markerData = markerData;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
@@ -561,14 +560,12 @@ public class SkylarkRepositoryContext
     createDirectory(outputDirectory);
 
     long timeoutMillis = Math.round(timeout.longValue() * 1000 * timeoutScaling);
-    if (OS.getCurrent() != OS.WINDOWS && embeddedBinariesRoot != null) {
-      Path processWrapper = ProcessWrapperUtil.getProcessWrapper(embeddedBinariesRoot);
-      if (processWrapper.exists()) {
-        args =
-            ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), args)
-                .setTimeout(Duration.ofMillis(timeoutMillis))
-                .build();
-      }
+    if (processWrapper != null) {
+      args =
+          processWrapper
+              .commandLineBuilder(args)
+              .setTimeout(Duration.ofMillis(timeoutMillis))
+              .build();
     }
 
     Path workingDirectoryPath = outputDirectory;

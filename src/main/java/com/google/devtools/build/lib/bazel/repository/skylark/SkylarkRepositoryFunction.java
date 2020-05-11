@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -60,6 +61,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
 
   private final DownloadManager downloadManager;
   private double timeoutScaling = 1.0;
+  @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
 
   public SkylarkRepositoryFunction(DownloadManager downloadManager) {
@@ -68,6 +70,10 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
 
   public void setTimeoutScaling(double timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
+  }
+
+  public void setProcessWrapper(@Nullable ProcessWrapper processWrapper) {
+    this.processWrapper = processWrapper;
   }
 
   static String describeSemantics(StarlarkSemantics semantics) {
@@ -167,8 +173,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               env,
               clientEnvironment,
               downloadManager,
-              directories.getEmbeddedBinariesRoot(),
               timeoutScaling,
+              processWrapper,
               markerData,
               starlarkSemantics,
               repositoryRemoteExecutor);

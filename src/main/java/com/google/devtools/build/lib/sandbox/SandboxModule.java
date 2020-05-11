@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -435,6 +436,7 @@ public final class SandboxModule extends BlazeModule {
         env.getLocalResourceManager(),
         LocalEnvProvider.forCurrentOs(env.getClientEnv()),
         env.getBlazeWorkspace().getBinTools(),
+        ProcessWrapper.fromCommandEnvironment(env),
         // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
         RunfilesTreeUpdater.INSTANCE);
   }

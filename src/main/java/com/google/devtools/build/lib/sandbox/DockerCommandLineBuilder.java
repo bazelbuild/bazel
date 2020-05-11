@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 
 final class DockerCommandLineBuilder {
-  private Path processWrapper;
+  private ProcessWrapper processWrapper;
   private Path dockerClient;
   private String imageName;
   private List<String> commandArguments;
@@ -42,7 +42,7 @@ final class DockerCommandLineBuilder {
   private boolean privileged;
   private List<Map.Entry<String, String>> additionalMounts;
 
-  public DockerCommandLineBuilder setProcessWrapper(Path processWrapper) {
+  public DockerCommandLineBuilder setProcessWrapper(ProcessWrapper processWrapper) {
     this.processWrapper = processWrapper;
     return this;
   }
@@ -174,9 +174,8 @@ final class DockerCommandLineBuilder {
     dockerCmdLine.add(imageName);
     dockerCmdLine.addAll(commandArguments);
 
-    ProcessWrapperUtil.CommandLineBuilder processWrapperCmdLine =
-        ProcessWrapperUtil.commandLineBuilder(
-            this.processWrapper.getPathString(), dockerCmdLine.build());
+    ProcessWrapper.CommandLineBuilder processWrapperCmdLine =
+        processWrapper.commandLineBuilder(dockerCmdLine.build());
     if (timeout != null) {
       processWrapperCmdLine.setTimeout(timeout);
     }

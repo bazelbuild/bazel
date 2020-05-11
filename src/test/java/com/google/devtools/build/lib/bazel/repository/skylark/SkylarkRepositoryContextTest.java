@@ -162,8 +162,8 @@ public final class SkylarkRepositoryContextTest {
             environment,
             ImmutableMap.of("FOO", "BAR"),
             downloader,
-            null,
             1.0,
+            /*processWrapper=*/ null,
             new HashMap<>(),
             starlarkSemantics,
             repoRemoteExecutor);

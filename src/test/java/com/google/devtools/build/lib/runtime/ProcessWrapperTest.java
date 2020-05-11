@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import org.junit.Before;
@@ -27,35 +28,41 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link ProcessWrapperUtil}. */
+/** Unit tests for {@link ProcessWrapper}. */
 @RunWith(JUnit4.class)
-public final class ProcessWrapperUtilTest {
+public final class ProcessWrapperTest {
+
   private FileSystem testFS;
 
   @Before
-  public final void createFileSystem() {
+  public void setUp() {
     testFS = new InMemoryFileSystem();
   }
 
-  @Test
-  public void testProcessWrapperCommandLineBuilder_BuildsWithoutOptionalArguments() {
-    String processWrapperPath = "process-wrapper";
+  private ProcessWrapper getProcessWrapper(String path) throws IOException {
+    Path processWrapperPath = testFS.getPath(path);
+    processWrapperPath.getParentDirectory().createDirectoryAndParents();
+    processWrapperPath.getOutputStream().close();
+    return new ProcessWrapper(processWrapperPath);
+  }
 
+  @Test
+  public void testProcessWrapperCommandLineBuilder_BuildsWithoutOptionalArguments()
+      throws IOException {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, world");
 
     ImmutableList<String> expectedCommandLine =
-        ImmutableList.<String>builder().add(processWrapperPath).addAll(commandArguments).build();
+        ImmutableList.<String>builder().add("/some/bin/path").addAll(commandArguments).build();
 
-    List<String> commandLine =
-        ProcessWrapperUtil.commandLineBuilder(processWrapperPath, commandArguments).build();
+    ProcessWrapper processWrapper = getProcessWrapper("/some/bin/path");
+    List<String> commandLine = processWrapper.commandLineBuilder(commandArguments).build();
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();
   }
 
   @Test
-  public void testProcessWrapperCommandLineBuilder_BuildsWithOptionalArguments() {
-    String processWrapperPath = "process-wrapper";
-
+  public void testProcessWrapperCommandLineBuilder_BuildsWithOptionalArguments()
+      throws IOException {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "hello, world");
 
     Duration timeout = Duration.ofSeconds(10);
@@ -66,7 +73,7 @@ public final class ProcessWrapperUtilTest {
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()
-            .add(processWrapperPath)
+            .add("/path/to/process-wrapper")
             .add("--timeout=" + timeout.getSeconds())
             .add("--kill_delay=" + killDelay.getSeconds())
             .add("--stdout=" + stdoutPath)
@@ -75,8 +82,10 @@ public final class ProcessWrapperUtilTest {
             .addAll(commandArguments)
             .build();
 
+    ProcessWrapper processWrapper = getProcessWrapper("/path/to/process-wrapper");
     List<String> commandLine =
-        ProcessWrapperUtil.commandLineBuilder(processWrapperPath, commandArguments)
+        processWrapper
+            .commandLineBuilder(commandArguments)
             .setTimeout(timeout)
             .setKillDelay(killDelay)
             .setStdoutPath(stdoutPath)

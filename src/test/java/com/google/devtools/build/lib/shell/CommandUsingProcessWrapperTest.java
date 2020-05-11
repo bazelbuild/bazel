@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.shell;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -43,8 +43,11 @@ public final class CommandUsingProcessWrapperTest {
     testFS = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
   }
 
-  private String getProcessWrapperPath() {
-    return BlazeTestUtils.runfilesDir() + "/" + TestConstants.PROCESS_WRAPPER_PATH;
+  private ProcessWrapper getProcessWrapper() {
+    return new ProcessWrapper(
+        testFS
+            .getPath(BlazeTestUtils.runfilesDir())
+            .getRelative(TestConstants.PROCESS_WRAPPER_PATH));
   }
 
   private String getCpuTimeSpenderPath() {
@@ -66,8 +69,7 @@ public final class CommandUsingProcessWrapperTest {
   public void testProcessWrappedCommand_Echo() throws Exception {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "even drones can fly away");
 
-    List<String> fullCommandLine =
-        ProcessWrapperUtil.commandLineBuilder(getProcessWrapperPath(), commandArguments).build();
+    List<String> fullCommandLine = getProcessWrapper().commandLineBuilder(commandArguments).build();
 
     Command command = new Command(fullCommandLine.toArray(new String[0]));
     CommandResult commandResult = command.execute();
@@ -88,7 +90,8 @@ public final class CommandUsingProcessWrapperTest {
     Path statisticsFilePath = outputDir.getRelative("stats.out");
 
     List<String> fullCommandLine =
-        ProcessWrapperUtil.commandLineBuilder(getProcessWrapperPath(), commandArguments)
+        getProcessWrapper()
+            .commandLineBuilder(commandArguments)
             .setStatisticsPath(statisticsFilePath)
             .build();
 
