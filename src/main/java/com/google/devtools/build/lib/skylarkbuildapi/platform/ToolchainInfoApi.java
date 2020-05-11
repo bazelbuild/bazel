@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 @StarlarkBuiltin(
     name = "ToolchainInfo",
     doc =
-        "Provider which allows rule-specific toolchains to communicate data back to the actual"
-            + " rule implementation. Read more about <a"
-            + " href='../../toolchains.$DOC_EXT'>toolchains</a> for more information.",
+        "Provider returned by <a href=\"../../toolchains.html#defining-toolchains\">toolchain "
+            + "rules</a> to share data with "
+            + "<a href=\"../../toolchains.html#writing-rules-that-use-toolchains\">rules which "
+            + "depend on toolchains</a>. Read about <a href='../../toolchains.html'>"
+            + "toolchains</a> for more information.",
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface ToolchainInfoApi extends StructApi {
 
