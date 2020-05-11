@@ -210,7 +210,7 @@ public class ExecutionTool {
     }
   }
 
-  Executor getExecutor() throws ExecutorInitException {
+  Executor getExecutor() throws AbruptExitException {
     if (executor == null) {
       executor = createExecutor();
       for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
@@ -231,7 +231,7 @@ public class ExecutionTool {
         spawnActionContextMaps);
   }
 
-  void init() throws ExecutorInitException {
+  void init() throws AbruptExitException {
     getExecutor();
   }
 
