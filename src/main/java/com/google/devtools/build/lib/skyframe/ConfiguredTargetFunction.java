@@ -485,9 +485,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             configuration.getFragmentsMap().keySet(),
             BuildOptions.diffForReconstruction(defaultBuildOptions, toolchainOptions));
 
-    Map<String, ToolchainContextKey> unloadedToolchainContextKeys = new HashMap<>();
+    Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
-    unloadedToolchainContextKeys.put(
+    toolchainContextKeys.put(
         targetUnloadedToolchainContext,
         ToolchainContextKey.key()
             .configurationKey(toolchainConfig)
@@ -497,7 +497,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .build());
     for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
       ExecGroup execGroup = group.getValue();
-      unloadedToolchainContextKeys.put(
+      toolchainContextKeys.put(
           group.getKey(),
           ToolchainContextKey.key()
               .configurationKey(toolchainConfig)
@@ -508,14 +508,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     Map<SkyKey, ValueOrException<ToolchainException>> values =
-        env.getValuesOrThrow(unloadedToolchainContextKeys.values(), ToolchainException.class);
+        env.getValuesOrThrow(toolchainContextKeys.values(), ToolchainException.class);
 
     boolean valuesMissing = env.valuesMissing();
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
         valuesMissing ? null : new ToolchainCollection.Builder<>();
     for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
-        unloadedToolchainContextKeys.entrySet()) {
+        toolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =
           (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();
       if (!valuesMissing) {

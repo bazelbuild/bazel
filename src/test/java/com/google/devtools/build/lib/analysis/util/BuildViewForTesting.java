@@ -501,9 +501,9 @@ public class BuildViewForTesting {
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
 
-    Map<String, ToolchainContextKey> unloadedToolchainContextKeys = new HashMap<>();
+    Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     for (Map.Entry<String, ExecGroup> execGroup : execGroups.entrySet()) {
-      unloadedToolchainContextKeys.put(
+      toolchainContextKeys.put(
           execGroup.getKey(),
           ToolchainContextKey.key()
               .configurationKey(BuildConfigurationValue.key(targetConfig))
@@ -511,7 +511,7 @@ public class BuildViewForTesting {
               .build());
     }
     String targetUnloadedToolchainContextKey = "target-unloaded-toolchain-context";
-    unloadedToolchainContextKeys.put(
+    toolchainContextKeys.put(
         targetUnloadedToolchainContextKey,
         ToolchainContextKey.key()
             .configurationKey(BuildConfigurationValue.key(targetConfig))
@@ -520,12 +520,12 @@ public class BuildViewForTesting {
 
     Map<SkyKey, ValueOrException<ToolchainException>> values =
         skyfunctionEnvironment.getValuesOrThrow(
-            unloadedToolchainContextKeys.values(), ToolchainException.class);
+            toolchainContextKeys.values(), ToolchainException.class);
 
     ToolchainCollection.Builder<UnloadedToolchainContext> unloadedToolchainContexts =
         new ToolchainCollection.Builder<>();
     for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
-        unloadedToolchainContextKeys.entrySet()) {
+        toolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =
           (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();
       String execGroup = unloadedToolchainContextKey.getKey();
