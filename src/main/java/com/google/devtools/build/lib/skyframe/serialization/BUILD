@@ -27,7 +27,7 @@ java_library(
     ),
     deps = [
         ":codec-scanning-constants",
-        "//src/main/java/com/google/devtools/build/lib:bug-report",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",

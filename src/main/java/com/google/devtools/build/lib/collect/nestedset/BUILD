@@ -24,7 +24,7 @@ java_library(
         "Order.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:bug-report",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
