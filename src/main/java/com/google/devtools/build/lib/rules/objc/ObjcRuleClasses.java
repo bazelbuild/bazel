@@ -420,7 +420,8 @@ public class ObjcRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(srcs) -->
           The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
+          files, and/or (`.s`, `.S`, or `.asm`) assembly source files, that are processed to create
+          the library target.
           These are your checked-in files, plus any generated files.
           Source files are compiled into .o files with Clang. Header files
           may be included/imported by any source or header in the srcs attribute
