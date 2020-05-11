@@ -102,38 +102,44 @@ java_import(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_collections",
     jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_lang",
     jars = ["apache_commons_lang/commons-lang-2.6.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_compress",
     jars = ["apache_commons_compress/apache-commons-compress-1.9.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_logging",
     jars = ["apache_commons_logging/commons-logging-1.1.1.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_pool2",
     jars = ["apache_commons_pool2/commons-pool2-2.8.0.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_velocity",
     jars = ["apache_velocity/velocity-1.7.jar"],
     deps = [
         ":apache_commons_collections",
         ":apache_commons_lang",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -149,10 +155,11 @@ java_import(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "asm",
     jars = ["asm/asm-8.0.jar"],
     srcjar = "asm/asm-8.0-sources.jar",
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -347,18 +354,20 @@ java_import(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "jackson2",
     jars = [
         "jackson2/jackson-core-2.8.6.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "jcip_annotations",
     jars = [
         "jcip_annotations/jcip-annotations-1.0-1.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -423,11 +432,12 @@ filegroup(
 
 # javax.annotation.Generated is not included in the default root modules in 9,
 # see: http://openjdk.java.net/jeps/320.
-java_import(
+distrib_java_import(
     name = "javax_annotations",
     jars = ["javax_annotations/javax.annotation-api-1.3.2.jar"],
     neverlink = 1,  # @Generated is source-retention
     srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -435,9 +445,10 @@ java_import(
     jars = ["jimfs/jimfs-1.1.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "jsr305",
     jars = ["jsr305/jsr-305.jar"],
+    enable_distributions = ["debian"],
 )
 
 # For bootstrapping JavaBuilder
@@ -485,13 +496,13 @@ genrule(
 distrib_java_import(
     name = "netty",
     jars = ["netty/netty-all-4.1.34.Final.jar"],
-    # TODO: The debian netty-all.jar is empty, fix it then enable the following
-    # enable_distributions = ["debian"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "netty_tcnative",
     jars = ["netty_tcnative/netty-tcnative-filtered.jar"],
+    enable_distributions = ["debian"],
 )
 
 distrib_java_import(
@@ -572,9 +583,10 @@ java_import(
     jars = ["truth8/truth-java8-extension-1.0.1.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "xz",
     jars = ["xz/xz-1.5.jar"],
+    enable_distributions = ["debian"],
 )
 
 # To be used by the skylark example.
