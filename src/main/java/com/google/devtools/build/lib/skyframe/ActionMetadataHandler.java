@@ -545,10 +545,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
   public void injectRemoteFile(
       Artifact output, byte[] digest, long size, int locationIndex, String actionId) {
     Preconditions.checkArgument(
-        isKnownOutput(output), output + " is not a declared output of this action");
+        isKnownOutput(output), "%s is not a declared output of this action", output);
     Preconditions.checkArgument(
         !output.isTreeArtifact(),
-        "injectRemoteFile must not be " + "called on TreeArtifacts '%s'",
+        "injectRemoteFile must not be called on TreeArtifacts: %s",
         output);
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution", output);
