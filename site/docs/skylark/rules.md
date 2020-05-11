@@ -21,6 +21,9 @@ Before creating or modifying any rule, ensure you are familiar with Bazel's
 [build phases](concepts.md). It will be important to understand the three phases
 of a build (loading, analysis and execution). It will also be useful to learn
 about [macros](macros.md) to understand the difference between rules and macros.
+To get started, we recommend that you first follow the
+[Rules Tutorial](rules-tutorial.md). The current page can be used as a
+reference.
 
 A few rules are built into Bazel itself. These *native rules*, such as
 `cc_library` and `java_binary`, provide some core support for certain languages.
