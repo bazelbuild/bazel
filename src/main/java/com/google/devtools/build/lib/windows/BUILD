@@ -12,7 +12,7 @@ filegroup(
 java_library(
     name = "windows_short_path",
     srcs = ["WindowsShortPath.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/windows/jni"],  
+    deps = ["//src/main/java/com/google/devtools/build/lib/windows/jni"],
 )
 
 java_library(
