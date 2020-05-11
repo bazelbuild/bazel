@@ -13,7 +13,6 @@ filegroup(
         "//third_party/css/bootstrap:srcs",
         "//third_party/css/font_awesome:srcs",
         "//third_party/ijar:srcs",
-        "//third_party/iossim:srcs",
         "//third_party/grpc:srcs",
         "//third_party/jarjar:srcs",
         "//third_party/jaxb:srcs",
