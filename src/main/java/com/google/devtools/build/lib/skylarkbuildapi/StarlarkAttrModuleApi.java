@@ -52,8 +52,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   // dependency and output attributes
   String LABEL_PARAGRAPH =
-      "<p>This attribute contains <a href='Label.html'><code>Label</code></a> values. If a string "
-          + "is supplied in place of a <code>Label</code>, it will be converted using the "
+      "<p>This attribute contains unique <a href='Label.html'><code>Label</code></a> values. If a "
+          + "string is supplied in place of a <code>Label</code>, it will be converted using the "
           + "<a href='Label.html#Label'>label constructor</a>. The relative parts of the label "
           + "path, including the (possibly renamed) repository, are resolved with respect to the "
           + "instantiated target's package.";
