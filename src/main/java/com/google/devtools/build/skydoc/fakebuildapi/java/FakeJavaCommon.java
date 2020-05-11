@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
@@ -37,7 +37,7 @@ public class FakeJavaCommon
         FakeJavaToolchainSkylarkApiProviderApi,
         FakeJavaRuntimeInfoApi,
         ConstraintValueInfoApi,
-        SkylarkRuleContextApi<ConstraintValueInfoApi>,
+        StarlarkRuleContextApi<ConstraintValueInfoApi>,
         StarlarkActionFactoryApi> {
 
   @Override
@@ -47,7 +47,7 @@ public class FakeJavaCommon
 
   @Override
   public FakeJavaInfo createJavaCompileAction(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      StarlarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       Sequence<?> sourceJars,
       Sequence<?> sourceFiles,
       FileApi outputJar,
@@ -127,7 +127,7 @@ public class FakeJavaCommon
 
   @Override
   public boolean isJavaToolchainResolutionEnabled(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> ruleContext) {
+      StarlarkRuleContextApi<ConstraintValueInfoApi> ruleContext) {
     return false;
   }
 

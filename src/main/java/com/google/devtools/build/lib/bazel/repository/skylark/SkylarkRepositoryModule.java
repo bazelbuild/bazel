@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
-import com.google.devtools.build.lib.packages.SkylarkExportable;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -82,7 +82,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     }
     builder.addAttribute(attr("$environ", STRING_LIST).defaultValue(environ).build());
     BaseRuleClasses.nameAttribute(builder);
-    BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
+    BaseRuleClasses.commonCoreAndStarlarkAttributes(builder);
     builder.add(attr("expect_failure", STRING));
     if (attrs != Starlark.NONE) {
       for (Map.Entry<String, Descriptor> attr :
@@ -107,7 +107,8 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
 
   // RepositoryRuleFunction is the result of repository_rule(...).
   // It is a callable value; calling it yields a Rule instance.
-  private static final class RepositoryRuleFunction implements StarlarkCallable, SkylarkExportable {
+  private static final class RepositoryRuleFunction
+      implements StarlarkCallable, StarlarkExportable {
     private final RuleClass.Builder builder;
     private final StarlarkCallable implementation;
     private Label extensionLabel;

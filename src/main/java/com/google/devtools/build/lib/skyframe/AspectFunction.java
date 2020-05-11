@@ -55,9 +55,9 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
-import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
+import com.google.devtools.build.lib.packages.StarlarkAspect;
+import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
@@ -121,26 +121,26 @@ public final class AspectFunction implements SkyFunction {
    * Load Starlark-defined aspect from an extension file. Is to be called from a SkyFunction.
    *
    * @return {@code null} if dependencies cannot be satisfied.
-   * @throws AspectCreationException if the value loaded is not a {@link SkylarkDefinedAspect}.
+   * @throws AspectCreationException if the value loaded is not a {@link StarlarkDefinedAspect}.
    */
   @Nullable
-  static SkylarkDefinedAspect loadSkylarkDefinedAspect(
-      Environment env, SkylarkAspectClass skylarkAspectClass)
+  static StarlarkDefinedAspect loadStarlarkDefinedAspect(
+      Environment env, SkylarkAspectClass starlarkAspectClass)
       throws AspectCreationException, InterruptedException {
-    Label extensionLabel = skylarkAspectClass.getExtensionLabel();
-    String skylarkValueName = skylarkAspectClass.getExportedName();
+    Label extensionLabel = starlarkAspectClass.getExtensionLabel();
+    String starlarkValueName = starlarkAspectClass.getExportedName();
 
-    SkylarkAspect skylarkAspect = loadSkylarkAspect(env, extensionLabel, skylarkValueName);
-    if (skylarkAspect == null) {
+    StarlarkAspect starlarkAspect = loadStarlarkAspect(env, extensionLabel, starlarkValueName);
+    if (starlarkAspect == null) {
       return null;
     }
-    if (!(skylarkAspect instanceof SkylarkDefinedAspect)) {
+    if (!(starlarkAspect instanceof StarlarkDefinedAspect)) {
       throw new AspectCreationException(
           String.format(
-              "%s from %s is not a Starlark-defined aspect", skylarkValueName, extensionLabel),
+              "%s from %s is not a Starlark-defined aspect", starlarkValueName, extensionLabel),
           extensionLabel);
     } else {
-      return (SkylarkDefinedAspect) skylarkAspect;
+      return (StarlarkDefinedAspect) starlarkAspect;
     }
   }
 
@@ -150,8 +150,8 @@ public final class AspectFunction implements SkyFunction {
    * @return {@code null} if dependencies cannot be satisfied.
    */
   @Nullable
-  static SkylarkAspect loadSkylarkAspect(
-      Environment env, Label extensionLabel, String skylarkValueName)
+  static StarlarkAspect loadStarlarkAspect(
+      Environment env, Label extensionLabel, String starlarkValueName)
       throws AspectCreationException, InterruptedException {
     SkyKey importFileKey = StarlarkImportLookupValue.key(extensionLabel);
     try {
@@ -164,19 +164,19 @@ public final class AspectFunction implements SkyFunction {
         return null;
       }
 
-      Object skylarkValue =
-          starlarkImportLookupValue.getModule().getBindings().get(skylarkValueName);
-      if (skylarkValue == null) {
+      Object starlarkValue =
+          starlarkImportLookupValue.getModule().getBindings().get(starlarkValueName);
+      if (starlarkValue == null) {
         throw new ConversionException(
             String.format(
-                "%s is not exported from %s", skylarkValueName, extensionLabel.toString()));
+                "%s is not exported from %s", starlarkValueName, extensionLabel.toString()));
       }
-      if (!(skylarkValue instanceof SkylarkAspect)) {
+      if (!(starlarkValue instanceof StarlarkAspect)) {
         throw new ConversionException(
             String.format(
-                "%s from %s is not an aspect", skylarkValueName, extensionLabel.toString()));
+                "%s from %s is not an aspect", starlarkValueName, extensionLabel.toString()));
       }
-      return (SkylarkAspect) skylarkValue;
+      return (StarlarkAspect) starlarkValue;
     } catch (StarlarkImportFailedException | ConversionException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new AspectCreationException(e.getMessage(), extensionLabel);
@@ -197,22 +197,23 @@ public final class AspectFunction implements SkyFunction {
       aspectFactory = (ConfiguredAspectFactory) nativeAspectClass;
       aspect = Aspect.forNative(nativeAspectClass, key.getParameters());
     } else if (key.getAspectClass() instanceof SkylarkAspectClass) {
-      SkylarkAspectClass skylarkAspectClass = (SkylarkAspectClass) key.getAspectClass();
-      SkylarkDefinedAspect skylarkAspect;
+      SkylarkAspectClass starlarkAspectClass = (SkylarkAspectClass) key.getAspectClass();
+      StarlarkDefinedAspect starlarkAspect;
       try {
-        skylarkAspect = loadSkylarkDefinedAspect(env, skylarkAspectClass);
+        starlarkAspect = loadStarlarkDefinedAspect(env, starlarkAspectClass);
       } catch (AspectCreationException e) {
         throw new AspectFunctionException(e);
       }
-      if (skylarkAspect == null) {
+      if (starlarkAspect == null) {
         return null;
       }
 
-      aspectFactory = new SkylarkAspectFactory(skylarkAspect);
-      aspect = Aspect.forSkylark(
-          skylarkAspect.getAspectClass(),
-          skylarkAspect.getDefinition(key.getParameters()),
-          key.getParameters());
+      aspectFactory = new SkylarkAspectFactory(starlarkAspect);
+      aspect =
+          Aspect.forSkylark(
+              starlarkAspect.getAspectClass(),
+              starlarkAspect.getDefinition(key.getParameters()),
+              key.getParameters());
     } else {
       throw new IllegalStateException();
     }

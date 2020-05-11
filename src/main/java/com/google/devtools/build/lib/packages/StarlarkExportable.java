@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  * {@link StarlarkValue}s that need special handling when they are exported from an extension file.
  * For example, rule definitions receive their name at the end of the execution of the .bzl file.
  */
-public interface SkylarkExportable extends StarlarkValue {
+public interface StarlarkExportable extends StarlarkValue {
 
   /**
    * Is this value already exported?

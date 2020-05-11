@@ -26,4 +26,4 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
         "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
             + "documentation of the aspect function</a> or the "
             + "<a href=\"../aspects.md\">introduction to Aspects</a>.")
-public interface SkylarkAspectApi extends StarlarkValue {}
+public interface StarlarkAspectApi extends StarlarkValue {}

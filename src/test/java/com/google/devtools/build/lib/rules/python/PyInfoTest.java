@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.skylark.util.StarlarkTestCase;
 import com.google.devtools.build.lib.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link PyInfo}. */
 @RunWith(JUnit4.class)
-public class PyInfoTest extends SkylarkTestCase {
+public class PyInfoTest extends StarlarkTestCase {
 
   private Artifact dummyArtifact;
 

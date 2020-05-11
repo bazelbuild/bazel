@@ -117,10 +117,10 @@ public final class Attribute implements Comparable<Attribute> {
   @VisibleForSerialization
   @AutoCodec
   static class SkylarkRuleAspect extends RuleAspect<SkylarkAspectClass> {
-    private final SkylarkDefinedAspect aspect;
+    private final StarlarkDefinedAspect aspect;
 
     @VisibleForSerialization
-    SkylarkRuleAspect(SkylarkDefinedAspect aspect) {
+    SkylarkRuleAspect(StarlarkDefinedAspect aspect) {
       super(aspect.getAspectClass(), aspect.getDefaultParametersExtractor());
       this.aspect = aspect;
     }
@@ -1034,7 +1034,7 @@ public final class Attribute implements Comparable<Attribute> {
     @AutoCodec @AutoCodec.VisibleForSerialization
     static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
-    public Builder<TYPE> aspect(SkylarkDefinedAspect skylarkAspect) throws EvalException {
+    public Builder<TYPE> aspect(StarlarkDefinedAspect skylarkAspect) throws EvalException {
       SkylarkRuleAspect skylarkRuleAspect = new SkylarkRuleAspect(skylarkAspect);
       RuleAspect<?> oldAspect = this.aspects.put(skylarkAspect.getName(), skylarkRuleAspect);
       if (oldAspect != null) {

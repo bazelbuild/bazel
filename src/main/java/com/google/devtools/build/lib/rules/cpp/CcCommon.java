@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -200,9 +200,9 @@ public final class CcCommon {
     return mergedOutputGroups;
   }
 
-  public static void checkRuleWhitelisted(SkylarkRuleContext skylarkRuleContext)
+  public static void checkRuleWhitelisted(StarlarkRuleContext starlarkRuleContext)
       throws EvalException, InterruptedException {
-    RuleContext context = skylarkRuleContext.getRuleContext();
+    RuleContext context = starlarkRuleContext.getRuleContext();
     Rule rule = context.getRule();
 
     RuleClass ruleClass = rule.getRuleClassObject();

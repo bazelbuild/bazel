@@ -22,14 +22,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -57,7 +57,7 @@ public class AppleSkylarkCommon
     implements AppleCommonApi<
         Artifact,
         ConstraintValueInfo,
-        SkylarkRuleContext,
+        StarlarkRuleContext,
         ObjcProvider,
         XcodeConfigInfo,
         ApplePlatform> {
@@ -229,13 +229,13 @@ public class AppleSkylarkCommon
 
   @Override
   public StructImpl linkMultiArchBinary(
-      SkylarkRuleContext skylarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     try {
-      RuleContext ruleContext = skylarkRuleContext.getRuleContext();
+      RuleContext ruleContext = starlarkRuleContext.getRuleContext();
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
@@ -257,7 +257,7 @@ public class AppleSkylarkCommon
   }
 
   @Override
-  public SkylarkAspect getObjcProtoAspect() {
+  public StarlarkAspect getObjcProtoAspect() {
     return objcProtoAspect;
   }
 

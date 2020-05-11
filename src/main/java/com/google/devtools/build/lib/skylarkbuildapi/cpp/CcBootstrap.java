@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
@@ -37,7 +37,7 @@ public class CcBootstrap implements Bootstrap {
           ? extends LibraryToLinkApi<? extends FileApi>,
           ? extends CcToolchainVariablesApi,
           ? extends ConstraintValueInfoApi,
-          ? extends SkylarkRuleContextApi<? extends ConstraintValueInfoApi>,
+          ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
           ? extends CcToolchainConfigInfoApi,
           ? extends CcCompilationOutputsApi<? extends FileApi>>
       ccModule;
@@ -62,7 +62,7 @@ public class CcBootstrap implements Bootstrap {
               ? extends LibraryToLinkApi<? extends FileApi>,
               ? extends CcToolchainVariablesApi,
               ? extends ConstraintValueInfoApi,
-              ? extends SkylarkRuleContextApi<? extends ConstraintValueInfoApi>,
+              ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
               ? extends CcToolchainConfigInfoApi,
               ? extends CcCompilationOutputsApi<? extends FileApi>>
           ccModule,

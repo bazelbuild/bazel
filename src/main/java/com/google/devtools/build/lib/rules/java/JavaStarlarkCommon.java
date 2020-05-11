@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
@@ -39,7 +39,7 @@ public class JavaStarlarkCommon
         JavaToolchainProvider,
         JavaRuntimeInfo,
         ConstraintValueInfo,
-        SkylarkRuleContext,
+        StarlarkRuleContext,
         StarlarkActionFactory> {
   private final JavaSemantics javaSemantics;
 
@@ -54,7 +54,7 @@ public class JavaStarlarkCommon
 
   @Override
   public JavaInfo createJavaCompileAction(
-      SkylarkRuleContext skylarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceJars, // <Artifact> expected
       Sequence<?> sourceFiles, // <Artifact> expected
       Artifact outputJar,
@@ -78,7 +78,7 @@ public class JavaStarlarkCommon
 
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
-            skylarkRuleContext,
+            starlarkRuleContext,
             Sequence.cast(sourceJars, Artifact.class, "source_jars"),
             Sequence.cast(sourceFiles, Artifact.class, "source_files"),
             outputJar,
@@ -190,7 +190,7 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public boolean isJavaToolchainResolutionEnabled(SkylarkRuleContext ruleContext)
+  public boolean isJavaToolchainResolutionEnabled(StarlarkRuleContext ruleContext)
       throws EvalException {
     return ruleContext
         .getConfiguration()

@@ -32,7 +32,7 @@ import java.util.Objects;
 
 /** A Starlark value that is a result of an 'aspect(..)' function call. */
 @AutoCodec
-public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
+public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
   private final StarlarkCallable implementation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
@@ -47,7 +47,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
 
   private SkylarkAspectClass aspectClass;
 
-  public SkylarkDefinedAspect(
+  public StarlarkDefinedAspect(
       StarlarkCallable implementation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
@@ -76,7 +76,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
   /** Constructor for post export reconstruction for serialization. */
   @VisibleForSerialization
   @AutoCodec.Instantiator
-  SkylarkDefinedAspect(
+  StarlarkDefinedAspect(
       StarlarkCallable implementation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
@@ -251,7 +251,7 @@ public class SkylarkDefinedAspect implements SkylarkExportable, SkylarkAspect {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    SkylarkDefinedAspect that = (SkylarkDefinedAspect) o;
+    StarlarkDefinedAspect that = (StarlarkDefinedAspect) o;
     return Objects.equals(implementation, that.implementation)
         && Objects.equals(attributeAspects, that.attributeAspects)
         && Objects.equals(attributes, that.attributes)

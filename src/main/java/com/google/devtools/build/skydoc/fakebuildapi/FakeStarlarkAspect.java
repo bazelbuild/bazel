@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 
-/** Fake implementation of {@link SkylarkAspectApi}. */
-public class FakeSkylarkAspect implements StarlarkCallable, SkylarkAspectApi {
+/** Fake implementation of {@link StarlarkAspectApi}. */
+public class FakeStarlarkAspect implements StarlarkCallable, StarlarkAspectApi {
 
   /**
    * Each fake is constructed with a unique name, controlled by this counter being the name suffix.

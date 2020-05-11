@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PyProviderUtils;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.skylark.util.StarlarkTestCase;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -70,10 +70,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for SkylarkRuleContext.
+ * Tests for {@link StarlarkRuleContext}.
  */
 @RunWith(JUnit4.class)
-public class SkylarkRuleContextTest extends SkylarkTestCase {
+public class StarlarkRuleContextTest extends StarlarkTestCase {
 
   /** A test rule that exercises the semantics of mandatory providers. */
   private static final MockRule TESTING_RULE_FOR_MANDATORY_PROVIDERS =
@@ -143,7 +143,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     );
   }
 
-  private void setRuleContext(SkylarkRuleContext ctx) throws Exception {
+  private void setRuleContext(StarlarkRuleContext ctx) throws Exception {
     update("ruleContext", ctx);
   }
 
@@ -191,7 +191,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void hasCorrectLocationForRuleAttributeError_SkylarkRuleWithMacro() throws Exception {
+  public void hasCorrectLocationForRuleAttributeError_StarlarkRuleWithMacro() throws Exception {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:m_skylark"));
     assertContainsEvent(
@@ -213,7 +213,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void hasCorrectLocationForRuleAttributeError_SkylarkRule() throws Exception {
+  public void hasCorrectLocationForRuleAttributeError_StarlarkRule() throws Exception {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule"));
     assertContainsEvent(
@@ -223,7 +223,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testMandatoryProvidersListWithSkylark() throws Exception {
+  public void testMandatoryProvidersListWithStarlark() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file("test/BUILD",
             "load('//test:rules.bzl', 'skylark_rule', 'my_rule', 'my_other_rule')",
@@ -311,7 +311,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testPackageBoundaryError_SkylarkRule() throws Exception {
+  public void testPackageBoundaryError_StarlarkRule() throws Exception {
     scratch.file("test/BUILD",
         "load('//test:macros.bzl', 'skylark_rule')",
         "skylark_rule(name = 'skyrule',",
@@ -336,7 +336,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testPackageBoundaryError_SkylarkMacro() throws Exception {
+  public void testPackageBoundaryError_StarlarkMacro() throws Exception {
     scratch.file("test/BUILD",
         "load('//test:macros.bzl', 'macro_skylark_rule')",
         "macro_skylark_rule(name = 'm_skylark',",
@@ -413,7 +413,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
    * with it.
    */
   @Test
-  public void testPackageBoundaryError_SkylarkMacroWithErrorInBzlFile() throws Exception {
+  public void testPackageBoundaryError_StarlarkMacroWithErrorInBzlFile() throws Exception {
     scratch.file("test/BUILD",
         "load('//test:macros.bzl', 'macro_skylark_rule')",
         "macro_skylark_rule(name = 'm_skylark')");
@@ -457,7 +457,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void shouldGetPrerequisiteArtifacts() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.files.srcs");
     assertArtifactList(result, ImmutableList.of("a.txt", "b.img"));
@@ -475,7 +475,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void shouldGetPrerequisites() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:bar");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:bar");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.srcs");
     // Check for a known provider
@@ -487,7 +487,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void shouldGetPrerequisite() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:asr");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:asr");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.srcjar");
     TransitiveInfoCollection tic = (TransitiveInfoCollection) result;
@@ -497,7 +497,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testGetRuleAttributeListType() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.outs");
     assertThat(result).isInstanceOf(Sequence.class);
@@ -589,7 +589,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "             s = adict.keys())",
         "consume_rule(name = 'c_str', s = [cdict['kind'], cdict['name'], cdict['x']])");
 
-    SkylarkRuleContext allContext = createRuleContext("//test/getrule:all_str");
+    StarlarkRuleContext allContext = createRuleContext("//test/getrule:all_str");
     setRuleContext(allContext);
     List<?> result = (List) eval("ruleContext.attr.s");
     assertThat(result).containsExactly("genrule", "a", "nop_rule", "c");
@@ -649,7 +649,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testGetRuleAttributeListValue() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.outs");
     assertThat(((Sequence) result)).hasSize(1);
@@ -657,7 +657,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testGetRuleAttributeListValueNoGet() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.outs");
     assertThat(((Sequence) result)).hasSize(1);
@@ -665,7 +665,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testGetRuleAttributeStringTypeValue() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.cmd");
     assertThat((String) result).isEqualTo("dummy_cmd");
@@ -673,7 +673,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testGetRuleAttributeStringTypeValueNoGet() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.attr.cmd");
     assertThat((String) result).isEqualTo("dummy_cmd");
@@ -713,7 +713,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testCreateSpawnActionArgumentsWithExecutableFilesToRunProvider() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
     setRuleContext(ruleContext);
     exec(
         "ruleContext.actions.run(",
@@ -730,7 +730,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithUnusedInputsList() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     exec(
         "ruleContext.actions.run(",
@@ -750,7 +750,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithoutUnusedInputsList() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     exec(
         "ruleContext.actions.run(",
@@ -774,7 +774,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testSkylarkRuleContextGetDefaultShellEnv() throws Exception {
+  public void testStarlarkRuleContextGetDefaultShellEnv() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result = eval("ruleContext.configuration.default_shell_env");
     assertThat(result).isInstanceOf(Dict.class);
@@ -861,7 +861,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testConfiguration() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.configuration");
     assertThat(ruleContext.getRuleContext().getConfiguration()).isSameInstanceAs(result);
@@ -883,7 +883,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testHostConfiguration() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.host_configuration");
     assertThat(ruleContext.getRuleContext().getHostConfiguration()).isSameInstanceAs(result);
@@ -1797,7 +1797,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "    executable = 1,",
         ")");
     invalidatePackages();
-    SkylarkRuleContext ruleContext = createRuleContext("//test:lib");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:lib");
     setRuleContext(ruleContext);
     String filename = eval("ruleContext.files.srcs[0].short_path").toString();
     assertThat(filename).isEqualTo("../foo/bar.txt");
@@ -1817,7 +1817,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   // a testing rule, where the rule under test has one output and one caller-supplied action.
 
   private static String getSimpleUnderTestDefinition(
-      boolean withSkylarkTestable, String[] actionLines) {
+      boolean withStarlarkTestable, String[] actionLines) {
     return linesAsString(
         // TODO(b/153667498): Just passing fail to map_each parameter of Args.add_all does not work.
         "def fail_with_message(s):",
@@ -1829,7 +1829,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "undertest_rule = rule(",
         "  implementation = _undertest_impl,",
         "  outputs = {'out': '%{name}.txt'},",
-        withSkylarkTestable ? "  _skylark_testable = True," : "",
+        withStarlarkTestable ? "  _skylark_testable = True," : "",
         ")");
   }
 
@@ -1869,7 +1869,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
     Object provider = eval("ruleContext.attr.dep[Actions]");
@@ -1885,7 +1885,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testNoAccessToDependencyActionsWithoutSkylarkTest() throws Exception {
+  public void testNoAccessToDependencyActionsWithoutStarlarkTest() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("test/rules.bzl",
         getSimpleNontestableUnderTestDefinition(
@@ -1893,7 +1893,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
     Exception e = assertThrows(Exception.class, () -> eval("ruleContext.attr.dep[Actions]"));
@@ -1926,7 +1926,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     update("file1", eval("ruleContext.attr.dep.out1"));
     update("file2", eval("ruleContext.attr.dep.out2"));
@@ -1977,7 +1977,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         );
     scratch.file("test/BUILD",
         simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
     Object mapUnchecked = eval("ruleContext.attr.dep.v");
@@ -1994,7 +1994,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testNoAccessToCreatedActionsWithoutSkylarkTest() throws Exception {
+  public void testNoAccessToCreatedActionsWithoutStarlarkTest() throws Exception {
     scratch.file("test/rules.bzl",
         getSimpleNontestableUnderTestDefinition(
             "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)")
@@ -2004,7 +2004,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "undertest_rule(",
         "    name = 'undertest',",
         ")");
-    SkylarkRuleContext ruleContext = createRuleContext("//test:undertest");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:undertest");
     setRuleContext(ruleContext);
 
     Object result = eval("ruleContext.created_actions()");
@@ -2019,7 +2019,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
@@ -2075,7 +2075,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         ")",
         testingRuleDefinition);
     scratch.file("test/BUILD", simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
     Object mapUnchecked = eval("ruleContext.attr.dep.v");
@@ -2135,7 +2135,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
@@ -2157,7 +2157,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             "ctx.actions.write(output=out, content=args)"),
         testingRuleDefinition);
     scratch.file("test/BUILD", simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
@@ -2185,7 +2185,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             "ctx.actions.write(output=out, content=args)"),
         testingRuleDefinition);
     scratch.file("test/BUILD", simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
@@ -2208,7 +2208,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
             "ctx.actions.write(output=out, content=args)"),
         testingRuleDefinition);
     scratch.file("test/BUILD", simpleBuildDefinition);
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
@@ -2255,7 +2255,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "    name = 'testing',",
         "    dep = ':undertest',",
         ")");
-    SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
     update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
@@ -2288,7 +2288,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testCoverageInstrumentedCoverageDisabled() throws Exception {
     setUpCoverageInstrumentedTest();
     useConfiguration("--nocollect_code_coverage", "--instrumentation_filter=.");
-    SkylarkRuleContext ruleContext = createRuleContext("//test:foo");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:foo");
     setRuleContext(ruleContext);
     Object result = eval("ruleContext.coverage_instrumented()");
     assertThat((Boolean) result).isFalse();

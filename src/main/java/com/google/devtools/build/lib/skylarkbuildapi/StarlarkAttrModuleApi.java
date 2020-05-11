@@ -348,7 +348,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(
             name = ASPECTS_ARG,
             type = Sequence.class,
-            generic1 = SkylarkAspectApi.class,
+            generic1 = StarlarkAspectApi.class,
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -556,7 +556,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(
             name = ASPECTS_ARG,
             type = Sequence.class,
-            generic1 = SkylarkAspectApi.class,
+            generic1 = StarlarkAspectApi.class,
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -670,7 +670,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(
             name = ASPECTS_ARG,
             type = Sequence.class,
-            generic1 = SkylarkAspectApi.class,
+            generic1 = StarlarkAspectApi.class,
             defaultValue = "[]",
             named = true,
             positional = false,

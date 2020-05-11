@@ -27,14 +27,14 @@ import org.junit.runners.JUnit4;
 
 /** Tests for string representations of Starlark objects. */
 @RunWith(JUnit4.class)
-public class SkylarkStringRepresentationsTest extends BuildViewTestCase {
+public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
 
   // Different ways to format objects, these suffixes are used in the `prepare_params` function
   private static final ImmutableList<String> SUFFIXES =
       ImmutableList.of("_str", "_repr", "_format", "_str_perc", "_repr_perc");
 
-  private Object skylarkLoadingEval(String code) throws Exception {
-    return skylarkLoadingEval(code, "");
+  private Object starlarkLoadingEval(String code) throws Exception {
+    return starlarkLoadingEval(code, "");
   }
 
   /**
@@ -43,7 +43,7 @@ public class SkylarkStringRepresentationsTest extends BuildViewTestCase {
    * @param code The code to execute
    * @param definition Additional code to define necessary variables
    */
-  private Object skylarkLoadingEval(String code, String definition) throws Exception {
+  private Object starlarkLoadingEval(String code, String definition) throws Exception {
     scratch.overwriteFile("eval/BUILD", "load(':eval.bzl', 'eval')", "eval(name='eval')");
     scratch.overwriteFile(
         "eval/eval.bzl",
@@ -69,7 +69,7 @@ public class SkylarkStringRepresentationsTest extends BuildViewTestCase {
    *
    * @param code The code to execute
    */
-  private Object skylarkLoadingEvalInBuildFile(String code) throws Exception {
+  private Object starlarkLoadingEvalInBuildFile(String code) throws Exception {
     scratch.overwriteFile("eval/BUILD",
         "load(':eval.bzl', 'eval')",
         String.format("eval(name='eval', param = %s)", code));
@@ -101,15 +101,15 @@ public class SkylarkStringRepresentationsTest extends BuildViewTestCase {
    */
   private void assertStringRepresentationInBuildFile(
       String expression, String representation) throws Exception {
-    assertThat(skylarkLoadingEvalInBuildFile(String.format("str(%s)", expression)))
+    assertThat(starlarkLoadingEvalInBuildFile(String.format("str(%s)", expression)))
         .isEqualTo(representation);
-    assertThat(skylarkLoadingEvalInBuildFile(String.format("repr(%s)", expression)))
+    assertThat(starlarkLoadingEvalInBuildFile(String.format("repr(%s)", expression)))
         .isEqualTo(representation);
-    assertThat(skylarkLoadingEvalInBuildFile(String.format("'%%s' %% (%s,)", expression)))
+    assertThat(starlarkLoadingEvalInBuildFile(String.format("'%%s' %% (%s,)", expression)))
         .isEqualTo(representation);
-    assertThat(skylarkLoadingEvalInBuildFile(String.format("'%%r' %% (%s,)", expression)))
+    assertThat(starlarkLoadingEvalInBuildFile(String.format("'%%r' %% (%s,)", expression)))
         .isEqualTo(representation);
-    assertThat(skylarkLoadingEvalInBuildFile(String.format("'{}'.format(%s)", expression)))
+    assertThat(starlarkLoadingEvalInBuildFile(String.format("'{}'.format(%s)", expression)))
         .isEqualTo(representation);
   }
 
@@ -125,15 +125,15 @@ public class SkylarkStringRepresentationsTest extends BuildViewTestCase {
    */
   private void assertStringRepresentation(
       String definition, String expression, String representation) throws Exception {
-    assertThat(skylarkLoadingEval(String.format("str(%s)", expression), definition))
+    assertThat(starlarkLoadingEval(String.format("str(%s)", expression), definition))
         .isEqualTo(representation);
-    assertThat(skylarkLoadingEval(String.format("repr(%s)", expression), definition))
+    assertThat(starlarkLoadingEval(String.format("repr(%s)", expression), definition))
         .isEqualTo(representation);
-    assertThat(skylarkLoadingEval(String.format("'%%s' %% (%s,)", expression), definition))
+    assertThat(starlarkLoadingEval(String.format("'%%s' %% (%s,)", expression), definition))
         .isEqualTo(representation);
-    assertThat(skylarkLoadingEval(String.format("'%%r' %% (%s,)", expression), definition))
+    assertThat(starlarkLoadingEval(String.format("'%%r' %% (%s,)", expression), definition))
         .isEqualTo(representation);
-    assertThat(skylarkLoadingEval(String.format("'{}'.format(%s)", expression), definition))
+    assertThat(starlarkLoadingEval(String.format("'{}'.format(%s)", expression), definition))
         .isEqualTo(representation);
   }
 
@@ -224,22 +224,22 @@ public class SkylarkStringRepresentationsTest extends BuildViewTestCase {
 
   @Test
   public void testStringRepresentations_Strings() throws Exception {
-    assertThat(skylarkLoadingEval("str('foo')")).isEqualTo("foo");
-    assertThat(skylarkLoadingEval("'%s' % 'foo'")).isEqualTo("foo");
-    assertThat(skylarkLoadingEval("'{}'.format('foo')")).isEqualTo("foo");
-    assertThat(skylarkLoadingEval("repr('foo')")).isEqualTo("\"foo\"");
-    assertThat(skylarkLoadingEval("'%r' % 'foo'")).isEqualTo("\"foo\"");
+    assertThat(starlarkLoadingEval("str('foo')")).isEqualTo("foo");
+    assertThat(starlarkLoadingEval("'%s' % 'foo'")).isEqualTo("foo");
+    assertThat(starlarkLoadingEval("'{}'.format('foo')")).isEqualTo("foo");
+    assertThat(starlarkLoadingEval("repr('foo')")).isEqualTo("\"foo\"");
+    assertThat(starlarkLoadingEval("'%r' % 'foo'")).isEqualTo("\"foo\"");
   }
 
   @Test
   public void testStringRepresentations_Labels() throws Exception {
-    assertThat(skylarkLoadingEval("str(Label('//foo:bar'))")).isEqualTo("//foo:bar");
-    assertThat(skylarkLoadingEval("'%s' % Label('//foo:bar')")).isEqualTo("//foo:bar");
-    assertThat(skylarkLoadingEval("'{}'.format(Label('//foo:bar'))")).isEqualTo("//foo:bar");
-    assertThat(skylarkLoadingEval("repr(Label('//foo:bar'))")).isEqualTo("Label(\"//foo:bar\")");
-    assertThat(skylarkLoadingEval("'%r' % Label('//foo:bar')")).isEqualTo("Label(\"//foo:bar\")");
+    assertThat(starlarkLoadingEval("str(Label('//foo:bar'))")).isEqualTo("//foo:bar");
+    assertThat(starlarkLoadingEval("'%s' % Label('//foo:bar')")).isEqualTo("//foo:bar");
+    assertThat(starlarkLoadingEval("'{}'.format(Label('//foo:bar'))")).isEqualTo("//foo:bar");
+    assertThat(starlarkLoadingEval("repr(Label('//foo:bar'))")).isEqualTo("Label(\"//foo:bar\")");
+    assertThat(starlarkLoadingEval("'%r' % Label('//foo:bar')")).isEqualTo("Label(\"//foo:bar\")");
 
-    assertThat(skylarkLoadingEval("'{}'.format([Label('//foo:bar')])"))
+    assertThat(starlarkLoadingEval("'{}'.format([Label('//foo:bar')])"))
         .isEqualTo("[Label(\"//foo:bar\")]");
   }
 

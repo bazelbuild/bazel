@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.syntax.Printer;
 
 /** A natively-defined aspect that is may be referenced by Starlark attribute definitions. */
-public abstract class SkylarkNativeAspect extends NativeAspectClass implements SkylarkAspect {
+public abstract class StarlarkNativeAspect extends NativeAspectClass implements StarlarkAspect {
   @Override
   public void repr(Printer printer) {
     printer.append("<native aspect>");

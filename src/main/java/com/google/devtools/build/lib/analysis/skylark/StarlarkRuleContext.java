@@ -77,7 +77,7 @@ import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -112,7 +112,7 @@ import javax.annotation.Nullable;
  * object and makes it impossible to accidentally use this object where it's not supposed to be used
  * (such attempts will result in {@link EvalException}s).
  */
-public final class SkylarkRuleContext implements SkylarkRuleContextApi<ConstraintValueInfo> {
+public final class StarlarkRuleContext implements StarlarkRuleContextApi<ConstraintValueInfo> {
 
   public static final Function<Attribute, Object> ATTRIBUTE_VALUE_EXTRACTOR_FOR_ASPECT =
       new Function<Attribute, Object>() {
@@ -150,13 +150,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   private Outputs outputsObject;
 
   /**
-   * Creates a new SkylarkRuleContext using ruleContext.
+   * Creates a new StarlarkRuleContext using ruleContext.
    *
    * @param aspectDescriptor aspect for which the context is created, or <code>null</code> if it is
    *     for a rule.
    * @throws InterruptedException
    */
-  public SkylarkRuleContext(
+  public StarlarkRuleContext(
       RuleContext ruleContext,
       @Nullable AspectDescriptor aspectDescriptor,
       StarlarkSemantics starlarkSemantics)
@@ -284,10 +284,10 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
    */
   private static class Outputs implements ClassObject, StarlarkValue {
     private final Map<String, Object> outputs;
-    private final SkylarkRuleContext context;
+    private final StarlarkRuleContext context;
     private boolean executableCreated = false;
 
-    public Outputs(SkylarkRuleContext context) {
+    public Outputs(StarlarkRuleContext context) {
       this.outputs = new LinkedHashMap<>();
       this.context = context;
     }
@@ -474,7 +474,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     return StructProvider.STRUCT.create(
         splitAttrInfos.build(),
         "No attribute '%s' in split_attr."
-            + " This attribute is not defined with a split configuration.");
+            + "This attribute is not defined with a split configuration.");
   }
 
   @Override
@@ -602,13 +602,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
               "attempting to access 'build_setting_value' of non-build setting %s",
               ruleLabelCanonicalName));
     }
-    ImmutableMap<Label, Object> skylarkFlagSettings =
+    ImmutableMap<Label, Object> starlarkFlagSettings =
         ruleContext.getConfiguration().getOptions().getStarlarkOptions();
 
     Type<?> buildSettingType =
         ruleContext.getRule().getRuleClassObject().getBuildSetting().getType();
-    if (skylarkFlagSettings.containsKey(ruleContext.getLabel())) {
-      return skylarkFlagSettings.get(ruleContext.getLabel());
+    if (starlarkFlagSettings.containsKey(ruleContext.getLabel())) {
+      return starlarkFlagSettings.get(ruleContext.getLabel());
     } else {
       return ruleContext
           .attributes()
@@ -1113,7 +1113,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
         Depset.of(Artifact.TYPE, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 
-  public StarlarkSemantics getSkylarkSemantics() {
+  public StarlarkSemantics getStarlarkSemantics() {
     return starlarkSemantics;
   }
 

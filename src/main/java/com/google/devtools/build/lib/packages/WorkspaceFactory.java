@@ -383,7 +383,7 @@ public class WorkspaceFactory {
   private static ClassObject newNativeModule(
       ImmutableMap<String, Object> workspaceFunctions, String version) {
     ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
-    Starlark.addMethods(env, new SkylarkNativeModule());
+    Starlark.addMethods(env, new StarlarkNativeModule());
     for (Map.Entry<String, Object> entry : workspaceFunctions.entrySet()) {
       String name = entry.getKey();
       if (name.startsWith("$")) {

@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.skylarkbuildapi.ExecGroupApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -48,12 +48,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Fake implementation of {@link SkylarkRuleFunctionsApi}.
+ * Fake implementation of {@link StarlarkRuleFunctionsApi}.
  *
  * <p>This fake hooks into the global {@code rule()} function, adding descriptors of calls of that
  * function to a {@link List} given in the class constructor.</p>
  */
-public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<FileApi> {
+public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<FileApi> {
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(
@@ -74,7 +74,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
    * @param aspectInfoList the list of {@link AspectInfo} objects to which aspect() invocation
    *     information will be added
    */
-  public FakeSkylarkRuleFunctionsApi(
+  public FakeStarlarkRuleFunctionsApi(
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList) {
@@ -175,7 +175,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public SkylarkAspectApi aspect(
+  public StarlarkAspectApi aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
       Object attrs,
@@ -188,7 +188,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Boolean applyToFiles,
       StarlarkThread thread)
       throws EvalException {
-    FakeSkylarkAspect fakeAspect = new FakeSkylarkAspect();
+    FakeStarlarkAspect fakeAspect = new FakeStarlarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
       attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));

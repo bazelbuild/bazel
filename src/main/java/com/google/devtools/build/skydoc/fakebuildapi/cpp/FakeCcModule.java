@@ -16,8 +16,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
@@ -47,7 +47,7 @@ public class FakeCcModule
         StarlarkActionFactoryApi,
         FileApi,
         ConstraintValueInfoApi,
-        SkylarkRuleContextApi<ConstraintValueInfoApi>,
+        StarlarkRuleContextApi<ConstraintValueInfoApi>,
         CcToolchainProviderApi<FeatureConfigurationApi>,
         FeatureConfigurationApi,
         CcCompilationContextApi<FileApi>,
@@ -218,7 +218,7 @@ public class FakeCcModule
 
   @Override
   public boolean isCcToolchainResolutionEnabled(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> context) {
+      StarlarkRuleContextApi<ConstraintValueInfoApi> context) {
     return false;
   }
 
@@ -289,7 +289,7 @@ public class FakeCcModule
 
   @Override
   public CcToolchainConfigInfoApi ccToolchainConfigInfoFromSkylark(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      StarlarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       Sequence<?> features,
       Sequence<?> actionConfigs,
       Sequence<?> artifactNamePatterns,

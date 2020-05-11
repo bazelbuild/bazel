@@ -102,7 +102,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
+import com.google.devtools.build.lib.skylarkbuildapi.stubs.StarlarkAspectStub;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -259,7 +259,7 @@ public class BazelRuleClassProvider {
               new ProtoBootstrap(
                   ProtoInfo.PROVIDER,
                   BazelProtoCommon.INSTANCE,
-                  new SkylarkAspectStub(),
+                  new StarlarkAspectStub(),
                   new ProviderStub());
           builder.addSkylarkBootstrap(bootstrap);
         }

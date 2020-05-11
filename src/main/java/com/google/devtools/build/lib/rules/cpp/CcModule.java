@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -96,7 +96,7 @@ public abstract class CcModule
         LibraryToLink,
         CcToolchainVariables,
         ConstraintValueInfo,
-        SkylarkRuleContext,
+        StarlarkRuleContext,
         CcToolchainConfigInfo,
         CcCompilationOutputs> {
 
@@ -134,7 +134,7 @@ public abstract class CcModule
       Sequence<?> requestedFeatures, // <String> expected
       Sequence<?> unsupportedFeatures)
       throws EvalException {
-    SkylarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, SkylarkRuleContext.class);
+    StarlarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, StarlarkRuleContext.class);
     ImmutableSet<String> unsupportedFeaturesSet =
         ImmutableSet.copyOf(
             Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
@@ -767,7 +767,7 @@ public abstract class CcModule
 
   @Override
   public CcToolchainConfigInfo ccToolchainConfigInfoFromSkylark(
-      SkylarkRuleContext skylarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       Sequence<?> features, // <SkylarkInfo> expected
       Sequence<?> actionConfigs, // <SkylarkInfo> expected
       Sequence<?> artifactNamePatterns, // <SkylarkInfo> expected
@@ -842,13 +842,13 @@ public abstract class CcModule
         if (tool.first.equals(CppConfiguration.Tool.GCC.getNamePart())) {
           gccToolPath = tool.second;
           linkerToolPath =
-              skylarkRuleContext
+              starlarkRuleContext
                   .getRuleContext()
                   .getLabel()
                   .getPackageIdentifier()
                   .getExecPath(
-                      skylarkRuleContext
-                          .getSkylarkSemantics()
+                      starlarkRuleContext
+                          .getStarlarkSemantics()
                           .experimentalSiblingRepositoryLayout())
                   .getRelative(PathFragment.create(tool.second))
                   .getPathString();
@@ -899,7 +899,7 @@ public abstract class CcModule
               linkerToolPath,
               /* supportsEmbeddedRuntimes= */ false,
               /* supportsInterfaceSharedLibraries= */ false,
-              skylarkRuleContext.getSkylarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
+              starlarkRuleContext.getStarlarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -910,7 +910,7 @@ public abstract class CcModule
       for (CToolchain.Feature feature :
           CppActionConfigs.getFeaturesToAppearLastInFeaturesList(
               featureNames,
-              skylarkRuleContext.getSkylarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
+              starlarkRuleContext.getStarlarkSemantics().incompatibleDoNotSplitLinkingCmdline())) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
 
@@ -1508,8 +1508,8 @@ public abstract class CcModule
   }
 
   @Override
-  public boolean isCcToolchainResolutionEnabled(SkylarkRuleContext skylarkRuleContext) {
-    return CppHelper.useToolchainResolution(skylarkRuleContext.getRuleContext());
+  public boolean isCcToolchainResolutionEnabled(StarlarkRuleContext starlarkRuleContext) {
+    return CppHelper.useToolchainResolution(starlarkRuleContext.getRuleContext());
   }
 
   @Override

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 public interface PyWrapCcHelperApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
+        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcInfoT extends CcInfoApi<FileT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
@@ -63,7 +63,7 @@ public interface PyWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
       })
   // TODO(plf): PyExtension is not in Starlark.
   public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextT skylarkRuleContext)
@@ -74,7 +74,7 @@ public interface PyWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
         @Param(name = "py_file", positional = false, named = true, type = FileApi.class),
       })
   // TODO(plf): Not written in Starlark because of PyCommon.
@@ -86,7 +86,7 @@ public interface PyWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
         @Param(name = "files_to_build", positional = false, named = true, type = Depset.class),
       })
   // TODO(plf): Not written in Starlark because of PythonRunfilesProvider.
@@ -98,7 +98,7 @@ public interface PyWrapCcHelperApi<
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
         @Param(name = "cc_info", positional = false, named = true, type = CcInfoApi.class),
       })
   // TODO(plf): PyWrapCcInfo is not written in Starlark because several native rules use it.

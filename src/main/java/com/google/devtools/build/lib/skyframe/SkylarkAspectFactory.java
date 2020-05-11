@@ -22,14 +22,14 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
+import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -44,9 +44,9 @@ import java.util.Map;
 
 /** A factory for aspects that are defined in Starlark. */
 public class SkylarkAspectFactory implements ConfiguredAspectFactory {
-  private final SkylarkDefinedAspect skylarkAspect;
+  private final StarlarkDefinedAspect skylarkAspect;
 
-  SkylarkAspectFactory(SkylarkDefinedAspect skylarkAspect) {
+  SkylarkAspectFactory(StarlarkDefinedAspect skylarkAspect) {
     this.skylarkAspect = skylarkAspect;
   }
 
@@ -57,14 +57,14 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       AspectParameters parameters,
       String toolsRepository)
       throws InterruptedException, ActionConflictException {
-    SkylarkRuleContext skylarkRuleContext = null;
+    StarlarkRuleContext starlarkRuleContext = null;
     try (Mutability mutability = Mutability.create("aspect")) {
       AspectDescriptor aspectDescriptor =
           new AspectDescriptor(skylarkAspect.getAspectClass(), parameters);
       AnalysisEnvironment analysisEnv = ruleContext.getAnalysisEnvironment();
       try {
-        skylarkRuleContext =
-            new SkylarkRuleContext(
+        starlarkRuleContext =
+            new StarlarkRuleContext(
                 ruleContext, aspectDescriptor, analysisEnv.getSkylarkSemantics());
       } catch (EvalException | RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
@@ -91,7 +91,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
             Starlark.call(
                 thread,
                 skylarkAspect.getImplementation(),
-                /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
+                /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), starlarkRuleContext),
                 /*kwargs=*/ ImmutableMap.of());
 
         // If allowing analysis failures, targets should be created somewhat normally, and errors
@@ -117,8 +117,8 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         return null;
       }
     } finally {
-      if (skylarkRuleContext != null) {
-        skylarkRuleContext.nullify();
+      if (starlarkRuleContext != null) {
+        starlarkRuleContext.nullify();
       }
     }
   }

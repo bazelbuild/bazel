@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkModules; // a bad dependency
+import com.google.devtools.build.lib.analysis.skylark.StarlarkModules; // a bad dependency
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -68,12 +68,12 @@ public class EvaluationTestCase {
 
   /**
    * Returns a new thread using the semantics set by setSemantics(), the predeclared environment of
-   * SkylarkModules and prior calls to predeclared(), and a new mutability. Overridden by
+   * StarlarkModules and prior calls to predeclared(), and a new mutability. Overridden by
    * subclasses.
    */
   public StarlarkThread newStarlarkThread() {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder); // TODO(adonovan): break bad dependency
+    StarlarkModules.addStarlarkGlobalsToBuilder(envBuilder); // TODO(adonovan): break bad dependency
     envBuilder.putAll(extraPredeclared);
 
     StarlarkThread thread =
@@ -207,14 +207,14 @@ public class EvaluationTestCase {
    */
   public final class Scenario {
     private final SetupActions setup = new SetupActions();
-    private final String[] skylarkOptions;
+    private final String[] starlarkOptions;
 
-    public Scenario(String... skylarkOptions) {
-      this.skylarkOptions = skylarkOptions;
+    public Scenario(String... starlarkOptions) {
+      this.starlarkOptions = starlarkOptions;
     }
 
     private void run(Testable testable) throws Exception {
-      setSemantics(skylarkOptions);
+      setSemantics(starlarkOptions);
       testable.run();
     }
 

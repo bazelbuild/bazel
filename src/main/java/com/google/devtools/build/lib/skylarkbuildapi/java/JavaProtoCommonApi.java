@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface JavaProtoCommonApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
+        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         TransitiveInfoCollectionT extends TransitiveInfoCollectionApi>
     extends StarlarkValue {
 
@@ -42,7 +42,7 @@ public interface JavaProtoCommonApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             doc = "The rule context."),
         @Param(
             name = "target",
@@ -96,7 +96,7 @@ public interface JavaProtoCommonApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             doc = "The rule context."),
         @Param(name = "proto_toolchain_attr", positional = false, named = true, type = String.class)
       })

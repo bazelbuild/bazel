@@ -18,16 +18,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.packages.StarlarkLibrary;
+import com.google.devtools.build.lib.packages.StarlarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.syntax.Starlark;
 
 /** The basis for a Starlark Environment with all build-related modules registered. */
-public final class SkylarkModules {
+public final class StarlarkModules {
 
-  private SkylarkModules() { }
+  private StarlarkModules() { }
 
   /** A bootstrap for non-rules-specific globals of the build API. */
   private static TopLevelBootstrap topLevelBootstrap =
@@ -35,8 +35,8 @@ public final class SkylarkModules {
           new BazelBuildApiGlobals(),
           new StarlarkAttrModule(),
           new StarlarkCommandLine(),
-          new SkylarkNativeModule(),
-          new SkylarkRuleClassFunctions(),
+          new StarlarkNativeModule(),
+          new StarlarkRuleClassFunctions(),
           StructProvider.STRUCT,
           OutputGroupInfo.SKYLARK_CONSTRUCTOR,
           ActionsProvider.INSTANCE,
@@ -46,7 +46,7 @@ public final class SkylarkModules {
    * Adds bindings for Starlark built-ins and non-rules-specific globals of the build API to the
    * given environment map builder.
    */
-  public static void addSkylarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> env) {
+  public static void addStarlarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> env) {
     env.putAll(Starlark.UNIVERSE);
     env.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
     topLevelBootstrap.addBindingsToBuilder(env);

@@ -55,7 +55,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Starlark aspects */
 @RunWith(JUnit4.class)
-public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
+public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   protected boolean keepGoing() {
     return false;
   }
@@ -468,7 +468,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectsFromSkylarkRules() throws Exception {
+  public void aspectsFromStarlarkRules() throws Exception {
     scratch.file(
         "test/aspect.bzl",
         "def _aspect_impl(target, ctx):",
@@ -1088,7 +1088,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void duplicateSkylarkProviders() throws Exception {
+  public void duplicateStarlarkProviders() throws Exception {
     scratch.file(
         "test/aspect.bzl",
         "def _impl(target, ctx):",
@@ -2503,10 +2503,10 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  // This test verifies that aspects which are defined natively and exported for use in skylark
+  // This test verifies that aspects which are defined natively and exported for use in Starlark
   // can be referenced at the top level using the --aspects flag. For ease of testing,
   // apple_common.objc_proto_aspect is used as an example.
-  public void testTopLevelSkylarkObjcProtoAspect() throws Exception {
+  public void testTopLevelStarlarkObjcProtoAspect() throws Exception {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file("test_skylark/BUILD");
     scratch.file("x/data_filter.pbascii");
@@ -3005,9 +3005,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
             Label.parseAbsolute("//test:charlie", ImmutableMap.of()));
   }
 
-  /** SkylarkAspectTest with "keep going" flag */
+  /** StarlarkAspectTest with "keep going" flag */
   @RunWith(JUnit4.class)
-  public static final class WithKeepGoing extends SkylarkDefinedAspectsTest {
+  public static final class WithKeepGoing extends StarlarkDefinedAspectsTest {
     @Override
     protected FlagBuilder defaultFlags() {
       return super.defaultFlags().with(Flag.KEEP_GOING);

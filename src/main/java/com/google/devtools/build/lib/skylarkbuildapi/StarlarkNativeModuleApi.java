@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "(i.e. for macros, not for rule implementations). Attributes will ignore "
             + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
             + "The following functions are also available:")
-public interface SkylarkNativeModuleApi extends StarlarkValue {
+public interface StarlarkNativeModuleApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "glob",

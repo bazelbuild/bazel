@@ -23,9 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions.SkylarkRuleFunction;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkAttrModule;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
@@ -41,15 +41,15 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
-import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.skylark.util.StarlarkTestCase;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -75,7 +75,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for SkylarkRuleClassFunctions. */
 @RunWith(JUnit4.class)
-public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
+public final class StarlarkRuleClassFunctionsTest extends StarlarkTestCase {
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
@@ -136,7 +136,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private RuleClass getRuleClass(String name) throws Exception {
-    return ((SkylarkRuleFunction) lookup(name)).getRuleClass();
+    return ((StarlarkRuleFunction) lookup(name)).getRuleClass();
   }
 
   private void registerDummyStarlarkFunction() throws Exception {
@@ -377,7 +377,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
             "my_aspect = aspect(implementation = _impl)",
             "a = attr.label_list(aspects = [my_aspect])");
     StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) lookup("a");
-    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
   }
@@ -390,7 +390,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(implementation = _impl)",
         "a = attr.label(aspects = [my_aspect])");
     StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) lookup("a");
-    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
   }
@@ -413,7 +413,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(_impl,",
         "   attrs = { '_extra_deps' : attr.label(default = Label('//foo/bar:baz')) }",
         ")");
-    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) lookup("my_aspect");
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
     assertThat(attribute.getDefaultValue(null))
@@ -432,7 +432,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(_impl,",
         "   attrs = { 'param' : attr.string(values=['a', 'b']) }",
         ")");
-    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) lookup("my_aspect");
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("param");
   }
@@ -470,7 +470,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   attrs = { 'param' : attr.string(values=['a', 'b']),",
         "             '_extra' : attr.label(default = Label('//foo/bar:baz')) }",
         ")");
-    SkylarkDefinedAspect aspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) lookup("my_aspect");
     assertThat(aspect.getAttributes()).hasSize(2);
     assertThat(aspect.getParamAttributes()).containsExactly("param");
   }
@@ -491,7 +491,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
-    SkylarkDefinedAspect a = (SkylarkDefinedAspect) lookup("a1");
+    StarlarkDefinedAspect a = (StarlarkDefinedAspect) lookup("a1");
     assertThat(a.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
   }
 
@@ -686,7 +686,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRuleImplementation() throws Exception {
     evalAndExport("def impl(ctx): return None", "rule1 = rule(impl)");
-    RuleClass c = ((SkylarkRuleFunction) lookup("rule1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("rule1")).getRuleClass();
     assertThat(c.getConfiguredTargetFunction().getName()).isEqualTo("impl");
   }
 
@@ -741,7 +741,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRuleAddAttribute() throws Exception {
     evalAndExport("def impl(ctx): return None", "r1 = rule(impl, attrs={'a1': attr.string()})");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
   }
 
@@ -776,8 +776,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "x = d",
         "y = d",
         "z = d");
-    String dName = ((SkylarkRuleFunction) lookup("d")).getRuleClass().getName();
-    String fooName = ((SkylarkRuleFunction) lookup("foo")).getRuleClass().getName();
+    String dName = ((StarlarkRuleFunction) lookup("d")).getRuleClass().getName();
+    String fooName = ((StarlarkRuleFunction) lookup("foo")).getRuleClass().getName();
     assertThat(dName).isEqualTo("d");
     assertThat(fooName).isEqualTo("d");
   }
@@ -785,7 +785,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testOutputToGenfiles() throws Exception {
     evalAndExport("def impl(ctx): pass", "r1 = rule(impl, output_to_genfiles=True)");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.hasBinaryOutput()).isFalse();
   }
 
@@ -798,7 +798,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "            'a1': attr.label_list(allow_files=True),",
         "            'a2': attr.int()",
         "})");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.hasAttr("a1", BuildType.LABEL_LIST)).isTrue();
     assertThat(c.hasAttr("a2", Type.INTEGER)).isTrue();
   }
@@ -808,7 +808,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def impl(ctx): return None",
         "r1 = rule(impl, attrs = {'a1': attr.string(mandatory=True)})");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.getAttributeByName("a1").isMandatory()).isTrue();
   }
 
@@ -817,7 +817,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def impl(ctx): return None",
         "r1 = rule(impl, outputs = {'a': 'a.txt'})");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     ImplicitOutputsFunction function = c.getDefaultImplicitOutputsFunction();
     assertThat(function.getImplicitOutputs(ev.getEventHandler(), null)).containsExactly("a.txt");
   }
@@ -887,7 +887,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "def impl(ctx): return None\n"
             + "r1 = rule(impl, attrs = {'a1': "
             + "attr.label(default = Label('//foo:foo'), allow_files=True)})");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeByName("a1");
     assertThat(a.getDefaultValueUnchecked()).isInstanceOf(Label.class);
     assertThat(a.getDefaultValueUnchecked().toString()).isEqualTo("//foo:foo");
@@ -898,7 +898,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def impl(ctx): return None",
         "r1 = rule(impl, attrs = {'a1': attr.int(default = 40+2)})");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeByName("a1");
     assertThat(a.getDefaultValueUnchecked()).isEqualTo(42);
   }
@@ -906,7 +906,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRuleInheritsBaseRuleAttributes() throws Exception {
     evalAndExport("def impl(ctx): return None", "r1 = rule(impl)");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.hasAttr("tags", Type.STRING_LIST)).isTrue();
     assertThat(c.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)).isTrue();
     assertThat(c.hasAttr("deprecation", Type.STRING)).isTrue();
@@ -1166,7 +1166,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testStructAccessingFieldsFromSkylark() throws Exception {
+  public void testStructAccessingFieldsFromStarlark() throws Exception {
     exec("x = struct(a = 1, b = 2)", "x1 = x.a", "x2 = x.b");
     assertThat(lookup("x1")).isEqualTo(1);
     assertThat(lookup("x2")).isEqualTo(2);
@@ -1469,7 +1469,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(_impl, attr_aspects=['*'])");
 
-    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) lookup("my_aspect");
     assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("foo")).isTrue();
   }
 
@@ -1481,7 +1481,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "cc = provider()",
         "my_aspect = aspect(_impl, required_aspect_providers=['java', cc])"
     );
-    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
@@ -1507,7 +1507,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "cc = provider()",
         "my_aspect = aspect(_impl, required_aspect_providers=[['java'], [cc]])"
     );
-    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
@@ -1536,7 +1536,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(_impl, required_aspect_providers=[])"
     );
-    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
@@ -1550,7 +1550,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "my_aspect = aspect(_impl)"
     );
-    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
@@ -1565,7 +1565,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "y = provider()",
         "my_aspect = aspect(_impl, provides = ['x', y])"
     );
-    SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) lookup("my_aspect");
     AdvertisedProviderSet advertisedProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getAdvertisedProviders();
     assertThat(advertisedProviders.canHaveAnyProvider()).isFalse();
@@ -1612,7 +1612,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "]"
     );
     StarlarkProvider p = (StarlarkProvider) lookup("p");
-    SkylarkDefinedAspect a = (SkylarkDefinedAspect) lookup("a");
+    StarlarkDefinedAspect a = (StarlarkDefinedAspect) lookup("a");
     StarlarkProvider p1 = (StarlarkProvider) lookup("p1");
     assertThat(p.getPrintableName()).isEqualTo("p");
     assertThat(p.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "p"));
@@ -1761,7 +1761,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         "def impl(ctx): return None", "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
   }
 
@@ -1775,7 +1775,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "  toolchains=['//test:my_toolchain_type'],",
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
-    RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
+    RuleClass c = ((StarlarkRuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.getExecutionPlatformConstraints())
         .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
   }
@@ -1797,7 +1797,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "    ),",
         "  },",
         ")");
-    RuleClass plum = ((SkylarkRuleFunction) lookup("plum")).getRuleClass();
+    RuleClass plum = ((StarlarkRuleFunction) lookup("plum")).getRuleClass();
     assertThat(plum.getRequiredToolchains()).isEmpty();
     assertThat(plum.getExecGroups().get("group").getRequiredToolchains())
         .containsExactly(makeLabel("//test:my_toolchain_type"));
@@ -1825,7 +1825,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "    params = [type(r), type(c)]",
         ")");
     invalidatePackages();
-    SkylarkRuleContext context = createRuleContext("//test:check");
+    StarlarkRuleContext context = createRuleContext("//test:check");
     @SuppressWarnings("unchecked")
     StarlarkList<Object> params = (StarlarkList<Object>) context.getAttr().getValue("params");
     assertThat(params.get(0)).isEqualTo("NoneType");

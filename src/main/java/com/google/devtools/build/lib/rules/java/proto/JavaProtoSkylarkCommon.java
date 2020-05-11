@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -35,10 +35,10 @@ import com.google.devtools.build.lib.syntax.EvalException;
 /** A class that exposes Java common methods for proto compilation. */
 public class JavaProtoSkylarkCommon
     implements JavaProtoCommonApi<
-        Artifact, ConstraintValueInfo, SkylarkRuleContext, ConfiguredTarget> {
+        Artifact, ConstraintValueInfo, StarlarkRuleContext, ConfiguredTarget> {
   @Override
   public void createProtoCompileAction(
-      SkylarkRuleContext skylarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       ConfiguredTarget target,
       Artifact sourceJar,
       String protoToolchainAttr,
@@ -46,14 +46,14 @@ public class JavaProtoSkylarkCommon
       throws EvalException, InterruptedException {
     ProtoInfo protoInfo = target.get(ProtoInfo.PROVIDER);
     ProtoCompileActionBuilder.registerActions(
-        skylarkRuleContext.getRuleContext(),
+        starlarkRuleContext.getRuleContext(),
         ImmutableList.of(
             new ProtoCompileActionBuilder.ToolchainInvocation(
                 flavour,
-                getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr),
+                getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr),
                 sourceJar.getExecPathString())),
         protoInfo,
-        skylarkRuleContext.getLabel(),
+        starlarkRuleContext.getLabel(),
         ImmutableList.of(sourceJar),
         "JavaLite",
         Exports.DO_NOT_USE,
@@ -67,9 +67,9 @@ public class JavaProtoSkylarkCommon
 
   @Override
   public JavaInfo getRuntimeToolchainProvider(
-      SkylarkRuleContext skylarkRuleContext, String protoToolchainAttr) throws EvalException {
+      StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
     TransitiveInfoCollection runtime =
-        getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr).runtime();
+        getProtoToolchainProvider(starlarkRuleContext, protoToolchainAttr).runtime();
     return JavaInfo.Builder.create()
         .addProvider(
             JavaCompilationArgsProvider.class,
@@ -78,9 +78,9 @@ public class JavaProtoSkylarkCommon
   }
 
   private static ProtoLangToolchainProvider getProtoToolchainProvider(
-      SkylarkRuleContext skylarkRuleContext, String protoToolchainAttr) throws EvalException {
+      StarlarkRuleContext starlarkRuleContext, String protoToolchainAttr) throws EvalException {
     ConfiguredTarget javaliteToolchain =
-        (ConfiguredTarget) checkNotNull(skylarkRuleContext.getAttr().getValue(protoToolchainAttr));
+        (ConfiguredTarget) checkNotNull(starlarkRuleContext.getAttr().getValue(protoToolchainAttr));
     return checkNotNull(javaliteToolchain.getProvider(ProtoLangToolchainProvider.class));
   }
 }

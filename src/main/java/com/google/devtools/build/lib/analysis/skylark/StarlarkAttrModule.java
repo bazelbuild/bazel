@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
@@ -287,7 +287,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
       Object obj = arguments.get(ASPECTS_ARG);
-      for (SkylarkAspect aspect : Sequence.cast(obj, SkylarkAspect.class, "aspects")) {
+      for (StarlarkAspect aspect : Sequence.cast(obj, StarlarkAspect.class, "aspects")) {
         aspect.attachToAttribute(builder);
       }
     }

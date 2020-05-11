@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -731,7 +731,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     // Among other symbols, this step adds the Starlark universe (e.g. None/True/len), for now.
-    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
+    StarlarkModules.addStarlarkGlobalsToBuilder(envBuilder);
 
     envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
     for (Bootstrap bootstrap : bootstraps) {

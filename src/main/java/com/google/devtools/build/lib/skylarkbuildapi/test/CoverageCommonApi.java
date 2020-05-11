@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc = "Helper functions to access coverage-related infrastructure.")
 public interface CoverageCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,
-        RuleContextT extends SkylarkRuleContextApi<ConstraintValueT>>
+        RuleContextT extends StarlarkRuleContextApi<ConstraintValueT>>
     extends StarlarkValue {
 
   @SkylarkCallable(
@@ -44,7 +44,7 @@ public interface CoverageCommonApi<
             name = "ctx",
             positional = true,
             named = true,
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             doc = "The rule context."),
         @Param(
             name = "source_attributes",

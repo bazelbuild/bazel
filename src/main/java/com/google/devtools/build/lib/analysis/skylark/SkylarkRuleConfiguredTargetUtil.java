@@ -94,9 +94,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
       String toolsRepository)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
-    SkylarkRuleContext skylarkRuleContext = null;
+    StarlarkRuleContext starlarkRuleContext = null;
     try (Mutability mutability = Mutability.create("configured target")) {
-      skylarkRuleContext = new SkylarkRuleContext(ruleContext, null, starlarkSemantics);
+      starlarkRuleContext = new StarlarkRuleContext(ruleContext, null, starlarkSemantics);
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
@@ -135,7 +135,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
           Starlark.call(
               thread,
               ruleImplementation,
-              /*args=*/ ImmutableList.of(skylarkRuleContext),
+              /*args=*/ ImmutableList.of(starlarkRuleContext),
               /*kwargs=*/ ImmutableMap.of());
 
       if (ruleContext.hasErrors()) {
@@ -151,7 +151,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         ruleContext.ruleError("Expected failure not found: " + expectFailure);
         return null;
       }
-      ConfiguredTarget configuredTarget = createTarget(skylarkRuleContext, target);
+      ConfiguredTarget configuredTarget = createTarget(starlarkRuleContext, target);
       if (configuredTarget != null) {
         // If there was error creating the ConfiguredTarget, no further validation is needed.
         // Null will be returned and the errors thus reported.
@@ -170,8 +170,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
       ruleContext.ruleError("\n" + e.print());
       return null;
     } finally {
-      if (skylarkRuleContext != null) {
-        skylarkRuleContext.nullify();
+      if (starlarkRuleContext != null) {
+        starlarkRuleContext.nullify();
       }
     }
   }
@@ -212,7 +212,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
   }
 
   @Nullable
-  private static ConfiguredTarget createTarget(SkylarkRuleContext context, Object target)
+  private static ConfiguredTarget createTarget(StarlarkRuleContext context, Object target)
       throws EvalException, RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(
         context.getRuleContext());
@@ -305,7 +305,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
   }
 
   private static void addProviders(
-      SkylarkRuleContext context, RuleConfiguredTargetBuilder builder, Object target, Location loc)
+      StarlarkRuleContext context, RuleConfiguredTargetBuilder builder, Object target, Location loc)
       throws EvalException {
 
     StructImpl oldStyleProviders =
@@ -319,7 +319,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       loc = info.getCreationLoc();
       if (getProviderKey(loc, info).equals(StructProvider.STRUCT.getKey())) {
 
-        if (context.getSkylarkSemantics().incompatibleDisallowStructProviderSyntax()) {
+        if (context.getStarlarkSemantics().incompatibleDisallowStructProviderSyntax()) {
           throw Starlark.errorf(
               "Returning a struct from a rule implementation function is deprecated and will "
                   + "be removed soon. It may be temporarily re-enabled by setting "
@@ -486,7 +486,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
    * throws an {@link EvalException} if there are unknown fields.
    */
   private static void parseDefaultProviderFields(
-      StructImpl provider, SkylarkRuleContext context, RuleConfiguredTargetBuilder builder)
+      StructImpl provider, StarlarkRuleContext context, RuleConfiguredTargetBuilder builder)
       throws EvalException {
     Depset files = null;
     Runfiles statelessRunfiles = null;

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.SkylarkAspectLoadingKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -42,9 +42,9 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
     String skylarkValueName = aspectLoadingKey.getSkylarkValueName();
     Label skylarkFileLabel = aspectLoadingKey.getSkylarkFileLabel();
 
-    SkylarkAspect skylarkAspect;
+    StarlarkAspect skylarkAspect;
     try {
-      skylarkAspect = AspectFunction.loadSkylarkAspect(env, skylarkFileLabel, skylarkValueName);
+      skylarkAspect = AspectFunction.loadStarlarkAspect(env, skylarkFileLabel, skylarkValueName);
       if (skylarkAspect == null) {
         return null;
       }

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylark.util;
 
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -36,11 +36,11 @@ import org.junit.Before;
  * A class to contain the common functionality for analysis-phase Starlark tests. The less stuff
  * here, the better.
  */
-public abstract class SkylarkTestCase extends BuildViewTestCase {
+public abstract class StarlarkTestCase extends BuildViewTestCase {
 
   protected EvaluationTestCase ev;
 
-  // Subclasses must call this method after change SkylarkSemantics (among other things).
+  // Subclasses must call this method after change StarlarkSemantics (among other things).
   @Before
   public final void reset() throws Exception {
     ev = createEvaluationTestCase();
@@ -49,7 +49,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   private EvaluationTestCase createEvaluationTestCase() throws Exception {
     // Set up globals.
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    SkylarkModules.addSkylarkGlobalsToBuilder(env);
+    StarlarkModules.addStarlarkGlobalsToBuilder(env);
     Starlark.addModule(env, new PlatformCommon());
     Module globals = Module.createForBuiltins(env.build());
 
@@ -68,7 +68,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
             thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
 
             // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
-            // Rule creation is tested by SkylarkIntegrationTest.
+            // Rule creation is tested by StarlarkIntegrationTest.
 
             new BazelStarlarkContext(
                     BazelStarlarkContext.Phase.LOADING,
@@ -107,8 +107,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     ev.checkEvalErrorContains(msg, input);
   }
 
-  protected final SkylarkRuleContext createRuleContext(String label) throws Exception {
-    return new SkylarkRuleContext(
+  protected final StarlarkRuleContext createRuleContext(String label) throws Exception {
+    return new StarlarkRuleContext(
         getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
   }
 

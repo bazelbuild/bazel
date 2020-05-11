@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
  * functions.
  */
 @SkylarkGlobalLibrary
-public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
+public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
 
   String EXEC_COMPATIBLE_WITH_PARAM = "exec_compatible_with";
   String TOOLCHAINS_PARAM = "toolchains";
@@ -470,8 +470,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             generic1 = String.class,
             defaultValue = "[]",
             doc =
-                "If set, the set of toolchains this aspect requires. Toolchains will be "
-                    + "found by checking the current platform, and provided to the aspect "
+                "If set, the set of toolchains this rule requires. Toolchains will be "
+                    + "found by checking the current platform, and provided to the rule "
                     + "implementation via <code>ctx.toolchain</code>."),
         @Param(
             name = "doc",
@@ -499,7 +499,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "aspect will propagate only to `alpha`. </p><p>False by default.</p>")
       },
       useStarlarkThread = true)
-  SkylarkAspectApi aspect(
+  StarlarkAspectApi aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
       Object attrs,

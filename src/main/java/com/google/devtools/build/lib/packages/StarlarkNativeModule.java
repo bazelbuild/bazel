@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkNativeModuleApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
 
 /** The Starlark native module. */
 // TODO(cparsons): Move the definition of native.package() to this class.
-public class SkylarkNativeModule implements SkylarkNativeModuleApi {
+public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   /**
    * This map contains all the (non-rule) functions of the native module (keyed by their symbol
@@ -68,7 +68,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
   private static ImmutableMap<String, Object> initializeBindings() {
     ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
-    Starlark.addMethods(bindings, new SkylarkNativeModule());
+    Starlark.addMethods(bindings, new StarlarkNativeModule());
     return bindings.build();
   }
 
@@ -294,7 +294,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       }
 
       try {
-        Object val = skylarkifyValue(mu, cont.getAttr(attr.getName()), target.getPackage());
+        Object val = starlarkifyValue(mu, cont.getAttr(attr.getName()), target.getPackage());
         if (val == null) {
           continue;
         }
@@ -321,7 +321,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
    * @throws NotRepresentableException if an unknown type is encountered.
    */
   @Nullable
-  private static Object skylarkifyValue(Mutability mu, Object val, Package pkg)
+  private static Object starlarkifyValue(Mutability mu, Object val, Package pkg)
       throws NotRepresentableException {
     if (val == null) {
       return null;
@@ -358,7 +358,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     if (val instanceof List) {
       List<Object> l = new ArrayList<>();
       for (Object o : (List) val) {
-        Object elt = skylarkifyValue(mu, o, pkg);
+        Object elt = starlarkifyValue(mu, o, pkg);
         if (elt == null) {
           continue;
         }
@@ -371,8 +371,8 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     if (val instanceof Map) {
       Map<Object, Object> m = new TreeMap<>();
       for (Map.Entry<?, ?> e : ((Map<?, ?>) val).entrySet()) {
-        Object key = skylarkifyValue(mu, e.getKey(), pkg);
-        Object mapVal = skylarkifyValue(mu, e.getValue(), pkg);
+        Object key = starlarkifyValue(mu, e.getKey(), pkg);
+        Object mapVal = starlarkifyValue(mu, e.getValue(), pkg);
 
         if (key == null || mapVal == null) {
           continue;

@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.stubs;
 
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.syntax.Printer;
 
 /**
- * Stub implementation of {@link SkylarkAspectApi}. Should only be used for experimental,
+ * Stub implementation of {@link StarlarkAspectApi}. Should only be used for experimental,
  * unimplemented code paths.
  */
-public final class SkylarkAspectStub implements SkylarkAspectApi {
+public final class StarlarkAspectStub implements StarlarkAspectApi {
   @Override
   public void repr(Printer printer) {
     printer.append("<unimplemented aspect>");

@@ -67,10 +67,10 @@ import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
-import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
-import com.google.devtools.build.lib.packages.SkylarkExportable;
+import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
+import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -78,7 +78,7 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Identifier;
@@ -98,7 +98,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 /** A helper class to provide an easier API for Starlark rule definitions. */
-public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifact> {
+public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Artifact> {
 
   // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in
   // rules to Starlark extensions. Using the same instance would require a large refactoring.
@@ -124,7 +124,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   // TODO(bazel-team): Remove the code duplication (BaseRuleClasses and this class).
   /** Parent rule class for non-executable non-test Starlark rules. */
   public static final RuleClass baseRule =
-      BaseRuleClasses.commonCoreAndSkylarkAttributes(
+      BaseRuleClasses.commonCoreAndStarlarkAttributes(
               BaseRuleClasses.nameAttribute(
                       new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
                   .add(attr("expect_failure", STRING)))
@@ -269,7 +269,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Boolean outputToGenfiles,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
-      Boolean skylarkTestable,
+      Boolean starlarkTestable,
       Sequence<?> toolchains,
       String doc,
       Sequence<?> providesArg,
@@ -298,7 +298,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes =
         attrObjectToAttributesList(attrs);
 
-    if (skylarkTestable) {
+    if (starlarkTestable) {
       builder.setStarlarkTestable();
     }
     if (Boolean.TRUE.equals(analysisTest)) {
@@ -388,16 +388,16 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             Starlark.type(o));
       }
     }
-    for (StarlarkProviderIdentifier skylarkProvider :
+    for (StarlarkProviderIdentifier starlarkProvider :
         StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg)) {
-      builder.advertiseStarlarkProvider(skylarkProvider);
+      builder.advertiseStarlarkProvider(starlarkProvider);
     }
 
     if (!execCompatibleWith.isEmpty()) {
       builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
     }
 
-    return new SkylarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+    return new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
   }
 
   private static void checkAttributeName(String name) throws EvalException {
@@ -476,7 +476,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   }
 
   @Override
-  public SkylarkAspect aspect(
+  public StarlarkAspect aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
       Object attrs,
@@ -542,9 +542,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           }
         }
       } else if (!hasDefault) { // Implicit or late bound attribute
-        String skylarkName = "_" + nativeName.substring(1);
+        String starlarkName = "_" + nativeName.substring(1);
         throw new EvalException(
-            null, String.format("Aspect attribute '%s' has no default value.", skylarkName));
+            null, String.format("Aspect attribute '%s' has no default value.", starlarkName));
       }
       attributes.add(attribute);
     }
@@ -559,7 +559,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 Starlark.type(o)));
       }
     }
-    return new SkylarkDefinedAspect(
+    return new StarlarkDefinedAspect(
         implementation,
         attrAspects.build(),
         attributes.build(),
@@ -579,17 +579,17 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
    *
    * <p>Exactly one of {@link #builder} or {@link #ruleClass} is null except inside {@link #export}.
    */
-  public static final class SkylarkRuleFunction
-      implements StarlarkCallable, SkylarkExportable, RuleFunction {
+  public static final class StarlarkRuleFunction
+      implements StarlarkCallable, StarlarkExportable, RuleFunction {
     private RuleClass.Builder builder;
 
     private RuleClass ruleClass;
     private final RuleClassType type;
     private ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes;
     private final Location definitionLocation;
-    private Label skylarkLabel;
+    private Label starlarkLabel;
 
-    public SkylarkRuleFunction(
+    public StarlarkRuleFunction(
         RuleClass.Builder builder,
         RuleClassType type,
         ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes,
@@ -601,18 +601,18 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     /** This is for post-export reconstruction for serialization. */
-    private SkylarkRuleFunction(
-        RuleClass ruleClass, RuleClassType type, Location definitionLocation, Label skylarkLabel) {
+    private StarlarkRuleFunction(
+        RuleClass ruleClass, RuleClassType type, Location definitionLocation, Label starlarkLabel) {
       Preconditions.checkNotNull(
           ruleClass,
-          "RuleClass must be non-null as this SkylarkRuleFunction should have been exported.");
+          "RuleClass must be non-null as this StarlarkRuleFunction should have been exported.");
       Preconditions.checkNotNull(
-          skylarkLabel,
-          "Label must be non-null as this SkylarkRuleFunction should have been exported.");
+          starlarkLabel,
+          "Label must be non-null as this StarlarkRuleFunction should have been exported.");
       this.ruleClass = ruleClass;
       this.type = type;
       this.definitionLocation = definitionLocation;
-      this.skylarkLabel = skylarkLabel;
+      this.starlarkLabel = starlarkLabel;
     }
 
     @Override
@@ -670,9 +670,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     /** Export a RuleFunction from a Starlark file with a given name. */
-    public void export(Label skylarkLabel, String ruleClassName) throws EvalException {
+    public void export(Label starlarkLabel, String ruleClassName) throws EvalException {
       Preconditions.checkState(ruleClass == null && builder != null);
-      this.skylarkLabel = skylarkLabel;
+      this.starlarkLabel = starlarkLabel;
       if (type == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
         throw new EvalException(
             definitionLocation,
@@ -755,7 +755,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       }
 
       try {
-        this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
+        this.ruleClass = builder.build(ruleClassName, starlarkLabel + "%" + ruleClassName);
       } catch (IllegalArgumentException | IllegalStateException ex) {
         throw new EvalException(getLocation(), ex);
       }
@@ -771,7 +771,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
     @Override
     public boolean isExported() {
-      return skylarkLabel != null;
+      return starlarkLabel != null;
     }
 
     @Override

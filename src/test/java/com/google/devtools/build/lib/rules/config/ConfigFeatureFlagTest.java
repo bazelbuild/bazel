@@ -21,11 +21,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.skylark.util.StarlarkTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +34,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for the config_feature_flag rule. */
 @RunWith(JUnit4.class)
-public final class ConfigFeatureFlagTest extends SkylarkTestCase {
+public final class ConfigFeatureFlagTest extends StarlarkTestCase {
 
   @Before
   public void useTrimmedConfigurations() throws Exception {
@@ -178,8 +178,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     ConfiguredTarget top = getConfiguredTarget("//test:top");
     ConfiguredTarget wrapper =
         (ConfiguredTarget) Iterables.getOnlyElement(getPrerequisites(top, "deps"));
-    SkylarkRuleContext ctx =
-        new SkylarkRuleContext(getRuleContextForStarlark(wrapper), null, getStarlarkSemantics());
+    StarlarkRuleContext ctx =
+        new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null, getStarlarkSemantics());
     update("ruleContext", ctx);
     update("config_common", new ConfigSkylarkCommon());
     String value = (String) eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");
@@ -230,7 +230,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    SkylarkRuleContext ctx = createRuleContext("//test:wrapper");
+    StarlarkRuleContext ctx = createRuleContext("//test:wrapper");
     update("ruleContext", ctx);
     update("config_common", new ConfigSkylarkCommon());
     String provider = "ruleContext.attr.flag[config_common.FeatureFlagInfo]";

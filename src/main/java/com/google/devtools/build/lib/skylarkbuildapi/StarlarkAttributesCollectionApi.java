@@ -28,19 +28,19 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc = "Information about attributes of a rule an aspect is applied to.")
 public interface StarlarkAttributesCollectionApi extends StarlarkValue {
 
-  @SkylarkCallable(name = "attr", structField = true, doc = SkylarkRuleContextApi.ATTR_DOC)
+  @SkylarkCallable(name = "attr", structField = true, doc = StarlarkRuleContextApi.ATTR_DOC)
   StructApi getAttr() throws EvalException;
 
   @SkylarkCallable(
       name = "executable",
       structField = true,
-      doc = SkylarkRuleContextApi.EXECUTABLE_DOC)
+      doc = StarlarkRuleContextApi.EXECUTABLE_DOC)
   StructApi getExecutable() throws EvalException;
 
-  @SkylarkCallable(name = "file", structField = true, doc = SkylarkRuleContextApi.FILE_DOC)
+  @SkylarkCallable(name = "file", structField = true, doc = StarlarkRuleContextApi.FILE_DOC)
   StructApi getFile() throws EvalException;
 
-  @SkylarkCallable(name = "files", structField = true, doc = SkylarkRuleContextApi.FILES_DOC)
+  @SkylarkCallable(name = "files", structField = true, doc = StarlarkRuleContextApi.FILES_DOC)
   StructApi getFiles() throws EvalException;
 
   @SkylarkCallable(
