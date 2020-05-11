@@ -237,13 +237,13 @@ public class CppLinkActionTest extends BuildViewTestCase {
         "x/BUILD",
         "cc_binary(",
         "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
+        "  srcs = ['some-dir/libbar.so', 'some-other-dir/qux.so'],",
         "  linkopts = [",
         "    '-ldl',",
         "    '-lutil',",
         "  ],",
         ")");
-    scratch.file("x/some-dir/bar.so");
+    scratch.file("x/some-dir/libbar.so");
     scratch.file("x/some-other-dir/qux.so");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
@@ -254,7 +254,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(arguments))
         .matches(
             ".* -L[^ ]*some-dir(?= ).* -L[^ ]*some-other-dir(?= ).* "
-                + "-lbar -lqux(?= ).* -ldl -lutil .*");
+                + "-lbar -l:qux.so(?= ).* -ldl -lutil .*");
     assertThat(Joiner.on(" ").join(arguments))
         .matches(".* -Wl,-rpath[^ ]*some-dir(?= ).* -Wl,-rpath[^ ]*some-other-dir .*");
   }
