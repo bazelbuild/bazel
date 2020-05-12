@@ -191,8 +191,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   /** Used modules that are not transitively used through other topLevelModules. */
   private NestedSet<Artifact> topLevelModules;
 
-  private CcToolchainVariables overwrittenVariables;
-
   private ParamFileActionInput paramFileActionInput;
   private PathFragment paramFilePath;
 
@@ -296,7 +294,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.additionalInputs = null;
     this.usedModules = null;
     this.topLevelModules = null;
-    this.overwrittenVariables = null;
     this.grepIncludes = grepIncludes;
     if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
       paramFilePath =
@@ -895,7 +892,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException {
-    return compileCommandLine.getArguments(paramFilePath, overwrittenVariables);
+    return compileCommandLine.getArguments(paramFilePath, getOverwrittenVariables());
   }
 
   @Override
@@ -925,15 +922,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
     info.setTool(compileCommandLine.getToolPath());
 
-    // For actual extra actions, the shadowed action is fully executed and overwrittenVariables get
-    // computed. However, this function is also used for print_action and there, the action is
-    // retrieved from the cache, the modules are reconstructed via updateInputs and
-    // overwrittenVariables don't get computed.
-    List<String> options =
-        compileCommandLine.getCompilerOptions(
-            overwrittenVariables != null
-                ? overwrittenVariables
-                : getOverwrittenVariables(getInputs()));
+    List<String> options = compileCommandLine.getCompilerOptions(getOverwrittenVariables());
 
     for (String option : options) {
       info.addCompilerOption(option);
@@ -1203,25 +1192,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  /** Sets module file flags based on the action's inputs. */
-  protected void setModuleFileFlags() {
-    if (useHeaderModules) {
-      // If modules pruning is used, modules will be supplied via topLevelModules, otherwise they
-      // are regular inputs.
-      if (shouldPruneModules) {
-        Preconditions.checkNotNull(this.topLevelModules);
-        overwrittenVariables = getOverwrittenVariables(topLevelModules);
-      } else {
-        overwrittenVariables = getOverwrittenVariables(getInputs());
-      }
-    }
-  }
-
   /**
    * Extracts all module (.pcm) files from potentialModules and returns a Variables object where
    * their exec paths are added to the value "module_files".
    */
-  public static CcToolchainVariables getOverwrittenVariables(NestedSet<Artifact> potentialModules) {
+  private static CcToolchainVariables calculateModuleVariable(
+      NestedSet<Artifact> potentialModules) {
     ImmutableList.Builder<String> usedModulePaths = ImmutableList.builder();
     for (Artifact input : potentialModules.toList()) {
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
@@ -1232,6 +1208,25 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     variableBuilder.addStringSequenceVariable(
         CompileBuildVariables.MODULE_FILES.getVariableName(), usedModulePaths.build());
     return variableBuilder.build();
+  }
+
+  public CcToolchainVariables getOverwrittenVariables() {
+    if (useHeaderModules) {
+      // TODO(cmita): Avoid keeping state in CppCompileAction.
+      // There are two cases for when this method might be called:
+      // 1. After input discovery, after which toplevelModules is set (in discoverInputs()).
+      // 2. After the action is loaded from the local action cache, leaving topLevelModules null.
+      //
+      // Ideally the same thing would be done in both cases, but as is, we just overestimate modules
+      // in the latter case using the inputs from the action cache.
+      // Note that this breaks the invariant that Actions are immutable after the analysis phase.
+      if (shouldPruneModules && topLevelModules != null) {
+        return calculateModuleVariable(topLevelModules);
+      } else {
+        return calculateModuleVariable(getInputs());
+      }
+    }
+    return CcToolchainVariables.builder().build();
   }
 
   @Override
@@ -1382,13 +1377,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    setModuleFileFlags();
     if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
       try {
         paramFileActionInput =
             new ParamFileActionInput(
                 paramFilePath,
-                compileCommandLine.getCompilerOptions(overwrittenVariables),
+                compileCommandLine.getCompilerOptions(getOverwrittenVariables()),
                 // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
                 ParameterFileType.GCC_QUOTED,
                 StandardCharsets.ISO_8859_1);

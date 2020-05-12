@@ -130,7 +130,6 @@ public class FakeCppCompileAction extends CppCompileAction {
   @ThreadCompatible
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    setModuleFileFlags();
     List<SpawnResult> spawnResults;
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
