@@ -23,9 +23,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon}. */
+/** Tests for {@link AndroidStarlarkCommon}. */
 @RunWith(JUnit4.class)
-public class AndroidSkylarkCommonTest extends AndroidBuildViewTestCase {
+public class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase {
 
   @Before
   public void setupCcToolchain() throws Exception {

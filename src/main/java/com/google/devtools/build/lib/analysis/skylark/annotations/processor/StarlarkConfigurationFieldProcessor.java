@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.skylark.annotations.processor;
 
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
@@ -32,9 +32,9 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 /**
- * Annotation processor for {@link SkylarkConfigurationField}.
+ * Annotation processor for {@link StarlarkConfigurationField}.
  *
- * <p>Checks the following invariants about {@link SkylarkConfigurationField}-annotated methods:
+ * <p>Checks the following invariants about {@link StarlarkConfigurationField}-annotated methods:
  *
  * <ul>
  *   <li>The annotated method must be on a configuration fragment.
@@ -47,9 +47,9 @@ import javax.tools.Diagnostic;
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({
-  "com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField"
+  "com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField"
 })
-public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor {
+public final class StarlarkConfigurationFieldProcessor extends AbstractProcessor {
 
   private Messager messager;
   private Types typeUtils;
@@ -76,37 +76,37 @@ public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor 
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    for (Element element : roundEnv.getElementsAnnotatedWith(SkylarkConfigurationField.class)) {
-      // Only methods are annotated with SkylarkConfigurationField. This is verified by the
+    for (Element element : roundEnv.getElementsAnnotatedWith(StarlarkConfigurationField.class)) {
+      // Only methods are annotated with StarlarkConfigurationField. This is verified by the
       // @Target(ElementType.METHOD) annotation.
       ExecutableElement methodElement = (ExecutableElement) element;
 
-      if (!isMethodOfSkylarkExposedConfigurationFragment(methodElement)) {
-        error(methodElement, "@SkylarkConfigurationField annotated methods must be methods "
+      if (!isMethodOfStarlarkExposedConfigurationFragment(methodElement)) {
+        error(methodElement, "@StarlarkConfigurationField annotated methods must be methods "
             + "of configuration fragments.");
       }
       // If labelType is null, then Label isn't even included
       // in the current build, so the method clearly does not return it.
       if (labelType == null
           || !typeUtils.isSameType(methodElement.getReturnType(), labelType.asType())) {
-        error(methodElement, "@SkylarkConfigurationField annotated methods must return Label.");
+        error(methodElement, "@StarlarkConfigurationField annotated methods must return Label.");
       }
       if (!methodElement.getModifiers().contains(Modifier.PUBLIC)) {
-        error(methodElement, "@SkylarkConfigurationField annotated methods must be public.");
+        error(methodElement, "@StarlarkConfigurationField annotated methods must be public.");
       }
       if (!methodElement.getParameters().isEmpty()) {
         error(methodElement,
-            "@SkylarkConfigurationField annotated methods must have zero arguments.");
+            "@StarlarkConfigurationField annotated methods must have zero arguments.");
       }
       if (!methodElement.getThrownTypes().isEmpty()) {
         error(methodElement,
-            "@SkylarkConfigurationField annotated must not throw exceptions.");
+            "@StarlarkConfigurationField annotated must not throw exceptions.");
       }
     }
     return true;
   }
 
-  private boolean isMethodOfSkylarkExposedConfigurationFragment(
+  private boolean isMethodOfStarlarkExposedConfigurationFragment(
       ExecutableElement methodElement) {
 
     if (methodElement.getEnclosingElement().getKind() != ElementKind.CLASS) {

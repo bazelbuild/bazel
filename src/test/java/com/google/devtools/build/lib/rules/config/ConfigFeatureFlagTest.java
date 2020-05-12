@@ -181,7 +181,7 @@ public final class ConfigFeatureFlagTest extends StarlarkTestCase {
     StarlarkRuleContext ctx =
         new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null, getStarlarkSemantics());
     update("ruleContext", ctx);
-    update("config_common", new ConfigSkylarkCommon());
+    update("config_common", new ConfigStarlarkCommon());
     String value = (String) eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");
     assertThat(value).isEqualTo("configured");
   }
@@ -232,7 +232,7 @@ public final class ConfigFeatureFlagTest extends StarlarkTestCase {
         ")");
     StarlarkRuleContext ctx = createRuleContext("//test:wrapper");
     update("ruleContext", ctx);
-    update("config_common", new ConfigSkylarkCommon());
+    update("config_common", new ConfigStarlarkCommon());
     String provider = "ruleContext.attr.flag[config_common.FeatureFlagInfo]";
     Boolean isDefaultValid = (Boolean) eval(provider + ".is_valid_value('default')");
     Boolean isConfiguredValid = (Boolean) eval(provider + ".is_valid_value('configured')");

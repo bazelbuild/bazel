@@ -50,7 +50,7 @@ public final class ConfigRules implements RuleSet {
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
     builder.addSkylarkBootstrap(
         new ConfigBootstrap(
-            new ConfigSkylarkCommon(), new StarlarkConfig(), new ConfigGlobalLibrary()));
+            new ConfigStarlarkCommon(), new StarlarkConfig(), new ConfigGlobalLibrary()));
   }
 
   @Override

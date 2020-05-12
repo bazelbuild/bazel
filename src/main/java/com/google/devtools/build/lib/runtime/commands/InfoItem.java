@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -691,7 +692,7 @@ public abstract class InfoItem {
         Object v = attr.getDefaultValueUnchecked();
         if (!(v == null
             || v instanceof Attribute.ComputedDefault
-            || v instanceof Attribute.SkylarkComputedDefaultTemplate
+            || v instanceof StarlarkComputedDefaultTemplate
             || v instanceof Attribute.LateBoundDefault
             || v == t.getDefaultValue())) {
           attrPb.setDefault(convertAttrValue(t, v));

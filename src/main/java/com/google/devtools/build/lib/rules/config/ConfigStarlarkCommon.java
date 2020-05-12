@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.rules.config;
 
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigSkylarkCommonApi;
+import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigStarlarkCommonApi;
 
 /** Starlark namespace used to interact with Blaze's configurability APIs. */
-public class ConfigSkylarkCommon implements ConfigSkylarkCommonApi {
+public class ConfigStarlarkCommon implements ConfigStarlarkCommonApi {
 
   @Override
   public Provider getConfigFeatureFlagProviderConstructor() {
-    return ConfigFeatureFlagProvider.SKYLARK_CONSTRUCTOR;
+    return ConfigFeatureFlagProvider.STARLARK_CONSTRUCTOR;
   }
 }

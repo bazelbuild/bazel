@@ -25,21 +25,21 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Unit tests for SkylarkConfigurationFieldProcessor.
+ * Unit tests for StarlarkConfigurationFieldProcessor.
  */
 @RunWith(JUnit4.class)
-public final class SkylarkConfigurationFieldProcessorTest {
+public final class StarlarkConfigurationFieldProcessorTest {
 
   private static JavaFileObject getFile(String pathToFile) {
     return JavaFileObjects.forResource(Resources.getResource(
-        SkylarkConfigurationFieldProcessorTest.class, "optiontestsources/" + pathToFile));
+        StarlarkConfigurationFieldProcessorTest.class, "optiontestsources/" + pathToFile));
   }
 
   @Test
   public void testGoldenConfigurationField() throws Exception {
     assertAbout(javaSource())
         .that(getFile("GoldenConfigurationField.java"))
-        .processedWith(new SkylarkConfigurationFieldProcessor())
+        .processedWith(new StarlarkConfigurationFieldProcessor())
         .compilesWithoutError();
   }
 
@@ -47,7 +47,7 @@ public final class SkylarkConfigurationFieldProcessorTest {
   public void testGoldenConfigurationFieldThroughApi() throws Exception {
     assertAbout(javaSource())
         .that(getFile("GoldenConfigurationFieldThroughApi.java"))
-        .processedWith(new SkylarkConfigurationFieldProcessor())
+        .processedWith(new StarlarkConfigurationFieldProcessor())
         .compilesWithoutError();
   }
 
@@ -55,37 +55,37 @@ public final class SkylarkConfigurationFieldProcessorTest {
   public void testHasMethodParameters() throws Exception {
     assertAbout(javaSource())
         .that(getFile("HasMethodParameters.java"))
-        .processedWith(new SkylarkConfigurationFieldProcessor())
+        .processedWith(new StarlarkConfigurationFieldProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "@SkylarkConfigurationField annotated methods must have zero arguments.");
+            "@StarlarkConfigurationField annotated methods must have zero arguments.");
   }
 
   @Test
   public void testMethodIsPrivate() throws Exception {
     assertAbout(javaSource())
         .that(getFile("MethodIsPrivate.java"))
-        .processedWith(new SkylarkConfigurationFieldProcessor())
+        .processedWith(new StarlarkConfigurationFieldProcessor())
         .failsToCompile()
-        .withErrorContaining("@SkylarkConfigurationField annotated methods must be public.");
+        .withErrorContaining("@StarlarkConfigurationField annotated methods must be public.");
   }
 
   @Test
   public void testMethodThrowsException() throws Exception {
     assertAbout(javaSource())
         .that(getFile("MethodThrowsException.java"))
-        .processedWith(new SkylarkConfigurationFieldProcessor())
+        .processedWith(new StarlarkConfigurationFieldProcessor())
         .failsToCompile()
-        .withErrorContaining("@SkylarkConfigurationField annotated must not throw exceptions.");
+        .withErrorContaining("@StarlarkConfigurationField annotated must not throw exceptions.");
   }
 
   @Test
   public void testNonConfigurationFragment() throws Exception {
     assertAbout(javaSource())
         .that(getFile("NonConfigurationFragment.java"))
-        .processedWith(new SkylarkConfigurationFieldProcessor())
+        .processedWith(new StarlarkConfigurationFieldProcessor())
         .failsToCompile()
-        .withErrorContaining("@SkylarkConfigurationField annotated methods must be methods "
+        .withErrorContaining("@StarlarkConfigurationField annotated methods must be methods "
             + "of configuration fragments.");
   }
 
@@ -93,7 +93,7 @@ public final class SkylarkConfigurationFieldProcessorTest {
   public void testNonExposedConfigurationFragment() throws Exception {
     assertAbout(javaSource())
         .that(getFile("NonExposedConfigurationFragment.java"))
-        .processedWith(new SkylarkConfigurationFieldProcessor())
+        .processedWith(new StarlarkConfigurationFieldProcessor())
         .compilesWithoutError();
   }
 
@@ -101,8 +101,8 @@ public final class SkylarkConfigurationFieldProcessorTest {
   public void testReturnsOtherType() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ReturnsOtherType.java"))
-        .processedWith(new SkylarkConfigurationFieldProcessor())
+        .processedWith(new StarlarkConfigurationFieldProcessor())
         .failsToCompile()
-        .withErrorContaining("@SkylarkConfigurationField annotated methods must return Label.");
+        .withErrorContaining("@StarlarkConfigurationField annotated methods must return Label.");
   }
 }

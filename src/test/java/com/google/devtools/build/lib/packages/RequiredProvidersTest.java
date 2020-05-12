@@ -185,8 +185,8 @@ public class RequiredProvidersTest {
         .isEqualTo("no providers accepted");
     assertThat(
             RequiredProviders.acceptAnyBuilder()
-                .addSkylarkSet(ImmutableSet.of(ID_LEGACY, ID_SKYLARK))
-                .addSkylarkSet(ImmutableSet.of(ID_SKYLARK))
+                .addStarlarkSet(ImmutableSet.of(ID_LEGACY, ID_SKYLARK))
+                .addStarlarkSet(ImmutableSet.of(ID_SKYLARK))
                 .addNativeSet(ImmutableSet.of(P1.class, P2.class))
                 .build()
                 .getDescription())
@@ -222,8 +222,8 @@ public class RequiredProvidersTest {
     RequiredProviders.Builder anyBuilder = RequiredProviders.acceptAnyBuilder();
     RequiredProviders.Builder noneBuilder = RequiredProviders.acceptNoneBuilder();
     for (ImmutableSet<StarlarkProviderIdentifier> set : sets) {
-      anyBuilder.addSkylarkSet(set);
-      noneBuilder.addSkylarkSet(set);
+      anyBuilder.addStarlarkSet(set);
+      noneBuilder.addStarlarkSet(set);
     }
 
     RequiredProviders rpStartingFromAny = anyBuilder.build();

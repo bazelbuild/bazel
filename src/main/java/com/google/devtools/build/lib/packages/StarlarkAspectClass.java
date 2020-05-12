@@ -22,11 +22,11 @@ import java.util.Objects;
 /** {@link AspectClass} for aspects defined in Starlark. */
 @AutoCodec
 @Immutable
-public final class SkylarkAspectClass implements AspectClass {
+public final class StarlarkAspectClass implements AspectClass {
   private final Label extensionLabel;
   private final String exportedName;
 
-  public SkylarkAspectClass(Label extensionLabel, String exportedName) {
+  public StarlarkAspectClass(Label extensionLabel, String exportedName) {
     this.extensionLabel = extensionLabel;
     this.exportedName = exportedName;
   }
@@ -50,11 +50,11 @@ public final class SkylarkAspectClass implements AspectClass {
       return true;
     }
 
-    if (!(o instanceof SkylarkAspectClass)) {
+    if (!(o instanceof StarlarkAspectClass)) {
       return false;
     }
 
-    SkylarkAspectClass that = (SkylarkAspectClass) o;
+    StarlarkAspectClass that = (StarlarkAspectClass) o;
 
     return extensionLabel.equals(that.extensionLabel)
         && exportedName.equals(that.exportedName);

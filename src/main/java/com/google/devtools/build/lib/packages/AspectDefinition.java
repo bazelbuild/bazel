@@ -279,7 +279,7 @@ public final class AspectDefinition {
      * Starlark providers.
      */
     public Builder requireSkylarkProviders(StarlarkProviderIdentifier... skylarkProviders) {
-      requiredProviders.addSkylarkSet(ImmutableSet.copyOf(skylarkProviders));
+      requiredProviders.addStarlarkSet(ImmutableSet.copyOf(skylarkProviders));
       return this;
     }
 
@@ -287,7 +287,7 @@ public final class AspectDefinition {
         Iterable<ImmutableSet<StarlarkProviderIdentifier>> providerSets) {
       for (ImmutableSet<StarlarkProviderIdentifier> providerSet : providerSets) {
         if (!providerSet.isEmpty()) {
-          requiredAspectProviders.addSkylarkSet(providerSet);
+          requiredAspectProviders.addStarlarkSet(providerSet);
         }
       }
       return this;

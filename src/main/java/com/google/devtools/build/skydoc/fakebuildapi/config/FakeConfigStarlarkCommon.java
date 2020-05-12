@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.config;
 
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigSkylarkCommonApi;
+import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigStarlarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 
 /**
- * Fake implementation of {@link ConfigSkylarkCommonApi}.
+ * Fake implementation of {@link ConfigStarlarkCommonApi}.
  */
-public class FakeConfigSkylarkCommon implements ConfigSkylarkCommonApi {
+public class FakeConfigStarlarkCommon implements ConfigStarlarkCommonApi {
 
   @Override
   public ProviderApi getConfigFeatureFlagProviderConstructor() {

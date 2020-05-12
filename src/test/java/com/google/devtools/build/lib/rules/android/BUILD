@@ -48,8 +48,8 @@ java_test(
 )
 
 java_test(
-    name = "AndroidSkylarkCommonTest",
-    srcs = ["AndroidSkylarkCommonTest.java"],
+    name = "AndroidStarlarkCommonTest",
+    srcs = ["AndroidStarlarkCommonTest.java"],
     deps = [
         ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",

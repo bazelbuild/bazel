@@ -15,23 +15,22 @@
 package com.google.devtools.build.lib.analysis.skylark.annotations.processor.optiontestsources;
 
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 
-/** A test case of SkylarkConfigurationFieldProcessorTest. */
+/** A test case of StarlarkConfigurationFieldProcessorTest. */
 public class GoldenConfigurationFieldThroughApi extends Fragment implements ApiInterface {
 
   /**
    * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
    */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "some_field",
       doc = "Documentation ",
       defaultLabel = "defaultLabel",
-      defaultInToolRepository = true
-  )
+      defaultInToolRepository = true)
   public Label getXcodeConfigLabel() {
     return null;
   }

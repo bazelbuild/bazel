@@ -45,7 +45,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
   private final ImmutableList<Label> requiredToolchains;
   private final boolean applyToGeneratingRules;
 
-  private SkylarkAspectClass aspectClass;
+  private StarlarkAspectClass aspectClass;
 
   public StarlarkDefinedAspect(
       StarlarkCallable implementation,
@@ -89,7 +89,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       ImmutableSet<String> hostFragments,
       ImmutableList<Label> requiredToolchains,
       boolean applyToGeneratingRules,
-      SkylarkAspectClass aspectClass) {
+      StarlarkAspectClass aspectClass) {
     this(
         implementation,
         attributeAspects,
@@ -133,7 +133,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
   }
 
   @Override
-  public SkylarkAspectClass getAspectClass() {
+  public StarlarkAspectClass getAspectClass() {
     Preconditions.checkState(isExported());
     return aspectClass;
   }
@@ -146,7 +146,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
   @Override
   public void export(Label extensionLabel, String name) {
     Preconditions.checkArgument(!isExported());
-    this.aspectClass = new SkylarkAspectClass(extensionLabel, name);
+    this.aspectClass = new StarlarkAspectClass(extensionLabel, name);
   }
 
   private static final List<String> allAttrAspects = Arrays.asList("*");

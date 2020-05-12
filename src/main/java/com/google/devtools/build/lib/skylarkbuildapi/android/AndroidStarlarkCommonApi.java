@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "you will be broken when it is removed."
             + "Common utilities and functionality related to Android rules.",
     documented = false)
-public interface AndroidSkylarkCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfoApi<?>>
+public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfoApi<?>>
     extends StarlarkValue {
 
   @SkylarkCallable(

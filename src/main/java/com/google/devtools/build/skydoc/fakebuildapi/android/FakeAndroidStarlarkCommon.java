@@ -16,13 +16,13 @@ package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidStarlarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 
-/** Fake implementation of {@link AndroidSkylarkCommonApi}. */
-public class FakeAndroidSkylarkCommon
-    implements AndroidSkylarkCommonApi<FileApi, JavaInfoApi<FileApi>> {
+/** Fake implementation of {@link AndroidStarlarkCommonApi}. */
+public class FakeAndroidStarlarkCommon
+    implements AndroidStarlarkCommonApi<FileApi, JavaInfoApi<FileApi>> {
 
   @Override
   public AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType) {

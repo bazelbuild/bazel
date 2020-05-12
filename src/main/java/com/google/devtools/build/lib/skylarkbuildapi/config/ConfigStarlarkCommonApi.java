@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 @StarlarkBuiltin(
     name = "config_common",
     doc = "Functions for Starlark to interact with Blaze's configurability APIs.")
-public interface ConfigSkylarkCommonApi extends StarlarkValue {
+public interface ConfigStarlarkCommonApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "FeatureFlagInfo",

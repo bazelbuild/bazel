@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A class that exposes Java common methods for proto compilation. */
-public class JavaProtoSkylarkCommon
+public class JavaProtoStarlarkCommon
     implements JavaProtoCommonApi<
         Artifact, ConstraintValueInfo, StarlarkRuleContext, ConfiguredTarget> {
   @Override

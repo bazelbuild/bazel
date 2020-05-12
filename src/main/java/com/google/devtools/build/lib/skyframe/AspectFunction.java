@@ -55,8 +55,8 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -125,7 +125,7 @@ public final class AspectFunction implements SkyFunction {
    */
   @Nullable
   static StarlarkDefinedAspect loadStarlarkDefinedAspect(
-      Environment env, SkylarkAspectClass starlarkAspectClass)
+      Environment env, StarlarkAspectClass starlarkAspectClass)
       throws AspectCreationException, InterruptedException {
     Label extensionLabel = starlarkAspectClass.getExtensionLabel();
     String starlarkValueName = starlarkAspectClass.getExportedName();
@@ -196,8 +196,8 @@ public final class AspectFunction implements SkyFunction {
       NativeAspectClass nativeAspectClass = (NativeAspectClass) key.getAspectClass();
       aspectFactory = (ConfiguredAspectFactory) nativeAspectClass;
       aspect = Aspect.forNative(nativeAspectClass, key.getParameters());
-    } else if (key.getAspectClass() instanceof SkylarkAspectClass) {
-      SkylarkAspectClass starlarkAspectClass = (SkylarkAspectClass) key.getAspectClass();
+    } else if (key.getAspectClass() instanceof StarlarkAspectClass) {
+      StarlarkAspectClass starlarkAspectClass = (StarlarkAspectClass) key.getAspectClass();
       StarlarkDefinedAspect starlarkAspect;
       try {
         starlarkAspect = loadStarlarkDefinedAspect(env, starlarkAspectClass);
@@ -210,7 +210,7 @@ public final class AspectFunction implements SkyFunction {
 
       aspectFactory = new SkylarkAspectFactory(starlarkAspect);
       aspect =
-          Aspect.forSkylark(
+          Aspect.forStarlark(
               starlarkAspect.getAspectClass(),
               starlarkAspect.getDefinition(key.getParameters()),
               key.getParameters());

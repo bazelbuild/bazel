@@ -34,7 +34,7 @@ import java.lang.annotation.Target;
  */
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface SkylarkConfigurationField {
+public @interface StarlarkConfigurationField {
 
   /** Name of the configuration field, as exposed to Starlark. */
   String name();

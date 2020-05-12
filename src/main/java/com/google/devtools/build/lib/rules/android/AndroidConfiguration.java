@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelC
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
@@ -1083,7 +1083,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return cpu;
   }
 
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "android_sdk_label",
       doc = "Returns the target denoted by the value of the --android_sdk flag",
       defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
@@ -1315,7 +1315,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */
   // TODO(b/147692286): Move R8's main dex list tool into tool repository.
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "legacy_main_dex_list_generator",
       doc = "Returns the label provided with --legacy_main_dex_list_generator, if any.")
   @Nullable

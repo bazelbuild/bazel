@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
-import com.google.devtools.build.lib.rules.java.proto.JavaProtoSkylarkCommon;
+import com.google.devtools.build.lib.rules.java.proto.JavaProtoStarlarkCommon;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
@@ -93,7 +93,7 @@ public class JavaRules implements RuleSet {
         new JavaBootstrap(
             new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
             JavaInfo.PROVIDER,
-            new JavaProtoSkylarkCommon(),
+            new JavaProtoStarlarkCommon(),
             JavaCcLinkParamsProvider.PROVIDER));
 
     try {
