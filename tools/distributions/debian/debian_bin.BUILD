@@ -14,24 +14,8 @@
 
 package(default_visibility = ["//visibility:public"])
 
-# zlib1g-dev
-cc_library(
-    name = "zlib",
-    linkopts = ["-lz"],
-    visibility = ["//visibility:public"],
-)
-
-# libprotobuf-dev
-cc_library(
-    name = "protobuf",
-    linkopts = ["-lprotobuf"],
-    visibility = ["//visibility:public"],
-)
-
-# libprotoc-dev
-cc_library(
-    name = "protoc_lib",
-    linkopts = ["-lprotoc", "-lpthread", "-lm"],
-    deps = [":protobuf"],
-    visibility = ["//visibility:public"],
+# protobuf-compiler
+filegroup(
+    name = "protobuf-compiler",
+    srcs = ["protoc"],
 )

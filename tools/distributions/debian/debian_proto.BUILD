@@ -14,24 +14,34 @@
 
 package(default_visibility = ["//visibility:public"])
 
-# zlib1g-dev
-cc_library(
-    name = "zlib",
-    linkopts = ["-lz"],
-    visibility = ["//visibility:public"],
+# Begin - libprotobuf-dev
+proto_library(
+    name = "any_proto",
+    srcs = ["google/protobuf/any.proto"],
 )
 
-# libprotobuf-dev
-cc_library(
-    name = "protobuf",
-    linkopts = ["-lprotobuf"],
-    visibility = ["//visibility:public"],
+proto_library(
+    name = "descriptor_proto",
+    srcs = ["google/protobuf/descriptor.proto"],
 )
 
-# libprotoc-dev
-cc_library(
-    name = "protoc_lib",
-    linkopts = ["-lprotoc", "-lpthread", "-lm"],
-    deps = [":protobuf"],
-    visibility = ["//visibility:public"],
+proto_library(
+    name = "duration_proto",
+    srcs = ["google/protobuf/duration.proto"],
 )
+
+proto_library(
+    name = "empty_proto",
+    srcs = ["google/protobuf/empty.proto"],
+)
+
+proto_library(
+    name = "timestamp_proto",
+    srcs = ["google/protobuf/timestamp.proto"],
+)
+
+proto_library(
+    name = "wrappers_proto",
+    srcs = ["google/protobuf/wrappers.proto"],
+)
+# End - libprotobuf-dev

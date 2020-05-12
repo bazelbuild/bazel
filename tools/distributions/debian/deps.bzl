@@ -17,6 +17,8 @@
 def debian_deps():
     debian_java_deps()
     debian_cc_deps()
+    debian_proto_deps()
+    debian_bin_deps()
 
 def debian_java_deps():
     # An external repository for providing Debian system installed java libraries.
@@ -27,9 +29,25 @@ def debian_java_deps():
     )
 
 def debian_cc_deps():
-    # An external repository for providing Debian system installed java libraries.
+    # An external repository for providing Debian system installed C/C++ libraries.
     native.new_local_repository(
         name = "debian_cc_deps",
         path = "/usr/lib",
         build_file = "//tools/distributions/debian:debian_cc.BUILD",
+    )
+
+def debian_proto_deps():
+    # An external repository for providing Debian system installed proto files.
+    native.new_local_repository(
+        name = "debian_proto_deps",
+        path = "/usr/include",
+        build_file = "//tools/distributions/debian:debian_proto.BUILD",
+    )
+
+def debian_bin_deps():
+    # An external repository for providing Debian system installed binaries.
+    native.new_local_repository(
+        name = "debian_bin_deps",
+        path = "/usr/bin",
+        build_file = "//tools/distributions/debian:debian_bin.BUILD",
     )

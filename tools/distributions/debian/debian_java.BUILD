@@ -64,6 +64,18 @@ java_import(
     jars = ["java-allocation-instrumenter.jar"],
 )
 
+# libprotobuf-java
+java_import(
+    name = "protobuf_java",
+    jars = ["protobuf.jar"],
+)
+
+# libprotobuf-java
+java_import(
+    name = "protobuf_java_util",
+    jars = ["protobuf-util.jar"],
+)
+
 # libcommons-collections3-java
 java_import(
     name = "apache_commons_collections",

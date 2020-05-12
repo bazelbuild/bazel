@@ -12,26 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package(default_visibility = ["//visibility:public"])
-
-# zlib1g-dev
-cc_library(
-    name = "zlib",
-    linkopts = ["-lz"],
-    visibility = ["//visibility:public"],
-)
-
-# libprotobuf-dev
-cc_library(
-    name = "protobuf",
-    linkopts = ["-lprotobuf"],
-    visibility = ["//visibility:public"],
-)
-
-# libprotoc-dev
-cc_library(
-    name = "protoc_lib",
-    linkopts = ["-lprotoc", "-lpthread", "-lm"],
-    deps = [":protobuf"],
-    visibility = ["//visibility:public"],
-)
+# Make Bazel happy when parsing src/main/protobuf/BUILD
+def py_proto_library(name, **kargs):
+    """A mock of py_proto_library"""
+    pass
