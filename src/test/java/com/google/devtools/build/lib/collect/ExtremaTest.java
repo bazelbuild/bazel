@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.collect;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
@@ -90,6 +91,23 @@ public class ExtremaTest {
   @Test
   public void maxExtremaLargeK() {
     runRangeTest(Extrema.max(10), 1, 5, ImmutableList.of(5, 4, 3, 2, 1));
+  }
+
+  @Test
+  public void testEmptyExtrema() {
+    Extrema<Integer> extrema = Extrema.max(0);
+    extrema.aggregate(1);
+    assertThat(extrema.getExtremeElements()).isEmpty();
+
+    extrema.clear();
+    assertThat(extrema.getExtremeElements()).isEmpty();
+  }
+
+  @Test
+  public void testNegativeExtremaDisallowed() {
+    IllegalArgumentException thrown =
+        assertThrows(IllegalArgumentException.class, () -> Extrema.min(-1));
+    assertThat(thrown).hasMessageThat().isEqualTo("invalid k (-1), must be >=0");
   }
 
   private void runRangeTest(
