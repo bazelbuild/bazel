@@ -175,6 +175,19 @@ static void MountFilesystems() {
   // do this is by bind-mounting it upon itself.
   PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
 
+  // An attempt to mount the sandbox in tmpfs will always fail, so this block is
+  // slightly redundant with the next mount() check, but dumping the mount()
+  // syscall is incredibly cryptic, so we explicitly check against and warn
+  // about attempts to use tmpfs.
+  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
+    if (opt.working_dir.find(tmpfs_dir) == 0) {
+      DIE("The sandbox working directory cannot be below a path where we mount "
+          "tmpfs (you requested mounting %s in %s). Is your --output_base= "
+          "below one of your --sandbox_tmpfs_path values?",
+          opt.working_dir.c_str(), tmpfs_dir.c_str());
+    }
+  }
+
   if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
             nullptr) < 0) {
     DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
