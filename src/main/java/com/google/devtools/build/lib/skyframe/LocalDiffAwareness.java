@@ -55,6 +55,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
                 + "Windows: this flag currently is a non-op but can be enabled in conjunction "
                 + "with --experimental_windows_watchfs.")
     public boolean watchFS;
+    
     @Option(
         name = "experimental_windows_watchfs",
         defaultValue = "false",

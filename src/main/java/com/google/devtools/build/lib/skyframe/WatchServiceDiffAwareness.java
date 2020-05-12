@@ -48,6 +48,8 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
    */
   private final HashBiMap<WatchKey, Path> watchKeyToDirBiMap = HashBiMap.create();
 
+  private final boolean isWindows = OS.getCurrent() == OS.WINDOWS;
+
   /** Every directory is registered under this watch service. */
   private WatchService watchService;
 
@@ -88,7 +90,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     //      ModifiedFileSet.EVERYTHING_MODIFIED in the current build.
     boolean watchFs = options.getOptions(Options.class).watchFS &&
         // Guard WatchFs on Windows behind --experimental_windows_watchfs.
-        (OS.getCurrent() != OS.WINDOWS || options.getOptions(Options.class).windowsWatchFS);
+        (!isWindows || options.getOptions(Options.class).windowsWatchFS);
     if (watchFs && watchService == null) {
       init();
     } else if (!watchFs && (watchService != null)) {
@@ -119,7 +121,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
         // Due to a known issue nested watches may result in errors on windows: https://bugs.openjdk.java.net/browse/JDK-6972833
         // Therefore on windows we register using the special ExtendedWatchEventModifier.FILE_TREE
         // This watches a folder recursively so there is no need to apply this ourselves
-        if(OS.getCurrent() == OS.WINDOWS) {
+        if(isWindows) {
             WatchKey key =
                 watchRootPath.register(
                     watchService,
@@ -305,7 +307,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
       Preconditions.checkState(path.isAbsolute(), path);
       // On windows we register the root path with ExtendedWatchEventModifier.FILE_TREE
       // Therefore there is no need to register recursive watchers
-      if(OS.getCurrent() != OS.WINDOWS) {
+      if(!isWindows) {
           WatchKey key =
               path.register(
                   watchService,
