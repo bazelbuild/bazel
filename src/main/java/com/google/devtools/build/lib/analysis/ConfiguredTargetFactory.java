@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -465,7 +465,7 @@ public final class ConfiguredTargetFactory {
       if (rule.getRuleClassObject().isStarlark()) {
         // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
         ConfiguredTarget target =
-            SkylarkRuleConfiguredTargetUtil.buildRule(
+            StarlarkRuleConfiguredTargetUtil.buildRule(
                 ruleContext,
                 rule.getRuleClassObject().getAdvertisedProviders(),
                 rule.getRuleClassObject().getConfiguredTargetFunction(),
@@ -707,7 +707,7 @@ public final class ConfiguredTargetFactory {
       }
     }
 
-    for (StarlarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getStarlarkProviders()) {
       if (configuredAspect.get(providerId) == null) {
         eventHandler.handle(
             Event.error(

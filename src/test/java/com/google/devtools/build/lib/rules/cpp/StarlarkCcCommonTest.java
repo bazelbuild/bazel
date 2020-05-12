@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -173,7 +173,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl"), "CruleInfo");
-    SkylarkInfo cruleInfo = (SkylarkInfo) r.get(key);
+    StarlarkInfo cruleInfo = (StarlarkInfo) r.get(key);
     Depset staticRuntimeLib = (Depset) cruleInfo.getValue("static");
     Depset dynamicRuntimeLib = (Depset) cruleInfo.getValue("dynamic");
 
@@ -188,7 +188,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
     invalidatePackages();
     r = getConfiguredTarget("//a:r");
-    cruleInfo = (SkylarkInfo) r.get(key);
+    cruleInfo = (StarlarkInfo) r.get(key);
     staticRuntimeLib = (Depset) cruleInfo.getValue("static");
     dynamicRuntimeLib = (Depset) cruleInfo.getValue("dynamic");
 
@@ -1772,7 +1772,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createVariableWithValueRule("five", /* name= */ "'abc'", /* value= */ "'def'");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     assertThat(variable).isNotNull();
     VariableWithValue v = CcModule.variableWithValueFromSkylark(variable);
     assertThat(v).isNotNull();
@@ -1781,7 +1781,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     createEnvEntryRule("six", /* key= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
-    SkylarkInfo envEntry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
+    StarlarkInfo envEntry = (StarlarkInfo) getMyInfoFromTarget(t).getValue("entry");
     EvalException ee =
         assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(envEntry));
     assertThat(ee)
@@ -1808,7 +1808,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createCustomVariableWithValueRule("one", /* name= */ "None", /* value= */ "None");
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(variable));
     assertThat(e)
@@ -1822,7 +1822,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomVariableWithValueRule("two", /* name= */ "'abc'", /* value= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(variable));
     assertThat(e)
@@ -1836,7 +1836,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomVariableWithValueRule("three", /* name= */ "'abc'", /* value= */ "struct()");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(variable));
     assertThat(e).hasMessageThat().contains("Field 'value' is not of 'java.lang.String' type.");
@@ -1848,7 +1848,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomVariableWithValueRule("four", /* name= */ "True", /* value= */ "'abc'");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.variableWithValueFromSkylark(variable));
     assertThat(e).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
@@ -1916,7 +1916,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createEnvEntryRule("five", "'abc'", /* value= */ "'def'");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo entryProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
+    StarlarkInfo entryProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("entry");
     assertThat(entryProvider).isNotNull();
     EnvEntry entry = CcModule.envEntryFromSkylark(entryProvider);
     assertThat(entry).isNotNull();
@@ -1929,7 +1929,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envEntryFromSkylark(variable));
     assertThat(e)
@@ -1956,7 +1956,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomEnvEntryRule("one", /* key= */ "None", /* value= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
+    StarlarkInfo entry = (StarlarkInfo) getMyInfoFromTarget(t).getValue("entry");
     EvalException e = assertThrows(EvalException.class, () -> CcModule.envEntryFromSkylark(entry));
     assertThat(e)
         .hasMessageThat()
@@ -1969,7 +1969,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomEnvEntryRule("two", /* key= */ "'abc'", /* value= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
+    StarlarkInfo entry = (StarlarkInfo) getMyInfoFromTarget(t).getValue("entry");
     EvalException e =
         assertThrows(
             "Should have failed because of empty string.",
@@ -1986,7 +1986,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomEnvEntryRule("three", /* key= */ "'abc'", /* value= */ "struct()");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
+    StarlarkInfo entry = (StarlarkInfo) getMyInfoFromTarget(t).getValue("entry");
     EvalException e = assertThrows(EvalException.class, () -> CcModule.envEntryFromSkylark(entry));
     assertThat(e).hasMessageThat().contains("Field 'value' is not of 'java.lang.String' type.");
   }
@@ -1997,7 +1997,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomEnvEntryRule("four", /* key= */ "True", /* value= */ "'abc'");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo entry = (SkylarkInfo) getMyInfoFromTarget(t).getValue("entry");
+    StarlarkInfo entry = (StarlarkInfo) getMyInfoFromTarget(t).getValue("entry");
     EvalException e = assertThrows(EvalException.class, () -> CcModule.envEntryFromSkylark(entry));
     assertThat(e).hasMessageThat().contains("Field 'key' is not of 'java.lang.String' type.");
   }
@@ -2065,7 +2065,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createToolPathRule("five", /* name= */ "'abc'", "'/d/e/f'");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo toolPathProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
+    StarlarkInfo toolPathProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
     assertThat(toolPathProvider).isNotNull();
     Pair<String, String> toolPath = CcModule.toolPathFromSkylark(toolPathProvider);
     assertThat(toolPath).isNotNull();
@@ -2078,7 +2078,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(variable));
     assertThat(e)
@@ -2105,7 +2105,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomToolPathRule("one", /* name= */ "None", /* path= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
+    StarlarkInfo toolPath = (StarlarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(toolPath));
     assertThat(e)
@@ -2119,7 +2119,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomToolPathRule("two", /* name= */ "'abc'", /* path= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
+    StarlarkInfo toolPath = (StarlarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(toolPath));
     assertThat(e)
@@ -2133,7 +2133,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomToolPathRule("three", /* name= */ "'abc'", /* path= */ "struct()");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
+    StarlarkInfo toolPath = (StarlarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(toolPath));
     assertThat(e).hasMessageThat().contains("Field 'path' is not of 'java.lang.String' type.");
@@ -2145,7 +2145,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomToolPathRule("four", /* name= */ "True", /* path= */ "'abc'");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo toolPath = (SkylarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
+    StarlarkInfo toolPath = (StarlarkInfo) getMyInfoFromTarget(t).getValue("toolpath");
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.toolPathFromSkylark(toolPath));
     assertThat(e).hasMessageThat().contains("Field 'name' is not of 'java.lang.String' type.");
@@ -2199,7 +2199,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createMakeVariablerule("five", /* name= */ "'abc'", /* value= */ "'val'");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo makeVariableProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo makeVariableProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     assertThat(makeVariableProvider).isNotNull();
     Pair<String, String> makeVariable = CcModule.makeVariableFromSkylark(makeVariableProvider);
     assertThat(makeVariable).isNotNull();
@@ -2208,7 +2208,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException ee =
         assertThrows(EvalException.class, () -> CcModule.makeVariableFromSkylark(variable));
     assertThat(ee)
@@ -2234,7 +2234,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomMakeVariableRule("one", /* name= */ "None", /* value= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo makeVariableProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo makeVariableProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.makeVariableFromSkylark(makeVariableProvider));
@@ -2248,8 +2248,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomMakeVariableRule("two", /* name= */ "'abc'", /* value= */ "None");
 
               ConfiguredTarget t = getConfiguredTarget("//two:a");
-              SkylarkInfo makeVariableProvider =
-                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo makeVariableProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.makeVariableFromSkylark(makeVariableProvider));
@@ -2263,8 +2262,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomMakeVariableRule("three", /* name= */ "[]", /* value= */ "None");
 
               ConfiguredTarget t = getConfiguredTarget("//three:a");
-              SkylarkInfo makeVariableProvider =
-                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo makeVariableProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.makeVariableFromSkylark(makeVariableProvider));
@@ -2276,8 +2274,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomMakeVariableRule("four", /* name= */ "'abc'", /* value= */ "True");
 
               ConfiguredTarget t = getConfiguredTarget("//four:a");
-              SkylarkInfo makeVariableProvider =
-                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo makeVariableProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e =
         assertThrows(
             EvalException.class, () -> CcModule.makeVariableFromSkylark(makeVariableProvider));
@@ -2333,7 +2330,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "five", /* features= */ "['f1', 'f2']", /* notFeatures= */ "['nf1', 'nf2']");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo withFeatureSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
+    StarlarkInfo withFeatureSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("wfs");
     assertThat(withFeatureSetProvider).isNotNull();
     WithFeatureSet withFeatureSet = CcModule.withFeatureSetFromSkylark(withFeatureSetProvider);
     assertThat(withFeatureSet).isNotNull();
@@ -2342,7 +2339,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException ee =
         assertThrows(EvalException.class, () -> CcModule.withFeatureSetFromSkylark(variable));
     assertThat(ee)
@@ -2369,8 +2366,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomWithFeatureSetRule("one", /* features= */ "struct()", /* notFeatures= */ "None");
 
               ConfiguredTarget t = getConfiguredTarget("//one:a");
-              SkylarkInfo withFeatureSetProvider =
-                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
+    StarlarkInfo withFeatureSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("wfs");
               assertThat(withFeatureSetProvider).isNotNull();
     EvalException e =
         assertThrows(
@@ -2383,8 +2379,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomWithFeatureSetRule("two", /* features= */ "['abc']", /* notFeatures= */ "struct()");
 
               ConfiguredTarget t = getConfiguredTarget("//two:a");
-              SkylarkInfo withFeatureSetProvider =
-                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
+    StarlarkInfo withFeatureSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("wfs");
               assertThat(withFeatureSetProvider).isNotNull();
     EvalException e =
         assertThrows(
@@ -2397,8 +2392,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomWithFeatureSetRule("three", /* features= */ "[struct()]", /* notFeatures= */ "[]");
 
               ConfiguredTarget t = getConfiguredTarget("//three:a");
-              SkylarkInfo withFeatureSetProvider =
-                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
+    StarlarkInfo withFeatureSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("wfs");
               assertThat(withFeatureSetProvider).isNotNull();
     EvalException e =
         assertThrows(
@@ -2413,8 +2407,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomWithFeatureSetRule("four", /* features= */ "[]", /* notFeatures= */ "[struct()]");
 
               ConfiguredTarget t = getConfiguredTarget("//four:a");
-              SkylarkInfo withFeatureSetProvider =
-                  (SkylarkInfo) getMyInfoFromTarget(t).getValue("wfs");
+    StarlarkInfo withFeatureSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("wfs");
               assertThat(withFeatureSetProvider).isNotNull();
     EvalException e =
         assertThrows(
@@ -2497,7 +2490,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* withFeatures= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    StarlarkInfo envSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
@@ -2525,7 +2518,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* withFeatures= */ "[with_feature_set(features = ['a'])]");
 
     ConfiguredTarget t = getConfiguredTarget("//seven:a");
-    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    StarlarkInfo envSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
     EnvSet envSet = CcModule.envSetFromSkylark(envSetProvider);
     assertThat(envSet).isNotNull();
@@ -2536,7 +2529,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     createVariableWithValueRule("eight", /* name= */ "'abc'", /* value= */ "'def'");
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
-    SkylarkInfo variable = (SkylarkInfo) getMyInfoFromTarget(t).getValue("variable");
+    StarlarkInfo variable = (StarlarkInfo) getMyInfoFromTarget(t).getValue("variable");
     EvalException e = assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(variable));
     assertThat(e)
         .hasMessageThat()
@@ -2565,7 +2558,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomEnvSetRule(
         "one", /* actions= */ "[]", /* envEntries= */ "None", /* withFeatures= */ "None");
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    StarlarkInfo envSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
@@ -2578,7 +2571,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createCustomEnvSetRule(
         "two", /* actions= */ "['a1']", /* envEntries= */ "struct()", /* withFeatures= */ "None");
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    StarlarkInfo envSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
@@ -2594,7 +2587,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* envEntries= */ "[struct()]",
         /* withFeatures= */ "None");
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    StarlarkInfo envSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
@@ -2612,7 +2605,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* envEntries= */ "[env_entry(key = 'a', value = 'b')]",
         /* withFeatures= */ "'a'");
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    StarlarkInfo envSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
@@ -2629,7 +2622,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* envEntries= */ "[env_entry(key = 'a', value = 'b')]",
         /* withFeatures= */ "[env_entry(key = 'a', value = 'b')]");
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo envSetProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("envset");
+    StarlarkInfo envSetProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("envset");
     assertThat(envSetProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.envSetFromSkylark(envSetProvider));
@@ -2811,7 +2804,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "'a'");
 
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
@@ -2819,7 +2812,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .hasMessageThat()
         .contains(
             "Field 'expand_if_equal' is not of "
-                + "'com.google.devtools.build.lib.packages.SkylarkInfo' type.");
+                + "'com.google.devtools.build.lib.packages.StarlarkInfo' type.");
   }
 
   @Test
@@ -2837,7 +2830,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
     ConfiguredTarget t = getConfiguredTarget("//nine:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     FlagGroup f = CcModule.flagGroupFromSkylark(flagGroupProvider);
     assertThat(f).isNotNull();
@@ -2858,7 +2851,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
     ConfiguredTarget t = getConfiguredTarget("//ten:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
@@ -2913,7 +2906,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//single_chunk_flag:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     FlagGroup flagGroup = CcModule.flagGroupFromSkylark(flagGroupProvider);
     assertThat(flagGroup.getExpandables()).isNotEmpty();
@@ -2935,7 +2928,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
@@ -2959,7 +2952,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
@@ -2983,7 +2976,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
@@ -3007,7 +3000,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
@@ -3031,7 +3024,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "variable_with_value(name = 'a', value = 'b')");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
@@ -3055,7 +3048,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* expandIfEqual= */ "struct(name = 'a', value = 'b')");
 
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo flagGroupProvider = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
+    StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.flagGroupFromSkylark(flagGroupProvider));
@@ -3137,7 +3130,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* requirements= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
@@ -3155,7 +3148,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* requirements= */ "[struct(val = 'a')]");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
@@ -3173,7 +3166,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* requirements= */ "['a', 'b']");
 
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     Tool tool = CcModule.toolFromSkylark(toolStruct);
     assertThat(tool.getExecutionRequirements()).containsExactly("a", "b");
@@ -3204,7 +3197,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "one", /* path= */ "''", /* withFeatures= */ "[]", /* requirements= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e).hasMessageThat().contains("The 'path' field of tool must be a nonempty string.");
@@ -3217,7 +3210,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "two", /* path= */ "struct()", /* withFeatures= */ "[]", /* requirements= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e).hasMessageThat().contains("Field 'path' is not of 'java.lang.String' type.");
@@ -3230,7 +3223,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "three", /* path= */ "'a'", /* withFeatures= */ "struct()", /* requirements= */ "[]");
 
               ConfiguredTarget t = getConfiguredTarget("//three:a");
-              SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
               assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e).hasMessageThat().contains("for with_features, got struct, want sequence");
@@ -3246,7 +3239,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* requirements= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
@@ -3261,7 +3254,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "five", /* path= */ "'a'", /* withFeatures= */ "[]", /* requirements= */ "'a'");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
@@ -3276,7 +3269,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "six", /* path= */ "'a'", /* withFeatures= */ "[]", /* requirements= */ "[struct()]");
 
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo toolStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e = assertThrows(EvalException.class, () -> CcModule.toolFromSkylark(toolStruct));
     assertThat(e)
@@ -3334,7 +3327,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* withFeatures= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    StarlarkInfo flagSetStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3355,7 +3348,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* withFeatures= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    StarlarkInfo flagSetStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3376,7 +3369,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* withFeatures= */ "[struct(val = 'a')]");
 
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    StarlarkInfo flagSetStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3396,7 +3389,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* flagGroups= */ "[flag_group(flags = ['a'])]",
         /* withFeatures= */ "[with_feature_set(features = ['a'])]");
     ConfiguredTarget t = getConfiguredTarget("//seven:a");
-    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    StarlarkInfo flagSetStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
     FlagSet f = CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null);
     assertThat(f).isNotNull();
@@ -3412,7 +3405,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* withFeatures= */ "[struct(val = 'a')]");
 
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
-    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    StarlarkInfo flagSetStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3432,7 +3425,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* flagGroups= */ "[flag_group(flags = ['a'])]",
         /* withFeatures= */ "[with_feature_set(features = ['a'])]");
     ConfiguredTarget t = getConfiguredTarget("//nine:a");
-    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    StarlarkInfo flagSetStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
     FlagSet f = CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ "action");
     assertThat(f).isNotNull();
@@ -3463,7 +3456,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "one", /* actions= */ "[]", /* flagGroups= */ "[]", /* withFeatures= */ "[]");
 
     ConfiguredTarget target = getConfiguredTarget("//one:a");
-    SkylarkInfo flagSet = (SkylarkInfo) getMyInfoFromTarget(target).getValue("flagset");
+    StarlarkInfo flagSet = (StarlarkInfo) getMyInfoFromTarget(target).getValue("flagset");
     assertThat(flagSet).isNotNull();
     FlagSet flagSetObject = CcModule.flagSetFromSkylark(flagSet, /* actionName */ null);
     assertThat(flagSetObject).isNotNull();
@@ -3476,7 +3469,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "two", /* actions= */ "['a']", /* flagGroups= */ "struct()", /* withFeatures= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    StarlarkInfo flagSetStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3492,7 +3485,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "three", /* actions= */ "['a']", /* flagGroups= */ "[]", /* withFeatures= */ "struct()");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    StarlarkInfo flagSetStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3508,7 +3501,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "four", /* actions= */ "struct()", /* flagGroups= */ "[]", /* withFeatures= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo flagSetStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("flagset");
+    StarlarkInfo flagSetStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3580,7 +3573,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3602,7 +3595,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3639,7 +3632,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3661,7 +3654,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
     ConfiguredTarget t = getConfiguredTarget("//seven:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3683,7 +3676,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "['a', 'b']");
 
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     ActionConfig a = CcModule.actionConfigFromSkylark(actionConfigStruct);
     assertThat(a).isNotNull();
@@ -3705,7 +3698,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
     ConfiguredTarget t = getConfiguredTarget("//nine:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3729,7 +3722,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
     ConfiguredTarget t = getConfiguredTarget("//ten:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3773,7 +3766,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3795,7 +3788,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3815,7 +3808,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3835,7 +3828,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3855,7 +3848,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* implies= */ "flag_set(actions = ['a', 'b'])");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo actionConfigStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("config");
+    StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -3897,7 +3890,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -3938,7 +3931,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -3961,7 +3954,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -3983,7 +3976,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4005,7 +3998,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4029,7 +4022,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[struct()]");
 
     ConfiguredTarget t = getConfiguredTarget("//seven:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4053,7 +4046,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "['a', 'b', 'c']");
 
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     Feature a = CcModule.featureFromSkylark(featureStruct);
     assertThat(a).isNotNull();
@@ -4073,7 +4066,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//nine:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4098,7 +4091,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//ten:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4151,7 +4144,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4172,7 +4165,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4193,7 +4186,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4214,7 +4207,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4235,7 +4228,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4256,7 +4249,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4277,7 +4270,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "struct()");
 
     ConfiguredTarget t = getConfiguredTarget("//seven:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4298,7 +4291,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* provides= */ "[]");
 
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
-    SkylarkInfo featureStruct = (SkylarkInfo) getMyInfoFromTarget(t).getValue("f");
+    StarlarkInfo featureStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("f");
     assertThat(featureStruct).isNotNull();
     EvalException e =
         assertThrows(EvalException.class, () -> CcModule.featureFromSkylark(featureStruct));
@@ -4343,8 +4336,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "one", /* categoryName= */ "struct()", /* extension= */ "'a'", /* prefix= */ "'a'");
 
     ConfiguredTarget t = getConfiguredTarget("//one:a");
-    SkylarkInfo artifactNamePatternStruct =
-        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    StarlarkInfo artifactNamePatternStruct =
+        (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -4365,8 +4358,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* prefix= */ "'a'");
 
     ConfiguredTarget t = getConfiguredTarget("//two:a");
-    SkylarkInfo artifactNamePatternStruct =
-        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    StarlarkInfo artifactNamePatternStruct =
+        (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -4385,8 +4378,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* prefix= */ "struct()");
 
     ConfiguredTarget t = getConfiguredTarget("//three:a");
-    SkylarkInfo artifactNamePatternStruct =
-        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    StarlarkInfo artifactNamePatternStruct =
+        (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -4402,8 +4395,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "four", /* categoryName= */ "''", /* extension= */ "'.a'", /* prefix= */ "'a'");
 
     ConfiguredTarget t = getConfiguredTarget("//four:a");
-    SkylarkInfo artifactNamePatternStruct =
-        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    StarlarkInfo artifactNamePatternStruct =
+        (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -4421,8 +4414,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "five", /* categoryName= */ "'executable'", /* extension= */ "''", /* prefix= */ "''");
 
     ConfiguredTarget t = getConfiguredTarget("//five:a");
-    SkylarkInfo artifactNamePatternStruct =
-        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    StarlarkInfo artifactNamePatternStruct =
+        (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
     ArtifactNamePattern artifactNamePattern =
         CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
@@ -4436,8 +4429,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "six", /* categoryName= */ "'executable'", /* extension= */ "None", /* prefix= */ "None");
 
     ConfiguredTarget t = getConfiguredTarget("//six:a");
-    SkylarkInfo artifactNamePatternStruct =
-        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    StarlarkInfo artifactNamePatternStruct =
+        (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
     ArtifactNamePattern artifactNamePattern =
         CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
@@ -4451,8 +4444,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "seven", /* categoryName= */ "'unknown'", /* extension= */ "'.a'", /* prefix= */ "'a'");
 
     ConfiguredTarget t = getConfiguredTarget("//seven:a");
-    SkylarkInfo artifactNamePatternStruct =
-        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    StarlarkInfo artifactNamePatternStruct =
+        (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -4471,8 +4464,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         /* prefix= */ "'a'");
 
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
-    SkylarkInfo artifactNamePatternStruct =
-        (SkylarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
+    StarlarkInfo artifactNamePatternStruct =
+        (StarlarkInfo) getMyInfoFromTarget(t).getValue("namepattern");
     assertThat(artifactNamePatternStruct).isNotNull();
     EvalException e =
         assertThrows(
@@ -5830,8 +5823,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                 .getCcLinkingContext()
                 .getLibraries()
                 .toList());
-    SkylarkInfo fooInfo =
-        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
+    StarlarkInfo fooInfo =
+        (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
     assertThat(fooLibrary.getObjectFiles()).isEqualTo(fooInfo.getValue("objects"));
     assertThat(fooLibrary.getPicObjectFiles()).isEqualTo(fooInfo.getValue("pic_objects"));
@@ -5846,8 +5839,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
 
     // Default toolchain is without PIC support, so pic_objects should be None
-    SkylarkInfo fooInfoForPic =
-        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
+    StarlarkInfo fooInfoForPic =
+        (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
     Object picObjects = fooInfoForPic.getValue("pic_objects");
     assertThat(picObjects).isNotEqualTo(Starlark.NONE);
@@ -5862,8 +5855,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             CcToolchainConfig.builder()
                 .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
     invalidatePackages();
-    SkylarkInfo fooInfoForNoPic =
-        (SkylarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
+    StarlarkInfo fooInfoForNoPic =
+        (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
     Object objects = fooInfoForNoPic.getValue("objects");
     assertThat(objects).isNotEqualTo(Starlark.NONE);

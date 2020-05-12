@@ -33,27 +33,27 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Test class for {@link SkylarkInfo} and its subclasses. */
+/** Test class for {@link StarlarkInfo} and its subclasses. */
 @RunWith(JUnit4.class)
-public class SkylarkInfoTest {
+public class StarlarkInfoTest {
 
   @Test
   public void nullLocationDefaultsToBuiltin() throws Exception {
-    SkylarkInfo info = SkylarkInfo.create(makeProvider(), ImmutableMap.of(), null);
+    StarlarkInfo info = StarlarkInfo.create(makeProvider(), ImmutableMap.of(), null);
     assertThat(info.getCreationLoc()).isEqualTo(Location.BUILTIN);
   }
 
   @Test
   public void instancesOfUnexportedProvidersAreMutable() throws Exception {
     StarlarkProvider provider = makeProvider();
-    SkylarkInfo info = makeInfoWithF1F2Values(provider, 5, null);
+    StarlarkInfo info = makeInfoWithF1F2Values(provider, 5, null);
     assertThat(info.isImmutable()).isFalse();
   }
 
   @Test
   public void instancesOfExportedProvidersMayBeImmutable() throws Exception {
     StarlarkProvider provider = makeExportedProvider();
-    SkylarkInfo info = makeInfoWithF1F2Values(provider, 5, null);
+    StarlarkInfo info = makeInfoWithF1F2Values(provider, 5, null);
     assertThat(info.isImmutable()).isTrue();
   }
 
@@ -61,7 +61,7 @@ public class SkylarkInfoTest {
   public void mutableIfContentsAreMutable() throws Exception {
     StarlarkProvider provider = makeExportedProvider();
     StarlarkValue v = new StarlarkValue() {};
-    SkylarkInfo info = makeInfoWithF1F2Values(provider, 5, v);
+    StarlarkInfo info = makeInfoWithF1F2Values(provider, 5, v);
     assertThat(info.isImmutable()).isFalse();
   }
 
@@ -87,8 +87,8 @@ public class SkylarkInfoTest {
   public void concatWithDifferentProvidersFails() throws Exception {
     StarlarkProvider provider1 = makeProvider();
     StarlarkProvider provider2 = makeProvider();
-    SkylarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
-    SkylarkInfo info2 = makeInfoWithF1F2Values(provider2, 4, 5);
+    StarlarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
+    StarlarkInfo info2 = makeInfoWithF1F2Values(provider2, 4, 5);
     EvalException expected =
         assertThrows(EvalException.class, () -> info1.binaryOp(TokenKind.PLUS, info2, true));
     assertThat(expected).hasMessageThat()
@@ -98,8 +98,8 @@ public class SkylarkInfoTest {
   @Test
   public void concatWithOverlappingFieldsFails() throws Exception {
     StarlarkProvider provider1 = makeProvider();
-    SkylarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
-    SkylarkInfo info2 = makeInfoWithF1F2Values(provider1, 4, null);
+    StarlarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
+    StarlarkInfo info2 = makeInfoWithF1F2Values(provider1, 4, null);
     EvalException expected =
         assertThrows(EvalException.class, () -> info1.binaryOp(TokenKind.PLUS, info2, true));
     assertThat(expected)
@@ -110,9 +110,9 @@ public class SkylarkInfoTest {
   @Test
   public void concatWithSameFields() throws Exception {
     StarlarkProvider provider = makeProvider();
-    SkylarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
-    SkylarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
-    SkylarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
+    StarlarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
+    StarlarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
+    StarlarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
     assertThat(result.getFieldNames()).containsExactly("f1", "f2");
     assertThat(result.getValue("f1")).isEqualTo(4);
     assertThat(result.getValue("f2")).isEqualTo(5);
@@ -121,9 +121,9 @@ public class SkylarkInfoTest {
   @Test
   public void concatWithDifferentFields() throws Exception {
     StarlarkProvider provider = makeProvider();
-    SkylarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
-    SkylarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
-    SkylarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
+    StarlarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
+    StarlarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
+    StarlarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
     assertThat(result.getFieldNames()).containsExactly("f1", "f2");
     assertThat(result.getValue("f1")).isEqualTo(4);
     assertThat(result.getValue("f2")).isEqualTo(5);
@@ -145,7 +145,7 @@ public class SkylarkInfoTest {
    * Creates an instance of a provider with the given values for fields f1 and f2. Either field
    * value may be null, in which case it is omitted.
    */
-  private static SkylarkInfo makeInfoWithF1F2Values(
+  private static StarlarkInfo makeInfoWithF1F2Values(
       StarlarkProvider provider, @Nullable Object v1, @Nullable Object v2) {
     ImmutableMap.Builder<String, Object> values = ImmutableMap.builder();
     if (v1 != null) {
@@ -154,7 +154,7 @@ public class SkylarkInfoTest {
     if (v2 != null) {
       values.put("f2", v2);
     }
-    return SkylarkInfo.create(provider, values.build(), Location.BUILTIN);
+    return StarlarkInfo.create(provider, values.build(), Location.BUILTIN);
   }
 
   // Tests Ganapathy permute algorithm on arrays of various lengths from Fibonacci sequence.
@@ -169,7 +169,7 @@ public class SkylarkInfoTest {
         array[2 * i] = i + 1; // keys are positive
         array[2 * i + 1] = -i - 1; // value is negation of corresponding key
       }
-      SkylarkInfo.permute(array);
+      StarlarkInfo.permute(array);
 
       // Assert that keys (positive) appear before values (negative).
       for (int i = 0; i < 2 * a; i++) {
@@ -245,7 +245,7 @@ public class SkylarkInfoTest {
 
       // Sort using sortPairs.
       if (a > 0) {
-        SkylarkInfo.sortPairs(array, 0, a - 1);
+        StarlarkInfo.sortPairs(array, 0, a - 1);
       }
 
       // Assert sorted keys match reference implementation.

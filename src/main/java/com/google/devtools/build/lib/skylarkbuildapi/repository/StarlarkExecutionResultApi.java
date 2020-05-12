@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
         "A structure storing result of repository_ctx.execute() method. It contains the standard"
             + " output stream content, the standard error stream content and the execution return"
             + " code.")
-public interface SkylarkExecutionResultApi extends StarlarkValue {
+public interface StarlarkExecutionResultApi extends StarlarkValue {
   @SkylarkCallable(
       name = "return_code",
       structField = true,

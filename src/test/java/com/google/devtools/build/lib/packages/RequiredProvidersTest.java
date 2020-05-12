@@ -65,7 +65,7 @@ public class RequiredProvidersTest {
     assertThat(
             requiredProviders.isSatisfiedBy(
                 providers.getNativeProviders()::contains,
-                providers.getSkylarkProviders()::contains))
+                providers.getStarlarkProviders()::contains))
         .isEqualTo(result);
     return result;
   }
@@ -82,10 +82,10 @@ public class RequiredProvidersTest {
             RequiredProviders.acceptAnyBuilder().build()
         )).isTrue();
     assertThat(
-        satisfies(
-            AdvertisedProviderSet.builder().addSkylark("p1").build(),
-            RequiredProviders.acceptAnyBuilder().build()
-        )).isTrue();
+            satisfies(
+                AdvertisedProviderSet.builder().addStarlark("p1").build(),
+                RequiredProviders.acceptAnyBuilder().build()))
+        .isTrue();
   }
 
   @Test
@@ -100,10 +100,10 @@ public class RequiredProvidersTest {
             RequiredProviders.acceptNoneBuilder().build()
         )).isFalse();
     assertThat(
-        satisfies(
-            AdvertisedProviderSet.builder().addSkylark("p1").build(),
-            RequiredProviders.acceptNoneBuilder().build()
-        )).isFalse();
+            satisfies(
+                AdvertisedProviderSet.builder().addStarlark("p1").build(),
+                RequiredProviders.acceptNoneBuilder().build()))
+        .isFalse();
   }
 
   @Test
@@ -141,11 +141,12 @@ public class RequiredProvidersTest {
 
   @Test
   public void skylarkProvidersAllMatch() {
-    AdvertisedProviderSet providerSet = AdvertisedProviderSet.builder()
-        .addSkylark(ID_LEGACY)
-        .addSkylark(ID_NATIVE)
-        .addSkylark(ID_SKYLARK)
-        .build();
+    AdvertisedProviderSet providerSet =
+        AdvertisedProviderSet.builder()
+            .addStarlark(ID_LEGACY)
+            .addStarlark(ID_NATIVE)
+            .addStarlark(ID_SKYLARK)
+            .build();
     assertThat(
             validateSkylark(
                 providerSet,
@@ -158,7 +159,7 @@ public class RequiredProvidersTest {
   public void skylarkProvidersBranchMatch() {
     assertThat(
             validateSkylark(
-                AdvertisedProviderSet.builder().addSkylark(ID_LEGACY).build(),
+                AdvertisedProviderSet.builder().addStarlark(ID_LEGACY).build(),
                 NO_PROVIDERS_REQUIRED,
                 ImmutableSet.of(ID_LEGACY),
                 ImmutableSet.of(ID_NATIVE)))
@@ -169,7 +170,7 @@ public class RequiredProvidersTest {
   public void skylarkProvidersNoMatch() {
     assertThat(
             validateSkylark(
-                AdvertisedProviderSet.builder().addSkylark(ID_SKYLARK).build(),
+                AdvertisedProviderSet.builder().addStarlark(ID_SKYLARK).build(),
                 "'p_legacy' or 'p_native'",
                 ImmutableSet.of(ID_LEGACY),
                 ImmutableSet.of(ID_NATIVE)))

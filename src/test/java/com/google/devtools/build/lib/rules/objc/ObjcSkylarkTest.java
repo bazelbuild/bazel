@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -1657,9 +1657,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
     ObjcProvider armv7Objc =
-        ((SkylarkInfo) myInfo.getValue("ios_armv7")).getValue("objc", ObjcProvider.class);
+        ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("objc", ObjcProvider.class);
     ObjcProvider arm64Objc =
-        ((SkylarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
+        ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
     assertThat(armv7Objc).isNotNull();
     assertThat(arm64Objc).isNotNull();
     assertThat(Iterables.getOnlyElement(armv7Objc.getObjcLibraries()).getExecPathString())
@@ -1677,9 +1677,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
     ObjcProvider armv7Objc =
-        ((SkylarkInfo) myInfo.getValue("ios_armv7")).getValue("objc", ObjcProvider.class);
+        ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("objc", ObjcProvider.class);
     ObjcProvider arm64Objc =
-        ((SkylarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
+        ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
     assertThat(armv7Objc).isNotNull();
     assertThat(arm64Objc).isNotNull();
     assertThat(Iterables.getOnlyElement(armv7Objc.getObjcLibraries()).getExecPathString())
@@ -1697,7 +1697,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
     ObjcProvider arm64Objc =
-        ((SkylarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
+        ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
     assertThat(arm64Objc).isNotNull();
     assertThat(Iterables.getOnlyElement(arm64Objc.getObjcLibraries()).getExecPathString())
         .contains("ios_arm64");

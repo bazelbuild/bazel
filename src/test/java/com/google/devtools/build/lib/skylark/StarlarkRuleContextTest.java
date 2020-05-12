@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -2539,7 +2539,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
         new StarlarkProvider.Key(
             Label.parseAbsolute("//a:a.bzl", ImmutableMap.of()), "key_provider");
 
-    SkylarkInfo keyInfo = (SkylarkInfo) a.get(key);
+    StarlarkInfo keyInfo = (StarlarkInfo) a.get(key);
     Sequence<?> keys = (Sequence) keyInfo.getValue("keys");
     assertThat(keys).containsExactly("c", "b", "a", "f", "e", "d").inOrder();
   }

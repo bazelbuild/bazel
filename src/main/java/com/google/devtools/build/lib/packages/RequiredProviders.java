@@ -138,7 +138,7 @@ public final class RequiredProviders {
         }
         return satisfies(
             advertisedProviderSet.getNativeProviders()::contains,
-            advertisedProviderSet.getSkylarkProviders()::contains,
+            advertisedProviderSet.getStarlarkProviders()::contains,
             requiredProviders,
             missing);
       }

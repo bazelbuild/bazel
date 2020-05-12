@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -281,6 +281,6 @@ public class AppleSkylarkCommon
             "binary_provider", output.getBinaryInfoProvider(),
             "debug_outputs_provider", output.getDebugOutputsProvider(),
             "output_groups", Dict.copyOf(thread.mutability(), outputGroups));
-    return SkylarkInfo.create(constructor, fields, Location.BUILTIN);
+    return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
   }
 }

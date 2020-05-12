@@ -72,15 +72,15 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       // The RepositoryCache mock injected with the SkylarkRepositoryFunction
       DownloadManager downloader = Mockito.mock(DownloadManager.class);
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-      SkylarkRepositoryFunction skylarkRepositoryFunction =
-          new SkylarkRepositoryFunction(downloader);
+      StarlarkRepositoryFunction starlarkRepositoryFunction =
+          new StarlarkRepositoryFunction(downloader);
       ImmutableMap<String, RepositoryFunction> repositoryHandlers =
           ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
 
       RepositoryDelegatorFunction function =
           new RepositoryDelegatorFunction(
               repositoryHandlers,
-              skylarkRepositoryFunction,
+              starlarkRepositoryFunction,
               new AtomicBoolean(true),
               ImmutableMap::of,
               directories,
@@ -105,7 +105,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     if (ruleProvider == null) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
       TestRuleClassProvider.addStandardRules(builder);
-      builder.addSkylarkBootstrap(new RepositoryBootstrap(new SkylarkRepositoryModule()));
+      builder.addSkylarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
       ruleProvider = builder.build();
     }
     return ruleProvider;

@@ -38,7 +38,7 @@ public final class CcStarlarkApiProvider extends StarlarkApiProvider
 
   public static void maybeAdd(RuleContext ruleContext, RuleConfiguredTargetBuilder builder) {
     if (ruleContext.getFragment(CppConfiguration.class).enableLegacyCcProvider()) {
-      builder.addSkylarkTransitiveInfo(NAME, new CcStarlarkApiProvider());
+      builder.addStarlarkTransitiveInfo(NAME, new CcStarlarkApiProvider());
     }
   }
 

@@ -312,7 +312,7 @@ public final class AspectDefinition {
     /** State that the aspect being built provides given providers. */
     public Builder advertiseProvider(ImmutableList<StarlarkProviderIdentifier> providers) {
       for (StarlarkProviderIdentifier provider : providers) {
-        advertisedProviders.addSkylark(provider);
+        advertisedProviders.addStarlark(provider);
       }
       return this;
     }

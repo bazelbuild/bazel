@@ -295,7 +295,7 @@ public final class ResourceApk {
     }
 
     if (includeSkylarkApiProvider) {
-      builder.addSkylarkTransitiveInfo(
+      builder.addStarlarkTransitiveInfo(
           AndroidStarlarkApiProvider.NAME, new AndroidStarlarkApiProvider(resourceInfo));
     }
   }

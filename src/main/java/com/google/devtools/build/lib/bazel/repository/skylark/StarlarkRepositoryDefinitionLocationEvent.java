@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 
 /** Event reporting about the place where a Starlark repository rule was defined. */
-public class SkylarkRepositoryDefinitionLocationEvent implements ProgressLike {
+public class StarlarkRepositoryDefinitionLocationEvent implements ProgressLike {
 
   private final String name;
   private final String definitionInformation;
 
-  public SkylarkRepositoryDefinitionLocationEvent(String name, String definitionInformation) {
+  public StarlarkRepositoryDefinitionLocationEvent(String name, String definitionInformation) {
     this.name = name;
     this.definitionInformation = definitionInformation;
   }

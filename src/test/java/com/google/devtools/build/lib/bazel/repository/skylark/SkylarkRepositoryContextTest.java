@@ -78,7 +78,7 @@ public final class SkylarkRepositoryContextTest {
   private Path outputDirectory;
   private Root root;
   private Path workspaceFile;
-  private SkylarkRepositoryContext context;
+  private StarlarkRepositoryContext context;
   private StarlarkThread thread =
       StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
 
@@ -154,7 +154,7 @@ public final class SkylarkRepositoryContextTest {
             ImmutableList.of(root),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     context =
-        new SkylarkRepositoryContext(
+        new StarlarkRepositoryContext(
             rule,
             packageLocator,
             outputDirectory,
@@ -193,7 +193,7 @@ public final class SkylarkRepositoryContextTest {
   @Test
   public void testWhich() throws Exception {
     setUpContexForRule("test");
-    SkylarkRepositoryContext.setPathEnvironment("/bin", "/path/sbin", ".");
+    StarlarkRepositoryContext.setPathEnvironment("/bin", "/path/sbin", ".");
     scratch.file("/bin/true").setExecutable(true);
     scratch.file("/path/sbin/true").setExecutable(true);
     scratch.file("/path/sbin/false").setExecutable(true);
@@ -252,7 +252,7 @@ public final class SkylarkRepositoryContextTest {
   public void testDelete() throws Exception {
     setUpContexForRule("testDelete");
     Path bar = outputDirectory.getRelative("foo/bar");
-    SkylarkPath barPath = context.path(bar.getPathString());
+    StarlarkPath barPath = context.path(bar.getPathString());
     context.createFile(barPath, "content", true, true, thread);
     assertThat(context.delete(barPath, thread)).isTrue();
 
@@ -297,9 +297,9 @@ public final class SkylarkRepositoryContextTest {
   @Test
   public void testPatch() throws Exception {
     setUpContexForRule("test");
-    SkylarkPath foo = context.path("foo");
+    StarlarkPath foo = context.path("foo");
     context.createFile(foo, "line one\n", false, true, thread);
-    SkylarkPath patchFile = context.path("my.patch");
+    StarlarkPath patchFile = context.path("my.patch");
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     context.patch(patchFile, 0, thread);
@@ -309,7 +309,7 @@ public final class SkylarkRepositoryContextTest {
   @Test
   public void testCannotFindFileToPatch() throws Exception {
     setUpContexForRule("test");
-    SkylarkPath patchFile = context.path("my.patch");
+    StarlarkPath patchFile = context.path("my.patch");
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
@@ -328,7 +328,7 @@ public final class SkylarkRepositoryContextTest {
   @Test
   public void testPatchOutsideOfExternalRepository() throws Exception {
     setUpContexForRule("test");
-    SkylarkPath patchFile = context.path("my.patch");
+    StarlarkPath patchFile = context.path("my.patch");
     context.createFile(
         context.path("my.patch"),
         "--- ../other_root/foo\n" + "+++ ../other_root/foo\n" + ONE_LINE_PATCH,
@@ -351,8 +351,8 @@ public final class SkylarkRepositoryContextTest {
   @Test
   public void testPatchErrorWasThrown() throws Exception {
     setUpContexForRule("test");
-    SkylarkPath foo = context.path("foo");
-    SkylarkPath patchFile = context.path("my.patch");
+    StarlarkPath foo = context.path("foo");
+    StarlarkPath patchFile = context.path("my.patch");
     context.createFile(foo, "line three\n", false, true, thread);
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
@@ -410,7 +410,7 @@ public final class SkylarkRepositoryContextTest {
         Attribute.attr("exec_properties", Type.STRING_DICT).build());
 
     // Act
-    SkylarkExecutionResult skylarkExecutionResult =
+    StarlarkExecutionResult starlarkExecutionResult =
         context.execute(
             StarlarkList.of(/*mutability=*/ null, "/bin/cmd", "arg1"),
             /*timeout=*/ 10,
@@ -428,9 +428,9 @@ public final class SkylarkRepositoryContextTest {
             /* environment= */ ImmutableMap.of(),
             /* workingDirectory= */ "",
             /* timeout= */ Duration.ofSeconds(10));
-    assertThat(skylarkExecutionResult.getReturnCode()).isEqualTo(0);
-    assertThat(skylarkExecutionResult.getStdout()).isEqualTo("test-stdout");
-    assertThat(skylarkExecutionResult.getStderr()).isEqualTo("test-stderr");
+    assertThat(starlarkExecutionResult.getReturnCode()).isEqualTo(0);
+    assertThat(starlarkExecutionResult.getStdout()).isEqualTo("test-stdout");
+    assertThat(starlarkExecutionResult.getStderr()).isEqualTo("test-stderr");
   }
 
   @Test

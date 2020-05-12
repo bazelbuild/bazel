@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -184,7 +184,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         Dict.cast(outputGroups, String.class, StarlarkValue.class, "output_groups").entrySet()) {
       builder.addOutputGroup(
           entry.getKey(),
-          SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
+          StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
               entry.getKey(), entry.getValue()));
     }
   }

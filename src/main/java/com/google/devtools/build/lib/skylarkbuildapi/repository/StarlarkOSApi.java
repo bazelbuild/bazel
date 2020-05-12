@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     name = "repository_os",
     category = StarlarkDocumentationCategory.BUILTIN,
     doc = "Various data about the current platform Bazel is running on.")
-public interface SkylarkOSApi extends StarlarkValue {
+public interface StarlarkOSApi extends StarlarkValue {
   @SkylarkCallable(name = "environ", structField = true, doc = "The list of environment variables.")
   ImmutableMap<String, String> getEnvironmentVariables();
 

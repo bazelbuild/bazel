@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.TerminationStatus;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkExecutionResultApi;
+import com.google.devtools.build.lib.skylarkbuildapi.repository.StarlarkExecutionResultApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -42,12 +42,12 @@ import java.util.Map;
  * return code.
  */
 @Immutable
-final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
+final class StarlarkExecutionResult implements StarlarkExecutionResultApi {
   private final int returnCode;
   private final String stdout;
   private final String stderr;
 
-  SkylarkExecutionResult(int returnCode, String stdout, String stderr) {
+  StarlarkExecutionResult(int returnCode, String stdout, String stderr) {
     this.returnCode = returnCode;
     this.stdout = stdout;
     this.stderr = stderr;
@@ -79,7 +79,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
   }
 
   /**
-   * A Builder class to build a {@link SkylarkExecutionResult} object by executing a command.
+   * A Builder class to build a {@link StarlarkExecutionResult} object by executing a command.
    */
   static final class Builder {
 
@@ -146,7 +146,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
     }
 
     /** Execute the command specified by {@link #addArguments(Iterable)}. */
-    SkylarkExecutionResult execute() throws EvalException, InterruptedException {
+    StarlarkExecutionResult execute() throws EvalException, InterruptedException {
       Preconditions.checkArgument(timeout > 0, "Timeout must be set prior to calling execute().");
       Preconditions.checkArgument(!args.isEmpty(), "No command specified.");
       Preconditions.checkState(!executed, "Command was already executed, cannot re-use builder.");
@@ -170,21 +170,21 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
         Command command = new Command(argsArray, envBuilder, directory, Duration.ofMillis(timeout));
         CommandResult result =
             command.execute(delegator.getOutputStream(), delegator.getErrorStream());
-        return new SkylarkExecutionResult(
+        return new StarlarkExecutionResult(
             result.getTerminationStatus().getExitCode(),
             recorder.outAsLatin1(),
             recorder.errAsLatin1());
       } catch (BadExitStatusException e) {
-        return new SkylarkExecutionResult(
+        return new StarlarkExecutionResult(
             e.getResult().getTerminationStatus().getExitCode(), recorder.outAsLatin1(),
             recorder.errAsLatin1());
       } catch (AbnormalTerminationException e) {
         TerminationStatus status = e.getResult().getTerminationStatus();
         if (status.timedOut()) {
           // Signal a timeout by an exit code outside the normal range
-          return new SkylarkExecutionResult(256, "", e.getMessage());
+          return new StarlarkExecutionResult(256, "", e.getMessage());
         } else if (status.exited()) {
-          return new SkylarkExecutionResult(
+          return new StarlarkExecutionResult(
               status.getExitCode(),
               toString(e.getResult().getStdoutStream()),
               toString(e.getResult().getStderrStream()));
@@ -198,7 +198,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
           // to write their rules without relying on the ability to handle termination by signal 15.
           throw new InterruptedException();
         } else {
-          return new SkylarkExecutionResult(
+          return new StarlarkExecutionResult(
               status.getRawExitCode(),
               toString(e.getResult().getStdoutStream()),
               toString(e.getResult().getStderrStream()));
@@ -206,7 +206,7 @@ final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
       } catch (CommandException e) {
         // 256 is outside of the standard range for exit code on Unixes. We are not guaranteed that
         // on all system it would be outside of the standard range.
-        return new SkylarkExecutionResult(256, "", e.getMessage());
+        return new StarlarkExecutionResult(256, "", e.getMessage());
       }
     }
   }

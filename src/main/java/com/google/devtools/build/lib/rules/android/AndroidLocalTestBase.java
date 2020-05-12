@@ -362,7 +362,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(
+        .addStarlarkTransitiveInfo(
             JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(

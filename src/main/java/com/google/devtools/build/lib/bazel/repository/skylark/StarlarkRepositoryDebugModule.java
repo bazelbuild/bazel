@@ -29,7 +29,7 @@ import java.util.Set;
  * involving that repository. This also covers cases where the definition of the repository is not
  * directly available, e.g., during detection of a dependency cycle.
  */
-public final class SkylarkRepositoryDebugModule extends BlazeModule {
+public final class StarlarkRepositoryDebugModule extends BlazeModule {
   Map<String, String> repositoryDefinitions;
   Reporter reporter;
   Set<String> reported;
@@ -50,7 +50,7 @@ public final class SkylarkRepositoryDebugModule extends BlazeModule {
   }
 
   @Subscribe
-  public synchronized void definitionLocation(SkylarkRepositoryDefinitionLocationEvent event) {
+  public synchronized void definitionLocation(StarlarkRepositoryDefinitionLocationEvent event) {
     repositoryDefinitions.put(event.getName(), event.getDefinitionInformation());
   }
 

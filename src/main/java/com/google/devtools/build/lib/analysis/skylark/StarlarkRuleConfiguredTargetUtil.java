@@ -41,11 +41,12 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.NativeProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -73,9 +74,9 @@ import javax.annotation.Nullable;
  * A helper class to build Rule Configured Targets via runtime loaded rule implementations defined
  * using the Starlark Build Extension Language.
  */
-public final class SkylarkRuleConfiguredTargetUtil {
+public final class StarlarkRuleConfiguredTargetUtil {
 
-  private SkylarkRuleConfiguredTargetUtil() {}
+  private StarlarkRuleConfiguredTargetUtil() {}
 
   private static final ImmutableSet<String> DEFAULT_PROVIDER_FIELDS =
       ImmutableSet.of("files", "runfiles", "data_runfiles", "default_runfiles", "executable");
@@ -179,7 +180,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
   private static void checkDeclaredProviders(
       ConfiguredTarget configuredTarget, AdvertisedProviderSet advertisedProviders, Location loc)
       throws EvalException {
-    for (StarlarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getStarlarkProviders()) {
       if (configuredTarget.get(providerId) == null) {
         throw new EvalException(
             loc,
@@ -309,7 +310,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       throws EvalException {
 
     StructImpl oldStyleProviders =
-        SkylarkInfo.create(StructProvider.STRUCT, ImmutableMap.of(), loc);
+        StarlarkInfo.create(StructProvider.STRUCT, ImmutableMap.of(), loc);
     Map<Provider.Key, Info> declaredProviders = new LinkedHashMap<>();
 
     if (target instanceof Info) {
@@ -367,7 +368,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         parseDefaultProviderFields((DefaultInfo) declaredProvider, context, builder);
         defaultProviderProvidedExplicitly = true;
       } else {
-        builder.addSkylarkDeclaredProvider(declaredProvider);
+        builder.addStarlarkDeclaredProvider(declaredProvider);
       }
     }
 
@@ -408,7 +409,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       String fieldName,
       Object value)
       throws EvalException {
-    builder.addSkylarkTransitiveInfo(fieldName, value);
+    builder.addStarlarkTransitiveInfo(fieldName, value);
 
     if (value instanceof Info) {
       Info info = (Info) value;
@@ -419,11 +420,11 @@ public final class SkylarkRuleConfiguredTargetUtil {
         builder.addNativeDeclaredProvider(info);
       }
 
-      if (info.getProvider() instanceof NativeProvider.WithLegacySkylarkName) {
-        NativeProvider.WithLegacySkylarkName providerWithLegacyName =
-            (NativeProvider.WithLegacySkylarkName) info.getProvider();
+      if (info.getProvider() instanceof NativeProvider.WithLegacyStarlarkName) {
+        WithLegacyStarlarkName providerWithLegacyName =
+            (WithLegacyStarlarkName) info.getProvider();
         if (shouldAddWithLegacyKey(oldStyleProviders, providerWithLegacyName)) {
-          builder.addSkylarkTransitiveInfo(providerWithLegacyName.getSkylarkName(), info);
+          builder.addStarlarkTransitiveInfo(providerWithLegacyName.getStarlarkName(), info);
         }
       }
     }
@@ -440,9 +441,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
     if (builder.containsProviderKey(info.getProvider().getKey())) {
       return false;
     }
-    if (info.getProvider() instanceof NativeProvider.WithLegacySkylarkName) {
+    if (info.getProvider() instanceof NativeProvider.WithLegacyStarlarkName) {
       String canonicalLegacyKey =
-          ((NativeProvider.WithLegacySkylarkName) info.getProvider()).getSkylarkName();
+          ((WithLegacyStarlarkName) info.getProvider()).getStarlarkName();
       // Add info using its modern key if it was specified using its canonical legacy key, or
       // if no provider was used using that canonical legacy key.
       return fieldName.equals(canonicalLegacyKey)
@@ -454,9 +455,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
 
   @SuppressWarnings("deprecation") // For legacy migrations
   private static boolean shouldAddWithLegacyKey(
-      StructImpl oldStyleProviders, NativeProvider.WithLegacySkylarkName provider)
+      StructImpl oldStyleProviders, WithLegacyStarlarkName provider)
       throws EvalException {
-    String canonicalLegacyKey = provider.getSkylarkName();
+    String canonicalLegacyKey = provider.getStarlarkName();
     // Add info using its canonical legacy key if no provider was specified using that canonical
     // legacy key.
     return oldStyleProviders.getValue(canonicalLegacyKey) == null;
@@ -568,7 +569,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
     if (executable == null && context.isExecutable()) {
       if (context.isDefaultExecutableCreated()) {
         // This doesn't actually create a new Artifact just returns the one
-        // created in SkylarkRuleContext.
+        // created in StarlarkRuleContext.
         executable = context.getRuleContext().createOutputArtifact();
       } else {
         throw new EvalException(loc,
@@ -649,7 +650,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
     if (ruleContext.getRule().getRuleClassObject().isStarlarkTestable()) {
       Info actions =
           ActionsProvider.create(ruleContext.getAnalysisEnvironment().getRegisteredActions());
-      builder.addSkylarkDeclaredProvider(actions);
+      builder.addStarlarkDeclaredProvider(actions);
     }
   }
 

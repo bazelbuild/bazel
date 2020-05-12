@@ -33,9 +33,9 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An Info (provider instance) for providers defined in Starlark. */
-public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObject {
+public final class StarlarkInfo extends StructImpl implements HasBinary, ClassObject {
 
-  public static final Depset.ElementType TYPE = Depset.ElementType.of(SkylarkInfo.class);
+  public static final Depset.ElementType TYPE = Depset.ElementType.of(StarlarkInfo.class);
 
   // For a n-element info, the table contains n key strings, sorted,
   // followed by the n corresponding legal Starlark values.
@@ -48,7 +48,7 @@ public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObj
   // relation, and other observable behaviors).
   @Nullable private final String unknownFieldError;
 
-  private SkylarkInfo(
+  private StarlarkInfo(
       Provider provider,
       Object[] table,
       @Nullable Location loc,
@@ -76,12 +76,12 @@ public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObj
   }
 
   /**
-   * Constructs a SkylarkInfo from an array of alternating key/value pairs as provided by
+   * Constructs a StarlarkInfo from an array of alternating key/value pairs as provided by
    * Starlark.fastcall. Checks that each key is provided at most once, and is defined by the
    * optional schema, which must be sorted. This optimized zero-allocation function exists solely
-   * for the SkylarkProvider constructor.
+   * for the StarlarkProvider constructor.
    */
-  static SkylarkInfo createFromNamedArgs(
+  static StarlarkInfo createFromNamedArgs(
       Provider provider, Object[] table, @Nullable ImmutableList<String> schema, Location loc)
       throws EvalException {
     // Permute fastcall form (k, v, ..., k, v) into table form (k, k, ..., v, v).
@@ -115,12 +115,12 @@ public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObj
       }
     }
 
-    return new SkylarkInfo(provider, table, loc, /*unknownFieldError=*/ null);
+    return new StarlarkInfo(provider, table, loc, /*unknownFieldError=*/ null);
   }
 
   // Permutes array elements from alternating keys/values form,
   // (as used by fastcall's named array) into keys-then-corresponding-values form,
-  // as used by SkylarkInfo.table.
+  // as used by StarlarkInfo.table.
   // The permutation preserves the key/value association but not the order of keys.
   static void permute(Object[] named) {
     int n = named.length >> 1; // number of K/V pairs
@@ -281,9 +281,9 @@ public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObj
    * <p>{@code loc} is the creation location for this instance. Built-in provider instances may use
    * {@link Location#BUILTIN}, which is the default if null.
    */
-  public static SkylarkInfo create(
+  public static StarlarkInfo create(
       Provider provider, Map<String, Object> values, @Nullable Location loc) {
-    return new SkylarkInfo(provider, toTable(values), loc, /*unknownFieldError=*/ null);
+    return new StarlarkInfo(provider, toTable(values), loc, /*unknownFieldError=*/ null);
   }
 
   /**
@@ -305,23 +305,23 @@ public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObj
   // this functionality, thereby saving a string pointer field for the majority of providers that
   // don't need it.
   @Deprecated
-  public static SkylarkInfo createWithCustomMessage(
+  public static StarlarkInfo createWithCustomMessage(
       Provider provider, Map<String, Object> values, String unknownFieldError) {
     Preconditions.checkNotNull(unknownFieldError);
-    return new SkylarkInfo(provider, toTable(values), Location.BUILTIN, unknownFieldError);
+    return new StarlarkInfo(provider, toTable(values), Location.BUILTIN, unknownFieldError);
   }
 
   @Override
-  public SkylarkInfo binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (op == TokenKind.PLUS && that instanceof SkylarkInfo) {
+  public StarlarkInfo binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    if (op == TokenKind.PLUS && that instanceof StarlarkInfo) {
       return thisLeft
-          ? plus(this, (SkylarkInfo) that) //
-          : plus((SkylarkInfo) that, this);
+          ? plus(this, (StarlarkInfo) that) //
+          : plus((StarlarkInfo) that, this);
     }
     return null;
   }
 
-  private static SkylarkInfo plus(SkylarkInfo x, SkylarkInfo y) throws EvalException {
+  private static StarlarkInfo plus(StarlarkInfo x, StarlarkInfo y) throws EvalException {
     Provider xprov = x.getProvider();
     Provider yprov = y.getProvider();
     if (!xprov.equals(yprov)) {
@@ -368,6 +368,6 @@ public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObj
       zi++;
     }
 
-    return new SkylarkInfo(xprov, ztable, Location.BUILTIN, x.unknownFieldError);
+    return new StarlarkInfo(xprov, ztable, Location.BUILTIN, x.unknownFieldError);
   }
 }

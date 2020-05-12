@@ -1147,7 +1147,7 @@ public class RuleClass {
 
     public Builder advertiseStarlarkProvider(StarlarkProviderIdentifier... starlarkProviders) {
       for (StarlarkProviderIdentifier starlarkProviderIdentifier : starlarkProviders) {
-        advertisedProviders.addSkylark(starlarkProviderIdentifier);
+        advertisedProviders.addStarlark(starlarkProviderIdentifier);
       }
       return this;
     }

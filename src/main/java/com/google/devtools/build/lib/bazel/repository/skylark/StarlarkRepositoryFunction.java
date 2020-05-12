@@ -56,7 +56,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /** A repository function to delegate work done by Starlark remote repositories. */
-public class SkylarkRepositoryFunction extends RepositoryFunction {
+public class StarlarkRepositoryFunction extends RepositoryFunction {
   static final String SEMANTICS = "STARLARK_SEMANTICS";
 
   private final DownloadManager downloadManager;
@@ -64,7 +64,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
 
-  public SkylarkRepositoryFunction(DownloadManager downloadManager) {
+  public StarlarkRepositoryFunction(DownloadManager downloadManager) {
     this.downloadManager = downloadManager;
   }
 
@@ -107,7 +107,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       throws RepositoryFunctionException, InterruptedException {
 
     String defInfo = RepositoryResolvedEvent.getRuleDefinitionInformation(rule);
-    env.getListener().post(new SkylarkRepositoryDefinitionLocationEvent(rule.getName(), defInfo));
+    env.getListener().post(new StarlarkRepositoryDefinitionLocationEvent(rule.getName(), defInfo));
 
     StarlarkCallable function = rule.getRuleClassObject().getConfiguredTargetFunction();
     if (declareEnvironmentDependencies(markerData, env, getEnviron(rule)) == null) {
@@ -164,8 +164,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               /*transitiveDigest=*/ null)
           .storeInThread(thread);
 
-      SkylarkRepositoryContext skylarkRepositoryContext =
-          new SkylarkRepositoryContext(
+      StarlarkRepositoryContext starlarkRepositoryContext =
+          new StarlarkRepositoryContext(
               rule,
               packageLocator,
               outputDirectory,
@@ -179,7 +179,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               starlarkSemantics,
               repositoryRemoteExecutor);
 
-      if (skylarkRepositoryContext.isRemotable()) {
+      if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets
         // enabled or disabled.
         PrecomputedValue.REMOTE_EXECUTION_ENABLED.get(env);
@@ -188,7 +188,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       // Since restarting a repository function can be really expensive, we first ensure that
       // all label-arguments can be resolved to paths.
       try {
-        skylarkRepositoryContext.enforceLabelAttributes();
+        starlarkRepositoryContext.enforceLabelAttributes();
       } catch (RepositoryMissingDependencyException e) {
         // Missing values are expected; just restart before we actually start the rule
         return null;
@@ -204,7 +204,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       // reproducible rule.
       //
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
-      // it possible to return null and not block but it doesn't seem to be easy with Skylark
+      // it possible to return null and not block but it doesn't seem to be easy with Starlark
       // structure as it is.
       Object result;
       try (SilentCloseable c =
@@ -214,12 +214,12 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
             Starlark.call(
                 thread,
                 function,
-                /*args=*/ ImmutableList.of(skylarkRepositoryContext),
+                /*args=*/ ImmutableList.of(starlarkRepositoryContext),
                 /*kwargs=*/ ImmutableMap.of());
       }
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(
-              rule, skylarkRepositoryContext.getAttr(), outputDirectory, result);
+              rule, starlarkRepositoryContext.getAttr(), outputDirectory, result);
       if (resolved.isNewInformationReturned()) {
         env.getListener().handle(Event.debug(resolved.getMessage()));
         env.getListener().handle(Event.debug(defInfo));

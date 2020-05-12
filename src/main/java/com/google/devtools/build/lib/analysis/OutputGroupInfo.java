@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -287,7 +287,7 @@ public final class OutputGroupInfo extends StructImpl
           Dict.cast(kwargs, String.class, Object.class, "kwargs").entrySet()) {
         builder.put(
             entry.getKey(),
-            SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
+            StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
                 entry.getKey(), entry.getValue()));
       }
       return new OutputGroupInfo(builder.build());

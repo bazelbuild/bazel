@@ -52,7 +52,7 @@ import java.util.Map;
  * The Starlark module containing the definition of {@code repository_rule} function to define a
  * Starlark remote repository.
  */
-public class SkylarkRepositoryModule implements RepositoryModuleApi {
+public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
   @Override
   public StarlarkCallable repositoryRule(

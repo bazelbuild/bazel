@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -335,7 +335,7 @@ public final class StarlarkRuleClassFunctionsTest extends StarlarkTestCase {
   private static AdvertisedProviderSet set(StarlarkProviderIdentifier... ids) {
     AdvertisedProviderSet.Builder builder = AdvertisedProviderSet.builder();
     for (StarlarkProviderIdentifier id : ids) {
-      builder.addSkylark(id);
+      builder.addStarlark(id);
     }
     return builder.build();
   }
@@ -1486,16 +1486,16 @@ public final class StarlarkRuleClassFunctionsTest extends StarlarkTestCase {
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
-    assertThat(requiredProviders.isSatisfiedBy(
-        AdvertisedProviderSet.builder()
-            .addSkylark(declared("cc"))
-            .addSkylark("java")
-            .build()))
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder()
+                    .addStarlark(declared("cc"))
+                    .addStarlark("java")
+                    .build()))
         .isTrue();
-    assertThat(requiredProviders.isSatisfiedBy(
-        AdvertisedProviderSet.builder()
-            .addSkylark("cc")
-            .build()))
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark("cc").build()))
         .isFalse();
   }
 
@@ -1512,20 +1512,17 @@ public final class StarlarkRuleClassFunctionsTest extends StarlarkTestCase {
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
-    assertThat(requiredProviders.isSatisfiedBy(
-        AdvertisedProviderSet.builder()
-            .addSkylark("java")
-            .build()))
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark("java").build()))
         .isTrue();
-    assertThat(requiredProviders.isSatisfiedBy(
-        AdvertisedProviderSet.builder()
-            .addSkylark(declared("cc"))
-            .build()))
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark(declared("cc")).build()))
         .isTrue();
-    assertThat(requiredProviders.isSatisfiedBy(
-        AdvertisedProviderSet.builder()
-            .addSkylark("prolog")
-            .build()))
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark("prolog").build()))
         .isFalse();
   }
 
@@ -1569,7 +1566,7 @@ public final class StarlarkRuleClassFunctionsTest extends StarlarkTestCase {
     AdvertisedProviderSet advertisedProviders = myAspect.getDefinition(AspectParameters.EMPTY)
         .getAdvertisedProviders();
     assertThat(advertisedProviders.canHaveAnyProvider()).isFalse();
-    assertThat(advertisedProviders.getSkylarkProviders())
+    assertThat(advertisedProviders.getStarlarkProviders())
         .containsExactly(legacy("x"), declared("y"));
   }
 
@@ -1645,7 +1642,7 @@ public final class StarlarkRuleClassFunctionsTest extends StarlarkTestCase {
         "y = p1.y"
     );
     StarlarkProvider p = (StarlarkProvider) lookup("p");
-    SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
+    StarlarkInfo p1 = (StarlarkInfo) lookup("p1");
 
     assertThat(p1.getProvider()).isEqualTo(p);
     assertThat(lookup("x")).isEqualTo(1);
@@ -1661,7 +1658,7 @@ public final class StarlarkRuleClassFunctionsTest extends StarlarkTestCase {
         "y = p1.y"
     );
     StarlarkProvider p = (StarlarkProvider) lookup("p");
-    SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
+    StarlarkInfo p1 = (StarlarkInfo) lookup("p1");
 
     assertThat(p1.getProvider()).isEqualTo(p);
     assertThat(lookup("x")).isEqualTo(1);
@@ -1676,7 +1673,7 @@ public final class StarlarkRuleClassFunctionsTest extends StarlarkTestCase {
         "y = p1.y"
     );
     StarlarkProvider p = (StarlarkProvider) lookup("p");
-    SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
+    StarlarkInfo p1 = (StarlarkInfo) lookup("p1");
 
     assertThat(p1.getProvider()).isEqualTo(p);
     assertThat(lookup("y")).isEqualTo(2);

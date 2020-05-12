@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
+import com.google.devtools.build.lib.packages.NativeProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -1307,13 +1307,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   private static class Constructor extends BuiltinProvider<ObjcProvider>
-      implements WithLegacySkylarkName {
+      implements WithLegacyStarlarkName {
     public Constructor() {
       super(ObjcProvider.SKYLARK_NAME, ObjcProvider.class);
     }
 
     @Override
-    public String getSkylarkName() {
+    public String getStarlarkName() {
       return SKYLARK_NAME;
     }
 

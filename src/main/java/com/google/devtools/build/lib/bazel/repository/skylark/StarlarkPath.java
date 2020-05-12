@@ -25,13 +25,13 @@ import java.io.IOException;
  * A Path object to be used into Starlark remote repository.
  *
  * <p>This path object enable non-hermetic operations from Starlark and should not be returned by
- * something other than a SkylarkRepositoryContext.
+ * something other than a StarlarkRepositoryContext.
  */
 @Immutable
-final class SkylarkPath implements RepositoryPathApi<SkylarkPath> {
+final class StarlarkPath implements RepositoryPathApi<StarlarkPath> {
   private final Path path;
 
-  SkylarkPath(Path path) {
+  StarlarkPath(Path path) {
     this.path = path;
   }
 
@@ -41,7 +41,7 @@ final class SkylarkPath implements RepositoryPathApi<SkylarkPath> {
 
   @Override
   public boolean equals(Object obj) {
-    return (obj instanceof SkylarkPath) &&  path.equals(((SkylarkPath) obj).path);
+    return (obj instanceof StarlarkPath) &&  path.equals(((StarlarkPath) obj).path);
   }
 
   @Override
@@ -55,23 +55,23 @@ final class SkylarkPath implements RepositoryPathApi<SkylarkPath> {
   }
 
   @Override
-  public ImmutableList<SkylarkPath> readdir() throws IOException {
-    ImmutableList.Builder<SkylarkPath> builder = ImmutableList.builder();
+  public ImmutableList<StarlarkPath> readdir() throws IOException {
+    ImmutableList.Builder<StarlarkPath> builder = ImmutableList.builder();
     for (Path p : path.getDirectoryEntries()) {
-      builder.add(new SkylarkPath(p));
+      builder.add(new StarlarkPath(p));
     }
     return builder.build();
   }
 
   @Override
-  public SkylarkPath getDirname() {
+  public StarlarkPath getDirname() {
     Path parentPath = path.getParentDirectory();
-    return parentPath == null ? null : new SkylarkPath(parentPath);
+    return parentPath == null ? null : new StarlarkPath(parentPath);
   }
 
   @Override
-  public SkylarkPath getChild(String childPath) {
-    return new SkylarkPath(path.getChild(childPath));
+  public StarlarkPath getChild(String childPath) {
+    return new StarlarkPath(path.getChild(childPath));
   }
 
   @Override
@@ -80,8 +80,8 @@ final class SkylarkPath implements RepositoryPathApi<SkylarkPath> {
   }
 
   @Override
-  public SkylarkPath realpath() throws IOException {
-    return new SkylarkPath(path.resolveSymbolicLinks());
+  public StarlarkPath realpath() throws IOException {
+    return new StarlarkPath(path.resolveSymbolicLinks());
   }
 
   @Override

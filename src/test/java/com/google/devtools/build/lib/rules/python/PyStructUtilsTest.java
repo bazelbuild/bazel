@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -110,7 +110,7 @@ public class PyStructUtilsTest extends FoundationTestCase {
   }
 
   private static final StructImpl emptyInfo =
-      SkylarkInfo.create(StructProvider.STRUCT, ImmutableMap.of(), /* loc= */ null);
+      StarlarkInfo.create(StructProvider.STRUCT, ImmutableMap.of(), /* loc= */ null);
 
   @Test
   public void getTransitiveSources_Missing() {

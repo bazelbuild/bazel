@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + " helper functions and information about attributes. You get a repository_ctx object"
             + " as an argument to the <code>implementation</code> function when you create a"
             + " repository rule.")
-public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable>
+public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable>
     extends StarlarkValue {
 
   @SkylarkCallable(
@@ -216,7 +216,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       name = "os",
       structField = true,
       doc = "A struct to access information from the system.")
-  SkylarkOSApi getOS();
+  StarlarkOSApi getOS();
 
   @SkylarkCallable(
       name = "execute",
@@ -261,7 +261,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                 "Working directory for command execution.\n"
                     + "Can be relative to the repository root or absolute."),
       })
-  SkylarkExecutionResultApi execute(
+  StarlarkExecutionResultApi execute(
       Sequence<?> arguments,
       Integer timeout,
       Dict<?, ?> environment, // <String, String> expected

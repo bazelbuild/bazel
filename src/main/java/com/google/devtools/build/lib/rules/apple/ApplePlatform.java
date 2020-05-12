@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformTypeApi;
@@ -184,7 +184,7 @@ public enum ApplePlatform implements ApplePlatformApi {
     for (ApplePlatform type : values()) {
       fields.put(type.skylarkKey, type);
     }
-    return SkylarkInfo.create(constructor, fields, Location.BUILTIN);
+    return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
   }
 
   @Override
@@ -248,7 +248,7 @@ public enum ApplePlatform implements ApplePlatformApi {
       for (PlatformType type : values()) {
         fields.put(type.skylarkKey, type);
       }
-      return SkylarkInfo.create(constructor, fields, Location.BUILTIN);
+      return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
     }
 
     @Override

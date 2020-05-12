@@ -243,7 +243,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(
+        .addStarlarkTransitiveInfo(
             JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addNativeDeclaredProvider(dataBindingV2Provider)

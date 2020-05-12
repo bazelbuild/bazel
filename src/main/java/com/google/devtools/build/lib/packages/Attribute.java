@@ -1978,7 +1978,7 @@ public final class Attribute implements Comparable<Attribute> {
    * of '$' or ':').
    */
   public String getPublicName() {
-    return getSkylarkName(getName());
+    return getStarlarkName(getName());
   }
 
   /**
@@ -2297,7 +2297,7 @@ public final class Attribute implements Comparable<Attribute> {
    *
    * <p>Implicit and late-bound attributes start with '_' (instead of '$' or ':').
    */
-  public static String getSkylarkName(String nativeAttrName) {
+  public static String getStarlarkName(String nativeAttrName) {
     if (isPrivateAttribute(nativeAttrName)) {
       return "_" + nativeAttrName.substring(1);
     }

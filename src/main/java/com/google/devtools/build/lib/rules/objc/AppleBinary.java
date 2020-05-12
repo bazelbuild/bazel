@@ -367,7 +367,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     if (appleConfiguration.shouldLinkingRulesPropagateObjc() && objcProvider != null) {
       targetBuilder.addNativeDeclaredProvider(objcProvider);
-      targetBuilder.addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider);
+      targetBuilder.addStarlarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider);
     }
 
     InstrumentedFilesInfo instrumentedFilesProvider =

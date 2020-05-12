@@ -463,7 +463,7 @@ public final class RuleConfiguredTargetBuilder {
    * Integer, an Artifact, a Label, None, a Java TransitiveInfoProvider or something composed from
    * these in Starlark using lists, sets, structs or dicts). Otherwise an EvalException is thrown.
    */
-  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
+  public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(
       String name, Object value, Location loc) throws EvalException {
     providersBuilder.put(name, value);
     return this;
@@ -473,12 +473,12 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in Starlark to the rule. Use this method for declared
    * providers defined in Skyark.
    *
-   * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Skylark
+   * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Starlark
    * directly, instead its output groups are added.
    *
    * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(Info provider)
+  public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider)
       throws EvalException {
     Provider constructor = provider.getProvider();
     if (!constructor.isExported()) {
@@ -500,7 +500,7 @@ public final class RuleConfiguredTargetBuilder {
    * Adds "declared providers" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Starlark rule implementations.
+   * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
   public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
     for (Info provider : providers) {
@@ -513,7 +513,7 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Starlark rule implementations.
+   * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
   public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
@@ -539,7 +539,7 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /** Add a Starlark transitive info. The provider value must be safe. */
-  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(String name, Object value) {
+  public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(String name, Object value) {
     providersBuilder.put(name, value);
     return this;
   }
