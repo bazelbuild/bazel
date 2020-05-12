@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -79,11 +79,8 @@ public final class Module implements Resolver.Module {
   final LinkedHashMap<String, FlagGuardedValue> restrictedBindings;
 
   /** Set of bindings that are exported (can be loaded from other modules). */
-  // TODO(adonovan): this linked hash table is unnecessary for this class to do its job. However,
-  // the sky graph SerializationTester breaks the abstraction of this (and every) class by
-  // serializing its fields and then asserting that encoding, decoding, then reencoding yields the
-  // same result, even though this is not necessary and imposes a run-time tax.
-  final LinkedHashSet<String> exportedBindings;
+  // Public for use in serialization tests, which live in a different package for Bazelish reasons.
+  public final Set<String> exportedBindings;
 
   /** Constructs an uninitialized instance; caller must call {@link #initialize} before use. */
   public Module() {
@@ -92,7 +89,7 @@ public final class Module implements Resolver.Module {
     this.label = null;
     this.bindings = new LinkedHashMap<>();
     this.restrictedBindings = new LinkedHashMap<>();
-    this.exportedBindings = new LinkedHashSet<>();
+    this.exportedBindings = new HashSet<>();
   }
 
   /**
@@ -138,7 +135,7 @@ public final class Module implements Resolver.Module {
     if (universe != null) {
       this.restrictedBindings.putAll(universe.restrictedBindings);
     }
-    this.exportedBindings = new LinkedHashSet<>();
+    this.exportedBindings = new HashSet<>();
   }
 
   public Module(Mutability mutability) {

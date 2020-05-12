@@ -118,6 +118,9 @@ public class TestUtils {
     } else {
       assertFramesEqual(frame1.getParent(), frame2.getParent());
     }
+    assertThat(frame1.getExportedBindings())
+        .containsExactlyEntriesIn(frame2.getExportedBindings())
+        .inOrder();
   }
 
   public static ByteString toBytesMemoized(Object original, ObjectCodecRegistry registry)

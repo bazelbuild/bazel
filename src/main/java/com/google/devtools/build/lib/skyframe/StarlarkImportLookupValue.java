@@ -32,7 +32,6 @@ import java.util.Objects;
  * one Starlark file, identified by an absolute {@link Label} {@link SkyKey} argument. The Label
  * should not reference the special {@code external} package.
  */
-@AutoCodec
 public class StarlarkImportLookupValue implements SkyValue {
 
   private final Module module; // .bzl module
