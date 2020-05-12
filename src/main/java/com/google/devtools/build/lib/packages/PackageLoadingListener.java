@@ -15,11 +15,28 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import java.util.List;
 
 /** Listener for package-loading events. */
 public interface PackageLoadingListener {
 
   PackageLoadingListener NOOP_LISTENER = (pkg, semantics, loadTimeNanos) -> {};
+
+  /** Returns a {@link PackageLoadingListener} from a composed of the input listeners. */
+  static PackageLoadingListener create(List<PackageLoadingListener> listeners) {
+    switch (listeners.size()) {
+      case 0:
+        return NOOP_LISTENER;
+      case 1:
+        return listeners.get(0);
+      default:
+        return (pkg, semantics, loadTimeNanos) -> {
+          for (PackageLoadingListener listener : listeners) {
+            listener.onLoadingCompleteAndSuccessful(pkg, semantics, loadTimeNanos);
+          }
+        };
+    }
+  }
 
   /**
    * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} has successfully

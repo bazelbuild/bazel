@@ -72,6 +72,9 @@ public abstract class Extrema<T> {
    */
   public abstract ImmutableList<T> getExtremeElements();
 
+  /** Returns true iff {@link #getExtremeElements()} would return an empty result. */
+  public abstract boolean isEmpty();
+
   /**
    * Disregards all the elements {@link #aggregate}'ed already.
    *
@@ -100,6 +103,11 @@ public abstract class Extrema<T> {
     @Override
     public void clear() {
       // no-op.
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return true;
     }
   }
 
@@ -151,6 +159,11 @@ public abstract class Extrema<T> {
     @Override
     public void clear() {
       priorityQueue.clear();
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return priorityQueue.isEmpty();
     }
   }
 }

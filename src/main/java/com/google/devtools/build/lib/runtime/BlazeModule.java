@@ -423,8 +423,6 @@ public abstract class BlazeModule {
    * the module does not provide any validator.
    *
    * <p>Called once during server startup some time after {@link #serverInit}.
-   *
-   * <p>Note that only one instance per Bazel/Blaze runtime is allowed.
    */
   @Nullable
   public PackageLoadingListener getPackageLoadingListener(

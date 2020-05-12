@@ -673,12 +673,6 @@ public final class PackageFactory {
               "BUILD file computation took %d steps, but --max_computation_steps=%d",
               steps, maxSteps));
     }
-    // Write a log message for BUILD files with more than 1e6 steps
-    // (approximately the top 1% in Google's code base).
-    if (steps > 1_000_000) {
-      logger.atInfo().log(
-          "%s: BUILD file computation took %d steps", pkg.getPackageIdentifier(), steps);
-    }
 
     packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
   }

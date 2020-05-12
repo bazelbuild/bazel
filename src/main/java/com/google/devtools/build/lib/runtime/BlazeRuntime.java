@@ -1668,16 +1668,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       Package.Builder.Helper packageBuilderHelper,
       ConfiguredRuleClassProvider ruleClassProvider,
       FileSystem fs) {
-    List<PackageLoadingListener> packageLoadingListeners =
+    ImmutableList<PackageLoadingListener> listeners =
         blazeModules.stream()
             .map(
                 module ->
                     module.getPackageLoadingListener(packageBuilderHelper, ruleClassProvider, fs))
             .filter(validator -> validator != null)
             .collect(toImmutableList());
-    Preconditions.checkState(
-        packageLoadingListeners.size() <= 1,
-        "more than one module defined a PackageLoadingListener");
-    return Iterables.getFirst(packageLoadingListeners, PackageLoadingListener.NOOP_LISTENER);
+    return PackageLoadingListener.create(listeners);
   }
 }

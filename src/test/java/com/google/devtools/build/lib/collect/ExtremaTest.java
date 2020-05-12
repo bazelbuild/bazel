@@ -44,6 +44,24 @@ public class ExtremaTest {
   }
 
   @Test
+  public void testIsEmpty() {
+    Extrema<Integer> extrema = Extrema.max(2);
+    assertThat(extrema.isEmpty()).isTrue();
+
+    extrema.aggregate(1);
+    assertThat(extrema.isEmpty()).isFalse();
+  }
+
+  @Test
+  public void testClear() {
+    Extrema<Integer> extrema = Extrema.max(2);
+
+    extrema.aggregate(1);
+    extrema.clear();
+    assertThat(extrema.isEmpty()).isTrue();
+  }
+
+  @Test
   public void customComparator() {
     class BoxedInt {
       private final int i;
@@ -97,9 +115,11 @@ public class ExtremaTest {
   public void testEmptyExtrema() {
     Extrema<Integer> extrema = Extrema.max(0);
     extrema.aggregate(1);
+    assertThat(extrema.isEmpty()).isTrue();
     assertThat(extrema.getExtremeElements()).isEmpty();
 
     extrema.clear();
+    assertThat(extrema.isEmpty()).isTrue();
     assertThat(extrema.getExtremeElements()).isEmpty();
   }
 
