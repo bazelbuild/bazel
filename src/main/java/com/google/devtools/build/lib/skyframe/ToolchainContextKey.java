@@ -24,11 +24,11 @@ import com.google.devtools.build.skyframe.SkyKey;
  * UnloadedToolchainContextImpl} instances.
  */
 @AutoValue
-public abstract class UnloadedToolchainContextKey implements SkyKey {
+public abstract class ToolchainContextKey implements SkyKey {
 
   /** Returns a new {@link Builder}. */
   public static Builder key() {
-    return new AutoValue_UnloadedToolchainContextKey.Builder()
+    return new AutoValue_ToolchainContextKey.Builder()
         .requiredToolchainTypeLabels(ImmutableSet.of())
         .execConstraintLabels(ImmutableSet.of())
         .shouldSanityCheckConfiguration(false);
@@ -47,7 +47,7 @@ public abstract class UnloadedToolchainContextKey implements SkyKey {
 
   abstract boolean shouldSanityCheckConfiguration();
 
-  /** Builder for {@link UnloadedToolchainContextKey}. */
+  /** Builder for {@link ToolchainContextKey}. */
   @AutoValue.Builder
   public interface Builder {
     Builder configurationKey(BuildConfigurationValue.Key key);
@@ -62,6 +62,6 @@ public abstract class UnloadedToolchainContextKey implements SkyKey {
 
     Builder shouldSanityCheckConfiguration(boolean shouldSanityCheckConfiguration);
 
-    UnloadedToolchainContextKey build();
+    ToolchainContextKey build();
   }
 }
