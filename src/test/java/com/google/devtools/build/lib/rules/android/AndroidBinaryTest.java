@@ -4679,6 +4679,68 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .containsExactly("libapp.so");
   }
 
+  @Test
+  public void testInstrumentsManifestMergeEnabled() throws Exception {
+    // This is the incorrect behavior where dependency manifests are merged into the test apk.
+    useConfiguration("--noexperimental_disable_instrumentation_manifest_merge");
+    scratch.file(
+        "java/com/google/android/instr/BUILD",
+        "android_binary(",
+        "    name = 'b1',",
+        "    srcs = ['b1.java'],",
+        "    instruments = ':b2',",
+        "    deps = [':lib'],",
+        "    manifest = 'test/AndroidManifest.xml',",
+        ")",
+        "android_library(",
+        "    name = 'lib',",
+        "    manifest = 'lib/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['lib/res/values/strings.xml'],",
+        ")",
+        "android_binary(",
+        "    name = 'b2',",
+        "    srcs = ['b2.java'],",
+        "    deps = [':lib'],",
+        "    manifest = 'bin/AndroidManifest.xml',",
+        ")");
+    assertThat(
+            getBinaryMergeeManifests(getConfiguredTarget("//java/com/google/android/instr:b1"))
+                .values())
+        .containsExactly("//java/com/google/android/instr:lib");
+  }
+
+  @Test
+  public void testInstrumentsManifestMergeDisabled() throws Exception {
+    // This is the correct behavior where dependency manifests are not merged into the test apk.
+    useConfiguration("--experimental_disable_instrumentation_manifest_merge");
+    scratch.file(
+        "java/com/google/android/instr/BUILD",
+        "android_binary(",
+        "    name = 'b1',",
+        "    srcs = ['b1.java'],",
+        "    instruments = ':b2',",
+        "    deps = [':lib'],",
+        "    manifest = 'test/AndroidManifest.xml',",
+        ")",
+        "android_library(",
+        "    name = 'lib',",
+        "    manifest = 'lib/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['lib/res/values/strings.xml'],",
+        ")",
+        "android_binary(",
+        "    name = 'b2',",
+        "    srcs = ['b2.java'],",
+        "    deps = [':lib'],",
+        "    manifest = 'bin/AndroidManifest.xml',",
+        ")");
+    assertThat(
+            getBinaryMergeeManifests(getConfiguredTarget("//java/com/google/android/instr:b1"))
+                .values())
+        .isEmpty();
+  }
+
   // DEPENDENCY order is not tested; the incorrect order of dependencies means the test would
   // have to enforce incorrect behavior.
   // TODO(b/117338320): Add a test when dependency order is fixed.
