@@ -86,8 +86,9 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     //      contain files that are modified between init() and poll() below, because those are
     //      already taken into account for the current build, as we ended up with
     //      ModifiedFileSet.EVERYTHING_MODIFIED in the current build.
-    // Disable WatchFs on Windows, because it is not implemented correctly on Windows.
-    boolean watchFs = options.getOptions(Options.class).watchFS;
+    boolean watchFs = options.getOptions(Options.class).watchFS &&
+        // Guard WatchFs on Windows behind --experimental_windows_watchfs.
+        (OS.getCurrent() != OS.WINDOWS || options.getOptions(Options.class).windowsWatchFS);
     if (watchFs && watchService == null) {
       init();
     } else if (!watchFs && (watchService != null)) {
