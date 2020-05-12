@@ -116,8 +116,8 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
       String formatted = formatter.format((JCDiagnostic) diagnostic, locale);
       FormattedDiagnostic formattedDiagnostic = new FormattedDiagnostic(diagnostic, formatted);
       diagnostics.add(formattedDiagnostic);
-      if (failFast) {
-        throw new FailFastException();
+      if (failFast && diagnostic.getKind().equals(Diagnostic.Kind.ERROR)) {
+        throw new FailFastException(formatted);
       }
     }
 
@@ -126,5 +126,9 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
     }
   }
 
-  static class FailFastException extends RuntimeException {}
+  static class FailFastException extends RuntimeException {
+    FailFastException(String message) {
+      super(message);
+    }
+  }
 }
