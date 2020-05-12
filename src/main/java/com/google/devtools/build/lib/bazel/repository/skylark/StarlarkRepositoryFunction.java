@@ -160,8 +160,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               /*fragmentNameToClass=*/ null,
               rule.getPackage().getRepositoryMapping(),
               new SymbolGenerator<>(key),
-              /*analysisRuleLabel=*/ null,
-              /*transitiveDigest=*/ null)
+              /*analysisRuleLabel=*/ null)
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =

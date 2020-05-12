@@ -184,8 +184,7 @@ public class WorkspaceFactory {
             /*fragmentNameToClass=*/ null,
             /*repoMapping=*/ ImmutableMap.of(),
             new SymbolGenerator<>(workspaceFileKey),
-            /*analysisRuleLabel=*/ null,
-            /*transitiveDigest=*/ new byte[] {}) // dummy value used for repository rules
+            /*analysisRuleLabel=*/ null)
         .storeInThread(thread);
 
     Resolver.resolveFile(file, thread.getGlobals());

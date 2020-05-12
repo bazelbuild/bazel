@@ -111,8 +111,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
               /*fragmentNameToClass=*/ null,
               ruleContext.getTarget().getPackage().getRepositoryMapping(),
               ruleContext.getSymbolGenerator(),
-              ruleContext.getLabel(),
-              /*transitiveDigest=*/ null)
+              ruleContext.getLabel())
           .storeInThread(thread);
 
       RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();

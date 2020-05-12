@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.skylark.StarlarkAttrModule.Descrip
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -98,9 +99,10 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
+    BazelModuleContext bzlModule =
+        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData();
     builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
-        context.getTransitiveDigest());
+        bzlModule.label(), bzlModule.bzlTransitiveDigest());
     builder.setWorkspaceOnly();
     return new RepositoryRuleFunction(builder, implementation);
   }

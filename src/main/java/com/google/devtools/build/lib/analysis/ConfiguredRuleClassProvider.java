@@ -763,7 +763,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   public void setStarlarkThreadContext(
       StarlarkThread thread,
       Label fileLabel,
-      byte[] transitiveDigest,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.LOADING,
@@ -771,8 +770,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
             configurationFragmentMap,
             repoMapping,
             new SymbolGenerator<>(fileLabel),
-            /*analysisRuleLabel=*/ null,
-            transitiveDigest)
+            /*analysisRuleLabel=*/ null)
         .storeInThread(thread);
   }
 

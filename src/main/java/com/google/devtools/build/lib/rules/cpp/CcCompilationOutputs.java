@@ -18,9 +18,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Module;
@@ -109,7 +109,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     CcCommon.checkLocationWhitelisted(
         thread.getSemantics(),
         thread.getCallerLocation(),
-        ((Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel())
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label()
             .getPackageIdentifier()
             .toString());
     return StarlarkList.immutableCopyOf(getObjectFiles(usePic));

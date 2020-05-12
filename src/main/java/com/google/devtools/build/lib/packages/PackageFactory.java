@@ -832,8 +832,7 @@ public final class PackageFactory {
               /*fragmentNameToClass=*/ null,
               pkgBuilder.getRepositoryMapping(),
               new SymbolGenerator<>(packageId),
-              /*analysisRuleLabel=*/ null,
-              /*transitiveDigest=*/ null)
+              /*analysisRuleLabel=*/ null)
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelSkylarkContext.

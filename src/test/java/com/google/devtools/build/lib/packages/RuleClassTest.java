@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -124,7 +123,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -162,7 +160,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -293,7 +290,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -341,7 +337,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -441,7 +436,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -483,7 +477,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true);
@@ -520,7 +513,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -690,7 +682,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -734,7 +725,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -893,22 +883,10 @@ public class RuleClassTest extends PackageLoadingTestCase {
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
-      @Nullable StarlarkThread ruleDefinitionStarlarkThread,
       Set<Class<?>> allowedConfigurationFragments,
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
-    // Here we dig the digest out of the thread, but alternatively we could stow it
-    // in Module.label (which is a currently a Label, but that could be changed into a tuple).
-    // Module.label is analogous to BazelStarlarkContext in that is a hook for applications
-    // to hang their state in the thread or module without a dependency.
-    // Observe that below, the rule definition starlark label comes out of the
-    // innermost enclosing caller's module, which is potentially inconsistent.
-    // TODO(adonovan): decide whether this is correct, and see below.
-    byte[] ruleDefinitionStarlarkTransitiveDigest =
-        ruleDefinitionStarlarkThread == null
-            ? null
-            : BazelStarlarkContext.from(ruleDefinitionStarlarkThread).getTransitiveDigest();
     return new RuleClass(
         name,
         DUMMY_STACK,
@@ -934,17 +912,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         configuredTargetFunction,
         externalBindingsFunction,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
-        // TODO(adonovan): I think this has always been wrong: unlike the RDE digest which
-        // comes from the thread executing a .bzl file's toplevel, the RDE label comes from the
-        // innermost enclosing call. That means if a.bzl calls a function in b.bzl that calls rule
-        // (pretty weird, admittedly), then the RDE will have the digest of a but the label of b.
-        // See other comment above.
-        ruleDefinitionStarlarkThread == null
-            ? null
-            : (Label)
-                Module.ofInnermostEnclosingStarlarkFunction(ruleDefinitionStarlarkThread)
-                    .getLabel(),
-        ruleDefinitionStarlarkTransitiveDigest,
+        /*ruleDefinitionEnvironmentLabel=*/ null,
+        /*ruleDefinitionEnvironmentDigest=*/ null,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
             .setMissingFragmentPolicy(missingFragmentPolicy)
@@ -978,7 +947,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(DummyFragment.class),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,

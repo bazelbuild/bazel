@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
@@ -62,8 +63,12 @@ public abstract class StarlarkTestCase extends BuildViewTestCase {
                 StarlarkThread.builder(mu)
                     .setSemantics(getStarlarkSemantics())
                     .setGlobals(
-                        globals.withLabel(
-                            Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
+                        globals.withClientData(
+                            BazelModuleContext.create(
+                                Label.parseAbsoluteUnchecked(
+                                    "//test:label", /*defaultToMain=*/ false),
+                                // dummy value for tests
+                                /*bzlTransitiveDigest=*/ new byte[0])))
                     .build();
             thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
 
@@ -76,8 +81,7 @@ public abstract class StarlarkTestCase extends BuildViewTestCase {
                     /*fragmentNameToClass=*/ null,
                     /*repoMapping=*/ ImmutableMap.of(),
                     new SymbolGenerator<>(new Object()),
-                    /*analysisRuleLabel=*/ null,
-                    /*transitiveDigest=*/ new byte[] {}) // dummy value for tests
+                    /*analysisRuleLabel=*/ null)
                 .storeInThread(thread);
 
             return thread;

@@ -82,8 +82,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
               /*fragmentNameToClass=*/ null,
               ruleContext.getRule().getPackage().getRepositoryMapping(),
               ruleContext.getSymbolGenerator(),
-              ruleContext.getLabel(),
-              /*transitiveDigest=*/ null)
+              ruleContext.getLabel())
           .storeInThread(thread);
 
       try {

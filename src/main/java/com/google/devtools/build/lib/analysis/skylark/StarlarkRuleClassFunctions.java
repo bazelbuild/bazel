@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -344,9 +345,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
             Sequence.cast(hostFragments, String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
+    // Information about the .bzl module containing the call that created the rule class.
+    BazelModuleContext bzlModule =
+        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData();
     builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
-        bazelContext.getTransitiveDigest());
+        bzlModule.label(), bzlModule.bzlTransitiveDigest());
 
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
 
@@ -848,7 +851,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       parentLabel = context.getAnalysisRuleLabel();
     } else {
       // This is the label of the innermost BUILD/.bzl file on the current call stack.
-      parentLabel = (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel();
+      parentLabel =
+          ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+              .label();
     }
 
     try {

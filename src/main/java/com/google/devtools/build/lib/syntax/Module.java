@@ -62,10 +62,13 @@ public final class Module implements Resolver.Module {
   @Nullable private Mutability mutability;
 
   /** Final, except that it may be initialized after instantiation. */
-  @Nullable Module universe;
+  @Nullable private Module universe;
 
-  // The label (an optional piece of metadata) associated with the file.
-  @Nullable Object label;
+  /**
+   * Optional piece of metadata associated with the file. If present, must return a representative
+   * label of the module from {@link Object#toString()}
+   */
+  @Nullable private Object clientData;
 
   /** Bindings are maintained in order of creation. */
   private final LinkedHashMap<String, Object> bindings;
@@ -76,21 +79,12 @@ public final class Module implements Resolver.Module {
    * used for lookups; it should only be used to throw descriptive error messages when a lookup of a
    * restricted object is attempted.
    */
-  final LinkedHashMap<String, FlagGuardedValue> restrictedBindings;
+  private final LinkedHashMap<String, FlagGuardedValue> restrictedBindings;
 
   /** Set of bindings that are exported (can be loaded from other modules). */
   // Public for use in serialization tests, which live in a different package for Bazelish reasons.
   public final Set<String> exportedBindings;
 
-  /** Constructs an uninitialized instance; caller must call {@link #initialize} before use. */
-  public Module() {
-    this.mutability = null;
-    this.universe = null;
-    this.label = null;
-    this.bindings = new LinkedHashMap<>();
-    this.restrictedBindings = new LinkedHashMap<>();
-    this.exportedBindings = new HashSet<>();
-  }
 
   /**
    * Returns the module (file) of the innermost enclosing Starlark function on the call stack, or
@@ -108,21 +102,31 @@ public final class Module implements Resolver.Module {
     return null;
   }
 
-  Module(
+  /** Constructs an uninitialized instance; caller must call {@link #initialize} before use. */
+  public Module() {
+    this.mutability = null;
+    this.universe = null;
+    this.clientData = null;
+    this.bindings = new LinkedHashMap<>();
+    this.restrictedBindings = new LinkedHashMap<>();
+    this.exportedBindings = new HashSet<>();
+  }
+
+  private Module(
       Mutability mutability,
       @Nullable Module universe,
-      @Nullable Object label,
+      @Nullable Object clientData,
       @Nullable Map<String, Object> bindings,
       @Nullable Map<String, FlagGuardedValue> restrictedBindings) {
     Preconditions.checkState(universe == null || universe.universe == null);
     this.mutability = Preconditions.checkNotNull(mutability);
     this.universe = universe;
-    if (label != null) {
-      this.label = label;
+    if (clientData != null) {
+      this.clientData = clientData;
     } else if (universe != null) {
-      this.label = universe.label;
+      this.clientData = universe.clientData;
     } else {
-      this.label = null;
+      this.clientData = null;
     }
     this.bindings = new LinkedHashMap<>();
     if (bindings != null) {
@@ -146,8 +150,8 @@ public final class Module implements Resolver.Module {
     this(mutability, universe, null, null, null);
   }
 
-  public Module(Mutability mutability, @Nullable Module universe, @Nullable Object label) {
-    this(mutability, universe, label, null, null);
+  public Module(Mutability mutability, @Nullable Module universe, @Nullable Object clientData) {
+    this(mutability, universe, clientData, null, null);
   }
 
   /** Constructs a global frame for the given builtin bindings. */
@@ -187,7 +191,7 @@ public final class Module implements Resolver.Module {
     restrictedBindings.putAll(parent.restrictedBindings);
 
     return new Module(
-        mutability, /*universe=*/ null, parent.label, filteredBindings, restrictedBindings);
+        mutability, /*universe=*/ null, parent.clientData, filteredBindings, restrictedBindings);
   }
 
   private void checkInitialized() {
@@ -197,7 +201,7 @@ public final class Module implements Resolver.Module {
   public void initialize(
       Mutability mutability,
       @Nullable Module universe,
-      @Nullable Object label,
+      @Nullable Object clientData,
       Map<String, Object> bindings) {
     Preconditions.checkState(
         universe == null || universe.universe == null); // no more than 1 universe
@@ -205,26 +209,30 @@ public final class Module implements Resolver.Module {
         this.mutability == null, "Attempted to initialize an already initialized Frame");
     this.mutability = Preconditions.checkNotNull(mutability);
     this.universe = universe;
-    if (label != null) {
-      this.label = label;
+    if (clientData != null) {
+      this.clientData = clientData;
     } else if (universe != null) {
-      this.label = universe.label;
+      this.clientData = universe.clientData;
     } else {
-      this.label = null;
+      this.clientData = null;
     }
     this.bindings.putAll(bindings);
   }
 
   /**
-   * Returns a new {@link Module} with the same fields, except that {@link #label} is set to the
-   * given value. The label associated with each function (frame) on the stack is accessible using
-   * {@link #getLabel}, and is included in the result of {@code str(fn)} where {@code fn} is a
-   * StarlarkFunction.
+   * Returns a new {@link Module} with the same fields, except that {@link #clientData} is set to
+   * the given value. This allows associating custom data with a Module object.
+   *
+   * <p>Please note that if the {@link #clientData} is present, {@code clientData.toString()} will
+   * be included in the result of {@code str(fn)} for each {@link StarlarkFunction} defined within
+   * the module. This means that the custom data we are storing must implement {@link
+   * Object#toString()} which makes its value useful as a module label since it will be presented to
+   * the end-user in that context. See {@link StarlarkFunction#repr(Printer)} for details.
    */
-  public Module withLabel(Object label) {
+  public Module withClientData(Object clientData) {
     checkInitialized();
     return new Module(
-        mutability, /*universe=*/ null, label, bindings, /*restrictedBindings=*/ null);
+        mutability, /*universe=*/ null, clientData, bindings, /*restrictedBindings=*/ null);
   }
 
   /** Returns the {@link Mutability} of this {@link Module}. */
@@ -245,13 +253,15 @@ public final class Module implements Resolver.Module {
   }
 
   /**
-   * Returns the label (an optional piece of metadata) associated with this {@code Module}. (For
-   * Bazel LOADING threads, this is the build label of its BUILD or .bzl file.)
+   * Returns the client data associated with this {@code Module}.
+   *
+   * <p>{@code getClientData().toString()} should provide a valid label for the module. Please see
+   * the documentation of {@link #withClientData(Object)} for more details.
    */
   @Nullable
-  public Object getLabel() {
+  public Object getClientData() {
     checkInitialized();
-    return label;
+    return clientData;
   }
 
   /**
