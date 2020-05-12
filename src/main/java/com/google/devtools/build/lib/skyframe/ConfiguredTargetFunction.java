@@ -621,7 +621,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             ctgValue,
             depValueNames,
             hostConfiguration,
-            ruleClassProvider,
             defaultBuildOptions,
             configConditions);
 
