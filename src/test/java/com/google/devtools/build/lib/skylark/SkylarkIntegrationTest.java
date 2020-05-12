@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
+import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import java.io.IOException;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -77,7 +79,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Before
-  public void setupMyInfo() throws Exception {
+  public void setupMyInfo() throws IOException {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
@@ -3373,5 +3375,52 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertThat(providerFromObjc.define().toList()).containsExactly("foo");
     assertThat(providerFromFoo.define().toList()).containsExactly("foo");
     assertThat(providerFromBar.define().toList()).containsExactly("bar");
+  }
+
+  @Test
+  public void testCustomMallocUnset() throws Exception {
+    setUpCustomMallocRule();
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:malloc");
+    StructImpl provider = getMyInfoFromTarget(target);
+    Object customMalloc = provider.getValue("malloc");
+    assertThat(customMalloc).isInstanceOf(NoneType.class);
+  }
+
+  @Test
+  public void testCustomMallocSet() throws Exception {
+    setUpCustomMallocRule();
+    useConfiguration("--custom_malloc=//base:system_malloc");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:malloc");
+    StructImpl provider = getMyInfoFromTarget(target);
+    RuleConfiguredTarget customMalloc = provider.getValue("malloc", RuleConfiguredTarget.class);
+    assertThat(customMalloc.getLabel().getCanonicalForm()).isEqualTo("//base:system_malloc");
+  }
+
+  private void setUpCustomMallocRule() throws IOException {
+    scratch.overwriteFile("base/BUILD", "cc_library(name = 'system_malloc')");
+    scratch.file(
+        "test/starlark/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "",
+        "def _malloc_rule_impl(ctx):",
+        "  return [MyInfo(malloc = ctx.attr._custom_malloc)]",
+        "",
+        "malloc_rule = rule(",
+        "    implementation = _malloc_rule_impl,",
+        "    attrs = {",
+        "        '_custom_malloc': attr.label(",
+        "            default = configuration_field(",
+        "                fragment = 'cpp',",
+        "                name = 'custom_malloc',",
+        "            ),",
+        "            providers = [CcInfo],",
+        "        ),",
+        "    }",
+        ")");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:extension.bzl', 'malloc_rule')",
+        "",
+        "malloc_rule(name = 'malloc')");
   }
 }

@@ -370,9 +370,9 @@ public final class CppConfiguration extends Fragment
     return ImmutableList.copyOf(cppOptions.perFileLtoBackendOpts);
   }
 
-  /**
-   * Returns the custom malloc library label.
-   */
+  /** Returns the custom malloc library label. */
+  @Override
+  @SkylarkConfigurationField(name = "custom_malloc", doc = "The label specified in --custom_malloc")
   public Label customMalloc() {
     return cppOptions.customMalloc;
   }

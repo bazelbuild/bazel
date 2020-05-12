@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
@@ -60,4 +61,20 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
           "Returns flags passed to Bazel by <a href=\"../../user-manual.html#flag--linkopt\">"
               + "<code>--linkopt</code></a> option.")
   ImmutableList<String> getLinkopts() throws EvalException;
+
+  @SkylarkCallable(
+      name = "custom_malloc",
+      structField = true,
+      doc =
+          "Returns label pointed to by <a href=\"../../user-manual.html#flag--custom_malloc\">"
+              + "<code>--custom_malloc</code></a> option. Can be accessed with"
+              + " <a href=\"globals.html#configuration_field\"><code>configuration_field"
+              + "</code></a>:<br/>"
+              + "<pre>attr.label(<br/>"
+              + "    default = configuration_field(<br/>"
+              + "        fragment = \"cpp\",<br/>"
+              + "        name = \"custom_malloc\"<br/>"
+              + "    )<br/>"
+              + ")</pre>")
+  Label customMalloc();
 }
