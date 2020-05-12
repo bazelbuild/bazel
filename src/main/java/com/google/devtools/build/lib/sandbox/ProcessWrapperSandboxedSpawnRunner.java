@@ -42,7 +42,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   private final Path execRoot;
   private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
-  private final Duration timeoutKillDelay;
   @Nullable private final SandboxfsProcess sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
@@ -53,7 +52,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
    * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
-   * @param timeoutKillDelay additional grace period before killing timing out commands
    * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
    *     which case the runner uses a symlinked sandbox
    * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
@@ -62,7 +60,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
       SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
-      Duration timeoutKillDelay,
       @Nullable SandboxfsProcess sandboxfsProcess,
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter) {
@@ -72,7 +69,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     this.execRoot = cmdEnv.getExecRoot();
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
-    this.timeoutKillDelay = timeoutKillDelay;
     this.sandboxfsProcess = sandboxfsProcess;
     this.sandboxfsMapSymlinkTargets = sandboxfsMapSymlinkTargets;
     this.treeDeleter = treeDeleter;
@@ -102,8 +98,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     Duration timeout = context.getTimeout();
     ProcessWrapper.CommandLineBuilder commandLineBuilder =
         processWrapper.commandLineBuilder(spawn.getArguments()).setTimeout(timeout);
-
-    commandLineBuilder.setKillDelay(timeoutKillDelay);
 
     Path statisticsPath = null;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {

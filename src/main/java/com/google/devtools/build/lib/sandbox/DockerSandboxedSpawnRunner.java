@@ -144,7 +144,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path sandboxBase;
   private final String defaultImage;
   private final LocalEnvProvider localEnvProvider;
-  private final Duration timeoutKillDelay;
   private final String commandId;
   private final Reporter reporter;
   private final boolean useCustomizedImages;
@@ -162,7 +161,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param dockerClient path to the `docker` executable
    * @param sandboxBase path to the sandbox base directory
    * @param defaultImage the Docker image to use if the platform doesn't specify one
-   * @param timeoutKillDelay an additional grace period before killing timing out commands
    * @param useCustomizedImages whether to use customized images for execution
    * @param treeDeleter scheduler for tree deletions
    */
@@ -172,7 +170,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path dockerClient,
       Path sandboxBase,
       String defaultImage,
-      Duration timeoutKillDelay,
       boolean useCustomizedImages,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
@@ -184,7 +181,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.sandboxBase = sandboxBase;
     this.defaultImage = defaultImage;
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
-    this.timeoutKillDelay = timeoutKillDelay;
     this.commandId = cmdEnv.getCommandId().toString();
     this.reporter = cmdEnv.getReporter();
     this.useCustomizedImages = useCustomizedImages;
@@ -258,7 +254,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setAdditionalMounts(getSandboxOptions().sandboxAdditionalMounts)
         .setPrivileged(getSandboxOptions().dockerPrivileged)
         .setEnvironmentVariables(environment)
-        .setKillDelay(timeoutKillDelay)
         .setCreateNetworkNamespace(
             !(allowNetwork
                 || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))

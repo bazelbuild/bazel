@@ -33,7 +33,6 @@ final class DockerCommandLineBuilder {
   private Path sandboxExecRoot;
   private Map<String, String> environmentVariables;
   private Duration timeout;
-  private Duration killDelay;
   private boolean createNetworkNamespace;
   private UUID uuid;
   private int uid;
@@ -75,11 +74,6 @@ final class DockerCommandLineBuilder {
 
   public DockerCommandLineBuilder setTimeout(Duration timeout) {
     this.timeout = timeout;
-    return this;
-  }
-
-  public DockerCommandLineBuilder setKillDelay(Duration killDelay) {
-    this.killDelay = killDelay;
     return this;
   }
 
@@ -178,9 +172,6 @@ final class DockerCommandLineBuilder {
         processWrapper.commandLineBuilder(dockerCmdLine.build());
     if (timeout != null) {
       processWrapperCmdLine.setTimeout(timeout);
-    }
-    if (killDelay != null) {
-      processWrapperCmdLine.setKillDelay(killDelay);
     }
     return processWrapperCmdLine.build();
   }

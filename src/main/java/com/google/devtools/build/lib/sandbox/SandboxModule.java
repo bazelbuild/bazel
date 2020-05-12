@@ -289,7 +289,6 @@ public final class SandboxModule extends BlazeModule {
                   helpers,
                   cmdEnv,
                   sandboxBase,
-                  timeoutKillDelay,
                   sandboxfsProcess,
                   options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
@@ -318,7 +317,6 @@ public final class SandboxModule extends BlazeModule {
                     pathToDocker,
                     sandboxBase,
                     defaultImage,
-                    timeoutKillDelay,
                     useCustomizedImages,
                     treeDeleter));
         spawnRunners.add(spawnRunner);
@@ -360,7 +358,6 @@ public final class SandboxModule extends BlazeModule {
                   helpers,
                   cmdEnv,
                   sandboxBase,
-                  timeoutKillDelay,
                   sandboxfsProcess,
                   options.sandboxfsMapSymlinkTargets,
                   treeDeleter));

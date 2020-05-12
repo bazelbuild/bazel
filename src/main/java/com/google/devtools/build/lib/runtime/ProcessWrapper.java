@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -32,10 +33,14 @@ public final class ProcessWrapper {
   /** Path to the process-wrapper binary to use. */
   private final Path binPath;
 
+  /** Grace delay between asking a process to stop and forcibly killing it, or null for none. */
+  @Nullable private final Duration killDelay;
+
   /** Creates a new process-wrapper instance from explicit values. */
   @VisibleForTesting
-  public ProcessWrapper(Path binPath) {
+  public ProcessWrapper(Path binPath, @Nullable Duration killDelay) {
     this.binPath = binPath;
+    this.killDelay = killDelay;
   }
 
   /**
@@ -46,9 +51,12 @@ public final class ProcessWrapper {
    */
   @Nullable
   public static ProcessWrapper fromCommandEnvironment(CommandEnvironment cmdEnv) {
+    LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
+    Duration killDelay = options == null ? null : options.getLocalSigkillGraceSeconds();
+
     Path path = cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(BIN_BASENAME);
     if (OS.isPosixCompatible() && path != null && path.exists()) {
-      return new ProcessWrapper(path);
+      return new ProcessWrapper(path, killDelay);
     } else {
       return null;
     }
@@ -56,7 +64,7 @@ public final class ProcessWrapper {
 
   /** Returns a new {@link CommandLineBuilder} for the process-wrapper tool. */
   public CommandLineBuilder commandLineBuilder(List<String> commandArguments) {
-    return new CommandLineBuilder(binPath.getPathString(), commandArguments);
+    return new CommandLineBuilder(binPath.getPathString(), commandArguments, killDelay);
   }
 
   /**
@@ -66,15 +74,18 @@ public final class ProcessWrapper {
   public static class CommandLineBuilder {
     private final String processWrapperPath;
     private final List<String> commandArguments;
+    @Nullable private final Duration killDelay;
+
     private Path stdoutPath;
     private Path stderrPath;
     private Duration timeout;
-    private Duration killDelay;
     private Path statisticsPath;
 
-    private CommandLineBuilder(String processWrapperPath, List<String> commandArguments) {
+    private CommandLineBuilder(
+        String processWrapperPath, List<String> commandArguments, @Nullable Duration killDelay) {
       this.processWrapperPath = processWrapperPath;
       this.commandArguments = commandArguments;
+      this.killDelay = killDelay;
     }
 
     /** Sets the path to use for redirecting stdout, if any. */
@@ -92,15 +103,6 @@ public final class ProcessWrapper {
     /** Sets the timeout for the command run using the process-wrapper tool. */
     public CommandLineBuilder setTimeout(Duration timeout) {
       this.timeout = timeout;
-      return this;
-    }
-
-    /**
-     * Sets the kill delay for commands run using the process-wrapper tool that exceed their
-     * timeout.
-     */
-    public CommandLineBuilder setKillDelay(Duration killDelay) {
-      this.killDelay = killDelay;
       return this;
     }
 

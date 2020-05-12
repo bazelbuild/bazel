@@ -312,8 +312,9 @@ public class LocalSpawnRunnerTest {
     return new InMemoryFileSystem();
   }
 
-  private static ProcessWrapper makeProcessWrapper(FileSystem fs) {
-    return new ProcessWrapper(fs.getPath("/process-wrapper"));
+  private static ProcessWrapper makeProcessWrapper(FileSystem fs, LocalExecutionOptions options) {
+    return new ProcessWrapper(
+        fs.getPath("/process-wrapper"), options.getLocalSigkillGraceSeconds());
   }
 
   /**
@@ -348,7 +349,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             options,
             resourceManager,
-            makeProcessWrapper(fs),
+            makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -399,7 +400,7 @@ public class LocalSpawnRunnerTest {
             execRoot,
             options,
             resourceManager,
-            makeProcessWrapper(fs),
+            makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
     ParamFileActionInput paramFileActionInput =
         new ParamFileActionInput(
@@ -494,7 +495,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             options,
             resourceManager,
-            makeProcessWrapper(fs),
+            makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
@@ -510,7 +511,6 @@ public class LocalSpawnRunnerTest {
     assertThat(captor.getValue().getArgv())
         .containsExactlyElementsIn(
             ImmutableList.of(
-                // process-wrapper timeout grace_time stdout stderr
                 "/process-wrapper", "--timeout=0", "--kill_delay=15", "/bin/echo", "Hi!"));
     assertThat(captor.getValue().getEnv()).containsExactly("VARIABLE", "value");
     assertThat(captor.getValue().getStdout()).isEqualTo(StreamAction.REDIRECT);
@@ -536,7 +536,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             options,
             resourceManager,
-            makeProcessWrapper(fs),
+            makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     assertThat(fs.getPath("/out").createDirectory()).isTrue();
@@ -570,7 +570,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             options,
             resourceManager,
-            makeProcessWrapper(fs),
+            makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
@@ -619,7 +619,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             options,
             resourceManager,
-            makeProcessWrapper(fs),
+            makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -729,7 +729,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             options,
             resourceManager,
-            makeProcessWrapper(fs),
+            makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -754,7 +754,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             options,
             resourceManager,
-            makeProcessWrapper(fs),
+            makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -783,7 +783,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             options,
             resourceManager,
-            makeProcessWrapper(fs),
+            makeProcessWrapper(fs, options),
             localEnvProvider);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -910,7 +910,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools,
-            new ProcessWrapper(processWrapperPath),
+            new ProcessWrapper(processWrapperPath, /*killDelay=*/ Duration.ZERO),
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
@@ -974,7 +974,7 @@ public class LocalSpawnRunnerTest {
             resourceManager,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools,
-            new ProcessWrapper(processWrapperPath),
+            new ProcessWrapper(processWrapperPath, /*killDelay=*/ Duration.ZERO),
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
