@@ -115,7 +115,8 @@ public final class CompileCommandLine {
 
       @Override
       public Iterable<String> arguments() throws CommandLineExpansionException {
-        CcToolchainVariables overwrittenVariables = cppCompileAction.getOverwrittenVariables();
+        CcToolchainVariables overwrittenVariables =
+            CppCompileAction.getOverwrittenVariables(cppCompileAction.getInputs());
         List<String> compilerOptions = getCompilerOptions(overwrittenVariables);
         return ImmutableList.<String>builder().add(getToolPath()).addAll(compilerOptions).build();
       }
