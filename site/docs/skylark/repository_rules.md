@@ -50,11 +50,12 @@ Every repository rule requires an `implementation` function. It contains the
 actual logic of the rule and is executed strictly in the Loading Phase.
 
 The function has exactly one input parameter, `repository_ctx`. The function
-returns either `None` to signify that the rule is reproducible, or a dict with a
-set of parameters for that rule that would turn that rule into a reproducible
-one generating the same repository. For example, for a rule tracking a git
-repository that would mean returning a specific commit identifier instead of a
-floating branch that was originally specified.
+returns either `None` to signify that the rule is reproducible given the
+specified parameters, or a dict with a set of parameters for that rule that
+would turn that rule into a reproducible one generating the same repository. For
+example, for a rule tracking a git repository that would mean returning a
+specific commit identifier instead of a floating branch that was originally
+specified.
 
 The input parameter `repository_ctx` can be used to
 access attribute values, and non-hermetic functions (finding a binary,
