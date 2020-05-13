@@ -308,9 +308,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
     List<String> commandEnvWarnings = new ArrayList<>();
-    CommandEnvironment env = workspace.initCommand(commandAnnotation, options, commandEnvWarnings);
-    // Record the command's starting time for use by the commands themselves.
-    env.recordCommandStartTime(firstContactTime);
+    CommandEnvironment env =
+        workspace.initCommand(
+            commandAnnotation, options, commandEnvWarnings, waitTimeInMs, firstContactTime);
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     // We cannot flip an incompatible flag that expands to other flags, so we do it manually here.
     // If an option is specified explicitly, we give that preference.
@@ -511,7 +511,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
       try (SilentCloseable closeable = Profiler.instance().profile("CommandEnv.beforeCommand")) {
         // Notify the BlazeRuntime, so it can do some initial setup.
-        env.beforeCommand(waitTimeInMs, invocationPolicy);
+        env.beforeCommand(invocationPolicy);
       } catch (AbruptExitException e) {
         logger.atInfo().withCause(e).log("Error before command");
         reporter.handle(Event.error(e.getMessage()));

@@ -204,7 +204,11 @@ public class BlazeRuntimeWrapper {
         runtime
             .getWorkspace()
             .initCommand(
-                buildCommand.getAnnotation(Command.class), optionsParser, new ArrayList<>());
+                buildCommand.getAnnotation(Command.class),
+                optionsParser,
+                new ArrayList<>(),
+                0L,
+                0L);
     return env;
   }
 
