@@ -964,7 +964,11 @@ final class StringModule implements StarlarkValue {
               + "surrounded by curly braces <code>{}</code>. Anything that is not contained "
               + "in braces is considered literal text, which is copied unchanged to the output."
               + "If you need to include a brace character in the literal text, it can be "
+              // {% raw %} is used to prevent Jekyll from interpreting {{.
+              // It is inside an HTML comment because we don't always use Jekyll.
+              + "<!-- {% raw %} -->"
               + "escaped by doubling: <code>{{</code> and <code>}}</code>"
+              + "<!-- {% endraw %} -->"
               + "A replacement field can be either a name, a number, or empty. Values are "
               + "converted to strings using the <a href=\"globals.html#str\">str</a> function."
               + "<pre class=\"language-python\">"
