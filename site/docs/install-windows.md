@@ -86,7 +86,7 @@ startup --windows_enable_symlinks
 build --enable_runfiles
 ```
 
-**Note that**: Creating symlink on Windows is an expensive operation, `--enable_runfiles` sometimes means creating a large amount of file symlinks. Only enable this feature when you are sure you need it.
+**Note**: Creating symlinks on Windows is an expensive operation. The `--enable_runfiles` flag can potentially create a large amount of file symlinks. Only enable this feature when you need it.
 
 <!-- TODO(pcloudy): Write a doc about runfiles library and add a link to it here -->
 
