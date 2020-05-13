@@ -27,19 +27,15 @@ public interface MetadataInjector {
   /**
    * Injects metadata of a file that is stored remotely.
    *
-   * @param output a regular output file.
-   * @param digest the digest of the file.
-   * @param size the size of the file in bytes.
-   * @param locationIndex is only used in Blaze.
-   * @param actionId the id of the action that produced this file.
+   * @param output a regular output file
+   * @param metadata the remote file metadata
    */
-  void injectRemoteFile(
-      Artifact output, byte[] digest, long size, int locationIndex, String actionId);
+  void injectRemoteFile(Artifact output, RemoteFileArtifactValue metadata);
 
   /**
-   * Inject the metadata of a tree artifact whose contents are stored remotely.
+   * Injects the metadata of a tree artifact whose contents are stored remotely.
    *
-   * @param output an output directory
+   * @param output an output directory {@linkplain Artifact#isTreeArtifact tree artifact}
    * @param children the metadata of the files stored in the directory
    */
   void injectRemoteDirectory(

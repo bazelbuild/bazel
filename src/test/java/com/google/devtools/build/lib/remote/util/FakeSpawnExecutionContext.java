@@ -132,8 +132,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   public MetadataInjector getMetadataInjector() {
     return new MetadataInjector() {
       @Override
-      public void injectRemoteFile(
-          Artifact output, byte[] digest, long size, int locationIndex, String actionId) {
+      public void injectRemoteFile(Artifact output, RemoteFileArtifactValue metadata) {
         throw new UnsupportedOperationException();
       }
 

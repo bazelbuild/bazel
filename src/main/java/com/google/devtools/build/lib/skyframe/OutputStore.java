@@ -73,13 +73,6 @@ class OutputStore {
     return ImmutableMap.copyOf(treeArtifactData);
   }
 
-  void injectRemoteFile(
-      Artifact output, byte[] digest, long size, int locationIndex, String actionId) {
-    injectOutputData(
-        output,
-        new FileArtifactValue.RemoteFileArtifactValue(digest, size, locationIndex, actionId));
-  }
-
   final void injectOutputData(Artifact output, FileArtifactValue artifactValue) {
     injectedFiles.add(output);
     artifactData.put(output, artifactValue);

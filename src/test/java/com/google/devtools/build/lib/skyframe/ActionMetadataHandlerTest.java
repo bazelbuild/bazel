@@ -332,7 +332,8 @@ public class ActionMetadataHandlerTest {
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
 
     // Inject a remote file of size 42.
-    handler.injectRemoteFile(artifact, new byte[] {1, 2, 3}, 42, 0, "ultimate-answer");
+    handler.injectRemoteFile(
+        artifact, new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 42, 0, "ultimate-answer"));
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(42);
 
     // Reset this output, which will make the handler stat the file again.
@@ -358,7 +359,8 @@ public class ActionMetadataHandlerTest {
 
     byte[] digest = new byte[] {1, 2, 3};
     int size = 10;
-    handler.injectRemoteFile(artifact, digest, size, /* locationIndex= */ 1, "action-id");
+    handler.injectRemoteFile(
+        artifact, new RemoteFileArtifactValue(digest, size, /*locationIndex=*/ 1, "action-id"));
 
     FileArtifactValue v = handler.getMetadata(artifact);
     assertThat(v).isNotNull();

@@ -638,10 +638,11 @@ public class RemoteCache implements AutoCloseable {
       }
       metadataInjector.injectRemoteFile(
           output,
-          DigestUtil.toBinaryDigest(outputMetadata.digest()),
-          outputMetadata.digest().getSizeBytes(),
-          /* locationIndex= */ 1,
-          actionId);
+          new RemoteFileArtifactValue(
+              DigestUtil.toBinaryDigest(outputMetadata.digest()),
+              outputMetadata.digest().getSizeBytes(),
+              /*locationIndex=*/ 1,
+              actionId));
     }
   }
 
