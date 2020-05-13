@@ -396,9 +396,11 @@ public class AndroidResources {
   public ParsedAndroidResources parse(
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
-      DataBindingContext dataBindingContext)
+      DataBindingContext dataBindingContext,
+      boolean generateNamespacedRFiles)
       throws InterruptedException {
-    return ParsedAndroidResources.parseFrom(dataContext, this, manifest, dataBindingContext);
+    return ParsedAndroidResources.parseFrom(dataContext, this, manifest, dataBindingContext,
+        generateNamespacedRFiles);
   }
 
   /**
@@ -410,24 +412,32 @@ public class AndroidResources {
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       DataBindingContext dataBindingContext,
-      boolean neverlink)
+      boolean neverlink,
+      boolean namespacedRClass)
       throws RuleErrorException, InterruptedException {
     return process(
         dataContext,
         manifest,
         ResourceDependencies.fromRuleDeps(ruleContext, neverlink),
-        dataBindingContext);
+        dataBindingContext,
+        namespacedRClass);
   }
 
   ValidatedAndroidResources process(
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       ResourceDependencies resourceDeps,
-      DataBindingContext dataBindingContext)
+      DataBindingContext dataBindingContext,
+      boolean namespacedRClass)
       throws InterruptedException {
-    return parse(dataContext, manifest, dataBindingContext)
-        .merge(dataContext, resourceDeps)
-        .validate(dataContext);
+    ParsedAndroidResources parse =
+        parse(dataContext, manifest, dataBindingContext, namespacedRClass);
+
+    MergedAndroidResources merge = namespacedRClass ?
+        parse.noMerge(dataContext, resourceDeps) :
+        parse.merge(dataContext, resourceDeps);
+
+    return !namespacedRClass ? merge.validate(dataContext) : merge.validateNoLink(dataContext);
   }
 
   @Override

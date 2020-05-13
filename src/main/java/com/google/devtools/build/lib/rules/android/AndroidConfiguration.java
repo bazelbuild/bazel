@@ -882,6 +882,15 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean useRTxtFromMergedResources;
 
     @Option(
+        name = "namespaced_r_class",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        help = "If enabled each library only contains references to the resources it declares"
+            + " instead of declarations plus all dependency references.")
+    public boolean namespacedRClass;
+
+    @Option(
         name = "legacy_main_dex_list_generator",
         // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
         // migrating usage.
@@ -990,6 +999,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
+  private final boolean namespacedRClass;
   private final Label legacyMainDexListGenerator;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
@@ -1044,6 +1054,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         options.alwaysFilterDuplicateClassesFromAndroidTest;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
+    this.namespacedRClass = options.namespacedRClass;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
 
     if (options.androidAaptVersion != AndroidAaptVersion.AAPT2) {
@@ -1295,6 +1306,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
+  }
+
+  boolean namespacedRClass() {
+    return namespacedRClass;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

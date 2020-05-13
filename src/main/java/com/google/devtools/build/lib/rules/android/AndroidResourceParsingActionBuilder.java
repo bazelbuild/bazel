@@ -38,6 +38,8 @@ public class AndroidResourceParsingActionBuilder {
   // Optional outputs
   @Nullable private Artifact compiledSymbols;
   @Nullable private Artifact dataBindingInfoZip;
+  @Nullable private Artifact classJarOut;
+  @Nullable private Artifact rTxtOut;
 
   /** Set the artifact location for the output protobuf. */
   public AndroidResourceParsingActionBuilder setOutput(Artifact output) {
@@ -70,6 +72,16 @@ public class AndroidResourceParsingActionBuilder {
   public AndroidResourceParsingActionBuilder setCompiledSymbolsOutput(
       @Nullable Artifact compiledSymbols) {
     this.compiledSymbols = compiledSymbols;
+    return this;
+  }
+
+  public AndroidResourceParsingActionBuilder setClassJarOut(Artifact classJarOut) {
+    this.classJarOut = classJarOut;
+    return this;
+  }
+
+  public AndroidResourceParsingActionBuilder setRTxtOut(Artifact rTxtOut) {
+    this.rTxtOut = rTxtOut;
     return this;
   }
 
@@ -109,7 +121,18 @@ public class AndroidResourceParsingActionBuilder {
             .addOutput("--dataBindingInfoOut", dataBindingInfoZip);
       }
 
-      compiledBuilder.buildAndRegister("Compiling Android resources", "AndroidResourceCompiler");
+      if (classJarOut != null) {
+        compiledBuilder.maybeAddOutput("--classJarOutput", classJarOut);
+      }
+
+      if (rTxtOut != null) {
+        compiledBuilder.maybeAddOutput("--rTxtOut", rTxtOut);
+      }
+
+      compiledBuilder.addAndroidJar()
+          .addLabelFlag("--targetLabel")
+          .maybeAddInput("--manifest", manifest)
+          .buildAndRegister("Compiling Android resources", "AndroidResourceCompiler");
     }
   }
 
@@ -135,6 +158,8 @@ public class AndroidResourceParsingActionBuilder {
         androidResources,
         output,
         compiledSymbols,
+        classJarOut,
+        rTxtOut,
         dataContext.getLabel(),
         manifest,
         dataBindingContext);

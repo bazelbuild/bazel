@@ -258,6 +258,8 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
                 AndroidResources.forResources(errorConsumer, resources, "resource_files"),
                 getOutput("symbols.bin"),
                 includeAapt2Outs ? getOutput("symbols.zip") : null,
+                /* classJarOut= */ null,
+                /* rTxtOut= */ null,
                 manifest.getManifest().getOwnerLabel(),
                 manifest,
                 DataBinding.DISABLED_V1_CONTEXT),

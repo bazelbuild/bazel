@@ -160,7 +160,8 @@ public class AndroidResourcesTest extends ResourceTestBase {
                 dataContext,
                 getManifest(),
                 DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
-                /* neverlink = */ false);
+                /* neverlink = */ false,
+                AndroidDataContext.forNative(ruleContext).getAndroidConfig().namespacedRClass());
     Optional<? extends AndroidResources> maybeFiltered =
         assertFilter(unfiltered, filteredResources, /* isDependency = */ true);
 
@@ -422,7 +423,8 @@ public class AndroidResourcesTest extends ResourceTestBase {
         raw.parse(
             AndroidDataContext.forNative(ruleContext),
             manifest,
-            dataBindingContext);
+            dataBindingContext,
+            AndroidDataContext.forNative(ruleContext).getAndroidConfig().namespacedRClass());
 
     // Inherited values should be equal
     assertThat(raw).isEqualTo(new AndroidResources(parsed));
@@ -458,7 +460,8 @@ public class AndroidResourcesTest extends ResourceTestBase {
         .parse(
             AndroidDataContext.forNative(ruleContext),
             getManifest(),
-            dataBindingContext);
+            dataBindingContext,
+            AndroidDataContext.forNative(ruleContext).getAndroidConfig().namespacedRClass());
   }
 
   private ProcessedAndroidManifest getManifest() {
