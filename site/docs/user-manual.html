@@ -2725,6 +2725,23 @@ adb -s deadbeef install ...
 <p>For example:</p>
 <pre><code>
   OUTPUT_BASE=/var/tmp/google/_bazel_johndoe/custom_output_base
+  % bazel --output_base $OUTPUT_BASE build //foo  &amp;  bazel --output_base $OUTPUT_BASE build //bar
+</code></pre>
+<p>
+  In this command, the two Bazel commands run concurrently (because of
+  the shell <code>&amp;</code> operator), each using a different Bazel
+  server instance (because of the different output bases).
+  In contrast, if the default output base was used in both commands,
+  then both requests would be sent to the same server, which would
+  handle them sequentially: building <code>//foo</code> first, followed
+  by an incremental build of <code>//bar</code>.
+</p>
+<p>
+  We recommend you do not use NFS locations for the output base, as
+  the higher access latency of NFS will cause noticeably slower
+  builds.
+</p>
+
 <h4 id='flag--output_user_root'><code class='flag'>--output_user_root=<var>dir</var></code></h4>
 <p>
   By default, the <code>output_base</code> value is chosen to as to
