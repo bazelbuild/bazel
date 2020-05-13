@@ -22,10 +22,12 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylark.util.StarlarkTestCase;
+import com.google.devtools.build.lib.skylark.util.BazelEvaluationTestCase;
+import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +36,14 @@ import org.junit.runners.JUnit4;
 
 /** Tests for the config_feature_flag rule. */
 @RunWith(JUnit4.class)
-public final class ConfigFeatureFlagTest extends StarlarkTestCase {
+public final class ConfigFeatureFlagTest extends BuildViewTestCase {
+
+  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
+
+  private StarlarkRuleContext createRuleContext(String label) throws Exception {
+    return new StarlarkRuleContext(
+        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+  }
 
   @Before
   public void useTrimmedConfigurations() throws Exception {
@@ -180,9 +189,9 @@ public final class ConfigFeatureFlagTest extends StarlarkTestCase {
         (ConfiguredTarget) Iterables.getOnlyElement(getPrerequisites(top, "deps"));
     StarlarkRuleContext ctx =
         new StarlarkRuleContext(getRuleContextForStarlark(wrapper), null, getStarlarkSemantics());
-    update("ruleContext", ctx);
-    update("config_common", new ConfigStarlarkCommon());
-    String value = (String) eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");
+    ev.update("ruleContext", ctx);
+    ev.update("config_common", new ConfigStarlarkCommon());
+    String value = (String) ev.eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");
     assertThat(value).isEqualTo("configured");
   }
 
@@ -231,16 +240,16 @@ public final class ConfigFeatureFlagTest extends StarlarkTestCase {
         "    default_value = 'default',",
         ")");
     StarlarkRuleContext ctx = createRuleContext("//test:wrapper");
-    update("ruleContext", ctx);
-    update("config_common", new ConfigStarlarkCommon());
+    ev.update("ruleContext", ctx);
+    ev.update("config_common", new ConfigStarlarkCommon());
     String provider = "ruleContext.attr.flag[config_common.FeatureFlagInfo]";
-    Boolean isDefaultValid = (Boolean) eval(provider + ".is_valid_value('default')");
-    Boolean isConfiguredValid = (Boolean) eval(provider + ".is_valid_value('configured')");
-    Boolean isOtherValid = (Boolean) eval(provider + ".is_valid_value('other')");
-    Boolean isAbsentValid = (Boolean) eval(provider + ".is_valid_value('absent')");
+    Boolean isDefaultValid = (Boolean) ev.eval(provider + ".is_valid_value('default')");
+    Boolean isConfiguredValid = (Boolean) ev.eval(provider + ".is_valid_value('configured')");
+    Boolean isOtherValid = (Boolean) ev.eval(provider + ".is_valid_value('other')");
+    Boolean isAbsentValid = (Boolean) ev.eval(provider + ".is_valid_value('absent')");
     Boolean isIncorrectCapitalizationValid =
-        (Boolean) eval(provider + ".is_valid_value('conFigured')");
-    Boolean isIncorrectSpacingValid = (Boolean) eval(provider + ".is_valid_value('  other')");
+        (Boolean) ev.eval(provider + ".is_valid_value('conFigured')");
+    Boolean isIncorrectSpacingValid = (Boolean) ev.eval(provider + ".is_valid_value('  other')");
 
     assertThat(isDefaultValid).isTrue();
     assertThat(isConfiguredValid).isTrue();

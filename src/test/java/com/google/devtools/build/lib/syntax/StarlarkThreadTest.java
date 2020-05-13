@@ -25,50 +25,52 @@ import org.junit.runners.JUnit4;
 
 /** Tests of StarlarkThread. */
 @RunWith(JUnit4.class)
-public final class StarlarkThreadTest extends EvaluationTestCase {
+public final class StarlarkThreadTest {
+
+  private final EvaluationTestCase ev = new EvaluationTestCase();
 
   // Test the API directly
   @Test
   public void testLookupAndUpdate() throws Exception {
-    assertThat(lookup("foo")).isNull();
-    update("foo", "bar");
-    assertThat(lookup("foo")).isEqualTo("bar");
+    assertThat(ev.lookup("foo")).isNull();
+    ev.update("foo", "bar");
+    assertThat(ev.lookup("foo")).isEqualTo("bar");
   }
 
   @Test
   public void testDoubleUpdateSucceeds() throws Exception {
-    assertThat(lookup("VERSION")).isNull();
-    update("VERSION", 42);
-    assertThat(lookup("VERSION")).isEqualTo(42);
-    update("VERSION", 43);
-    assertThat(lookup("VERSION")).isEqualTo(43);
+    assertThat(ev.lookup("VERSION")).isNull();
+    ev.update("VERSION", 42);
+    assertThat(ev.lookup("VERSION")).isEqualTo(42);
+    ev.update("VERSION", 43);
+    assertThat(ev.lookup("VERSION")).isEqualTo(43);
   }
 
-  // Test assign through interpreter, lookup through API:
+  // Test assign through interpreter, ev.lookup through API:
   @Test
   public void testAssign() throws Exception {
-    assertThat(lookup("foo")).isNull();
-    exec("foo = 'bar'");
-    assertThat(lookup("foo")).isEqualTo("bar");
+    assertThat(ev.lookup("foo")).isNull();
+    ev.exec("foo = 'bar'");
+    assertThat(ev.lookup("foo")).isEqualTo("bar");
   }
 
   // Test update through API, reference through interpreter:
   @Test
   public void testReference() throws Exception {
-    setFailFast(false);
-    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> eval("foo"));
+    ev.setFailFast(false);
+    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> ev.eval("foo"));
     assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
-    update("foo", "bar");
-    assertThat(eval("foo")).isEqualTo("bar");
+    ev.update("foo", "bar");
+    assertThat(ev.eval("foo")).isEqualTo("bar");
   }
 
   // Test assign and reference through interpreter:
   @Test
   public void testAssignAndReference() throws Exception {
-    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> eval("foo"));
+    SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> ev.eval("foo"));
     assertThat(e).hasMessageThat().isEqualTo("name 'foo' is not defined");
-    exec("foo = 'bar'");
-    assertThat(eval("foo")).isEqualTo("bar");
+    ev.exec("foo = 'bar'");
+    assertThat(ev.eval("foo")).isEqualTo("bar");
   }
 
   @Test
@@ -132,7 +134,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testBindToNullThrowsException() throws Exception {
     NullPointerException e =
-        assertThrows(NullPointerException.class, () -> update("some_name", null));
+        assertThrows(NullPointerException.class, () -> ev.update("some_name", null));
     assertThat(e).hasMessageThat().isEqualTo("Module.put(some_name, null)");
   }
 
@@ -168,18 +170,20 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
 
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
-    StarlarkThread thread = newStarlarkThread();
-    EvalUtils.exec(
-        ParserInput.fromLines("True = 123"), FileOptions.DEFAULT, thread.getGlobals(), thread);
-    assertThat(thread.getGlobals().lookup("True")).isEqualTo(123);
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = StarlarkThread.builder(mu).useDefaultSemantics().build();
+      EvalUtils.exec(
+          ParserInput.fromLines("True = 123"), FileOptions.DEFAULT, thread.getGlobals(), thread);
+      assertThat(thread.getGlobals().lookup("True")).isEqualTo(123);
+    }
   }
 
   @Test
   public void testVariableIsReferencedBeforeAssignment() throws Exception {
-    StarlarkThread thread = newStarlarkThread();
-    Module module = thread.getGlobals();
-    module.put("global_var", 666);
-    try {
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = StarlarkThread.builder(mu).useDefaultSemantics().build();
+      Module module = thread.getGlobals();
+      module.put("global_var", 666);
       EvalUtils.exec(
           ParserInput.fromLines(
               "def foo(x): x += global_var; global_var = 36; return x", //

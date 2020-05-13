@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import javax.annotation.Nullable;
 
 /** Contextual information associated with each Starlark thread created by Bazel. */
+// TODO(adonovan): rename BazelThreadContext, for symmetry with BazelModuleContext.
 public final class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRepoMapping {
 
   /** The phase to which this Starlark thread belongs. */

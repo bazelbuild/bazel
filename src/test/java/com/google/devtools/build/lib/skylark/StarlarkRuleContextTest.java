@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -50,13 +51,14 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PyProviderUtils;
-import com.google.devtools.build.lib.skylark.util.StarlarkTestCase;
+import com.google.devtools.build.lib.skylark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -69,11 +71,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link StarlarkRuleContext}.
- */
+/** Tests for {@link StarlarkRuleContext}. */
 @RunWith(JUnit4.class)
-public class StarlarkRuleContextTest extends StarlarkTestCase {
+public final class StarlarkRuleContextTest extends BuildViewTestCase {
+
+  private StarlarkRuleContext createRuleContext(String label) throws Exception {
+    return new StarlarkRuleContext(
+        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+  }
+
+  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
 
   /** A test rule that exercises the semantics of mandatory providers. */
   private static final MockRule TESTING_RULE_FOR_MANDATORY_PROVIDERS =
@@ -144,7 +151,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   }
 
   private void setRuleContext(StarlarkRuleContext ctx) throws Exception {
-    update("ruleContext", ctx);
+    ev.update("ruleContext", ctx);
   }
 
   private void setUpAttributeErrorTest() throws Exception {
@@ -459,7 +466,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void shouldGetPrerequisiteArtifacts() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.files.srcs");
+    Object result = ev.eval("ruleContext.files.srcs");
     assertArtifactList(result, ImmutableList.of("a.txt", "b.img"));
   }
 
@@ -477,7 +484,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void shouldGetPrerequisites() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:bar");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.attr.srcs");
+    Object result = ev.eval("ruleContext.attr.srcs");
     // Check for a known provider
     TransitiveInfoCollection tic1 = (TransitiveInfoCollection) ((Sequence) result).get(0);
     assertThat(JavaInfo.getProvider(JavaSourceJarsProvider.class, tic1)).isNotNull();
@@ -489,7 +496,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void shouldGetPrerequisite() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:asr");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.attr.srcjar");
+    Object result = ev.eval("ruleContext.attr.srcjar");
     TransitiveInfoCollection tic = (TransitiveInfoCollection) result;
     assertThat(tic).isInstanceOf(FileConfiguredTarget.class);
     assertThat(tic.getLabel().getName()).isEqualTo("asr-src.jar");
@@ -499,7 +506,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testGetRuleAttributeListType() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.attr.outs");
+    Object result = ev.eval("ruleContext.attr.outs");
     assertThat(result).isInstanceOf(Sequence.class);
   }
 
@@ -591,19 +598,19 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
 
     StarlarkRuleContext allContext = createRuleContext("//test/getrule:all_str");
     setRuleContext(allContext);
-    List<?> result = (List) eval("ruleContext.attr.s");
+    List<?> result = (List) ev.eval("ruleContext.attr.s");
     assertThat(result).containsExactly("genrule", "a", "nop_rule", "c");
 
     setRuleContext(createRuleContext("//test/getrule:a_str"));
-    result = (List) eval("ruleContext.attr.s");
+    result = (List) ev.eval("ruleContext.attr.s");
     assertThat(result).containsExactly("genrule", "a", ":a.txt", "//test:bla");
 
     setRuleContext(createRuleContext("//test/getrule:c_str"));
-    result = (List) eval("ruleContext.attr.s");
+    result = (List) ev.eval("ruleContext.attr.s");
     assertThat(result).containsExactly("nop_rule", "c", ":a");
 
     setRuleContext(createRuleContext("//test/getrule:genrule_attr"));
-    result = (List) eval("ruleContext.attr.s");
+    result = (List) ev.eval("ruleContext.attr.s");
     assertThat(result)
         .containsAtLeast(
             "name",
@@ -651,7 +658,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testGetRuleAttributeListValue() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.attr.outs");
+    Object result = ev.eval("ruleContext.attr.outs");
     assertThat(((Sequence) result)).hasSize(1);
   }
 
@@ -659,7 +666,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testGetRuleAttributeListValueNoGet() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.attr.outs");
+    Object result = ev.eval("ruleContext.attr.outs");
     assertThat(((Sequence) result)).hasSize(1);
   }
 
@@ -667,7 +674,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testGetRuleAttributeStringTypeValue() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.attr.cmd");
+    Object result = ev.eval("ruleContext.attr.cmd");
     assertThat((String) result).isEqualTo("dummy_cmd");
   }
 
@@ -675,39 +682,39 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testGetRuleAttributeStringTypeValueNoGet() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.attr.cmd");
+    Object result = ev.eval("ruleContext.attr.cmd");
     assertThat((String) result).isEqualTo("dummy_cmd");
   }
 
   @Test
   public void testGetRuleAttributeBadAttributeName() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains("No attribute 'bad'", "ruleContext.attr.bad");
+    ev.checkEvalErrorContains("No attribute 'bad'", "ruleContext.attr.bad");
   }
 
   @Test
   public void testGetLabel() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.label");
+    Object result = ev.eval("ruleContext.label");
     assertThat(((Label) result).toString()).isEqualTo("//foo:foo");
   }
 
   @Test
   public void testRuleError() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains("message", "fail('message')");
+    ev.checkEvalErrorContains("message", "fail('message')");
   }
 
   @Test
   public void testAttributeError() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains("attribute srcs: message", "fail(attr='srcs', msg='message')");
+    ev.checkEvalErrorContains("attribute srcs: message", "fail(attr='srcs', msg='message')");
   }
 
   @Test
   public void testGetExecutablePrerequisite() throws Exception {
     setRuleContext(createRuleContext("//foo:androidlib"));
-    Object result = eval("ruleContext.executable._idlclass");
+    Object result = ev.eval("ruleContext.executable._idlclass");
     assertThat(((Artifact) result).getFilename()).matches("^IdlClass(\\.exe){0,1}$");
   }
 
@@ -715,7 +722,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testCreateSpawnActionArgumentsWithExecutableFilesToRunProvider() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -732,7 +739,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testCreateStarlarkActionArgumentsWithUnusedInputsList() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -752,7 +759,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testCreateStarlarkActionArgumentsWithoutUnusedInputsList() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -769,42 +776,42 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   @Test
   public void testOutputs() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
-    Iterable<?> result = (Iterable) eval("ruleContext.outputs.outs");
+    Iterable<?> result = (Iterable) ev.eval("ruleContext.outputs.outs");
     assertThat(((Artifact) Iterables.getOnlyElement(result)).getFilename()).isEqualTo("d.txt");
   }
 
   @Test
   public void testStarlarkRuleContextGetDefaultShellEnv() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.configuration.default_shell_env");
+    Object result = ev.eval("ruleContext.configuration.default_shell_env");
     assertThat(result).isInstanceOf(Dict.class);
   }
 
   @Test
   public void testCheckPlaceholders() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.check_placeholders('%{name}', ['name'])");
+    Object result = ev.eval("ruleContext.check_placeholders('%{name}', ['name'])");
     assertThat(result).isEqualTo(true);
   }
 
   @Test
   public void testCheckPlaceholdersBadPlaceholder() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.check_placeholders('%{name}', ['abc'])");
+    Object result = ev.eval("ruleContext.check_placeholders('%{name}', ['abc'])");
     assertThat(result).isEqualTo(false);
   }
 
   @Test
   public void testExpandMakeVariables() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.expand_make_variables('cmd', '$(ABC)', {'ABC': 'DEF'})");
+    Object result = ev.eval("ruleContext.expand_make_variables('cmd', '$(ABC)', {'ABC': 'DEF'})");
     assertThat(result).isEqualTo("DEF");
   }
 
   @Test
   public void testExpandMakeVariablesShell() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.expand_make_variables('cmd', '$$ABC', {})");
+    Object result = ev.eval("ruleContext.expand_make_variables('cmd', '$$ABC', {})");
     assertThat(result).isEqualTo("$ABC");
   }
 
@@ -839,7 +846,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testExpandMakeVariables_cc() throws Exception {
     setUpMakeVarToolchain();
     setRuleContext(createRuleContext("//vars:vars"));
-    String result = (String) eval("ruleContext.expand_make_variables('cmd', '$(CC)', {})");
+    String result = (String) ev.eval("ruleContext.expand_make_variables('cmd', '$(CC)', {})");
     assertThat(result).isNotEmpty();
   }
 
@@ -847,7 +854,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testExpandMakeVariables_toolchain() throws Exception {
     setUpMakeVarToolchain();
     setRuleContext(createRuleContext("//vars:vars"));
-    Object result = eval("ruleContext.expand_make_variables('cmd', '$(MAKE_VAR_VALUE)', {})");
+    Object result = ev.eval("ruleContext.expand_make_variables('cmd', '$(MAKE_VAR_VALUE)', {})");
     assertThat(result).isEqualTo("foo");
   }
 
@@ -855,7 +862,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testVar_toolchain() throws Exception {
     setUpMakeVarToolchain();
     setRuleContext(createRuleContext("//vars:vars"));
-    Object result = eval("ruleContext.var['MAKE_VAR_VALUE']");
+    Object result = ev.eval("ruleContext.var['MAKE_VAR_VALUE']");
     assertThat(result).isEqualTo("foo");
   }
 
@@ -863,21 +870,21 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testConfiguration() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.configuration");
+    Object result = ev.eval("ruleContext.configuration");
     assertThat(ruleContext.getRuleContext().getConfiguration()).isSameInstanceAs(result);
   }
 
   @Test
   public void testFeatures() throws Exception {
     setRuleContext(createRuleContext("//foo:cc_with_features"));
-    Object result = eval("ruleContext.features");
+    Object result = ev.eval("ruleContext.features");
     assertThat((Sequence) result).containsExactly("cc_include_scanning", "f1", "f2");
   }
 
   @Test
   public void testDisabledFeatures() throws Exception {
     setRuleContext(createRuleContext("//foo:cc_with_features"));
-    Object result = eval("ruleContext.disabled_features");
+    Object result = ev.eval("ruleContext.disabled_features");
     assertThat((Sequence) result).containsExactly("f3");
   }
 
@@ -885,7 +892,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testHostConfiguration() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.host_configuration");
+    Object result = ev.eval("ruleContext.host_configuration");
     assertThat(ruleContext.getRuleContext().getHostConfiguration()).isSameInstanceAs(result);
   }
 
@@ -894,7 +901,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     assertThat(ruleClassProvider.getRunfilesPrefix()).isNotNull();
     assertThat(ruleClassProvider.getRunfilesPrefix()).isNotEmpty();
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.workspace_name");
+    Object result = ev.eval("ruleContext.workspace_name");
     assertThat(ruleClassProvider.getRunfilesPrefix()).isEqualTo(result);
   }
 
@@ -902,7 +909,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testDeriveArtifactLegacy() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.new_file(ruleContext.genfiles_dir," + "  'a/b.txt')");
+    Object result = ev.eval("ruleContext.new_file(ruleContext.genfiles_dir," + "  'a/b.txt')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/a/b.txt");
   }
@@ -910,7 +917,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   @Test
   public void testDeriveArtifact() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.actions.declare_file('a/b.txt')");
+    Object result = ev.eval("ruleContext.actions.declare_file('a/b.txt')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/a/b.txt");
   }
@@ -918,7 +925,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   @Test
   public void testDeriveTreeArtifact() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.actions.declare_directory('a/b')");
+    Object result = ev.eval("ruleContext.actions.declare_directory('a/b')");
     Artifact artifact = (Artifact) result;
     PathFragment fragment = artifact.getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/a/b");
@@ -928,7 +935,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   @Test
   public void testDeriveTreeArtifactType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    String result = (String) eval("type(ruleContext.actions.declare_directory('a/b'))");
+    String result = (String) ev.eval("type(ruleContext.actions.declare_directory('a/b'))");
     assertThat(result).isEqualTo("File");
   }
 
@@ -938,7 +945,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     setRuleContext(createRuleContext("//foo:foo"));
     Artifact artifact =
         (Artifact)
-            eval(
+            ev.eval(
                 "ruleContext.actions.declare_directory('c',"
                     + " sibling=ruleContext.actions.declare_directory('a/b'))");
     PathFragment fragment = artifact.getRootRelativePath();
@@ -951,7 +958,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     setRuleContext(createRuleContext("//foo:foo"));
     Object result =
-        eval(
+        ev.eval(
             "ruleContext.new_file(ruleContext.bin_dir," + "ruleContext.files.tools[0], '.params')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
@@ -962,7 +969,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     setRuleContext(createRuleContext("//foo:foo"));
     Object result =
-        eval(
+        ev.eval(
             "ruleContext.new_file(ruleContext.files.tools[0], "
                 + "ruleContext.files.tools[0].basename + '.params')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
@@ -973,7 +980,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
   public void testParamFileSuffix() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result =
-        eval(
+        ev.eval(
             "ruleContext.actions.declare_file(ruleContext.files.tools[0].basename + '.params', "
                 + "sibling = ruleContext.files.tools[0])");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
@@ -1003,9 +1010,9 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
 
     invalidatePackages();
     setRuleContext(createRuleContext("//:r"));
-    Label keyLabel = (Label) eval("ruleContext.attr.label_dict.keys()[0].label");
+    Label keyLabel = (Label) ev.eval("ruleContext.attr.label_dict.keys()[0].label");
     assertThat(keyLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
-    String valueString = (String) eval("ruleContext.attr.label_dict.values()[0]");
+    String valueString = (String) ev.eval("ruleContext.attr.label_dict.values()[0]");
     assertThat(valueString).isEqualTo("value");
   }
 
@@ -1032,9 +1039,9 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
 
     invalidatePackages();
     setRuleContext(createRuleContext("//:r"));
-    Label keyLabel = (Label) eval("ruleContext.attr.label_dict.keys()[0].label");
+    Label keyLabel = (Label) ev.eval("ruleContext.attr.label_dict.keys()[0].label");
     assertThat(keyLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
-    String valueString = (String) eval("ruleContext.attr.label_dict.values()[0]");
+    String valueString = (String) ev.eval("ruleContext.attr.label_dict.values()[0]");
     assertThat(valueString).isEqualTo("value");
   }
 
@@ -1059,9 +1066,9 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
 
     invalidatePackages();
     setRuleContext(createRuleContext("//:r"));
-    Label keyLabel = (Label) eval("ruleContext.attr.label_dict.keys()[0].label");
+    Label keyLabel = (Label) ev.eval("ruleContext.attr.label_dict.keys()[0].label");
     assertThat(keyLabel).isEqualTo(Label.parseAbsolute("//:default", ImmutableMap.of()));
-    String valueString = (String) eval("ruleContext.attr.label_dict.values()[0]");
+    String valueString = (String) ev.eval("ruleContext.attr.label_dict.values()[0]");
     assertThat(valueString).isEqualTo("defs");
   }
 
@@ -1389,13 +1396,13 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
 
     invalidatePackages();
     setRuleContext(createRuleContext("//:r"));
-    Label explicitDepLabel = (Label) eval("ruleContext.attr.explicit_dep.label");
+    Label explicitDepLabel = (Label) ev.eval("ruleContext.attr.explicit_dep.label");
     assertThat(explicitDepLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
-    Label implicitDepLabel = (Label) eval("ruleContext.attr._implicit_dep.label");
+    Label implicitDepLabel = (Label) ev.eval("ruleContext.attr._implicit_dep.label");
     assertThat(implicitDepLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
-    Label explicitDepListLabel = (Label) eval("ruleContext.attr.explicit_dep_list[0].label");
+    Label explicitDepListLabel = (Label) ev.eval("ruleContext.attr.explicit_dep_list[0].label");
     assertThat(explicitDepListLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
-    Label implicitDepListLabel = (Label) eval("ruleContext.attr._implicit_dep_list[0].label");
+    Label implicitDepListLabel = (Label) ev.eval("ruleContext.attr._implicit_dep_list[0].label");
     assertThat(implicitDepListLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
   }
 
@@ -1427,7 +1434,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
 
     invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
     setRuleContext(createRuleContext("@r//a:r"));
-    Label depLabel = (Label) eval("ruleContext.attr.internal_dep.label");
+    Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
   }
 
@@ -1462,7 +1469,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
 
     invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
     setRuleContext(createRuleContext("@r//a:r"));
-    Label depLabel = (Label) eval("ruleContext.attr.internal_dep.label");
+    Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseAbsolute("@r//:dep", ImmutableMap.of()));
   }
 
@@ -1576,18 +1583,19 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
 
     setRuleContext(createRuleContext("//test:foo"));
     Object filenames =
-        eval("[f.short_path for f in ruleContext.attr.dep.default_runfiles.files.to_list()]");
+        ev.eval("[f.short_path for f in ruleContext.attr.dep.default_runfiles.files.to_list()]");
     assertThat(filenames).isInstanceOf(Sequence.class);
     Sequence<?> filenamesList = (Sequence) filenames;
     assertThat(filenamesList).containsAtLeast("test/lib.py", "test/lib2.py");
-    Object emptyFilenames = eval("ruleContext.attr.dep.default_runfiles.empty_filenames.to_list()");
+    Object emptyFilenames =
+        ev.eval("ruleContext.attr.dep.default_runfiles.empty_filenames.to_list()");
     assertThat(emptyFilenames).isInstanceOf(Sequence.class);
     Sequence<?> emptyFilenamesList = (Sequence) emptyFilenames;
     assertThat(emptyFilenamesList).containsExactly("test/__init__.py");
 
     setRuleContext(createRuleContext("//test:foo_with_init"));
     Object noEmptyFilenames =
-        eval("ruleContext.attr.dep.default_runfiles.empty_filenames.to_list()");
+        ev.eval("ruleContext.attr.dep.default_runfiles.empty_filenames.to_list()");
     assertThat(noEmptyFilenames).isInstanceOf(Sequence.class);
     Sequence<?> noEmptyFilenamesList = (Sequence) noEmptyFilenames;
     assertThat(noEmptyFilenamesList).isEmpty();
@@ -1627,12 +1635,12 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
         ")");
     setRuleContext(createRuleContext("//test:test_with_symlink"));
     Object symlinkPaths =
-        eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     assertThat(symlinkPaths).isInstanceOf(Sequence.class);
     Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
     assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
     Object symlinkFilenames =
-        eval(
+        ev.eval(
             "[s.target_file.short_path for s in"
                 + " ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     assertThat(symlinkFilenames).isInstanceOf(Sequence.class);
@@ -1673,12 +1681,12 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
         ")");
     setRuleContext(createRuleContext("//test:test_with_symlink"));
     Object symlinkPaths =
-        eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     assertThat(symlinkPaths).isInstanceOf(Sequence.class);
     Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
     assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
     Object symlinkFilenames =
-        eval(
+        ev.eval(
             "[s.target_file.short_path for s in"
                 + " ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     assertThat(symlinkFilenames).isInstanceOf(Sequence.class);
@@ -1720,12 +1728,12 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
         ")");
     setRuleContext(createRuleContext("//test:test_with_root_symlink"));
     Object rootSymlinkPaths =
-        eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
     assertThat(rootSymlinkPaths).isInstanceOf(Sequence.class);
     Sequence<?> rootSymlinkPathsList = (Sequence) rootSymlinkPaths;
     assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
     Object rootSymlinkFilenames =
-        eval(
+        ev.eval(
             "[s.target_file.short_path for s in"
                 + " ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
     assertThat(rootSymlinkFilenames).isInstanceOf(Sequence.class);
@@ -1766,12 +1774,12 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
         ")");
     setRuleContext(createRuleContext("//test:test_with_root_symlink"));
     Object rootSymlinkPaths =
-        eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
     assertThat(rootSymlinkPaths).isInstanceOf(Sequence.class);
     Sequence<?> rootSymlinkPathsList = (Sequence) rootSymlinkPaths;
     assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
     Object rootSymlinkFilenames =
-        eval(
+        ev.eval(
             "[s.target_file.short_path for s in"
                 + " ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
     assertThat(rootSymlinkFilenames).isInstanceOf(Sequence.class);
@@ -1799,7 +1807,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     invalidatePackages();
     StarlarkRuleContext ruleContext = createRuleContext("//test:lib");
     setRuleContext(ruleContext);
-    String filename = eval("ruleContext.files.srcs[0].short_path").toString();
+    String filename = ev.eval("ruleContext.files.srcs[0].short_path").toString();
     assertThat(filename).isEqualTo("../foo/bar.txt");
   }
 
@@ -1872,15 +1880,15 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
-    Object provider = eval("ruleContext.attr.dep[Actions]");
+    Object provider = ev.eval("ruleContext.attr.dep[Actions]");
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider()).isEqualTo(ActionsProvider.INSTANCE);
-    update("actions", provider);
+    ev.update("actions", provider);
 
-    Map<?, ?> mapping = (Dict<?, ?>) eval("actions.by_file");
+    Map<?, ?> mapping = (Dict<?, ?>) ev.eval("actions.by_file");
     assertThat(mapping).hasSize(1);
-    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
-    Object actionUnchecked = eval("actions.by_file[file]");
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    Object actionUnchecked = ev.eval("actions.by_file[file]");
     assertThat(actionUnchecked).isInstanceOf(ActionAnalysisMetadata.class);
   }
 
@@ -1896,7 +1904,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
-    Exception e = assertThrows(Exception.class, () -> eval("ruleContext.attr.dep[Actions]"));
+    Exception e = assertThrows(Exception.class, () -> ev.eval("ruleContext.attr.dep[Actions]"));
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -1928,22 +1936,22 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
         simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    update("file1", eval("ruleContext.attr.dep.out1"));
-    update("file2", eval("ruleContext.attr.dep.out2"));
-    update("action1", eval("ruleContext.attr.dep[Actions].by_file[file1]"));
-    update("action2", eval("ruleContext.attr.dep[Actions].by_file[file2]"));
+    ev.update("file1", ev.eval("ruleContext.attr.dep.out1"));
+    ev.update("file2", ev.eval("ruleContext.attr.dep.out2"));
+    ev.update("action1", ev.eval("ruleContext.attr.dep[Actions].by_file[file1]"));
+    ev.update("action2", ev.eval("ruleContext.attr.dep[Actions].by_file[file2]"));
 
-    assertThat(eval("action1.inputs")).isInstanceOf(Depset.class);
-    assertThat(eval("action1.outputs")).isInstanceOf(Depset.class);
+    assertThat(ev.eval("action1.inputs")).isInstanceOf(Depset.class);
+    assertThat(ev.eval("action1.outputs")).isInstanceOf(Depset.class);
 
-    assertThat(eval("action1.argv")).isEqualTo(Starlark.NONE);
-    assertThat(eval("action2.content")).isEqualTo(Starlark.NONE);
-    assertThat(eval("action1.substitutions")).isEqualTo(Starlark.NONE);
+    assertThat(ev.eval("action1.argv")).isEqualTo(Starlark.NONE);
+    assertThat(ev.eval("action2.content")).isEqualTo(Starlark.NONE);
+    assertThat(ev.eval("action1.substitutions")).isEqualTo(Starlark.NONE);
 
-    assertThat(eval("action1.inputs.to_list()")).isEqualTo(eval("[]"));
-    assertThat(eval("action1.outputs.to_list()")).isEqualTo(eval("[file1]"));
-    assertThat(eval("action2.inputs.to_list()")).isEqualTo(eval("[file1]"));
-    assertThat(eval("action2.outputs.to_list()")).isEqualTo(eval("[file2]"));
+    assertThat(ev.eval("action1.inputs.to_list()")).isEqualTo(ev.eval("[]"));
+    assertThat(ev.eval("action1.outputs.to_list()")).isEqualTo(ev.eval("[file1]"));
+    assertThat(ev.eval("action2.inputs.to_list()")).isEqualTo(ev.eval("[file1]"));
+    assertThat(ev.eval("action2.outputs.to_list()")).isEqualTo(ev.eval("[file2]"));
   }
 
   // For created_actions() tests, the "undertest" rule represents both the code under test and the
@@ -1980,12 +1988,12 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
-    Object mapUnchecked = eval("ruleContext.attr.dep.v");
+    Object mapUnchecked = ev.eval("ruleContext.attr.dep.v");
     assertThat(mapUnchecked).isInstanceOf(Dict.class);
     Map<?, ?> map = (Dict) mapUnchecked;
     // Should only have the first action because created_actions() was called
     // before the second action was created.
-    Object file = eval("ruleContext.attr.dep.out1");
+    Object file = ev.eval("ruleContext.attr.dep.out1");
     assertThat(map).hasSize(1);
     assertThat(map).containsKey(file);
     Object actionUnchecked = map.get(file);
@@ -2007,7 +2015,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     StarlarkRuleContext ruleContext = createRuleContext("//test:undertest");
     setRuleContext(ruleContext);
 
-    Object result = eval("ruleContext.created_actions()");
+    Object result = ev.eval("ruleContext.created_actions()");
     assertThat(result).isEqualTo(Starlark.NONE);
   }
 
@@ -2021,17 +2029,17 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
         simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
-    update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
-    assertThat(eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
 
-    Object argvUnchecked = eval("action.argv");
+    Object argvUnchecked = ev.eval("action.argv");
     assertThat(argvUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> argv = (StarlarkList) argvUnchecked;
     assertThat(argv).hasSize(3);
     assertThat(argv.isImmutable()).isTrue();
-    Object result = eval("action.argv[2].startswith('echo foo123')");
+    Object result = ev.eval("action.argv[2].startswith('echo foo123')");
     assertThat((Boolean) result).isTrue();
   }
 
@@ -2078,12 +2086,12 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
-    Object mapUnchecked = eval("ruleContext.attr.dep.v");
+    Object mapUnchecked = ev.eval("ruleContext.attr.dep.v");
     assertThat(mapUnchecked).isInstanceOf(Dict.class);
     Map<?, ?> map = (Dict) mapUnchecked;
-    Object out1 = eval("ruleContext.attr.dep.out1");
-    Object out2 = eval("ruleContext.attr.dep.out2");
-    Object out3 = eval("ruleContext.attr.dep.out3");
+    Object out1 = ev.eval("ruleContext.attr.dep.out1");
+    Object out2 = ev.eval("ruleContext.attr.dep.out2");
+    Object out3 = ev.eval("ruleContext.attr.dep.out3");
     // 5 actions in total: 3 SpawnActions and 2 FileWriteActions for the two long commands.
     assertThat(map).hasSize(5);
     assertThat(map).containsKey(out1);
@@ -2137,12 +2145,12 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
         simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
-    update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
-    assertThat(eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
 
-    Object contentUnchecked = eval("action.content");
+    Object contentUnchecked = ev.eval("action.content");
     assertThat(contentUnchecked).isInstanceOf(String.class);
     assertThat(contentUnchecked).isEqualTo("foo123");
   }
@@ -2159,12 +2167,12 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
-    update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
-    assertThat(eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
 
-    Object contentUnchecked = eval("action.content");
+    Object contentUnchecked = ev.eval("action.content");
     assertThat(contentUnchecked).isInstanceOf(String.class);
     // Args content ends the file with a newline
     assertThat(contentUnchecked).isEqualTo("foo123\n");
@@ -2187,14 +2195,14 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
-    update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
-    assertThat(eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
 
     // If the Args contain a directory File that needs to be expanded, the contents are not known
     // at analysis time.
-    Object contentUnchecked = eval("action.content");
+    Object contentUnchecked = ev.eval("action.content");
     assertThat(contentUnchecked).isEqualTo(Starlark.NONE);
   }
 
@@ -2210,17 +2218,17 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
-    update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
-    assertThat(eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
 
     // If there's a failure when expanding Args, that error message is propagated.
     EvalException e =
         assertThrows(
             "Should be an error expanding action.content",
             EvalException.class,
-            () -> eval("action.content"));
+            () -> ev.eval("action.content"));
     assertThat(e)
         .hasMessageThat()
         .matches(
@@ -2257,16 +2265,16 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
         ")");
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    update("file", eval("ruleContext.attr.dep.files.to_list()[0]"));
-    update("action", eval("ruleContext.attr.dep[Actions].by_file[file]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
-    assertThat(eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
 
-    Object contentUnchecked = eval("action.content");
+    Object contentUnchecked = ev.eval("action.content");
     assertThat(contentUnchecked).isInstanceOf(String.class);
     assertThat(contentUnchecked).isEqualTo("bbbbb\nbcdef\n");
 
-    Object substitutionsUnchecked = eval("action.substitutions");
+    Object substitutionsUnchecked = ev.eval("action.substitutions");
     assertThat(substitutionsUnchecked).isInstanceOf(Dict.class);
     assertThat(substitutionsUnchecked).isEqualTo(Dict.of((Mutability) null, "a", "b"));
   }
@@ -2290,7 +2298,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     useConfiguration("--nocollect_code_coverage", "--instrumentation_filter=.");
     StarlarkRuleContext ruleContext = createRuleContext("//test:foo");
     setRuleContext(ruleContext);
-    Object result = eval("ruleContext.coverage_instrumented()");
+    Object result = ev.eval("ruleContext.coverage_instrumented()");
     assertThat((Boolean) result).isFalse();
   }
 
@@ -2299,7 +2307,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     setUpCoverageInstrumentedTest();
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=.");
     setRuleContext(createRuleContext("//test:foo"));
-    Object result = eval("ruleContext.coverage_instrumented(ruleContext.attr.srcs[0])");
+    Object result = ev.eval("ruleContext.coverage_instrumented(ruleContext.attr.srcs[0])");
     assertThat((Boolean) result).isFalse();
   }
 
@@ -2308,7 +2316,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     setUpCoverageInstrumentedTest();
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=:foo");
     setRuleContext(createRuleContext("//test:bar"));
-    Object result = eval("ruleContext.coverage_instrumented()");
+    Object result = ev.eval("ruleContext.coverage_instrumented()");
     assertThat((Boolean) result).isFalse();
   }
 
@@ -2317,7 +2325,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     setUpCoverageInstrumentedTest();
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=:foo");
     setRuleContext(createRuleContext("//test:foo"));
-    Object result = eval("ruleContext.coverage_instrumented()");
+    Object result = ev.eval("ruleContext.coverage_instrumented()");
     assertThat((Boolean) result).isTrue();
   }
 
@@ -2327,7 +2335,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=:foo");
     setRuleContext(createRuleContext("//test:foo"));
     // //test:bar does not match :foo, though //test:foo would.
-    Object result = eval("ruleContext.coverage_instrumented(ruleContext.attr.deps[0])");
+    Object result = ev.eval("ruleContext.coverage_instrumented(ruleContext.attr.deps[0])");
     assertThat((Boolean) result).isFalse();
   }
 
@@ -2337,7 +2345,7 @@ public class StarlarkRuleContextTest extends StarlarkTestCase {
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=:bar");
     setRuleContext(createRuleContext("//test:foo"));
     // //test:bar does match :bar, though //test:foo would not.
-    Object result = eval("ruleContext.coverage_instrumented(ruleContext.attr.deps[0])");
+    Object result = ev.eval("ruleContext.coverage_instrumented(ruleContext.attr.deps[0])");
     assertThat((Boolean) result).isTrue();
   }
 

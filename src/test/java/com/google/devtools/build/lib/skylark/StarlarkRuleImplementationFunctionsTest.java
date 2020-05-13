@@ -48,13 +48,14 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylark.util.StarlarkTestCase;
+import com.google.devtools.build.lib.skylark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -84,7 +86,14 @@ import org.junit.runners.JUnit4;
 /** Tests for Starlark functions relating to rule implementation. */
 @RunWith(JUnit4.class)
 @SkylarkGlobalLibrary // needed for CallUtils.getBuiltinCallable, sadly
-public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
+public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
+
+  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
+
+  private StarlarkRuleContext createRuleContext(String label) throws Exception {
+    return new StarlarkRuleContext(
+        getRuleContextForStarlark(getConfiguredTarget(label)), null, getStarlarkSemantics());
+  }
 
   @Rule public ExpectedException thrown = ExpectedException.none();
 
@@ -161,7 +170,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   }
 
   private void setRuleContext(StarlarkRuleContext ctx) throws Exception {
-    update("ruleContext", ctx);
+    ev.update("ruleContext", ctx);
   }
 
   private static void assertArtifactFilenames(Iterable<Artifact> artifacts, String... expected) {
@@ -184,13 +193,13 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, this);
     for (Map.Entry<String, Object> entry : env.build().entrySet()) {
-      update(entry.getKey(), entry.getValue());
+      ev.update(entry.getKey(), entry.getValue());
     }
   }
 
   private void checkStarlarkFunctionError(String errorSubstring, String line) throws Exception {
     defineTestMethods();
-    EvalException e = assertThrows(EvalException.class, () -> exec(line));
+    EvalException e = assertThrows(EvalException.class, () -> ev.exec(line));
     assertThat(e).hasMessageThat().contains(errorSubstring);
   }
 
@@ -199,8 +208,8 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testStarlarkFunctionPosArgs() throws Exception {
     defineTestMethods();
-    exec("a = mock('a', 'b', mandatory_key='c')");
-    Map<?, ?> params = (Map<?, ?>) lookup("a");
+    ev.exec("a = mock('a', 'b', mandatory_key='c')");
+    Map<?, ?> params = (Map<?, ?>) ev.lookup("a");
     assertThat(params.get("mandatory")).isEqualTo("a");
     assertThat(params.get("optional")).isEqualTo("b");
     assertThat(params.get("mandatory_key")).isEqualTo("c");
@@ -210,8 +219,8 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testStarlarkFunctionKwArgs() throws Exception {
     defineTestMethods();
-    exec("a = mock(optional='b', mandatory='a', mandatory_key='c')");
-    Map<?, ?> params = (Map<?, ?>) lookup("a");
+    ev.exec("a = mock(optional='b', mandatory='a', mandatory_key='c')");
+    Map<?, ?> params = (Map<?, ?>) ev.lookup("a");
     assertThat(params.get("mandatory")).isEqualTo("a");
     assertThat(params.get("optional")).isEqualTo("b");
     assertThat(params.get("mandatory_key")).isEqualTo("c");
@@ -252,14 +261,14 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testArtifactPath() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    String result = (String) eval("ruleContext.files.tools[0].path");
+    String result = (String) ev.eval("ruleContext.files.tools[0].path");
     assertThat(result).isEqualTo("foo/t.exe");
   }
 
   @Test
   public void testArtifactShortPath() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    String result = (String) eval("ruleContext.files.tools[0].short_path");
+    String result = (String) ev.eval("ruleContext.files.tools[0].short_path");
     assertThat(result).isEqualTo("foo/t.exe");
   }
 
@@ -286,7 +295,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testCreateSpawnActionArgumentsWithExecutable() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -306,7 +315,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
     // Same test as above, with depset as inputs.
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -324,7 +333,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got value of type 'int', want 'File or string or FilesToRunProvider'",
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
@@ -337,7 +346,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testCreateSpawnActionShellCommandList() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -357,7 +366,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testCreateSpawnActionEnvAndExecInfo() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -378,7 +387,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testCreateSpawnActionUnknownParam() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "run() got unexpected keyword argument 'bad_param'",
         "f = ruleContext.actions.declare_file('foo.sh')",
         "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
@@ -386,7 +395,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
 
   private Object createTestSpawnAction(StarlarkRuleContext ruleContext) throws Exception {
     setRuleContext(ruleContext);
-    return eval(
+    return ev.eval(
         "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -400,7 +409,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testCreateSpawnActionBadGenericArg() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "at index 0 of outputs, got element of type string, want File",
         "l = ['a', 'b']",
         "ruleContext.actions.run_shell(",
@@ -411,7 +420,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testRunShellArgumentsWithCommandSequence() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "'arguments' must be empty if 'command' is a sequence of strings",
         "ruleContext.actions.run_shell(outputs = ruleContext.files.srcs,",
         "  command = [\"echo\", \"'hello world'\", \"&&\", \"touch\"],",
@@ -517,7 +526,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testCreateFileAction() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 'hello world',",
@@ -539,13 +548,13 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
     checkEmptyAction("mnemonic = 'test', inputs = ruleContext.files.srcs");
     checkEmptyAction("mnemonic = 'test', inputs = depset(ruleContext.files.srcs)");
 
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "do_nothing() missing 1 required named argument: mnemonic",
         "ruleContext.actions.do_nothing(inputs = ruleContext.files.srcs)");
   }
 
   private void checkEmptyAction(String namedArgs) throws Exception {
-    assertThat(eval(String.format("ruleContext.actions.do_nothing(%s)", namedArgs)))
+    assertThat(ev.eval(String.format("ruleContext.actions.do_nothing(%s)", namedArgs)))
         .isEqualTo(Starlark.NONE);
   }
 
@@ -616,7 +625,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testExpandLocationWithDollarSignsAndCurlys() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:bar");
     setRuleContext(ruleContext);
-    assertThat((String) eval("ruleContext.expand_location('${abc} $(echo) $$ $')"))
+    assertThat((String) ev.eval("ruleContext.expand_location('${abc} $(echo) $$ $')"))
         .isEqualTo("${abc} $(echo) $$ $");
   }
 
@@ -632,7 +641,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
     assertMatches(
         "Expanded string",
         expectedPattern,
-        (String) eval(String.format("ruleContext.expand_location('$(%s)')", command)));
+        (String) ev.eval(String.format("ruleContext.expand_location('$(%s)')", command)));
   }
 
   private void assertMatches(String description, String expectedPattern, String computedValue)
@@ -647,12 +656,12 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testResolveCommandMakeVariables() throws Exception {
     setRuleContext(createRuleContext("//foo:resolve_me"));
-    exec(
+    ev.exec(
         "inputs, argv, manifests = ruleContext.resolve_command(",
         "  command='I got the $(HELLO) on a $(DAVE)', ",
         "  make_variables={'HELLO': 'World', 'DAVE': type('')})");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) ev.lookup("argv");
     assertThat(argv).hasSize(3);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
@@ -662,11 +671,11 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testResolveCommandInputs() throws Exception {
     setRuleContext(createRuleContext("//foo:resolve_me"));
-    exec(
+    ev.exec(
         "inputs, argv, input_manifests = ruleContext.resolve_command(",
         "   tools=ruleContext.attr.tools)");
     @SuppressWarnings("unchecked")
-    List<Artifact> inputs = (List<Artifact>) (List<?>) (StarlarkList) lookup("inputs");
+    List<Artifact> inputs = (List<Artifact>) (List<?>) (StarlarkList) ev.lookup("inputs");
     assertArtifactFilenames(
         inputs,
         "mytool.sh",
@@ -675,14 +684,15 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
         "t.exe");
     @SuppressWarnings("unchecked")
     RunfilesSupplier runfilesSupplier =
-        CompositeRunfilesSupplier.fromSuppliers((List<RunfilesSupplier>) lookup("input_manifests"));
+        CompositeRunfilesSupplier.fromSuppliers(
+            (List<RunfilesSupplier>) ev.lookup("input_manifests"));
     assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
   }
 
   @Test
   public void testResolveCommandExpandLocations() throws Exception {
     setRuleContext(createRuleContext("//foo:resolve_me"));
-    exec(
+    ev.exec(
         "def foo():", // no for loops at top-level
         "  label_dict = {}",
         "  all = []",
@@ -694,7 +704,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
         "    attribute='cmd', expand_locations=True, label_dict=label_dict)",
         "inputs, argv, manifests = foo()");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) ev.lookup("argv");
     assertThat(argv).hasSize(3);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
@@ -705,18 +715,18 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testResolveCommandExecutionRequirements() throws Exception {
     // Tests that requires-darwin execution requirements result in the usage of /bin/bash.
     setRuleContext(createRuleContext("//foo:resolve_me"));
-    exec(
+    ev.exec(
         "inputs, argv, manifests = ruleContext.resolve_command(",
         "  execution_requirements={'requires-darwin': ''})");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) ev.lookup("argv");
     assertMatches("argv[0]", "^/bin/bash$", argv.get(0));
   }
 
   @Test
   public void testResolveCommandScript() throws Exception {
     setRuleContext(createRuleContext("//foo:resolve_me"));
-    exec(
+    ev.exec(
         "def foo():", // no for loops at top-level
         "  s = 'a'",
         "  for i in range(1,17): s = s + s", // 2**17 > CommandHelper.maxCommandLength (=64000)
@@ -724,7 +734,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
         "    command=s)",
         "argv = foo()[1]");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (StarlarkList) lookup("argv");
+    List<String> argv = (List<String>) (List<?>) (StarlarkList) ev.lookup("argv");
     assertThat(argv).hasSize(2);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertMatches("argv[1]", "^.*/resolve_me[.][a-z0-9]+[.]script[.]sh$", argv.get(1));
@@ -734,7 +744,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testResolveTools() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:resolve_me");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "inputs, input_manifests = ruleContext.resolve_tools(tools=ruleContext.attr.tools)",
         "ruleContext.actions.run(",
         "    outputs = [ruleContext.actions.declare_file('x.out')],",
@@ -743,14 +753,15 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
         "    executable = 'dummy',",
         ")");
     assertArtifactFilenames(
-        ((Depset) lookup("inputs")).getSet(Artifact.class).toList(),
+        ((Depset) ev.lookup("inputs")).getSet(Artifact.class).toList(),
         "mytool.sh",
         "mytool",
         "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
         "t.exe");
     @SuppressWarnings("unchecked")
     RunfilesSupplier runfilesSupplier =
-        CompositeRunfilesSupplier.fromSuppliers((List<RunfilesSupplier>) lookup("input_manifests"));
+        CompositeRunfilesSupplier.fromSuppliers(
+            (List<RunfilesSupplier>) ev.lookup("input_manifests"));
     assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
 
     SpawnAction action =
@@ -768,7 +779,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testBadParamTypeErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got value of type 'int', want 'string or Args'",
         "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
@@ -780,7 +791,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testCreateTemplateAction() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.expand_template(",
         "  template = ruleContext.files.srcs[0],",
         "  output = ruleContext.files.srcs[1],",
@@ -816,7 +827,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
     Charset utf8 = StandardCharsets.UTF_8;
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "ruleContext.actions.expand_template(",
         "  template = ruleContext.files.srcs[0],",
         "  output = ruleContext.files.srcs[1],",
@@ -832,7 +843,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testRunfilesAddFromDependencies() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
-    Object result = eval("ruleContext.runfiles(collect_default = True)");
+    Object result = ev.eval("ruleContext.runfiles(collect_default = True)");
     assertThat(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)))
         .contains("libjl.jar");
   }
@@ -840,7 +851,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testRunfilesBadListGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "at index 0 of files, got element of type string, want File",
         "ruleContext.runfiles(files = ['some string'])");
   }
@@ -848,7 +859,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testRunfilesBadSetGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got a depset of 'int', expected a depset of 'File'",
         "ruleContext.runfiles(transitive_files=depset([1, 2, 3]))");
   }
@@ -856,16 +867,16 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testRunfilesBadMapGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got dict<int, File> for 'symlinks', want dict<string, File>",
         "ruleContext.runfiles(symlinks = {123: ruleContext.files.srcs[0]})");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got dict<string, int> for 'symlinks', want dict<string, File>",
         "ruleContext.runfiles(symlinks = {'some string': 123})");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got dict<int, File> for 'root_symlinks', want dict<string, File>",
         "ruleContext.runfiles(root_symlinks = {123: ruleContext.files.srcs[0]})");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got dict<string, int> for 'root_symlinks', want dict<string, File>",
         "ruleContext.runfiles(root_symlinks = {'some string': 123})");
   }
@@ -873,14 +884,14 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testRunfilesArtifactsFromArtifact() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.runfiles(files = ruleContext.files.tools)");
+    Object result = ev.eval("ruleContext.runfiles(files = ruleContext.files.tools)");
     assertThat(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result))).contains("t.exe");
   }
 
   @Test
   public void testRunfilesArtifactsFromIterableArtifacts() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.runfiles(files = ruleContext.files.srcs)");
+    Object result = ev.eval("ruleContext.runfiles(files = ruleContext.files.srcs)");
     assertThat(ImmutableList.of("a.txt", "b.img"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
   }
@@ -888,7 +899,8 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testRunfilesArtifactsFromNestedSetArtifacts() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.runfiles(transitive_files = depset(ruleContext.files.srcs))");
+    Object result =
+        ev.eval("ruleContext.runfiles(transitive_files = depset(ruleContext.files.srcs))");
     assertThat(ImmutableList.of("a.txt", "b.img"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
   }
@@ -899,7 +911,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
     // It would be nice to write [DEFAULT] + ruleContext.files.srcs, but artifacts
     // is an ImmutableList and Starlark interprets it as a tuple.
     Object result =
-        eval("ruleContext.runfiles(collect_default = True, files = ruleContext.files.srcs)");
+        ev.eval("ruleContext.runfiles(collect_default = True, files = ruleContext.files.srcs)");
     // From DEFAULT only libjl.jar comes, see testRunfilesAddFromDependencies().
     assertThat(ImmutableList.of("libjl.jar", "gl.a", "gl.gcgox"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
@@ -908,7 +920,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testRunfilesArtifactsFromSymlink() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.runfiles(symlinks = {'sym1': ruleContext.files.srcs[0]})");
+    Object result = ev.eval("ruleContext.runfiles(symlinks = {'sym1': ruleContext.files.srcs[0]})");
     assertThat(ImmutableList.of("a.txt"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
   }
@@ -917,7 +929,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testRunfilesArtifactsFromRootSymlink() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result =
-        eval("ruleContext.runfiles(root_symlinks = {'sym1': ruleContext.files.srcs[0]})");
+        ev.eval("ruleContext.runfiles(root_symlinks = {'sym1': ruleContext.files.srcs[0]})");
     assertThat(ImmutableList.of("a.txt"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
   }
@@ -926,9 +938,9 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testRunfilesSymlinkConflict() throws Exception {
     // Two different artifacts mapped to same path in runfiles
     setRuleContext(createRuleContext("//foo:foo"));
-    exec("prefix = ruleContext.workspace_name + '/' if ruleContext.workspace_name else ''");
+    ev.exec("prefix = ruleContext.workspace_name + '/' if ruleContext.workspace_name else ''");
     Object result =
-        eval(
+        ev.eval(
             "ruleContext.runfiles(",
             "  root_symlinks = {prefix + 'sym1': ruleContext.files.srcs[0]},",
             "  symlinks = {'sym1': ruleContext.files.srcs[1]})");
@@ -945,7 +957,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testRunfilesBadKeywordArguments() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "runfiles() got unexpected keyword argument 'bad_keyword'",
         "ruleContext.runfiles(bad_keyword = '')");
   }
@@ -953,21 +965,21 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testNsetContainsList() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "depset elements must not be mutable values", "depset([[ruleContext.files.srcs]])");
   }
 
   @Test
   public void testCmdJoinPaths() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("cmd_helper.join_paths(':', depset(ruleContext.files.srcs))");
+    Object result = ev.eval("cmd_helper.join_paths(':', depset(ruleContext.files.srcs))");
     assertThat(result).isEqualTo("foo/a.txt:foo/b.img");
   }
 
   @Test
   public void testStructPlusArtifactErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "unsupported binary operation: File + struct",
         "ruleContext.files.tools[0] + struct(a = 1)");
   }
@@ -975,7 +987,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testNoSuchProviderErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "<target //foo:jl> (rule 'java_library') doesn't have provider 'my_provider'",
         "ruleContext.attr.srcs[0].my_provider");
   }
@@ -983,7 +995,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testFilesForRuleConfiguredTarget() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    Object result = eval("ruleContext.attr.srcs[0].files");
+    Object result = ev.eval("ruleContext.attr.srcs[0].files");
     assertThat(ActionsTestUtil.baseNamesOf(((Depset) result).getSet(Artifact.class)))
         .isEqualTo("a.txt");
   }
@@ -1788,7 +1800,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testFilesForFileConfiguredTarget() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
-    Object result = eval("ruleContext.attr.srcs[0].files");
+    Object result = ev.eval("ruleContext.attr.srcs[0].files");
     assertThat(ActionsTestUtil.baseNamesOf(((Depset) result).getSet(Artifact.class)))
         .isEqualTo("libjl.jar");
   }
@@ -1796,25 +1808,25 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testCtxStructFieldsCustomErrorMessages() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains("No attribute 'foo' in attr.", "ruleContext.attr.foo");
-    checkEvalErrorContains("No attribute 'foo' in outputs.", "ruleContext.outputs.foo");
-    checkEvalErrorContains("No attribute 'foo' in files.", "ruleContext.files.foo");
-    checkEvalErrorContains("No attribute 'foo' in file.", "ruleContext.file.foo");
-    checkEvalErrorContains("No attribute 'foo' in executable.", "ruleContext.executable.foo");
+    ev.checkEvalErrorContains("No attribute 'foo' in attr.", "ruleContext.attr.foo");
+    ev.checkEvalErrorContains("No attribute 'foo' in outputs.", "ruleContext.outputs.foo");
+    ev.checkEvalErrorContains("No attribute 'foo' in files.", "ruleContext.files.foo");
+    ev.checkEvalErrorContains("No attribute 'foo' in file.", "ruleContext.file.foo");
+    ev.checkEvalErrorContains("No attribute 'foo' in executable.", "ruleContext.executable.foo");
   }
 
   @Test
   public void testBinDirPath() throws Exception {
     StarlarkRuleContext ctx = createRuleContext("//foo:bar");
     setRuleContext(ctx);
-    Object result = eval("ruleContext.bin_dir.path");
+    Object result = ev.eval("ruleContext.bin_dir.path");
     assertThat(result).isEqualTo(ctx.getConfiguration().getBinFragment().getPathString());
   }
 
   @Test
   public void testEmptyLabelListTypeAttrInCtx() throws Exception {
     setRuleContext(createRuleContext("//foo:baz"));
-    Object result = eval("ruleContext.attr.srcs");
+    Object result = ev.eval("ruleContext.attr.srcs");
     assertThat(result).isEqualTo(StarlarkList.empty());
   }
 
@@ -1822,7 +1834,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testDefinedMakeVariable() throws Exception {
     useConfiguration("--define=FOO=bar");
     setRuleContext(createRuleContext("//foo:baz"));
-    String foo = (String) eval("ruleContext.var['FOO']");
+    String foo = (String) ev.eval("ruleContext.var['FOO']");
     assertThat(foo).isEqualTo("bar");
   }
 
@@ -1830,7 +1842,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testCodeCoverageConfigurationAccess() throws Exception {
     StarlarkRuleContext ctx = createRuleContext("//foo:baz");
     setRuleContext(ctx);
-    boolean coverage = (Boolean) eval("ruleContext.configuration.coverage_enabled");
+    boolean coverage = (Boolean) ev.eval("ruleContext.configuration.coverage_enabled");
     assertThat(ctx.getRuleContext().getConfiguration().isCodeCoverageEnabled()).isEqualTo(coverage);
   }
 
@@ -1844,7 +1856,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
     // Consequently, we disable failFastHandler and check all events for the expected error message
     reporter.removeHandler(failFastHandler);
 
-    Object result = eval(statements);
+    Object result = ev.eval(statements);
 
     String first = null;
     int count = 0;
@@ -1892,7 +1904,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testStackTraceWithoutOriginalMessage() throws Exception {
     defineTestMethods();
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "There Is No Message: StarlarkRuleImplementationFunctionsTest", "throw1()");
   }
 
@@ -1904,7 +1916,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testNoStackTraceOnInterrupt() throws Exception {
     defineTestMethods();
-    assertThrows(InterruptedException.class, () -> eval("throw2()"));
+    assertThrows(InterruptedException.class, () -> ev.eval("throw2()"));
   }
 
   @Test
@@ -2008,7 +2020,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testArgsScalarAdd() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "args.add('--foo')",
         "args.add('-')",
@@ -2033,7 +2045,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testArgsScalarAddThrowsWithVectorArg() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "Args.add() doesn't accept vectorized arguments",
         "args = ruleContext.actions.args()",
         "args.add([1, 2])",
@@ -2049,7 +2061,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testArgsAddAll() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "args.add_all([1, 2])",
         "args.add('-')",
@@ -2108,7 +2120,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testArgsAddAllWithMapEach() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "def add_one(val): return str(val + 1)",
         "def expand_to_many(val): return ['hey', 'hey']",
         "args = ruleContext.actions.args()",
@@ -2134,7 +2146,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testOmitIfEmpty() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "def add_one(val): return str(val + 1)",
         "def filter(val): return None",
         "args = ruleContext.actions.args()",
@@ -2177,7 +2189,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testUniquify() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "def add_one(val): return str(val + 1)",
         "args = ruleContext.actions.args()",
         "args.add_all(['a', 'b', 'a'])",
@@ -2202,7 +2214,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testArgsAddJoined() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "def add_one(val): return str(val + 1)",
         "args = ruleContext.actions.args()",
         "args.add_joined([1, 2], join_with=':')",
@@ -2247,7 +2259,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testMultipleLazyArgsMixedWithStrings() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "foo_args = ruleContext.actions.args()",
         "foo_args.add('--foo')",
         "bar_args = ruleContext.actions.args()",
@@ -2295,7 +2307,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testWriteArgsToParamFile() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "args.add('--foo')",
         "output=ruleContext.actions.declare_file('out')",
@@ -2315,10 +2327,10 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testLazyArgsWithParamFileInvalidFormatString() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "Invalid value for parameter \"param_file_arg\": Expected string with a single \"--file=\"",
         "args = ruleContext.actions.args()\n" + "args.use_param_file('--file=')");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "Invalid value for parameter \"param_file_arg\": "
             + "Expected string with a single \"--file=%s%s\"",
         "args = ruleContext.actions.args()\n" + "args.use_param_file('--file=%s%s')");
@@ -2327,7 +2339,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testLazyArgsWithParamFileInvalidFormat() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"",
         "args = ruleContext.actions.args()\n" + "args.set_param_file_format('illegal')");
   }
@@ -2335,19 +2347,19 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testArgsAddInvalidTypesForArgAndValues() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "expected value of type 'string' for arg name, got 'Integer'",
         "args = ruleContext.actions.args()",
         "args.add(1, 'value')");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "expected value of type 'string' for arg name, got 'Integer'",
         "args = ruleContext.actions.args()",
         "args.add_all(1, [1, 2])");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "expected value of type 'sequence or depset' for values, got 'Integer'",
         "args = ruleContext.actions.args()",
         "args.add_all(1)");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "in call to add_all(), parameter 'values' got value of type 'int', want 'sequence or"
             + " depset'",
         "args = ruleContext.actions.args()",
@@ -2357,7 +2369,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testLazyArgIllegalFormatString() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "Invalid value for parameter \"format\": Expected string with a single \"%s\"",
         "args = ruleContext.actions.args()",
         "args.add('foo', format='illegal_format')", // Expects two args, will only be given one
@@ -2374,14 +2386,14 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     // map_each accepts a non-Starlark built-in function such as str.
-    exec("ruleContext.actions.args().add_all(['foo'], map_each = str)");
+    ev.exec("ruleContext.actions.args().add_all(['foo'], map_each = str)");
   }
 
   @Test
   public void testLazyArgMapEachThrowsError() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "def bad_fn(val): 'hello'.nosuchmethod()",
         "args.add_all([1, 2], map_each=bad_fn)",
@@ -2404,7 +2416,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testLazyArgMapEachReturnsNone() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "def none_fn(val): return None if val == 'nokeep' else val",
         "args.add_all(['keep', 'nokeep'], map_each=none_fn)",
@@ -2425,7 +2437,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testLazyArgMapEachReturnsWrongType() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "def bad_fn(val): return 1",
         "args.add_all([1, 2], map_each=bad_fn)",
@@ -2449,7 +2461,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void createShellWithLazyArgs() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "args.add('--foo')",
         "ruleContext.actions.run_shell(",
@@ -2860,27 +2872,27 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   }
 
   private CommandLine getCommandLine(String... lines) throws Exception {
-    exec(lines);
-    return ((Args) eval("args")).build();
+    ev.exec(lines);
+    return ((Args) ev.eval("args")).build();
   }
 
   @Test
   public void testPrintArgs() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
-    Args args = (Args) eval("args");
+    ev.exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
+    Args args = (Args) ev.eval("args");
     assertThat(Printer.getPrinter().debugPrint(args).toString()).isEqualTo("--foo --bar");
   }
 
   @Test
   public void testDirectoryInArgs() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "directory = ruleContext.actions.declare_directory('dir')",
         "def _short_path(f): return f.short_path", // For easier assertions
         "args.add_all([directory], map_each=_short_path)");
-    Sequence<?> result = (Sequence<?>) eval("args, directory");
+    Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build();
@@ -2901,13 +2913,13 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testDirectoryInArgsExpandDirectories() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "directory = ruleContext.actions.declare_directory('dir')",
         "def _short_path(f): return f.short_path", // For easier assertions
         "args.add_all([directory], map_each=_short_path, expand_directories=True)",
         "args.add_all([directory], map_each=_short_path, expand_directories=False)");
-    Sequence<?> result = (Sequence<?>) eval("args, directory");
+    Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build();
@@ -2925,7 +2937,7 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   @Test
   public void testDirectoryInScalarArgsFails() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "Cannot add directories to Args#add",
         "args = ruleContext.actions.args()",
         "directory = ruleContext.actions.declare_directory('dir')",
@@ -2936,13 +2948,13 @@ public class StarlarkRuleImplementationFunctionsTest extends StarlarkTestCase {
   public void testParamFileHasDirectoryAsInput() throws Exception {
     StarlarkRuleContext ctx = createRuleContext("//foo:foo");
     setRuleContext(ctx);
-    exec(
+    ev.exec(
         "args = ruleContext.actions.args()",
         "directory = ruleContext.actions.declare_directory('dir')",
         "args.add_all([directory])",
         "params = ruleContext.actions.declare_file('params')",
         "ruleContext.actions.write(params, args)");
-    Sequence<?> result = (Sequence<?>) eval("params, directory");
+    Sequence<?> result = (Sequence<?>) ev.eval("params, directory");
     Artifact params = (Artifact) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     ActionAnalysisMetadata action =
