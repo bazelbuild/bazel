@@ -59,6 +59,11 @@ public class DetailedExitCode {
     return exitCode.equals(ExitCode.SUCCESS);
   }
 
+  /** Returns a {@link DetailedExitCode} specifying success (i.e. exit code 0). */
+  public static DetailedExitCode success() {
+    return new DetailedExitCode(ExitCode.SUCCESS, null);
+  }
+
   /**
    * Returns a {@link DetailedExitCode} specifying {@link ExitCode} but no {@link FailureDetail}.
    *

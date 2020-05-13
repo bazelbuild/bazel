@@ -284,7 +284,7 @@ public class BuildTool {
         DetailedExitCode.justExitCode(ExitCode.BLAZE_INTERNAL_ERROR);
     try {
       buildTargets(request, result, validator);
-      detailedExitCode = DetailedExitCode.justExitCode(ExitCode.SUCCESS);
+      detailedExitCode = DetailedExitCode.success();
     } catch (BuildFailedException e) {
       if (e.isErrorAlreadyShown()) {
         // The actual error has already been reported by the Builder.
@@ -320,7 +320,7 @@ public class BuildTool {
     } catch (TestExecException e) {
       // ExitCode.SUCCESS means that build was successful. Real return code of program
       // is going to be calculated in TestCommand.doTest().
-      detailedExitCode = DetailedExitCode.justExitCode(ExitCode.SUCCESS);
+      detailedExitCode = DetailedExitCode.success();
       reportExceptionError(e);
     } catch (InvalidConfigurationException e) {
       detailedExitCode = DetailedExitCode.justExitCode(ExitCode.COMMAND_LINE_ERROR);

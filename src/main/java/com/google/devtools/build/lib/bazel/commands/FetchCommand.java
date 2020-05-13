@@ -170,19 +170,18 @@ public final class FetchCommand implements BlazeCommand {
       throw new IllegalStateException(e);
     }
 
-    ExitCode exitCode = ExitCode.COMMAND_LINE_ERROR;
     if (queryEvalResult.getSuccess()) {
-      exitCode = ExitCode.SUCCESS;
       env.getReporter().handle(Event.info("All external dependencies fetched successfully."));
     }
     env.getReporter()
         .post(
             new NoBuildRequestFinishedEvent(
-                exitCode, env.getRuntime().getClock().currentTimeMillis()));
+                queryEvalResult.getSuccess() ? ExitCode.SUCCESS : ExitCode.COMMAND_LINE_ERROR,
+                env.getRuntime().getClock().currentTimeMillis()));
     return queryEvalResult.getSuccess()
-        ? BlazeCommandResult.exitCode(exitCode)
+        ? BlazeCommandResult.success()
         : createFailedBlazeCommandResult(
-            exitCode,
+            ExitCode.COMMAND_LINE_ERROR,
             Code.QUERY_EVALUATION_ERROR,
             String.format(
                 "Evaluation of query \"%s\" failed but --keep_going specified, ignoring errors",

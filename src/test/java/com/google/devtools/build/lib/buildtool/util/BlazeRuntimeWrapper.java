@@ -192,7 +192,7 @@ public class BlazeRuntimeWrapper {
     initializeOptionsParser();
     commandCreated = true;
     if (env != null) {
-      runtime.afterCommand(env, BlazeCommandResult.exitCode(ExitCode.SUCCESS));
+      runtime.afterCommand(env, BlazeCommandResult.success());
     }
 
     if (optionsParser == null) {
@@ -371,7 +371,7 @@ public class BlazeRuntimeWrapper {
             lastResult,
             null,
             success
-                ? DetailedExitCode.justExitCode(ExitCode.SUCCESS)
+                ? DetailedExitCode.success()
                 : DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE),
             /*startSuspendCount=*/ 0);
         getSkyframeExecutor().notifyCommandComplete(env.getReporter());

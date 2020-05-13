@@ -76,11 +76,15 @@ public final class BlazeCommandResult {
   }
 
   public static BlazeCommandResult shutdownOnSuccess() {
-    return new BlazeCommandResult(DetailedExitCode.justExitCode(ExitCode.SUCCESS), null, true);
+    return new BlazeCommandResult(DetailedExitCode.success(), null, true);
   }
 
   static BlazeCommandResult createShutdown(Throwable e) {
     return new BlazeCommandResult(CrashFailureDetails.detailedExitCodeForThrowable(e), null, true);
+  }
+
+  public static BlazeCommandResult success() {
+    return new BlazeCommandResult(DetailedExitCode.success(), null, false);
   }
 
   public static BlazeCommandResult exitCode(ExitCode exitCode) {
@@ -97,8 +101,6 @@ public final class BlazeCommandResult {
 
   public static BlazeCommandResult execute(ExecRequest execDescription) {
     return new BlazeCommandResult(
-        DetailedExitCode.justExitCode(ExitCode.SUCCESS),
-        Preconditions.checkNotNull(execDescription),
-        false);
+        DetailedExitCode.success(), Preconditions.checkNotNull(execDescription), false);
   }
 }

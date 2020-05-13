@@ -112,7 +112,7 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
                   + ": --skyframe_state must be used with --output=proto or --output=textproto.");
         }
       }
-      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+      return BlazeCommandResult.success();
     } catch (CommandLineExpansionException e) {
       env.getReporter().handle(Event.error("Error while parsing command: " + e.getMessage()));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);

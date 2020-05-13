@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1129,7 +1128,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport2");
     BuildEventTransport transport3 = newBepTransport("BuildEventTransport3");
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.SUCCESS));
+    buildResult.setDetailedExitCode(DetailedExitCode.success());
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     buildResult.setStopTime(clock.currentTimeMillis());
 
@@ -1199,7 +1198,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildEventTransport transport1 = newBepTransport(Strings.repeat("A", 61));
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport");
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.SUCCESS));
+    buildResult.setDetailedExitCode(DetailedExitCode.success());
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
     UiStateTracker stateTracker = new UiStateTracker(clock, 60);
     stateTracker.buildStarted(null);

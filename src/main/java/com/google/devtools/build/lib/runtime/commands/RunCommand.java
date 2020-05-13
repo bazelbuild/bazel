@@ -473,7 +473,7 @@ public class RunCommand implements BlazeCommand  {
       }
 
       if (writeScript(env, shExecutable, runOptions.scriptPath, unisolatedCommand)) {
-        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+        return BlazeCommandResult.success();
       } else {
         return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
       }

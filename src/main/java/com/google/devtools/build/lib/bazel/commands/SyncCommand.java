@@ -220,7 +220,7 @@ public final class SyncCommand implements BlazeCommand {
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     }
     reportNoBuildRequestFinished(env, ExitCode.SUCCESS);
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
   }
 
   private static boolean shouldSync(Rule rule, SyncOptions options) {
