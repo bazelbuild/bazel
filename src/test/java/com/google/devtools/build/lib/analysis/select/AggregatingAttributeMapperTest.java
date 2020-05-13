@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -33,11 +34,16 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.UnknownRuleConfiguredTarget;
+import java.util.List;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -306,4 +312,66 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         .containsExactly("swim up");
   }
 
+  @Test
+  public void testVisitAttributesUnsetVisibilityUsesPackageDefault() throws Exception {
+    Rule rule =
+        scratchRule(
+            /*packageName=*/ "x",
+            /*ruleName=*/ "bb",
+            "package(default_visibility = ['//my:visibility'])",
+            "cc_binary(name = 'bb', srcs = ['bb.cc'])");
+
+    Iterable<List<Label>> result =
+        AggregatingAttributeMapper.of(rule)
+            .visitAttribute("visibility", BuildType.NODEP_LABEL_LIST);
+
+    assertThat(result)
+        .containsExactly(ImmutableList.of(Label.parseAbsoluteUnchecked("//my:visibility")));
+    assertThat(result).containsExactly(rule.getVisibility().getDeclaredLabels());
+
+    // Actual value isn't important - we're just trying to demonstrate `result` came from the Rule
+    // and not the attribute value.
+    assertThat(rule.getAttributeContainer().getAttr("visibility")).isEqualTo(ImmutableList.of());
+  }
+
+  @Test
+  public void testVisitAttributesUnsetLicensesUsesPackageDefault() throws Exception {
+    Rule rule =
+        scratchRule(
+            /*packageName=*/ "x",
+            /*ruleName=*/ "bb",
+            "package(licenses = ['notice'])",
+            "cc_binary(name = 'bb', srcs = ['bb.cc'])");
+
+    Iterable<License> result =
+        AggregatingAttributeMapper.of(rule).visitAttribute("licenses", BuildType.LICENSE);
+
+    assertThat(result)
+        .containsExactly(License.of(ImmutableList.of(LicenseType.NOTICE), ImmutableList.of()));
+    assertThat(result).containsExactly(rule.getLicense());
+
+    // Actual value isn't important - we're just trying to demonstrate `result` came from the Rule
+    // and not the attribute value.
+    assertThat(rule.getAttributeContainer().getAttr("licenses")).isEqualTo(License.NO_LICENSE);
+  }
+
+  @Test
+  public void testVisitAttributesUnsetDistribsUsesPackageDefault() throws Exception {
+    Rule rule =
+        scratchRule(
+            /*packageName=*/ "x",
+            /*ruleName=*/ "bb",
+            "package(distribs = ['embedded'])",
+            "cc_binary(name = 'bb', srcs = ['bb.cc'])");
+
+    Iterable<Set<DistributionType>> result =
+        AggregatingAttributeMapper.of(rule).visitAttribute("distribs", BuildType.DISTRIBUTIONS);
+
+    assertThat(result).containsExactly(ImmutableSet.of(DistributionType.EMBEDDED));
+    assertThat(result).containsExactly(rule.getDistributions());
+
+    // Actual value isn't important - we're just trying to demonstrate `result` came from the Rule
+    // and not the attribute value.
+    assertThat(rule.getAttributeContainer().getAttr("distribs")).isEqualTo(ImmutableSet.of());
+  }
 }

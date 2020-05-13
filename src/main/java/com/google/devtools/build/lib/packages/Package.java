@@ -1183,6 +1183,11 @@ public class Package {
       this.defaultLicense = license;
     }
 
+    /**
+     * Returns the <b>current</b> default {@link License}. This should be used with caution - its
+     * value may change during package loading, so it might not reflect the package's final default
+     * value.
+     */
     License getDefaultLicense() {
       return defaultLicense;
     }
@@ -1195,10 +1200,6 @@ public class Package {
      */
     void setDefaultDistribs(Set<DistributionType> dists) {
       this.defaultDistributionSet = dists;
-    }
-
-    Set<DistributionType> getDefaultDistribs() {
-      return defaultDistributionSet;
     }
 
     /**

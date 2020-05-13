@@ -371,6 +371,20 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void testAttrOnPackageDefaultLicenses() throws Exception {
+    writeFile("t/BUILD", "package(licenses=['notice'])", "cc_library(name='t', srcs=['t.cc'])");
+
+    assertThat(evalToString("attr(licenses, notice, t:*)")).isEqualTo("//t:t");
+  }
+
+  @Test
+  public void testAttrOnPackageDefaultDistribs() throws Exception {
+    writeFile("t/BUILD", "package(distribs=['embedded'])", "cc_library(name='t', srcs=['t.cc'])");
+
+    assertThat(evalToString("attr(distribs, EMBEDDED, t:*)")).isEqualTo("//t:t");
+  }
+
+  @Test
   public void testSomeOperator() throws Exception {
     writeBuildFiles2();
     assertThat(eval("some(c:*)")).hasSize(1);
