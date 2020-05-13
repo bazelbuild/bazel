@@ -139,6 +139,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     assertThat(outOneFileOne.getPath().exists()).isTrue();
     assertThat(outOneFileTwo.getPath().exists()).isTrue();
+    assertThat(outOneFileOne.getTreeRelativePathString()).isEqualTo("out_one_file_one");
+    assertThat(outOneFileTwo.getTreeRelativePathString()).isEqualTo("out_one_file_two");
   }
 
   /** Simple test for the case with dependencies. */
@@ -159,6 +161,25 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertThat(outOneFileTwo.getPath().exists()).isTrue();
     assertThat(outTwoFileOne.getPath().exists()).isTrue();
     assertThat(outTwoFileTwo.getPath().exists()).isTrue();
+  }
+
+  /** Test for tree artifacts with sub directories. */
+  @Test
+  public void testTreeArtifactWithSubDirectory() throws Exception {
+    SpecialArtifact treeOut = createTreeArtifact("output");
+    TreeFileArtifact fileOne =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(treeOut, "sub_one/file_one");
+    TreeFileArtifact fileTwo =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(treeOut, "sub_two/file_two");
+    TouchingTestAction action = new TouchingTestAction(fileOne, fileTwo);
+    registerAction(action);
+
+    buildArtifact(action.getSoleOutput());
+
+    assertThat(fileOne.getPath().exists()).isTrue();
+    assertThat(fileTwo.getPath().exists()).isTrue();
+    assertThat(fileOne.getTreeRelativePathString()).isEqualTo("sub_one/file_one");
+    assertThat(fileTwo.getTreeRelativePathString()).isEqualTo("sub_two/file_two");
   }
 
   @Test

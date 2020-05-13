@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** The interface for files in Starlark. */
@@ -75,8 +76,10 @@ public interface FileApi extends StarlarkValue {
       doc = "Returns true if this is a source file, i.e. it is not generated.")
   boolean isSourceArtifact();
 
-  // TODO(rduan): Document this Starlark method once TreeArtifact is no longer experimental.
-  @SkylarkCallable(name = "is_directory", structField = true, documented = false)
+  @SkylarkCallable(
+      name = "is_directory",
+      structField = true,
+      doc = "Returns true if this is a directory.")
   boolean isDirectory();
 
   @SkylarkCallable(
@@ -102,4 +105,15 @@ public interface FileApi extends StarlarkValue {
               + "<code>short_path</code> for the path under which the file is mapped if it's in "
               + "the runfiles of a binary.")
   String getExecPathString();
+
+  @SkylarkCallable(
+      name = "tree_relative_path",
+      structField = true,
+      doc =
+          "The path of this file relative to the root of the ancestor's tree, if the ancestor's "
+              + "<a href=\"#is_directory\">is_directory</a> field is true. <code>tree_relative_path"
+              + "</code> is only available for expanded files of a directory in an action command, "
+              + "i.e. <a href=\"Args.html#add_all\">Args.add_all()</a>. For other types of files, "
+              + "it is an error to access this field.")
+  String getTreeRelativePathString() throws EvalException;
 }

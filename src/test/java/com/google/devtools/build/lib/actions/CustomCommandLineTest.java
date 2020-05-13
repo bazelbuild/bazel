@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
@@ -915,6 +916,39 @@ public class CustomCommandLineTest {
             "dir/myArtifact/treeArtifact1/children/child1",
             "--argTwo",
             "dir/myArtifact/treeArtifact2/children/child2")
+        .inOrder();
+  }
+
+  @Test
+  public void testTreeFileArtifactParentRelativePathArgs() throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("myArtifact/treeArtifact");
+
+    TreeFileArtifact treeFileArtifactOne =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            treeArtifact, "children/child1");
+    TreeFileArtifact treeFileArtifactTwo =
+        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
+            treeArtifact, "children/child2");
+
+    CommandLineItem.MapFn<Artifact> expandParentRelativePath =
+        (src, args) -> {
+          try {
+            args.accept(src.getTreeRelativePathString());
+          } catch (EvalException e) {
+            new IllegalStateException("Unexpected EvalException thown.");
+          }
+        };
+
+    CustomCommandLine commandLineTemplate =
+        builder()
+            .addAll(
+                VectorArg.SimpleVectorArg.of(
+                        ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo))
+                    .mapped(expandParentRelativePath))
+            .build();
+
+    assertThat(commandLineTemplate.arguments())
+        .containsExactly("children/child1", "children/child2")
         .inOrder();
   }
 

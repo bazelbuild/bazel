@@ -861,6 +861,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
+    public String getTreeRelativePathString() throws EvalException {
+      throw new EvalException(
+          "tree_relative_path not allowed for files that are not tree artifact files.");
+    }
+
+    @Override
     public String expandToCommandLine() {
       return getExecPathString();
     }

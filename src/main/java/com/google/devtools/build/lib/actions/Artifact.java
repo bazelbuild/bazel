@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
@@ -562,6 +563,12 @@ public abstract class Artifact
     return PathFragment.EMPTY_FRAGMENT;
   }
 
+  @Override
+  public String getTreeRelativePathString() throws EvalException {
+    throw new EvalException(
+        "tree_relative_path not allowed for files that are not tree artifact files.");
+  }
+
   /**
    * Returns true iff this is a source Artifact as determined by its path and root relationships.
    * Note that this will report all Artifacts in the output tree, including in the include symlink
@@ -854,6 +861,11 @@ public abstract class Artifact
     @Override
     public PathFragment getParentRelativePath() {
       return parentRelativePath;
+    }
+
+    @Override
+    public String getTreeRelativePathString() {
+      return parentRelativePath.getPathString();
     }
   }
 
