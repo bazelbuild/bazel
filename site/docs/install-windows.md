@@ -36,7 +36,7 @@ Alternatively you can:
 
 ### Step 4: Set up your environment
 
-It's a good idea to rename the Bazel binary to `bazel.exe` and add it to your default paths.
+To make Bazel easily accessible from command prompts or PowerShell by default, you can rename the Bazel binary to `bazel.exe` and add it to your default paths.
 
 ```batch
 set PATH=%PATH%;<path to the Bazel binary>
