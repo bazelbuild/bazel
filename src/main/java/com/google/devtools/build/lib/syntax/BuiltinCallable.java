@@ -85,7 +85,7 @@ public final class BuiltinCallable implements StarlarkCallable {
    */
   @Deprecated
   public SkylarkCallable getAnnotation() {
-    return getMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS).getAnnotation();
+    return getMethodDescriptor(StarlarkSemantics.DEFAULT).getAnnotation();
   }
 
   @Override

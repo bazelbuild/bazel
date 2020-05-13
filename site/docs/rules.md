@@ -64,6 +64,7 @@ BUILD files without a `load` statement.
   - [`constraint_value`](be/platform.html#constraint_value)
   - [`platform`](be/platform.html#platform)
   - [`toolchain`](be/platform.html#toolchain)
+  - [`toolchain_type`](be/platform.html#toolchain_type)
 * Workspace
   - [`bind`](be/workspace.html#bind)
   - [`local_repository`](be/workspace.html#local_repository)

@@ -265,7 +265,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
         ImmutableList.of(
             PrecomputedValue.injected(
-                PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT_SEMANTICS),
+                PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT),
             PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.<String, String>of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,

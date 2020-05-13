@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.OS;
@@ -34,15 +34,14 @@ import javax.annotation.Nullable;
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
-    return OS.isPosixCompatible() && ProcessWrapperUtil.isSupported(cmdEnv);
+    return OS.isPosixCompatible() && ProcessWrapper.fromCommandEnvironment(cmdEnv) != null;
   }
 
   private final SandboxHelpers helpers;
-  private final Path processWrapper;
+  private final ProcessWrapper processWrapper;
   private final Path execRoot;
   private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
-  private final Duration timeoutKillDelay;
   @Nullable private final SandboxfsProcess sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
@@ -53,7 +52,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
    * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
-   * @param timeoutKillDelay additional grace period before killing timing out commands
    * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
    *     which case the runner uses a symlinked sandbox
    * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
@@ -62,17 +60,15 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
       SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
-      Duration timeoutKillDelay,
       @Nullable SandboxfsProcess sandboxfsProcess,
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
     this.helpers = helpers;
-    this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
+    this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
-    this.timeoutKillDelay = timeoutKillDelay;
     this.sandboxfsProcess = sandboxfsProcess;
     this.sandboxfsMapSymlinkTargets = sandboxfsMapSymlinkTargets;
     this.treeDeleter = treeDeleter;
@@ -100,11 +96,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     Duration timeout = context.getTimeout();
-    ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
-        ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(), spawn.getArguments())
-            .setTimeout(timeout);
-
-    commandLineBuilder.setKillDelay(timeoutKillDelay);
+    ProcessWrapper.CommandLineBuilder commandLineBuilder =
+        processWrapper.commandLineBuilder(spawn.getArguments()).setTimeout(timeout);
 
     Path statisticsPath = null;
     if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {

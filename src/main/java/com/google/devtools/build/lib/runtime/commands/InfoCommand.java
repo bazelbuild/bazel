@@ -227,7 +227,7 @@ public class InfoCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode(
               "info interrupted", Interrupted.Code.INFO_ITEM));
     }
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
   }
 
   private static BlazeCommandResult createFailureResult(

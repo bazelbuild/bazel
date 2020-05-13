@@ -35,15 +35,15 @@ import java.util.Objects;
 public final class AdvertisedProviderSet {
   private final boolean canHaveAnyProvider;
   private final ImmutableSet<Class<?>> nativeProviders;
-  private final ImmutableSet<StarlarkProviderIdentifier> skylarkProviders;
+  private final ImmutableSet<StarlarkProviderIdentifier> starlarkProviders;
 
   private AdvertisedProviderSet(
       boolean canHaveAnyProvider,
       ImmutableSet<Class<?>> nativeProviders,
-      ImmutableSet<StarlarkProviderIdentifier> skylarkProviders) {
+      ImmutableSet<StarlarkProviderIdentifier> starlarkProviders) {
     this.canHaveAnyProvider = canHaveAnyProvider;
     this.nativeProviders = nativeProviders;
-    this.skylarkProviders = skylarkProviders;
+    this.starlarkProviders = starlarkProviders;
   }
 
   public static final AdvertisedProviderSet ANY =
@@ -55,16 +55,16 @@ public final class AdvertisedProviderSet {
 
   public static AdvertisedProviderSet create(
       ImmutableSet<Class<?>> nativeProviders,
-      ImmutableSet<StarlarkProviderIdentifier> skylarkProviders) {
-    if (nativeProviders.isEmpty() && skylarkProviders.isEmpty()) {
+      ImmutableSet<StarlarkProviderIdentifier> starlarkProviders) {
+    if (nativeProviders.isEmpty() && starlarkProviders.isEmpty()) {
       return EMPTY;
     }
-    return new AdvertisedProviderSet(false, nativeProviders, skylarkProviders);
+    return new AdvertisedProviderSet(false, nativeProviders, starlarkProviders);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(canHaveAnyProvider, nativeProviders, skylarkProviders);
+    return Objects.hash(canHaveAnyProvider, nativeProviders, starlarkProviders);
   }
 
   @Override
@@ -80,7 +80,7 @@ public final class AdvertisedProviderSet {
     AdvertisedProviderSet that = (AdvertisedProviderSet) obj;
     return Objects.equals(this.canHaveAnyProvider, that.canHaveAnyProvider)
         && Objects.equals(this.nativeProviders, that.nativeProviders)
-        && Objects.equals(this.skylarkProviders, that.skylarkProviders);
+        && Objects.equals(this.starlarkProviders, that.starlarkProviders);
   }
 
   @Override
@@ -90,7 +90,7 @@ public final class AdvertisedProviderSet {
     }
     return String.format(
         "allowed native providers=%s, allowed Starlark providers=%s",
-        getNativeProviders(), getSkylarkProviders());
+        getNativeProviders(), getStarlarkProviders());
   }
 
   /** Checks whether the rule can have any provider.
@@ -109,8 +109,8 @@ public final class AdvertisedProviderSet {
   }
 
   /** Get all advertised Starlark providers. */
-  public ImmutableSet<StarlarkProviderIdentifier> getSkylarkProviders() {
-    return skylarkProviders;
+  public ImmutableSet<StarlarkProviderIdentifier> getStarlarkProviders() {
+    return starlarkProviders;
   }
 
   public static Builder builder() {
@@ -132,22 +132,22 @@ public final class AdvertisedProviderSet {
    * Returns {@code true} if this provider set can have any provider, or if it advertises the
    * specific Starlark provider requested.
    */
-  public boolean advertises(StarlarkProviderIdentifier skylarkProvider) {
+  public boolean advertises(StarlarkProviderIdentifier starlarkProvider) {
     if (canHaveAnyProvider()) {
       return true;
     }
-    return skylarkProviders.contains(skylarkProvider);
+    return starlarkProviders.contains(starlarkProvider);
   }
 
   /** Builder for {@link AdvertisedProviderSet} */
   public static class Builder {
     private boolean canHaveAnyProvider;
     private final ArrayList<Class<?>> nativeProviders;
-    private final ArrayList<StarlarkProviderIdentifier> skylarkProviders;
+    private final ArrayList<StarlarkProviderIdentifier> starlarkProviders;
 
     private Builder() {
       nativeProviders = new ArrayList<>();
-      skylarkProviders = new ArrayList<>();
+      starlarkProviders = new ArrayList<>();
     }
 
     /**
@@ -158,7 +158,7 @@ public final class AdvertisedProviderSet {
       Preconditions.checkState(!parentSet.canHaveAnyProvider(),
           "Cannot inherit from alias rules");
       nativeProviders.addAll(parentSet.getNativeProviders());
-      skylarkProviders.addAll(parentSet.getSkylarkProviders());
+      starlarkProviders.addAll(parentSet.getStarlarkProviders());
       return this;
     }
 
@@ -168,31 +168,31 @@ public final class AdvertisedProviderSet {
     }
 
     public void canHaveAnyProvider() {
-      Preconditions.checkState(nativeProviders.isEmpty() && skylarkProviders.isEmpty());
+      Preconditions.checkState(nativeProviders.isEmpty() && starlarkProviders.isEmpty());
       this.canHaveAnyProvider = true;
     }
 
     public AdvertisedProviderSet build() {
       if (canHaveAnyProvider) {
-        Preconditions.checkState(nativeProviders.isEmpty() && skylarkProviders.isEmpty());
+        Preconditions.checkState(nativeProviders.isEmpty() && starlarkProviders.isEmpty());
         return ANY;
       }
       return AdvertisedProviderSet.create(
-          ImmutableSet.copyOf(nativeProviders), ImmutableSet.copyOf(skylarkProviders));
+          ImmutableSet.copyOf(nativeProviders), ImmutableSet.copyOf(starlarkProviders));
     }
 
-    public Builder addSkylark(String providerName) {
-      skylarkProviders.add(StarlarkProviderIdentifier.forLegacy(providerName));
+    public Builder addStarlark(String providerName) {
+      starlarkProviders.add(StarlarkProviderIdentifier.forLegacy(providerName));
       return this;
     }
 
-    public Builder addSkylark(StarlarkProviderIdentifier id) {
-      skylarkProviders.add(id);
+    public Builder addStarlark(StarlarkProviderIdentifier id) {
+      starlarkProviders.add(id);
       return this;
     }
 
-    public Builder addSkylark(Provider.Key id) {
-      skylarkProviders.add(StarlarkProviderIdentifier.forKey(id));
+    public Builder addStarlark(Provider.Key id) {
+      starlarkProviders.add(StarlarkProviderIdentifier.forKey(id));
       return this;
     }
   }

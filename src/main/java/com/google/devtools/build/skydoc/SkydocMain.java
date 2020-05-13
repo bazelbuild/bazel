@@ -56,7 +56,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
+import com.google.devtools.build.lib.skylarkbuildapi.stubs.StarlarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
@@ -82,10 +81,10 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDefaultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeOutputGroupInfo.FakeOutputGroupInfoProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkAttrModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkCommandLineApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkNativeModuleApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidApplicationResourceInfo.FakeAndroidApplicationResourceInfoProvider;
@@ -93,11 +92,11 @@ import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBr
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidNativeLibsInfo.FakeAndroidNativeLibsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidResourcesInfo.FakeAndroidResourcesInfoProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSkylarkCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApkInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
-import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigSkylarkCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcModule;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcToolchainConfigInfo;
@@ -168,11 +167,12 @@ public class SkydocMain {
   private final EventHandler eventHandler = new SystemOutEventHandler();
   private final LinkedHashSet<Path> pending = new LinkedHashSet<>();
   private final Map<Path, StarlarkThread> loaded = new HashMap<>();
-  private final SkylarkFileAccessor fileAccessor;
+  private final StarlarkFileAccessor fileAccessor;
   private final List<String> depRoots;
   private final String workspaceName;
 
-  public SkydocMain(SkylarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
+  public SkydocMain(
+      StarlarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
     this.fileAccessor = fileAccessor;
     this.workspaceName = workspaceName;
     if (depRoots.isEmpty()) {
@@ -444,7 +444,7 @@ public class SkydocMain {
 
     moduleDocMap.put(label, getModuleDoc(file));
 
-    Map<String, Extension> imports = new HashMap<>();
+    Map<String, Module> imports = new HashMap<>();
     for (Statement stmt : file.getStatements()) {
       if (stmt instanceof LoadStatement) {
         LoadStatement load = (LoadStatement) stmt;
@@ -459,7 +459,7 @@ public class SkydocMain {
                   providerInfoList,
                   aspectInfoList,
                   moduleDocMap);
-          imports.put(module, new Extension(importThread));
+          imports.put(module, importThread.getGlobals());
         } catch (NoSuchFileException noSuchFileException) {
           throw new StarlarkEvaluationException(
               String.format(
@@ -504,7 +504,7 @@ public class SkydocMain {
   private StarlarkThread evalSkylarkBody(
       StarlarkSemantics semantics,
       StarlarkFile file,
-      Map<String, Extension> imports,
+      Map<String, Module> imports,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList)
@@ -551,15 +551,15 @@ public class SkydocMain {
             new FakeBuildApiGlobals(),
             new FakeStarlarkAttrModuleApi(),
             new FakeStarlarkCommandLineApi(),
-            new FakeSkylarkNativeModuleApi(),
-            new FakeSkylarkRuleFunctionsApi(ruleInfoList, providerInfoList, aspectInfoList),
+            new FakeStarlarkNativeModuleApi(),
+            new FakeStarlarkRuleFunctionsApi(ruleInfoList, providerInfoList, aspectInfoList),
             new FakeStructProviderApi(),
             new FakeOutputGroupInfoProvider(),
             new FakeActionsInfoProvider(),
             new FakeDefaultInfoProvider());
     AndroidBootstrap androidBootstrap =
         new AndroidBootstrap(
-            new FakeAndroidSkylarkCommon(),
+            new FakeAndroidStarlarkCommon(),
             new FakeApkInfoProvider(),
             new FakeAndroidInstrumentationInfoProvider(),
             new FakeAndroidDeviceBrokerInfoProvider(),
@@ -569,7 +569,7 @@ public class SkydocMain {
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
         new ConfigBootstrap(
-            new FakeConfigSkylarkCommon(), new FakeConfigApi(), new FakeConfigGlobalLibrary());
+            new FakeConfigStarlarkCommon(), new FakeConfigApi(), new FakeConfigGlobalLibrary());
     CcBootstrap ccBootstrap =
         new CcBootstrap(
             new FakeCcModule(),
@@ -590,7 +590,7 @@ public class SkydocMain {
         new ProtoBootstrap(
             new FakeProtoInfoProvider(),
             new FakeProtoCommon(),
-            new SkylarkAspectStub(),
+            new StarlarkAspectStub(),
             new ProviderStub());
     PyBootstrap pyBootstrap =
         new PyBootstrap(
@@ -715,15 +715,15 @@ public class SkydocMain {
   }
 
   private static StarlarkThread createStarlarkThread(
-      StarlarkSemantics semantics,
-      Module globals,
-      Map<String, Extension> imports) {
+      StarlarkSemantics semantics, Module globals, Map<String, Module> imports) {
     // We use the default print handler, which writes to stderr.
-    return StarlarkThread.builder(Mutability.create("Skydoc"))
-        .setSemantics(semantics)
-        .setGlobals(globals)
-        .setImportedExtensions(imports)
-        .build();
+    StarlarkThread thread =
+        StarlarkThread.builder(Mutability.create("Skydoc"))
+            .setSemantics(semantics)
+            .setGlobals(globals)
+            .build();
+    thread.setLoader(imports::get);
+    return thread;
   }
 
   /** Exception thrown when Starlark evaluation fails (due to malformed Starlark). */

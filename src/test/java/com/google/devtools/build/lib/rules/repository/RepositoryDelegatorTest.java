@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
+import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -105,7 +105,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   private SequentialBuildDriver driver;
   private TestManagedDirectoriesKnowledge managedDirectoriesKnowledge;
   private RecordingDifferencer differencer;
-  private TestSkylarkRepositoryFunction testSkylarkRepositoryFunction;
+  private TestStarlarkRepositoryFunction testSkylarkRepositoryFunction;
   private Path rootPath;
 
   @Before
@@ -121,7 +121,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
     testSkylarkRepositoryFunction =
-        new TestSkylarkRepositoryFunction(rootPath, downloader, managedDirectoriesKnowledge);
+        new TestStarlarkRepositoryFunction(rootPath, downloader, managedDirectoriesKnowledge);
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
     delegatorFunction =
@@ -149,7 +149,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     TestRuleClassProvider.addStandardRules(builder);
     builder
         .clearWorkspaceFileSuffixForTesting()
-        .addSkylarkBootstrap(new RepositoryBootstrap(new SkylarkRepositoryModule()));
+        .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
     ConfiguredRuleClassProvider ruleClassProvider = builder.build();
 
     PackageFactory pkgFactory =
@@ -221,7 +221,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.<RootedPath>absent());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
@@ -390,12 +390,12 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(repositoryDirectoryValue.repositoryExists()).isTrue();
   }
 
-  private static class TestSkylarkRepositoryFunction extends SkylarkRepositoryFunction {
+  private static class TestStarlarkRepositoryFunction extends StarlarkRepositoryFunction {
     private boolean fetchCalled = false;
     private final Path workspaceRoot;
     private final TestManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
-    private TestSkylarkRepositoryFunction(
+    private TestStarlarkRepositoryFunction(
         Path workspaceRoot,
         DownloadManager downloader,
         TestManagedDirectoriesKnowledge managedDirectoriesKnowledge) {

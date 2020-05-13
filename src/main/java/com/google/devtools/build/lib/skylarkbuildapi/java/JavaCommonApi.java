@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -37,10 +37,10 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface JavaCommonApi<
         FileT extends FileApi,
         JavaInfoT extends JavaInfoApi<FileT>,
-        JavaToolchainT extends JavaToolchainSkylarkApiProviderApi,
+        JavaToolchainT extends JavaToolchainStarlarkApiProviderApi,
         JavaRuntimeT extends JavaRuntimeInfoApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
+        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         SkylarkActionFactoryT extends StarlarkActionFactoryApi>
     extends StarlarkValue {
 
@@ -64,7 +64,7 @@ public interface JavaCommonApi<
             name = "ctx",
             positional = true,
             named = false,
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             doc = "The rule context."),
         @Param(
             name = "source_jars",
@@ -183,7 +183,7 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
+            allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to be used for this compilation. Mandatory."),
         @Param(
             name = "host_javabase",
@@ -273,7 +273,7 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
+            allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       })
   FileApi runIjar(
@@ -316,7 +316,7 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
+            allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       })
   FileApi stampJar(
@@ -363,7 +363,7 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
+            allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
         @Param(
             name = "host_javabase",
@@ -393,7 +393,7 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = Object.class,
-            allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
+            allowedTypes = {@ParamType(type = JavaToolchainStarlarkApiProviderApi.class)},
             doc =
                 "A JavaToolchainInfo to be used for retrieving the ijar "
                     + "tool. Only set when use_ijar is True."),
@@ -456,7 +456,7 @@ public interface JavaCommonApi<
             name = "ctx",
             positional = false,
             named = true,
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             doc = "The rule context."),
       },
       doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
@@ -556,11 +556,11 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = true,
             named = false,
-            type = JavaToolchainSkylarkApiProviderApi.class,
+            type = JavaToolchainStarlarkApiProviderApi.class,
             doc = "The toolchain."),
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain) throws EvalException;
+  Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain) throws EvalException;
 
   @SkylarkCallable(
       name = "BootClassPathInfo",

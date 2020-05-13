@@ -38,6 +38,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/analysis:srcs",
         "//src/main/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bugreport:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:srcs",
@@ -58,6 +59,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages:srcs",
+        "//src/main/java/com/google/devtools/build/lib/packages/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:srcs",
         "//src/main/java/com/google/devtools/build/lib/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
@@ -200,6 +202,7 @@ java_library(
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:flogger",
@@ -215,8 +218,8 @@ java_library(
         "server/ServerWatcherRunnable.java",
     ],
     deps = [
-        ":bug-report",
         ":runtime",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
@@ -241,24 +244,6 @@ java_library(
         "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "bug-report",
-    srcs = glob(["bugreport/*.java"]),
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
-        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
-        "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:logging",
-        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -295,7 +280,6 @@ java_library(
         "runtime/mobileinstall/*.txt",
     ]),
     deps = [
-        ":bug-report",
         ":build-request-options",
         ":keep-going-option",
         ":loading-phase-threads-option",
@@ -331,6 +315,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
@@ -400,6 +385,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:command",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",

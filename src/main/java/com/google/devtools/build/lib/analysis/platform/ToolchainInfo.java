@@ -78,7 +78,7 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
   private static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
     ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
     for (Map.Entry<String, Object> e : values.entrySet()) {
-      builder.put(Attribute.getSkylarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
+      builder.put(Attribute.getStarlarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
     }
     return builder.build();
   }

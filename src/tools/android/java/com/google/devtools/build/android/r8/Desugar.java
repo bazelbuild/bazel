@@ -13,15 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.android.r8;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+import com.android.tools.r8.ArchiveClassFileProvider;
+import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.desugar.DependencyCollector;
+import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -30,7 +36,9 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import java.io.IOException;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -45,7 +53,7 @@ public class Desugar {
     @Option(
         name = "input",
         allowMultiple = true,
-        defaultValue = "",
+        defaultValue = "null",
         category = "input",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -59,7 +67,7 @@ public class Desugar {
     @Option(
         name = "classpath_entry",
         allowMultiple = true,
-        defaultValue = "",
+        defaultValue = "null",
         category = "input",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -72,7 +80,7 @@ public class Desugar {
     @Option(
         name = "bootclasspath_entry",
         allowMultiple = true,
-        defaultValue = "",
+        defaultValue = "null",
         category = "input",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -113,7 +121,7 @@ public class Desugar {
     @Option(
         name = "output",
         allowMultiple = true,
-        defaultValue = "",
+        defaultValue = "null",
         category = "output",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -233,7 +241,7 @@ public class Desugar {
     /** Type prefixes that we'll move to a custom package. */
     @Option(
         name = "rewrite_core_library_prefix",
-        defaultValue = "", // ignored
+        defaultValue = "null",
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -243,7 +251,7 @@ public class Desugar {
     /** Interfaces whose default and static interface methods we'll emulate. */
     @Option(
         name = "emulate_core_library_interface",
-        defaultValue = "", // ignored
+        defaultValue = "null",
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -253,7 +261,7 @@ public class Desugar {
     /** Members that we will retarget to the given new owner. */
     @Option(
         name = "retarget_core_library_member",
-        defaultValue = "", // ignored
+        defaultValue = "null",
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -265,7 +273,7 @@ public class Desugar {
     /** Members not to rewrite. */
     @Option(
         name = "dont_rewrite_core_library_invocation",
-        defaultValue = "", // ignored
+        defaultValue = "null",
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -274,7 +282,7 @@ public class Desugar {
 
     @Option(
         name = "preserve_core_library_override",
-        defaultValue = "", // ignored
+        defaultValue = "null",
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -399,18 +407,50 @@ public class Desugar {
     }
   }
 
-  private void desugar() throws CompilationFailedException {
-
+  private void desugar(
+      List<ClassFileResourceProvider> bootclasspathProviders,
+      ClassFileResourceProvider classpath,
+      Path input,
+      Path output)
+      throws CompilationFailedException {
+    checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = createDependencyCollector();
-    OutputConsumer consumer = new OutputConsumer(options.outputJars.get(0), dependencyCollector);
-    D8.run(
+    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector);
+    D8Command.Builder builder =
         D8Command.builder(new DesugarDiagnosticsHandler(consumer))
-            .addLibraryFiles(options.bootclasspath)
-            .addClasspathFiles(options.classpath)
-            .addProgramFiles(options.inputJars)
+            .addClasspathResourceProvider(classpath)
+            .addProgramFiles(input)
             .setMinApiLevel(options.minSdkVersion)
-            .setProgramConsumer(consumer)
-            .build());
+            .setProgramConsumer(consumer);
+    bootclasspathProviders.forEach(builder::addLibraryResourceProvider);
+    D8.run(builder.build());
+  }
+
+  private void desugar() throws CompilationFailedException, IOException {
+    // Prepare classpath.
+    ImmutableList.Builder<ClassFileResourceProvider> classpathProvidersBuilder =
+        ImmutableList.builder();
+    for (Path path : options.classpath) {
+      classpathProvidersBuilder.add(new ArchiveClassFileProvider(path));
+    }
+    ImmutableList.Builder<ClassFileResourceProvider> bootclasspathProvidersBuilder =
+        ImmutableList.builder();
+    for (Path path : options.bootclasspath) {
+      bootclasspathProvidersBuilder.add(new ArchiveClassFileProvider(path));
+    }
+    ImmutableList<ClassFileResourceProvider> bootclasspathProviders =
+        bootclasspathProvidersBuilder.build();
+    OrderedClassFileResourceProvider classpathProvider =
+        new OrderedClassFileResourceProvider(
+            bootclasspathProviders, classpathProvidersBuilder.build());
+    // Desugar the input jars into the specified output jars.
+    for (int i = 0; i < options.inputJars.size(); i++) {
+      desugar(
+          bootclasspathProviders,
+          classpathProvider,
+          options.inputJars.get(i),
+          options.outputJars.get(i));
+    }
   }
 
   private static void validateOptions(DesugarOptions options) {
@@ -475,6 +515,14 @@ public class Desugar {
     if (options.persistentWorker) {
       throw new AssertionError("--persistent_worker is not supported");
     }
+
+    checkArgument(!options.inputJars.isEmpty(), "--input is required");
+    checkArgument(
+        options.inputJars.size() == options.outputJars.size(),
+        "D8 Desugar requires the same number of inputs and outputs to pair them."
+            + " #input=%s,#output=%s",
+        options.inputJars.size(),
+        options.outputJars.size());
   }
 
   public static void main(String[] args) throws Exception {

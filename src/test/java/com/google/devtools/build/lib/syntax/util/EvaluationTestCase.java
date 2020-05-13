@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkModules; // a bad dependency
+import com.google.devtools.build.lib.analysis.skylark.StarlarkModules; // a bad dependency
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -40,26 +40,26 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import org.junit.Before;
 
-/**
- * Base class for test cases that use parsing and evaluation services.
- */
+/** Helper class for tests that evaluate Starlark code. */
+// TODO(adonovan): stop extending this class. Prefer composition over inheritance.
+// Rename it to EvaluationApparatus for consistency.
+//
+// TODO(adonovan): make predeclared env + semantics more like normal parameters.
+// The main challenge is when are the Thread and Module created?
+// They should have a consistent semantics, and the predeclared environment
+// cannot be changed after the Module is created.
+// Also, the fact that exec/eval/update/lookup can be used directly
+// or through a Scenario complicates the question of when we commit to
+// predeclared env + semantics.
+// For the most part, the predeclared env doesn't vary across a suite,
+// so it could be a constructor parameter.
 public class EvaluationTestCase {
   private EventCollectionApparatus eventCollectionApparatus =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
 
-  private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
   private final Map<String, Object> extraPredeclared = new HashMap<>();
-  private StarlarkThread thread;
-
-  @Before
-  public final void initialize() {
-    // TODO(adonovan): clean up the lazy initialization of thread when we disentangle
-    // Module from it. Only the module need exist early; the thread can be created
-    // immediately before execution
-    thread = newStarlarkThread();
-  }
+  private StarlarkThread thread = newStarlarkThread(StarlarkSemantics.DEFAULT);
 
   // Adds a binding to the predeclared environment.
   protected final void predeclare(String name, Object value) {
@@ -68,12 +68,13 @@ public class EvaluationTestCase {
 
   /**
    * Returns a new thread using the semantics set by setSemantics(), the predeclared environment of
-   * SkylarkModules and prior calls to predeclared(), and a new mutability. Overridden by
+   * StarlarkModules and prior calls to predeclared(), and a new mutability. Overridden by
    * subclasses.
    */
-  public StarlarkThread newStarlarkThread() {
+  // TODO(adonovan): stop using inheritance.
+  protected StarlarkThread newStarlarkThread(StarlarkSemantics semantics) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder); // TODO(adonovan): break bad dependency
+    StarlarkModules.addStarlarkGlobalsToBuilder(envBuilder); // TODO(adonovan): break bad dependency
     envBuilder.putAll(extraPredeclared);
 
     StarlarkThread thread =
@@ -89,12 +90,12 @@ public class EvaluationTestCase {
    * Parses the semantics flags and updates the semantics used for subsequent evaluations. Also
    * reinitializes the thread.
    */
-  protected final void setSemantics(String... options) throws OptionsParsingException {
-    this.semantics =
+  public final void setSemantics(String... options) throws OptionsParsingException {
+    StarlarkSemantics semantics =
         Options.parse(StarlarkSemanticsOptions.class, options).getOptions().toSkylarkSemantics();
 
-    // Re-initialize the thread with the new semantics. See note at initialize.
-    thread = newStarlarkThread();
+    // Re-initialize the thread with the new semantics.
+    this.thread = newStarlarkThread(semantics);
   }
 
   public ExtendedEventHandler getEventHandler() {
@@ -207,14 +208,14 @@ public class EvaluationTestCase {
    */
   public final class Scenario {
     private final SetupActions setup = new SetupActions();
-    private final String[] skylarkOptions;
+    private final String[] starlarkOptions;
 
-    public Scenario(String... skylarkOptions) {
-      this.skylarkOptions = skylarkOptions;
+    public Scenario(String... starlarkOptions) {
+      this.starlarkOptions = starlarkOptions;
     }
 
     private void run(Testable testable) throws Exception {
-      setSemantics(skylarkOptions);
+      setSemantics(starlarkOptions);
       testable.run();
     }
 

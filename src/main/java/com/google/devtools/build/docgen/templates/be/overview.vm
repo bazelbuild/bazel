@@ -38,7 +38,7 @@ title: Build Encyclopedia
   <li><a href="$expander.expandRef("exports_files")">exports_files</a></li>
   <li><a href="$expander.expandRef("glob")">glob</a></li>
   <li><a href="$expander.expandRef("select")">select</a></li>
-  <li><a href="$expander.expandRef("workspace")">workspace</a></li>
+  <li><a href="../skylark/lib/globals.html#workspace">workspace</a></li>
 </ul>
 
 <h2>Rules</h2>

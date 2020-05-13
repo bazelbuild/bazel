@@ -308,10 +308,10 @@ public abstract class StarlarkSemantics {
 
   /** Returns a {@link Builder} initialized with default values for all options. */
   public static Builder builderWithDefaults() {
-    return DEFAULT_SEMANTICS.toBuilder();
+    return DEFAULT.toBuilder();
   }
 
-  public static final StarlarkSemantics DEFAULT_SEMANTICS =
+  public static final StarlarkSemantics DEFAULT =
       builder()
           // <== Add new options here in alphabetic order ==>
           .debugDepsetDepth(false)

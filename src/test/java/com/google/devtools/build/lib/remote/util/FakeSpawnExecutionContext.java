@@ -132,23 +132,19 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   public MetadataInjector getMetadataInjector() {
     return new MetadataInjector() {
       @Override
-      public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
+      public void injectRemoteFile(Artifact output, RemoteFileArtifactValue metadata) {
         throw new UnsupportedOperationException();
       }
 
       @Override
       public void injectRemoteDirectory(
-          Artifact.SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+          Artifact.SpecialArtifact output,
+          Map<TreeFileArtifact, RemoteFileArtifactValue> children) {
         throw new UnsupportedOperationException();
       }
 
       @Override
       public void markOmitted(ActionInput output) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void addExpandedTreeOutput(TreeFileArtifact output) {
         throw new UnsupportedOperationException();
       }
 

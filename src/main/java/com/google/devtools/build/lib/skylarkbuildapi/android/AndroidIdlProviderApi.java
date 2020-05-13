@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
@@ -121,7 +121,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
               generic1 = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidIdlProviderApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor(objectType = AndroidIdlProviderApi.class, receiverNameForDoc = NAME)
     AndroidIdlProviderApi<FileT> createInfo(
         Depset transitiveIdlImportRoots,
         Depset transitiveIdlImports,

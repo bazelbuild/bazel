@@ -267,11 +267,16 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       return computedDefault.getPossibleValues(type, rule);
     }
 
+    // Special handling for attribute values that have special logic.
     if ("visibility".equals(attributeName) && type.equals(BuildType.NODEP_LABEL_LIST)) {
       // This special case for the visibility attribute is needed because its value is replaced
       // with an empty list during package loading if it is public or private in order not to visit
       // the package called 'visibility'.
       return ImmutableList.of(type.cast(rule.getVisibility().getDeclaredLabels()));
+    } else if ("licenses".equals(attributeName) && type.equals(BuildType.LICENSE)) {
+      return ImmutableList.of(type.cast(rule.getLicense()));
+    } else if ("distribs".equals(attributeName) && type.equals(BuildType.DISTRIBUTIONS)) {
+      return ImmutableList.of(type.cast(rule.getDistributions()));
     }
 
     // For any other attribute, just return its direct value.

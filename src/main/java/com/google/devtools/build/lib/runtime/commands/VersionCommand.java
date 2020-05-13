@@ -71,7 +71,7 @@ public final class VersionCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
   }
 
   @VisibleForTesting

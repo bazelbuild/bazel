@@ -342,7 +342,7 @@ public class BuildView {
           aspectConfigurations.put(
               Pair.of(targetSpec.getLabel(), aspect), targetSpec.getConfiguration());
           aspectKeys.add(
-              AspectValueKey.createSkylarkAspectKey(
+              AspectValueKey.createStarlarkAspectKey(
                   targetSpec.getLabel(),
                   // For invoking top-level aspects, use the top-level configuration for both the
                   // aspect and the base target while the top-level configuration is untrimmed.

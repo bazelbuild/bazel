@@ -84,9 +84,9 @@ import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContextKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -304,7 +304,7 @@ public class BuildViewForTesting {
       @Override
       protected Map<Label, Target> getTargets(
           OrderedSetMultimap<DependencyKind, Label> labelMap,
-          Target fromTarget,
+          TargetAndConfiguration fromNode,
           NestedSetBuilder<Cause> rootCauses) {
         return labelMap.values().stream()
             .distinct()
@@ -501,31 +501,31 @@ public class BuildViewForTesting {
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
 
-    Map<String, UnloadedToolchainContextKey> unloadedToolchainContextKeys = new HashMap<>();
+    Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     for (Map.Entry<String, ExecGroup> execGroup : execGroups.entrySet()) {
-      unloadedToolchainContextKeys.put(
+      toolchainContextKeys.put(
           execGroup.getKey(),
-          UnloadedToolchainContextKey.key()
+          ToolchainContextKey.key()
               .configurationKey(BuildConfigurationValue.key(targetConfig))
               .requiredToolchainTypeLabels(execGroup.getValue().getRequiredToolchains())
               .build());
     }
     String targetUnloadedToolchainContextKey = "target-unloaded-toolchain-context";
-    unloadedToolchainContextKeys.put(
+    toolchainContextKeys.put(
         targetUnloadedToolchainContextKey,
-        UnloadedToolchainContextKey.key()
+        ToolchainContextKey.key()
             .configurationKey(BuildConfigurationValue.key(targetConfig))
             .requiredToolchainTypeLabels(requiredToolchains)
             .build());
 
     Map<SkyKey, ValueOrException<ToolchainException>> values =
         skyfunctionEnvironment.getValuesOrThrow(
-            unloadedToolchainContextKeys.values(), ToolchainException.class);
+            toolchainContextKeys.values(), ToolchainException.class);
 
     ToolchainCollection.Builder<UnloadedToolchainContext> unloadedToolchainContexts =
         new ToolchainCollection.Builder<>();
-    for (Map.Entry<String, UnloadedToolchainContextKey> unloadedToolchainContextKey :
-        unloadedToolchainContextKeys.entrySet()) {
+    for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
+        toolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =
           (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();
       String execGroup = unloadedToolchainContextKey.getKey();
@@ -556,7 +556,7 @@ public class BuildViewForTesting {
               target.getPackage().getRepositoryMapping(),
               unloadedToolchainContext.getValue(),
               targetDescription,
-              prerequisiteMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
+              prerequisiteMap.get(DependencyKind.TOOLCHAIN_DEPENDENCY));
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 

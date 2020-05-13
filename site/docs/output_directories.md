@@ -24,8 +24,9 @@ Requirements for an output directory layout:
 
 The solution that's currently implemented:
 
-* Bazel must be invoked from a directory containing a WORKSPACE file. It reports
-  an error if it is not. We call this the _workspace directory_.
+* Bazel must be invoked from a directory containing a WORKSPACE file (the
+  "_workspace directory_"), or a subdirectory thereof. It reports an error if it
+  is not.
 * The _outputRoot_ directory defaults to `~/.cache/bazel` on Linux,
   `/private/var/tmp` on macOS, and on Windows it defaults to `%HOME%` if set,
   else `%USERPROFILE%` if set, else the result of calling

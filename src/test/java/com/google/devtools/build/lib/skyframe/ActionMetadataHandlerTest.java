@@ -332,7 +332,8 @@ public class ActionMetadataHandlerTest {
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
 
     // Inject a remote file of size 42.
-    handler.injectRemoteFile(artifact, new byte[] {1, 2, 3}, 42, 0);
+    handler.injectRemoteFile(
+        artifact, new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 42, 0, "ultimate-answer"));
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(42);
 
     // Reset this output, which will make the handler stat the file again.
@@ -358,7 +359,8 @@ public class ActionMetadataHandlerTest {
 
     byte[] digest = new byte[] {1, 2, 3};
     int size = 10;
-    handler.injectRemoteFile(artifact, digest, size, /* locationIndex= */ 1);
+    handler.injectRemoteFile(
+        artifact, new RemoteFileArtifactValue(digest, size, /*locationIndex=*/ 1, "action-id"));
 
     FileArtifactValue v = handler.getMetadata(artifact);
     assertThat(v).isNotNull();
@@ -386,13 +388,14 @@ public class ActionMetadataHandlerTest {
             outputRoot.getRoot().asPath());
     handler.discardOutputMetadata();
 
-    RemoteFileArtifactValue fooValue = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
-    RemoteFileArtifactValue barValue = new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1);
-    Map<PathFragment, RemoteFileArtifactValue> children =
-        ImmutableMap.<PathFragment, RemoteFileArtifactValue>builder()
-            .put(PathFragment.create("foo"), fooValue)
-            .put(PathFragment.create("bar"), barValue)
-            .build();
+    RemoteFileArtifactValue fooValue =
+        new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1, "foo");
+    RemoteFileArtifactValue barValue =
+        new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1, "bar");
+    Map<TreeFileArtifact, RemoteFileArtifactValue> children =
+        ImmutableMap.of(
+            ActionInputHelper.treeFileArtifact(treeArtifact, "foo"), fooValue,
+            ActionInputHelper.treeFileArtifact(treeArtifact, "bar"), barValue);
 
     handler.injectRemoteDirectory(treeArtifact, children);
 

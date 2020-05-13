@@ -45,7 +45,7 @@ package com.google.devtools.build.lib.packages;
  * targets that produce Java code).
  *
  * <p>Aspects can be defined natively, in Java ({@link NativeAspectClass}) or in Starlark ({@link
- * SkylarkAspectClass}).
+ * StarlarkAspectClass}).
  *
  * <p>Bazel propagates aspects through a multistage process. The general pipeline is as follows:
  *

@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 import com.google.devtools.build.lib.syntax.StarlarkIterable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.HashSet;
@@ -60,7 +60,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class OutputGroupInfo extends StructImpl
-    implements SkylarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
+    implements StarlarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
   public static final String SKYLARK_NAME = "output_groups";
 
   public static final OutputGroupInfoProvider SKYLARK_CONSTRUCTOR = new OutputGroupInfoProvider();
@@ -287,7 +287,7 @@ public final class OutputGroupInfo extends StructImpl
           Dict.cast(kwargs, String.class, Object.class, "kwargs").entrySet()) {
         builder.put(
             entry.getKey(),
-            SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
+            StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
                 entry.getKey(), entry.getValue()));
       }
       return new OutputGroupInfo(builder.build());

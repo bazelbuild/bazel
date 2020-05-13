@@ -63,3 +63,111 @@ java_import(
     name = "allocation_instrumenter",
     jars = ["java-allocation-instrumenter.jar"],
 )
+
+# libprotobuf-java
+java_import(
+    name = "protobuf_java",
+    jars = ["protobuf.jar"],
+)
+
+# libprotobuf-java
+java_import(
+    name = "protobuf_java_util",
+    jars = ["protobuf-util.jar"],
+)
+
+# libcommons-collections3-java
+java_import(
+    name = "apache_commons_collections",
+    jars = ["commons-collections3.jar"],
+)
+
+# libcommons-lang-java
+java_import(
+    name = "apache_commons_lang",
+    jars = ["commons-lang.jar"],
+)
+
+# libcommons-compress-java
+java_import(
+    name = "apache_commons_compress",
+    jars = ["commons-compress.jar"],
+)
+
+# libcommons-logging-java
+java_import(
+    name = "apache_commons_logging",
+    jars = ["commons-logging.jar"],
+)
+
+# libcommons-pool2-java
+java_import(
+    name = "apache_commons_pool2",
+    jars = ["commons-pool2.jar"],
+)
+
+# velocity
+java_import(
+    name = "apache_velocity",
+    jars = ["velocity.jar"],
+)
+
+# libasm-java
+java_import(
+    name = "asm",
+    jars = ["asm.jar"],
+)
+
+# libjackson2-core-java
+java_import(
+    name = "jackson2",
+    jars = [
+        "jackson-core.jar",
+    ],
+)
+
+# libjcip-annotations-java
+java_import(
+    name = "jcip_annotations",
+    jars = [
+        "jcip-annotations.jar",
+    ],
+)
+
+# libjsr305-java
+java_import(
+    name = "jsr305",
+    jars = ["jsr305.jar"],
+)
+
+# libnetty-tcnative-java
+java_import(
+    name = "netty_tcnative",
+    jars = ["netty-tcnative.jar"],
+)
+
+# libjavapoet-java
+java_import(
+    name = "javapoet",
+    jars = ["javapoet.jar"],
+)
+
+# libjaxb-api-java
+java_import(
+    name = "jaxb",
+    jars = ["jaxb-api.jar"],
+)
+
+# libxz-java
+java_import(
+    name = "xz",
+    jars = ["xz.jar"],
+)
+
+# libgeronimo-annotation-1.3-spec-java
+java_import(
+    name = "javax_annotations",
+    jars = ["geronimo-annotation-1.3-spec.jar"],
+    neverlink = 1,
+)
+

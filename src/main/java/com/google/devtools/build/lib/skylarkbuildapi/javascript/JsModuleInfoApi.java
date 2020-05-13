@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -100,7 +100,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
         },
         selfCall = true,
         enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-    @SkylarkConstructor(objectType = JsModuleInfoApi.class, receiverNameForDoc = "JsModuleInfo")
+    @StarlarkConstructor(objectType = JsModuleInfoApi.class, receiverNameForDoc = "JsModuleInfo")
     JsModuleInfoApi<?> jsModuleInfo(
         Label label,
         String wrapper,

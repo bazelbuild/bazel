@@ -125,7 +125,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         // DependencyResolver but passing to avoid passing a null and since we have the information
         // anyway.
         deps =
-            new FormatterDependencyResolver(eventHandler)
+            new FormatterDependencyResolver()
                 .dependentNodeMap(
                     new TargetAndConfiguration(target, config),
                     hostConfiguration,
@@ -153,7 +153,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
             dep.getTransition().apply(fromOptions, eventHandler).values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
-        if (attributeAndDep.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {
+        if (attributeAndDep.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {
           dependencyName = "[toolchain dependency]";
         } else {
           dependencyName = attributeAndDep.getKey().getAttribute().getName();
@@ -201,16 +201,11 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   private class FormatterDependencyResolver extends DependencyResolver {
-    private final ExtendedEventHandler eventHandler;
-
-    private FormatterDependencyResolver(ExtendedEventHandler eventHandler) {
-      this.eventHandler = eventHandler;
-    }
 
     @Override
     protected Map<Label, Target> getTargets(
         OrderedSetMultimap<DependencyKind, Label> labelMap,
-        Target fromTarget,
+        TargetAndConfiguration fromNode,
         NestedSetBuilder<Cause> rootCauses) {
       return labelMap.values().stream()
           .distinct()

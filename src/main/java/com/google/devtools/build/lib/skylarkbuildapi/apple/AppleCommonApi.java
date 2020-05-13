@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInfoApi.AppleStaticLibraryInfoProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface AppleCommonApi<
         FileApiT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
+        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         ObjcProviderApiT extends ObjcProviderApi<?>,
         XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
         ApplePlatformApiT extends ApplePlatformApi>
@@ -340,7 +340,7 @@ public interface AppleCommonApi<
       parameters = {
         @Param(
             name = "ctx",
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             named = true,
             positional = false,
             doc = "The Starlark rule context."),
@@ -387,5 +387,5 @@ public interface AppleCommonApi<
           "objc_proto_aspect gathers the proto dependencies of the attached rule target,and"
               + " propagates the proto values of its dependencies through the ObjcProto provider.",
       structField = true)
-  SkylarkAspectApi getObjcProtoAspect();
+  StarlarkAspectApi getObjcProtoAspect();
 }

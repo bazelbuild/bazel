@@ -131,7 +131,9 @@ public class BlazeRuntimeTest {
             Thread.currentThread(),
             VersionCommand.class.getAnnotation(Command.class),
             options,
-            ImmutableList.of());
+            ImmutableList.of(),
+            0L,
+            0L);
     runtime.beforeCommand(env, options.getOptions(CommonCommandOptions.class));
     runtime.cleanUpForCrash(DetailedExitCode.justExitCode(ExitCode.OOM_ERROR));
     BlazeCommandResult mainThreadCrash = BlazeCommandResult.exitCode(ExitCode.BLAZE_INTERNAL_ERROR);

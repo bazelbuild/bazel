@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
@@ -32,24 +33,48 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   @SkylarkCallable(
       name = "copts",
       structField = true,
-      doc = "Returns flags passed to Bazel by --copt option.")
+      doc =
+          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--copt\">"
+              + "<code>--copt</code></a> option.")
   ImmutableList<String> getCopts() throws EvalException;
 
   @SkylarkCallable(
       name = "cxxopts",
       structField = true,
-      doc = "Returns flags passed to Bazel by --cxxopt option.")
+      doc =
+          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--cxxopt\">"
+              + "<code>--cxxopt</code></a> option.")
   ImmutableList<String> getCxxopts() throws EvalException;
 
   @SkylarkCallable(
       name = "conlyopts",
       structField = true,
-      doc = "Returns flags passed to Bazel by --conlyopt option.")
+      doc =
+          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--conlyopt\">"
+              + "<code>--conlyopt</code></a> option.")
   ImmutableList<String> getConlyopts() throws EvalException;
 
   @SkylarkCallable(
       name = "linkopts",
       structField = true,
-      doc = "Returns flags passed to Bazel by --linkopt option.")
+      doc =
+          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--linkopt\">"
+              + "<code>--linkopt</code></a> option.")
   ImmutableList<String> getLinkopts() throws EvalException;
+
+  @SkylarkCallable(
+      name = "custom_malloc",
+      structField = true,
+      doc =
+          "Returns label pointed to by <a href=\"../../user-manual.html#flag--custom_malloc\">"
+              + "<code>--custom_malloc</code></a> option. Can be accessed with"
+              + " <a href=\"globals.html#configuration_field\"><code>configuration_field"
+              + "</code></a>:<br/>"
+              + "<pre>attr.label(<br/>"
+              + "    default = configuration_field(<br/>"
+              + "        fragment = \"cpp\",<br/>"
+              + "        name = \"custom_malloc\"<br/>"
+              + "    )<br/>"
+              + ")</pre>")
+  Label customMalloc();
 }

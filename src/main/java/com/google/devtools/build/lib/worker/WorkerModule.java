@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
@@ -171,6 +172,7 @@ public class WorkerModule extends BlazeModule {
         env.getLocalResourceManager(),
         localEnvProvider,
         env.getBlazeWorkspace().getBinTools(),
+        ProcessWrapper.fromCommandEnvironment(env),
         // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
         RunfilesTreeUpdater.INSTANCE);
   }

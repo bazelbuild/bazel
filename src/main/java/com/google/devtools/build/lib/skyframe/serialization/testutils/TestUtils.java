@@ -109,7 +109,7 @@ public class TestUtils {
   public static void assertModulesEqual(Module frame1, Module frame2) {
     assertThat(frame1.mutability().getAnnotation())
         .isEqualTo(frame2.mutability().getAnnotation());
-    assertThat(frame1.getLabel()).isEqualTo(frame2.getLabel());
+    assertThat(frame1.getClientData()).isEqualTo(frame2.getClientData());
     assertThat(frame1.getTransitiveBindings())
         .containsExactlyEntriesIn(frame2.getTransitiveBindings()).inOrder();
     if (frame1.getParent() == null || frame2.getParent() == null) {
@@ -118,6 +118,9 @@ public class TestUtils {
     } else {
       assertFramesEqual(frame1.getParent(), frame2.getParent());
     }
+    assertThat(frame1.getExportedBindings())
+        .containsExactlyEntriesIn(frame2.getExportedBindings())
+        .inOrder();
   }
 
   public static ByteString toBytesMemoized(Object original, ObjectCodecRegistry registry)

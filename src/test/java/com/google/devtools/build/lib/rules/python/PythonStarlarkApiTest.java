@@ -140,13 +140,13 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
     }
 
     PyInfo modernInfo = PyProviderUtils.getModernProvider(target);
-    assertThat(modernInfo.getTransitiveSources().toCollection(Artifact.class))
+    assertThat(modernInfo.getTransitiveSources().toList(Artifact.class))
         .containsExactly(
             getSourceArtifact("pkg/loweruserlib.py"),
             getSourceArtifact("pkg/pylib.py"),
             getSourceArtifact("pkg/upperuserlib.py"));
     assertThat(modernInfo.getUsesSharedLibraries()).isTrue();
-    assertThat(modernInfo.getImports().toCollection(String.class))
+    assertThat(modernInfo.getImports().toList(String.class))
         .containsExactly("loweruserlib_path", "upperuserlib_path");
     assertThat(modernInfo.getHasPy2OnlySources()).isTrue();
     assertThat(modernInfo.getHasPy3OnlySources()).isTrue();

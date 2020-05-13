@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -93,9 +92,8 @@ public final class PackageFactory {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An extension to the global namespace of the BUILD language. */
-  // TODO(bazel-team): this is largely unrelated to syntax.StarlarkThread.Extension,
-  // and should probably be renamed PackageFactory.RuntimeExtension, since really,
-  // we're extending the Runtime with more classes.
+  // TODO(bazel-team): this should probably be renamed PackageFactory.RuntimeExtension
+  //  since really we're extending the Runtime with more classes.
   public interface EnvironmentExtension {
     /** Update the predeclared environment with the identifiers this extension contributes. */
     void update(ImmutableMap.Builder<String, Object> env);
@@ -127,6 +125,7 @@ public final class PackageFactory {
 
   private final Package.Builder.Helper packageBuilderHelper;
   private final PackageValidator packageValidator;
+  private final PackageLoadingListener packageLoadingListener;
 
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
@@ -174,7 +173,8 @@ public final class PackageFactory {
       Iterable<EnvironmentExtension> environmentExtensions,
       String version,
       Package.Builder.Helper packageBuilderHelper,
-      PackageValidator packageValidator) {
+      PackageValidator packageValidator,
+      PackageLoadingListener packageLoadingListener) {
     this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
@@ -185,6 +185,7 @@ public final class PackageFactory {
     this.workspaceNativeModule = WorkspaceFactory.newNativeModule(ruleClassProvider, version);
     this.packageBuilderHelper = packageBuilderHelper;
     this.packageValidator = packageValidator;
+    this.packageLoadingListener = packageLoadingListener;
   }
 
  /**
@@ -411,7 +412,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       RootedPath buildFile,
       StarlarkFile file,
-      Map<String, Extension> imports,
+      Map<String, Module> loadedModules,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
       StarlarkSemantics starlarkSemantics,
@@ -428,7 +429,7 @@ public final class PackageFactory {
           globber,
           defaultVisibility,
           starlarkSemantics,
-          imports,
+          loadedModules,
           skylarkFileDependencies,
           repositoryMapping);
     } catch (InterruptedException e) {
@@ -472,15 +473,10 @@ public final class PackageFactory {
                         .getRootRelativePath()
                         .getRelative(LabelConstants.WORKSPACE_FILE_NAME)),
                 "TESTING",
-                StarlarkSemantics.DEFAULT_SEMANTICS)
+                StarlarkSemantics.DEFAULT)
             .build();
     return createPackageForTesting(
-        packageId,
-        externalPkg,
-        buildFile,
-        locator,
-        eventHandler,
-        StarlarkSemantics.DEFAULT_SEMANTICS);
+        packageId, externalPkg, buildFile, locator, eventHandler, StarlarkSemantics.DEFAULT);
   }
 
   /**
@@ -528,7 +524,7 @@ public final class PackageFactory {
                 packageId,
                 buildFile,
                 file,
-                /*imports=*/ ImmutableMap.<String, Extension>of(),
+                /*loadedModules=*/ ImmutableMap.<String, Module>of(),
                 /*skylarkFileDependencies=*/ ImmutableList.<Label>of(),
                 /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
                 semantics,
@@ -632,7 +628,7 @@ public final class PackageFactory {
    */
   private ClassObject newNativeModule() {
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
-    builder.putAll(SkylarkNativeModule.BINDINGS_FOR_BUILD_FILES);
+    builder.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     builder.putAll(ruleFunctions);
     builder.put("package", newPackageFunction(packageArguments));
     for (EnvironmentExtension ext : environmentExtensions) {
@@ -644,7 +640,7 @@ public final class PackageFactory {
   private void populateEnvironment(ImmutableMap.Builder<String, Object> env) {
     env.putAll(Starlark.UNIVERSE);
     env.putAll(StarlarkLibrary.BUILD); // e.g. rule, select, depset
-    env.putAll(SkylarkNativeModule.BINDINGS_FOR_BUILD_FILES);
+    env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.put("package", newPackageFunction(packageArguments));
     env.putAll(ruleFunctions);
 
@@ -677,14 +673,8 @@ public final class PackageFactory {
               "BUILD file computation took %d steps, but --max_computation_steps=%d",
               steps, maxSteps));
     }
-    // Write a log message for BUILD files with more than 1e6 steps
-    // (approximately the top 1% in Google's code base).
-    if (steps > 1_000_000) {
-      logger.atInfo().log(
-          "%s: BUILD file computation took %d steps", pkg.getPackageIdentifier(), steps);
-    }
 
-    packageBuilderHelper.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
+    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
   }
 
   /**
@@ -711,7 +701,7 @@ public final class PackageFactory {
       Globber globber,
       RuleVisibility defaultVisibility,
       StarlarkSemantics semantics,
-      Map<String, Extension> imports,
+      Map<String, Module> loadedModules,
       ImmutableList<Label> skylarkFileDependencies,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws InterruptedException {
@@ -738,7 +728,7 @@ public final class PackageFactory {
         packageId,
         file,
         semantics,
-        imports,
+        loadedModules,
         new PackageContext(pkgBuilder, globber, eventHandler))) {
       pkgBuilder.setContainsErrors();
     }
@@ -754,7 +744,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       StarlarkFile file,
       StarlarkSemantics semantics,
-      Map<String, Extension> imports,
+      Map<String, Module> loadedModules,
       PackageContext pkgContext)
       throws InterruptedException {
 
@@ -784,8 +774,8 @@ public final class PackageFactory {
           StarlarkThread.builder(mutability)
               .setGlobals(Module.createForBuiltins(env.build()))
               .setSemantics(semantics)
-              .setImportedExtensions(imports)
               .build();
+      thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
       Module module = thread.getGlobals();
 

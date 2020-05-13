@@ -144,7 +144,7 @@ public final class ProfileCommand implements BlazeCommand {
         }
       }
     }
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
   }
 
   private static PrintStream getOutputStream(CommandEnvironment env) {

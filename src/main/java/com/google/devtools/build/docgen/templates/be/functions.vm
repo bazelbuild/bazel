@@ -60,9 +60,8 @@ file, before any rule.</p>
         <p>Every rule in this package has the visibility specified in this
         attribute, unless otherwise specified in the <code>visibility</code>
         attribute of the rule. For detailed information about the syntax of this
-        attribute, see the documentation of the
-        <a href="common-definitions.html#common.visibility">visibility</a>
-        attribute. The package default visibility does not apply to
+        attribute, see the documentation of <a href="../visibility.md">visibility</a>.
+        The package default visibility does not apply to
         <a href="#exports_files">exports_files</a>, which is
         public by default.</p>
       </td>

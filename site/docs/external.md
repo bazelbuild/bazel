@@ -37,17 +37,12 @@ If `project1` wanted to depend on a target, `:foo`, defined in
 `/home/user/project1/BUILD` could depend on `@project2//:foo`.
 
 The `WORKSPACE` file allows users to depend on targets from other parts of the
-filesystem or downloaded from the internet. Users can also write custom
-[repository rules](skylark/repository_rules.html) to get more complex behavior.
-
-This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
-different set of rules. The full list of built-in rules are in the Build
-Encyclopedia's [Workspace Rules](be/workspace.html) and the documentation
-for [Embedded Starlark Repository Rules](repo/index.html).
-
-Like in the [workspace directory](build-ref.html#workspace), Bazel also supports `WORKSPACE.bazel`
-file as an alias of `WORKSPACE` in external dependencies. If both files exist, `WORKSPACE.bazel`
-will take the priority.
+filesystem or downloaded from the internet. It uses the same syntax as BUILD
+files, but allows a different set of rules called _repository rules_ (sometimes
+also known as _workspace rules_). Bazel comes with a few [built-in repository
+rules](be/workspace.html) and a set of [embedded Starlark repository
+rules](repo/index.html). Users can also write [custom repository
+rules](skylark/repository_rules.html) to get more complex behavior.
 
 <a name="types"></a>
 ## Supported types of external dependencies

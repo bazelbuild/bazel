@@ -13,7 +13,7 @@ filegroup(
 java_plugin(
     name = "annotation_preprocessor",
     srcs = glob(["*.java"]),
-    processor_class = "com.google.devtools.build.lib.analysis.skylark.annotations.processor.SkylarkConfigurationFieldProcessor",
+    processor_class = "com.google.devtools.build.lib.analysis.skylark.annotations.processor.StarlarkConfigurationFieldProcessor",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations:annotations_internal",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",

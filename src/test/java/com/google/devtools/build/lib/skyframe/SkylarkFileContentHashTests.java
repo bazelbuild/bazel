@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -182,7 +183,8 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
     Collection<Target> targets = result.get(pkgLookupKey).getPackage().getTargets().values();
     for (Target target : targets) {
       if (target.getName().equals(name)) {
-        return ((Rule) target).getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
+        byte[] hash = ((Rule) target).getRuleClassObject().getRuleDefinitionEnvironmentDigest();
+        return BaseEncoding.base16().lowerCase().encode(hash); // hexify
       }
     }
     throw new IllegalStateException("target not found: " + name);

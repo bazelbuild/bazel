@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.util.DetailedExitCode;
 
-/**
- * This event is fired when the Blaze command is complete
- * (clean, build, test, etc.).
- */
-public class CommandCompleteEvent extends CommandEvent {
+/** This event is fired when the Blaze command is complete (clean, build, test, etc.). */
+public class CommandCompleteEvent {
   private final DetailedExitCode detailedExitCode;
 
   public CommandCompleteEvent(DetailedExitCode detailedExitCode) {

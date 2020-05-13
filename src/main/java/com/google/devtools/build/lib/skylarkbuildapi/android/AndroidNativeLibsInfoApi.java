@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -67,7 +67,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
               doc = "The native libraries produced by the rule."),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidNativeLibsInfoApi.class)
+    @StarlarkConstructor(objectType = AndroidNativeLibsInfoApi.class)
     AndroidNativeLibsInfoApi<?> createInfo(Depset nativeLibs) throws EvalException;
   }
 }

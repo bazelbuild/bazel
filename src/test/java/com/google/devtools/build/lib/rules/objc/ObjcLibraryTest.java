@@ -1022,11 +1022,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   private static Iterable<String> getArifactPaths(
       ConfiguredTarget target, ObjcProvider.Key<Artifact> artifactKey) {
     return Artifact.toRootRelativePaths(
-        target.get(ObjcProvider.SKYLARK_CONSTRUCTOR).get(artifactKey));
+        target.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(artifactKey));
   }
 
   private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
-    return Artifact.toRootRelativePaths(target.get(ObjcProvider.SKYLARK_CONSTRUCTOR).header());
+    return Artifact.toRootRelativePaths(target.get(ObjcProvider.STARLARK_CONSTRUCTOR).header());
   }
 
   @Test

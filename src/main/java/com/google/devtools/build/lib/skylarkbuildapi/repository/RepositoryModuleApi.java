@@ -124,6 +124,7 @@ public interface RepositoryModuleApi {
           "When --incompatible_use_cc_configure_from_rules_cc is set to true, Bazel will "
               + "fail the build. Please see https://github.com/bazelbuild/bazel/issues/10134 for "
               + "details and migration instructions.",
+      documented = false,
       useStarlarkThread = true)
   void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread) throws EvalException;
 }

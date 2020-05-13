@@ -952,12 +952,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void addExpandedTreeOutput(TreeFileArtifact output) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
+    public ImmutableSet<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
       throw new UnsupportedOperationException();
     }
 
@@ -967,13 +962,13 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
+    public void injectRemoteFile(Artifact output, RemoteFileArtifactValue metadata) {
       throw new UnsupportedOperationException();
     }
 
     @Override
     public void injectRemoteDirectory(
-        SpecialArtifact treeArtifact, Map<PathFragment, RemoteFileArtifactValue> children) {
+        SpecialArtifact treeArtifact, Map<TreeFileArtifact, RemoteFileArtifactValue> children) {
       throw new UnsupportedOperationException();
     }
 

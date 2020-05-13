@@ -89,7 +89,10 @@ a `--config` flag. Bazel can combine settings from multiple bazelrc files
 (systemwide, per-workspace, per-user, or from a custom location), and a
 bazelrc file may also import settings from other bazelrcs.
 
-### Bazel
+### &#66;laze
+
+<!-- "Bazel" gets scrubbed to "Bazel", so we use the corresponding HTML entity
+to circumvent that here. &#66; = "B" -->
 
 The Google-internal version of Bazel. Google’s main build system for its
 mono-repository.

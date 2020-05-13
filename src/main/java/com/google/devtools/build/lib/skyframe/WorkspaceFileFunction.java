@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.skyframe.PackageFunction.StarlarkImportResult;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -38,9 +38,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /** A SkyFunction to parse the WORKSPACE file at a given path. */
 public class WorkspaceFileFunction implements SkyFunction {
@@ -86,7 +83,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       try {
         return new WorkspaceFileValue(
             /* pkg = */ builder.build(),
-            /* importMap = */ ImmutableMap.<String, Extension>of(),
+            /* loadedModules = */ ImmutableMap.<String, Module>of(),
             /* importToChunkMap = */ ImmutableMap.<String, Integer>of(),
             /* bindings = */ ImmutableMap.<String, Object>of(),
             workspaceFile,
@@ -122,7 +119,8 @@ public class WorkspaceFileFunction implements SkyFunction {
         if (prevValue.next() == null) {
           return prevValue;
         }
-        parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
+        parser.setParent(
+            prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
       }
       StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
       StarlarkImportResult importResult =
@@ -137,7 +135,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       if (importResult == null) {
         return null;
       }
-      parser.execute(ast, importResult.importMap, key);
+      parser.execute(ast, importResult.loadedModules, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {
@@ -147,7 +145,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     try {
       return new WorkspaceFileValue(
           builder.build(),
-          parser.getImportMap(),
+          parser.getLoadedModules(),
           createImportToChunkMap(prevValue, parser, key),
           parser.getVariableBindings(),
           workspaceFile,
@@ -181,13 +179,12 @@ public class WorkspaceFileFunction implements SkyFunction {
       WorkspaceFileValue prevValue, WorkspaceFactory parser, WorkspaceFileKey key) {
     ImmutableMap.Builder<String, Integer> builder = new ImmutableMap.Builder<String, Integer>();
     if (prevValue == null) {
-      Map<String, Integer> map =
-          parser.getImportMap().keySet().stream()
-              .collect(Collectors.toMap(Function.identity(), s -> key.getIndex()));
-      builder.putAll(map);
+      for (String loadString : parser.getLoadedModules().keySet()) {
+        builder.put(loadString, key.getIndex());
+      }
     } else {
       builder.putAll(prevValue.getImportToChunkMap());
-      for (String label : parser.getImportMap().keySet()) {
+      for (String label : parser.getLoadedModules().keySet()) {
         if (!prevValue.getImportToChunkMap().containsKey(label)) {
           builder.put(label, key.getIndex());
         }

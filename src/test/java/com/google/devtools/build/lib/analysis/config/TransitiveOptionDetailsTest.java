@@ -68,67 +68,60 @@ public class TransitiveOptionDetailsTest {
   /** Example options class for testing options lookup. */
   public static final class Options extends FragmentOptions {
     @Option(
-      name = "boolean_option",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "true"
-    )
+        name = "boolean_option",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
     public boolean booleanOption;
 
     @Option(
-      name = "convertible_option",
-      converter = Optionalizer.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = ""
-    )
+        name = "convertible_option",
+        converter = Optionalizer.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "")
     public Optional<String> convertibleOption;
 
     @Option(
-      name = "null_default",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
+        name = "null_default",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
     public String nullDefault;
 
     @Option(
-      name = "late_bound_default",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
+        name = "late_bound_default",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
     public String lateBoundDefault;
 
     @Option(
-      name = "multi_option",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "n/a (allows multiple)",
-      allowMultiple = true
-    )
+        name = "multi_option",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
     public List<String> multiOption;
 
     @Option(
-      name = "internal option",
-      defaultValue = "secret",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INTERNAL}
-    )
+        name = "internal option",
+        defaultValue = "secret",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INTERNAL})
     public String internalOption;
 
     private static final OptionDefinition INTERNAL_OPTION_DEFINITION =
         OptionsParser.getOptionDefinitionByName(Options.class, "internal option");
 
     @Option(
-      name = "internal multi option",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "n/a",
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      allowMultiple = true
-    )
+        name = "internal multi option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        metadataTags = {OptionMetadataTag.INTERNAL},
+        allowMultiple = true)
     public List<String> internalMultiOption;
 
     @Option(
@@ -154,11 +147,10 @@ public class TransitiveOptionDetailsTest {
   /** Additional options class for testing options lookup. */
   public static final class MoreOptions extends FragmentOptions {
     @Option(
-      name = "other_option",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = ""
-    )
+        name = "other_option",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "")
     public String otherOption;
   }
 

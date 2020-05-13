@@ -1654,7 +1654,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget binTarget = getConfiguredTarget("//bin:bin");
     AppleExecutableBinaryInfo executableBinaryProvider =
-        binTarget.get(AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
+        binTarget.get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
     assertThat(executableBinaryProvider).isNotNull();
 
     CommandAction testLinkAction = linkAction("//test:test");
@@ -1841,7 +1841,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "deps", "['//testlib:lib']");
 
     ObjcProvider objcProvider = providerForTarget("//x:x");
-    assertThat(objcProvider.sdkFramework().toCollection()).contains("TestFramework");
+    assertThat(objcProvider.sdkFramework().toList()).contains("TestFramework");
   }
 
   protected RuleType getRuleType() {

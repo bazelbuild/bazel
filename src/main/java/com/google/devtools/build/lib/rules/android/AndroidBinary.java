@@ -226,17 +226,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     Map<String, String> manifestValues = StampedAndroidManifest.getManifestValues(ruleContext);
 
-    StampedAndroidManifest manifest =
-        AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
-            .mergeWithDeps(
-                dataContext,
-                androidSemantics,
-                ruleContext,
-                resourceDeps,
-                manifestValues,
-                ruleContext.getRule().isAttrDefined("manifest_merger", STRING)
-                    ? ruleContext.attributes().get("manifest_merger", STRING)
-                    : null);
+    StampedAndroidManifest manifest;
+    if (isInstrumentation(ruleContext)
+        && dataContext.getAndroidConfig().disableInstrumentationManifestMerging()) {
+      manifest =
+          AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
+              .stamp(dataContext);
+    } else {
+      manifest =
+          AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
+              .mergeWithDeps(
+                  dataContext,
+                  androidSemantics,
+                  ruleContext,
+                  resourceDeps,
+                  manifestValues,
+                  ruleContext.getRule().isAttrDefined("manifest_merger", STRING)
+                      ? ruleContext.attributes().get("manifest_merger", STRING)
+                      : null);
+    }
 
     boolean shrinkResourceCycles =
         shouldShrinkResourceCycles(

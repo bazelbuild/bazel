@@ -568,7 +568,8 @@ distdir_tar(
 load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
 
 [http_file(
-    name = "jekyll_tree_%s" % DOC_VERSION["version"].replace(".", "_"),
+    # Split on "-" to get the version without cherrypick commits.
+    name = "jekyll_tree_%s" % DOC_VERSION["version"].split("-")[0].replace(".", "_"),
     sha256 = DOC_VERSION["sha256"],
     urls = ["https://mirror.bazel.build/bazel_versioned_docs/jekyll-tree-%s.tar" % DOC_VERSION["version"]],
 ) for DOC_VERSION in DOC_VERSIONS]

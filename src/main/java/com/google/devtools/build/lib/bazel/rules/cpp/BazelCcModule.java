@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -49,7 +49,7 @@ public class BazelCcModule extends CcModule
         StarlarkActionFactory,
         Artifact,
         ConstraintValueInfo,
-        SkylarkRuleContext,
+        StarlarkRuleContext,
         CcToolchainProvider,
         FeatureConfigurationForStarlark,
         CcCompilationContext,

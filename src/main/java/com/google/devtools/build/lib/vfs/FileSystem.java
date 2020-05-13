@@ -244,12 +244,22 @@ public abstract class FileSystem {
         Path first = iterator.next();
         deleteTreesBelow(first);
         try {
-          first.delete();
+          // If the directory is not executable, delete(), depending on implementation, may decide
+          // that the directory entry does not exist and return false without throwing.
+          if (!first.delete()) {
+            throw new IOException(
+                "Unable to delete \"" + first + "\": directory entry does not exist");
+          }
         } catch (IOException e) {
           // If we couldn't delete the first entry in a directory, it may be because the directory
-          // (not the entry!) is not writable. Try granting this permission and retry. If the retry
-          // fails, give up.
+          // (not the entry!) is not writable or executable. Try granting this permission and retry.
+          // If the retry fails, give up. Note that we have to retry deleteTreesBelow() too in case
+          // first is itself a directory; if the directory were not executable, the initial
+          // first.deleteTreesBelow() call would have been a silent no-op (since first.isDirectory()
+          // would have returned false) and sub-entries of first would not have been deleted.
           dir.setWritable(true);
+          dir.setExecutable(true);
+          deleteTreesBelow(first);
           first.delete();
         }
       }

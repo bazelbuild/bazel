@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -45,7 +45,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public class JavaToolchainProvider extends ToolchainInfo
-    implements JavaToolchainSkylarkApiProviderApi {
+    implements JavaToolchainStarlarkApiProviderApi {
 
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
@@ -419,17 +419,17 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   @Override
-  public Depset getSkylarkBootclasspath() {
+  public Depset getStarlarkBootclasspath() {
     return Depset.of(Artifact.TYPE, getBootclasspath().bootclasspath());
   }
 
   @Override
-  public Sequence<String> getSkylarkJvmOptions() {
+  public Sequence<String> getStarlarkJvmOptions() {
     return StarlarkList.immutableCopyOf(getJvmOptions());
   }
 
   @Override
-  public Depset getSkylarkTools() {
+  public Depset getStarlarkTools() {
     return Depset.of(Artifact.TYPE, getTools());
   }
 }

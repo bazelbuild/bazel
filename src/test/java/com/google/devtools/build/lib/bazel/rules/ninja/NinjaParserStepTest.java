@@ -324,7 +324,7 @@ public class NinjaParserStepTest {
             .parseNinjaTarget(scope, LINE_NUM_AFTER_RULE_DEFS);
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
-    assertThat(target.getUsualInputs()).containsExactly(PathFragment.create("input"));
+    assertThat(target.getExplicitInputs()).containsExactly(PathFragment.create("input"));
 
     NinjaTarget target1 =
         createParser("build o1 o2 | io1 io2: command i1 i2 | ii1 ii2 || ooi1 ooi2")
@@ -334,7 +334,7 @@ public class NinjaParserStepTest {
         .containsExactly(PathFragment.create("o1"), PathFragment.create("o2"));
     assertThat(target1.getImplicitOutputs())
         .containsExactly(PathFragment.create("io1"), PathFragment.create("io2"));
-    assertThat(target1.getUsualInputs())
+    assertThat(target1.getExplicitInputs())
         .containsExactly(PathFragment.create("i1"), PathFragment.create("i2"));
     assertThat(target1.getImplicitInputs())
         .containsExactly(PathFragment.create("ii1"), PathFragment.create("ii2"));
@@ -389,7 +389,7 @@ public class NinjaParserStepTest {
             .parseNinjaTarget(scope, LINE_NUM_AFTER_RULE_DEFS);
     assertThat(target.getRuleName()).isEqualTo("testRule");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("out123"));
-    assertThat(target.getUsualInputs())
+    assertThat(target.getExplicitInputs())
         .containsExactly(PathFragment.create("in123"), PathFragment.create("defin123/abcde"));
     assertThat(target.computeRuleVariables().get(NinjaRuleVariable.COMMAND))
         .isEqualTo("executable dir=defin123 empty='' end");
@@ -418,7 +418,7 @@ public class NinjaParserStepTest {
 
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
-    assertThat(target.getUsualInputs())
+    assertThat(target.getExplicitInputs())
         .containsExactly(PathFragment.create("input with space"), PathFragment.create("other"));
   }
 
@@ -432,7 +432,7 @@ public class NinjaParserStepTest {
             .parseNinjaTarget(scope, LINE_NUM_AFTER_RULE_DEFS);
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
-    assertThat(target.getUsualInputs())
+    assertThat(target.getExplicitInputs())
         .containsExactly(
             PathFragment.create("input"),
             PathFragment.create("with"),
@@ -449,7 +449,7 @@ public class NinjaParserStepTest {
 
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
-    assertThat(target.getUsualInputs()).containsExactly(PathFragment.create("input"));
+    assertThat(target.getExplicitInputs()).containsExactly(PathFragment.create("input"));
   }
 
   @Test

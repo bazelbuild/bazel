@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.TOOLCHAIN_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -20,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
+import com.google.devtools.build.lib.analysis.DependencyKind.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -64,63 +69,6 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-
-  /** A dependency caused by something that's not an attribute. Special cases enumerated below. */
-  private static final class NonAttributeDependencyKind implements DependencyKind {
-    private final String name;
-
-    private NonAttributeDependencyKind(String name) {
-      this.name = name;
-    }
-
-    @Override
-    public Attribute getAttribute() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public AspectClass getOwningAspect() {
-      throw new IllegalStateException();
-    }
-
-    @Override
-    public String toString() {
-      return String.format("%s(%s)", getClass().getSimpleName(), this.name);
-    }
-  }
-
-  /** A dependency for visibility. */
-  public static final DependencyKind VISIBILITY_DEPENDENCY =
-      new NonAttributeDependencyKind("VISIBILITY");
-
-  /** The dependency on the rule that creates a given output file. */
-  public static final DependencyKind OUTPUT_FILE_RULE_DEPENDENCY =
-      new NonAttributeDependencyKind("OUTPUT_FILE");
-
-  /** A dependency on a resolved toolchain. */
-  public static final DependencyKind TOOLCHAIN_DEPENDENCY =
-      new NonAttributeDependencyKind("TOOLCHAIN");
-
-  /** A dependency through an attribute, either that of an aspect or the rule itself. */
-  @AutoValue
-  public abstract static class AttributeDependencyKind implements DependencyKind {
-    @Override
-    public abstract Attribute getAttribute();
-
-    @Override
-    @Nullable
-    public abstract AspectClass getOwningAspect();
-
-    public static AttributeDependencyKind forRule(Attribute attribute) {
-      return new AutoValue_DependencyResolver_AttributeDependencyKind(attribute, null);
-    }
-
-    public static AttributeDependencyKind forAspect(Attribute attribute, AspectClass owningAspect) {
-      return new AutoValue_DependencyResolver_AttributeDependencyKind(
-          attribute, Preconditions.checkNotNull(owningAspect));
-    }
-  }
 
   /**
    * What we know about a dependency edge after factoring in the properties of the configured target
@@ -261,7 +209,7 @@ public abstract class DependencyResolver {
       throw new IllegalStateException(target.getLabel().toString());
     }
 
-    Map<Label, Target> targetMap = getTargets(outgoingLabels, target, rootCauses);
+    Map<Label, Target> targetMap = getTargets(outgoingLabels, node, rootCauses);
     if (targetMap == null) {
       // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
       return OrderedSetMultimap.create();
@@ -713,8 +661,7 @@ public abstract class DependencyResolver {
    */
   protected abstract Map<Label, Target> getTargets(
       OrderedSetMultimap<DependencyKind, Label> labelMap,
-      Target fromTarget,
+      TargetAndConfiguration fromNode,
       NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException;
-
 }

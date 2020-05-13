@@ -724,7 +724,7 @@ public class AndroidCommon {
         && !isLibrary) {
       // Binary rule; allow extracting merged manifest from Starlark via
       // ctx.attr.android_binary.android.merged_manifest, but not much more.
-      builder.addSkylarkTransitiveInfo(
+      builder.addStarlarkTransitiveInfo(
           AndroidStarlarkApiProvider.NAME, new AndroidStarlarkApiProvider(/*resourceInfo=*/ null));
     } else {
       resourceApk.addToConfiguredTargetBuilder(
@@ -733,7 +733,7 @@ public class AndroidCommon {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(
+        .addStarlarkTransitiveInfo(
             JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))

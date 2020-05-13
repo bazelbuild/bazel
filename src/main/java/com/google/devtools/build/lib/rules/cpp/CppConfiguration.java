@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -281,7 +281,7 @@ public final class CppConfiguration extends Fragment
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "cc_toolchain",
       doc = "The label of the target describing the C++ toolchain",
       defaultLabel = "//tools/cpp:crosstool",
@@ -370,9 +370,11 @@ public final class CppConfiguration extends Fragment
     return ImmutableList.copyOf(cppOptions.perFileLtoBackendOpts);
   }
 
-  /**
-   * Returns the custom malloc library label.
-   */
+  /** Returns the custom malloc library label. */
+  @Override
+  @StarlarkConfigurationField(
+      name = "custom_malloc",
+      doc = "The label specified in --custom_malloc")
   public Label customMalloc() {
     return cppOptions.customMalloc;
   }

@@ -76,7 +76,7 @@ java_library(
 java_library(
     name = "BazelPackageBuilderHelperForTesting",
     testonly = 0,
-    srcs = ["BazelPackageBuilderHelperForTesting.java"],
+    srcs = ["BazelPackageLoadingListenerForTesting.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

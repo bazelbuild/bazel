@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -236,7 +236,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         },
         selfCall = true,
         useStarlarkThread = true)
-    @SkylarkConstructor(objectType = JavaInfoApi.class, receiverNameForDoc = "JavaInfo")
+    @StarlarkConstructor(objectType = JavaInfoApi.class, receiverNameForDoc = "JavaInfo")
     JavaInfoApi<?> javaInfo(
         FileApi outputJarApi,
         Object compileJarApi,

@@ -442,7 +442,10 @@ public interface CommandLineArgsApi extends StarlarkValue {
                 "A format string with a single \"%s\". "
                     + "If the args are spilled to a params file then they are replaced "
                     + "with an argument consisting of this string formatted with "
-                    + "the path of the params file."),
+                    + "the path of the params file."
+                    + "<p>For example, if the args are spilled to a params file \"params.txt\", "
+                    + "then specifying \"--file=%s\" would cause the action command line to "
+                    + "contain \"--file=params.txt\"."),
         @Param(
             name = "use_always",
             type = Boolean.class,

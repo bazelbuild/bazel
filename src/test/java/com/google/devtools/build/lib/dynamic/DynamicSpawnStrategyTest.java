@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -228,11 +228,11 @@ public class DynamicSpawnStrategyTest {
    * @param localStrategy the strategy for local execution
    * @param remoteStrategy the strategy for remote execution
    * @return the constructed dynamic strategy
-   * @throws ExecutorInitException if creating the strategy with the given parameters fails
+   * @throws AbruptExitException if creating the strategy with the given parameters fails
    */
   private StrategyAndContext createSpawnStrategy(
       MockSpawnStrategy localStrategy, MockSpawnStrategy remoteStrategy)
-      throws ExecutorInitException {
+      throws AbruptExitException {
     return createSpawnStrategyWithExecutor(
         localStrategy, remoteStrategy, Executors.newCachedThreadPool());
   }
@@ -248,13 +248,13 @@ public class DynamicSpawnStrategyTest {
    * @param remoteStrategy the default strategy for remote execution
    * @param sandboxedStrategy the strategy to use when the mnemonic matches {@code testMnemonic}.
    * @return the constructed dynamic strategy
-   * @throws ExecutorInitException if creating the strategy with the given parameters fails
+   * @throws AbruptExitException if creating the strategy with the given parameters fails
    */
   private StrategyAndContext createSpawnStrategy(
       MockSpawnStrategy localStrategy,
       MockSpawnStrategy remoteStrategy,
       @Nullable MockSpawnStrategy sandboxedStrategy)
-      throws ExecutorInitException {
+      throws AbruptExitException {
     return createSpawnStrategyWithExecutor(
         localStrategy, remoteStrategy, sandboxedStrategy, Executors.newCachedThreadPool());
   }
@@ -266,13 +266,13 @@ public class DynamicSpawnStrategyTest {
    * @param remoteStrategy the strategy for remote execution
    * @param executorService the executor to pass to the dynamic strategy
    * @return the constructed dynamic strategy
-   * @throws ExecutorInitException if creating the strategy with the given parameters fails
+   * @throws AbruptExitException if creating the strategy with the given parameters fails
    */
   private StrategyAndContext createSpawnStrategyWithExecutor(
       MockSpawnStrategy localStrategy,
       MockSpawnStrategy remoteStrategy,
       ExecutorService executorService)
-      throws ExecutorInitException {
+      throws AbruptExitException {
     return createSpawnStrategyWithExecutor(localStrategy, remoteStrategy, null, executorService);
   }
 
@@ -288,14 +288,14 @@ public class DynamicSpawnStrategyTest {
    * @param sandboxedStrategy the strategy to use when the mnemonic matches {@code testMnemonic}.
    * @param executorService the executor to pass to the dynamic strategy
    * @return the constructed dynamic strategy
-   * @throws ExecutorInitException if creating the strategy with the given parameters fails
+   * @throws AbruptExitException if creating the strategy with the given parameters fails
    */
   private StrategyAndContext createSpawnStrategyWithExecutor(
       MockSpawnStrategy localStrategy,
       MockSpawnStrategy remoteStrategy,
       @Nullable MockSpawnStrategy sandboxedStrategy,
       ExecutorService executorService)
-      throws ExecutorInitException {
+      throws AbruptExitException {
     ImmutableList.Builder<Map.Entry<String, List<String>>> dynamicLocalStrategies =
         ImmutableList.<Map.Entry<String, List<String>>>builder()
             .add(Maps.immutableEntry("", ImmutableList.of("mock-local")));

@@ -17,8 +17,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
@@ -67,7 +67,9 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
               doc = "The target ApkInfo of the instrumentation test.")
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidInstrumentationInfoApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor(
+        objectType = AndroidInstrumentationInfoApi.class,
+        receiverNameForDoc = NAME)
     AndroidInstrumentationInfoApi<ApkT> createInfo(ApkT target) throws EvalException;
   }
 }

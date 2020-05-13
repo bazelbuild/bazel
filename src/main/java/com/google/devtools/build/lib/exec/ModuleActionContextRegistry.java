@@ -22,10 +22,13 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -125,7 +128,7 @@ public final class ModuleActionContextRegistry
         Class<T> identifyingType, T context, String... commandLineIdentifiers);
 
     /** Constructs the registry configured by this builder. */
-    ModuleActionContextRegistry build() throws ExecutorInitException;
+    ModuleActionContextRegistry build() throws AbruptExitException;
   }
 
   /**
@@ -172,7 +175,7 @@ public final class ModuleActionContextRegistry
 
     /** Constructs the registry configured by this builder. */
     @Override
-    public ModuleActionContextRegistry build() throws ExecutorInitException {
+    public ModuleActionContextRegistry build() throws AbruptExitException {
       HashSet<Class<?>> usedTypes = new HashSet<>();
       MutableClassToInstanceMap<ActionContext> contextToInstance =
           MutableClassToInstanceMap.create();
@@ -192,9 +195,14 @@ public final class ModuleActionContextRegistry
       Sets.SetView<Class<?>> unusedRestrictions =
           Sets.difference(typeToRestriction.keySet(), usedTypes);
       if (!unusedRestrictions.isEmpty()) {
-        throw new ExecutorInitException(
-            getMissingIdentifierErrorMessage(unusedRestrictions).toString(),
-            ExitCode.COMMAND_LINE_ERROR);
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(getMissingIdentifierErrorMessage(unusedRestrictions).toString())
+                    .setExecutionOptions(
+                        FailureDetails.ExecutionOptions.newBuilder()
+                            .setCode(Code.RESTRICTION_UNMATCHED_TO_ACTION_CONTEXT))
+                    .build()));
       }
 
       return new ModuleActionContextRegistry(ImmutableClassToInstanceMap.copyOf(contextToInstance));

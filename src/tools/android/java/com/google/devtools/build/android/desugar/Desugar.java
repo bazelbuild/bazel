@@ -50,12 +50,16 @@ import com.google.devtools.build.android.desugar.io.JarDigest;
 import com.google.devtools.build.android.desugar.io.OutputFileProvider;
 import com.google.devtools.build.android.desugar.io.ResourceBasedClassFiles;
 import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.DesugarClassAttribute;
+import com.google.devtools.build.android.desugar.langmodel.DesugarMethodAttribute;
 import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
 import com.google.devtools.build.android.desugar.nest.NestDesugaring;
 import com.google.devtools.build.android.desugar.nest.NestDigest;
+import com.google.devtools.build.android.desugar.preanalysis.InputPreAnalyzer;
 import com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesugaring;
 import com.google.devtools.build.android.desugar.typeannotation.LocalTypeAnnotationUse;
 import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchy;
@@ -100,8 +104,9 @@ public class Desugar {
       new ResourceBasedClassFiles();
   private static final String RUNTIME_LIB_PACKAGE =
       "com/google/devtools/build/android/desugar/runtime/";
-  private static final Attribute[] customAttributes = {new DesugarClassAttribute()};
-
+  private static final Attribute[] customAttributes = {
+    new DesugarClassAttribute(), new DesugarMethodAttribute()
+  };
   private final DesugarOptions options;
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
@@ -274,6 +279,20 @@ public class Desugar {
       InvocationSiteTransformationRecordBuilder callSiteTransCollector =
           InvocationSiteTransformationRecord.builder();
 
+      InputPreAnalyzer inputPreAnalyzer =
+          new InputPreAnalyzer(inputFiles.toInputFileStreams(), customAttributes);
+
+      inputPreAnalyzer.process();
+      ClassAttributeRecord classAttributeRecord = inputPreAnalyzer.getClassAttributeRecord();
+      ClassMemberRecord classMemberRecord = inputPreAnalyzer.getClassMemberRecord();
+
+      // Apply core library type name remapping to the digest instance produced by the nest
+      // analyzer, since the analysis-oriented nest analyzer visits core library classes without
+      // name remapping as those transformation-oriented visitors.
+      NestDigest nestDigest =
+          NestAnalyzer.digest(classAttributeRecord, classMemberRecord)
+              .acceptTypeMapper(rewriter.getPrefixer());
+
       desugarClassesInInput(
           inputFiles,
           outputFileProvider,
@@ -285,7 +304,9 @@ public class Desugar {
           interfaceCache,
           interfaceLambdaMethodCollector,
           callSiteTransCollector,
-          bootClassPathDigest);
+          bootClassPathDigest,
+          classAttributeRecord,
+          nestDigest);
 
       desugarAndWriteDumpedLambdaClassesToOutput(
           outputFileProvider,
@@ -298,7 +319,8 @@ public class Desugar {
           interfaceLambdaMethodCollector.build(),
           bridgeMethodReader,
           callSiteTransCollector,
-          bootClassPathDigest);
+          bootClassPathDigest,
+          classAttributeRecord);
 
       desugarAndWriteGeneratedClasses(
           outputFileProvider,
@@ -308,7 +330,8 @@ public class Desugar {
           bootclasspathReader,
           coreLibrarySupport,
           callSiteTransCollector,
-          bootClassPathDigest);
+          bootClassPathDigest,
+          classAttributeRecord);
 
       copyRuntimeClasses(outputFileProvider, coreLibrarySupport);
 
@@ -453,18 +476,13 @@ public class Desugar {
       ClassVsInterface interfaceCache,
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector,
       InvocationSiteTransformationRecordBuilder callSiteRecord,
-      BootClassPathDigest bootClassPathDigest)
+      BootClassPathDigest bootClassPathDigest,
+      ClassAttributeRecord classAttributeRecord,
+      NestDigest nestDigest)
       throws IOException {
 
-    ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents =
-        inputFiles.toInputFileStreams();
-    NestDigest nestDigest = NestAnalyzer.analyzeNests(inputFileContents);
-    // Apply core library type name remapping to the digest instance produced by the nest analyzer,
-    // since the analysis-oriented nest analyzer visits core library classes without name remapping
-    // as those transformation-oriented visitors.
-    nestDigest = nestDigest.acceptTypeMapper(rewriter.getPrefixer());
     for (FileContentProvider<? extends InputStream> inputFileProvider :
-        Iterables.concat(inputFileContents, nestDigest.getCompanionFileProviders())) {
+        Iterables.concat(inputFiles.toInputFileStreams(), nestDigest.getCompanionFileProviders())) {
       String inputFilename = inputFileProvider.getBinaryPathName();
       if ("module-info.class".equals(inputFilename)
           || (inputFilename.endsWith("/module-info.class")
@@ -500,12 +518,13 @@ public class Desugar {
                   reader,
                   nestDigest,
                   callSiteRecord,
-                  bootClassPathDigest);
+                  bootClassPathDigest,
+                  classAttributeRecord);
           if (writer == visitor) {
             // Just copy the input if there are no rewritings
             outputFileProvider.write(inputFilename, reader.b);
           } else {
-            reader.accept(visitor, customAttributes, 0);
+            reader.accept(visitor, customAttributes, ClassReader.EXPAND_FRAMES);
             String filename = writer.getClassName() + ".class";
             checkState(
                 (options.coreLibrary && coreLibrarySupport != null)
@@ -553,7 +572,8 @@ public class Desugar {
       ImmutableSet<String> interfaceLambdaMethods,
       @Nullable ClassReaderFactory bridgeMethodReader,
       InvocationSiteTransformationRecordBuilder callSiteTransCollector,
-      BootClassPathDigest bootClassPathDigest)
+      BootClassPathDigest bootClassPathDigest,
+      ClassAttributeRecord classAttributeRecord)
       throws IOException {
     checkState(
         !allowDefaultMethods || interfaceLambdaMethods.isEmpty(),
@@ -593,8 +613,9 @@ public class Desugar {
                 writer,
                 reader,
                 callSiteTransCollector,
-                bootClassPathDigest);
-        reader.accept(visitor, customAttributes, 0);
+                bootClassPathDigest,
+                classAttributeRecord);
+        reader.accept(visitor, customAttributes, ClassReader.EXPAND_FRAMES);
         checkState(
             (options.coreLibrary && coreLibrarySupport != null)
                 || rewriter
@@ -613,7 +634,8 @@ public class Desugar {
       ClassReaderFactory bootclasspathReader,
       @Nullable CoreLibrarySupport coreLibrarySupport,
       InvocationSiteTransformationRecordBuilder callSiteTransCollector,
-      BootClassPathDigest bootClassPathDigest)
+      BootClassPathDigest bootClassPathDigest,
+      ClassAttributeRecord classAttributeRecord)
       throws IOException {
     // Write out any classes we generated along the way
     if (coreLibrarySupport != null) {
@@ -637,7 +659,11 @@ public class Desugar {
         if (options.autoDesugarShadowedApiUse) {
           visitor =
               new ShadowedApiInvocationSite(
-                  visitor, callSiteTransCollector, bootClassPathDigest, typeHierarchy);
+                  visitor,
+                  callSiteTransCollector,
+                  bootClassPathDigest,
+                  classAttributeRecord,
+                  typeHierarchy);
         }
       }
 
@@ -706,7 +732,8 @@ public class Desugar {
       UnprefixingClassWriter writer,
       ClassReader input,
       InvocationSiteTransformationRecordBuilder callSiteRecord,
-      BootClassPathDigest bootClassPathDigest) {
+      BootClassPathDigest bootClassPathDigest,
+      ClassAttributeRecord classAttributeRecord) {
     ClassVisitor visitor = checkNotNull(writer);
 
     if (coreLibrarySupport != null) {
@@ -717,7 +744,7 @@ public class Desugar {
       if (options.autoDesugarShadowedApiUse) {
         visitor =
             new ShadowedApiInvocationSite(
-                visitor, callSiteRecord, bootClassPathDigest, typeHierarchy);
+                visitor, callSiteRecord, bootClassPathDigest, classAttributeRecord, typeHierarchy);
       }
     }
 
@@ -807,7 +834,8 @@ public class Desugar {
       ClassReader input,
       NestDigest nestDigest,
       InvocationSiteTransformationRecordBuilder callSiteRecord,
-      BootClassPathDigest bootClassPathDigest) {
+      BootClassPathDigest bootClassPathDigest,
+      ClassAttributeRecord classAttributeRecord) {
     ClassVisitor visitor = checkNotNull(writer);
 
 
@@ -819,7 +847,7 @@ public class Desugar {
       if (options.autoDesugarShadowedApiUse) {
         visitor =
             new ShadowedApiInvocationSite(
-                visitor, callSiteRecord, bootClassPathDigest, typeHierarchy);
+                visitor, callSiteRecord, bootClassPathDigest, classAttributeRecord, typeHierarchy);
       }
     }
 

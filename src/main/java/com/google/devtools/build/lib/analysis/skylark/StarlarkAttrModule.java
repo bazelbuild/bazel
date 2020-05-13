@@ -24,17 +24,17 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
@@ -131,14 +131,16 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         // We solve this problem by asking the StarlarkCallbackHelper for the parameter names used
         // in the function definition, which must be the names of attributes used by the callback.
         builder.value(
-            new SkylarkComputedDefaultTemplate(type, callback.getParameterNames(), callback));
+            new StarlarkComputedDefaultTemplate(type, callback.getParameterNames(), callback));
       } else if (defaultValue instanceof StarlarkLateBoundDefault) {
         builder.value((StarlarkLateBoundDefault) defaultValue); // unchecked cast
       } else {
         builder.defaultValue(
             defaultValue,
             new BuildType.LabelConversionContext(
-                (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
+                ((BazelModuleContext)
+                        Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+                    .label(),
                 BazelStarlarkContext.from(thread).getRepoMapping()),
             DEFAULT_ARG);
       }
@@ -287,7 +289,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
       Object obj = arguments.get(ASPECTS_ARG);
-      for (SkylarkAspect aspect : Sequence.cast(obj, SkylarkAspect.class, "aspects")) {
+      for (StarlarkAspect aspect : Sequence.cast(obj, StarlarkAspect.class, "aspects")) {
         aspect.attachToAttribute(builder);
       }
     }

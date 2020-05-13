@@ -264,6 +264,6 @@ public final class CleanCommand implements BlazeCommand {
       return BlazeCommandResult.shutdownOnSuccess();
     }
     System.gc();
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
   }
 }

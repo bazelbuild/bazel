@@ -38,8 +38,10 @@
 
 #include <libgen.h>
 #include <spawn.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -49,7 +51,6 @@
 #include <map>
 #include <memory>
 #include <sstream>
-#include <string>
 #include <utility>
 #include <vector>
 

@@ -21,14 +21,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -55,7 +55,7 @@ public class StarlarkDocumentationTest {
   @Test
   public void testSkylarkRuleClassBuiltInItemsAreDocumented() throws Exception {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    SkylarkModules.addSkylarkGlobalsToBuilder(env);
+    StarlarkModules.addStarlarkGlobalsToBuilder(env);
     checkSkylarkTopLevelEnvItemsAreDocumented(env.build());
   }
 
@@ -101,7 +101,7 @@ public class StarlarkDocumentationTest {
   // TODO(bazel-team): come up with better Starlark specific tests.
   @Test
   public void testDirectJavaMethodsAreGenerated() throws Exception {
-    assertThat(collect(SkylarkRuleContext.class)).isNotEmpty();
+    assertThat(collect(StarlarkRuleContext.class)).isNotEmpty();
   }
 
   /** MockClassA */
@@ -324,7 +324,7 @@ public class StarlarkDocumentationTest {
     }
 
     @SkylarkCallable(name = "makeMockClassA", selfCall = true, doc = "makeMockClassA")
-    @SkylarkConstructor(objectType = MockClassA.class, receiverNameForDoc = "MockClassA")
+    @StarlarkConstructor(objectType = MockClassA.class, receiverNameForDoc = "MockClassA")
     public MockClassA makeMockClassA() {
       return new MockClassA();
     }

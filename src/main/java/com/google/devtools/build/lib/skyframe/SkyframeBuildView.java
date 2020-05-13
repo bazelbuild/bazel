@@ -57,7 +57,9 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -488,7 +490,7 @@ public final class SkyframeBuildView {
       }
       // TODO(ulfjack): Don't throw here in the nokeep_going case, but report all known issues.
       if (!keepGoing) {
-        throw new ViewCreationFailedException(ex.getMessage());
+        throw new ViewCreationFailedException(ex);
       }
     }
 
@@ -561,7 +563,7 @@ public final class SkyframeBuildView {
       return true;
     }
 
-    if (!foundActionConflict) {
+    if (foundActionConflict) {
       // Example sequence:
       // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
       //     set, and record the fact that there were bad actions.
@@ -716,6 +718,15 @@ public final class SkyframeBuildView {
         ((ActionConflictException) cause).reportTo(eventHandler);
         // TODO(ulfjack): Report the action conflict.
         rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      } else if (cause instanceof NoSuchPackageException) {
+        // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
+        // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
+        BuildConfiguration configuration =
+            configurationLookupSupplier.get().get(label.getConfigurationKey());
+        ConfigurationId configId = configuration.getEventId().getConfiguration();
+        AnalysisFailedCause analysisFailedCause =
+            new AnalysisFailedCause(topLevelLabel, configId, cause.getMessage());
+        rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
       } else {
         // TODO(ulfjack): Report something!
         rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);

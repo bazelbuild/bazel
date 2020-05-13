@@ -611,7 +611,7 @@ public class AarImportTest extends BuildViewTestCase {
             getConfiguredTarget("//a:bar")
                 .get(JavaInfo.PROVIDER)
                 .getTransitiveExports()
-                .toCollection(Label.class))
+                .toList(Label.class))
         .containsExactly(
             Label.parseAbsolute("//a:foo", ImmutableMap.of()),
             Label.parseAbsolute("//java:baz", ImmutableMap.of()));
@@ -622,7 +622,7 @@ public class AarImportTest extends BuildViewTestCase {
     Collection<Artifact> compilationClasspath =
         JavaInfo.getProvider(JavaCompilationInfoProvider.class, getConfiguredTarget("//a:library"))
             .getCompilationClasspath()
-            .toCollection(Artifact.class);
+            .toList(Artifact.class);
 
     assertThat(
             compilationClasspath.stream()

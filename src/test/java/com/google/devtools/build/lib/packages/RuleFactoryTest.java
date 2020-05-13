@@ -61,9 +61,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Package.Builder pkgBuilder =
         packageFactory
             .newPackageBuilder(
-                PackageIdentifier.createInMainRepo("mypkg"),
-                "TESTING",
-                StarlarkSemantics.DEFAULT_SEMANTICS)
+                PackageIdentifier.createInMainRepo("mypkg"), "TESTING", StarlarkSemantics.DEFAULT)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
@@ -77,7 +75,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            StarlarkSemantics.DEFAULT_SEMANTICS,
+            StarlarkSemantics.DEFAULT,
             DUMMY_STACK,
             new AttributeContainer(ruleClass));
 
@@ -122,9 +120,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder =
         packageFactory.newExternalPackageBuilder(
-            RootedPath.toRootedPath(root, myPkgPath),
-            "TESTING",
-            StarlarkSemantics.DEFAULT_SEMANTICS);
+            RootedPath.toRootedPath(root, myPkgPath), "TESTING", StarlarkSemantics.DEFAULT);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
@@ -137,7 +133,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            StarlarkSemantics.DEFAULT_SEMANTICS,
+            StarlarkSemantics.DEFAULT,
             DUMMY_STACK,
             new AttributeContainer(ruleClass));
     assertThat(rule.containsErrors()).isFalse();
@@ -149,9 +145,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Package.Builder pkgBuilder =
         packageFactory
             .newPackageBuilder(
-                PackageIdentifier.createInMainRepo("mypkg"),
-                "TESTING",
-                StarlarkSemantics.DEFAULT_SEMANTICS)
+                PackageIdentifier.createInMainRepo("mypkg"), "TESTING", StarlarkSemantics.DEFAULT)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
@@ -168,7 +162,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    StarlarkSemantics.DEFAULT,
                     DUMMY_STACK,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
@@ -180,9 +174,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Package.Builder pkgBuilder =
         packageFactory
             .newPackageBuilder(
-                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-                "TESTING",
-                StarlarkSemantics.DEFAULT_SEMANTICS)
+                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "TESTING", StarlarkSemantics.DEFAULT)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
@@ -199,7 +191,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    StarlarkSemantics.DEFAULT,
                     DUMMY_STACK,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
@@ -224,9 +216,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Package.Builder pkgBuilder =
         packageFactory
             .newPackageBuilder(
-                PackageIdentifier.createInMainRepo("mypkg"),
-                "TESTING",
-                StarlarkSemantics.DEFAULT_SEMANTICS)
+                PackageIdentifier.createInMainRepo("mypkg"), "TESTING", StarlarkSemantics.DEFAULT)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
@@ -242,7 +232,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    StarlarkSemantics.DEFAULT,
                     DUMMY_STACK,
                     new AttributeContainer(ruleClass)));
     assertWithMessage(e.getMessage())
@@ -261,9 +251,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Package pkg =
         packageFactory
             .newPackageBuilder(
-                PackageIdentifier.createInMainRepo("mypkg"),
-                "TESTING",
-                StarlarkSemantics.DEFAULT_SEMANTICS)
+                PackageIdentifier.createInMainRepo("mypkg"), "TESTING", StarlarkSemantics.DEFAULT)
             .setFilename(RootedPath.toRootedPath(root, myPkgPath))
             .build();
 

@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
@@ -109,7 +108,6 @@ public final class ConfigurationResolver {
    * @param ctgValue the label and configuration of the source target
    * @param originalDeps the transition requests for each dep and each dependency kind
    * @param hostConfiguration the host configuration
-   * @param ruleClassProvider provider for determining the right configuration fragments for deps
    * @param defaultBuildOptions default build options to diff options against for optimization
    * @param configConditions {@link ConfigMatchingProvider} map for the rule
    * @return a mapping from each dependency kind in the source target to the {@link
@@ -122,7 +120,6 @@ public final class ConfigurationResolver {
       TargetAndConfiguration ctgValue,
       OrderedSetMultimap<DependencyKind, Dependency> originalDeps,
       BuildConfiguration hostConfiguration,
-      RuleClassProvider ruleClassProvider,
       BuildOptions defaultBuildOptions,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions)
       throws DependencyEvaluationException, InterruptedException {

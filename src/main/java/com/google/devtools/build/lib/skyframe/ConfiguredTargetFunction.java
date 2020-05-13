@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
@@ -309,13 +308,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               transitivePackagesForPackageRootResolution,
               transitiveRootCauses,
               defaultBuildOptions);
-      if (env.valuesMissing()) {
-        return null;
-      }
       if (!transitiveRootCauses.isEmpty()) {
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
                 "Analysis failed", configuration, transitiveRootCauses.build()));
+      }
+      if (env.valuesMissing()) {
+        return null;
       }
       Preconditions.checkNotNull(depValueMap);
 
@@ -333,7 +332,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   target.getPackage().getRepositoryMapping(),
                   unloadedContext.getValue(),
                   targetDescription,
-                  depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY)));
+                  depValueMap.get(DependencyKind.TOOLCHAIN_DEPENDENCY)));
         }
         toolchainContexts = contextsBuilder.build();
       }
@@ -485,11 +484,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             configuration.getFragmentsMap().keySet(),
             BuildOptions.diffForReconstruction(defaultBuildOptions, toolchainOptions));
 
-    Map<String, UnloadedToolchainContextKey> unloadedToolchainContextKeys = new HashMap<>();
+    Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
-    unloadedToolchainContextKeys.put(
+    toolchainContextKeys.put(
         targetUnloadedToolchainContext,
-        UnloadedToolchainContextKey.key()
+        ToolchainContextKey.key()
             .configurationKey(toolchainConfig)
             .requiredToolchainTypeLabels(requiredDefaultToolchains)
             .execConstraintLabels(defaultExecConstraintLabels)
@@ -497,9 +496,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .build());
     for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
       ExecGroup execGroup = group.getValue();
-      unloadedToolchainContextKeys.put(
+      toolchainContextKeys.put(
           group.getKey(),
-          UnloadedToolchainContextKey.key()
+          ToolchainContextKey.key()
               .configurationKey(toolchainConfig)
               .requiredToolchainTypeLabels(execGroup.getRequiredToolchains())
               .execConstraintLabels(execGroup.getExecutionPlatformConstraints())
@@ -508,14 +507,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     Map<SkyKey, ValueOrException<ToolchainException>> values =
-        env.getValuesOrThrow(unloadedToolchainContextKeys.values(), ToolchainException.class);
+        env.getValuesOrThrow(toolchainContextKeys.values(), ToolchainException.class);
 
     boolean valuesMissing = env.valuesMissing();
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
         valuesMissing ? null : new ToolchainCollection.Builder<>();
-    for (Map.Entry<String, UnloadedToolchainContextKey> unloadedToolchainContextKey :
-        unloadedToolchainContextKeys.entrySet()) {
+    for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
+        toolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =
           (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();
       if (!valuesMissing) {
@@ -614,7 +613,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
     }
-
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
     depValueNames =
@@ -623,7 +621,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             ctgValue,
             depValueNames,
             hostConfiguration,
-            ruleClassProvider,
             defaultBuildOptions,
             configConditions);
 

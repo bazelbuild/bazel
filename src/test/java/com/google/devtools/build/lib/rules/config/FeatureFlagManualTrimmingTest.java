@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.Map;
 import org.junit.Before;
@@ -44,7 +44,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for manual trimming of feature flags with the transitive_configs attribute. */
 @RunWith(JUnit4.class)
-public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
+public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
 
   @Before
   public void enableManualTrimming() throws Exception {

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import javax.annotation.Nullable;
@@ -26,10 +27,10 @@ public class RuleFormatter {
   // only ComputedDefault attributes we expect to see for Starlark-defined rule classes are
   // those declared in those rule classes' natively defined base rule classes, which are:
   //
-  // 1. The "timeout" attribute in SkylarkRuleClassFunctions.testBaseRule
-  // 2. The "deprecation" attribute in BaseRuleClasses.commonCoreAndSkylarkAttributes
-  // 3. The "testonly" attribute in BaseRuleClasses.commonCoreAndSkylarkAttributes
-  private static final ImmutableSet<String> SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES =
+  // 1. The "timeout" attribute in StarlarkRuleClassFunctions.testBaseRule
+  // 2. The "deprecation" attribute in BaseRuleClasses.commonCoreAndStarlarkAttributes
+  // 3. The "testonly" attribute in BaseRuleClasses.commonCoreAndStarlarkAttributes
+  private static final ImmutableSet<String> STARLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES =
       ImmutableSet.of("timeout", "deprecation", "testonly");
 
   public static Build.Rule.Builder serializeRule(Rule rule) {
@@ -39,18 +40,22 @@ public class RuleFormatter {
     builder.setPublicByDefault(rule.getRuleClassObject().isPublicByDefault());
 
     RawAttributeMapper rawAttributeMapper = RawAttributeMapper.of(rule);
-    boolean isSkylark = rule.getRuleClassObject().isStarlark();
+    boolean isStarlark = rule.getRuleClassObject().isStarlark();
 
-    if (isSkylark) {
+    if (isStarlark) {
       builder.setSkylarkEnvironmentHashCode(
-          Preconditions.checkNotNull(
-              rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode(), rule));
+          // hexify
+          BaseEncoding.base16()
+              .lowerCase()
+              .encode(
+                  Preconditions.checkNotNull(
+                      rule.getRuleClassObject().getRuleDefinitionEnvironmentDigest(), rule)));
     }
     for (Attribute attr : rule.getAttributes()) {
       Object rawAttributeValue = rawAttributeMapper.getRawAttributeValue(rule, attr);
       boolean isExplicit = rule.isAttributeValueExplicitlySpecified(attr);
 
-      if (!isSkylark && !isExplicit) {
+      if (!isStarlark && !isExplicit) {
         // If the rule class is native (i.e. not Starlark-defined), then we can skip serialization
         // of implicit attribute values. The native rule class can provide the same default value
         // for the attribute after deserialization.
@@ -61,11 +66,11 @@ public class RuleFormatter {
       if (isExplicit) {
         valueToSerialize = rawAttributeValue;
       } else if (rawAttributeValue instanceof ComputedDefault) {
-        // If the rule class is Starlark-defined (i.e. rule.getRuleClassObject().isSkylark() is
+        // If the rule class is Starlark-defined (i.e. rule.getRuleClassObject().isStarlark() is
         // true), and the attribute has a ComputedDefault value, then we must serialize what it
         // evaluates to. The Starlark-defined ComputedDefault function won't be available after
         // deserialization due to Starlark's non-serializability.
-        valueToSerialize = evaluateSkylarkComputedDefault(rawAttributeMapper, attr);
+        valueToSerialize = evaluateStarlarkComputedDefault(rawAttributeMapper, attr);
         if (valueToSerialize == null) {
           continue;
         }
@@ -93,7 +98,7 @@ public class RuleFormatter {
    * <p>We can't serialize ComputedDefault attributes defined in Starlark, because those can depend
    * on other attributes which are configurable.
    *
-   * <p>For a few attributes ({@link #SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES}), we know for
+   * <p>For a few attributes ({@link #STARLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES}), we know for
    * certain that they don't have dependencies on other attributes which are configurable, so they
    * can be evaluated here without loss of fidelity.
    *
@@ -105,9 +110,9 @@ public class RuleFormatter {
    *     otherwise.
    */
   @Nullable
-  private static Object evaluateSkylarkComputedDefault(
+  private static Object evaluateStarlarkComputedDefault(
       RawAttributeMapper rawAttributeMapper, Attribute attr) {
-    if (SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES.contains(attr.getName())) {
+    if (STARLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES.contains(attr.getName())) {
       return rawAttributeMapper.get(attr.getName(), attr.getType());
     }
     return null;

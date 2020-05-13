@@ -486,8 +486,8 @@ public final class EvalUtils {
         return compare(x, y) >= 0;
 
       case IN:
-        if (y instanceof SkylarkQueryable) {
-          return ((SkylarkQueryable) y).containsKey(semantics, x);
+        if (y instanceof StarlarkQueryable) {
+          return ((StarlarkQueryable) y).containsKey(semantics, x);
         } else if (y instanceof String) {
           if (!(x instanceof String)) {
             throw Starlark.errorf(
@@ -580,8 +580,8 @@ public final class EvalUtils {
    */
   static Object index(Mutability mu, StarlarkSemantics semantics, Object object, Object key)
       throws EvalException {
-    if (object instanceof SkylarkIndexable) {
-      Object result = ((SkylarkIndexable) object).getIndex(semantics, key);
+    if (object instanceof StarlarkIndexable) {
+      Object result = ((StarlarkIndexable) object).getIndex(semantics, key);
       // TODO(bazel-team): We shouldn't have this fromJava call here. If it's needed at all,
       // it should go in the implementations of SkylarkIndexable#getIndex that produce non-Starlark
       // values.

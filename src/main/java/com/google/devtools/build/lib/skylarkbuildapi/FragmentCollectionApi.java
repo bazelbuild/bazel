@@ -24,12 +24,11 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     name = "fragments",
     category = StarlarkDocumentationCategory.BUILTIN,
     doc =
-        "Possible fields are "
-            + "<a href=\"android.html\">android</a>, <a href=\"apple.html\">apple</a>, "
-            + "<a href=\"cpp.html\">cpp</a>, <a href=\"java.html\">java</a>, "
-            + "<a href=\"jvm.html\">jvm</a>, and <a href=\"objc.html\">objc</a>. "
-            + "Access a specific fragment by its field name "
-            + "ex:</p><code>ctx.fragments.apple</code></p>"
-            + "Note that rules have to declare their required fragments in order to access them "
-            + "(see <a href=\"../rules.md#fragments\">here</a>).")
+        "A collection of configuration fragments available in the current rule implementation "
+            + "context. Access a specific fragment by its field name. For example, "
+            + "<code>ctx.fragments.java</code> "
+            + "<p>Only configuration fragments which are declared in the rule definition "
+            + "may be accessed in this collection.</p>"
+            + "<p>See <a href=\"../rules.DOC_EXT#configuration-fragments\">rules documentation</a> "
+            + "for details.")
 public interface FragmentCollectionApi extends ClassObject, StarlarkValue {}

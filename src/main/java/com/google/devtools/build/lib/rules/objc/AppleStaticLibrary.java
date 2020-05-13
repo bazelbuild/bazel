@@ -76,7 +76,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisitesByConfiguration(
                 AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
                 TransitionMode.SPLIT,
-                ObjcProvider.SKYLARK_CONSTRUCTOR));
+                ObjcProvider.STARLARK_CONSTRUCTOR));
 
     ImmutableListMultimap<String, CcInfo> cpuToCcAvoidDepsMap =
         MultiArchBinarySupport.transformMap(
@@ -197,7 +197,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     if (appleConfiguration.shouldLinkingRulesPropagateObjc()) {
       targetBuilder.addNativeDeclaredProvider(objcProvider);
-      targetBuilder.addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider);
+      targetBuilder.addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider);
     }
 
     targetBuilder

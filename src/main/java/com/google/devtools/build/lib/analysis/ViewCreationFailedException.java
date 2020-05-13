@@ -28,4 +28,8 @@ public class ViewCreationFailedException extends Exception {
   public ViewCreationFailedException(String message, Throwable cause) {
     super(message + ": " + cause.getMessage(), cause);
   }
+
+  public ViewCreationFailedException(Throwable cause) {
+    super(cause);
+  }
 }

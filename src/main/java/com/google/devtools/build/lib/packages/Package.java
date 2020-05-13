@@ -800,22 +800,6 @@ public class Package {
        * during package loading. Called by {@link PackageFactory}.
        */
       Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix);
-
-      /**
-       * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} has
-       * successfully loaded the given {@link Package}.
-       *
-       * @param pkg the loaded {@link Package}
-       * @param starlarkSemantics are the semantics used to load the package
-       * @param loadTimeNanos the wall time, in ns, that it took to load the package. More
-       *     precisely, this is the wall time of the call to {@link
-       *     PackageFactory#createPackageFromAst}. Notably, this does not include the time to read
-       *     and parse the package's BUILD file, nor the time to read, parse, or evaluate any of the
-       *     transitively loaded .bzl files, and it includes time the OS thread is runnable but not
-       *     running.
-       */
-      void onLoadingCompleteAndSuccessful(
-          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
     }
 
     /** {@link Helper} that simply calls the {@link Package} constructor. */
@@ -829,10 +813,6 @@ public class Package {
       public Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix) {
         return new Package(packageId, runfilesPrefix);
       }
-
-      @Override
-      public void onLoadingCompleteAndSuccessful(
-          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {}
     }
 
     /**
@@ -1203,6 +1183,11 @@ public class Package {
       this.defaultLicense = license;
     }
 
+    /**
+     * Returns the <b>current</b> default {@link License}. This should be used with caution - its
+     * value may change during package loading, so it might not reflect the package's final default
+     * value.
+     */
     License getDefaultLicense() {
       return defaultLicense;
     }
@@ -1215,10 +1200,6 @@ public class Package {
      */
     void setDefaultDistribs(Set<DistributionType> dists) {
       this.defaultDistributionSet = dists;
-    }
-
-    Set<DistributionType> getDefaultDistribs() {
-      return defaultDistributionSet;
     }
 
     /**

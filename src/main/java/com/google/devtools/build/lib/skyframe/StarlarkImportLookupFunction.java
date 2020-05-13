@@ -36,21 +36,23 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.SkylarkExportable;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -61,6 +63,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,18 +71,20 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * A Skyframe function to look up and import a single Starlark extension.
+ * A Skyframe function to look up and load a single .bzl module.
  *
- * <p>Given a {@link Label} referencing a Starlark file, attempts to locate the file and load it.
- * The Label must be absolute, and must not reference the special {@code external} package. If
- * loading is successful, returns a {@link StarlarkImportLookupValue} that encapsulates the loaded
- * {@link Extension} and {@link StarlarkFileDependency} information. If loading is unsuccessful,
- * throws a {@link StarlarkImportLookupFunctionException} that encapsulates the cause of the
- * failure.
+ * <p>Given a {@link Label} referencing a .bzl file, attempts to locate the file and load it. The
+ * Label must be absolute, and must not reference the special {@code external} package. If loading
+ * is successful, returns a {@link StarlarkImportLookupValue} that encapsulates the loaded {@link
+ * Module} and its transitive digest and {@link StarlarkFileDependency} information. If loading is
+ * unsuccessful, throws a {@link StarlarkImportLookupFunctionException} that encapsulates the cause
+ * of the failure.
  */
 public class StarlarkImportLookupFunction implements SkyFunction {
 
+  // Creates the BazelStarlarkContext and populates the predeclared .bzl symbols.
   private final RuleClassProvider ruleClassProvider;
+  // Only used to retrieve the "native" object.
   private final PackageFactory packageFactory;
 
   private final ASTFileLookupValueManager astFileLookupValueManager;
@@ -142,11 +147,11 @@ public class StarlarkImportLookupFunction implements SkyFunction {
         ruleClassProvider,
         packageFactory,
         // When we are inlining StarlarkImportLookupValue nodes, then we want to have explicit
-        // ASTFileLookupValue nodes, since now (1) in the comment in
-        // #createWithInlineASTFileLookupValues doesn't hold. This way we read and parse each needed
-        // bzl file at most once total globally, rather than once per need (in the worst-case of a
-        // StarlarkImportLookupValue inlining cache miss). This is important in the situation where
-        // a bzl file is loaded by a lot of other bzl files or BUILD files.
+        // ASTFileLookupValue nodes, since now (1) in the comment above doesn't hold. This way we
+        // read and parse each needed bzl file at most once total globally, rather than once per
+        // need (in the worst-case of a StarlarkImportLookupValue inlining cache miss). This is
+        // important in the situation where a bzl file is loaded by a lot of other bzl files or
+        // BUILD files.
         RegularSkyframeASTFileLookupValueManager.INSTANCE,
         new SelfInliningManager(starlarkImportLookupValueCacheSize));
   }
@@ -237,6 +242,9 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     CachedStarlarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder =
         selfInliningManager.cachedStarlarkImportLookupValueAndDepsBuilderFactory
             .newCachedStarlarkImportLookupValueAndDepsBuilder();
+    // Use an instrumented Skyframe env to capture Skyframe deps in the
+    // CachedStarlarkImportLookupValueAndDeps. This is transitive but doesn't include deps
+    // underneath recursively loaded .bzls (the recursion uses the unwrapped original env).
     Preconditions.checkState(
         !(env instanceof RecordingSkyFunctionEnvironment),
         "Found nested RecordingSkyFunctionEnvironment but it should have been stripped: %s",
@@ -289,7 +297,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
                   InconsistentFilesystemException.class);
     } catch (BuildFileNotFoundException e) {
       throw StarlarkImportFailedException.errorReadingFile(
-          fileLabel.toPathFragment(), new ErrorReadingSkylarkExtensionException(e));
+          fileLabel.toPathFragment(), new ErrorReadingStarlarkExtensionException(e));
     }
     if (containingPackageLookupValue == null) {
       return null;
@@ -352,7 +360,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     ASTFileLookupValue astLookupValue;
     try {
       astLookupValue = astFileLookupValueManager.getASTFileLookupValue(fileLabel, env);
-    } catch (ErrorReadingSkylarkExtensionException e) {
+    } catch (ErrorReadingStarlarkExtensionException e) {
       throw StarlarkImportFailedException.errorReadingFile(filePath, e);
     }
     if (astLookupValue == null) {
@@ -379,6 +387,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       throw e;
     }
     if (result != null) {
+      // Result is final (no Skyframe restart), so no further need for the AST value.
       astFileLookupValueManager.doneWithASTFileLookupValue(fileLabel);
     }
     return result;
@@ -397,8 +406,8 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       @Nullable InliningState inliningState)
       throws InconsistentFilesystemException, StarlarkImportFailedException, InterruptedException {
     if (!astLookupValue.lookupSuccessful()) {
-      // Starlark import files have to exist.
-      throw new StarlarkImportFailedException(astLookupValue.getErrorMsg());
+      // Starlark import files must exist.
+      throw new StarlarkImportFailedException(astLookupValue.getError());
     }
     StarlarkFile file = astLookupValue.getAST();
     if (!file.ok()) {
@@ -440,7 +449,12 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     }
 
     // Process the loaded imports.
-    Map<String, Extension> extensionsForImports = Maps.newHashMapWithExpectedSize(loadMap.size());
+    //
+    // Compute a digest of the file itself plus the transitive hashes of the modules it directly
+    // loads. Loop iteration order matches the source order of load statements.
+    Fingerprint fp = new Fingerprint();
+    fp.addBytes(astLookupValue.getDigest());
+    Map<String, Module> loadedModules = Maps.newHashMapWithExpectedSize(loadMap.size());
     ImmutableList.Builder<StarlarkFileDependency> fileDependencies =
         ImmutableList.builderWithExpectedSize(loadMap.size());
     for (Map.Entry<String, Label> importEntry : loadMap.entrySet()) {
@@ -453,26 +467,30 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       } else {
         keyForLabel = StarlarkImportLookupValue.key(importLabel);
       }
-      StarlarkImportLookupValue importLookupValue =
-          (StarlarkImportLookupValue) starlarkImportMap.get(keyForLabel);
-      extensionsForImports.put(importString, importLookupValue.getEnvironmentExtension());
-      fileDependencies.add(importLookupValue.getDependency());
+      StarlarkImportLookupValue v = (StarlarkImportLookupValue) starlarkImportMap.get(keyForLabel);
+      loadedModules.put(importString, v.getModule());
+      fileDependencies.add(v.getDependency());
+      fp.addBytes(v.getTransitiveDigest());
     }
+    byte[] transitiveDigest = fp.digestAndReset();
 
-    // #createExtension does not request values from the Environment. It may post events to the
+    // executeModule does not request values from the Environment. It may post events to the
     // Environment, but events do not matter when caching StarlarkImportLookupValues.
-    Extension extension =
-        createExtension(
+    Module module =
+        executeModule(
             file,
             fileLabel,
-            extensionsForImports,
+            transitiveDigest,
+            loadedModules,
             starlarkSemantics,
             env,
             inWorkspace,
             repoMapping);
     StarlarkImportLookupValue result =
         new StarlarkImportLookupValue(
-            extension, new StarlarkFileDependency(fileLabel, fileDependencies.build()));
+            module,
+            transitiveDigest,
+            new StarlarkFileDependency(fileLabel, fileDependencies.build()));
     return result;
   }
 
@@ -514,7 +532,8 @@ public class StarlarkImportLookupFunction implements SkyFunction {
   /**
    * Returns a mapping from each load string in the BUILD or .bzl file to the Label it resolves to.
    * Labels are resolved relative to {@code base}, the file's package. If any load statement is
-   * malformed, getLoadMap reports one or more errors to the handler and returns null.
+   * malformed, getLoadMap reports one or more errors to the handler and returns null. Iteration
+   * order matches the source.
    */
   @Nullable
   static Map<String, Label> getLoadMap(
@@ -529,7 +548,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     Label buildLabel = getBUILDLabel(base);
 
     boolean ok = true;
-    Map<String, Label> loadMap = Maps.newHashMap();
+    Map<String, Label> loadMap = Maps.newLinkedHashMap();
     for (Statement stmt : file.getStatements()) {
       if (stmt instanceof LoadStatement) {
         LoadStatement load = (LoadStatement) stmt;
@@ -579,7 +598,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
         Maps.newHashMapWithExpectedSize(importLookupKeys.size());
     Map<SkyKey, ValueOrException<StarlarkImportFailedException>> values =
         env.getValuesOrThrow(importLookupKeys, StarlarkImportFailedException.class);
-    // NOTE: Iterating over imports in the order listed in the file.
+    // Uses same order as load()s in the file. Order matters since we report the first error.
     for (SkyKey key : importLookupKeys) {
       try {
         starlarkImportMap.put(key, values.get(key).get());
@@ -647,45 +666,50 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     return valuesMissing ? null : starlarkImportMap;
   }
 
-  /** Creates the Extension to be imported. */
-  private Extension createExtension(
+  /** Executes the .bzl file defining the module to be imported. */
+  private Module executeModule(
       StarlarkFile file,
-      Label extensionLabel,
-      Map<String, Extension> importMap,
+      Label moduleLabel,
+      byte[] transitiveDigest,
+      Map<String, Module> loadedModules,
       StarlarkSemantics starlarkSemantics,
       Environment env,
       boolean inWorkspace,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws StarlarkImportFailedException, InterruptedException {
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    // Any change to an input file may affect program behavior,
-    // even if only by changing line numbers in error messages.
-    PathFragment extensionFile = extensionLabel.toPathFragment();
-    try (Mutability mutability = Mutability.create("importing", extensionFile)) {
+    // .bzl predeclared environment
+    Map<String, Object> predeclared = new HashMap<>(ruleClassProvider.getEnvironment());
+    predeclared.put("native", packageFactory.getNativeModule(inWorkspace));
+
+    try (Mutability mu = Mutability.create("importing", moduleLabel)) {
       StarlarkThread thread =
-          ruleClassProvider.createRuleClassStarlarkThread(
-              extensionLabel,
-              mutability,
-              starlarkSemantics,
-              Event.makeDebugPrintHandler(eventHandler),
-              file.getContentHashCode(),
-              importMap,
-              packageFactory.getNativeModule(inWorkspace),
-              repositoryMapping);
-      execAndExport(file, extensionLabel, eventHandler, thread);
+          StarlarkThread.builder(mu)
+              .setGlobals(
+                  Module.createForBuiltins(predeclared)
+                      .withClientData(BazelModuleContext.create(moduleLabel, transitiveDigest)))
+              .setSemantics(starlarkSemantics)
+              .build();
+      thread.setLoader(loadedModules::get);
+      StoredEventHandler eventHandler = new StoredEventHandler();
+      thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
+      ruleClassProvider.setStarlarkThreadContext(thread, moduleLabel, repositoryMapping);
+      Module module = thread.getGlobals();
+      execAndExport(file, moduleLabel, eventHandler, thread);
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
       for (Postable post : eventHandler.getPosts()) {
         env.getListener().post(post);
       }
       if (eventHandler.hasErrors()) {
-        throw StarlarkImportFailedException.errors(extensionFile);
+        throw StarlarkImportFailedException.errors(moduleLabel.toPathFragment());
       }
-      return new Extension(thread);
+      return module;
     }
   }
 
   // Precondition: file is validated and error-free.
+  // Precondition: thread has a valid transitiveDigest.
+  // TODO(adonovan): executeModule would make a better public API than this function.
   public static void execAndExport(
       StarlarkFile file, Label extensionLabel, EventHandler handler, StarlarkThread thread)
       throws InterruptedException {
@@ -695,8 +719,8 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     // TODO(adonovan): change the semantics; see b/65374671.
     thread.setPostAssignHook(
         (name, value) -> {
-          if (value instanceof SkylarkExportable) {
-            SkylarkExportable exp = (SkylarkExportable) value;
+          if (value instanceof StarlarkExportable) {
+            StarlarkExportable exp = (StarlarkExportable) value;
             if (!exp.isExported()) {
               try {
                 exp.export(extensionLabel, name);
@@ -740,7 +764,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     }
 
     static StarlarkImportFailedException errorReadingFile(
-        PathFragment file, ErrorReadingSkylarkExtensionException cause) {
+        PathFragment file, ErrorReadingStarlarkExtensionException cause) {
       return new StarlarkImportFailedException(
           String.format(
               "Encountered error while reading extension file '%s': %s", file, cause.getMessage()),
@@ -783,7 +807,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     @Nullable
     ASTFileLookupValue getASTFileLookupValue(Label fileLabel, Environment env)
         throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingSkylarkExtensionException;
+            ErrorReadingStarlarkExtensionException;
 
     void doneWithASTFileLookupValue(Label fileLabel);
   }
@@ -797,11 +821,11 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     @Override
     public ASTFileLookupValue getASTFileLookupValue(Label fileLabel, Environment env)
         throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingSkylarkExtensionException {
+            ErrorReadingStarlarkExtensionException {
       return (ASTFileLookupValue)
           env.getValueOrThrow(
               ASTFileLookupValue.key(fileLabel),
-              ErrorReadingSkylarkExtensionException.class,
+              ErrorReadingStarlarkExtensionException.class,
               InconsistentFilesystemException.class);
     }
 
@@ -813,6 +837,10 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       implements ASTFileLookupValueManager {
     private final RuleClassProvider ruleClassProvider;
     private final DigestHashFunction digestHashFunction;
+    // We keep a cache of ASTFileLookupValues that have been computed but whose corresponding
+    // StarlarkImportLookupValue has not yet completed. This avoids repeating the ASTFileLookupValue
+    // work in case of Skyframe restarts. (If we weren't inlining, Skyframe would cache this for
+    // us.)
     private final Cache<Label, ASTFileLookupValue> astFileLookupValueCache;
 
     private InliningAndCachingASTFileLookupValueManager(
@@ -828,7 +856,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     @Override
     public ASTFileLookupValue getASTFileLookupValue(Label fileLabel, Environment env)
         throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingSkylarkExtensionException {
+            ErrorReadingStarlarkExtensionException {
       ASTFileLookupValue value = astFileLookupValueCache.getIfPresent(fileLabel);
       if (value == null) {
         value =

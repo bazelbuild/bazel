@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -154,7 +154,7 @@ public final class ConfiguredTargetFactory {
       Label label,
       BuildConfiguration config) {
     for (ConfiguredTargetAndData prerequisite :
-        prerequisiteMap.get(DependencyResolver.VISIBILITY_DEPENDENCY)) {
+        prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY)) {
       if (prerequisite.getTarget().getLabel().equals(label)
           && Objects.equals(prerequisite.getConfiguration(), config)) {
         return prerequisite.getConfiguredTarget();
@@ -209,7 +209,7 @@ public final class ConfiguredTargetFactory {
               analysisEnvironment,
               target,
               config,
-              prerequisiteMap.get(DependencyResolver.OUTPUT_FILE_RULE_DEPENDENCY),
+              prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
               visibility);
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
@@ -232,7 +232,7 @@ public final class ConfiguredTargetFactory {
               analysisEnvironment,
               target,
               config,
-              prerequisiteMap.get(DependencyResolver.OUTPUT_FILE_RULE_DEPENDENCY),
+              prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
               visibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
@@ -248,7 +248,7 @@ public final class ConfiguredTargetFactory {
               analysisEnvironment,
               target,
               config,
-              prerequisiteMap.get(DependencyResolver.VISIBILITY_DEPENDENCY),
+              prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY),
               visibility);
       return new PackageGroupConfiguredTarget(targetContext, packageGroup);
     } else if (target instanceof EnvironmentGroup) {
@@ -465,7 +465,7 @@ public final class ConfiguredTargetFactory {
       if (rule.getRuleClassObject().isStarlark()) {
         // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
         ConfiguredTarget target =
-            SkylarkRuleConfiguredTargetUtil.buildRule(
+            StarlarkRuleConfiguredTargetUtil.buildRule(
                 ruleContext,
                 rule.getRuleClassObject().getAdvertisedProviders(),
                 rule.getRuleClassObject().getConfiguredTargetFunction(),
@@ -576,7 +576,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> map, Target target) {
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
     for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : map.entries()) {
-      if (entry.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {
+      if (entry.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {
         continue;
       }
       Attribute attribute = entry.getKey().getAttribute();
@@ -707,7 +707,7 @@ public final class ConfiguredTargetFactory {
       }
     }
 
-    for (StarlarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getStarlarkProviders()) {
       if (configuredAspect.get(providerId) == null) {
         eventHandler.handle(
             Event.error(

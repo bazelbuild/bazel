@@ -123,7 +123,7 @@ public class GrpcServerTest {
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
             argsReceived.set(args);
-            return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+            return BlazeCommandResult.success();
           }
         };
     createServer(dispatcher);
@@ -212,7 +212,7 @@ public class GrpcServerTest {
             } catch (IOException e) {
               throw new IllegalStateException(e);
             }
-            return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+            return BlazeCommandResult.success();
           }
         };
     createServer(dispatcher);

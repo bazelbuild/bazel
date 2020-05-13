@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -90,6 +91,7 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
@@ -1295,8 +1297,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .setAbruptShutdownHandler(abruptShutdownHandler)
             .setEventBusExceptionHandler(subscriberExceptionHandler);
 
-    if (System.getenv("TEST_TMPDIR") != null
-        && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
+    if (TestType.isInTest() && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
       LoggingUtil.installRemoteLogger(getTestCrashLogger());
     }
 
@@ -1516,8 +1517,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
-        Package.Builder.Helper candidateHelper =
-            module.getPackageBuilderHelper(ruleClassProvider, fileSystem);
+        Package.Builder.Helper candidateHelper = module.getPackageBuilderHelper();
         if (candidateHelper != null) {
           Preconditions.checkState(
               packageBuilderHelper == null,
@@ -1535,7 +1535,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
               packageBuilderHelper,
-              getPackageValidator(blazeModules));
+              getPackageValidator(blazeModules),
+              getPackageLoadingListener(
+                  blazeModules, packageBuilderHelper, ruleClassProvider, fileSystem));
 
       ProjectFile.Provider projectFileProvider = null;
       for (BlazeModule module : blazeModules) {
@@ -1659,5 +1661,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           packageValidators.size() <= 1, "more than one module defined a PackageValidator");
       return Iterables.getFirst(packageValidators, PackageValidator.NOOP_VALIDATOR);
     }
+  }
+
+  private static PackageLoadingListener getPackageLoadingListener(
+      List<BlazeModule> blazeModules,
+      Package.Builder.Helper packageBuilderHelper,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      FileSystem fs) {
+    ImmutableList<PackageLoadingListener> listeners =
+        blazeModules.stream()
+            .map(
+                module ->
+                    module.getPackageLoadingListener(packageBuilderHelper, ruleClassProvider, fs))
+            .filter(validator -> validator != null)
+            .collect(toImmutableList());
+    return PackageLoadingListener.create(listeners);
   }
 }

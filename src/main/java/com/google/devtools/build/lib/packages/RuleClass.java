@@ -44,8 +44,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -678,7 +678,7 @@ public class RuleClass {
     /** This field and the next are null iff the rule is native. */
     @Nullable private Label ruleDefinitionEnvironmentLabel;
 
-    @Nullable private String ruleDefinitionEnvironmentHashCode = null;
+    @Nullable private byte[] ruleDefinitionEnvironmentDigest = null;
     private ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
 
@@ -819,7 +819,7 @@ public class RuleClass {
         Preconditions.checkState(externalBindingsFunction == NO_EXTERNAL_BINDINGS);
       }
       if (type == RuleClassType.PLACEHOLDER) {
-        Preconditions.checkNotNull(ruleDefinitionEnvironmentHashCode, this.name);
+        Preconditions.checkNotNull(ruleDefinitionEnvironmentDigest, this.name);
       }
 
       if (buildSetting != null) {
@@ -865,7 +865,7 @@ public class RuleClass {
           externalBindingsFunction,
           optionReferenceFunction,
           ruleDefinitionEnvironmentLabel,
-          ruleDefinitionEnvironmentHashCode,
+          ruleDefinitionEnvironmentDigest,
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
           thirdPartyLicenseExistencePolicy,
@@ -1147,7 +1147,7 @@ public class RuleClass {
 
     public Builder advertiseStarlarkProvider(StarlarkProviderIdentifier... starlarkProviders) {
       for (StarlarkProviderIdentifier starlarkProviderIdentifier : starlarkProviders) {
-        advertisedProviders.addSkylark(starlarkProviderIdentifier);
+        advertisedProviders.addStarlark(starlarkProviderIdentifier);
       }
       return this;
     }
@@ -1251,10 +1251,12 @@ public class RuleClass {
       return this;
     }
 
-    /** Sets the rule definition environment label and hash code. Meant for Starlark usage. */
-    public Builder setRuleDefinitionEnvironmentLabelAndHashCode(Label label, String hashCode) {
+    /**
+     * Sets the rule definition environment label and transitive digest. Meant for Starlark usage.
+     */
+    public Builder setRuleDefinitionEnvironmentLabelAndDigest(Label label, byte[] digest) {
       this.ruleDefinitionEnvironmentLabel = Preconditions.checkNotNull(label, this.name);
-      this.ruleDefinitionEnvironmentHashCode = Preconditions.checkNotNull(hashCode, this.name);
+      this.ruleDefinitionEnvironmentDigest = Preconditions.checkNotNull(digest, this.name);
       return this;
     }
 
@@ -1583,7 +1585,7 @@ public class RuleClass {
    */
   @Nullable private final Label ruleDefinitionEnvironmentLabel;
 
-  @Nullable private final String ruleDefinitionEnvironmentHashCode;
+  @Nullable private final byte[] ruleDefinitionEnvironmentDigest;
   private final OutputFile.Kind outputFileKind;
 
   /**
@@ -1652,7 +1654,7 @@ public class RuleClass {
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       Function<? super Rule, ? extends Set<String>> optionReferenceFunction,
       @Nullable Label ruleDefinitionEnvironmentLabel,
-      String ruleDefinitionEnvironmentHashCode,
+      @Nullable byte[] ruleDefinitionEnvironmentDigest,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
@@ -1683,7 +1685,7 @@ public class RuleClass {
     this.externalBindingsFunction = externalBindingsFunction;
     this.optionReferenceFunction = optionReferenceFunction;
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
-    this.ruleDefinitionEnvironmentHashCode = ruleDefinitionEnvironmentHashCode;
+    this.ruleDefinitionEnvironmentDigest = ruleDefinitionEnvironmentDigest;
     this.outputFileKind = outputFileKind;
     validateNoClashInPublicNames(attributes);
     this.attributes = ImmutableList.copyOf(attributes);
@@ -2142,8 +2144,8 @@ public class RuleClass {
       // be discovered and propagated here.
       Object valueToSet;
       Object defaultValue = attr.getDefaultValue(rule);
-      if (defaultValue instanceof SkylarkComputedDefaultTemplate) {
-        SkylarkComputedDefaultTemplate template = (SkylarkComputedDefaultTemplate) defaultValue;
+      if (defaultValue instanceof StarlarkComputedDefaultTemplate) {
+        StarlarkComputedDefaultTemplate template = (StarlarkComputedDefaultTemplate) defaultValue;
         valueToSet = template.computePossibleValues(attr, rule, eventHandler);
       } else if (defaultValue instanceof ComputedDefault) {
         // Compute all possible values to verify that the ComputedDefault is well-defined. This was
@@ -2308,14 +2310,6 @@ public class RuleClass {
     // attribute named applicable_licenses.
     if (attr.getName().equals("applicable_licenses")) {
       return pkgBuilder.getDefaultApplicableLicenses();
-    }
-    // Starlark rules may define their own "licenses" attributes with different types -
-    // we shouldn't trigger the special "licenses" on those cases.
-    if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
-      return pkgBuilder.getDefaultLicense();
-    }
-    if (attr.getName().equals("distribs")) {
-      return pkgBuilder.getDefaultDistribs();
     }
     return attr.getDefaultValue(null);
   }
@@ -2548,12 +2542,13 @@ public class RuleClass {
   }
 
   /**
-   * Returns the hash code for the RuleClass's rule definition environment. Will be null for native
-   * rules' RuleClass objects.
+   * Returns the digest for the RuleClass's rule definition environment, a hash of the .bzl file
+   * defining the rule class and all the .bzl files it transitively loads. Null for native rules'
+   * RuleClass objects.
    */
   @Nullable
-  public String getRuleDefinitionEnvironmentHashCode() {
-    return ruleDefinitionEnvironmentHashCode;
+  public byte[] getRuleDefinitionEnvironmentDigest() {
+    return ruleDefinitionEnvironmentDigest;
   }
 
   /** Returns true if this RuleClass is a Starlark-defined RuleClass. */
