@@ -183,7 +183,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
     return mv == null
         ? null
         : new ShadowedApiInvocationSiteMethodVisitor(
-            api, mv, invocationSiteRecord, typeHierarchy, bootClassPathDigest);
+            api, mv, verbatimMethod, invocationSiteRecord, typeHierarchy, bootClassPathDigest);
   }
 
   /** Desugars instructions for the enclosing class visitor. */
@@ -192,6 +192,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
     private static final String BEGIN_TAG = "BEGIN:";
     private static final String END_TAG = "END:";
 
+    private final MethodDeclInfo enclosingMethod;
     private final InvocationSiteTransformationRecordBuilder invocationSiteRecord;
     private final TypeHierarchy typeHierarchy;
     private final BootClassPathDigest bootClassPathDigest;
@@ -205,10 +206,12 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
     private ShadowedApiInvocationSiteMethodVisitor(
         int api,
         MethodVisitor methodVisitor,
+        MethodDeclInfo enclosingMethod,
         InvocationSiteTransformationRecordBuilder invocationSiteRecord,
         TypeHierarchy typeHierarchy,
         BootClassPathDigest bootClassPathDigest) {
       super(api, methodVisitor, immutableLabelApplicator);
+      this.enclosingMethod = enclosingMethod;
       this.invocationSiteRecord = invocationSiteRecord;
       this.typeHierarchy = typeHierarchy;
       this.bootClassPathDigest = bootClassPathDigest;
@@ -249,7 +252,7 @@ public final class ShadowedApiInvocationSite extends ClassVisitor {
       }
 
       if (shouldUseInlineTypeConversion(
-          verbatimInvocationSite, typeHierarchy, bootClassPathDigest)) {
+          verbatimInvocationSite, typeHierarchy, bootClassPathDigest, enclosingMethod)) {
         logger.atInfo().log(
             "----> Inline Type Conversion performed for %s", verbatimInvocationSite);
         InvocationSiteTransformationReason transformationReason =

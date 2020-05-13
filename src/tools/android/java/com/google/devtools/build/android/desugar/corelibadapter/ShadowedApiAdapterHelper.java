@@ -49,36 +49,47 @@ public class ShadowedApiAdapterHelper {
    * @param verbatimInvocationSite The invocation site parsed directly from the desugar input jar.
    *     No in-process label, such as "__desugar__/", is attached to this invocation site.
    * @param typeHierarchy The type hierarchy context of for this query API.
+   * @param bootClassPathDigest The boot class path context used for complication.
+   * @param enclosingMethod The method that holds the invocation instruction.
    */
   static boolean shouldUseInlineTypeConversion(
       MethodInvocationSite verbatimInvocationSite,
       TypeHierarchy typeHierarchy,
-      BootClassPathDigest bootClassPathDigest) {
-    if (verbatimInvocationSite.invocationKind() != MemberUseKind.INVOKESPECIAL
-        || verbatimInvocationSite.method().getHeaderTypeNameSet().stream()
-            .noneMatch(ClassName::isDesugarShadowedType)) {
+      BootClassPathDigest bootClassPathDigest,
+      MethodDeclInfo enclosingMethod) {
+    if (verbatimInvocationSite.invocationKind() != MemberUseKind.INVOKESPECIAL) {
+      return false;
+    }
+
+    // invokespecial on a private method in the the same class.
+    if (verbatimInvocationSite.owner().equals(enclosingMethod.owner())) {
+      return false;
+    }
+
+    // Absent of desugar-shadowed type in the method header.
+    if (verbatimInvocationSite.method().getHeaderTypeNameSet().stream()
+        .noneMatch(ClassName::isDesugarShadowedType)) {
       return false;
     }
 
     if (verbatimInvocationSite.isConstructorInvocation()) {
       return bootClassPathDigest.containsType(verbatimInvocationSite.owner());
-    } else {
-      // Upon on a super call, trace to the adjusted owner with code.
-      ClassName adjustedGrossOwner = verbatimInvocationSite.owner();
-      HierarchicalMethodQuery verbatimMethod =
-          HierarchicalMethodKey.from(verbatimInvocationSite.method())
-              .inTypeHierarchy(typeHierarchy);
-      if (!verbatimMethod.isPresent()) {
-        HierarchicalMethodKey resolvedMethod = verbatimMethod.getFirstBaseClassMethod();
-        if (resolvedMethod == null) {
-          logger.atSevere().log("Missing base method lookup: %s", verbatimInvocationSite);
-        } else {
-          adjustedGrossOwner = resolvedMethod.owner().type();
-        }
-      }
-      return adjustedGrossOwner.isAndroidDomainType()
-          && bootClassPathDigest.containsType(adjustedGrossOwner);
     }
+
+    // Upon on a super call, trace to the adjusted owner with code.
+    ClassName adjustedGrossOwner = verbatimInvocationSite.owner();
+    HierarchicalMethodQuery verbatimMethod =
+        HierarchicalMethodKey.from(verbatimInvocationSite.method()).inTypeHierarchy(typeHierarchy);
+    if (!verbatimMethod.isPresent()) {
+      HierarchicalMethodKey resolvedMethod = verbatimMethod.getFirstBaseClassMethod();
+      if (resolvedMethod == null) {
+        logger.atSevere().log("Missing base method lookup: %s", verbatimInvocationSite);
+      } else {
+        adjustedGrossOwner = resolvedMethod.owner().type();
+      }
+    }
+    return adjustedGrossOwner.isAndroidDomainType()
+        && bootClassPathDigest.containsType(adjustedGrossOwner);
   }
 
   /**
