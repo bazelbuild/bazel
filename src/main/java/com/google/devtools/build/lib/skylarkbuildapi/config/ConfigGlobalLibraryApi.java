@@ -114,7 +114,10 @@ public interface ConfigGlobalLibraryApi {
               + "restricted in capabilities (for example, the size of their dependency tree is "
               + "limited), so transitions created using this function are limited in potential "
               + "scope as compared to transitions created using "
-              + "<a href=\"#transition\">transition</a>.",
+              + "<a href=\"transition.html\">transition</a>. "
+              + "<p>This function is primarily designed to facilitate the "
+              + "<a href=\"../testing.html\">Analysis Test Framework</a> core library. See its "
+              + "documentation (or its implementation) for best practices.",
       parameters = {
         @Param(
             name = "settings",
