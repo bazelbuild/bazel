@@ -151,8 +151,27 @@ flavor(
 )
 ```
 
-A collection of the most common build setting rules can be found in
-[skylib](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
+### Predefined settings
+
+The
+[Skylib](https://github.com/bazelbuild/bazel-skylib)
+library includes a set of predefined settings you can instantiate without having
+to write custom Starlark.
+
+For example, to define a setting that accepts a limited set of string values:
+
+```python
+# example/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+string_flag(
+    name = "myflag",
+    values = ["a", "b", "c"],
+    build_setting_default = "a",
+)
+```
+
+For a complete list, see
+[Common build setting rules](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
 
 ### Using build settings
 
@@ -297,7 +316,7 @@ label_flag(
 
 TODO(bazel-team): Expand supported build setting types.
 
-## Build settings and the `select` function
+### Build settings and `select()`
 
 Users can configure attributes on build settings by using
  [`select()`](../be/functions.html#select). Build setting targets can be passed to the `flag_values` attribute of
