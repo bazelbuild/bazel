@@ -34,7 +34,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "copts",
       structField = true,
       doc =
-          "Returns flags passed to Bazel by <a href=\"../../user-manual.html#flag--copt\">"
+          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--copt\">"
               + "<code>--copt</code></a> option.")
   ImmutableList<String> getCopts() throws EvalException;
 
@@ -42,7 +42,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "cxxopts",
       structField = true,
       doc =
-          "Returns flags passed to Bazel by <a href=\"../../user-manual.html#flag--cxxopt\">"
+          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--cxxopt\">"
               + "<code>--cxxopt</code></a> option.")
   ImmutableList<String> getCxxopts() throws EvalException;
 
@@ -50,7 +50,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "conlyopts",
       structField = true,
       doc =
-          "Returns flags passed to Bazel by <a href=\"../../user-manual.html#flag--conlyopt\">"
+          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--conlyopt\">"
               + "<code>--conlyopt</code></a> option.")
   ImmutableList<String> getConlyopts() throws EvalException;
 
@@ -58,7 +58,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "linkopts",
       structField = true,
       doc =
-          "Returns flags passed to Bazel by <a href=\"../../user-manual.html#flag--linkopt\">"
+          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--linkopt\">"
               + "<code>--linkopt</code></a> option.")
   ImmutableList<String> getLinkopts() throws EvalException;
 
