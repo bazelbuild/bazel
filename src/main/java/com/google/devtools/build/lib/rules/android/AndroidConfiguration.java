@@ -901,7 +901,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help =
             "Disables manifest merging when an android_binary has instruments set (i.e. is used "
-                + "instrumentation testing.")
+                + "for instrumentation testing).")
     public boolean disableInstrumentationManifestMerging;
 
     @Override
