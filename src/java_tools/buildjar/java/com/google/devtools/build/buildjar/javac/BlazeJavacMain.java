@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar.javac;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
@@ -44,6 +45,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import javax.tools.Diagnostic;
 import javax.tools.StandardLocation;
 
@@ -74,7 +76,8 @@ public class BlazeJavacMain {
 
     List<String> javacArguments = arguments.javacOptions();
     try {
-      javacArguments = processPluginArgs(arguments.plugins(), javacArguments);
+      processPluginArgs(
+          arguments.plugins(), arguments.javacOptions(), arguments.blazeJavacOptions());
     } catch (InvalidCommandLineException e) {
       return BlazeJavacResult.error(e.getMessage());
     }
@@ -90,7 +93,7 @@ public class BlazeJavacMain {
     // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
     // it and handling exceptions directly in callers.
     PrintWriter errWriter = new PrintWriter(errOutput);
-    Listener diagnostics = new Listener(arguments.failFast(), context);
+    Listener diagnosticsBuilder = new Listener(arguments.failFast(), context);
     BlazeJavaCompiler compiler;
 
     try (JavacFileManager fileManager =
@@ -100,7 +103,7 @@ public class BlazeJavacMain {
               .getTask(
                   errWriter,
                   fileManager,
-                  diagnostics,
+                  diagnosticsBuilder,
                   javacArguments,
                   /* classes= */ ImmutableList.of(),
                   fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
@@ -133,12 +136,25 @@ public class BlazeJavacMain {
       }
     }
     errWriter.flush();
+    ImmutableList<FormattedDiagnostic> diagnostics = diagnosticsBuilder.build();
+
+    if (status.equals(Status.OK)) {
+      Optional<WerrorCustomOption> maybeWerrorCustom =
+          arguments.blazeJavacOptions().stream()
+              .filter(arg -> arg.startsWith("-Werror:"))
+              .collect(toOptional())
+              .map(WerrorCustomOption::create);
+      if (maybeWerrorCustom.isPresent()) {
+        WerrorCustomOption werrorCustom = maybeWerrorCustom.get();
+        if (diagnostics.stream().anyMatch(d -> werrorCustom.isEnabled(d.getLintCategory()))) {
+          errOutput.append("error: warnings found and -Werror specified\n");
+          status = Status.ERROR;
+        }
+      }
+    }
+
     return BlazeJavacResult.createFullResult(
-        status,
-        filterDiagnostics(diagnostics.build()),
-        errOutput.toString(),
-        compiler,
-        builder.build());
+        status, filterDiagnostics(diagnostics), errOutput.toString(), compiler, builder.build());
   }
 
   private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
@@ -191,14 +207,14 @@ public class BlazeJavacMain {
 
   /** Processes Plugin-specific arguments and removes them from the args array. */
   @VisibleForTesting
-  static List<String> processPluginArgs(
-      ImmutableList<BlazeJavaCompilerPlugin> plugins, List<String> args)
+  static void processPluginArgs(
+      ImmutableList<BlazeJavaCompilerPlugin> plugins,
+      ImmutableList<String> standardJavacopts,
+      ImmutableList<String> blazeJavacopts)
       throws InvalidCommandLineException {
-    List<String> processedArgs = args;
     for (BlazeJavaCompilerPlugin plugin : plugins) {
-      processedArgs = plugin.processArgs(processedArgs);
+      plugin.processArgs(standardJavacopts, blazeJavacopts);
     }
-    return processedArgs;
   }
 
   private static void setLocations(JavacFileManager fileManager, BlazeJavacArguments arguments) {
