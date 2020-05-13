@@ -490,7 +490,7 @@ public final class SkyframeBuildView {
       }
       // TODO(ulfjack): Don't throw here in the nokeep_going case, but report all known issues.
       if (!keepGoing) {
-        throw new ViewCreationFailedException(ex.getMessage());
+        throw new ViewCreationFailedException(ex);
       }
     }
 
@@ -563,7 +563,7 @@ public final class SkyframeBuildView {
       return true;
     }
 
-    if (!foundActionConflict) {
+    if (foundActionConflict) {
       // Example sequence:
       // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
       //     set, and record the fact that there were bad actions.
