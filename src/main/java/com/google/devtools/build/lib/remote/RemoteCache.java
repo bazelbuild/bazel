@@ -39,7 +39,10 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -611,20 +614,21 @@ public class RemoteCache implements AutoCloseable {
             "Symlinks in action outputs are not yet supported by "
                 + "--experimental_remote_download_outputs=minimal");
       }
-      ImmutableMap.Builder<PathFragment, RemoteFileArtifactValue> childMetadata =
-          ImmutableMap.builder();
+      SpecialArtifact parent = (SpecialArtifact) output;
+      ImmutableMap.Builder<TreeFileArtifact, RemoteFileArtifactValue> childMetadata =
+          ImmutableMap.builderWithExpectedSize(directory.files.size());
       for (FileMetadata file : directory.files()) {
-        PathFragment p = file.path().relativeTo(output.getPath());
-        RemoteFileArtifactValue r =
+        TreeFileArtifact child =
+            ActionInputHelper.treeFileArtifact(parent, file.path().relativeTo(parent.getPath()));
+        RemoteFileArtifactValue value =
             new RemoteFileArtifactValue(
                 DigestUtil.toBinaryDigest(file.digest()),
                 file.digest().getSizeBytes(),
-                /* locationIndex= */ 1,
+                /*locationIndex=*/ 1,
                 actionId);
-        childMetadata.put(p, r);
+        childMetadata.put(child, value);
       }
-      metadataInjector.injectRemoteDirectory(
-          (Artifact.SpecialArtifact) output, childMetadata.build());
+      metadataInjector.injectRemoteDirectory(parent, childMetadata.build());
     } else {
       FileMetadata outputMetadata = metadata.file(execRoot.getRelative(output.getExecPathString()));
       if (outputMetadata == null) {

@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.actions.cache;
 
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 
 /** Supports metadata injection of action outputs into skyframe. */
@@ -39,12 +39,11 @@ public interface MetadataInjector {
   /**
    * Inject the metadata of a tree artifact whose contents are stored remotely.
    *
-   * @param output an output directory.
-   * @param children the metadata of the files stored in the directory. The paths must be relative
-   *     to the path of {@code output}.
+   * @param output an output directory
+   * @param children the metadata of the files stored in the directory
    */
   void injectRemoteDirectory(
-      Artifact.SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children);
+      SpecialArtifact output, Map<TreeFileArtifact, RemoteFileArtifactValue> children);
 
   /**
    * Marks an {@link Artifact} as intentionally omitted.
@@ -53,12 +52,6 @@ public interface MetadataInjector {
    * action depends on) from a remote system.
    */
   void markOmitted(ActionInput output);
-
-  /**
-   * Registers the given output as contents of a TreeArtifact, without injecting its digest. Prefer
-   * {@link #injectDigest} when the digest is available.
-   */
-  void addExpandedTreeOutput(TreeFileArtifact output);
 
   /**
    * Injects provided digest into the metadata handler, simultaneously caching lstat() data as well.

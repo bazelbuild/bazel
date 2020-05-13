@@ -246,7 +246,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
       // Calling code depends on this particular exception.
       throw new FileNotFoundException(artifact + " not found");
     }
-    // Fallthrough: the artifact must be a non-tree, non-middleman output artifact.
 
     // Don't store metadata for output artifacts that are not declared outputs of the action.
     if (!isKnownOutput(artifact)) {
@@ -263,6 +262,18 @@ public final class ActionMetadataHandler implements MetadataHandler {
     FileArtifactValue fileMetadata = store.getArtifactData(artifact);
     if (fileMetadata != null) {
       return metadataFromValue(fileMetadata);
+    }
+    // This artifact was not injected directly to the store, but it may have been injected as part
+    // of a tree artifact.
+    // TODO(jhorvitz): We can skip this for action template expansion artifacts.
+    if (artifact.hasParent()) {
+      TreeArtifactValue tree = store.getTreeArtifactData(artifact.getParent());
+      if (tree != null) {
+        fileMetadata = tree.getChildValues().get(artifact);
+        if (fileMetadata != null) {
+          return metadataFromValue(fileMetadata);
+        }
+      }
     }
 
     // No existing metadata; this can happen if the output metadata is not injected after a spawn
@@ -367,48 +378,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
       }
     }
 
-    Set<TreeFileArtifact> registeredContents = store.getTreeArtifactContents(artifact);
-    if (registeredContents != null) {
-      // Check that our registered outputs matches on-disk outputs. Only perform this check
-      // when contents were explicitly registered.
-      // TODO(bazel-team): Provide a way for actions to register empty TreeArtifacts.
-
-      // By the time we're constructing TreeArtifactValues, use of the metadata handler
-      // should be single threaded and there should be no race condition.
-      // The current design of ActionMetadataHandler makes this hard to enforce.
-      Set<PathFragment> paths =
-          TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(artifact));
-      Set<TreeFileArtifact> diskFiles = ActionInputHelper.asTreeFileArtifacts(artifact, paths);
-      if (!diskFiles.equals(registeredContents)) {
-        // There might be more than one error here. We first look for missing output files.
-        Set<TreeFileArtifact> missingFiles = Sets.difference(registeredContents, diskFiles);
-        if (!missingFiles.isEmpty()) {
-          // Don't throw IOException--getMetadataMaybe() eats them.
-          // TODO(bazel-team): Report this error in a better way when called by checkOutputs()
-          // Currently it's hard to report this error without refactoring, since checkOutputs()
-          // likes to substitute its own error messages upon catching IOException, and falls
-          // through to unrecoverable error behavior on any other exception.
-          throw new IOException(
-              "Output file "
-                  + missingFiles.iterator().next()
-                  + " was registered, but not present on disk");
-        }
-
-        Set<TreeFileArtifact> extraFiles = Sets.difference(diskFiles, registeredContents);
-        // extraFiles cannot be empty
-        throw new IOException(
-            "File "
-                + extraFiles.iterator().next().getParentRelativePath()
-                + ", present in TreeArtifact "
-                + artifact
-                + ", was not registered");
-      }
-
-      value = constructTreeArtifactValue(registeredContents);
-    } else {
-      value = constructTreeArtifactValueFromFilesystem(artifact);
-    }
-
+    value = constructTreeArtifactValueFromFilesystem(artifact);
     store.putTreeArtifactData(artifact, value);
     return value;
   }
@@ -462,27 +432,13 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
     Set<PathFragment> paths =
         TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(artifact));
-    // If you're reading tree artifacts from disk while tree artifact contents are being injected,
-    // something has gone terribly wrong.
-    Object previousContents = store.getTreeArtifactContents(artifact);
-    Preconditions.checkState(
-        previousContents == null,
-        "Race condition while constructing TreeArtifactValue: %s, %s",
-        artifact,
-        previousContents);
     return constructTreeArtifactValue(ActionInputHelper.asTreeFileArtifacts(artifact, paths));
   }
 
   @Override
-  public void addExpandedTreeOutput(TreeFileArtifact output) {
-    Preconditions.checkState(executionMode.get());
-    store.addTreeArtifactContents(output.getParent(), output);
-  }
-
-  @Override
-  public Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
-    Set<TreeFileArtifact> contents = store.getTreeArtifactContents(artifact);
-    return contents != null ? ImmutableSet.copyOf(contents) : ImmutableSet.of();
+  public ImmutableSet<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
+    TreeArtifactValue treeArtifact = store.getTreeArtifactData(artifact);
+    return treeArtifact != null ? treeArtifact.getChildren() : ImmutableSet.of();
   }
 
   @Override
@@ -557,22 +513,13 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public void injectRemoteDirectory(
-      SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+      SpecialArtifact output, Map<TreeFileArtifact, RemoteFileArtifactValue> children) {
     Preconditions.checkArgument(
-        isKnownOutput(output), output + " is not a declared output of this action");
+        isKnownOutput(output), "%s is not a declared output of this action", output);
     Preconditions.checkArgument(output.isTreeArtifact(), "output must be a tree artifact");
     Preconditions.checkState(
-        executionMode.get(), "Tried to inject %s outside of execution.", output);
-
-    ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> childFileValues =
-        ImmutableMap.builder();
-    for (Map.Entry<PathFragment, RemoteFileArtifactValue> child : children.entrySet()) {
-      childFileValues.put(
-          ActionInputHelper.treeFileArtifact(output, child.getKey()), child.getValue());
-    }
-
-    TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(childFileValues.build());
-    store.putTreeArtifactData(output, treeArtifactValue);
+        executionMode.get(), "Tried to inject %s outside of execution", output);
+    store.putTreeArtifactData(output, TreeArtifactValue.create(children));
   }
 
   @Override

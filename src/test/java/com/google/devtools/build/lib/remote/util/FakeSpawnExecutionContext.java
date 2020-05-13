@@ -139,17 +139,13 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
       @Override
       public void injectRemoteDirectory(
-          Artifact.SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
+          Artifact.SpecialArtifact output,
+          Map<TreeFileArtifact, RemoteFileArtifactValue> children) {
         throw new UnsupportedOperationException();
       }
 
       @Override
       public void markOmitted(ActionInput output) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void addExpandedTreeOutput(TreeFileArtifact output) {
         throw new UnsupportedOperationException();
       }
 
