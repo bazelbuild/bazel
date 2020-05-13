@@ -49,9 +49,9 @@ import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.io.IOException;
-import java.net.BindException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.SocketException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -100,7 +100,7 @@ public class StarlarkDebugServerTest {
     // and if that fails, try again with IPv4.
     try {
       return new ServerSocket(0, 1, InetAddress.getByName("[::1]"));
-    } catch (BindException e) {
+    } catch (SocketException e) {
       return new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
     }
   }
