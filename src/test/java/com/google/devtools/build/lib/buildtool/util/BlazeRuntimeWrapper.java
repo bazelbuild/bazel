@@ -340,16 +340,7 @@ public class BlazeRuntimeWrapper {
       getSkyframeExecutor().setOutputService(outputService);
       env.setOutputServiceForTesting(outputService);
 
-      env.getEventBus()
-          .post(
-              new CommandStartEvent(
-                  "build",
-                  env.getCommandId(),
-                  env.getBuildRequestId(),
-                  env.getClientEnv(),
-                  env.getWorkingDirectory(),
-                  env.getDirectories(),
-                  0));
+      env.getEventBus().post(new CommandStartEvent());
 
       lastRequest = createRequest("build", targets);
       lastResult = new BuildResult(lastRequest.getStartTime());

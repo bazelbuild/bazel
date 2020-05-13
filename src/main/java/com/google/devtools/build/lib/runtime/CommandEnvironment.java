@@ -727,17 +727,9 @@ public class CommandEnvironment {
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, commonOptions);
 
-    eventBus.post(
-        new CommandStartEvent(
-            command.name(),
-            getCommandId(),
-            getBuildRequestId(),
-            getClientEnv(),
-            workingDirectory,
-            getDirectories(),
-            waitTime.toMillis()));
+    eventBus.post(new CommandStartEvent());
 
-    // Modules that are subscribed to CommandStartEvents may create pending exceptions.
+    // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
   }
 
