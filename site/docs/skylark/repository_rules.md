@@ -119,7 +119,7 @@ definition has the `configure` attribute set, use `bazel sync --configure`.
 
 ## Examples
 
-- [C++ auto-configured toolchain](https://github.com/bazelbuild/bazel/blob/ac29b78000afdb95afc7e97efd2b1299ebea4dac/tools/cpp/cc_configure.bzl#L288):
+- [C++ auto-configured toolchain](https://cs.opensource.google/bazel/bazel/+/master:tools/cpp/cc_configure.bzl;drc=644b7d41748e09eff9e47cbab2be2263bb71f29a;l=176):
 it uses a repository rule to automatically create the
 C++ configuration files for Bazel by looking for the local C++ compiler, the
 environment and the flags the C++ compiler supports.
