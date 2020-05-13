@@ -32,9 +32,10 @@ public interface WorkspaceGlobalsApi {
   @SkylarkCallable(
       name = "workspace",
       doc =
-          "<p>This command can only be used in a <code>WORKSPACE</code> file and must come "
-              + "before all other commands in the <code>WORKSPACE</code> file. "
-              + "Each <code>WORKSPACE</code> file should have a <code>workspace</code> command.</p>"
+          "<p>This function can only be used in a <code>WORKSPACE</code> file and must be declared "
+              + "before all other functions in the <code>WORKSPACE</code> file. "
+              + "Each <code>WORKSPACE</code> file should have a <code>workspace</code> "
+              + "function.</p>"
               + "<p>Sets the name for this workspace. "
               + "Workspace names should be a Java-package-style "
               + "description of the project, using underscores as separators, e.g., "
