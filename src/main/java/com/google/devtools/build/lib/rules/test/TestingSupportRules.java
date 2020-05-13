@@ -34,7 +34,7 @@ public final class TestingSupportRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addSkylarkBootstrap(
         new TestingBootstrap(
-            new SkylarkTestingModule(),
+            new StarlarkTestingModule(),
             new CoverageCommon(),
             AnalysisFailureInfo.SKYLARK_CONSTRUCTOR,
             AnalysisTestResultInfo.SKYLARK_CONSTRUCTOR));

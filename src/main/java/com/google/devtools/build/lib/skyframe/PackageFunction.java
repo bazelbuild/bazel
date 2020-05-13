@@ -436,9 +436,9 @@ public class PackageFunction implements SkyFunction {
             (ASTFileLookupValue)
                 env.getValueOrThrow(
                     astLookupKey,
-                    ErrorReadingSkylarkExtensionException.class,
+                    ErrorReadingStarlarkExtensionException.class,
                     InconsistentFilesystemException.class);
-      } catch (ErrorReadingSkylarkExtensionException | InconsistentFilesystemException e) {
+      } catch (ErrorReadingStarlarkExtensionException | InconsistentFilesystemException e) {
         throw new PackageFunctionException(
             new NoSuchPackageException(
                 packageId, "Error encountered while reading the prelude file: " + e.getMessage()),

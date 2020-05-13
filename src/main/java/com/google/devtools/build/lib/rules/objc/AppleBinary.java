@@ -287,7 +287,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
               ruleContext.getPrerequisite(
                   BUNDLE_LOADER_ATTR_NAME,
                   TransitionMode.TARGET,
-                  AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
+                  AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
           extraLinkArgs.add(
               "-bundle_loader", executableProvider.getAppleExecutableBinary().getExecPathString());
         }
@@ -315,7 +315,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisite(
             BUNDLE_LOADER_ATTR_NAME,
             TransitionMode.TARGET,
-            AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
+            AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
     if (executableProvider != null) {
       return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());
     }
@@ -367,7 +367,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     if (appleConfiguration.shouldLinkingRulesPropagateObjc() && objcProvider != null) {
       targetBuilder.addNativeDeclaredProvider(objcProvider);
-      targetBuilder.addStarlarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider);
+      targetBuilder.addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider);
     }
 
     InstrumentedFilesInfo instrumentedFilesProvider =

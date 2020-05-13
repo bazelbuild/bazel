@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidStarlarkApiProviderApi;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public class AndroidStarlarkApiProvider extends StarlarkApiProvider
-    implements AndroidSkylarkApiProviderApi<Artifact> {
+    implements AndroidStarlarkApiProviderApi<Artifact> {
   /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "android";
 

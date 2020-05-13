@@ -1426,7 +1426,7 @@ public class CompilationSupport {
       Artifact dummyArchive =
           ruleContext
               .getPrerequisite(
-                  "$dummy_lib", TransitionMode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR)
+                  "$dummy_lib", TransitionMode.TARGET, ObjcProvider.STARLARK_CONSTRUCTOR)
               .get(LIBRARY)
               .getSingleton();
 

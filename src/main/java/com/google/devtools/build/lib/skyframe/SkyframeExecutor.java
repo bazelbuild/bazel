@@ -569,7 +569,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             defaultBuildOptions));
-    map.put(SkyFunctions.LOAD_STARLARK_ASPECT, new ToplevelSkylarkAspectFunction());
+    map.put(SkyFunctions.LOAD_STARLARK_ASPECT, new ToplevelStarlarkAspectFunction());
     map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(
         SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING,
@@ -2801,7 +2801,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new RegisteredToolchainsCycleReporter(),
         // TODO(ulfjack): The SkylarkModuleCycleReporter swallows previously reported cycles
         // unconditionally! Is that intentional?
-        new SkylarkModuleCycleReporter());
+        new StarlarkModuleCycleReporter());
   }
 
   CyclesReporter getCyclesReporter() {

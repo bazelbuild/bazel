@@ -69,7 +69,7 @@ java_library(
         "SkyframePackageManager.java",
         "SkyframeTargetPatternEvaluator.java",
         "SkyframeTransitivePackageLoader.java",
-        "SkylarkAspectFactory.java",
+        "StarlarkAspectFactory.java",
         "StarlarkImportLookupFunction.java",
         "TargetCompletionValue.java",
         "TargetCompletor.java",
@@ -80,7 +80,7 @@ java_library(
         "ToolchainResolutionFunction.java",
         "ToolchainTypeLookupUtil.java",
         "TopLevelActionLookupConflictFindingFunction.java",
-        "ToplevelSkylarkAspectFunction.java",
+        "ToplevelStarlarkAspectFunction.java",
         "TransitiveTargetFunction.java",
         "TrimmedConfigurationProgressReceiver.java",
         "UnloadedToolchainContextImpl.java",
@@ -1284,7 +1284,7 @@ java_library(
 
 java_library(
     name = "error_reading_skylark_extension_exception",
-    srcs = ["ErrorReadingSkylarkExtensionException.java"],
+    srcs = ["ErrorReadingStarlarkExtensionException.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -2264,7 +2264,7 @@ java_library(
 
 java_library(
     name = "skylark_module_cycle_reporter",
-    srcs = ["SkylarkModuleCycleReporter.java"],
+    srcs = ["StarlarkModuleCycleReporter.java"],
     deps = [
         ":abstract_label_cycle_reporter",
         ":repository_value",

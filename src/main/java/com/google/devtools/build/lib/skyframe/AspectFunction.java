@@ -208,7 +208,7 @@ public final class AspectFunction implements SkyFunction {
         return null;
       }
 
-      aspectFactory = new SkylarkAspectFactory(starlarkAspect);
+      aspectFactory = new StarlarkAspectFactory(starlarkAspect);
       aspect =
           Aspect.forStarlark(
               starlarkAspect.getAspectClass(),

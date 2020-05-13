@@ -3306,7 +3306,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
 
-    ObjcProvider providerFromModernKey = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider providerFromModernKey = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
 
@@ -3336,7 +3336,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
 
-    ObjcProvider providerFromModernKey = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider providerFromModernKey = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
     ObjcProvider providerFromBah = (ObjcProvider) target.get("bah");
 
@@ -3365,7 +3365,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
 
-    ObjcProvider providerFromModernKey = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider providerFromModernKey = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
     ObjcProvider providerFromBar = (ObjcProvider) target.get("bar");

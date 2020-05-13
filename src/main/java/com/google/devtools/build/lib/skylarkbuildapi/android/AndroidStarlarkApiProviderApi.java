@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
             + "provides this struct, accessible as a <code>android</code> field on a "
             + "<a href=\"Target.html\">target</a>.",
     documented = false)
-public interface AndroidSkylarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
+public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
       name = "apk",

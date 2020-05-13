@@ -1654,7 +1654,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget binTarget = getConfiguredTarget("//bin:bin");
     AppleExecutableBinaryInfo executableBinaryProvider =
-        binTarget.get(AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
+        binTarget.get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
     assertThat(executableBinaryProvider).isNotNull();
 
     CommandAction testLinkAction = linkAction("//test:test");

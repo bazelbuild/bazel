@@ -63,7 +63,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       InterruptedException {
     try {
       return computeInline(skyKey, env, ruleClassProvider, digestHashFunction);
-    } catch (ErrorReadingSkylarkExtensionException e) {
+    } catch (ErrorReadingStarlarkExtensionException e) {
       throw new ASTLookupFunctionException(e, e.getTransience());
     } catch (InconsistentFilesystemException e) {
       throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
@@ -75,7 +75,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       Environment env,
       RuleClassProvider ruleClassProvider,
       DigestHashFunction digestHashFunction)
-      throws ErrorReadingSkylarkExtensionException, InconsistentFilesystemException,
+      throws ErrorReadingStarlarkExtensionException, InconsistentFilesystemException,
           InterruptedException {
     Label fileLabel = (Label) skyKey.argument();
 
@@ -89,7 +89,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       pkgLookupValue = (PackageLookupValue) env.getValueOrThrow(
           pkgSkyKey, BuildFileNotFoundException.class, InconsistentFilesystemException.class);
     } catch (BuildFileNotFoundException e) {
-      throw new ErrorReadingSkylarkExtensionException(e);
+      throw new ErrorReadingStarlarkExtensionException(e);
     }
     if (pkgLookupValue == null) {
       return null;
@@ -107,7 +107,7 @@ public class ASTFileLookupFunction implements SkyFunction {
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
     } catch (IOException e) {
-      throw new ErrorReadingSkylarkExtensionException(e, Transience.PERSISTENT);
+      throw new ErrorReadingStarlarkExtensionException(e, Transience.PERSISTENT);
     }
     if (fileValue == null) {
       return null;
@@ -145,7 +145,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       ParserInput input = ParserInput.create(bytes, path.toString());
       file = StarlarkFile.parse(input, options);
     } catch (IOException e) {
-      throw new ErrorReadingSkylarkExtensionException(e, Transience.TRANSIENT);
+      throw new ErrorReadingStarlarkExtensionException(e, Transience.TRANSIENT);
     }
 
     // resolve (and soon, compile)
@@ -171,8 +171,8 @@ public class ASTFileLookupFunction implements SkyFunction {
   }
 
   private static final class ASTLookupFunctionException extends SkyFunctionException {
-    private ASTLookupFunctionException(ErrorReadingSkylarkExtensionException e,
-        Transience transience) {
+    private ASTLookupFunctionException(
+        ErrorReadingStarlarkExtensionException e, Transience transience) {
       super(e, transience);
     }
 

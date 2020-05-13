@@ -18,15 +18,15 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 
 /** Indicates some sort of IO error while dealing with a Starlark extension. */
-public class ErrorReadingSkylarkExtensionException extends Exception {
+public class ErrorReadingStarlarkExtensionException extends Exception {
   private final Transience transience;
 
-  public ErrorReadingSkylarkExtensionException(BuildFileNotFoundException e) {
+  public ErrorReadingStarlarkExtensionException(BuildFileNotFoundException e) {
     super(e.getMessage(), e);
     this.transience = Transience.PERSISTENT;
   }
 
-  public ErrorReadingSkylarkExtensionException(IOException e, Transience transience) {
+  public ErrorReadingStarlarkExtensionException(IOException e, Transience transience) {
     super(e.getMessage(), e);
     this.transience = transience;
   }

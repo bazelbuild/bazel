@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A class that exposes testing infrastructure to Starlark. */
-public class SkylarkTestingModule implements TestingModuleApi {
+public class StarlarkTestingModule implements TestingModuleApi {
 
   @Override
   public ExecutionInfo executionInfo(Dict<?, ?> requirements /* <String, String> */)

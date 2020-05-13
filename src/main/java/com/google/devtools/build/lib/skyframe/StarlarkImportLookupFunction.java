@@ -297,7 +297,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
                   InconsistentFilesystemException.class);
     } catch (BuildFileNotFoundException e) {
       throw StarlarkImportFailedException.errorReadingFile(
-          fileLabel.toPathFragment(), new ErrorReadingSkylarkExtensionException(e));
+          fileLabel.toPathFragment(), new ErrorReadingStarlarkExtensionException(e));
     }
     if (containingPackageLookupValue == null) {
       return null;
@@ -360,7 +360,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     ASTFileLookupValue astLookupValue;
     try {
       astLookupValue = astFileLookupValueManager.getASTFileLookupValue(fileLabel, env);
-    } catch (ErrorReadingSkylarkExtensionException e) {
+    } catch (ErrorReadingStarlarkExtensionException e) {
       throw StarlarkImportFailedException.errorReadingFile(filePath, e);
     }
     if (astLookupValue == null) {
@@ -764,7 +764,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     }
 
     static StarlarkImportFailedException errorReadingFile(
-        PathFragment file, ErrorReadingSkylarkExtensionException cause) {
+        PathFragment file, ErrorReadingStarlarkExtensionException cause) {
       return new StarlarkImportFailedException(
           String.format(
               "Encountered error while reading extension file '%s': %s", file, cause.getMessage()),
@@ -807,7 +807,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     @Nullable
     ASTFileLookupValue getASTFileLookupValue(Label fileLabel, Environment env)
         throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingSkylarkExtensionException;
+            ErrorReadingStarlarkExtensionException;
 
     void doneWithASTFileLookupValue(Label fileLabel);
   }
@@ -821,11 +821,11 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     @Override
     public ASTFileLookupValue getASTFileLookupValue(Label fileLabel, Environment env)
         throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingSkylarkExtensionException {
+            ErrorReadingStarlarkExtensionException {
       return (ASTFileLookupValue)
           env.getValueOrThrow(
               ASTFileLookupValue.key(fileLabel),
-              ErrorReadingSkylarkExtensionException.class,
+              ErrorReadingStarlarkExtensionException.class,
               InconsistentFilesystemException.class);
     }
 
@@ -856,7 +856,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
     @Override
     public ASTFileLookupValue getASTFileLookupValue(Label fileLabel, Environment env)
         throws InconsistentFilesystemException, InterruptedException,
-            ErrorReadingSkylarkExtensionException {
+            ErrorReadingStarlarkExtensionException {
       ASTFileLookupValue value = astFileLookupValueCache.getIfPresent(fileLabel);
       if (value == null) {
         value =

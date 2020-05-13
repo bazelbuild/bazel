@@ -30,7 +30,7 @@ import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Reports cycles of recursive import of Starlark files. */
-public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleReporter {
+public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleReporter {
 
   private static final Predicate<SkyKey> IS_STARLARK_MODULE_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.STARLARK_IMPORTS_LOOKUP);

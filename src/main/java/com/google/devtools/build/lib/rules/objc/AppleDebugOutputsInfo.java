@@ -60,11 +60,11 @@ public final class AppleDebugOutputsInfo extends NativeInfo
   }
 
   /** Starlark name for the AppleDebugOutputsInfo. */
-  public static final String SKYLARK_NAME = "AppleDebugOutputs";
+  public static final String STARLARK_NAME = "AppleDebugOutputs";
 
   /** Starlark constructor and identifier for AppleDebugOutputsInfo. */
-  public static final NativeProvider<AppleDebugOutputsInfo> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<AppleDebugOutputsInfo>(AppleDebugOutputsInfo.class, SKYLARK_NAME) {};
+  public static final NativeProvider<AppleDebugOutputsInfo> STARLARK_CONSTRUCTOR =
+      new NativeProvider<AppleDebugOutputsInfo>(AppleDebugOutputsInfo.class, STARLARK_NAME) {};
 
   private final ImmutableMap<String, ImmutableMap<String, Artifact>> outputsMap;
 
@@ -84,7 +84,7 @@ public final class AppleDebugOutputsInfo extends NativeInfo
    *     </ul>
    */
   private AppleDebugOutputsInfo(ImmutableMap<String, ImmutableMap<String, Artifact>> map) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
     this.outputsMap = map;
   }
 

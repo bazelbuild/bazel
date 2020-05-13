@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global Starlark build API functions that belong in the global namespace. */
 @SkylarkGlobalLibrary
-public interface SkylarkBuildApiGlobals {
+public interface StarlarkBuildApiGlobals {
 
   @SkylarkCallable(
       name = "configuration_field",
-      // TODO(cparsons): Provide a link to documentation for available SkylarkConfigurationFields.
+      // TODO(cparsons): Provide a link to documentation for available StarlarkConfigurationFields.
       doc =
           "References a late-bound default value for an attribute of type "
               + "<a href=\"attr.html#label\">label</a>. A value is 'late-bound' if it requires "

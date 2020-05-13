@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon.NOT_SET_ERROR;
+import static com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon.NOT_SET_ERROR;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** A utility class for converting ObjcProvider values between java and Starlark representation. */
-public class ObjcProviderSkylarkConverters {
+public class ObjcProviderStarlarkConverters {
 
   /**
    * A map of possible NestedSet types to the converters that should define their treatment in
@@ -42,18 +42,18 @@ public class ObjcProviderSkylarkConverters {
           .build();
 
   /** Returns a value for a Starlark attribute given a java ObjcProvider key and value. */
-  public static Object convertToSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
-    return CONVERTERS.get(javaKey.getType()).valueForSkylark(javaKey, javaValue);
+  public static Object convertToStarlark(Key<?> javaKey, NestedSet<?> javaValue) {
+    return CONVERTERS.get(javaKey.getType()).valueForStarlark(javaKey, javaValue);
   }
 
   /** Returns a value for a java ObjcProvider given a key and a corresponding Starlark value. */
-  public static NestedSet<?> convertToJava(Key<?> javaKey, Object skylarkValue)
+  public static NestedSet<?> convertToJava(Key<?> javaKey, Object starlarkValue)
       throws EvalException {
-    return CONVERTERS.get(javaKey.getType()).valueForJava(javaKey, skylarkValue);
+    return CONVERTERS.get(javaKey.getType()).valueForJava(javaKey, starlarkValue);
   }
 
   /** Converts {@link PathFragment}s into a Starlark-compatible nested set of path strings. */
-  public static Depset convertPathFragmentsToSkylark(NestedSet<PathFragment> pathFragments) {
+  public static Depset convertPathFragmentsToStarlark(NestedSet<PathFragment> pathFragments) {
     NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
     for (PathFragment path : pathFragments.toList()) {
       result.add(path.getSafePathString());
@@ -64,24 +64,24 @@ public class ObjcProviderSkylarkConverters {
   /** A converter for ObjcProvider values. */
   private interface Converter {
     /** Translates a java ObjcProvider value to a Starlark ObjcProvider value. */
-    Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue);
+    Object valueForStarlark(Key<?> javaKey, NestedSet<?> javaValue);
 
     /** Translates a Starlark ObjcProvider value to a java ObjcProvider value. */
-    NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException;
+    NestedSet<?> valueForJava(Key<?> javaKey, Object starlarkValue) throws EvalException;
   }
 
   /** A converter that uses the same value for java and Starlark. */
   private static class DirectConverter implements Converter {
 
     @Override
-    public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
+    public Object valueForStarlark(Key<?> javaKey, NestedSet<?> javaValue) {
       Depset.ElementType type = Depset.ElementType.of(javaKey.getType());
       return Depset.of(type, javaValue);
     }
 
     @Override
-    public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
-      return nestedSetWithType(skylarkValue, javaKey.getType(), javaKey.getSkylarkKeyName());
+    public NestedSet<?> valueForJava(Key<?> javaKey, Object starlarkValue) throws EvalException {
+      return nestedSetWithType(starlarkValue, javaKey.getType(), javaKey.getStarlarkKeyName());
     }
   }
 
@@ -90,14 +90,14 @@ public class ObjcProviderSkylarkConverters {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
-      return convertPathFragmentsToSkylark((NestedSet<PathFragment>) javaValue);
+    public Object valueForStarlark(Key<?> javaKey, NestedSet<?> javaValue) {
+      return convertPathFragmentsToStarlark((NestedSet<PathFragment>) javaValue);
     }
 
     @Override
-    public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
+    public NestedSet<?> valueForJava(Key<?> javaKey, Object starlarkValue) throws EvalException {
       NestedSet<String> nestedSet =
-          nestedSetWithType(skylarkValue, String.class, javaKey.getSkylarkKeyName());
+          nestedSetWithType(starlarkValue, String.class, javaKey.getStarlarkKeyName());
       NestedSetBuilder<PathFragment> result = NestedSetBuilder.stableOrder();
       for (String path : nestedSet.toList()) {
         result.add(PathFragment.create(path));
@@ -111,7 +111,7 @@ public class ObjcProviderSkylarkConverters {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
+    public Object valueForStarlark(Key<?> javaKey, NestedSet<?> javaValue) {
       NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
       for (SdkFramework framework : ((NestedSet<SdkFramework>) javaValue).toList()) {
         result.add(framework.getName());
@@ -120,9 +120,9 @@ public class ObjcProviderSkylarkConverters {
     }
 
     @Override
-    public NestedSet<?> valueForJava(Key<?> javaKey, Object skylarkValue) throws EvalException {
+    public NestedSet<?> valueForJava(Key<?> javaKey, Object starlarkValue) throws EvalException {
       NestedSet<String> nestedSet =
-          nestedSetWithType(skylarkValue, String.class, javaKey.getSkylarkKeyName());
+          nestedSetWithType(starlarkValue, String.class, javaKey.getStarlarkKeyName());
       NestedSetBuilder<SdkFramework> result = NestedSetBuilder.stableOrder();
       for (String path : nestedSet.toList()) {
         result.add(new SdkFramework(path));

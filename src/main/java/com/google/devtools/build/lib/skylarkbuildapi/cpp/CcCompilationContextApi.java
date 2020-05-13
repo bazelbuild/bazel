@@ -38,7 +38,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
           "Returns the set of defines needed to compile this target. Each define is a string."
               + " These values are propagated to the target's transitive dependencies.",
       structField = true)
-  Depset getSkylarkDefines();
+  Depset getStarlarkDefines();
 
   @SkylarkCallable(
       name = "local_defines",
@@ -46,13 +46,13 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
           "Returns the set of defines needed to compile this target. Each define is a string."
               + " These values are not propagated to the target's transitive dependencies.",
       structField = true)
-  Depset getSkylarkNonTransitiveDefines();
+  Depset getStarlarkNonTransitiveDefines();
 
   @SkylarkCallable(
       name = "headers",
       doc = "Returns the set of headers needed to compile this target.",
       structField = true)
-  Depset getSkylarkHeaders();
+  Depset getStarlarkHeaders();
 
   @SkylarkCallable(
       name = "system_includes",
@@ -61,7 +61,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
               + " brackets, e.g. #include &lt;foo/bar/header.h&gt;. They can be either relative to"
               + " the exec root or absolute. Usually passed with -isystem.",
       structField = true)
-  Depset getSkylarkSystemIncludeDirs();
+  Depset getStarlarkSystemIncludeDirs();
 
   @SkylarkCallable(
       name = "framework_includes",
@@ -69,7 +69,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
           "Returns the set of search paths (as strings) for framework header files. Usually passed"
               + " with -F.",
       structField = true)
-  Depset getSkylarkFrameworkIncludeDirs();
+  Depset getStarlarkFrameworkIncludeDirs();
 
   @SkylarkCallable(
       name = "includes",
@@ -77,7 +77,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
           "Returns the set of search paths (as strings) for header files referenced both by angle"
               + " bracket and quotes. Usually passed with -I.",
       structField = true)
-  Depset getSkylarkIncludeDirs();
+  Depset getStarlarkIncludeDirs();
 
   @SkylarkCallable(
       name = "quote_includes",
@@ -86,7 +86,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
               + " e.g. #include \"foo/bar/header.h\". They can be either relative to the exec root"
               + " or absolute. Usually passed with -iquote.",
       structField = true)
-  Depset getSkylarkQuoteIncludeDirs();
+  Depset getStarlarkQuoteIncludeDirs();
 
   @SkylarkCallable(
       name = "direct_headers",
@@ -95,11 +95,11 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
               + " public headers (such as those listed in \"hdrs\") and private headers (such as"
               + " those listed in \"srcs\").",
       structField = true)
-  StarlarkList<FileT> getSkylarkDirectModularHeaders();
+  StarlarkList<FileT> getStarlarkDirectModularHeaders();
 
   @SkylarkCallable(
       name = "direct_textual_headers",
       doc = "Returns the list of textual headers that are declared by this target.",
       structField = true)
-  StarlarkList<FileT> getSkylarkDirectTextualHeaders();
+  StarlarkList<FileT> getStarlarkDirectTextualHeaders();
 }

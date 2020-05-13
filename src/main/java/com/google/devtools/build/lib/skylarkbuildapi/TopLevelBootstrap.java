@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.Starlark;
  * A {@link Bootstrap} for top-level libraries of the build API.
  */
 public class TopLevelBootstrap implements Bootstrap {
-  private final SkylarkBuildApiGlobals skylarkBuildApiGlobals;
+  private final StarlarkBuildApiGlobals starlarkBuildApiGlobals;
   private final StarlarkAttrModuleApi starlarkAttrModuleApi;
   private final StarlarkCommandLineApi starlarkCommandLineApi;
   private final StarlarkNativeModuleApi starlarkNativeModuleApi;
@@ -36,7 +36,7 @@ public class TopLevelBootstrap implements Bootstrap {
   private final DefaultInfoApiProvider<?, ?> defaultInfoProvider;
 
   public TopLevelBootstrap(
-      SkylarkBuildApiGlobals skylarkBuildApiGlobals,
+      StarlarkBuildApiGlobals starlarkBuildApiGlobals,
       StarlarkAttrModuleApi starlarkAttrModuleApi,
       StarlarkCommandLineApi starlarkCommandLineApi,
       StarlarkNativeModuleApi starlarkNativeModuleApi,
@@ -46,7 +46,7 @@ public class TopLevelBootstrap implements Bootstrap {
       ActionsInfoProviderApi actionsInfoProviderApi,
       DefaultInfoApiProvider<?, ?> defaultInfoProvider) {
     this.starlarkAttrModuleApi = starlarkAttrModuleApi;
-    this.skylarkBuildApiGlobals = skylarkBuildApiGlobals;
+    this.starlarkBuildApiGlobals = starlarkBuildApiGlobals;
     this.starlarkCommandLineApi = starlarkCommandLineApi;
     this.starlarkNativeModuleApi = starlarkNativeModuleApi;
     this.starlarkRuleFunctionsApi = starlarkRuleFunctionsApi;
@@ -58,7 +58,7 @@ public class TopLevelBootstrap implements Bootstrap {
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    Starlark.addMethods(builder, skylarkBuildApiGlobals);
+    Starlark.addMethods(builder, starlarkBuildApiGlobals);
     Starlark.addMethods(builder, starlarkRuleFunctionsApi);
     Starlark.addModule(builder, starlarkAttrModuleApi); // "attr"
     Starlark.addModule(builder, starlarkCommandLineApi); // "cmd_helper"

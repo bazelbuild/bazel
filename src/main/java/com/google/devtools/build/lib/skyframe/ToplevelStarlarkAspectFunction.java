@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.SkylarkAspectLoadingKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.StarlarkAspectLoadingKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -31,32 +31,32 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke two SkyFunctions one after
  * another, so BuildView calls this function to do the work.
  */
-public class ToplevelSkylarkAspectFunction implements SkyFunction {
-  ToplevelSkylarkAspectFunction() {}
+public class ToplevelStarlarkAspectFunction implements SkyFunction {
+  ToplevelStarlarkAspectFunction() {}
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws LoadSkylarkAspectFunctionException, InterruptedException {
-    SkylarkAspectLoadingKey aspectLoadingKey = (SkylarkAspectLoadingKey) skyKey.argument();
-    String skylarkValueName = aspectLoadingKey.getSkylarkValueName();
-    Label skylarkFileLabel = aspectLoadingKey.getSkylarkFileLabel();
+      throws LoadStarlarkAspectFunctionException, InterruptedException {
+    StarlarkAspectLoadingKey aspectLoadingKey = (StarlarkAspectLoadingKey) skyKey.argument();
+    String starlarkValueName = aspectLoadingKey.getStarlarkValueName();
+    Label starlarkFileLabel = aspectLoadingKey.getStarlarkFileLabel();
 
-    StarlarkAspect skylarkAspect;
+    StarlarkAspect starlarkAspect;
     try {
-      skylarkAspect = AspectFunction.loadStarlarkAspect(env, skylarkFileLabel, skylarkValueName);
-      if (skylarkAspect == null) {
+      starlarkAspect = AspectFunction.loadStarlarkAspect(env, starlarkFileLabel, starlarkValueName);
+      if (starlarkAspect == null) {
         return null;
       }
-      if (!skylarkAspect.getParamAttributes().isEmpty()) {
-        String msg = "Cannot instantiate parameterized aspect " + skylarkAspect.getName()
+      if (!starlarkAspect.getParamAttributes().isEmpty()) {
+        String msg = "Cannot instantiate parameterized aspect " + starlarkAspect.getName()
             + " at the top level.";
-        throw new AspectCreationException(msg, new LabelCause(skylarkFileLabel, msg));
+        throw new AspectCreationException(msg, new LabelCause(starlarkFileLabel, msg));
       }
     } catch (AspectCreationException e) {
-      throw new LoadSkylarkAspectFunctionException(e);
+      throw new LoadStarlarkAspectFunctionException(e);
     }
-    SkyKey aspectKey = aspectLoadingKey.toAspectKey(skylarkAspect.getAspectClass());
+    SkyKey aspectKey = aspectLoadingKey.toAspectKey(starlarkAspect.getAspectClass());
 
     return env.getValue(aspectKey);
   }
@@ -68,10 +68,10 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
   }
 
   /**
-   * Exceptions thrown from ToplevelSkylarkAspectFunction.
+   * Exceptions thrown from ToplevelStarlarkAspectFunction.
    */
-  public class LoadSkylarkAspectFunctionException extends SkyFunctionException {
-    public LoadSkylarkAspectFunctionException(AspectCreationException cause) {
+  public class LoadStarlarkAspectFunctionException extends SkyFunctionException {
+    public LoadStarlarkAspectFunctionException(AspectCreationException cause) {
       super(cause, Transience.PERSISTENT);
     }
   }

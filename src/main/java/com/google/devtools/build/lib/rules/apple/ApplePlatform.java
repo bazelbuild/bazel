@@ -61,14 +61,14 @@ public enum ApplePlatform implements ApplePlatformApi {
   private static final ImmutableSet<String> BIT_32_TARGET_CPUS =
       ImmutableSet.of("ios_i386", "ios_armv7", "ios_armv7s", "watchos_i386", "watchos_armv7k");
 
-  private final String skylarkKey;
+  private final String starlarkKey;
   private final String nameInPlist;
   private final PlatformType platformType;
   private final boolean isDevice;
 
   ApplePlatform(
-      String skylarkKey, String nameInPlist, PlatformType platformType, boolean isDevice) {
-    this.skylarkKey = skylarkKey;
+      String starlarkKey, String nameInPlist, PlatformType platformType, boolean isDevice) {
+    this.starlarkKey = starlarkKey;
     this.nameInPlist = Preconditions.checkNotNull(nameInPlist);
     this.platformType = platformType;
     this.isDevice = isDevice;
@@ -178,11 +178,11 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   /** Returns a Starlark struct that contains the instances of this enum. */
-  public static StructImpl getSkylarkStruct() {
+  public static StructImpl getStarlarkStruct() {
     Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platforms") {};
     HashMap<String, Object> fields = new HashMap<>();
     for (ApplePlatform type : values()) {
-      fields.put(type.skylarkKey, type);
+      fields.put(type.starlarkKey, type);
     }
     return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
   }
@@ -215,10 +215,10 @@ public enum ApplePlatform implements ApplePlatformApi {
      * The key used to access the enum value as a field in the Starlark apple_common.platform_type
      * struct.
      */
-    private final String skylarkKey;
+    private final String starlarkKey;
 
-    PlatformType(String skylarkKey) {
-      this.skylarkKey = skylarkKey;
+    PlatformType(String starlarkKey) {
+      this.starlarkKey = starlarkKey;
     }
 
     @Override
@@ -242,11 +242,11 @@ public enum ApplePlatform implements ApplePlatformApi {
     }
 
     /** Returns a Starlark struct that contains the instances of this enum. */
-    public static StructImpl getSkylarkStruct() {
+    public static StructImpl getStarlarkStruct() {
       Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platform_types") {};
       HashMap<String, Object> fields = new HashMap<>();
       for (PlatformType type : values()) {
-        fields.put(type.skylarkKey, type);
+        fields.put(type.starlarkKey, type);
       }
       return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
     }

@@ -53,7 +53,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A class that exposes apple rule implementation internals to Starlark. */
-public class AppleSkylarkCommon
+public class AppleStarlarkCommon
     implements AppleCommonApi<
         Artifact,
         ConstraintValueInfo,
@@ -95,7 +95,7 @@ public class AppleSkylarkCommon
 
   private ObjcProtoAspect objcProtoAspect;
 
-  public AppleSkylarkCommon(ObjcProtoAspect objcProtoAspect) {
+  public AppleStarlarkCommon(ObjcProtoAspect objcProtoAspect) {
     this.objcProtoAspect = objcProtoAspect;
   }
 
@@ -107,7 +107,7 @@ public class AppleSkylarkCommon
   @Override
   public StructImpl getPlatformTypeStruct() {
     if (platformType == null) {
-      platformType = PlatformType.getSkylarkStruct();
+      platformType = PlatformType.getStarlarkStruct();
     }
     return platformType;
   }
@@ -115,14 +115,14 @@ public class AppleSkylarkCommon
   @Override
   public StructImpl getPlatformStruct() {
     if (platform == null) {
-      platform = ApplePlatform.getSkylarkStruct();
+      platform = ApplePlatform.getStarlarkStruct();
     }
     return platform;
   }
 
   @Override
   public Provider getXcodeVersionPropertiesConstructor() {
-    return XcodeVersionProperties.SKYLARK_CONSTRUCTOR;
+    return XcodeVersionProperties.STARLARK_CONSTRUCTOR;
   }
 
   @Override
@@ -132,37 +132,37 @@ public class AppleSkylarkCommon
 
   @Override
   public Provider getObjcProviderConstructor() {
-    return ObjcProvider.SKYLARK_CONSTRUCTOR;
+    return ObjcProvider.STARLARK_CONSTRUCTOR;
   }
 
   @Override
   public Provider getAppleDynamicFrameworkConstructor() {
-    return AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR;
+    return AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override
   public Provider getAppleDylibBinaryConstructor() {
-    return AppleDylibBinaryInfo.SKYLARK_CONSTRUCTOR;
+    return AppleDylibBinaryInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override
   public Provider getAppleExecutableBinaryConstructor() {
-    return AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR;
+    return AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override
   public AppleStaticLibraryInfo.Provider getAppleStaticLibraryProvider() {
-    return AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR;
+    return AppleStaticLibraryInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override
   public Provider getAppleDebugOutputsConstructor() {
-    return AppleDebugOutputsInfo.SKYLARK_CONSTRUCTOR;
+    return AppleDebugOutputsInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override
   public Provider getAppleLoadableBundleBinaryConstructor() {
-    return AppleLoadableBundleBinaryInfo.SKYLARK_CONSTRUCTOR;
+    return AppleLoadableBundleBinaryInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override
@@ -194,15 +194,15 @@ public class AppleSkylarkCommon
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
     }
     for (Map.Entry<?, ?> entry : kwargs.entrySet()) {
-      Key<?> key = ObjcProvider.getSkylarkKeyForString((String) entry.getKey());
+      Key<?> key = ObjcProvider.getStarlarkKeyForString((String) entry.getKey());
       if (key != null) {
-        resultBuilder.addElementsFromSkylark(key, entry.getValue());
+        resultBuilder.addElementsFromStarlark(key, entry.getValue());
       } else if (entry.getKey().equals("strict_include")) {
-        resultBuilder.addStrictIncludeFromSkylark(entry.getValue());
+        resultBuilder.addStrictIncludeFromStarlark(entry.getValue());
       } else if (entry.getKey().equals("providers")) {
-        resultBuilder.addProvidersFromSkylark(entry.getValue());
+        resultBuilder.addProvidersFromStarlark(entry.getValue());
       } else if (entry.getKey().equals("direct_dep_providers")) {
-        resultBuilder.addDirectDepProvidersFromSkylark(entry.getValue());
+        resultBuilder.addDirectDepProvidersFromStarlark(entry.getValue());
       } else {
         throw new EvalException(null, String.format(BAD_KEY_ERROR, entry.getKey()));
       }
@@ -241,7 +241,7 @@ public class AppleSkylarkCommon
               ruleContext,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"));
-      return createAppleBinaryOutputSkylarkStruct(appleBinaryOutput, thread);
+      return createAppleBinaryOutputStarlarkStruct(appleBinaryOutput, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(null, exception);
     }
@@ -265,7 +265,7 @@ public class AppleSkylarkCommon
    * Creates a Starlark struct that contains the results of the {@code link_multi_arch_binary}
    * function.
    */
-  private StructImpl createAppleBinaryOutputSkylarkStruct(
+  private StructImpl createAppleBinaryOutputStarlarkStruct(
       AppleBinaryOutput output, StarlarkThread thread) {
     Provider constructor =
         new NativeProvider<StructImpl>(StructImpl.class, "apple_binary_output") {};

@@ -139,34 +139,34 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
-  public Depset getSkylarkDefines() {
+  public Depset getStarlarkDefines() {
     return Depset.of(Depset.ElementType.STRING, getDefines());
   }
 
   @Override
-  public Depset getSkylarkNonTransitiveDefines() {
+  public Depset getStarlarkNonTransitiveDefines() {
     return Depset.of(
         Depset.ElementType.STRING,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
   }
 
   @Override
-  public Depset getSkylarkHeaders() {
+  public Depset getStarlarkHeaders() {
     return Depset.of(Artifact.TYPE, getDeclaredIncludeSrcs());
   }
 
   @Override
-  public StarlarkList<Artifact> getSkylarkDirectModularHeaders() {
+  public StarlarkList<Artifact> getStarlarkDirectModularHeaders() {
     return StarlarkList.immutableCopyOf(getDirectHdrs());
   }
 
   @Override
-  public StarlarkList<Artifact> getSkylarkDirectTextualHeaders() {
+  public StarlarkList<Artifact> getStarlarkDirectTextualHeaders() {
     return StarlarkList.immutableCopyOf(getTextualHdrs());
   }
 
   @Override
-  public Depset getSkylarkSystemIncludeDirs() {
+  public Depset getStarlarkSystemIncludeDirs() {
     return Depset.of(
         Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
@@ -177,7 +177,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
-  public Depset getSkylarkFrameworkIncludeDirs() {
+  public Depset getStarlarkFrameworkIncludeDirs() {
     return Depset.of(
         Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
@@ -188,7 +188,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
-  public Depset getSkylarkIncludeDirs() {
+  public Depset getStarlarkIncludeDirs() {
     return Depset.of(
         Depset.ElementType.STRING,
         NestedSetBuilder.wrap(
@@ -199,7 +199,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
-  public Depset getSkylarkQuoteIncludeDirs() {
+  public Depset getStarlarkQuoteIncludeDirs() {
     return Depset.of(
         Depset.ElementType.STRING,
         NestedSetBuilder.wrap(

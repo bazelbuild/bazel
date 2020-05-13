@@ -113,7 +113,7 @@ public class ObjcProtoAspect extends StarlarkNativeAspect implements ConfiguredA
             ruleContext.getPrerequisite(
                 ObjcRuleClasses.PROTO_LIB_ATTR,
                 TransitionMode.TARGET,
-                ObjcProvider.SKYLARK_CONSTRUCTOR);
+                ObjcProvider.STARLARK_CONSTRUCTOR);
         protobufCcCompilationContext = protobufObjcProvider.getCcCompilationContext();
       }
       aspectObjcProtoProvider.addProtobufHeaders(

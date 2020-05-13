@@ -275,13 +275,13 @@ public class MultiArchBinarySupport {
       ImmutableList<TransitiveInfoCollection> transitiveInfoCollections) {
     // Dylibs.
     ImmutableList<ObjcProvider> frameworkObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR)
+        getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR)
             .stream()
             .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
             .collect(ImmutableList.toImmutableList());
     // Bundle Loaders.
     ImmutableList<ObjcProvider> executableObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR)
+        getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR)
             .stream()
             .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
             .collect(ImmutableList.toImmutableList());
@@ -289,7 +289,7 @@ public class MultiArchBinarySupport {
     return Iterables.concat(
         frameworkObjcProviders,
         executableObjcProviders,
-        getTypedProviders(transitiveInfoCollections, ObjcProvider.SKYLARK_CONSTRUCTOR));
+        getTypedProviders(transitiveInfoCollections, ObjcProvider.STARLARK_CONSTRUCTOR));
   }
 
   private ObjcCommon common(

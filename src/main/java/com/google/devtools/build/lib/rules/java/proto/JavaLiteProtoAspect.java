@@ -232,7 +232,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
       JavaStarlarkApiProvider skylarkApiProvider = JavaStarlarkApiProvider.fromRuleContext();
       aspect
-          .addSkylarkTransitiveInfo(JavaStarlarkApiProvider.NAME, skylarkApiProvider)
+          .addStarlarkTransitiveInfo(JavaStarlarkApiProvider.NAME, skylarkApiProvider)
           .addNativeDeclaredProvider(javaInfo.build())
           .addProvider(
               new JavaProtoLibraryAspectProvider(
