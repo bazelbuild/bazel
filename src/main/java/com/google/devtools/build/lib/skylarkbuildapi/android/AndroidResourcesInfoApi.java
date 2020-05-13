@@ -202,11 +202,13 @@ public interface AndroidResourcesInfoApi<
               type = Depset.class,
               generic1 = FileApi.class),
           @Param(
+              // TODO(b/119560471): remove.
               name = "transitive_static_lib",
               doc = "A depset of Artifacts of static lib files in the transitive closure.",
               positional = true,
               named = true,
               type = Depset.class,
+              defaultValue = "unbound",
               generic1 = FileApi.class),
           @Param(
               name = "transitive_r_txt",
@@ -214,6 +216,7 @@ public interface AndroidResourcesInfoApi<
               positional = true,
               named = true,
               type = Depset.class,
+              defaultValue = "unbound", // needed to allow removing any earlier parameters.
               generic1 = FileApi.class),
           // TODO(b/132383435): remove this
           @Param(
@@ -238,8 +241,8 @@ public interface AndroidResourcesInfoApi<
         Depset transitiveAapt2RTxt,
         Depset transitiveSymbolsBin,
         Depset transitiveCompiledSymbols,
-        Depset transitiveStaticLib,
-        Depset transitiveRTxt,
+        Object transitiveStaticLib,
+        Object transitiveRTxt,
         Object transitiveAapt2ValidationArtifacts)
         throws EvalException;
   }
