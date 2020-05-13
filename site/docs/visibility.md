@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Visibility
+---
+
 # Visibility
 
 Visibility controls whether a target can be used by other packages. It is an
@@ -14,7 +19,7 @@ There are five forms a visibility label can take:
 
 *   `["//visibility:public"]`: Anyone can use this rule.
 *   `["//visibility:private"]`: Only rules in this package can use this rule.
-    Rules in `javatests/foo/bar` can always use rules in `java/foo/bar`.
+
 *   `["//some/package:__pkg__", "//other/package:__pkg__"]`: Only rules in
     `some/package/BUILD` and `other/package/BUILD` have access to this rule.
     Note that sub-packages do not have access to the rule; for example,
@@ -112,6 +117,28 @@ accessible from another package, use
 If the call to `exports_files` rule does specify the visibility attribute, that
 specification applies. Otherwise, the file is public (the `default_visibility`
 is ignored).
+
+When possible, prefer exposing a library or another type of rule instead of a
+source file. For example, declare a `java_library` instead of exporting a
+`.java` file. It's good form for a target to only directly include sources in
+its own package.
+
+### Example
+
+File `//frobber/data/BUILD`:
+
+```python
+exports_files(["readme.txt"])
+```
+
+File `//frobber/bin/BUILD`:
+
+```python
+cc_binary(
+  name = "my-program",
+  data = ["//frobber/data:readme.txt"],
+)
+```
 
 ### Legacy behavior
 
