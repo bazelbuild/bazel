@@ -26,6 +26,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/test/java/com/google/devtools/build/lib/outputfilter:srcs",
         "//src/test/java/com/google/devtools/build/lib/packages:srcs",
+        "//src/test/java/com/google/devtools/build/lib/packages/metrics:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
