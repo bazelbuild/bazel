@@ -9,18 +9,13 @@ title: Installing Bazel on Windows
 
 ### Step 1: Check your system
 
-Recommended: 64 bit Windows 10, version 1703 (Creators Update) or newer, enable "Developer Mode".
-
-<!-- Developer mode: for symlink support. -->
+Recommended: 64 bit Windows 10, version 1703 (Creators Update) or newer
 
 Also supported:
 
 *   64 bit Windows 7 or newer
 
 *   64 bit Windows Server 2008 R2 or newer
-
-*   Older Windows 10 versions, disabled "Developer Mode" (enabling the mode just lets you use the
-    `--enable_runfiles` Bazel flag)
 
 ### Step 2: Install the prerequisites
 
@@ -31,8 +26,6 @@ Also supported:
 [Download the Bazel binary (<code>bazel-&lt;version&gt;-windows-x86_64.exe</code>) from
  GitHub](https://github.com/bazelbuild/bazel/releases).
 
-Recommended: rename this binary to `bazel.exe` and move it to a directory on the `PATH`.
-
 Alternatively you can:
 
 *   [Download Bazelisk](https://github.com/bazelbuild/bazelisk) instead of Bazel. Bazelisk is a
@@ -41,38 +34,63 @@ Alternatively you can:
 *   [Install Bazel from Scoop](#using-scoop)
 *   [Build Bazel from source](install-compile-source.html)
 
-### Step 4 (optional): Configure output directories
+### Step 4: Set up your environment
 
-**You can skip this step. Bazel can work without configuring the output directories, and will use
-its default values.**
+It's a good idea to rename the Bazel binary to `bazel.exe` and add it to your default paths.
 
-By default, Bazel writes to two directories:
+```batch
+set PATH=%PATH%;<path to the Bazel binary>
+```
 
--   The "output user root", configurable with the `--output_user_root` flag.
+You can also change your system `PATH` environment variable to make it permanent.
 
-    This is where Bazel extracts from itself its embedded tools, its own runtime, and where it
-    writes some log files and some caches.
+### Step 5: Done
 
-    This is also the default location for the "output base".
+**You have successfully installed Bazel.**
+To check the installation is correct, try to run:
+```batch
+bazel version
+```
 
--   The "output base", configurable with the `--output_base` flag.
+Best practices: see [Best practices](best-practices) below
 
-    This is where Bazel writes all output files. By default, this is a subdirectory of the "output
-    user root".
+Troubleshooting: see [troubleshooting](#troubleshooting) below.
 
-By default, Bazel also writes in the workspace directory:
+Tutorials: see [Getting Started with Bazel](getting-started.html) >
+[Tutorials](getting-started.html#tutorials).
 
--   The "convenience symlinks", configurable with the `--symlink_prefix` flag.
+---
 
-    These are the "bazel-bin", "bazel-testlogs", and similar directories that Bazel creates in your
-    workspace. These are not really directories but "junctions": they just point to other
-    directories in your filesystem (under the "output root").
+## Best practices
 
-    You can tell Bazel not to create these junctions with `--symlink_prefix=/`.
+### Avoid long path issues
 
-### Step 5 (optional): Install compilers and language runtimes
+Some tools have the [Maximum Path Length Limitation](https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#maximum-path-length-limitation) on Windows, including the MSVC compiler.
+To avoid hitting this issue, you can specify a short output directory for Bazel by the [\-\-output_user_root](command-line-reference.html#flag--output_user_root) flag.
+For example, add the following line to your bazelrc file:
+```
+startup --output_user_root=C:/tmp
+```
 
-**You can skip this step. Bazel can work without these programs, but you may need them.**
+### Enable symlink support
+
+Some features require Bazel to create file symlink on Windows, you can allow Bazel to do that by enabling [Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development) on Windows.
+You can then turn on Bazel's symlink support by:
+
+* [\-\-windows_enable_symlinks](command-line-reference.html#flag--windows_enable_symlinks)
+* [\-\-enable_runfiles](command-line-reference.html#flag--enable_runfiles)
+
+To make it easier, add the following lines to your bazelrc file:
+```
+startup --windows_enable_symlinks
+build --enable_runfiles
+```
+
+**Note that**: Creating symlink on Windows is an expensive operation, `--enable_runfiles` sometimes means creating a large amount of file symlinks. Only enable this feature when you are sure you need it.
+
+<!-- TODO(pcloudy): Write a doc about runfiles library and add a link to it here -->
+
+### Install compilers and language runtimes
 
 We recommend installing:
 
@@ -92,14 +110,12 @@ We recommend installing:
 
     Open the MSYS2 terminal and run this command:
 
-    ```
+    ```bash
     pacman -S zip unzip patch diffutils git
     ```
-    Optional: If you want to use Bazel from CMD or Powershell and still be able to use Bash tools, make sure to add MSYS2_INSTALL_PATH/usr/bin to your PATH environment variable.
+    Optional: If you want to use Bazel from CMD or Powershell and still be able to use Bash tools, make sure to add `<MSYS2_INSTALL_PATH>/usr/bin` to your `PATH` environment variable.
 
 *   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)
-
-    Make sure you install the C++ build tools with the Windows 10 SDK.
 
     You will need this to build C++ code on Windows.
 
@@ -109,26 +125,17 @@ We recommend installing:
 
     *   Visual C++ Build Tools 2015 (or newer) and Windows 10 SDK
 
-*   Java SE Development Kit 10 (JDK) for Windows x64
+*   [Java SE Development Kit 11 (JDK) for Windows x64](https://www.oracle.com/java/technologies/javase-jdk11-downloads.html)
 
     You will need this to build Java code on Windows.
 
-    Also supported: Java 8 and 9
+    Also supported: Java 8, 9, and 10
 
-*   [Python 2.7 for Windows x86-64](https://www.python.org/downloads/windows/)
+*   [Python 3.6 for Windows x86-64](https://www.python.org/downloads/windows/)
 
     You will need this to build Python code on Windows.
 
-    Also supported: Python 3 or newer for Windows x86-64
-
-### Step 6: Done
-
-**You have successfully installed Bazel.**
-
-Troubleshooting: see [troubleshooting](#troubleshooting) below.
-
-Tutorials: see [Getting Started with Bazel](getting-started.html) >
-[Tutorials](getting-started.html#tutorials).
+    Also supported: Python 2.7 or newer for Windows x86-64
 
 ---
 
