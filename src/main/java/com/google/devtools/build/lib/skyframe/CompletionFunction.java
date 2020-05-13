@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifactValue;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -51,7 +50,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** CompletionFunction builds the artifactsToBuild collection of a {@link ConfiguredTarget}. */
@@ -144,15 +142,15 @@ public final class CompletionFunction<
 
   private final PathResolverFactory pathResolverFactory;
   private final Completor<ValueT, ResultT, KeyT> completor;
-  private final Supplier<Path> execRootSupplier;
+  private final SkyframeActionExecutor skyframeActionExecutor;
 
   CompletionFunction(
       PathResolverFactory pathResolverFactory,
       Completor<ValueT, ResultT, KeyT> completor,
-      Supplier<Path> execRootSupplier) {
+      SkyframeActionExecutor skyframeActionExecutor) {
     this.pathResolverFactory = pathResolverFactory;
     this.completor = completor;
-    this.execRootSupplier = execRootSupplier;
+    this.skyframeActionExecutor = skyframeActionExecutor;
   }
 
   @SuppressWarnings("unchecked") // Cast to KeyT
@@ -282,7 +280,7 @@ public final class CompletionFunction<
               key.topLevelArtifactContext().expandFilesets(),
               inputMap,
               pathResolverFactory,
-              execRootSupplier.get(),
+              skyframeActionExecutor.getExecRoot(),
               workspaceNameValue.getName());
     } catch (IOException e) {
       throw new CompletionFunctionException(e);
@@ -307,9 +305,10 @@ public final class CompletionFunction<
       throws InterruptedException {
     LabelCause cause =
         ActionExecutionFunction.handleMissingFile(
-            input, artifactValue, key.actionLookupKey().getLabel(), env.getListener());
+            input, artifactValue, key.actionLookupKey().getLabel());
     rootCausesBuilder.add(cause);
     env.getListener().handle(completor.getRootCauseError(value, key, cause, env));
+    skyframeActionExecutor.recordExecutionError();
   }
 
   @Nullable

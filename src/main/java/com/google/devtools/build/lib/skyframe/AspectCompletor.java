@@ -30,10 +30,8 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Manages completing builds for aspects. */
@@ -41,8 +39,9 @@ class AspectCompletor
     implements Completor<AspectValue, AspectCompletionValue, AspectCompletionKey> {
 
   static SkyFunction aspectCompletionFunction(
-      PathResolverFactory pathResolverFactory, Supplier<Path> execRootSupplier) {
-    return new CompletionFunction<>(pathResolverFactory, new AspectCompletor(), execRootSupplier);
+      PathResolverFactory pathResolverFactory, SkyframeActionExecutor skyframeActionExecutor) {
+    return new CompletionFunction<>(
+        pathResolverFactory, new AspectCompletor(), skyframeActionExecutor);
   }
 
   @Override

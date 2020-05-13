@@ -354,8 +354,11 @@ java_test(
         "no_windows",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/bazel:modules",
         "//src/main/java/com/google/devtools/build/lib/causes",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",

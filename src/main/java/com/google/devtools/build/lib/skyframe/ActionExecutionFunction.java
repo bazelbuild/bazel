@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -538,7 +537,7 @@ public class ActionExecutionFunction implements SkyFunction {
    * incomplete. E.g., it may lack knowledge of a runfiles middleman owning a fileset, even if it
    * knows that fileset owns a lost input.
    */
-  private static ActionInputDepOwners createAugmentedInputDepOwners(
+  private ActionInputDepOwners createAugmentedInputDepOwners(
       LostInputsActionExecutionException e,
       Action action,
       Environment env,
@@ -994,7 +993,7 @@ public class ActionExecutionFunction implements SkyFunction {
     DISCOVERED_DATA
   }
 
-  private static DiscoveredState addDiscoveredInputs(
+  private DiscoveredState addDiscoveredInputs(
       ActionInputMap inputData,
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
       Iterable<Artifact> discoveredInputs,
@@ -1028,13 +1027,11 @@ public class ActionExecutionFunction implements SkyFunction {
         MissingFileArtifactValue missingValue =
             ArtifactFunction.makeMissingInputFileValue(input, e);
         MissingInputFileException missingException = missingValue.getException();
-        env.getListener()
-            .handle(
-                Event.error(
-                    actionForError.getOwner().getLocation(),
-                    String.format(
-                        "%s: %s",
-                        actionForError.getOwner().getLabel(), missingException.getMessage())));
+        skyframeActionExecutor.printError(
+            String.format(
+                "%s: %s", actionForError.getOwner().getLabel(), missingException.getMessage()),
+            actionForError,
+            null);
         // We don't create a specific cause for the artifact as we do in #handleMissingFile because
         // it likely has no label, so we'd have to use the Action's label anyway. Just use the
         // default ActionFailed event constructed by ActionExecutionException.
@@ -1131,7 +1128,7 @@ public class ActionExecutionFunction implements SkyFunction {
    * Declare dependency on all known inputs of action. Throws exception if any are known to be
    * missing. Some inputs may not yet be in the graph, in which case the builder should abort.
    */
-  private static CheckInputResults checkInputs(
+  private CheckInputResults checkInputs(
       Environment env,
       Action action,
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,
@@ -1151,7 +1148,7 @@ public class ActionExecutionFunction implements SkyFunction {
   /**
    * Reconstructs the relationships between lost inputs and the direct deps responsible for them.
    */
-  private static ActionInputDepOwnerMap getInputDepOwners(
+  private ActionInputDepOwnerMap getInputDepOwners(
       Environment env,
       Action action,
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,
@@ -1170,7 +1167,7 @@ public class ActionExecutionFunction implements SkyFunction {
             actionInputMapSink);
   }
 
-  private static <S extends ActionInputMapSink, R> R accumulateInputs(
+  private <S extends ActionInputMapSink, R> R accumulateInputs(
       Environment env,
       Action action,
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,
@@ -1236,8 +1233,7 @@ public class ActionExecutionFunction implements SkyFunction {
               handleMissingFile(
                   input,
                   ArtifactFunction.makeMissingInputFileValue(input, e),
-                  action.getOwner().getLabel(),
-                  env.getListener()));
+                  action.getOwner().getLabel()));
           continue;
         }
       } catch (ActionExecutionException e) {
@@ -1256,10 +1252,7 @@ public class ActionExecutionFunction implements SkyFunction {
         if (mandatory) {
           missingArtifactCauses.add(
               handleMissingFile(
-                  input,
-                  (MissingFileArtifactValue) value,
-                  action.getOwner().getLabel(),
-                  env.getListener()));
+                  input, (MissingFileArtifactValue) value, action.getOwner().getLabel()));
           continue;
         } else {
           value = FileArtifactValue.MISSING_FILE_MARKER;
@@ -1278,6 +1271,14 @@ public class ActionExecutionFunction implements SkyFunction {
       }
     }
 
+    if (!missingArtifactCauses.isEmpty()) {
+      for (LabelCause missingInput : missingArtifactCauses) {
+        skyframeActionExecutor.printError(
+            String.format("%s: %s", action.getOwner().getLabel(), missingInput.getMessage()),
+            action,
+            null);
+      }
+    }
     // We need to rethrow first exception because it can contain useful error message
     if (firstActionExecutionException != null) {
       if (missingArtifactCauses.isEmpty() && (checkNotNull(transitiveCauses, action).size() == 1)) {
@@ -1298,14 +1299,6 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     if (!missingArtifactCauses.isEmpty()) {
-      for (LabelCause missingInput : missingArtifactCauses) {
-        env.getListener()
-            .handle(
-                Event.error(
-                    action.getOwner().getLocation(),
-                    String.format(
-                        "%s: %s", action.getOwner().getLabel(), missingInput.getMessage())));
-      }
       throw new ActionExecutionException(
           missingArtifactCauses.size() + " input file(s) do not exist",
           action,
@@ -1317,12 +1310,8 @@ public class ActionExecutionFunction implements SkyFunction {
   }
 
   static LabelCause handleMissingFile(
-      Artifact input,
-      MissingFileArtifactValue missingValue,
-      Label labelInCaseOfBug,
-      ExtendedEventHandler listener) {
+      Artifact input, MissingFileArtifactValue missingValue, Label labelInCaseOfBug) {
     MissingInputFileException e = missingValue.getException();
-    listener.handle(Event.error(e.getLocation(), e.getMessage()));
     Label inputLabel = input.getOwner();
     if (inputLabel == null) {
       BugReport.sendBugReport(
