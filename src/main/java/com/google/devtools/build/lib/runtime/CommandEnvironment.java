@@ -430,6 +430,10 @@ public class CommandEnvironment {
     return relativeWorkingDirectory;
   }
 
+  public Duration getWaitTime() {
+    return waitTime;
+  }
+
   List<OutErr> getOutputListeners() {
     List<OutErr> result = new ArrayList<>();
     for (BlazeModule module : runtime.getBlazeModules()) {
