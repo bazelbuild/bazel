@@ -50,14 +50,14 @@ import org.mockito.Mockito;
 
 /** Integration test for Starlark repository not as heavyweight than shell integration tests. */
 @RunWith(JUnit4.class)
-public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
+public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
-  // The RuleClassProvider loaded with the SkylarkRepositoryModule
+  // The RuleClassProvider loaded with the StarlarkRepositoryModule
   private ConfiguredRuleClassProvider ruleProvider = null;
 
   /**
    * Proxy to the real analysis mock to overwrite {@code #getSkyFunctions(BlazeDirectories)} to
-   * inject the SkylarkRepositoryFunction in the list of SkyFunctions. In Bazel, this function is
+   * inject the StarlarkRepositoryFunction in the list of SkyFunctions. In Bazel, this function is
    * injected by the corresponding @{code BlazeModule}.
    */
   private static class CustomAnalysisMock extends AnalysisMock.Delegate {
@@ -69,7 +69,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
         BlazeDirectories directories) {
       // Add both the local repository and the Starlark repository functions
-      // The RepositoryCache mock injected with the SkylarkRepositoryFunction
+      // The RepositoryCache mock injected with the StarlarkRepositoryFunction
       DownloadManager downloader = Mockito.mock(DownloadManager.class);
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
       StarlarkRepositoryFunction starlarkRepositoryFunction =
@@ -105,7 +105,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     if (ruleProvider == null) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
       TestRuleClassProvider.addStandardRules(builder);
-      builder.addSkylarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
+      builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
       ruleProvider = builder.build();
     }
     return ruleProvider;

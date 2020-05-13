@@ -29,7 +29,7 @@ import java.lang.annotation.Target;
  */
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface SkylarkConstructor {
+public @interface StarlarkConstructor {
 
   /** The java class of the Starlark type that this annotation's method is a constructor for. */
   Class<?> objectType();

@@ -16,12 +16,12 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 
-final class FakeJavaToolchainSkylarkApiProviderApi implements JavaToolchainSkylarkApiProviderApi {
+final class FakeJavaToolchainStarlarkApiProviderApi implements JavaToolchainStarlarkApiProviderApi {
 
   @Override
   public String getSourceVersion() {
@@ -44,17 +44,17 @@ final class FakeJavaToolchainSkylarkApiProviderApi implements JavaToolchainSkyla
   }
 
   @Override
-  public Depset getSkylarkBootclasspath() {
+  public Depset getStarlarkBootclasspath() {
     return null;
   }
 
   @Override
-  public Sequence<String> getSkylarkJvmOptions() {
+  public Sequence<String> getStarlarkJvmOptions() {
     return null;
   }
 
   @Override
-  public Depset getSkylarkTools() {
+  public Depset getStarlarkTools() {
     return null;
   }
 
@@ -71,5 +71,5 @@ final class FakeJavaToolchainSkylarkApiProviderApi implements JavaToolchainSkyla
   @Override
   public void repr(Printer printer) {}
 
-  private FakeJavaToolchainSkylarkApiProviderApi() {}
+  private FakeJavaToolchainStarlarkApiProviderApi() {}
 }

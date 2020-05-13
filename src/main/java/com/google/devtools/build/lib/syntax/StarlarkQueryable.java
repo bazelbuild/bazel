@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.syntax;
 
 /** A Starlark value that supports membership tests, {@code key in object}. */
-// TODO(adonovan): merge with SkylarkIndexable: no type supports 'x in y' without y[x],
+// TODO(adonovan): merge with StarlarkIndexable: no type supports 'x in y' without y[x],
 // and 'x in y' can be defined in terms of y[x], at least as a default implementation.
 // (Implementations of 'x in y' may choose to interpret failure of y[x] as false or a failure.)
-public interface SkylarkQueryable extends StarlarkValue {
+public interface StarlarkQueryable extends StarlarkValue {
 
   /** Returns whether the key is in the object. */
   boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException;

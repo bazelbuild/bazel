@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
@@ -62,7 +62,7 @@ public interface ProguardMappingProviderApi<FileT extends FileApi> extends Struc
               type = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = ProguardMappingProviderApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor(objectType = ProguardMappingProviderApi.class, receiverNameForDoc = NAME)
     ProguardMappingProviderApi<FileT> createInfo(FileT proguardMapping) throws EvalException;
   }
 }

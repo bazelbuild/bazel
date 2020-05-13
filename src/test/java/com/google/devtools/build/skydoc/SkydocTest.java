@@ -56,7 +56,7 @@ public final class SkydocTest extends BuildViewTestCase {
   public void setUp() {
     skydocMain =
         new SkydocMain(
-            new SkylarkFileAccessor() {
+            new StarlarkFileAccessor() {
 
               @Override
               public ParserInput inputSource(String pathString) throws IOException {

@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 
@@ -65,7 +65,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
               generic1 = FileApi.class)
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidProguardInfoApi.class)
+    @StarlarkConstructor(objectType = AndroidProguardInfoApi.class)
     AndroidProguardInfoApi<FileT> createInfo(Sequence<?> localProguardSpecs /* <FileT> */)
         throws EvalException;
   }

@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 
@@ -63,7 +63,7 @@ public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends Stru
               type = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidPreDexJarProviderApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor(objectType = AndroidPreDexJarProviderApi.class, receiverNameForDoc = NAME)
     AndroidPreDexJarProviderApi<FileT> createInfo(FileT preDexJar) throws EvalException;
   }
 }

@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
@@ -73,7 +73,7 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
                       + "success/failure.")
         },
         selfCall = true)
-    @SkylarkConstructor(
+    @StarlarkConstructor(
         objectType = AnalysisTestResultInfoApi.class,
         receiverNameForDoc = "AnalysisTestResultInfo")
     AnalysisTestResultInfoApi testResultInfo(Boolean success, String message);

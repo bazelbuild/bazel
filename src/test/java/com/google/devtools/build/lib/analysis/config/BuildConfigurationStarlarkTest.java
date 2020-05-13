@@ -29,10 +29,10 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link BuildConfiguration}'s integration with Starlark. */
 @RunWith(JUnit4.class)
-public final class BuildConfigurationSkylarkTest extends BuildViewTestCase {
+public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
 
   @Test
-  public void testSkylarkWithTestEnvOptions() throws Exception {
+  public void testStarlarkWithTestEnvOptions() throws Exception {
     useConfiguration("--test_env=TEST_ENV_VAR=my_value");
     scratch.file("examples/rule/BUILD");
     scratch.file(
@@ -52,11 +52,11 @@ public final class BuildConfigurationSkylarkTest extends BuildViewTestCase {
         "    name = 'my_target',",
         ")");
 
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/config_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/config_skylark:my_target");
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//examples/rule:config_test.bzl", ImmutableMap.of()), "MyInfo");
-    StructImpl myInfo = (StructImpl) skylarkTarget.get(key);
+    StructImpl myInfo = (StructImpl) starlarkTarget.get(key);
     assertThat(((Dict) myInfo.getValue("test_env")).get("TEST_ENV_VAR")).isEqualTo("my_value");
   }
 }

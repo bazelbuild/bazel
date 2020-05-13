@@ -48,7 +48,7 @@ public final class ConfigRules implements RuleSet {
     builder.addConfigurationFragment(new ConfigFeatureFlagConfiguration.Loader());
 
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
-    builder.addSkylarkBootstrap(
+    builder.addStarlarkBootstrap(
         new ConfigBootstrap(
             new ConfigStarlarkCommon(), new StarlarkConfig(), new ConfigGlobalLibrary()));
   }

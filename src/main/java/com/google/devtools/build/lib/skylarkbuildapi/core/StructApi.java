@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.core;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -104,7 +104,7 @@ public interface StructApi extends StarlarkValue {
                 doc = "Dictionary of arguments."),
         useStarlarkThread = true,
         selfCall = true)
-    @SkylarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
+    @StarlarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
     StructApi createStruct(Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException;
   }
 }

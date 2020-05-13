@@ -261,7 +261,7 @@ public class BazelRuleClassProvider {
                   BazelProtoCommon.INSTANCE,
                   new StarlarkAspectStub(),
                   new ProviderStub());
-          builder.addSkylarkBootstrap(bootstrap);
+          builder.addStarlarkBootstrap(bootstrap);
         }
 
         @Override
@@ -350,7 +350,7 @@ public class BazelRuleClassProvider {
                   AndroidResourcesInfo.PROVIDER,
                   AndroidNativeLibsInfo.PROVIDER,
                   AndroidApplicationResourceInfo.PROVIDER);
-          builder.addSkylarkBootstrap(bootstrap);
+          builder.addStarlarkBootstrap(bootstrap);
 
           try {
             builder.addWorkspaceFilePrefix(
@@ -385,7 +385,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new PyRuntimeRule());
 
-          builder.addSkylarkBootstrap(
+          builder.addStarlarkBootstrap(
               new PyBootstrap(
                   PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER, PyStarlarkTransitions.INSTANCE));
 

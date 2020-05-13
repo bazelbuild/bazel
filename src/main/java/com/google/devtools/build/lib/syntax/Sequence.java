@@ -39,7 +39,7 @@ import java.util.RandomAccess;
     category = StarlarkDocumentationCategory.BUILTIN,
     doc = "common type of lists and tuples.")
 public interface Sequence<E>
-    extends StarlarkValue, List<E>, RandomAccess, SkylarkIndexable, StarlarkIterable<E> {
+    extends StarlarkValue, List<E>, RandomAccess, StarlarkIndexable, StarlarkIterable<E> {
 
   @Override
   default boolean truth() {

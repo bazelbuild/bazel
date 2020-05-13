@@ -21,7 +21,7 @@ import java.io.IOException;
  * Helper to handle Skydoc file I/O. This abstraction is useful for tests which don't involve
  * actual file I/O.
  */
-public interface SkylarkFileAccessor {
+public interface StarlarkFileAccessor {
 
   /** Returns a {@link ParserInput} for accessing the content of the given absolute path string. */
   ParserInput inputSource(String pathString) throws IOException;

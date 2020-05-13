@@ -17,8 +17,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Supplies the device broker type string, passed to the Android test runtime. */
@@ -56,7 +56,7 @@ public interface AndroidDeviceBrokerInfoApi extends StructApi {
                       + "devices")
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidDeviceBrokerInfoApi.class)
+    @StarlarkConstructor(objectType = AndroidDeviceBrokerInfoApi.class)
     AndroidDeviceBrokerInfoApi createInfo(String type) throws EvalException;
   }
 }

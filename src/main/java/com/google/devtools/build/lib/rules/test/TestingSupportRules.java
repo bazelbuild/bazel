@@ -32,7 +32,7 @@ public final class TestingSupportRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addSkylarkBootstrap(
+    builder.addStarlarkBootstrap(
         new TestingBootstrap(
             new StarlarkTestingModule(),
             new CoverageCommon(),

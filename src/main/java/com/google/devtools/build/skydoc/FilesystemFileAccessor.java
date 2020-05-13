@@ -19,10 +19,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-/**
- * Implementation of {@link SkylarkFileAccessor} which uses the real filesystem.
- */
-public class FilesystemFileAccessor implements SkylarkFileAccessor {
+/** Implementation of {@link StarlarkFileAccessor} which uses the real filesystem. */
+public class FilesystemFileAccessor implements StarlarkFileAccessor {
 
   @Override
   public ParserInput inputSource(String filename) throws IOException {

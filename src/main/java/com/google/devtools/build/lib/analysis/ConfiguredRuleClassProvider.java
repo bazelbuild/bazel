@@ -119,8 +119,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
-    private final ImmutableList.Builder<Bootstrap> skylarkBootstraps = ImmutableList.builder();
-    private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
+    private final ImmutableList.Builder<Bootstrap> starlarkBootstraps = ImmutableList.builder();
+    private ImmutableMap.Builder<String, Object> starlarkAccessibleTopLevels =
         ImmutableMap.builder();
     private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
         ImmutableList.builder();
@@ -225,13 +225,13 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       return this;
     }
 
-    public Builder addSkylarkBootstrap(Bootstrap bootstrap) {
-      this.skylarkBootstraps.add(bootstrap);
+    public Builder addStarlarkBootstrap(Bootstrap bootstrap) {
+      this.starlarkBootstraps.add(bootstrap);
       return this;
     }
 
-    public Builder addSkylarkAccessibleTopLevels(String name, Object object) {
-      this.skylarkAccessibleTopLevels.put(name, object);
+    public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
+      this.starlarkAccessibleTopLevels.put(name, object);
       return this;
     }
 
@@ -424,8 +424,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
-          skylarkAccessibleTopLevels.build(),
-          skylarkBootstraps.build(),
+          starlarkAccessibleTopLevels.build(),
+          starlarkBootstraps.build(),
           symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
@@ -550,8 +550,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
-      ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
-      ImmutableList<Bootstrap> skylarkBootstraps,
+      ImmutableMap<String, Object> starlarkAccessibleJavaClasses,
+      ImmutableList<Bootstrap> starlarkBootstraps,
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
@@ -574,7 +574,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.environment = createEnvironment(skylarkAccessibleJavaClasses, skylarkBootstraps);
+    this.environment = createEnvironment(starlarkAccessibleJavaClasses, starlarkBootstraps);
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
@@ -726,14 +726,14 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   }
 
   private static ImmutableMap<String, Object> createEnvironment(
-      ImmutableMap<String, Object> skylarkAccessibleTopLevels,
+      ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     // Among other symbols, this step adds the Starlark universe (e.g. None/True/len), for now.
     StarlarkModules.addStarlarkGlobalsToBuilder(envBuilder);
 
-    envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
+    envBuilder.putAll(starlarkAccessibleTopLevels.entrySet());
     for (Bootstrap bootstrap : bootstraps) {
       bootstrap.addBindingsToBuilder(envBuilder);
     }

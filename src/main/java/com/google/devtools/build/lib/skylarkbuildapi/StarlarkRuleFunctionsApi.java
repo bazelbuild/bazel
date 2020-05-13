@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
@@ -521,10 +521,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
               + "attributes. The argument must refer to an absolute label. "
               + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
       parameters = {
-        @Param(
-            name = "label_string",
-            type = String.class,
-            doc = "the label string."),
+        @Param(name = "label_string", type = String.class, doc = "the label string."),
         @Param(
             name = "relative_to_caller_repository",
             type = Boolean.class,
@@ -541,7 +538,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "Label() call appears.")
       },
       useStarlarkThread = true)
-  @SkylarkConstructor(objectType = Label.class)
+  @StarlarkConstructor(objectType = Label.class)
   Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
       throws EvalException;
 

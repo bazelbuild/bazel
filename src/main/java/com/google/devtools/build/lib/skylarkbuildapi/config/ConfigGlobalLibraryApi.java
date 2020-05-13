@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.config;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -97,7 +97,7 @@ public interface ConfigGlobalLibraryApi {
                     + "a superset of the key set of the dictionary returned by this transition."),
       },
       useStarlarkThread = true)
-  @SkylarkConstructor(objectType = ConfigurationTransitionApi.class)
+  @StarlarkConstructor(objectType = ConfigurationTransitionApi.class)
   ConfigurationTransitionApi transition(
       StarlarkCallable implementation,
       Sequence<?> inputs, // <String> expected

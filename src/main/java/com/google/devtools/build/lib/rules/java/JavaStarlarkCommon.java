@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -236,7 +236,7 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain)
+  public Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain)
       throws EvalException {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.

@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -53,7 +53,7 @@ public interface OutputGroupInfoApi extends StructApi {
                 defaultValue = "{}",
                 doc = "Dictionary of arguments."),
         selfCall = true)
-    @SkylarkConstructor(
+    @StarlarkConstructor(
         objectType = OutputGroupInfoApi.class,
         receiverNameForDoc = "OutputGroupInfo")
     OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException;

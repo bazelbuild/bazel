@@ -167,11 +167,12 @@ public class SkydocMain {
   private final EventHandler eventHandler = new SystemOutEventHandler();
   private final LinkedHashSet<Path> pending = new LinkedHashSet<>();
   private final Map<Path, StarlarkThread> loaded = new HashMap<>();
-  private final SkylarkFileAccessor fileAccessor;
+  private final StarlarkFileAccessor fileAccessor;
   private final List<String> depRoots;
   private final String workspaceName;
 
-  public SkydocMain(SkylarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
+  public SkydocMain(
+      StarlarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
     this.fileAccessor = fileAccessor;
     this.workspaceName = workspaceName;
     if (depRoots.isEmpty()) {

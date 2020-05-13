@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 /** A Starlark value that support indexed access, {@code object[key]}. */
-public interface SkylarkIndexable extends SkylarkQueryable {
+public interface StarlarkIndexable extends StarlarkQueryable {
 
   /** Returns the value associated with the given key. */
   Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException;

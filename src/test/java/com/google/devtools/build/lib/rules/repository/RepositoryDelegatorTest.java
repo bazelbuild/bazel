@@ -149,7 +149,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     TestRuleClassProvider.addStandardRules(builder);
     builder
         .clearWorkspaceFileSuffixForTesting()
-        .addSkylarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
+        .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
     ConfiguredRuleClassProvider ruleClassProvider = builder.build();
 
     PackageFactory pkgFactory =

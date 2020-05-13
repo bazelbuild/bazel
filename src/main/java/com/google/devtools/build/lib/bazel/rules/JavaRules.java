@@ -89,7 +89,7 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
 
-    builder.addSkylarkBootstrap(
+    builder.addStarlarkBootstrap(
         new JavaBootstrap(
             new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
             JavaInfo.PROVIDER,

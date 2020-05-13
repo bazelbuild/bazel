@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -34,7 +34,7 @@ public class FakeJavaCommon
     implements JavaCommonApi<
         FileApi,
         FakeJavaInfo,
-        FakeJavaToolchainSkylarkApiProviderApi,
+        FakeJavaToolchainStarlarkApiProviderApi,
         FakeJavaRuntimeInfoApi,
         ConstraintValueInfoApi,
         StarlarkRuleContextApi<ConstraintValueInfoApi>,
@@ -61,7 +61,7 @@ public class FakeJavaCommon
       Sequence<?> annotationProcessorAdditionalInputs,
       Sequence<?> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
+      FakeJavaToolchainStarlarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase,
       Sequence<?> sourcepathEntries,
       Sequence<?> resources,
@@ -75,7 +75,7 @@ public class FakeJavaCommon
       StarlarkActionFactoryApi actions,
       FileApi jar,
       Object targetLabel,
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain) {
+      FakeJavaToolchainStarlarkApiProviderApi javaToolchain) {
     return null;
   }
 
@@ -84,7 +84,7 @@ public class FakeJavaCommon
       StarlarkActionFactoryApi actions,
       FileApi jar,
       Label targetLabel,
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain) {
+      FakeJavaToolchainStarlarkApiProviderApi javaToolchain) {
     return null;
   }
 
@@ -94,14 +94,14 @@ public class FakeJavaCommon
       FileApi outputJar,
       Sequence<?> sourceFiles,
       Sequence<?> sourceJars,
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
+      FakeJavaToolchainStarlarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase) {
     return null;
   }
 
   @Override
   public ImmutableList<String> getDefaultJavacOpts(
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain) throws EvalException {
+      FakeJavaToolchainStarlarkApiProviderApi javaToolchain) throws EvalException {
     return ImmutableList.of();
   }
 
@@ -158,7 +158,7 @@ public class FakeJavaCommon
   }
 
   @Override
-  public Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain)
+  public Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain)
       throws EvalException {
     return null;
   }

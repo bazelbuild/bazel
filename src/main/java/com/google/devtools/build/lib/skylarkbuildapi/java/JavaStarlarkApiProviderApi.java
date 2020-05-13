@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  * accessible as a java field on a Target.
  */
 @StarlarkBuiltin(
-    name = "JavaSkylarkApiProvider",
+    name = "JavaStarlarkApiProvider",
     title = "java",
     category = StarlarkDocumentationCategory.PROVIDER,
     doc =
@@ -33,4 +33,4 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + " href=\"https://docs.bazel.build/versions/master/skylark/lib/JavaInfo.html\">JavaInfo</a>"
             + " instead.")
 @StarlarkDeprecated
-public interface JavaSkylarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {}
+public interface JavaStarlarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {}

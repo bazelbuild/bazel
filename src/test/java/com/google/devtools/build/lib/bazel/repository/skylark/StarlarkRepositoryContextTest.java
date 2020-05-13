@@ -70,9 +70,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/** Unit tests for complex function of SkylarkRepositoryContext. */
+/** Unit tests for complex function of StarlarkRepositoryContext. */
 @RunWith(JUnit4.class)
-public final class SkylarkRepositoryContextTest {
+public final class StarlarkRepositoryContextTest {
 
   private Scratch scratch;
   private Path outputDirectory;

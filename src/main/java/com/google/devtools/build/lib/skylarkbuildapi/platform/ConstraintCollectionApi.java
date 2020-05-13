@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 public interface ConstraintCollectionApi<
         ConstraintSettingInfoT extends ConstraintSettingInfoApi,
         ConstraintValueInfoT extends ConstraintValueInfoApi>
-    extends SkylarkIndexable, StarlarkValue {
+    extends StarlarkIndexable, StarlarkValue {
 
   @SkylarkCallable(
       name = "constraint_settings",

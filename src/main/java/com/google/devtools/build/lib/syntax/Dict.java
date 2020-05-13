@@ -86,7 +86,7 @@ public final class Dict<K, V>
     implements Map<K, V>,
         StarlarkValue,
         Mutability.Freezable,
-        SkylarkIndexable,
+        StarlarkIndexable,
         StarlarkIterable<K> {
 
   private final LinkedHashMap<K, V> contents;

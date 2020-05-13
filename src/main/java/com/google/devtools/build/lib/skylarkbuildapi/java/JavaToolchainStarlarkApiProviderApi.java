@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
     doc =
         "Provides access to information about the Java toolchain rule. "
             + "Accessible as a 'java_toolchain' field on a Target struct.")
-public interface JavaToolchainSkylarkApiProviderApi extends ToolchainInfoApi {
+public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
 
   String LEGACY_NAME = "java_toolchain";
 
@@ -56,14 +56,14 @@ public interface JavaToolchainSkylarkApiProviderApi extends ToolchainInfoApi {
       name = "bootclasspath",
       doc = "The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.",
       structField = true)
-  Depset getSkylarkBootclasspath();
+  Depset getStarlarkBootclasspath();
 
   @SkylarkCallable(
       name = "jvm_opt",
       doc = "The default options for the JVM running the java compiler and associated tools.",
       structField = true)
-  Sequence<String> getSkylarkJvmOptions();
+  Sequence<String> getStarlarkJvmOptions();
 
   @SkylarkCallable(name = "tools", doc = "The compilation tools.", structField = true)
-  Depset getSkylarkTools();
+  Depset getStarlarkTools();
 }
