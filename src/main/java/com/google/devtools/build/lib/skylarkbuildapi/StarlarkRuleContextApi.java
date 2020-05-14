@@ -265,7 +265,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @SkylarkCallable(
       name = "features",
       structField = true,
-      doc = "Returns the set of features that are explicitly enabled by the user for this rule.")
+      doc =
+          "Returns the set of features that are explicitly enabled by the user for this rule. "
+              + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/"
+              + "features/rule.bzl\">See example of use</a>.")
   ImmutableList<String> getFeatures() throws EvalException;
 
   @SkylarkCallable(
