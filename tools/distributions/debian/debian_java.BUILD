@@ -171,3 +171,14 @@ java_import(
     neverlink = 1,
 )
 
+# libandroid-tools-common-java
+# libandroid-tools-repository-java
+# libandroid-layoutlib-api-java
+java_import(
+    name = "android_common_25_0_0_lite",
+    jars = [
+        "com.android.tools.common.jar",
+        "com.android.tools.repository.jar",
+        "com.android.tools.layoutlib.layoutlib-api.jar",
+    ],
+)
