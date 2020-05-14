@@ -556,7 +556,7 @@ might create exponential growth of your build graph.
 ### Badly behaved builds: a case study
 Say you have the following target structure:
 
-<img src="scalability-graph.png" alt="a graph showing a top level target, //pkg:app, which depends on two targets, //pkg:1_0 and //pkg:1_1. Both these targets depend on two targets, //pkg:2_0 and //pkg:2_1. Both these targets depend on two targets, //pkg:3_0 and //pkg:3_1. This continues on until //pkg:n_0 and //pkg:n_1, which both depend on a single target, //pkg:dep." />
+<img src="scalability-graph.png" width="300px" alt="a graph showing a top level target, //pkg:app, which depends on two targets, //pkg:1_0 and //pkg:1_1. Both these targets depend on two targets, //pkg:2_0 and //pkg:2_1. Both these targets depend on two targets, //pkg:3_0 and //pkg:3_1. This continues on until //pkg:n_0 and //pkg:n_1, which both depend on a single target, //pkg:dep." />
 
 Building `//pkg:app` requires \\(2n+2\\) targets:
 
