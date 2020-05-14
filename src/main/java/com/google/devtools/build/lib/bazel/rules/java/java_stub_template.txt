@@ -228,7 +228,12 @@ else
 fi
 
 # Set JAVABIN to the path to the JVM launcher.
-%javabin%
+JAVABIN=""
+if [[ -z "$JAVA_HOME" ]]; then
+    %javabin%
+else
+    JAVABIN=${JAVA_HOME}/bin/java
+fi
 
 if [[ "$PRINT_JAVABIN" == 1 || "%java_start_class%" == "--print_javabin" ]]; then
   echo -n "$JAVABIN"
