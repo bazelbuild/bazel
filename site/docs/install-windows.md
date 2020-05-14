@@ -5,11 +5,16 @@ title: Installing Bazel on Windows
 
 # Installing Bazel on Windows
 
-## Installing
+## Installing Bazel
 
 ### Step 1: Check your system
 
 Recommended: 64 bit Windows 10, version 1703 (Creators Update) or newer
+
+To check your Windows version:
+* Click the Start button.
+* Type `winver` in the search box and press Enter.
+* You should see the About Windows box with your Windows version information.
 
 Also supported:
 
@@ -42,7 +47,7 @@ To make Bazel easily accessible from command prompts or PowerShell by default, y
 set PATH=%PATH%;<path to the Bazel binary>
 ```
 
-You can also change your system `PATH` environment variable to make it permanent.
+You can also change your system `PATH` environment variable to make it permanent. Check out how to [set environment variables](windows.html#setting-environment-variables).
 
 ### Step 5: Done
 
@@ -52,47 +57,18 @@ To check the installation is correct, try to run:
 bazel version
 ```
 
-Best practices: see [Best practices](best-practices) below
+Next, you can check out more tips and guidance here:
 
-Troubleshooting: see [troubleshooting](#troubleshooting) below.
-
-Tutorials: see [Getting Started with Bazel](getting-started.html) >
-[Tutorials](getting-started.html#tutorials).
+*   [Installing compilers and language runtimes](#installing-compilers-and-language-runtimes)
+*   [Troubleshooting](#troubleshooting)
+*   [Best practices on Windows](windows.html#best-practices)
+*   [Tutorials](getting-started.html#tutorials)
 
 ---
 
-## Best practices
+## Installing compilers and language runtimes
 
-### Avoid long path issues
-
-Some tools have the [Maximum Path Length Limitation](https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#maximum-path-length-limitation) on Windows, including the MSVC compiler.
-To avoid hitting this issue, you can specify a short output directory for Bazel by the [\-\-output_user_root](command-line-reference.html#flag--output_user_root) flag.
-For example, add the following line to your bazelrc file:
-```
-startup --output_user_root=C:/tmp
-```
-
-### Enable symlink support
-
-Some features require Bazel to create file symlink on Windows, you can allow Bazel to do that by enabling [Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development) on Windows.
-You can then turn on Bazel's symlink support by:
-
-* [\-\-windows_enable_symlinks](command-line-reference.html#flag--windows_enable_symlinks)
-* [\-\-enable_runfiles](command-line-reference.html#flag--enable_runfiles)
-
-To make it easier, add the following lines to your bazelrc file:
-```
-startup --windows_enable_symlinks
-build --enable_runfiles
-```
-
-**Note**: Creating symlinks on Windows is an expensive operation. The `--enable_runfiles` flag can potentially create a large amount of file symlinks. Only enable this feature when you need it.
-
-<!-- TODO(pcloudy): Write a doc about runfiles library and add a link to it here -->
-
-### Install compilers and language runtimes
-
-We recommend installing:
+Depending on which languages you want to build, you will need:
 
 *   [MSYS2 x86_64](https://www.msys2.org/)
 
@@ -115,6 +91,7 @@ We recommend installing:
     ```
     Optional: If you want to use Bazel from CMD or Powershell and still be able to use Bash tools, make sure to add `<MSYS2_INSTALL_PATH>/usr/bin` to your `PATH` environment variable.
 
+<a name="install-vc"></a>
 *   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)
 
     You will need this to build C++ code on Windows.
@@ -125,12 +102,14 @@ We recommend installing:
 
     *   Visual C++ Build Tools 2015 (or newer) and Windows 10 SDK
 
+<a name="install-jdk"></a>
 *   [Java SE Development Kit 11 (JDK) for Windows x64](https://www.oracle.com/java/technologies/javase-jdk11-downloads.html)
 
     You will need this to build Java code on Windows.
 
     Also supported: Java 8, 9, and 10
 
+<a name="install-python"></a>
 *   [Python 3.6 for Windows x86-64](https://www.python.org/downloads/windows/)
 
     You will need this to build Python code on Windows.
