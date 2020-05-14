@@ -20,6 +20,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -39,102 +43,68 @@ import javax.annotation.Nullable;
  * over-approximate the providers they supply in their definitions.
  */
 public abstract class Dependency {
+  /** Builder to assist in creating dependency instances. */
+  public static class Builder {
+    private Label label;
+    private BuildConfiguration configuration;
+    private AspectCollection aspects = AspectCollection.EMPTY;
+    private List<String> transitionKeys = new ArrayList<>();
 
-  /**
-   * Creates a new {@link Dependency} with a null configuration, suitable for edges with no
-   * configuration.
-   */
-  public static Dependency withNullConfiguration(Label label) {
-    return new NullConfigurationDependency(label, ImmutableList.of());
-  }
-
-  /**
-   * Creates a new {@link Dependency} with a null configuration and transition keys, used when edges
-   * with a split transition were resolved to null configuration targets.
-   */
-  public static Dependency withNullConfigurationAndTransitionKeys(
-      Label label, ImmutableList<String> transitionKeys) {
-    return new NullConfigurationDependency(label, transitionKeys);
-  }
-
-  /**
-   * Creates a new {@link Dependency} with the given explicit configuration. Should only be used for
-   * dependency with no configuration changes.
-   *
-   * <p>The configuration must not be {@code null}.
-   *
-   * <p>A {@link Dependency} created this way will have no associated aspects.
-   */
-  public static Dependency withConfiguration(Label label, BuildConfiguration configuration) {
-    return new ExplicitConfigurationDependency(
-        label,
-        configuration,
-        AspectCollection.EMPTY,
-        ImmutableMap.<AspectDescriptor, BuildConfiguration>of(),
-        ImmutableList.of());
-  }
-
-  /**
-   * Creates a new {@link Dependency} with the given configuration and aspects. The configuration is
-   * also applied to all aspects. Should only be used for dependency with no configuration changes.
-   *
-   * <p>The configuration and aspects must not be {@code null}.
-   */
-  public static Dependency withConfigurationAndAspects(
-      Label label, BuildConfiguration configuration, AspectCollection aspects) {
-    ImmutableMap.Builder<AspectDescriptor, BuildConfiguration> aspectBuilder =
-        new ImmutableMap.Builder<>();
-    for (AspectDescriptor aspect : aspects.getAllAspects()) {
-      aspectBuilder.put(aspect, configuration);
+    public Builder setLabel(Label label) {
+      this.label = Preconditions.checkNotNull(label);
+      return this;
     }
-    return new ExplicitConfigurationDependency(
-        label, configuration, aspects, aspectBuilder.build(), ImmutableList.of());
-  }
 
-  /**
-   * Creates a new {@link Dependency} with the given configuration, aspects, and transition key. The
-   * configuration is also applied to all aspects. This should be preferred over {@link
-   * Dependency#withConfigurationAndAspects} if the {@code configuration} was derived from a {@link
-   * ConfigurationTransition}, and so there is a corresponding transition key.
-   *
-   * <p>The configuration and aspects must not be {@code null}.
-   */
-  public static Dependency withConfigurationAspectsAndTransitionKey(
-      Label label,
-      BuildConfiguration configuration,
-      AspectCollection aspects,
-      @Nullable String transitionKey) {
-    ImmutableMap.Builder<AspectDescriptor, BuildConfiguration> aspectBuilder =
-        new ImmutableMap.Builder<>();
-    for (AspectDescriptor aspect : aspects.getAllAspects()) {
-      aspectBuilder.put(aspect, configuration);
+    public Builder setConfiguration(BuildConfiguration configuration) {
+      this.configuration = configuration;
+      return this;
     }
-    return new ExplicitConfigurationDependency(
-        label,
-        configuration,
-        aspects,
-        aspectBuilder.build(),
-        transitionKey == null ? ImmutableList.of() : ImmutableList.of(transitionKey));
+
+    /** Explicitly set the configuration for this dependency to null. */
+    public Builder withNullConfiguration() {
+      return setConfiguration(null);
+    }
+
+    /** Add aspects to this Dependency. The same configuration is applied to all aspects. */
+    public Builder setAspects(AspectCollection aspects) {
+      this.aspects = aspects;
+      return this;
+    }
+
+    public Builder addTransitionKey(String key) {
+      this.transitionKeys.add(key);
+      return this;
+    }
+
+    public Builder addTransitionKeys(Collection<String> keys) {
+      this.transitionKeys = new ArrayList<>(keys);
+      return this;
+    }
+
+    /** Returns the full Dependency instance. */
+    public Dependency build() {
+      if (configuration == null) {
+        Preconditions.checkState(aspects.equals(AspectCollection.EMPTY));
+        return new NullConfigurationDependency(label, ImmutableList.copyOf(transitionKeys));
+      }
+
+      // Use the target configuration for all aspects with none of their own.
+      Map<AspectDescriptor, BuildConfiguration> aspectConfigurations = new HashMap<>();
+      for (AspectDescriptor aspect : aspects.getAllAspects()) {
+        aspectConfigurations.put(aspect, configuration);
+      }
+      return new ExplicitConfigurationDependency(
+          label,
+          configuration,
+          aspects,
+          ImmutableMap.copyOf(aspectConfigurations),
+          ImmutableList.copyOf(transitionKeys));
+    }
   }
 
-  /**
-   * Creates a new {@link Dependency} with the given configuration and aspects, suitable for storing
-   * the output of a configuration trimming step. The aspects each have their own configuration.
-   * Should only be used for dependency with no configuration changes.
-   *
-   * <p>The aspects and configurations must not be {@code null}.
-   */
-  public static Dependency withConfiguredAspects(
-      Label label,
-      BuildConfiguration configuration,
-      AspectCollection aspects,
-      Map<AspectDescriptor, BuildConfiguration> aspectConfigurations) {
-    return new ExplicitConfigurationDependency(
-        label,
-        configuration,
-        aspects,
-        ImmutableMap.copyOf(aspectConfigurations),
-        ImmutableList.of());
+  /** Returns a new {@link Builder} to create {@link Dependency} instances. */
+  public static Builder builder() {
+    return new Builder();
   }
 
   protected final Label label;
@@ -166,9 +136,7 @@ public abstract class Dependency {
    */
   public abstract AspectCollection getAspects();
 
-  /**
-   * Returns the configuration an aspect should be evaluated with
-   */
+  /** Returns the configuration an aspect should be evaluated with. */
   public abstract BuildConfiguration getAspectConfiguration(AspectDescriptor aspect);
 
   /**
@@ -301,5 +269,4 @@ public abstract class Dependency {
           getClass().getSimpleName(), label, configuration, aspectConfigurations);
     }
   }
-
 }
