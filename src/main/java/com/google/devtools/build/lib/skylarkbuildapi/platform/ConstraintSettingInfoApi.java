@@ -26,7 +26,9 @@ import javax.annotation.Nullable;
 @StarlarkBuiltin(
     name = "ConstraintSettingInfo",
     doc =
-        "A specific constraint setting that may be used to define a platform. "
+        "A specific constraint setting that may be used to define a platform. See "
+            + "<a href='../../platforms.html#defining-constraints-and-platforms'>Defining "
+            + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface ConstraintSettingInfoApi extends StructApi {

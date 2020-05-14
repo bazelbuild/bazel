@@ -27,7 +27,9 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 @StarlarkBuiltin(
     name = "ConstraintValueInfo",
     doc =
-        "A value for a constraint setting that can be used to define a platform. "
+        "A value for a constraint setting that can be used to define a platform. See "
+            + "<a href='../../platforms.html#defining-constraints-and-platforms'>Defining "
+            + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface ConstraintValueInfoApi extends StructApi {
