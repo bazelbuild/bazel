@@ -67,16 +67,6 @@ public class DependencyKeyTest extends AnalysisTestCase {
   }
 
   @Test
-  public void factoriesPassNullableTester() throws Exception {
-    update();
-
-    new NullPointerTester()
-        .setDefault(Label.class, Label.parseAbsolute("//a", ImmutableMap.of()))
-        .setDefault(BuildConfiguration.class, getTargetConfiguration())
-        .testAllPublicStaticMethods(Dependency.class);
-  }
-
-  @Test
   public void equalsPassesEqualsTester() throws Exception {
     update();
 

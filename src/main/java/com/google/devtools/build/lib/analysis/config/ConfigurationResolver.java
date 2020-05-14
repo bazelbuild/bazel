@@ -177,7 +177,8 @@ public final class ConfigurationResolver {
       // total analysis phase time.
       ConfigurationTransition transition = dep.getTransition();
       if (transition == NullTransition.INSTANCE) {
-        Dependency finalDependency = Dependency.withNullConfiguration(dep.getLabel());
+        Dependency finalDependency =
+            Dependency.builder().withNullConfiguration().setLabel(dep.getLabel()).build();
         // If the base transition is a split transition, execute the transition and store returned
         // transition keys along with the null configuration dependency, so that other code relying
         // on stored transition keys doesn't have to implement special handling logic just for this
@@ -213,8 +214,11 @@ public final class ConfigurationResolver {
             }
             if (!SplitTransition.equals(currentConfiguration.getOptions(), toOptions.values())) {
               finalDependency =
-                  Dependency.withNullConfigurationAndTransitionKeys(
-                      dep.getLabel(), ImmutableList.copyOf(toOptions.keySet()));
+                  Dependency.builder()
+                      .setLabel(dep.getLabel())
+                      .withNullConfiguration()
+                      .addTransitionKeys(ImmutableList.copyOf(toOptions.keySet()))
+                      .build();
             }
           }
         }
@@ -256,8 +260,11 @@ public final class ConfigurationResolver {
           putOnlyEntry(
               resolvedDeps,
               dependencyEdge,
-              Dependency.withConfigurationAndAspects(
-                  dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
+              Dependency.builder()
+                  .setLabel(dep.getLabel())
+                  .setConfiguration(ctgValue.getConfiguration())
+                  .setAspects(dep.getAspects())
+                  .build());
           continue;
         } else if (transition.isHostTransition()) {
           // The current rule's host configuration can also be used for the dep. We short-circuit
@@ -277,8 +284,11 @@ public final class ConfigurationResolver {
           putOnlyEntry(
               resolvedDeps,
               dependencyEdge,
-              Dependency.withConfigurationAndAspects(
-                  dep.getLabel(), hostConfiguration, dep.getAspects()));
+              Dependency.builder()
+                  .setLabel(dep.getLabel())
+                  .setConfiguration(hostConfiguration)
+                  .setAspects(dep.getAspects())
+                  .build());
           continue;
         }
       }
@@ -323,8 +333,11 @@ public final class ConfigurationResolver {
         putOnlyEntry(
             resolvedDeps,
             dependencyEdge,
-            Dependency.withConfigurationAspectsAndTransitionKey(
-                dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects(), null));
+            Dependency.builder()
+                .setLabel(dep.getLabel())
+                .setConfiguration(ctgValue.getConfiguration())
+                .setAspects(dep.getAspects())
+                .build());
         continue;
       }
 
@@ -411,8 +424,12 @@ public final class ConfigurationResolver {
           }
           DependencyEdge attr = new DependencyEdge(info.first.getKey(), originalDep.getLabel());
           Dependency resolvedDep =
-              Dependency.withConfigurationAspectsAndTransitionKey(
-                  originalDep.getLabel(), trimmedConfig, originalDep.getAspects(), info.second);
+              Dependency.builder()
+                  .setLabel(originalDep.getLabel())
+                  .setConfiguration(trimmedConfig)
+                  .setAspects(originalDep.getAspects())
+                  .addTransitionKey(info.second)
+                  .build();
           Attribute attribute = attr.dependencyKind.getAttribute();
           if (attribute != null && attribute.getTransitionFactory().isSplit()) {
             resolvedDeps.put(attr, resolvedDep);
