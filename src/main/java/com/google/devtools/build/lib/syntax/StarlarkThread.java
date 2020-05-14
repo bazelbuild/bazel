@@ -19,6 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -133,6 +136,8 @@ public final class StarlarkThread {
     // The locals of this frame, if fn is a StarlarkFunction, otherwise empty.
     Map<String, Object> locals;
 
+    @Nullable private SilentCloseable profileSpan; // current span of walltime profiler
+
     private Frame(StarlarkThread thread, StarlarkCallable fn) {
       this.thread = thread;
       this.fn = fn;
@@ -204,15 +209,24 @@ public final class StarlarkThread {
       Debug.threadHook.onPushFirst(this);
     }
 
+    ProfilerTask taskKind;
     if (fn instanceof StarlarkFunction) {
       StarlarkFunction sfn = (StarlarkFunction) fn;
       fr.locals = Maps.newLinkedHashMapWithExpectedSize(sfn.getParameterNames().size());
+      taskKind = ProfilerTask.STARLARK_USER_FN;
     } else {
       // built-in function
       fr.locals = ImmutableMap.of();
+      taskKind = ProfilerTask.STARLARK_BUILTIN_FN;
     }
 
     fr.loc = fn.getLocation();
+
+    // start wall-time profile span
+    // TODO(adonovan): throw this away when we build a CPU profiler.
+    if (Profiler.instance().isActive()) {
+      fr.profileSpan = Profiler.instance().profile(taskKind, fn.getName());
+    }
 
     // Poll for newly installed CPU profiler.
     if (profiler == null) {
@@ -229,6 +243,7 @@ public final class StarlarkThread {
   /** Pops a function off the call stack. */
   void pop() {
     int last = callstack.size() - 1;
+    Frame fr = callstack.get(last);
 
     if (profiler != null) {
       int ticks = cpuTicks.getAndSet(0);
@@ -247,6 +262,11 @@ public final class StarlarkThread {
     }
 
     callstack.remove(last); // pop
+
+    // end profile span
+    if (fr.profileSpan != null) {
+      fr.profileSpan.close();
+    }
 
     // Notify debug tools of the thread's last pop.
     if (last == 0 && Debug.threadHook != null) {
