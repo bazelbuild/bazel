@@ -439,20 +439,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   FileApi newFile(Object var1, Object var2, Object var3) throws EvalException;
 
   @SkylarkCallable(
-      name = "experimental_new_directory",
-      documented = false,
-      parameters = {
-        @Param(name = "name", type = String.class),
-        @Param(
-            name = "sibling",
-            type = FileApi.class,
-            defaultValue = "None",
-            noneable = true,
-            named = true)
-      })
-  FileApi newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException;
-
-  @SkylarkCallable(
       name = "check_placeholders",
       documented = false,
       parameters = {
@@ -753,49 +739,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       allowReturnNones = true,
       useStarlarkThread = true)
   NoneType fileAction(FileApi output, String content, Boolean executable, StarlarkThread thread)
-      throws EvalException;
-
-  @SkylarkCallable(
-      name = "template_action",
-      doc =
-          "DEPRECATED. "
-              + "Use <a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a> "
-              + "instead. <br>Creates a template expansion action.",
-      parameters = {
-        @Param(
-            name = "template",
-            type = FileApi.class,
-            named = true,
-            positional = false,
-            doc = "The template file, which is a UTF-8 encoded text file."),
-        @Param(
-            name = "output",
-            type = FileApi.class,
-            named = true,
-            positional = false,
-            doc = "The output file, which is a UTF-8 encoded text file."),
-        @Param(
-            name = "substitutions",
-            type = Dict.class,
-            named = true,
-            positional = false,
-            doc = "Substitutions to make when expanding the template."),
-        @Param(
-            name = "executable",
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc = "Whether the output file should be executable (default is False).")
-      },
-      allowReturnNones = true,
-      useStarlarkThread = true)
-  NoneType templateAction(
-      FileApi template,
-      FileApi output,
-      Dict<?, ?> substitutionsUnchecked,
-      Boolean executable,
-      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(

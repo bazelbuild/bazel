@@ -804,14 +804,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public Artifact newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException {
-    checkDeprecated(
-        "ctx.actions.declare_directory", "ctx.experimental_new_directory", starlarkSemantics);
-    checkMutable("experimental_new_directory");
-    return actionFactory.declareDirectory(name, siblingArtifactUnchecked);
-  }
-
-  @Override
   public boolean checkPlaceholders(String template, Sequence<?> allowedPlaceholders) // <String>
       throws EvalException {
     checkMutable("check_placeholders");
@@ -968,20 +960,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     checkDeprecated("ctx.actions.write", "ctx.file_action", thread.getSemantics());
     checkMutable("file_action");
     actions().write(output, content, executable);
-    return Starlark.NONE;
-  }
-
-  @Override
-  public NoneType templateAction(
-      FileApi template,
-      FileApi output,
-      Dict<?, ?> substitutionsUnchecked,
-      Boolean executable,
-      StarlarkThread thread)
-      throws EvalException {
-    checkDeprecated("ctx.actions.expand_template", "ctx.template_action", thread.getSemantics());
-    checkMutable("template_action");
-    actions().expandTemplate(template, output, substitutionsUnchecked, executable);
     return Starlark.NONE;
   }
 
