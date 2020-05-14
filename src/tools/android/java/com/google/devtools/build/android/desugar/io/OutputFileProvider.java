@@ -22,7 +22,10 @@ import java.nio.file.Path;
 public interface OutputFileProvider extends AutoCloseable {
 
   /** Filename to use to write out dependency metadata for later consistency checking. */
-  public static final String DESUGAR_DEPS_FILENAME = "META-INF/desugar_deps";
+  String DESUGAR_DEPS_FILENAME = "META-INF/desugar_deps";
+
+  /** In-archive path to use to write out desugaring processing logs. */
+  String DESUGAR_LOG_PREFIX = "META-INF/desugar_log/";
 
   /**
    * Copy {@code filename} from {@code inputFileProvider} to this output, possibly with new name. If

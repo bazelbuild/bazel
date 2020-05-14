@@ -42,6 +42,7 @@ JAVABASE=$3
 # Dump Jar file contents but drop coverage artifacts in case coverage is enabled
 $JAVABASE/bin/jar tf "$1" \
     | grep -v '\.uninstrumented$' \
+    | grep -v 'META-INF/desugar_log/' \
     | grep -v '\-paths\-for\-coverage\.txt$' >"${output}/actual_toc.txt"
 # sorting can be removed when cl/145334839 is released
 diff <(sort "$2") <(sort "${output}/actual_toc.txt")

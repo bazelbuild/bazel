@@ -54,7 +54,6 @@ import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
-import com.google.devtools.build.android.desugar.langmodel.DesugarClassAttribute;
 import com.google.devtools.build.android.desugar.langmodel.DesugarMethodAttribute;
 import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
 import com.google.devtools.build.android.desugar.nest.NestDesugaring;
@@ -70,6 +69,7 @@ import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.nio.charset.Charset;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -106,9 +106,7 @@ public class Desugar {
       new ResourceBasedClassFiles();
   private static final String RUNTIME_LIB_PACKAGE =
       "com/google/devtools/build/android/desugar/runtime/";
-  private static final Attribute[] customAttributes = {
-    new DesugarClassAttribute(), new DesugarMethodAttribute()
-  };
+  private static final Attribute[] customAttributes = {new DesugarMethodAttribute()};
   private final DesugarOptions options;
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
@@ -347,6 +345,12 @@ public class Desugar {
       if (depsInfo != null) {
         outputFileProvider.write(OutputFileProvider.DESUGAR_DEPS_FILENAME, depsInfo);
       }
+
+      outputFileProvider.write(
+          String.format(
+              "%s%s_%d.log",
+              OutputFileProvider.DESUGAR_LOG_PREFIX, inputOutputPair, System.nanoTime()),
+          options.toString().getBytes(Charset.defaultCharset()));
     }
 
     ImmutableMap<Path, LambdaInfo> lambdasLeftBehind = lambdas.drain();
