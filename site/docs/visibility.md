@@ -31,6 +31,9 @@ For example, if `//some/package:mytarget` has its `visibility` set to
 that is part of the `//some/package/...` source tree, as well as targets defined
 in `//tests/BUILD`, but not by targets defined in `//tests/integration/BUILD`.
 
+As a special case, `package_group` targets themselves do not have a `visibility`
+attribute; they are always publicly visible.
+
 ## Visibility of a rule target
 
 If a rule target does not set the `visibility` attribute, its visibility is
