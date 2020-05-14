@@ -38,9 +38,6 @@ public class WerrorCustomOption {
 
   /** Returns true if the given lint category should be promoted to an error. */
   public boolean isEnabled(String lintCategory) {
-    if (lintCategory == null) {
-      return false;
-    }
     boolean all = werrors.containsKey("all");
     return werrors.getOrDefault(lintCategory, all);
   }
@@ -64,6 +61,12 @@ public class WerrorCustomOption {
       for (String errorWarning : warningsAsErrorsDefault) {
         werrors.put(errorWarning, true);
       }
+    }
+
+    Builder all() {
+      werrors.clear();
+      werrors.put("all", true);
+      return this;
     }
 
     Builder process(String flag) {

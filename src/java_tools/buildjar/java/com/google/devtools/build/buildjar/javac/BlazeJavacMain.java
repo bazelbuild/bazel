@@ -138,6 +138,8 @@ public class BlazeJavacMain {
     errWriter.flush();
     ImmutableList<FormattedDiagnostic> diagnostics = diagnosticsBuilder.build();
 
+    boolean werror =
+        diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
     if (status.equals(Status.OK)) {
       Optional<WerrorCustomOption> maybeWerrorCustom =
           arguments.blazeJavacOptions().stream()
@@ -146,15 +148,30 @@ public class BlazeJavacMain {
               .map(WerrorCustomOption::create);
       if (maybeWerrorCustom.isPresent()) {
         WerrorCustomOption werrorCustom = maybeWerrorCustom.get();
-        if (diagnostics.stream().anyMatch(d -> werrorCustom.isEnabled(d.getLintCategory()))) {
+        if (diagnostics.stream().anyMatch(d -> isWerror(werrorCustom, d))) {
           errOutput.append("error: warnings found and -Werror specified\n");
           status = Status.ERROR;
+          werror = true;
         }
       }
     }
 
     return BlazeJavacResult.createFullResult(
-        status, filterDiagnostics(diagnostics), errOutput.toString(), compiler, builder.build());
+        status,
+        filterDiagnostics(werror, diagnostics),
+        errOutput.toString(),
+        compiler,
+        builder.build());
+  }
+
+  private static boolean isWerror(WerrorCustomOption werrorCustom, FormattedDiagnostic diagnostic) {
+    switch (diagnostic.getKind()) {
+      case WARNING:
+      case MANDATORY_WARNING:
+        return werrorCustom.isEnabled(diagnostic.getLintCategory());
+      default:
+        return false;
+    }
   }
 
   private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
@@ -184,9 +201,7 @@ public class BlazeJavacMain {
           "compiler.warn.unknown.enum.constant.reason");
 
   private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
-      ImmutableList<FormattedDiagnostic> diagnostics) {
-    boolean werror =
-        diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
+      boolean werror, ImmutableList<FormattedDiagnostic> diagnostics) {
     return diagnostics.stream()
         .filter(d -> shouldReportDiagnostic(werror, d))
         // Print errors last to make them more visible.

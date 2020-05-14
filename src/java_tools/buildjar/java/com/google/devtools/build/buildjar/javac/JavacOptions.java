@@ -305,6 +305,10 @@ public final class JavacOptions {
         builder.process(option);
         return true;
       }
+      if (option.equals("-Werror")) {
+        builder.all();
+        return true;
+      }
       return false;
     }
 
