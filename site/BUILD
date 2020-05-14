@@ -28,6 +28,15 @@ filegroup(
     visibility = ["//:__pkg__"],
 )
 
+# Required to move the shared CSS Files from the external repo's execroot location
+# to the _sass location expected by the local css/main.scss imports.
+genrule(
+    name = "style-common",
+    srcs = ["@bazel_website//:_sass/style.scss"],
+    outs = ["_sass/style.scss"],
+    cmd = "cp $< $@",
+)
+
 filegroup(
     name = "jekyll-srcs",
     srcs = glob(
@@ -40,7 +49,9 @@ filegroup(
             "command-line-reference-suffix.html",
             "site/README.md",
         ] + DOT_GRAPH_HTML_FILES,
-    ),
+    ) + [
+        ":style-common",
+    ],
 )
 
 pkg_tar(
