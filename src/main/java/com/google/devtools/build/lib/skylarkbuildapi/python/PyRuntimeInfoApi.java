@@ -43,6 +43,8 @@ import javax.annotation.Nullable;
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
+  String DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python";
+
   @StarlarkMethod(
       name = "interpreter_path",
       structField = true,
@@ -85,6 +87,15 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
           "Indicates whether this runtime uses Python major version 2 or 3. Valid values are "
               + "(only) <code>\"PY2\"</code> and <code>\"PY3\"</code>.")
   String getPythonVersionForStarlark();
+
+  @StarlarkMethod(
+      name = "stub_shebang",
+      structField = true,
+      doc =
+          "\"Shebang\" expression prepended to the bootstrapping Python stub script "
+              + "used when executing <code>py_binary</code> targets.  Does not apply "
+              + "to Windows.")
+  String getStubShebang();
 
   /** Provider type for {@link PyRuntimeInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
@@ -133,6 +144,15 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
               positional = false,
               named = true,
               doc = "The value for the new object's <code>python_version</code> field."),
+          @Param(
+              name = "stub_shebang",
+              type = String.class,
+              positional = false,
+              named = true,
+              defaultValue = "'" + DEFAULT_STUB_SHEBANG + "'",
+              doc =
+                  "The value for the new object's <code>stub_shebang</code> field. "
+                      + "Default is <code>" + DEFAULT_STUB_SHEBANG + "</code>."),
         },
         useStarlarkThread = true,
         selfCall = true)
@@ -142,6 +162,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
+        String stubShebang,
         StarlarkThread thread)
         throws EvalException;
   }

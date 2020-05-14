@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+%shebang%
 
 # This script must retain compatibility with a wide variety of Python versions
 # since it is run for every py_binary target. Currently we guarantee support

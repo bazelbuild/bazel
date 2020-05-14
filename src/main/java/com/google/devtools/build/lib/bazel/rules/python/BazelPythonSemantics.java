@@ -165,6 +165,9 @@ public class BazelPythonSemantics implements PythonSemantics {
             STUB_TEMPLATE,
             ImmutableList.of(
                 Substitution.of(
+                    "%shebang%", getStubShebang(ruleContext, common)
+                ),
+                Substitution.of(
                     "%main%", common.determineMainExecutableSource(/*withWorkspaceName=*/ true)),
                 Substitution.of("%python_binary%", pythonBinary),
                 Substitution.of("%imports%", Joiner.on(":").join(common.getImports().toList())),
@@ -443,6 +446,15 @@ public class BazelPythonSemantics implements PythonSemantics {
     }
 
     return pythonBinary;
+  }
+
+  private static String getStubShebang(RuleContext ruleContext, PyCommon common) {
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
+    if (provider != null) {
+      return provider.getStubShebang();
+    } else {
+      return PyRuntimeInfo.DEFAULT_STUB_SHEBANG;
+    }
   }
 
   @Override

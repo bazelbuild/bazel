@@ -45,6 +45,9 @@ public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
   }
 
   @Override
+  public String getStubShebang() { return ""; }
+
+  @Override
   public void repr(Printer printer) {}
 
   /** Fake implementation of {@link PyRuntimeInfoProviderApi}. */
@@ -56,6 +59,7 @@ public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
+        String stubShebang,
         StarlarkThread thread)
         throws EvalException {
       return new FakePyRuntimeInfo();
