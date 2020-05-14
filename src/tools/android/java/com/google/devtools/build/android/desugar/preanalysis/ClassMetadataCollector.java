@@ -82,8 +82,7 @@ public final class ClassMetadataCollector extends ClassVisitor {
     className = ClassName.create(name);
     classAccessCode = access;
     classAttributesBuilder.setClassBinaryName(className);
-    classAttributesBuilder.setMajorVersion(version & 0xffff);
-    super.visit(version, access, name, signature, superName, interfaces);
+    super.visit(Math.min(version, Opcodes.V1_7), access, name, signature, superName, interfaces);
   }
 
   @Override

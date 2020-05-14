@@ -60,13 +60,11 @@ public final class NestDigestTest {
     classMemberRecord.logMemberUse(constructor, Opcodes.INVOKESPECIAL);
     classAttributeRecord.addClassAttributes(
         ClassAttributes.builder()
-            .setMajorVersion(Opcodes.V11)
             .setClassBinaryName(ClassName.create("package/path/OwnerClass$NestedClass"))
             .setNestHost(ClassName.create("package/path/OwnerClass"))
             .build());
     classAttributeRecord.addClassAttributes(
         ClassAttributes.builder()
-            .setMajorVersion(Opcodes.V11)
             .setClassBinaryName(ClassName.create("package/path/OwnerClass"))
             .addNestMember(ClassName.create("package/path/OwnerClass$NestedClass"))
             .build());
@@ -108,26 +106,22 @@ public final class NestDigestTest {
 
     classAttributeRecord.addClassAttributes(
         ClassAttributes.builder()
-            .setMajorVersion(Opcodes.V11)
             .setClassBinaryName(ClassName.create("package/path/OwnerClassA$NestedClass"))
             .setNestHost(ClassName.create("package/path/OwnerClassA"))
             .build());
     classAttributeRecord.addClassAttributes(
         ClassAttributes.builder()
-            .setMajorVersion(Opcodes.V11)
             .setClassBinaryName(ClassName.create("package/path/OwnerClassB$NestedClass"))
             .setNestHost(ClassName.create("package/path/OwnerClassB"))
             .build());
 
     classAttributeRecord.addClassAttributes(
         ClassAttributes.builder()
-            .setMajorVersion(Opcodes.V11)
             .setClassBinaryName(ClassName.create("package/path/OwnerClassA"))
             .addNestMember(ClassName.create("package/path/OwnerClassA$NestedClass"))
             .build());
     classAttributeRecord.addClassAttributes(
         ClassAttributes.builder()
-            .setMajorVersion(Opcodes.V11)
             .setClassBinaryName(ClassName.create("package/path/OwnerClassB"))
             .addNestMember(ClassName.create("package/path/OwnerClassB$NestedClass"))
             .build());
@@ -153,13 +147,11 @@ public final class NestDigestTest {
 
     classAttributeRecord.addClassAttributes(
         ClassAttributes.builder()
-            .setMajorVersion(Opcodes.V11)
             .setClassBinaryName(ClassName.create(constructor.ownerName() + "$NestClass"))
             .setNestHost(ClassName.create(constructor.ownerName()))
             .build());
     classAttributeRecord.addClassAttributes(
         ClassAttributes.builder()
-            .setMajorVersion(Opcodes.V11)
             .setClassBinaryName(ClassName.create(constructor.ownerName()))
             .addNestMember(ClassName.create(constructor.ownerName() + "$NestClass"))
             .build());

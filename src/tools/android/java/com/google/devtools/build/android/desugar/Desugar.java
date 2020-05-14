@@ -82,7 +82,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -90,7 +89,6 @@ import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 
 /**
@@ -503,40 +501,25 @@ public class Desugar {
         // copy classes from Desugar's runtime library, which we build so they need no desugaring.
         // The runtime library typically uses constructs we'd otherwise desugar, so it's easier
         // to just skip it should it appear as a regular input (for idempotency).
-        ClassName className =
-            inputFileProvider.isClassFile()
-                ? ClassName.fromClassFileName(inputFileProvider.getBinaryPathName())
-                : null;
-        if (className != null && className.isDesugarEligible()) {
+        if (inputFilename.endsWith(".class")
+            && ClassName.fromClassFileName(inputFilename).isDesugarEligible()) {
           ClassReader reader = rewriter.reader(content);
           UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
-          // Apply a reduced series of visitors to process pre-Java 7 bytecode, where post Java 7
-          // structs don't exist in bytecode.
           ClassVisitor visitor =
-              classAttributeRecord.hasAttributeRecordFor(className)
-                      && classAttributeRecord.getMajorVersion(className) < Opcodes.V1_7
-                  ? createClassVisitorsForPreJava7ClassesInInputs(
-                      loader,
-                      coreLibrarySupport,
-                      writer,
-                      reader,
-                      callSiteRecord,
-                      bootClassPathDigest,
-                      classAttributeRecord)
-                  : createClassVisitorsForClassesInInputs(
-                      loader,
-                      classpathReader,
-                      depsCollector,
-                      bootclasspathReader,
-                      coreLibrarySupport,
-                      interfaceCache,
-                      interfaceLambdaMethodCollector,
-                      writer,
-                      reader,
-                      nestDigest,
-                      callSiteRecord,
-                      bootClassPathDigest,
-                      classAttributeRecord);
+              createClassVisitorsForClassesInInputs(
+                  loader,
+                  classpathReader,
+                  depsCollector,
+                  bootclasspathReader,
+                  coreLibrarySupport,
+                  interfaceCache,
+                  interfaceLambdaMethodCollector,
+                  writer,
+                  reader,
+                  nestDigest,
+                  callSiteRecord,
+                  bootClassPathDigest,
+                  classAttributeRecord);
           if (writer == visitor) {
             // Just copy the input if there are no rewritings
             outputFileProvider.write(inputFilename, reader.b);
@@ -667,20 +650,48 @@ public class Desugar {
       UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
       // checkState above implies that we want Java 7 .class files, so send through that visitor.
       // Don't need a ClassReaderFactory b/c static interface methods should've been moved.
-
-      ClassNode generatedClassNode = generated.getValue();
-
       ClassVisitor visitor = writer;
+      if (coreLibrarySupport != null) {
+        visitor = new ImmutableLabelRemover(visitor);
+        visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
+        visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
+        visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
+        if (options.autoDesugarShadowedApiUse) {
+          visitor =
+              new ShadowedApiInvocationSite(
+                  visitor,
+                  callSiteTransCollector,
+                  bootClassPathDigest,
+                  classAttributeRecord,
+                  typeHierarchy);
+        }
+      }
 
-      visitor =
-          createTypeBasedClassVisitorsForClassesInInputs(
-              loader,
-              coreLibrarySupport,
-              visitor,
-              callSiteTransCollector,
-              bootClassPathDigest,
-              classAttributeRecord,
-              generatedClassNode::accept);
+      if (!allowTryWithResources) {
+        CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
+        generated.getValue().accept(closeResourceMethodScanner);
+        visitor =
+            new TryWithResourcesRewriter(
+                visitor,
+                loader,
+                visitedExceptionTypes,
+                numOfTryWithResourcesInvoked,
+                closeResourceMethodScanner.hasCloseResourceMethod());
+      }
+      if (!allowCallsToObjectsNonNull) {
+        // Not sure whether there will be implicit null check emitted by javac, so we rerun
+        // the inliner again
+        visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
+      }
+      if (!allowCallsToLongUnsigned) {
+        visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
+      }
+      if (!allowCallsToLongCompare) {
+        visitor = new LongCompareMethodRewriter(visitor, rewriter);
+      }
+      if (!allowCallsToPrimitiveWrappers) {
+        visitor = new PrimitiveWrapperRewriter(visitor, numOfPrimitiveHashCodeInvoked);
+      }
 
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
       if (options.generateBaseClassesForDefaultMethods) {
@@ -696,7 +707,7 @@ public class Desugar {
                 bootclasspathReader,
                 loader);
       }
-      generatedClassNode.accept(visitor);
+      generated.getValue().accept(visitor);
       checkState(
           (options.coreLibrary && coreLibrarySupport != null)
               || rewriter.unprefix(generated.getKey()).equals(writer.getClassName()));
@@ -724,16 +735,44 @@ public class Desugar {
       BootClassPathDigest bootClassPathDigest,
       ClassAttributeRecord classAttributeRecord) {
     ClassVisitor visitor = checkNotNull(writer);
-    visitor =
-        createTypeBasedClassVisitorsForClassesInInputs(
-            loader,
-            coreLibrarySupport,
-            visitor,
-            callSiteRecord,
-            bootClassPathDigest,
-            classAttributeRecord,
-            closeResourceMethodScanner ->
-                input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG));
+
+    if (coreLibrarySupport != null) {
+      visitor = new ImmutableLabelRemover(visitor);
+      visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
+      visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
+      visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
+      if (options.autoDesugarShadowedApiUse) {
+        visitor =
+            new ShadowedApiInvocationSite(
+                visitor, callSiteRecord, bootClassPathDigest, classAttributeRecord, typeHierarchy);
+      }
+    }
+
+    if (!allowTryWithResources) {
+      CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
+      input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG);
+      visitor =
+          new TryWithResourcesRewriter(
+              visitor,
+              loader,
+              visitedExceptionTypes,
+              numOfTryWithResourcesInvoked,
+              closeResourceMethodScanner.hasCloseResourceMethod());
+    }
+    if (!allowCallsToObjectsNonNull) {
+      // Not sure whether there will be implicit null check emitted by javac, so we rerun
+      // the inliner again
+      visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToLongUnsigned) {
+      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
+    }
+    if (!allowCallsToLongCompare) {
+      visitor = new LongCompareMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToPrimitiveWrappers) {
+      visitor = new PrimitiveWrapperRewriter(visitor, numOfPrimitiveHashCodeInvoked);
+    }
     if (outputJava7) {
       // null ClassReaderFactory b/c we don't expect to need it for lambda classes
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
@@ -778,26 +817,6 @@ public class Desugar {
     return visitor;
   }
 
-  /** Creates the class visitors for class files with a major version 50 or less. */
-  private ClassVisitor createClassVisitorsForPreJava7ClassesInInputs(
-      ClassLoader loader,
-      @Nullable CoreLibrarySupport coreLibrarySupport,
-      UnprefixingClassWriter writer,
-      ClassReader input,
-      InvocationSiteTransformationRecordBuilder callSiteRecord,
-      BootClassPathDigest bootClassPathDigest,
-      ClassAttributeRecord classAttributeRecord) {
-    return createTypeBasedClassVisitorsForClassesInInputs(
-        loader,
-        coreLibrarySupport,
-        checkNotNull(writer),
-        callSiteRecord,
-        bootClassPathDigest,
-        classAttributeRecord,
-        closeResourceMethodScanner ->
-            input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG));
-  }
-
   /**
    * Create the class visitors for the classes which are in the inputs. If new visitors are created,
    * then all these visitors and the passed-in writer will be chained together. If no new visitor is
@@ -819,17 +838,42 @@ public class Desugar {
       ClassAttributeRecord classAttributeRecord) {
     ClassVisitor visitor = checkNotNull(writer);
 
-    visitor =
-        createTypeBasedClassVisitorsForClassesInInputs(
-            loader,
-            coreLibrarySupport,
-            visitor,
-            callSiteRecord,
-            bootClassPathDigest,
-            classAttributeRecord,
-            closeResourceMethodScanner ->
-                input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG));
 
+    if (coreLibrarySupport != null) {
+      visitor = new ImmutableLabelRemover(visitor);
+      visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
+      visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
+      visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
+      if (options.autoDesugarShadowedApiUse) {
+        visitor =
+            new ShadowedApiInvocationSite(
+                visitor, callSiteRecord, bootClassPathDigest, classAttributeRecord, typeHierarchy);
+      }
+    }
+
+    if (!allowTryWithResources) {
+      CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
+      input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG);
+      visitor =
+          new TryWithResourcesRewriter(
+              visitor,
+              loader,
+              visitedExceptionTypes,
+              numOfTryWithResourcesInvoked,
+              closeResourceMethodScanner.hasCloseResourceMethod());
+    }
+    if (!allowCallsToObjectsNonNull) {
+      visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToLongUnsigned) {
+      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
+    }
+    if (!allowCallsToLongCompare) {
+      visitor = new LongCompareMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToPrimitiveWrappers) {
+      visitor = new PrimitiveWrapperRewriter(visitor, numOfPrimitiveHashCodeInvoked);
+    }
     if (!options.onlyDesugarJavac9ForLint) {
       if (outputJava7) {
         visitor = new Java7Compatibility(visitor, classpathReader, bootclasspathReader);
@@ -884,62 +928,9 @@ public class Desugar {
       visitor = new IndyStringConcatDesugaring(classMemberUseCounter, visitor);
     }
 
-    visitor = new LocalTypeAnnotationUse(visitor);
-
-    return visitor;
-  }
-
-  /**
-   * Create a series of class visitors which support types in later JDK core libraries on early Java
-   * platforms.
-   */
-  private ClassVisitor createTypeBasedClassVisitorsForClassesInInputs(
-      ClassLoader loader,
-      @Nullable CoreLibrarySupport coreLibrarySupport,
-      ClassVisitor baseClassVisitor,
-      InvocationSiteTransformationRecordBuilder callSiteRecord,
-      BootClassPathDigest bootClassPathDigest,
-      ClassAttributeRecord classAttributeRecord,
-      Consumer<CloseResourceMethodScanner> closeResourceMethodScannerConsumer) {
-    ClassVisitor visitor = baseClassVisitor;
-
-    if (coreLibrarySupport != null) {
-      visitor = new ImmutableLabelRemover(visitor);
-      visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
-      visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
-      visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
-      if (options.autoDesugarShadowedApiUse) {
-        visitor =
-            new ShadowedApiInvocationSite(
-                visitor, callSiteRecord, bootClassPathDigest, classAttributeRecord, typeHierarchy);
-      }
-    }
-
-    if (!allowTryWithResources) {
-      CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
-      closeResourceMethodScannerConsumer.accept(closeResourceMethodScanner);
-      visitor =
-          new TryWithResourcesRewriter(
-              visitor,
-              loader,
-              visitedExceptionTypes,
-              numOfTryWithResourcesInvoked,
-              closeResourceMethodScanner.hasCloseResourceMethod());
-    }
-    if (!allowCallsToObjectsNonNull) {
-      visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
-    }
-    if (!allowCallsToLongUnsigned) {
-      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
-    }
-    if (!allowCallsToLongCompare) {
-      visitor = new LongCompareMethodRewriter(visitor, rewriter);
-    }
-    if (!allowCallsToPrimitiveWrappers) {
-      visitor = new PrimitiveWrapperRewriter(visitor, numOfPrimitiveHashCodeInvoked);
-    }
-
     visitor = NioBufferRefConverter.create(visitor, rewriter.getPrefixer());
+
+    visitor = new LocalTypeAnnotationUse(visitor);
 
     return visitor;
   }
