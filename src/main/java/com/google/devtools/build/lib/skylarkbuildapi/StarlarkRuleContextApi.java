@@ -756,36 +756,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       throws EvalException;
 
   @SkylarkCallable(
-      name = "empty_action",
-      doc =
-          "DEPRECATED. Use <a href=\"actions.html#do_nothing\">ctx.actions.do_nothing</a> instead."
-              + " <br>"
-              + "Creates an empty action that neither executes a command nor produces any "
-              + "output, but that is useful for inserting 'extra actions'.",
-      parameters = {
-        @Param(
-            name = "mnemonic",
-            type = String.class,
-            named = true,
-            positional = false,
-            doc = "A one-word description of the action, e.g. CppCompile or GoLink."),
-        @Param(
-            name = "inputs",
-            allowedTypes = {
-              @ParamType(type = Sequence.class),
-              @ParamType(type = Depset.class),
-            },
-            generic1 = FileApi.class,
-            named = true,
-            positional = false,
-            defaultValue = "[]",
-            doc = "List of the input files of the action."),
-      },
-      allowReturnNones = true,
-      useStarlarkThread = true)
-  NoneType emptyAction(String mnemonic, Object inputs, StarlarkThread thread) throws EvalException;
-
-  @SkylarkCallable(
       name = "template_action",
       doc =
           "DEPRECATED. "

@@ -972,15 +972,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public NoneType emptyAction(String mnemonic, Object inputs, StarlarkThread thread)
-      throws EvalException {
-    checkDeprecated("ctx.actions.do_nothing", "ctx.empty_action", thread.getSemantics());
-    checkMutable("empty_action");
-    actions().doNothing(mnemonic, inputs);
-    return Starlark.NONE;
-  }
-
-  @Override
   public NoneType templateAction(
       FileApi template,
       FileApi output,

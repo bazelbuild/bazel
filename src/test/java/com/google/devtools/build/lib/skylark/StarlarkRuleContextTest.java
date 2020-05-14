@@ -2387,7 +2387,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "check_placeholders('foo', [])",
           "action(command = 'foo', outputs = [file])",
           "file_action(file, 'foo')",
-          "empty_action(mnemonic = 'foo', inputs = [file])",
           "template_action(template = file, output = file, substitutions = {})",
           "runfiles()",
           "resolve_command(command = 'foo')",
@@ -2493,7 +2492,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "new_file(file, 'foo.txt')",
           "action(command = 'foo', outputs = [file])",
           "file_action(file, 'foo')",
-          "empty_action(mnemonic = 'foo', inputs = [file])",
           "template_action(template = file, output = file, substitutions = {})"
       );
 

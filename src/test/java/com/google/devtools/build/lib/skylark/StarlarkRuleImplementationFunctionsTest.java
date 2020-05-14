@@ -1924,7 +1924,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "test/glob.bzl",
         "def _impl(ctx):",
-        "  ctx.empty_action(",
+        "  ctx.actions.do_nothing(",
         "    inputs = [],",
         "  )",
         "def _foo():",
