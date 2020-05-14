@@ -37,6 +37,10 @@ public abstract class ClassAttributeRecord implements TypeMappable<ClassAttribut
     return record().containsKey(className);
   }
 
+  public final int getMajorVersion(ClassName className) {
+    return requireClassAttributes(className).majorVersion();
+  }
+
   public final Optional<ClassName> getNestHost(ClassName className) {
     return requireClassAttributes(className).nestHost();
   }

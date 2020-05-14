@@ -30,6 +30,8 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
 
   public abstract ClassName classBinaryName();
 
+  public abstract int majorVersion();
+
   public abstract Optional<ClassName> nestHost();
 
   public abstract ImmutableSet<ClassName> nestMembers();
@@ -48,6 +50,7 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
   public ClassAttributes acceptTypeMapper(TypeMapper typeMapper) {
     ClassAttributesBuilder mappedBuilder = builder();
     mappedBuilder.setClassBinaryName(classBinaryName().acceptTypeMapper(typeMapper));
+    mappedBuilder.setMajorVersion(majorVersion());
     if (nestHost().isPresent()) {
       mappedBuilder.setNestHost(nestHost().get().acceptTypeMapper(typeMapper));
     }
@@ -67,6 +70,8 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
   public abstract static class ClassAttributesBuilder {
 
     public abstract ClassAttributesBuilder setClassBinaryName(ClassName classBinaryName);
+
+    public abstract ClassAttributesBuilder setMajorVersion(int value);
 
     public abstract ClassAttributesBuilder setNestHost(ClassName nestHost);
 
