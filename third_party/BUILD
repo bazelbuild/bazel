@@ -56,7 +56,7 @@ filegroup(
 
 # This target only contains the jars that are used for building / running Bazel.
 # The target below is for the Android tools that are not shipped with Bazel.
-java_import(
+distrib_java_import(
     name = "android_common_25_0_0_lite",
     jars = [
         "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
@@ -66,6 +66,7 @@ java_import(
     deps = [
         "//third_party/jaxb",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
