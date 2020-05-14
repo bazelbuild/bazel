@@ -130,6 +130,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:callcounts_module",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
         "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/ssd",
         "//src/main/java/com/google/devtools/build/lib/standalone",
@@ -148,7 +149,7 @@ java_binary(
     main_class = "com.google.devtools.build.lib.bazel.Bazel",
     runtime_deps = [
         ":main",
-        "//src/main/java/com/google/devtools/build/lib:server",
+        "//src/main/java/com/google/devtools/build/lib/server",
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",  # See startup_options.cc
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",  # See startup_options.cc
     ],

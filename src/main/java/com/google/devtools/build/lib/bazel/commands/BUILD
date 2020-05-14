@@ -22,6 +22,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:loading-phase-threads-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
