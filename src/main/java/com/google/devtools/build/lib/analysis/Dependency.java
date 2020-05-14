@@ -144,14 +144,6 @@ public abstract class Dependency {
         ImmutableList.of());
   }
 
-  /**
-   * Creates a new {@link Dependency} with the given transition and aspects.
-   */
-  public static Dependency withTransitionAndAspects(
-      Label label, ConfigurationTransition transition, AspectCollection aspects) {
-    return new ConfigurationTransitionDependency(label, transition, aspects);
-  }
-
   protected final Label label;
 
   /**
@@ -168,25 +160,10 @@ public abstract class Dependency {
   }
 
   /**
-   * Returns true if this dependency specifies an explicit configuration, false if it specifies
-   * a configuration transition.
-   */
-  public abstract boolean hasExplicitConfiguration();
-
-  /**
    * Returns the explicit configuration intended for this dependency.
-   *
-   * @throws IllegalStateException if {@link #hasExplicitConfiguration} returns false.
    */
   @Nullable
   public abstract BuildConfiguration getConfiguration();
-
-  /**
-   * Returns the configuration transition to apply to reach the target this dependency points to.
-   *
-   * @throws IllegalStateException if {@link #hasExplicitConfiguration} returns true.
-   */
-  public abstract ConfigurationTransition getTransition();
 
   /**
    * Returns the set of aspects which should be evaluated and combined with the configured target
@@ -198,8 +175,6 @@ public abstract class Dependency {
 
   /**
    * Returns the configuration an aspect should be evaluated with
-   **
-   * @throws IllegalStateException if {@link #hasExplicitConfiguration()} returns false.
    */
   public abstract BuildConfiguration getAspectConfiguration(AspectDescriptor aspect);
 
@@ -211,8 +186,6 @@ public abstract class Dependency {
    * multiple entries if the dependency has a null configuration, yet the outgoing edge has a split
    * transition. In such cases all transition keys returned by the transition are tagged to the
    * dependency.
-   *
-   * @throws IllegalStateException if {@link #hasExplicitConfiguration()} returns false.
    */
   public abstract ImmutableList<String> getTransitionKeys();
 
@@ -228,21 +201,10 @@ public abstract class Dependency {
       this.transitionKeys = Preconditions.checkNotNull(transitionKeys);
     }
 
-    @Override
-    public boolean hasExplicitConfiguration() {
-      return true;
-    }
-
     @Nullable
     @Override
     public BuildConfiguration getConfiguration() {
       return null;
-    }
-
-    @Override
-    public ConfigurationTransition getTransition() {
-      throw new IllegalStateException(
-          "This dependency has an explicit configuration, not a transition.");
     }
 
     @Override
@@ -303,19 +265,8 @@ public abstract class Dependency {
     }
 
     @Override
-    public boolean hasExplicitConfiguration() {
-      return true;
-    }
-
-    @Override
     public BuildConfiguration getConfiguration() {
       return configuration;
-    }
-
-    @Override
-    public ConfigurationTransition getTransition() {
-      throw new IllegalStateException(
-          "This dependency has an explicit configuration, not a transition.");
     }
 
     @Override
@@ -358,74 +309,4 @@ public abstract class Dependency {
     }
   }
 
-  /**
-   * Implementation of a dependency with a given configuration transition.
-   */
-  private static final class ConfigurationTransitionDependency extends Dependency {
-    private final ConfigurationTransition transition;
-    private final AspectCollection aspects;
-
-    public ConfigurationTransitionDependency(
-        Label label, ConfigurationTransition transition, AspectCollection aspects) {
-      super(label);
-      this.transition = Preconditions.checkNotNull(transition);
-      this.aspects = Preconditions.checkNotNull(aspects);
-    }
-
-    @Override
-    public boolean hasExplicitConfiguration() {
-      return false;
-    }
-
-    @Override
-    public BuildConfiguration getConfiguration() {
-      throw new IllegalStateException(
-          "This dependency has a transition, not an explicit configuration.");
-    }
-
-    @Override
-    public ConfigurationTransition getTransition() {
-      return transition;
-    }
-
-    @Override
-    public AspectCollection getAspects() {
-      return aspects;
-    }
-
-    @Override
-    public BuildConfiguration getAspectConfiguration(AspectDescriptor aspect) {
-      throw new IllegalStateException(
-          "This dependency has a transition, not an explicit aspect configuration.");
-    }
-
-    @Override
-    public ImmutableList<String> getTransitionKeys() {
-      throw new IllegalStateException(
-          "This dependency has a transition, not an explicit configuration.");
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(label, transition, aspects);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof ConfigurationTransitionDependency)) {
-        return false;
-      }
-      ConfigurationTransitionDependency otherDep = (ConfigurationTransitionDependency) other;
-      return label.equals(otherDep.label)
-          && transition.equals(otherDep.transition)
-          && aspects.equals(otherDep.aspects);
-    }
-
-    @Override
-    public String toString() {
-      return String.format(
-          "%s{label=%s, transition=%s, aspects=%s}",
-          getClass().getSimpleName(), label, transition, aspects);
-    }
-  }
 }

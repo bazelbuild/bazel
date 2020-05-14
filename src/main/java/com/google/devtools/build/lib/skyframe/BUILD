@@ -244,6 +244,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/null_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuration_transition_dependency",
         "//src/main/java/com/google/devtools/build/lib/analysis:configurations_collector",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_object_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",

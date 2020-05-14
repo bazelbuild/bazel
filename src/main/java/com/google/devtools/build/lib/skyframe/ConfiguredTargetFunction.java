@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
+import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -589,12 +590,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       BuildOptions defaultBuildOptions)
       throws DependencyEvaluationException, ConfiguredTargetFunctionException,
           AspectCreationException, InterruptedException {
-    // Create the map from attributes to set of (target, configuration) pairs.
-    OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
+    // Create the map from attributes to set of (target, transition) pairs.
+    OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> initialDependencies;
     BuildConfiguration configuration = ctgValue.getConfiguration();
     Label label = ctgValue.getLabel();
     try {
-      depValueNames =
+      initialDependencies =
           resolver.dependentNodeMap(
               ctgValue,
               hostConfiguration,
@@ -615,11 +616,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
-    depValueNames =
+    OrderedSetMultimap<DependencyKind, Dependency> depValueNames =
         ConfigurationResolver.resolveConfigurations(
             env,
             ctgValue,
-            depValueNames,
+            initialDependencies,
             hostConfiguration,
             defaultBuildOptions,
             configConditions);

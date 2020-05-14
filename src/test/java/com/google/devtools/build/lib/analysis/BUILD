@@ -80,6 +80,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/split_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitive_option_details",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuration_transition_dependency",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",

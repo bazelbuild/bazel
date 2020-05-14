@@ -57,6 +57,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/null_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuration_transition_dependency",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",

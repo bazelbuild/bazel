@@ -28,6 +28,8 @@ public interface ConfigurationsCollector {
    * <p>Skips targets with loading phase errors.
    */
   ConfigurationsResult getConfigurations(
-      ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys)
+      ExtendedEventHandler eventHandler,
+      BuildOptions fromOptions,
+      Iterable<ConfigurationTransitionDependency> keys)
       throws InvalidConfigurationException;
 }

@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
@@ -113,7 +112,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       if (!(configuredTarget instanceof RuleConfiguredTarget)) {
         continue;
       }
-      OrderedSetMultimap<DependencyKind, Dependency> deps;
+      OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> deps;
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
           ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
 
@@ -136,15 +135,13 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       } catch (EvalException | InconsistentAspectOrderException e) {
         throw new InterruptedException(e.getMessage());
       }
-      for (Map.Entry<DependencyKind, Dependency> attributeAndDep : deps.entries()) {
-        // DependencyResolver should only ever return Dependency instances with transitions and not
-        // with explicit configurations
-        Preconditions.checkState(!attributeAndDep.getValue().hasExplicitConfiguration());
+      for (Map.Entry<DependencyKind, ConfigurationTransitionDependency> attributeAndDep :
+          deps.entries()) {
         if (attributeAndDep.getValue().getTransition() == NoTransition.INSTANCE
             || attributeAndDep.getValue().getTransition() == NullTransition.INSTANCE) {
           continue;
         }
-        Dependency dep = attributeAndDep.getValue();
+        ConfigurationTransitionDependency dep = attributeAndDep.getValue();
         BuildOptions fromOptions = config.getOptions();
         // TODO(bazel-team): support transitions on Starlark-defined build flags. These require
         // Skyframe loading to get flag default values. See ConfigurationResolver.applyTransition

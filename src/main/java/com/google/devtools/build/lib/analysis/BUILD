@@ -311,6 +311,7 @@ java_library(
         ":config/transitions/patch_transition",
         ":config/transitions/split_transition",
         ":config/transitions/transition_factory",
+        ":configuration_transition_dependency",
         ":configurations_collector",
         ":configured_object_value",
         ":configured_target",
@@ -652,6 +653,21 @@ java_library(
 )
 
 java_library(
+    name = "configuration_transition_dependency",
+    srcs = ["ConfigurationTransitionDependency.java"],
+    deps = [
+        ":aspect_collection",
+        ":config/build_configuration",
+        ":config/transitions/configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "configurations_collector",
     srcs = [
         "ConfigurationsCollector.java",
@@ -661,7 +677,7 @@ java_library(
         ":config/build_configuration",
         ":config/build_options",
         ":config/invalid_configuration_exception",
-        ":dependency",
+        ":configuration_transition_dependency",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
     ],
