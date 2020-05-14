@@ -281,6 +281,23 @@ java_test(
 )
 
 java_test(
+    name = "DesugarFunctionalTestFromDirectoryToDirectory",
+    size = "small",
+    srcs = [
+        "DesugarFunctionalTest.java",
+    ],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
+    deps = [
+        ":testdata_desugared_from_directory_to_directory",  # Make tests run against desugared library
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "DesugarFunctionalTestWithClasspathDirectory",
     size = "small",
     srcs = [
@@ -1323,6 +1340,47 @@ genrule(
 )
 
 genrule(
+    name = "desugar_testdata_from_directory_to_directory",
+    srcs = [
+        "//third_party:guava-jars",
+        ":separate",
+        ":testdata_like_in_android_studio",
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
+        "//third_party/java/jacoco:blaze-agent-0.8.3",
+        "@bazel_tools//tools/android:android_jar",
+    ],
+    outs = [
+        "testdata_desugared_from_directory_to_directory.jar",
+    ],
+    cmd = """
+    tmpdirIn=$$(mktemp -d)
+    tmpdirOut=$$(mktemp -d)
+    # unzip input jar in order to pass a folder to desugar
+    pwddir=$$PWD
+    (cd $$tmpdirIn; $$pwddir/$(location //tools/zip:zipper) x $$pwddir/$(location :testdata_like_in_android_studio))
+    $(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) \
+          --min_sdk_version 23 --nodesugar_interface_method_bodies_if_needed \
+          -i $$tmpdirIn  -o $$tmpdirOut \
+          --copy_bridges_from_classpath \
+          --classpath_entry $(location :separate) \
+          --classpath_entry $(location //third_party:guava-jars) \
+          --classpath_entry $(location //third_party/java/jacoco:blaze-agent-0.8.3) \
+          --bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)
+     pushd $$tmpdirOut
+     $$pwddir/$(location //tools/zip:zipper) c $$pwddir/$(location testdata_desugared_from_directory_to_directory.jar) $$(find *)
+     popd
+     rm -rf $$tmpdirIn
+     rm -rf $$tmpdirOut
+    """,
+    tags = ["no_windows"],
+    tools = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
+        "//tools/zip:zipper",
+    ],
+)
+
+genrule(
     name = "desugar_testdata_with_classpath_directory",
     srcs = [
         "//third_party:guava-jars",
@@ -1529,6 +1587,12 @@ java_import(
 )
 
 java_import(
+    name = "testdata_desugared_from_directory_to_directory",
+    jars = ["testdata_desugared_from_directory_to_directory.jar"],
+    deps = [":separate"],
+)
+
+java_import(
     name = "testdata_desugared_with_classpath_directory",
     jars = ["testdata_desugared_with_classpath_directory.jar"],
     deps = [":separate"],
@@ -1711,7 +1775,7 @@ $(JAVABASE)/bin/javap -p -cp $< 'com.google.devtools.build.android.desugar.testd
 
 sh_test(
     name = "desugar_idempotency_test",
-    srcs = ["diff_zip.sh"],
+    srcs = ["diff.sh"],
     args = [
         "$(location :capture_lambda_desugared.jar)",
         "$(location :capture_lambda_desugared_twice.jar)",

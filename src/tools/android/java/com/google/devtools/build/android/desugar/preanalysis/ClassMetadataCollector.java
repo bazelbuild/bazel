@@ -22,10 +22,13 @@ import com.google.devtools.build.android.desugar.langmodel.ClassAttributes.Class
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord.ClassMemberRecordBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.DesugarClassAttribute;
 import com.google.devtools.build.android.desugar.langmodel.DesugarMethodAttribute;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import com.google.devtools.build.android.desugar.langmodel.SyntheticMethod;
+import com.google.devtools.build.android.desugar.langmodel.SyntheticMethod.SyntheticReason;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -81,6 +84,21 @@ public final class ClassMetadataCollector extends ClassVisitor {
     classAttributesBuilder.setClassBinaryName(className);
     classAttributesBuilder.setMajorVersion(version & 0xffff);
     super.visit(version, access, name, signature, superName, interfaces);
+  }
+
+  @Override
+  public void visitAttribute(Attribute attribute) {
+    if (attribute instanceof DesugarClassAttribute) {
+      DesugarClassAttribute desugarClassAttribute = (DesugarClassAttribute) attribute;
+      for (SyntheticMethod syntheticMethod :
+          desugarClassAttribute.getDesugarClassInfo().getSyntheticMethodList()) {
+        if (SyntheticReason.OVERRIDING_BRIDGE.equals(syntheticMethod.getReason())) {
+          classAttributesBuilder.addDesugarIgnoredMethods(
+              MethodKey.from(syntheticMethod.getMethod()));
+        }
+      }
+    }
+    super.visitAttribute(attribute);
   }
 
   @Override
