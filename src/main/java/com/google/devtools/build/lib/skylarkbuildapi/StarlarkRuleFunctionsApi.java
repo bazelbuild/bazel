@@ -59,7 +59,9 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
               + "function can be used to create \"struct-like\" values. Example:<br>"
               + "<pre class=\"language-python\">data = provider()\n"
               + "d = data(x = 2, y = 3)\n"
-              + "print(d.x + d.y) # prints 5</pre>",
+              + "print(d.x + d.y) # prints 5</pre>"
+              + "<p>See <a href='../rules.$DOC_EXT#providers'>Rules (Providers)</a> for a "
+              + "comprehensive guide on how to use providers.",
       parameters = {
         @Param(
             name = "doc",
