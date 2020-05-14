@@ -23,7 +23,7 @@ import java.util.Set;
 
 /**
  * Classpath provider which will de-dupe duplicate classes from several providers. For any defined
- * class the definition form the first provider defining the class is used
+ * class the definition from the first provider defining the class is used.
  */
 public class OrderedClassFileResourceProvider implements ClassFileResourceProvider {
   private final Set<String> descriptors = Sets.newHashSet();
@@ -40,18 +40,11 @@ public class OrderedClassFileResourceProvider implements ClassFileResourceProvid
         // Pick first definition of classpath class and filter out platform classes
         // from classpath if present.
         if (!bootclasspathDescriptors.contains(descriptor)
-            && !isPlatformDescriptor(descriptor)
             && descriptors.add(descriptor)) {
           descriptorToProvider.put(descriptor, provider);
         }
       }
     }
-  }
-
-  private static boolean isPlatformDescriptor(String descriptor) {
-    // See b/153106333.
-    return descriptor.startsWith("Landroid/car/content/")
-        && !descriptor.startsWith("Landroid/car/test/");
   }
 
   @Override

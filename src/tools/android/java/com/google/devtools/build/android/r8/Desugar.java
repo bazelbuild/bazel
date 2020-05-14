@@ -427,22 +427,30 @@ public class Desugar {
   }
 
   private void desugar() throws CompilationFailedException, IOException {
-    // Prepare classpath.
-    ImmutableList.Builder<ClassFileResourceProvider> classpathProvidersBuilder =
-        ImmutableList.builder();
-    for (Path path : options.classpath) {
-      classpathProvidersBuilder.add(new ArchiveClassFileProvider(path));
-    }
+    // Prepare bootclasspath and classpath. Some jars on the classpath are considered to be
+    // bootclasspath, and are moved there.
     ImmutableList.Builder<ClassFileResourceProvider> bootclasspathProvidersBuilder =
         ImmutableList.builder();
     for (Path path : options.bootclasspath) {
       bootclasspathProvidersBuilder.add(new ArchiveClassFileProvider(path));
     }
+    ImmutableList.Builder<ClassFileResourceProvider> classpathProvidersBuilder =
+        ImmutableList.builder();
+    for (Path path : options.classpath) {
+      ClassFileResourceProvider provider = new ArchiveClassFileProvider(path);
+      if (isPlatform(provider)) {
+        bootclasspathProvidersBuilder.add(provider);
+      } else {
+        classpathProvidersBuilder.add(provider);
+      }
+    }
+
     ImmutableList<ClassFileResourceProvider> bootclasspathProviders =
         bootclasspathProvidersBuilder.build();
     OrderedClassFileResourceProvider classpathProvider =
         new OrderedClassFileResourceProvider(
             bootclasspathProviders, classpathProvidersBuilder.build());
+
     // Desugar the input jars into the specified output jars.
     for (int i = 0; i < options.inputJars.size(); i++) {
       desugar(
@@ -451,6 +459,23 @@ public class Desugar {
           options.inputJars.get(i),
           options.outputJars.get(i));
     }
+  }
+
+  private static boolean isPlatform(ClassFileResourceProvider provider) {
+    // See b/153106333.
+    boolean mightBePlatform = false;
+    for (String descriptor : provider.getClassDescriptors()) {
+      // If the jar contains classes in the package android.car.content this could be a platform
+      // library. However, if it also has classes in the package android.car.test it is not.
+      if (!mightBePlatform && descriptor.startsWith("Landroid/car/content/")) {
+        mightBePlatform = true;
+      }
+      if (descriptor.startsWith("Landroid/car/test/")) {
+        return false;
+      }
+    }
+    // Found classes in the package android.car.content and not in the package android.car.test.
+    return mightBePlatform;
   }
 
   private static void validateOptions(DesugarOptions options) {
